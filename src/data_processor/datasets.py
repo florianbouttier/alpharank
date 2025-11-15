@@ -33,6 +33,25 @@ def make_rank_dataset(df: pd.DataFrame, features: List[str], target: str,remove_
     
     return X, y, group, meta
 
+
+def make_prob_dataset(df: pd.DataFrame, features: List[str], target: str, remove_y_na: bool = True):
+    """
+    Prépare X (features), y (0/1 en array), et meta pour classification.
+    """
+    d = df.copy()
+    d = d.sort_values("year_month").reset_index(drop=True)
+
+    if remove_y_na:
+        d.dropna(subset=[target], inplace=True)
+
+    d[target] = (d[target] > 1).astype(int)
+
+    X = d[features].to_numpy()  # numpy array (n_samples, n_features)
+    y = d[target].to_numpy()   # numpy array (n_samples,)
+    meta = d[["year_month", "ticker", target]].reset_index(drop=True)
+
+    return X, y, meta
+
 def clean_to_category(df : pd.DataFrame) -> pd.DataFrame : 
     df = df.copy()
     categorical_columns = [c for c in df.select_dtypes(include=['object', 'category']).columns]
@@ -166,7 +185,7 @@ def prepare_data_for_xgboost(kpi_df: pd.DataFrame,index : IndexDataManager,to_qu
     df = df.merge(index.components[['ticker','year_month']],left_on=['ticker','year_month'], right_on=['ticker','year_month'], how='inner')
     
     if to_quantiles : df = convert_to_quantiles(df, exclude_cols=['ticker', 'year_month', 'monthly_return', 'future_return'])
-    else : df = apply_smooth_outlier_transform(df, exclude_cols=['ticker', 'year_month', 'monthly_return', 'future_return'], iqr_multiplier=3)
+    else : df = apply_smooth_outlier_transform(df, exclude_cols=['ticker', 'year_month', 'monthly_return', 'future_return'], iqr_multiplier=2)
     
     df = df.dropna(subset = ['monthly_return'], axis=0)
     missing_df = (df.isnull().sum()/ len(df)).sort_values(ascending=False).to_frame('missing_percentage')
@@ -190,4 +209,18 @@ def make_train_test_ranked(df,features,target,year_month_split) :
         X_test,y_test,group_test,meta_test = make_rank_dataset(test,features,target,remove_y_na=True)
     
     return X_train,y_train,group_train,meta_train,X_test,y_test,group_test,meta_test,test
+
+def make_train_test_proba(df,features,target,year_month_split) : 
+    
+    df = df.copy()
+    train = df[df['year_month'] < year_month_split].reset_index(drop=True)
+    test = df[df['year_month'] == year_month_split].reset_index(drop=True)
+
+    X_train,y_train,meta_train = make_prob_dataset(df = train,features = features,target = target,remove_y_na = True)
+    try : 
+        X_test,y_test,meta_test = make_prob_dataset(test,features,target,remove_y_na=False)
+    except : 
+        X_test,y_test,meta_test = make_prob_dataset(test,features,target,remove_y_na=True)
+    
+    return X_train,y_train,meta_train,X_test,y_test,meta_test,test
 

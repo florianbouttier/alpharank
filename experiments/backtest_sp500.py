@@ -35,9 +35,10 @@ from src.data_processor.datasets import make_rank_dataset
 from src.data_processor.utils import *
 from src.data_processor.datasets import *
 from src.data_processor.data_auditor import *
-from src.ranker.search_spaces import sample_xgb_space
-from src.ranker.models import *
-from src.ranker.strategy_analysis import compare_models,compare_score_and_perf
+from src.probalisor.search_spaces import sample_xgb_space
+from src.probalisor.models import *
+from src.probalisor.prob_ranker import *
+from src.probalisor.strategy_analysis import compare_models,compare_score_and_perf
 # %% Import local modules
 env_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) if '__file__' in globals() else os.getcwd()
 data_dir = os.path.join(env_dir, 'data')
@@ -79,7 +80,7 @@ index_data = IndexDataManager(
     components_df=us_historical_company.copy()
 )
 
-monthly_return = PricesDataPreprocessor().calculate_monthly_returns(df = final_price.copy())
+monthly_return = PricesDataPreprocessor().calculate_monthly_returns(df = final_price.copy(),column_close = 'adjusted_close',column_date = 'date')
 fundamental = FundamentalProcessor().calculate_all_ratios(balance_sheet=balance_sheet.copy(),
                                                          income_statement=income_statement.copy(),
                                                          cash_flow=cash_flow.copy(),
@@ -136,69 +137,140 @@ def generate_technical_indicator(df,seed_pairs,n_to_find,correlation_threshold,m
 technical_indicators_df = generate_technical_indicator(df=final_price.copy(),
                                                        seed_pairs=SEED_PAIRS,
                                                        n_to_find=100,
-                                                       correlation_threshold=0.95,
-                                                       max_tries=10)
+                                                       correlation_threshold=0.98,
+                                                       max_tries=100)
 
 funda_joined = fundamental.merge(technical_indicators_df, on=['ticker', 'year_month'], how='left').merge(monthly_returns_vs_index[['ticker','year_month','monthly_return']], on=['ticker', 'year_month'], how='left')
-#funda_joined = fundamental.merge(monthly_returns_vs_index[['ticker','year_month','monthly_return']], on=['ticker', 'year_month'], how='left')
-funda_joined = remove_columns_by_keywords(funda_joined,['_rolling','enterprise_value'])
+funda_joined = remove_columns_by_keywords(funda_joined,['_rolling','enterprise_value','market_cap'])
 
 df_xg = prepare_data_for_xgboost(kpi_df = funda_joined,
                                  index = index_data,
                                  to_quantiles = True,
-                                 treshold_percentage_missing  =0.05)
+                                 treshold_percentage_missing  =0.02)
 df_xg = df_xg[df_xg['year_month'] > '2000-01']
+
 data_quality(df_xg)
 features = [col for col in df_xg.columns if col not in ['ticker', 'year_month', 'future_return', 'monthly_return']]
 
-params ={    
-    
-    'n_estimators': 20,
-    'learning_rate': 0.05,      # Un peu plus rapide
-    'max_depth': 5,             # Permettre des arbres plus profonds
-    'subsample': 0.8,
-    'colsample_bytree': 0.8,
-    'gamma': 0,                 # Moins de pénalité pour créer des branches
-    'reg_lambda': 1,            
-    'n_jobs': -1,
-}
+# %%
+
+A = optimize(
+    df = df_xg,
+    split_date ='2025-01',
+    df_returns =monthly_return,
+    index = index_data,
+    features = features,
+    n_asset =  10,
+    target =  'future_return',
+    n_trials  = 10,
+    seed =  123,
+    metric_name = "precision@50",
+    penalty_weight = 1,
+    min_spread = 0.1
+)
+
+plot_optimization_history(A['study'])
+plot_param_importances(A['study'])
+plot_slice(A['study'])
+
+all_return = A['all_returns']
+all_return['scores']
+
+def plt_validate_test(scores,split_date) : 
+
+    def validate_test(scores: pd.DataFrame, split_date: str) -> pd.DataFrame:
+        scores = scores.copy()
+        metric_cols = [c for c in scores.columns if c not in ['year_month'] and not c.startswith('train_')]
+        val_mask = scores['year_month'] < split_date
+        test_mask = scores['year_month'] >= split_date
+
+        val_means = scores.loc[val_mask, metric_cols].mean().reset_index()
+        val_means.columns = ['metric', 'validation']
+        test_means = scores.loc[test_mask, metric_cols].mean().reset_index()
+        test_means.columns = ['metric', 'test']
+
+        merged = pd.merge(val_means, test_means, on='metric')
+        return merged
+
+    scores_df = all_return['scores'] if 'all_return' in globals() else final_returns['scores']
+    metrics_vt = validate_test(scores_df, split_date='2019-01')
+
+    plot_df = metrics_vt.melt(id_vars='metric', value_vars=['validation', 'test'],
+                              var_name='dataset', value_name='value')
+
+    import plotly.express as px
+    fig = px.bar(
+        plot_df,
+        x='metric',
+        y='value',
+        color='dataset',
+        barmode='group',
+        hover_data={'metric': True, 'dataset': True, 'value': ':.4f'}
+    )
+    fig.update_layout(
+        title='Scores Validation vs Test (Interactif)',
+        xaxis_title='Métrique',
+        yaxis_title='Valeur',
+        legend_title='Jeu',
+        bargap=0.25
+    )
+    fig.show()
+
+    metrics_vt
+
+
+plt_validate_test(all_return['scores'],'2019-01')
+
+
+all_returns = {}
+all_returns['index'] = index_data.monthly_returns
+all_returns['strategy'] = all_return['aggregated_return']
+metrics, _, _, _, _ = compare_models(models_data=all_returns,start_year=2007)
+print(metrics)
+
+#%%----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+params = A['best_params']
+params_shocked = perturb_params(params,std_pct=0.05)
 final_returns = train_fit(df_learning = df_xg,
                        params = params,
                        df_returns= monthly_return,
                        index = index_data,
-                       n_asset = 10,
+                       n_asset = 20,
                        features = features)
-"""
-params2 ={    
-    
-    'n_estimators': 55,
-    'learning_rate': 0.05,      # Un peu plus rapide
-    'max_depth': 10,             # Permettre des arbres plus profonds
-    'subsample': 0.8,
-    'colsample_bytree': 0.8,
-    'gamma': 0,                 # Moins de pénalité pour créer des branches
-    'reg_lambda': 1,            
-    'n_jobs': -1,
-}
+
 final_returns2 = train_fit(df_learning = df_xg,
-                       params = params2,
+                       params = params_shocked,
                        df_returns= monthly_return,
                        index = index_data,
-                       n_asset = 10,
-                       features = features)"""
-# %%
+                       n_asset = 20,
+                       features = features)
+
+final_returns3 = train_fit(df_learning = df_xg,
+                       params = perturb_params(params,std_pct=0.08),
+                       df_returns= monthly_return,
+                       index = index_data,
+                       n_asset = 20,
+                       features = features)
+
 all_returns = {}
 all_returns['index'] = index_data.monthly_returns
 all_returns['strategy'] = final_returns['aggregated_return']
+all_returns['strategy_shocked'] = final_returns2['aggregated_return']
+all_returns['strategy_shocked_2'] = final_returns3['aggregated_return']
 #all_returns['strategy2'] = final_returns2['aggregated_return']
 metrics, _, _, _, _ = compare_models(models_data=all_returns,start_year=2007)
 print(metrics)
+
+sco = final_returns2['scores']
+
+final_returns['aggregated_return']
 
 # %%
 final_returns['aggregated_return']['surperf'] = (1+final_returns['aggregated_return']['monthly_return']) / (1+final_returns['aggregated_return']['monthly_return_index']) -1
 a = compare_score_and_perf(df_scores = final_returns['aggregated_return'],
                            df_perf = final_returns['scores'],
-                           score_col = 'spearman_correlation',
+                           score_col = 'precision@50',
                            perf_col = 'surperf')
 
 
@@ -217,7 +289,7 @@ plot_kpis(df = fundamental.copy(),
 
 """
 def generate_monthly_technical_indicators_from_daily(daily_prices_df: pd.DataFrame,price_column: str,moving_average_pairs: List[Tuple[int, int]]) -> pd.DataFrame:
-    """
+    
     Calcule des indicateurs techniques sur des données journalières et les
     échantillonne en mensuel (en prenant la dernière valeur du mois).
 

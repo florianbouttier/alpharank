@@ -1,18 +1,19 @@
 
 # %%
 from typing import Dict, Tuple, Optional, List
-from xgboost import XGBRanker
+from xgboost import XGBClassifier
 import pandas as pd
 from ..data_processor.index_manager import IndexDataManager
-from ..data_processor.datasets import make_train_test_ranked
-from src.ranker.ranker_metrics import evaluate_ranking_model
-from src.ranker.shap_utils import run_shap_analysis
+from ..data_processor.datasets import make_train_test_proba
+from src.probalisor.prob_metrics import evaluate_classifier
+from src.probalisor.shap_utils import run_shap_analysis
 from .portfolio import build_topk_per_month, evaluate_portfolio
 from tqdm import tqdm
+import numpy as np
 
-def make_xgb_ranker(space_params: Dict) -> Tuple[Dict, int]:
+def make_xgb_classifier(space_params: Dict) -> Tuple[Dict, int]:
     params = dict(
-        objective="rank:ndcg",
+        objective="binary:logistic",  # <-- ici changement principal
         tree_method="hist",
         n_estimators=space_params.get("n_estimators", 400),
         max_depth=space_params.get("max_depth", 5),
@@ -28,19 +29,17 @@ def make_xgb_ranker(space_params: Dict) -> Tuple[Dict, int]:
     )
     return params, params["n_estimators"]
 
-def fit_ranker(X_tr, y_tr, group_tr: List[int],
-               params: Dict=None):
+def fit_classifier(X_tr, y_tr, params: Dict=None):
     """
-    Fits an XGBRanker model with a crucial parameter fix for large ranks.
+    Fit an XGBClassifier model.
     """
     local_params = (params or {}).copy()
-    local_params['ndcg_exp_gain'] = False
-    model = XGBRanker(**local_params)
-    model.fit(X_tr, y_tr, group=group_tr, verbose=False)
+    model = XGBClassifier(**local_params)
+    model.fit(X_tr, y_tr, verbose=False)
     return model
 
 def predict_scores(model, X_te):
-    return model.predict(X_te)
+    return model.predict_proba(X_te)[:, 1]  
 
 def train_fit_on_year_month(df_learning : pd.DataFrame,
                             params: Dict,
@@ -52,25 +51,44 @@ def train_fit_on_year_month(df_learning : pd.DataFrame,
                             target : str = 'future_return',
                             plot_shap : bool = False) -> Dict[str, pd.DataFrame]:
     
-    X_train,y_train,group_train,meta_train,X_test,y_test,group_test,meta_test,X_application = make_train_test_ranked(df = df_learning,
+    X_train,y_train,meta_train,X_test,y_test,meta_test,X_application = make_train_test_proba(df = df_learning,
                                                                                                 features = features,
                                                                                                 target = target,
                                                                                                 year_month_split = year_month_split)
-    booster_params, n_rounds = make_xgb_ranker(params)
-    booster = fit_ranker(X_tr = X_train, 
+    booster_params, n_rounds = make_xgb_classifier(params)
+    booster = fit_classifier(X_tr = X_train, 
                      y_tr = y_train, 
-                     group_tr = group_train, 
                      params=booster_params)
      
     if len(y_test) == 0 :
-        ndcg_score = pd.DataFrame()
+        prob_score = pd.DataFrame()
         
     else : 
         scores = predict_scores(booster, X_test)
+        scores_train = predict_scores(booster, X_train)
         
-        ndcg_score = evaluate_ranking_model(y_test, scores, top_k_list=[n_asset,50,100])
-        ndcg_score = pd.DataFrame([ndcg_score])
-        ndcg_score['year_month'] = year_month_split
+        prob_score = evaluate_classifier(y_test, scores, top_k_list=[n_asset,50,100])
+        prob_train = evaluate_classifier(y_train, scores_train, top_k_list=[n_asset,50,100])
+
+        over_fitting = {}
+        for k, test_val in prob_score.items():
+            train_val = prob_train.get(k)
+            if train_val is None:
+                continue
+            if test_val is None:
+                over_fitting[f"overfitting_{k}"] = None
+                continue
+            if test_val == 0:
+                over_fitting[f"overfitting_{k}"] = None
+            else:
+                over_fitting[f"overfitting_{k}"] = (train_val - test_val) / abs(test_val)
+
+        train_prefixed = {f"train_{k}": v for k, v in prob_train.items()}
+
+        prob_score.update(train_prefixed)
+        prob_score.update(over_fitting)
+        prob_score = pd.DataFrame([prob_score])
+        prob_score['year_month'] = year_month_split
     
     applied_scores = predict_scores(booster, X_application[features])
     if plot_shap :
@@ -87,7 +105,7 @@ def train_fit_on_year_month(df_learning : pd.DataFrame,
     aggregated_return['monthly_return'] = aggregated_return['monthly_return']-1
     aggregated_return = aggregated_return.merge(index.monthly_returns.rename(columns={'monthly_return' : 'monthly_return_index'}), on = 'year_month', how="left")
     return {
-        "scores": ndcg_score,
+        "scores": prob_score,
         "detailled_return": detailled_return,
         "aggregated_return": aggregated_return,
     }
@@ -98,14 +116,15 @@ def train_fit(df_learning : pd.DataFrame,
               index : IndexDataManager,
               n_asset : int,
               features : List[str],
-              target : str = 'future_return') :
+              target : str = 'future_return',
+              plot_shap : bool = False) -> Dict[str, pd.DataFrame]:
     all_scores = []
     all_detailled_returns = []
     all_aggregated_returns = []
     years_months_splits = sorted(df_learning['year_month'].unique() , reverse=True)
-    for year_month_split in tqdm(years_months_splits[12:], desc="Training and evaluating over time"): 
-        #print(f"Training and evaluating for year_month {year_month_split}...")
-        if year_month_split == max(years_months_splits) :
+    for year_month_split in tqdm(years_months_splits[:-4*12], desc="Training and evaluating over time"): 
+        
+        if (year_month_split == max(years_months_splits))  & plot_shap :
             plot_shap = True
         else : plot_shap = False
         out = train_fit_on_year_month(df_learning = df_learning,
@@ -130,3 +149,43 @@ def train_fit(df_learning : pd.DataFrame,
         "detailled_return": all_detailled_returns,
         "aggregated_return": all_aggregated_returns,
     }
+    
+
+def perturb_params(params: dict, std_pct: float = 0.1) -> dict:
+    """
+    Crée un nouvel ensemble d'hyperparamètres en ajoutant un bruit gaussien
+    autour de chaque paramètre numérique. L'écart-type est défini comme
+    un pourcentage de la valeur actuelle (std = std_pct * valeur).
+
+    Args:
+        params (dict): dictionnaire des hyperparamètres actuels
+        std_pct (float): pourcentage d'écart-type (ex: 0.1 = 10%)
+
+    Returns:
+        dict: nouveau dictionnaire de paramètres bruités
+    """
+    new_params = {}
+    if std_pct is not None : 
+        for k, v in params.items():
+            if isinstance(v, (int, float)):
+                std = std_pct * abs(v) if v != 0 else std_pct
+                noise = np.random.normal(loc=0.0, scale=std)
+                new_val = v + noise
+
+            # Clamp selon le type d'hyperparam
+                if k in ["subsample", "colsample_bytree"]:
+                    new_val = float(np.clip(new_val, 0.1, 1.0))
+                elif k == "learning_rate":
+                    new_val = float(np.clip(new_val, 1e-5, 1.0))
+                elif k in ["max_depth", "n_estimators"]:
+                    new_val = int(max(1, round(new_val)))
+                elif k in ["min_child_weight", "gamma", "lambda", "alpha"]:
+                    new_val = float(max(0.0, new_val))
+
+                new_params[k] = new_val
+            else:
+                new_params[k] = v
+    else : 
+        new_params = params
+        new_params['seed'] = np.random.randint(0, 10000)
+    return new_params

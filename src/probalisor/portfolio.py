@@ -2,7 +2,7 @@
 from typing import Dict, Optional
 import numpy as np
 import pandas as pd
-
+# %%
 def build_topk_per_month(df: pd.DataFrame, scores, k: int = 10) -> pd.DataFrame:
     d = df.copy()
     d["score"] = np.asarray(scores)

@@ -66,6 +66,62 @@ class TechnicalIndicators:
         base = 1 + growth
         result = np.where(base > 0, base ** (annual_base / n) - 1, base)
         return pd.Series(result, index=values.index)
+    
+    @staticmethod
+    def decreasing_sum(vals, halfPeriod, mode):
+        """
+        The function `decreasing_sum` calculates a weighted sum of values based on a specified mode and
+        half-period.
+        
+        :param vals: The `vals` parameter in the `decreasing_sum` function represents a list of values
+        for which you want to calculate a weighted sum based on the specified mode and halfPeriod. These
+        values could be numerical data points, time series values, or any other type of data that you
+        want to apply a
+        :param halfPeriod: The `halfPeriod` parameter in the `decreasing_sum` function represents half
+        of the period over which the weights are calculated. It is used in various weight calculation
+        formulas based on the `mode` specified. The choice of `halfPeriod` affects how the weights are
+        distributed and how they contribute to
+        :param mode: The `mode` parameter in the `decreasing_sum` function determines the type of
+        weighting function to use for calculating the weighted sum of the input values. The available
+        modes are:
+        :return: The function `decreasing_sum` returns the weighted sum of the input values `vals` based
+        on the specified mode of weighting. The weighted sum is calculated using different weighting
+        schemes such as exponential, tanh, special, linear, quadratic, sigmoidal, and mean. The function
+        computes the weights based on the specified mode, normalizes the weights, and then calculates
+        the dot product of the weights and
+        """
+        n = len(vals)
+        if n == 0:
+            return 0.0
+        weight = np.zeros(n)
+        if mode == "exponential":
+            p = np.log(2) / halfPeriod
+            weight = np.exp(-p * np.arange(n))
+        elif mode == "tanh":
+            p = np.log(3) / (2 * halfPeriod)
+            weight = 1 - np.tanh(p * np.arange(n))
+        elif mode == "special":
+            alpha = halfPeriod
+            weight = np.maximum(
+                1 - (1 + (1 + alpha * np.arange(n)) * (np.log(1 + alpha * np.arange(n)) - 1) / (alpha**2)),
+                0
+            )
+        elif mode == "linear":
+            weight = np.maximum(1 - np.arange(n) / halfPeriod, 0)
+        elif mode == "quadratic":
+            weight = np.maximum(1 - (np.arange(n) / halfPeriod)**2, 0)
+        elif mode == "sigmoidal":
+            k = np.log(3) / halfPeriod
+            weight = 1 / (1 + np.exp(k * (np.arange(n) - halfPeriod)))
+        elif mode == "mean":
+            len1 = min(halfPeriod, n)
+            weight[:len1] = 1
+        else:
+            raise ValueError(f"unknown mode: {mode}.")
+        wsum = np.sum(weight)
+        weight = np.divide(weight, wsum) if wsum != 0 else np.full(n, 1.0 / n)
+        return np.dot(weight, vals)
+
 
 class DecorrelatedIndicatorGenerator:
     """
