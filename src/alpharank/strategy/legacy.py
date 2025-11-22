@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 #from .data_preprocessing import DataPreprocessor
 #from .fundamentals import FundamentalAnalyzer
-from ..data_processor import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor, TechnicalIndicators
+from alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
+from alpharank.features.indicators import TechnicalIndicators
 import datetime
 from scipy import stats
 from tqdm import tqdm

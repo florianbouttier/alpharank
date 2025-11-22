@@ -53,7 +53,7 @@ data_dir = os.path.join(env_dir, 'data')
 os.chdir(data_dir)
 
 # %% US
-final_price= pd.read_parquet('US/US_Finalprice.parquet')
+final_price= pd.read_parquet('US_Finalprice.parquet')
 general= pd.read_parquet('US/US_General.parquet')
 income_statement = pd.read_parquet('US/US_Income_statement.parquet')
 balance_sheet= pd.read_parquet('US/US_Balance_sheet.parquet')
@@ -144,7 +144,7 @@ optuna_output_1 = StrategyLearner.learning_process_optuna_full(
     stocks_filter = stocks_selections.copy(),
     sector = general[['ticker','Sector']].copy(),
     func_movingaverage = TechnicalIndicators.ema,
-    n_trials = 50, 
+    n_trials = 20, 
     alpha = 2,
     temp = 10*12, 
     mode = "mean",
@@ -158,12 +158,11 @@ optuna_output_2 = StrategyLearner.learning_process_optuna_full(
     stocks_filter = stocks_selections.copy(),
     sector = general[['ticker','Sector']].copy(),
     func_movingaverage = TechnicalIndicators.ema,
-    n_trials = 50, 
+    n_trials = 20, 
     alpha = 2,
     temp = 10*12, 
     mode = "mean",
-    seed = 103,
-    n_jobs=1)
+    seed = 43)
 
 
 optuna_output_3 = StrategyLearner.learning_process_optuna_full(
@@ -215,8 +214,9 @@ technical_1 = StrategyLearner.learning_process_technical(
 # %%
 
 models = {
-    'technical_1': (optuna_output_1['aggregated'] ),
-    'technical_2': (technical_1['aggregated'] ),
+    'optuna_1': (optuna_output_1['aggregated'] ),
+    'optuna_2': (optuna_output_2['aggregated'] ),
+    'technical_1': (technical_1['aggregated'] ),
     'SP500': (index_data.monthly_returns )
 }
 
@@ -295,9 +295,7 @@ A = get_last_portfolio([optuna_output_1])
 # %%
 tickers = A[0]['ticker'].nunique()
 tickers_list = sorted(A[0]['ticker'].unique().tolist())
-kpis = [
-    'pebitda',
-    'gross_margin', 'netmargin', 'return_on_equity']
+kpis = ['pebitda','gross_margin', 'netmargin', 'return_on_equity']
 plotter = StockComparisonPlotter(all_ratios.copy())
 
 # Create HTML report (normalized, smoothed, with IQR outlier clipping)
