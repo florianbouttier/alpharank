@@ -9,15 +9,16 @@ from typing import List, Tuple
 
 # Add src to python path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
+#sys.path.append(str(Path(__file__).parent.parent))
 %load_ext autoreload
 %autoreload 2
 
 from src.alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
-from src.alpharank.features.indicators import DecorrelatedIndicatorGenerator
-from src.alpharank.data.datasets import prepare_data_for_xgboost
-from src.alpharank.utils.data_utils import remove_columns_by_keywords
-from src.alpharank.strategy.xgboost import XGBoostStrategy
-from src.alpharank.visualization.plotting import StockComparisonPlotter
+from alpharank.features.indicators import DecorrelatedIndicatorGenerator
+from alpharank.data.datasets import prepare_data_for_xgboost
+from alpharank.utils.data_utils import remove_columns_by_keywords
+from alpharank.strategy.xgboost import XGBoostStrategy
+from alpharank.visualization.plotting import StockComparisonPlotter
 import plotly.io as pio
 import matplotlib.pyplot as plt
 
@@ -76,7 +77,8 @@ def preprocess_data(final_price, general, income_statement, balance_sheet, cash_
         income_statement=income_statement.copy(),
         cash_flow=cash_flow.copy(),
         earnings=earnings.copy(),
-        monthly_return=monthly_return.copy()
+        monthly_return=monthly_return.copy(),
+
     )
     
     # Drop unnecessary columns
@@ -181,15 +183,21 @@ def main():
         train_df=train_df, 
         validation_df=test_df, 
         hparam_space=None, 
-        n_trials=10, 
-        metric_col='precision@50',
-        target_col=target_col
+        n_trials=100, 
+        n_simu=10,
+        metric_col='precision@100',
+        target_col='future_return',
+        min_volatility= 0.005,
+        exponential_factor=5,
+        n_startup_trials=50,
+        optuna_report_path = 'optuna_report.html'
     )
+    
     strategy.train(train_df, target_col=target_col)
     
     # 7. Predict and Evaluate
     print(f"Predicting on data from {split_date}...")
-    predictions = strategy.predict(test_df)
+    predictions = a['trained_model'].predict(test_df)
     
     # Merge predictions with actual returns for evaluation
     results = predictions.merge(test_df[['ticker', 'year_month', 'monthly_return']], on=['ticker', 'year_month'])
@@ -297,3 +305,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# %%

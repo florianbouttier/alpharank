@@ -155,21 +155,45 @@ class XGBoostStrategy(BaseStrategy):
                 new_params[k] = new_val
         return new_params
 
+    def _calculate_volatility_penalty(self, volatility: float, min_volatility: float, exponential_factor: float) -> float:
+        """
+        Calculate the volatility penalty.
+        """
+        if volatility < min_volatility:
+            # Normalized difference [0, 1]
+            diff_ratio = (min_volatility - volatility) / min_volatility
+            # Exponential penalty
+            return np.exp(exponential_factor * diff_ratio) - 1
+        return 0.0
+
     def optimize_hyperparameters(self, 
                                  train_df: pd.DataFrame, 
                                  validation_df: pd.DataFrame, 
                                  hparam_space: Optional[Dict] = None, 
                                  n_trials: int = 20, 
+                                 n_simu: int = 1,
                                  metric_col: str = 'precision@10',
-                                 target_col: str = 'future_return') -> Dict[str, Any]:
+                                 target_col: str = 'future_return',
+                                 min_volatility: float = 0.005,
+                                 exponential_factor: float = 5.0,
+                                 n_startup_trials: int = 10,
+                                 optuna_report_path: Optional[str] = None) -> Dict[str, Any]:
         """
         Optimize hyperparameters using Optuna.
+        
+        Returns:
+            Dict containing:
+            - best_params: Dict of best hyperparameters
+            - trained_model: The model trained with best params (self)
+            - best_score: Best objective value (with penalty)
+            - best_base_score: Best objective value (without penalty)
+            - best_penalty: Penalty applied to the best trial
         """
         if hparam_space is None:
             hparam_space = {
-                'n_estimators': ('int', 50, 500),
+                'n_estimators': ('int', 50, 1000),
                 'max_depth': ('int', 3, 10),
-                'learning_rate': ('float', 0.01, 0.3),
+                'learning_rate': ('loguniform', 0.001, 0.3),
                 'subsample': ('float', 0.6, 1.0),
                 'colsample_bytree': ('float', 0.6, 1.0),
                 'min_child_weight': ('int', 1, 10),
@@ -183,11 +207,13 @@ class XGBoostStrategy(BaseStrategy):
             for name, (ptype, low, high) in hparam_space.items():
                 if ptype == "int": 
                     params[name] = trial.suggest_int(name, low, high)
+                elif ptype == "loguniform":
+                    params[name] = trial.suggest_float(name, low, high, log=True)
                 else: 
-                    params[name] = trial.suggest_float(name, low, high, log=(name == 'learning_rate'))
+                    params[name] = trial.suggest_float(name, low, high)
             
             # Setup temp strategy with these params
-            temp_strat = XGBoostStrategy(mode=self.mode, params=params, n_simu=1)
+            temp_strat = XGBoostStrategy(mode=self.mode, params=params, n_simu=n_simu)
             
             # Train on train_df
             # Note: For ranking, we need to be careful with groups in CV. 
@@ -196,6 +222,8 @@ class XGBoostStrategy(BaseStrategy):
             
             # Predict on validation_df
             preds = temp_strat.predict(validation_df)
+
+            volatility_preds = preds['prediction'].std()
             
             # Evaluate
             # We need to merge with actual returns/targets to evaluate
@@ -205,6 +233,7 @@ class XGBoostStrategy(BaseStrategy):
             # This part needs to be flexible based on metric_col. 
             # For now, implementing a simple precision@k or IC logic.
             
+            score = 0.0
             if 'precision' in metric_col:
                 k = int(metric_col.split('@')[1])
                 # Sort by prediction
@@ -216,21 +245,51 @@ class XGBoostStrategy(BaseStrategy):
                 
                 # Let's use the actual return to calculate a 'score'
                 score = top_k['monthly_return'].mean() 
-                return score
             
             elif metric_col == 'ic': # Information Coefficient
-                return val_with_preds['prediction'].corr(val_with_preds[target_col])
+                score = val_with_preds['prediction'].corr(val_with_preds[target_col])
             
             else:
                 # Default to mean return of top 10
                 top_k = val_with_preds.sort_values('prediction', ascending=False).groupby('year_month').head(10)
-                return top_k['monthly_return'].mean()
+                score = top_k['monthly_return'].mean()
 
-        study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=42))
+            # Apply exponential penalty for low volatility
+            penalty = self._calculate_volatility_penalty(volatility_preds, min_volatility, exponential_factor)
+            final_score = score - penalty
+            
+            # Store attributes for retrieval
+            trial.set_user_attr("base_score", score)
+            trial.set_user_attr("penalty", penalty)
+            
+            return final_score
+
+        study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=42, n_startup_trials=n_startup_trials))
         study.optimize(objective, n_trials=n_trials)
         
-        self.params = study.best_params
-        return study.best_params
+        # Generate report if requested
+        if optuna_report_path:
+            try:
+                from alpharank.visualization.optuna_report import generate_optuna_report
+                generate_optuna_report(study, optuna_report_path)
+            except ImportError:
+                print("Could not import generate_optuna_report. Is plotly installed?")
+            except Exception as e:
+                print(f"Error generating Optuna report: {e}")
+        
+        best_trial = study.best_trial
+        self.params = best_trial.params
+        
+        # Retrain with best params
+        self.train(train_df, target_col=target_col)
+        
+        return {
+            "best_params": best_trial.params,
+            "trained_model": self,
+            "best_score": best_trial.value,
+            "best_base_score": best_trial.user_attrs.get("base_score"),
+            "best_penalty": best_trial.user_attrs.get("penalty")
+        }
 
     def get_feature_importance(self) -> pd.DataFrame:
         """Aggregate feature importance across models."""

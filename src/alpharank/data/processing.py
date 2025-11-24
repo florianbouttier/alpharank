@@ -489,16 +489,31 @@ class FundamentalProcessor :
         - Fundamental ratios (TTM and base ratios)
         - Valuation ratios (Price/EBIT, Price/EBITDA, Price/NetIncome, P/S, P/B, EV/EBITDA)
         """
+        # Define standard financial KPIs for growth and acceleration
+        kpis_growth = [
+            'totalrevenue_rolling', 'netincome_rolling', 'ebitda_rolling', 
+            'ebit_rolling', 'freecashflow_rolling', 'epsactual_rolling'
+        ]
+        
+        ratios_diff = [
+            'gross_margin', 'netmargin', 'return_on_equity', 
+            'return_on_assets', 'debt_to_equity'
+        ]
+        
+        kpis_accel = [
+            'totalrevenue_rolling', 'netincome_rolling', 'ebitda_rolling', 'epsactual_rolling'
+        ]
+
         # Compute fundamentals with dynamic defaults (no hard-coded lists)
         fundamentals_df = FundamentalProcessor.calculate_fundamental_ratios(
             balance=balance_sheet,
             cashflow=cash_flow,
             income=income_statement,
             earnings=earnings,
-            list_kpi_toincrease=[],              # dynamic defaults inside
-            list_ratios_toincrease=[],
-            list_kpi_toaccelerate=[],
-            list_lag_increase=[],
+            list_kpi_toincrease=kpis_growth,
+            list_ratios_toincrease=ratios_diff,
+            list_kpi_toaccelerate=kpis_accel,
+            list_lag_increase=[1, 4],
             list_ratios_to_augment=[],
             list_date_to_maximise=[]            # auto-select filing_date_* columns
         )
