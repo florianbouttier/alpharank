@@ -8,11 +8,26 @@ import datetime
 from scipy import stats
 from tqdm import tqdm
 from datetime import *
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import matplotlib.pyplot as plt
 import optuna
 import seaborn as sns
 import warnings
+from alpharank.utils.frame_backend import (
+    Backend,
+    ensure_backend_name,
+    normalize_year_month_to_period,
+    normalize_year_month_to_timestamp,
+    require_polars,
+    to_pandas,
+    to_polars,
+)
+
+try:
+    import polars as pl
+except Exception:  # pragma: no cover - optional dependency
+    pl = None
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 # %%
 class StrategyLearner:
@@ -70,121 +85,199 @@ class StrategyLearner:
         return final_return, df
 
     @staticmethod
-    def fiting(df, column_price, historical_company, n_long, n_short, func_movingaverage, n_asset):
-        df = df.copy()
-        df_save = df.copy()
-        df['year_month'] = df['date'].dt.to_period('M')
+    def fiting(df, column_price, historical_company, n_long, n_short, func_movingaverage, n_asset, backend: Backend = "polars"):
+        backend_name = ensure_backend_name(backend, default="polars")
+        if backend_name != "polars":
+            raise ValueError("Pandas backend is disabled for StrategyLearner.fiting.")
 
-        df = df.sort_values(['ticker', 'date'])
-        for n, col in [(n_short, 'short_movingaverage'), (n_long, 'long_movingaverage')]:
-            df[col] = (
-                df.groupby('ticker', sort=False)[column_price]
-                .transform(lambda x: func_movingaverage(x, n=n))
-            )
+        require_polars()
+        df_pd = to_pandas(df)
+        df_pd['date'] = pd.to_datetime(df_pd['date'], errors='coerce')
+        if 'year_month' in df_pd.columns:
+            df_pd = normalize_year_month_to_timestamp(df_pd, col='year_month')
+        else:
+            df_pd['year_month'] = pd.to_datetime(df_pd['date']).dt.to_period('M').dt.to_timestamp(how='start')
+        hc_pd = normalize_year_month_to_timestamp(to_pandas(historical_company), col='year_month')
+        hc_pd = hc_pd[['year_month', 'ticker']].drop_duplicates()
 
-        # Supprime les n premiers points par ticker sans apply
-        df = df[df.groupby('ticker').cumcount() >= n_long]
+        pl_base = to_polars(df_pd).sort(['ticker', 'date'])
+        pl_df = pl_base.clone()
+        if func_movingaverage == TechnicalIndicators.ema:
+            pl_df = pl_df.with_columns([
+                pl.col(column_price).ewm_mean(span=n_short, adjust=False).over('ticker').alias('short_movingaverage'),
+                pl.col(column_price).ewm_mean(span=n_long, adjust=False).over('ticker').alias('long_movingaverage'),
+            ])
+        elif func_movingaverage == TechnicalIndicators.sma:
+            pl_df = pl_df.with_columns([
+                pl.col(column_price).rolling_mean(window_size=n_short, min_samples=1).over('ticker').alias('short_movingaverage'),
+                pl.col(column_price).rolling_mean(window_size=n_long, min_samples=1).over('ticker').alias('long_movingaverage'),
+            ])
+        else:
+            # Fallback for custom kernels while keeping a polars-first path.
+            tmp = to_pandas(pl_df)
+            for n, col in [(n_short, 'short_movingaverage'), (n_long, 'long_movingaverage')]:
+                tmp[col] = tmp.groupby('ticker', sort=False)[column_price].transform(lambda x: func_movingaverage(x, n=n))
+            pl_df = to_polars(tmp)
 
-        # Nettoyage et ratio
-        df = df.dropna(subset=['short_movingaverage', 'long_movingaverage'])
-        df['mtr'] = df['short_movingaverage'] / df['long_movingaverage']
-
-        # Jointure sur historique
-        df = df.merge(historical_company, on=['year_month', 'ticker'], how='inner')
-
-        # Dernière date par (year_month, ticker)
-        idx = df.groupby(['year_month', 'ticker'])['date'].idxmax()
-        df = df.loc[idx].reset_index(drop=True)
-
-        # Moyenne et écart-type groupés → merge
-        stats_df = (
-            df.groupby('year_month', as_index=False)['mtr']
-            .agg(mean='mean', ecart='std')
+        pl_df = (
+            pl_df.with_row_index('_row_idx')
+            .with_columns((pl.col('_row_idx').rank(method='ordinal').over('ticker') - 1).alias('_cumcount'))
+            .filter(pl.col('_cumcount') >= n_long)
+            .drop(['_row_idx', '_cumcount'])
+            .filter(pl.col('short_movingaverage').is_not_null() & pl.col('long_movingaverage').is_not_null())
+            .with_columns((pl.col('short_movingaverage') / pl.col('long_movingaverage')).alias('mtr'))
+            .join(to_polars(hc_pd), on=['year_month', 'ticker'], how='inner')
         )
-        df = df.merge(stats_df, on='year_month', how='left')
-        df['quantile_mtr'] = stats.norm.cdf(df['mtr'], df['mean'], df['ecart'])
 
-        # Sélection top actifs
-        df = (
-            df.sort_values(['year_month', 'mtr'], ascending=[True, False])
-            .groupby('year_month')
-            .head(n_asset)
-        )[['year_month', 'date', 'ticker', 'mtr', 'quantile_mtr']]
+        value_cols = [c for c in pl_df.columns if c not in ['year_month', 'ticker']]
+        pl_df = (
+            pl_df.group_by(['year_month', 'ticker'], maintain_order=True)
+            .agg([pl.col(c).sort_by('date').last().alias(c) for c in value_cols])
+        )
+        stats_df = pl_df.group_by('year_month').agg([
+            pl.col('mtr').mean().alias('mean'),
+            pl.col('mtr').std().alias('ecart'),
+        ])
+        pl_df = pl_df.join(stats_df, on='year_month', how='left')
 
-        df['n_long'] = n_long
-        df['n_short'] = n_short
-        df['n_asset'] = n_asset
-        df['year_month'] = df['year_month'] + 1
+        quantiles = stats.norm.cdf(
+            pl_df['mtr'].to_numpy(),
+            pl_df['mean'].to_numpy(),
+            pl_df['ecart'].to_numpy(),
+        )
+        pl_df = (
+            pl_df.with_columns(pl.Series('quantile_mtr', quantiles))
+            .sort(['year_month', 'mtr', 'ticker'], descending=[False, True, False])
+            .with_columns(pl.col('mtr').rank(method='ordinal', descending=True).over('year_month').alias('_rank_month'))
+            .filter(pl.col('_rank_month') <= n_asset)
+            .drop('_rank_month')
+            .select(['year_month', 'date', 'ticker', 'mtr', 'quantile_mtr'])
+            .with_columns([
+                pl.lit(n_long).alias('n_long'),
+                pl.lit(n_short).alias('n_short'),
+                pl.lit(n_asset).alias('n_asset'),
+                pl.col('year_month').dt.offset_by('1mo').alias('year_month'),
+            ])
+        )
 
-        # Calcul du rendement mensuel
         df_return = (
-            df_save.groupby(['year_month', 'ticker'], as_index=False)['dr']
-            .prod()
-            .sort_values(['ticker', 'year_month'])
-        )[['year_month', 'ticker', 'dr']]
-
-        # Merge final
-        final_return = df.merge(
-            df_return,
-            on=['year_month', 'ticker'],
-            how='left'
+            pl_base.with_columns((1 + pl.col('dr')).alias('dr_factor'))
+            .group_by(['year_month', 'ticker'])
+            .agg(pl.col('dr_factor').product().alias('dr'))
+            .sort(['ticker', 'year_month'])
+            .select(['year_month', 'ticker', 'dr'])
         )
-
-        return final_return
+        final_return = pl_df.join(df_return, on=['year_month', 'ticker'], how='left')
+        out = normalize_year_month_to_period(to_pandas(final_return), col='year_month')
+        return out
     
     @staticmethod
-    def return_from_training(df_fiting,stocks_filter,sector, index, alpha, temp, mode,params) : 
+    def return_from_training(
+        df_fiting,
+        stocks_filter,
+        sector,
+        index,
+        alpha,
+        temp,
+        mode,
+        params,
+        backend: Backend = "polars",
+        score_only: bool = False,
+    ):
+        backend_name = ensure_backend_name(backend, default="polars")
+        if backend_name != "polars":
+            raise ValueError("Pandas backend is disabled for StrategyLearner.return_from_training.")
         stocks_filter = stocks_filter.copy()
         df_fiting = df_fiting.copy()
         sector = sector.copy()
         stocks_filter['year_month'] = stocks_filter['year_month']+1
-        
-        all_return_monthly_afterselection = (df_fiting
-                                            .merge(stocks_filter[['year_month', 'ticker']],
-                                                    how="inner",
-                                                    left_on=['year_month', 'ticker'],
-                                                    right_on=['year_month', 'ticker'])
-                                            .merge(sector[['ticker','Sector']], on="ticker", how="left")  # only needed cols to keep year_month
-                                            .sort_values('quantile_mtr', ascending=False)
-                                            .groupby(['year_month', 'n_long', 'n_short', 'n_asset', 'Sector'], group_keys=False)
-                                            .apply(lambda g: g.head(params['n_max_per_sector']))
-                                            .sort_values('quantile_mtr', ascending=False)
-                                            .groupby(['year_month', 'n_long', 'n_short', 'n_asset'], group_keys=False)
-                                            .apply(lambda g: g.head(params["n_asset"])))
-    
-        all_return_monthly_afterselection['model'] = all_return_monthly_afterselection['n_long'].astype(float).astype(str) + "-" + all_return_monthly_afterselection['n_short'].astype(float).astype(str) + "-" + all_return_monthly_afterselection['n_asset'].astype(str)
-        all_return_monthly_afterselection_summarised = (
-            all_return_monthly_afterselection
-            .groupby(['year_month', 'model'], as_index=False)
+        require_polars()
+        fit_df = normalize_year_month_to_timestamp(df_fiting, col="year_month")
+        filter_df = normalize_year_month_to_timestamp(stocks_filter[['year_month', 'ticker']], col="year_month")
+        index_monthly = normalize_year_month_to_timestamp(index.monthly_returns[['year_month', 'monthly_return']], col="year_month")
+        pl_fit = to_polars(fit_df)
+        pl_filter = to_polars(filter_df)
+        pl_sector = to_polars(sector[['ticker', 'Sector']])
+
+        selected = (
+            pl_fit.join(pl_filter, on=['year_month', 'ticker'], how='inner')
+            .join(pl_sector, on='ticker', how='left')
+            .sort(['year_month', 'n_long', 'n_short', 'n_asset', 'Sector', 'quantile_mtr', 'ticker'], descending=[False, False, False, False, False, True, False])
+            .with_columns(
+                pl.col('quantile_mtr').rank(method='ordinal', descending=True).over(
+                    ['year_month', 'n_long', 'n_short', 'n_asset', 'Sector']
+                ).alias('_rk_sector')
+            )
+            .filter(pl.col('_rk_sector') <= int(params['n_max_per_sector']))
+            .sort(['year_month', 'n_long', 'n_short', 'n_asset', 'quantile_mtr', 'ticker'], descending=[False, False, False, False, True, False])
+            .with_columns(
+                pl.col('quantile_mtr').rank(method='ordinal', descending=True).over(
+                    ['year_month', 'n_long', 'n_short', 'n_asset']
+                ).alias('_rk_asset')
+            )
+            .filter(pl.col('_rk_asset') <= int(params['n_asset']))
+            .drop(['_rk_sector', '_rk_asset'])
+            .with_columns(
+                (
+                    pl.col('n_long').cast(pl.Float64).cast(pl.Utf8)
+                    + pl.lit('-')
+                    + pl.col('n_short').cast(pl.Float64).cast(pl.Utf8)
+                    + pl.lit('-')
+                    + pl.col('n_asset').cast(pl.Utf8)
+                ).alias('model')
+            )
+        )
+        summary = (
+            selected
+            .group_by(['year_month', 'model'])
             .agg(
-                dr=('dr', 'mean'),
-                n=('dr', 'size')
-                )
-            .merge(
-                index.monthly_returns[['year_month', 'monthly_return']], 
-                on='year_month', 
-                how='left'
-                    )
-            .assign(monthly_return_vs_index=lambda x: x['dr'] / (1+x['monthly_return']),
-                    dr=lambda x: x['dr'] -1 )
-            .rename(columns={"monthly_return": "monthly_return_index",
-                             "dr" : "monthly_return"}))
-    
-        
-        all_return_monthly_afterselection_summarised = all_return_monthly_afterselection_summarised.dropna(subset=['monthly_return_vs_index'])
-        
-        all_return_monthly_afterselection_summarised['score'] = ModelEvaluator.score(all_return_monthly_afterselection_summarised['monthly_return_vs_index'], alpha = alpha)
-        
+                pl.col('dr').mean().alias('dr'),
+                pl.col('dr').len().alias('n'),
+            )
+            .join(to_polars(index_monthly), on='year_month', how='left')
+            .with_columns([
+                pl.col('monthly_return').alias('monthly_return_index'),
+                (pl.col('dr') / (1 + pl.col('monthly_return'))).alias('monthly_return_vs_index'),
+                (pl.col('dr') - 1).alias('monthly_return'),
+            ])
+        )
+        summary = summary.select(
+            'year_month',
+            'model',
+            'monthly_return',
+            'n',
+            'monthly_return_index',
+            'monthly_return_vs_index',
+        ).filter(pl.col('monthly_return_vs_index').is_not_null())
+
+        if summary.height == 0:
+            return {
+                'aggregated': pd.DataFrame(),
+                'detailed': pd.DataFrame(),
+                'score': float('-inf'),
+            }
+
+        score_arr = ModelEvaluator.score(summary['monthly_return_vs_index'].to_numpy(), alpha=alpha)
+        summary = summary.with_columns(pl.Series('score', score_arr))
         lvl1_bestmodel_loop = ModelEvaluator.best_model_date(
-            data=all_return_monthly_afterselection_summarised,
+            data=summary,
             mode=mode,
             param_temp=temp,
-            param_alpha=alpha)
-                
-        dict_return = {'aggregated' : all_return_monthly_afterselection_summarised,
-                        'detailed' : all_return_monthly_afterselection,
-                        'score' : lvl1_bestmodel_loop['score'].values[0]}        
-        return dict_return
+            param_alpha=alpha,
+            backend="polars",
+        )
+        best_score = float(lvl1_bestmodel_loop['score'].to_list()[0]) if lvl1_bestmodel_loop.height > 0 else float('-inf')
+
+        if score_only:
+            return {'aggregated': pd.DataFrame(), 'detailed': pd.DataFrame(), 'score': best_score}
+
+        all_return_monthly_afterselection = normalize_year_month_to_period(to_pandas(selected), 'year_month')
+        all_return_monthly_afterselection_summarised = normalize_year_month_to_period(to_pandas(summary), 'year_month')
+        return {
+            'aggregated': all_return_monthly_afterselection_summarised,
+            'detailed': all_return_monthly_afterselection,
+            'score': best_score,
+        }
     
     @staticmethod
     def learning_process_technical(prices,index, stocks_filter, sector, func_movingaverage, liste_nlong, liste_nshort, liste_nasset, max_persector, final_nmaxasset, list_alpha, list_temp, mode, param_temp_lvl2, param_alpha_lvl2):
@@ -313,7 +406,7 @@ class StrategyLearner:
         return {
             "n_long": trial.suggest_int("n_long", 50, 400),
             "n_short": trial.suggest_int("n_short", 1, 100),
-            "n_asset": trial.suggest_int("n_asset", 10, 30),
+            "n_asset": trial.suggest_int("n_asset", 5, 30),
             "n_max_per_sector": trial.suggest_int("n_max_per_sector", 1,2),
             }
     
@@ -326,7 +419,8 @@ class StrategyLearner:
                        sector,
                        alpha,
                        temp,
-                       mode):
+                       mode,
+                       backend: Backend = "polars"):
         def objective(trial: optuna.Trial) -> float:
             params = StrategyLearner().sample_space(trial)
             all_return_monthly = StrategyLearner().fiting(
@@ -336,7 +430,8 @@ class StrategyLearner:
                 n_long = params['n_long'], 
                 n_short = params['n_short'], 
                 func_movingaverage = func_movingaverage, 
-                n_asset = 30
+                n_asset = 30,
+                backend=backend,
             )
             
             output = StrategyLearner.return_from_training(df_fiting=all_return_monthly.copy(),
@@ -346,13 +441,15 @@ class StrategyLearner:
                                                         alpha=alpha,
                                                         temp=temp,
                                                         mode=mode,
-                                                        params=params)
+                                                        params=params,
+                                                        backend=backend,
+                                                        score_only=True)
             
             return output['score']
         return objective
 
     @staticmethod
-    def learning_process_optuna_split(prices,split,index, stocks_filter, sector, func_movingaverage,n_trials, alpha,temp, mode,seed,n_jobs = 1):
+    def learning_process_optuna_split(prices,split,index, stocks_filter, sector, func_movingaverage,n_trials, alpha,temp, mode,seed,n_jobs = 1, backend: Backend = "polars"):
        
         prices = prices.copy()
         stocks_filter = stocks_filter.copy()
@@ -371,7 +468,8 @@ class StrategyLearner:
                                                          sector=sector,
                                                          alpha=alpha,
                                                          temp=temp,
-                                                         mode=mode)
+                                                         mode=mode,
+                                                         backend=backend)
                                     
         study.optimize(objective, n_trials=n_trials, show_progress_bar=True,n_jobs = n_jobs)
         #ploting optuna
@@ -387,7 +485,8 @@ class StrategyLearner:
                 n_long = best_params['n_long'], 
                 n_short = best_params['n_short'], 
                 func_movingaverage = func_movingaverage, 
-                n_asset = 30
+                n_asset = 30,
+                backend=backend,
             )
         output = StrategyLearner.return_from_training(df_fiting=full_learning.copy(),
                                                         stocks_filter=stocks_filter.copy(),
@@ -396,7 +495,8 @@ class StrategyLearner:
                                                         alpha=alpha,
                                                         temp=temp,
                                                         mode=mode,
-                                                        params=best_params)
+                                                        params=best_params,
+                                                        backend=backend)
         aggregated = output['aggregated']
         detailled = output['detailed']
         aggregated = aggregated[aggregated['year_month'] > split]
@@ -406,12 +506,14 @@ class StrategyLearner:
                 'study': study}   
         
     @staticmethod
-    def learning_process_optuna_full(prices,index, first_date,stocks_filter, sector, func_movingaverage,n_trials,alpha,temp,mode,seed,n_jobs : int = 1):
+    def learning_process_optuna_full(prices,index, first_date,stocks_filter, sector, func_movingaverage,n_trials,alpha,temp,mode,seed,n_jobs : int = 1, backend: Backend = "polars"):
        
         prices = prices.copy()
         stocks_filter = stocks_filter.copy()
         sector = sector.copy()
         prices = prices.dropna(subset=['close_vs_index']).sort_values(by=['ticker', 'date'])
+        prices = normalize_year_month_to_period(prices, col='year_month')
+        first_date = first_date if isinstance(first_date, pd.Period) else pd.Period(first_date, freq='M')
         
         list_spliting_date_end_of_year = sorted(prices['year_month'].unique())
         list_spliting_date_end_of_year = [d for d in list_spliting_date_end_of_year if d.month == 1]
@@ -434,11 +536,12 @@ class StrategyLearner:
                                                                   temp=temp,
                                                                   mode=mode,
                                                                   seed=seed,
-                                                                  n_jobs = n_jobs)
+                                                                  n_jobs = n_jobs,
+                                                                  backend=backend)
             detailled = lpos['detailled']
             aggregated = lpos['aggregated']
-            print(min(detailled['year_month']), max(detailled['year_month']))
-            print(min(aggregated['year_month']), max(aggregated['year_month']))
+            #print(min(detailled['year_month']), max(detailled['year_month']))
+            #print(min(aggregated['year_month']), max(aggregated['year_month']))
             
             min_date = min(detailled['year_month']) if not detailled.empty else pd.Period('2100-01', freq='M')
             if len(detailled_portfolio) > 0:
@@ -451,7 +554,192 @@ class StrategyLearner:
         return {'aggregated': aggregated_portfolio,
                 'detailled': detailled_portfolio,
                 'studies': dict_study}
+    
+
     @staticmethod
+    def aggregate_portfolios(
+        optuna_outputs: List[Dict[str, Any]],
+        mode: str = 'equal',
+        index: 'IndexDataManager' = None,
+        union_mode: bool = True,
+        backend: Backend = "polars",
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Aggregate multiple optuna portfolio outputs into a single combined portfolio.
+        
+        Args:
+            optuna_outputs: List of optuna output dicts, each containing 'detailled' and 'aggregated' keys
+            mode: Weighting mode:
+                - 'equal': All stocks weighted equally regardless of how many models picked them
+                - 'frequency': Stocks weighted by how many models selected them
+            index: Optional IndexDataManager for computing returns vs index
+            union_mode: If True (default), stocks present in ANY model are included (Union).
+                        If False, only stocks present in ALL models are included (Intersection).
+                
+        Returns:
+            Dict with 'detailed' and 'aggregated' DataFrames
+        """
+        if not optuna_outputs:
+            raise ValueError("optuna_outputs list cannot be empty")
+        
+        if mode not in ['equal', 'frequency']:
+            raise ValueError(f"mode must be 'equal' or 'frequency', got '{mode}'")
+        
+        backend_name = ensure_backend_name(backend, default="polars")
+        n_models = len(optuna_outputs)
+
+        if backend_name == "polars":
+            require_polars()
+            all_detailed_pl = []
+            for i, output in enumerate(optuna_outputs):
+                detailed_key = 'detailed' if 'detailed' in output else 'detailled'
+                df = output[detailed_key]
+                if isinstance(df, pd.DataFrame):
+                    pldf = to_polars(normalize_year_month_to_timestamp(df, col='year_month'))
+                else:
+                    pldf = df.clone()
+                    if 'year_month' in pldf.columns:
+                        ym_dtype = pldf.schema.get('year_month')
+                        if ym_dtype == pl.Date:
+                            pass
+                        elif ym_dtype == pl.Datetime:
+                            pldf = pldf.with_columns(pl.col('year_month').dt.truncate('1mo').alias('year_month'))
+                        else:
+                            pldf = pldf.with_columns(
+                                pl.col('year_month').cast(pl.Utf8).str.strptime(pl.Date, format='%Y-%m-%d', strict=False).alias('year_month')
+                            )
+                all_detailed_pl.append(pldf.with_columns(pl.lit(i).alias('source_model')))
+            pld = pl.concat(all_detailed_pl, how='vertical_relaxed')
+            if not union_mode:
+                valid_keys = (
+                    pld.group_by(['year_month', 'ticker'])
+                    .agg(pl.col('source_model').n_unique().alias('_models'))
+                    .filter(pl.col('_models') == n_models)
+                    .select(['year_month', 'ticker'])
+                )
+                pld = pld.join(valid_keys, on=['year_month', 'ticker'], how='inner')
+
+            detailed_holdings = (
+                pld.group_by(['year_month', 'ticker'])
+                .agg(
+                    pl.col('dr').mean().alias('dr'),
+                    pl.col('source_model').n_unique().alias('n_models'),
+                    pl.col('Sector').first().alias('Sector'),
+                )
+                .with_columns(
+                    (pl.lit(1.0) if mode == 'equal' else (pl.col('n_models') / n_models)).alias('weight')
+                )
+                .with_columns((pl.col('weight') / pl.col('weight').sum().over('year_month')).alias('weight_normalized'))
+            )
+            perf_data = (
+                detailed_holdings
+                .filter(pl.col('dr').is_not_null())
+                .with_columns((pl.col('weight') / pl.col('weight').sum().over('year_month')).alias('weight_perf'))
+                .with_columns((pl.col('dr') * pl.col('weight_perf')).alias('weighted_dr'))
+            )
+            aggregated = (
+                perf_data.group_by('year_month')
+                .agg(
+                    pl.col('weighted_dr').sum().alias('monthly_return'),
+                    pl.col('ticker').count().alias('n'),
+                    pl.col('n_models').mean().alias('avg_models_per_stock'),
+                )
+                .with_columns((pl.col('monthly_return') - 1).alias('monthly_return'))
+            )
+            if index is not None:
+                idx = normalize_year_month_to_timestamp(index.monthly_returns[['year_month', 'monthly_return']], col='year_month')
+                idx_pl = to_polars(idx).rename({'monthly_return': 'monthly_return_index'})
+                aggregated = (
+                    aggregated.join(idx_pl, on='year_month', how='left')
+                    .with_columns(((1 + pl.col('monthly_return')) / (1 + pl.col('monthly_return_index'))).alias('monthly_return_vs_index'))
+                )
+            detailed_output = detailed_holdings.select(['year_month', 'ticker', 'dr', 'n_models', 'Sector', 'weight', 'weight_normalized'])
+            detailed_output = detailed_output.with_columns((pl.col('dr') - 1).alias('dr'))
+            return {
+                'detailed': normalize_year_month_to_period(to_pandas(detailed_output), 'year_month'),
+                'aggregated': normalize_year_month_to_period(to_pandas(aggregated), 'year_month'),
+            }
+
+        raise ValueError("Pandas backend is disabled for StrategyLearner.aggregate_portfolios.")
+    
+    @staticmethod
+    def get_portfolio_at_month(
+        portfolio_output: Dict[str, Any],
+        month: Optional[pd.Period] = None
+    ) -> pd.DataFrame:
+        """
+        Get portfolio holdings for a specific month.
+        
+        Args:
+            portfolio_output: Output from learning_process_optuna_full or aggregate_portfolios.
+                              Must contain 'detailled' or 'detailed' key.
+            month: Target month as pd.Period. If None, uses the latest month.
+            
+        Returns:
+            DataFrame with columns: ticker, Sector, weight, weight_normalized, monthly_return
+            Sorted by weight_normalized descending.
+        """
+        # Get detailed dataframe (handle both spellings)
+        if 'detailed' in portfolio_output:
+            df = portfolio_output['detailed'].copy()
+        elif 'detailled' in portfolio_output:
+            df = portfolio_output['detailled'].copy()
+        else:
+            raise ValueError("portfolio_output must contain 'detailed' or 'detailled' key")
+        
+        if df.empty:
+            raise ValueError("Portfolio is empty")
+        
+        # Determine target month
+        if month is None:
+            month = df['year_month'].max()
+        
+        # Filter to target month
+        df_month = df[df['year_month'] == month].copy()
+        
+        if df_month.empty:
+            available = df['year_month'].unique()[:5]
+            raise ValueError(f"No data for month {month}. Available months: {list(available)}...")
+        
+        # Handle weight column - if it doesn't exist, create equal weights
+        if 'weight' not in df_month.columns:
+            df_month['weight'] = 1.0
+        
+        # Calculate normalized weights (sum to 1)
+        total_weight = df_month['weight'].sum()
+        if total_weight > 0:
+            df_month['weight_normalized'] = df_month['weight'] / total_weight
+        else:
+            df_month['weight_normalized'] = 1.0 / len(df_month)
+        
+        # Get return column (try 'dr' or 'monthly_return')
+        if 'dr' in df_month.columns:
+            return_col = 'dr'
+        elif 'monthly_return' in df_month.columns:
+            return_col = 'monthly_return'
+        else:
+            return_col = None
+        
+        # Build output
+        output_cols = ['ticker']
+        if 'Sector' in df_month.columns:
+            output_cols.append('Sector')
+        output_cols.extend(['weight', 'weight_normalized'])
+        if return_col:
+            df_month['monthly_return'] = df_month[return_col]
+            output_cols.append('monthly_return')
+        if 'n_models' in df_month.columns:
+            output_cols.append('n_models')
+        
+        result = df_month[output_cols].copy()
+        result = result.sort_values('weight_normalized', ascending=False).reset_index(drop=True)
+        
+        # Add metadata
+        result.attrs['month'] = month
+        result.attrs['total_stocks'] = len(result)
+        
+        return result
+
     def learning_fundamental(balance, cashflow, income, earnings, general, monthly_return, historical_company, col_learning, earning_choice, list_date_to_maximise_earning_choice, tresh, n_max_sector, list_kpi_toinvert=['pe'], list_kpi_toincrease=['totalrevenue_rolling', 'grossprofit_rolling', 'operatingincome_rolling', 'incomebeforeTax_rolling', 'netincome_rolling', 'ebit_rolling', 'ebitda_rolling', 'freecashflow_rolling', 'epsactual_rolling'], list_ratios_toincrease=['roic', 'netmargin'], list_kpi_toaccelerate=['epsactual_rolling'], list_lag_increase=[1, 4, 4*5], list_ratios_to_augment=["roic_lag4", "roic_lag1", "netmargin_lag4"], list_date_to_maximise=['filing_date_income', 'filing_date_cash', 'filing_date_balance', 'filing_date_earning']):
         ratios = FundamentalAnalyzer.calculate_fundamental_ratios(balance=balance,
                                                                   cashflow=cashflow,
@@ -670,26 +958,65 @@ class ModelEvaluator:
         return ranked_values
 
     @staticmethod
-    def best_model_date(data : pd.DataFrame, mode : str, param_alpha : float, param_temp : int):
-            data = data.copy()
-            summarized_data = (
-            data.sort_values(by='year_month', ascending=False)
-                .groupby('model', group_keys=False)
-                .apply(
-                    lambda x: TechnicalIndicators.decreasing_sum(
-                    x['score'], halfPeriod=param_temp, mode=mode
-                    ),include_groups=False
-                        )
-                .to_frame('score')       # transforme la Series en DataFrame avec une colonne "score"
-                .reset_index()           # remet "model" comme colonne normale
-                    )
-            best_model = (summarized_data[summarized_data['score'] == summarized_data['score'].max()].sample(1)
-                          .assign(
-                                  param_alpha=param_alpha,
-                                  param_temp=param_temp
-                                  )
-                          )
-            return best_model
+    def best_model_date(data, mode: str, param_alpha: float, param_temp: int, backend: Backend = "polars"):
+            backend_name = ensure_backend_name(backend, default="polars")
+            if backend_name != "polars":
+                raise ValueError("Pandas backend is disabled for ModelEvaluator.best_model_date.")
+
+            require_polars()
+            pld = data.clone() if isinstance(data, pl.DataFrame) else to_polars(data)
+
+            if pld.height == 0:
+                return pl.DataFrame({
+                    'model': ['none'],
+                    'score': [float('-inf')],
+                    'param_alpha': [param_alpha],
+                    'param_temp': [param_temp],
+                })
+
+            if 'year_month' in pld.columns:
+                pld = pld.sort(['model', 'year_month'], descending=[False, True])
+            else:
+                pld = pld.sort(['model'])
+
+            rows = []
+            for key, g in pld.group_by('model', maintain_order=True):
+                model = key[0] if isinstance(key, tuple) else key
+                score_value = TechnicalIndicators.decreasing_sum(
+                    g['score'].to_numpy(),
+                    halfPeriod=param_temp,
+                    mode=mode,
+                )
+                rows.append({'model': model, 'score': float(score_value)})
+
+            if not rows:
+                return pl.DataFrame({
+                    'model': ['none'],
+                    'score': [float('-inf')],
+                    'param_alpha': [param_alpha],
+                    'param_temp': [param_temp],
+                })
+
+            summarized_data = pl.DataFrame(rows)
+            max_score = summarized_data.select(pl.col('score').max()).item()
+            if max_score is None or np.isnan(max_score):
+                return pl.DataFrame({
+                    'model': ['none'],
+                    'score': [float('-inf')],
+                    'param_alpha': [param_alpha],
+                    'param_temp': [param_temp],
+                })
+
+            return (
+                summarized_data
+                .filter(pl.col('score') == max_score)
+                .sort('model')
+                .head(1)
+                .with_columns(
+                    pl.lit(param_alpha).alias('param_alpha'),
+                    pl.lit(param_temp).alias('param_temp'),
+                )
+            )
     @staticmethod
     def bestmodel(data, mode, param_temp, param_alpha):
         
@@ -730,12 +1057,17 @@ class ModelEvaluator:
 
     @staticmethod
     def compare_models(models_data, start_year=None, end_year=None, risk_free_rate=0.02):
-        processed_data = {}
-        min_date = pd.Period('2000-01', freq='M')
-        max_date = pd.Period('2040-01', freq='M')
+        from alpharank.strategy.analytics import PerformanceAnalyzer
         
+        processed_data = {}
+        # Use None to track min/max dates dynamically
+        global_min_date = None
+        global_max_date = None
+        
+        # 1. Process and Filter Data
         for model_name, df in models_data.items():
             df_copy = df.copy()
+            # Logic to find return column
             return_cols = [col for col in df_copy.columns if 'return' in col.lower()]
             if return_cols:
                 return_col = return_cols[0]
@@ -745,183 +1077,123 @@ class ModelEvaluator:
                 elif len(df_copy.columns) > 1:
                     return_col = df_copy.columns[1]
                 else:
-                    raise ValueError(f"Could not identify returns column for model {model_name}")
+                    print(f"Warning: Could not identify returns column for {model_name}. Skipping.")
+                    continue
             
+            # Ensure Period Index
             if not isinstance(df_copy['year_month'].iloc[0], pd.Period):
                 try:
-                    df_copy['year_month'] = df_copy['year_month'].dt.to_period('m')
+                    df_copy['year_month'] = df_copy['year_month'].dt.to_period('M')
                 except:
-                    df_copy['year_month'] = pd.to_datetime(df_copy['year_month']).dt.to_period('m')
+                    df_copy['year_month'] = pd.to_datetime(df_copy['year_month']).dt.to_period('M')
             
+            # Filter by date
             if start_year:
                 df_copy = df_copy[df_copy['year_month'].dt.year >= start_year]
             if end_year:
                 df_copy = df_copy[df_copy['year_month'].dt.year <= end_year]
                 
             if df_copy.empty:
-                print(f"Warning: No data available for {model_name} in selected time period")
+                print(f"Warning: No data available for {model_name} in selected period")
                 continue
                 
-            min_date = min(min_date, df_copy['year_month'].min())
-            max_date = max(max_date, df_copy['year_month'].max())
+            # Update global date range
+            model_min = df_copy['year_month'].min()
+            model_max = df_copy['year_month'].max()
             
-            returns_series = df_copy.set_index('year_month')[return_col]
-            processed_data[model_name] = returns_series
+            if global_min_date is None or model_min < global_min_date:
+                global_min_date = model_min
+            if global_max_date is None or model_max > global_max_date:
+                global_max_date = model_max
+            
+            # Store Series (indexed by Period)
+            processed_data[model_name] = df_copy.set_index('year_month')[return_col]
         
+        # 2. Create Aligned DataFrame
         all_returns = pd.DataFrame(processed_data)
-        correlation_matrix = all_returns.corr()
-        all_returns_ts = all_returns.copy()
-        all_returns_ts.index = all_returns_ts.index.to_timestamp()
-        all_returns_ts.sort_index(inplace=True)
-        cumulative_returns = (all_returns_ts + 1).cumprod()
-        worst_periods = {}
-        for model in all_returns.columns:
-            model_returns = all_returns[model].reset_index()
-            model_returns['year'] = model_returns['year_month'].dt.year
-            model_returns['year_month'] = model_returns['year_month'].dt.month
-            worst_month_idx = model_returns[model].idxmin()
-            worst_month = model_returns.loc[worst_month_idx]
-            worst_month_date = worst_month['year_month']
-            worst_month_return = worst_month[model]
-            annual_returns = model_returns.groupby('year')[model].apply(
-                lambda x: np.prod(1 + x) - 1
-            )
-            worst_year_idx = annual_returns.idxmin()
-            worst_year_return = annual_returns.loc[worst_year_idx]
-            worst_periods[model] = {
-                'Worst Month': f"{worst_month_date}: {worst_month_return:.2%}",
-                'Worst Year': f"{worst_year_idx}: {worst_year_return:.2%}"
-            }
+        all_returns = all_returns.sort_index()
         
-        worst_periods_df = pd.DataFrame(worst_periods).T
-        annual_returns_data = {}
-        for model in all_returns.columns:
-            model_returns = all_returns[model].reset_index()
-            model_returns['year'] = model_returns['year_month'].dt.year
-            annual_returns = model_returns.groupby('year')[model].apply(
-                lambda x: np.prod(1 + x) - 1
-            )
-            annual_returns_data[model] = annual_returns
-        
-        annual_returns_df = pd.DataFrame(annual_returns_data)
+        # 3. Calculate Global Metrics via Analyzer
         metrics = {}
-        for model in all_returns.columns:
-            model_returns = all_returns[model].dropna()
-            model_returns_ts = all_returns_ts[model].dropna()
-            if len(model_returns) < 12:
-                print(f"Warning: Insufficient data for {model}")
-                continue
-                
-            total_months = len(model_returns)
-            total_years = total_months / 12
-            total_return = cumulative_returns[model].iloc[-1] - 1
-            annualized_return = (1 + total_return) ** (1 / total_years) - 1
-            monthly_mean = model_returns.mean()
-            monthly_std = model_returns.std()
-            annualized_vol = monthly_std * np.sqrt(12)
-            sharpe = (annualized_return - risk_free_rate) / annualized_vol
-            rolling_max = cumulative_returns[model].cummax()
-            drawdown = (cumulative_returns[model] / rolling_max - 1)
-            max_drawdown = drawdown.min()
-            positive_months = (model_returns > 0).sum() / total_months
-            cagr_3yr = None
-            cagr_5yr = None
-            cagr_10yr = None
-            if total_years >= 3:
-                returns_3yr = model_returns_ts.iloc[-36:]
-                cagr_3yr = (1 + returns_3yr).prod() ** (1/3) - 1
-            if total_years >= 5:
-                returns_5yr = model_returns_ts.iloc[-60:]
-                cagr_5yr = (1 + returns_5yr).prod() ** (1/5) - 1
-            if total_years >= 10:
-                returns_10yr = model_returns_ts.iloc[-120:]
-                cagr_10yr = (1 + returns_10yr).prod() ** (1/10) - 1
-            metrics[model] = {
-                'Start Date': min_date.strftime('%y-%m'),
-                'End Date': max_date.strftime('%y-%m'),
-                'Total Return': total_return,
-                'CAGR': annualized_return,
-                'CAGR (3Y)': cagr_3yr,
-                'CAGR (5Y)': cagr_5yr,
-                'CAGR (10Y)': cagr_10yr,
-                'Monthly Mean': monthly_mean,
-                'Monthly Volatility': monthly_std,
-                'Annualized Volatility': annualized_vol,
-                'Sharpe Ratio': sharpe,
-                'Max Drawdown': max_drawdown,
-                'Positive Months %': positive_months,
-                'Number of Stocks (Avg)': models_data[model]['n'].mean() if 'n' in models_data[model].columns else None
-            }
-        
-        metrics_df = pd.DataFrame(metrics).T
-        for col in ['Total Return', 'CAGR', 'CAGR (3Y)', 'CAGR (5Y)', 'CAGR (10Y)', 
-                    'Monthly Mean', 'Monthly Volatility', 'Annualized Volatility', 
-                    'Max Drawdown', 'Positive Months %']:
-            if col in metrics_df.columns:
-                metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A")
-        
-        if 'Sharpe Ratio' in metrics_df.columns:
-            metrics_df['Sharpe Ratio'] = metrics_df['Sharpe Ratio'].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A")
-        
-        cagr_by_year = ModelEvaluator.calculate_cagr_by_year(all_returns)
-        fig = plt.figure(figsize=(20, 16))
-        plt.subplots_adjust(wspace=0.3, hspace=0.3)
-        ax1 = plt.subplot(2, 2, 1)
-        cumulative_returns.plot(ax=ax1)
-        ax1.set_title('Cumulative Returns', fontsize=16)
-        ax1.set_ylabel('Value of $1 Investment', fontsize=12)
-        ax1.grid(True)
-        ax1.set_yscale('log')
-        ax1.legend(fontsize=10)
-        ax2 = plt.subplot(2, 2, 2)
-        mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
-        sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap="coolwarm", 
-                    mask=mask, vmin=-1, vmax=1, ax=ax2)
-        ax2.set_title('Return Correlation Matrix', fontsize=16)
-        ax3 = plt.subplot(2, 2, 3)
-        sns.heatmap(cagr_by_year, annot=True, fmt=".1%", cmap="RdYlGn", ax=ax3)
-        ax3.set_title('CAGR by Start Year', fontsize=16)
-        ax3.set_ylabel('Start Year', fontsize=12)
-        ax3.set_xlabel('Model', fontsize=12)
-        ax4 = plt.subplot(2, 2, 4)
-        sns.heatmap(annual_returns_df, annot=True, fmt=".1%", cmap="RdYlGn", ax=ax4)
-        ax4.set_title('Annual Returns by Year', fontsize=16)
-        ax4.set_ylabel('Year', fontsize=12)
-        ax4.set_xlabel('Model', fontsize=12)
-        plt.tight_layout()
-        individual_heatmaps = {}
-        for model in all_returns.columns:
-            fig_heatmap = ModelEvaluator.plot_monthly_returns_heatmap(all_returns[model], model)
-            individual_heatmaps[model] = fig_heatmap
-        
-        figures = {
-            'Main Figure': fig,
-            'Monthly Heatmaps': individual_heatmaps
-        }
-        return metrics_df, cumulative_returns, correlation_matrix, worst_periods_df, figures
+        for model in processed_data:
+             series = processed_data[model]
+             if series.empty: continue
+             
+             m_dict = PerformanceAnalyzer.calculate_metrics(series, risk_free_rate)
+             
+             # Add specific metrics requiring original data (like avg stocks)
+             n_stocks_avg = None
+             if model in models_data: 
+                orig_df = models_data[model]
+                if 'n' in orig_df.columns:
+                     n_stocks_avg = orig_df['n'].mean()
+             m_dict['Number of Stocks (Avg)'] = n_stocks_avg
+             
+             # Start/End dates
+             m_dict['Start Date'] = series.index.min().strftime('%y-%m')
+             m_dict['End Date'] = series.index.max().strftime('%y-%m')
+             
+             # Add windowed CAGR which isn't in standard single-series calculator by default or requires extra logic
+             # We can just add it here manually or extend Analyzer. 
+             # For now, let's keep it simple and use logic similar to before, but verify dates.
+             total_years = (series.index.max() - series.index.min()).n / 12
+             for yr in [3, 5, 10]:
+                 if total_years >= yr:
+                     # Get last N years
+                     subset = series.iloc[-12*yr:]
+                     m_dict[f'CAGR ({yr}Y)'] = (1 + subset).prod() ** (1/yr) - 1
+                 else:
+                     m_dict[f'CAGR ({yr}Y)'] = None
 
-    @staticmethod
-    def plot_monthly_returns_heatmap(returns_series, model_name):
-        df = returns_series.reset_index()
-        df['year'] = df['year_month'].dt.year
-        df['year_month'] = df['year_month'].dt.month
-        heatmap_data = df.pivot(index='year', columns='year_month', values=model_name)
-        fig, ax = plt.subplots(figsize=(12, 8))
-        cmap = sns.diverging_palette(10, 133, as_cmap=True)
-        sns.heatmap(heatmap_data, 
-                    cmap=cmap, 
-                    center=0,
-                    annot=True, 
-                    fmt='.1%', 
-                    linewidths=.5, 
-                    ax=ax,
-                    cbar_kws={'label': 'Monthly Return'})
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        ax.set_xticklabels(month_names)
-        ax.set_title(f'Monthly Returns Heatmap - {model_name}', fontsize=16)
-        plt.tight_layout()
-        return fig
+             metrics[model] = m_dict
+
+        metrics_df = pd.DataFrame(metrics).T
+        
+        # Format Metrics DF for display
+        pct_cols = ['Total Return', 'CAGR', 'Monthly Mean', 'Monthly Volatility', 
+                    'Annualized Volatility', 'Max Drawdown', 'Positive Periods %',
+                    'CAGR (3Y)', 'CAGR (5Y)', 'CAGR (10Y)']
+        for col in pct_cols:
+            if col in metrics_df.columns:
+                 metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A")
+        
+        float_cols = ['Sharpe Ratio', 'Sortino Ratio', 'Calmar Ratio']
+        for col in float_cols:
+            if col in metrics_df.columns:
+                metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:.2f}" if pd.notnull(x) and not np.isinf(x) else "N/A")
+
+        # 4. Generate Visualization Data (CRITICAL: Convert Periods to Timestamps)
+        cumulative_returns = PerformanceAnalyzer.calculate_cumulative_returns(all_returns, fill_missing=True)
+        # Convert index to timestamp for Plotly
+        cumulative_returns.index = cumulative_returns.index.to_timestamp()
+        
+        drawdowns_df = PerformanceAnalyzer.calculate_drawdowns(cumulative_returns)
+        # Index is already timestamp from cumulative_returns
+        
+        annual_returns_df = PerformanceAnalyzer.get_annual_returns(all_returns).T
+        # Annual returns index is integers (years), which is fine for Plotly
+        
+        correlation_matrix = all_returns.corr()
+        
+        # Comprehensive Metrics Grids
+        # 1. Cumulative from Start Year (e.g. 2010->End, 2011->End)
+        cumulative_metrics_dict = PerformanceAnalyzer.calculate_metrics_by_start_year(all_returns, risk_free_rate)
+        
+        # 2. Discrete Annual Metrics (e.g. 2010, 2011)
+        annual_metrics_dict = PerformanceAnalyzer.calculate_annual_metrics(all_returns, risk_free_rate)
+        
+        # Worst Periods
+        worst_periods_df = PerformanceAnalyzer.calculate_worst_periods(all_returns)
+
+        # Monthly Returns Dict - Convert each series index to timestamp
+        monthly_returns_dict = {}
+        for col in all_returns.columns:
+            s_clean = all_returns[col].dropna()
+            # Convert index
+            s_clean.index = s_clean.index.to_timestamp()
+            monthly_returns_dict[col] = s_clean
+            
+        return metrics_df, cumulative_returns, correlation_matrix, worst_periods_df, drawdowns_df, annual_returns_df, cumulative_metrics_dict, annual_metrics_dict, monthly_returns_dict
 
     @staticmethod
     def calculate_cagr_by_year(returns_df):

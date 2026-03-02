@@ -1,8 +1,22 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Sequence, Union
 from alpharank.features.indicators import TechnicalIndicators
+from alpharank.utils.frame_backend import (
+    Backend,
+    ensure_backend_name,
+    normalize_year_month_to_period,
+    normalize_year_month_to_timestamp,
+    require_polars,
+    to_pandas,
+    to_polars,
+)
+
+try:
+    import polars as pl
+except Exception:  # pragma: no cover - optional dependency
+    pl = None
 
 class IndexDataManager:
     """
@@ -15,7 +29,8 @@ class IndexDataManager:
     def __init__(self,
                  daily_prices_df: pd.DataFrame,
                  components_df: pd.DataFrame,
-                 monthly_returns_df: Optional[pd.DataFrame] = None):
+                 monthly_returns_df: Optional[pd.DataFrame] = None,
+                 backend: Backend = "polars"):
         """
         Initializes the IndexDataManager object.
 
@@ -30,11 +45,21 @@ class IndexDataManager:
         if 'date' not in daily_prices_df.columns or 'close' not in daily_prices_df.columns:
             raise ValueError("The 'daily_prices_df' DataFrame must contain 'date' and 'close' columns.")
 
-        self.daily_prices = daily_prices_df.copy()
-        self.components = components_df.copy()
+        if pl is not None and isinstance(daily_prices_df, pl.DataFrame):
+            self.daily_prices = daily_prices_df.clone()
+        else:
+            self.daily_prices = daily_prices_df.copy()
+        if pl is not None and isinstance(components_df, pl.DataFrame):
+            self.components = components_df.clone()
+        else:
+            self.components = components_df.copy()
+        self.backend = backend
 
         if monthly_returns_df is not None:
-            self.monthly_returns = monthly_returns_df.copy()
+            if pl is not None and isinstance(monthly_returns_df, pl.DataFrame):
+                self.monthly_returns = monthly_returns_df.clone()
+            else:
+                self.monthly_returns = monthly_returns_df.copy()
         else:
             print("Monthly returns not provided. Calculating from daily prices...")
             self.monthly_returns = self._calculate_monthly_returns(self.daily_prices)
@@ -53,7 +78,8 @@ class IndexDataManager:
             price_column='close',
             date_column='date',
             ticker_column=None,  # Index data doesn't have tickers
-            return_column='monthly_return'
+            return_column='monthly_return',
+            backend=self.backend,
         )
 
     def __repr__(self) -> str:
@@ -67,7 +93,12 @@ class IndexDataManager:
 class PricesDataPreprocessor:
     """Nettoyage et mise en forme des séries de prix."""
     @staticmethod
-    def augment_prices(df: pd.DataFrame, columns_to_augment: str, column_date: str = 'date') -> pd.DataFrame:
+    def augment_prices(
+        df: Union[pd.DataFrame, "pl.DataFrame"],  # type: ignore[name-defined]
+        columns_to_augment: Union[str, Sequence[str]],
+        column_date: str = 'date',
+        backend: Optional[Backend] = None,
+    ) -> pd.DataFrame:
         """
         Fill missing dates in price data by forward-filling values for each ticker.
         
@@ -79,24 +110,35 @@ class PricesDataPreprocessor:
         Returns:
             DataFrame with complete date range for all tickers, missing values forward-filled
         """
-        # Convert date column to datetime format
-        df[column_date] = pd.to_datetime(df[column_date])
-        
-        # Create complete date range from min to max date in the dataset
-        all_dates = pd.date_range(start=df[column_date].min(), end=df[column_date].max())
-        
-        # Restructure data: pivot by ticker, reindex with full date range, then unpivot
-        df_full = df.set_index([column_date, 'ticker']).unstack('ticker').reindex(all_dates).stack('ticker', dropna=False).reset_index().rename(columns={'level_0': 'date'})
-        
-        # Forward-fill missing values for each ticker separately
-        df_full[columns_to_augment] = df_full.groupby('ticker')[columns_to_augment].ffill()
-        
-        # Return only the relevant columns
-        df_full = df_full[[column_date, 'ticker']+ columns_to_augment]
-        return df_full
+        backend_name = ensure_backend_name(backend, default="polars")
+        if backend_name != "polars":
+            raise ValueError("Pandas backend is disabled for PricesDataPreprocessor.augment_prices.")
+        cols = [columns_to_augment] if isinstance(columns_to_augment, str) else list(columns_to_augment)
+
+        require_polars()
+        pldf = to_polars(df).with_columns(pl.col(column_date).cast(pl.Date, strict=False))
+        min_date = pldf.select(pl.col(column_date).min()).item()
+        max_date = pldf.select(pl.col(column_date).max()).item()
+        dates = pl.date_range(min_date, max_date, interval="1d", eager=True).alias(column_date)
+        date_df = pl.DataFrame({column_date: dates})
+        ticker_df = pldf.select("ticker").unique()
+        skeleton = ticker_df.join(date_df, how="cross").sort(["ticker", column_date])
+        joined = (
+            skeleton.join(pldf.select(["ticker", column_date] + cols), on=["ticker", column_date], how="left")
+            .sort(["ticker", column_date])
+            .with_columns([pl.col(c).forward_fill().over("ticker").alias(c) for c in cols])
+            .select([column_date, "ticker"] + cols)
+        )
+        out = to_pandas(joined)
+        return out
 
     @staticmethod
-    def compute_dr(df: pd.DataFrame, column_date: str = 'date', column_close: str = 'close') -> pd.DataFrame:
+    def compute_dr(
+        df: Union[pd.DataFrame, "pl.DataFrame"],  # type: ignore[name-defined]
+        column_date: str = 'date',
+        column_close: str = 'close',
+        backend: Optional[Backend] = None,
+    ) -> pd.DataFrame:
         """
         Compute daily returns (dr) for each ticker in the prices DataFrame.
         
@@ -115,11 +157,18 @@ class PricesDataPreprocessor:
             price_column=column_close,
             date_column=column_date,
             ticker_column='ticker',
-            return_column='dr'
+            return_column='dr',
+            backend=backend,
         )  
 
     @staticmethod
-    def prices_vs_index(index: pd.DataFrame, prices: pd.DataFrame, column_close_index: str, column_close_prices: str) -> pd.DataFrame:
+    def prices_vs_index(
+        index: Union[pd.DataFrame, "pl.DataFrame"],  # type: ignore[name-defined]
+        prices: Union[pd.DataFrame, "pl.DataFrame"],  # type: ignore[name-defined]
+        column_close_index: str,
+        column_close_prices: str,
+        backend: Optional[Backend] = None,
+    ) -> pd.DataFrame:
         """
         Calculate relative performance of prices against a benchmark index.
         This function merges price data with index data and computes the relative performance
@@ -146,31 +195,51 @@ class PricesDataPreprocessor:
             - Computes augmented price features and daily returns for relative performance
         """
         
+        backend_name = ensure_backend_name(backend, default="polars")
+        if backend_name != "polars":
+            raise ValueError("Pandas backend is disabled for PricesDataPreprocessor.prices_vs_index.")
+        idx = to_pandas(index)
+        px = to_pandas(prices)
         if column_close_index == column_close_prices:
-            index.rename(columns={column_close_index: column_close_index + "_index"}, inplace=True)
+            idx = idx.rename(columns={column_close_index: column_close_index + "_index"})
             column_close_index = column_close_index + "_index"
-            
-        if 'ticker' not in index.columns:
-            index['ticker'] = 'index'
 
-        index = PricesDataPreprocessor.augment_prices(df=index.copy(), 
-                                              columns_to_augment=[column_close_index], 
-                                              column_date='date')
-        
-        index = index.drop(['ticker'], axis=1, errors='ignore')
-        prices['date'] = pd.to_datetime(prices['date'])
-        prices_augmented = prices.merge(index, how="left", on="date")
-        prices_augmented['close_vs_index'] = prices_augmented[column_close_prices] / prices_augmented[column_close_index]
-        
-        prices_augmented = PricesDataPreprocessor.compute_dr(df=prices_augmented.copy(),
-                                                     column_date='date',
-                                                     column_close='close_vs_index')
+        if 'ticker' not in idx.columns:
+            idx['ticker'] = 'index'
+
+        idx = PricesDataPreprocessor.augment_prices(
+            df=idx.copy(),
+            columns_to_augment=[column_close_index],
+            column_date='date',
+            backend=backend_name,
+        )
+        idx = idx.drop(['ticker'], axis=1, errors='ignore')
+        require_polars()
+        pl_px = to_polars(px).with_columns(pl.col("date").cast(pl.Date, strict=False))
+        pl_idx = to_polars(idx).with_columns(pl.col("date").cast(pl.Date, strict=False))
+        prices_augmented = to_pandas(
+            pl_px.join(pl_idx, on="date", how="left").with_columns(
+                (pl.col(column_close_prices) / pl.col(column_close_index)).alias("close_vs_index")
+            )
+        )
+        prices_augmented["date"] = pd.to_datetime(prices_augmented["date"], errors="coerce")
+
+        prices_augmented = PricesDataPreprocessor.compute_dr(
+            df=prices_augmented.copy(),
+            column_date='date',
+            column_close='close_vs_index',
+            backend=backend_name,
+        )
         prices_augmented.rename(columns={"dr": "dr_vs_index"}, inplace=True)
-        
         return prices_augmented
     
     @staticmethod
-    def calculate_monthly_returns(df: pd.DataFrame, column_date: str = 'date', column_close: str = 'close') -> pd.DataFrame:
+    def calculate_monthly_returns(
+        df: Union[pd.DataFrame, "pl.DataFrame"],  # type: ignore[name-defined]
+        column_date: str = 'date',
+        column_close: str = 'close',
+        backend: Optional[Backend] = None,
+    ) -> pd.DataFrame:
         """
         Calculate monthly returns from daily price data.
         
@@ -189,7 +258,8 @@ class PricesDataPreprocessor:
             price_column=column_close,
             date_column=column_date,
             ticker_column='ticker',
-            return_column='monthly_return'
+            return_column='monthly_return',
+            backend=backend,
         )
 
 class FundamentalProcessor :
@@ -214,7 +284,8 @@ class FundamentalProcessor :
         list_kpi_toaccelerate: List[str], 
         list_lag_increase: List[int],
         list_ratios_to_augment: List[str], 
-        list_date_to_maximise: List[str]
+        list_date_to_maximise: List[str],
+        backend: Optional[Backend] = None,
     ) -> pd.DataFrame:
         """
         Processes raw financial statements to compute TTM metrics and fundamental ratios.
@@ -240,148 +311,216 @@ class FundamentalProcessor :
             pd.DataFrame: A DataFrame with tickers and quarterly dates, containing calculated TTM
                           metrics and fundamental ratios.
         """
-        # --- 1. Clean and Prepare Balance Sheet Data ---
-        balance_clean = (
-            balance[['ticker', 'date', 'filing_date', 'commonStockSharesOutstanding', 'totalStockholderEquity', 'netDebt', 'totalAssets', 'cashAndShortTermInvestments']]
-            .assign(
-                quarter_end=lambda x: pd.to_datetime(x['date']).dt.to_period('Q'),
-                filing_date_balance=lambda x: pd.to_datetime(x['filing_date'])
-            )
-            .sort_values('filing_date_balance')
-            .groupby(['ticker', 'quarter_end'])
-            .last() # Keep only the latest filing for each quarter
-            .reset_index()
-            .drop(columns=['filing_date'])
-        )
-        # Calculate TTM (rolling 4-quarter average/sum) for key balance sheet items
+        backend_name = ensure_backend_name(backend, default="polars")
+        if backend_name != "polars":
+            raise ValueError("Pandas backend is disabled for FundamentalProcessor.calculate_fundamental_ratios.")
+
+        require_polars()
         balance_cols_to_roll = ['totalStockholderEquity', 'netDebt', 'commonStockSharesOutstanding', 'totalAssets', 'cashAndShortTermInvestments']
-        for col in balance_cols_to_roll:
-            balance_clean[f"{col.lower()}_rolling"] = balance_clean.sort_values('filing_date_balance').groupby('ticker')[col].transform(lambda x: TechnicalIndicators.sma(x, n=4))
-
-        # --- 2. Clean and Prepare Earnings Data ---
-        earnings_clean = (
-            earnings[['ticker', 'date', 'reportDate', 'epsActual']]
-            .assign(
-                quarter_end=lambda x: pd.to_datetime(x['date']).dt.to_period('Q'),
-                filing_date_earning=lambda x: pd.to_datetime(x['reportDate'])
-            )
-            .sort_values('filing_date_earning')
-            .groupby(['ticker', 'quarter_end'])
-            .last()
-            .reset_index()
-            .drop(columns=['reportDate'])
-            .dropna(subset=['epsActual'])
-        )
-        # Calculate TTM EPS
-        earnings_clean['epsactual_rolling'] = earnings_clean.sort_values('filing_date_earning').groupby('ticker')['epsActual'] \
-                                                .transform(lambda x: 4 * TechnicalIndicators.sma(x, n=4))
-
-        # --- 3. Clean and Prepare Income Statement Data ---
         income_cols_to_annualize = ['totalRevenue', 'grossProfit', 'operatingIncome', 'incomeBeforeTax', 'netIncome', 'ebit', 'ebitda']
-        income_clean = (
-            income[['ticker', 'date', 'filing_date'] + income_cols_to_annualize]
-            .assign(
-                quarter_end=lambda x: pd.to_datetime(x['date']).dt.to_period('Q'),
-                filing_date_income=lambda x: pd.to_datetime(x['filing_date']))
-            .sort_values('filing_date_income')
-            .groupby(['ticker', 'quarter_end'])
-            .last()
-            .reset_index()
-            .drop(columns=['filing_date'])
+
+        pl_balance = (
+            to_polars(balance[['ticker', 'date', 'filing_date', 'commonStockSharesOutstanding', 'totalStockholderEquity', 'netDebt', 'totalAssets', 'cashAndShortTermInvestments']])
+            .with_columns([
+                pl.col('ticker').cast(pl.Utf8),
+                pl.col('date').cast(pl.Date, strict=False).alias('date'),
+                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date'),
+                pl.col('commonStockSharesOutstanding').cast(pl.Float64, strict=False).alias('commonStockSharesOutstanding'),
+                pl.col('totalStockholderEquity').cast(pl.Float64, strict=False).alias('totalStockholderEquity'),
+                pl.col('netDebt').cast(pl.Float64, strict=False).alias('netDebt'),
+                pl.col('totalAssets').cast(pl.Float64, strict=False).alias('totalAssets'),
+                pl.col('cashAndShortTermInvestments').cast(pl.Float64, strict=False).alias('cashAndShortTermInvestments'),
+                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_balance'),
+            ])
+            .sort(['ticker', 'filing_date_balance'])
+            .group_by(['ticker', 'quarter_end'])
+            .agg([
+                pl.col('filing_date_balance').last().alias('filing_date_balance'),
+                pl.col('commonStockSharesOutstanding').last().alias('commonStockSharesOutstanding'),
+                pl.col('totalStockholderEquity').last().alias('totalStockholderEquity'),
+                pl.col('netDebt').last().alias('netDebt'),
+                pl.col('totalAssets').last().alias('totalAssets'),
+                pl.col('cashAndShortTermInvestments').last().alias('cashAndShortTermInvestments'),
+            ])
+            .sort(['ticker', 'filing_date_balance'])
         )
-        # Calculate TTM for income statement items
-        for col in income_cols_to_annualize:
-            income_clean[f"{col.lower()}_rolling"] = income_clean.sort_values('filing_date_income').groupby('ticker')[col].transform(lambda x: 4 * TechnicalIndicators.sma(x, n=4))
+        pl_balance = pl_balance.with_columns([
+            pl.col(col).rolling_mean(window_size=4, min_samples=1).over('ticker').alias(f"{col.lower()}_rolling")
+            for col in balance_cols_to_roll
+        ])
 
-        # --- 4. Clean and Prepare Cash Flow Data ---
-        cash_clean = (
-            cashflow[['ticker', 'date', 'filing_date', 'freeCashFlow']]
-            .assign(
-                quarter_end=lambda x: pd.to_datetime(x['date']).dt.to_period('Q'),
-                filing_date_cash=lambda x: pd.to_datetime(x['filing_date']))
-            .sort_values('filing_date_cash')
-            .groupby(['ticker', 'quarter_end'])
-            .last()
-            .reset_index()
-            .drop(columns=['filing_date'])
+        pl_earnings = (
+            to_polars(earnings[['ticker', 'date', 'reportDate', 'epsActual']])
+            .with_columns([
+                pl.col('ticker').cast(pl.Utf8),
+                pl.col('date').cast(pl.Date, strict=False).alias('date'),
+                pl.col('reportDate').cast(pl.Date, strict=False).alias('reportDate'),
+                pl.col('epsActual').cast(pl.Float64, strict=False).alias('epsActual'),
+                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('reportDate').cast(pl.Date, strict=False).alias('filing_date_earning'),
+            ])
+            .sort(['ticker', 'filing_date_earning'])
+            .group_by(['ticker', 'quarter_end'])
+            .agg([
+                pl.col('filing_date_earning').last().alias('filing_date_earning'),
+                pl.col('epsActual').last().alias('epsActual'),
+            ])
+            .filter(pl.col('epsActual').is_not_null())
+            .sort(['ticker', 'filing_date_earning'])
+            .with_columns(
+                (pl.col('epsActual').rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias('epsactual_rolling')
+            )
         )
-        # Calculate TTM for cash flow items
-        for col in ['freeCashFlow']:
-            cash_clean[f"{col.lower()}_rolling"] = cash_clean.sort_values('filing_date_cash').groupby('ticker')[col].transform(lambda x: 4 * TechnicalIndicators.sma(x, n=4))
 
-        # --- 5. Merge Data and Calculate Ratios ---
-        funda = (income_clean
-                 .merge(cash_clean, on=['ticker', 'quarter_end'], how='outer')
-                 .merge(balance_clean, on=['ticker', 'quarter_end'], how='outer')
-                 .merge(earnings_clean[['ticker', 'quarter_end', 'filing_date_earning', 'epsActual', 'epsactual_rolling']], on=['ticker', 'quarter_end'], how='outer')
-                 # Calculate ratios using the TTM figures
-                 .assign(
-                     # Existing Ratios
-                     netmargin=lambda x: x['netincome_rolling'] / x['totalrevenue_rolling'],
-                     ebitmargin=lambda x: x['ebit_rolling'] / x['totalrevenue_rolling'],
-                     ebitdamargin=lambda x: x['ebitda_rolling'] / x['totalrevenue_rolling'],
-                     
-                     roic=lambda x: x['ebit_rolling'] / (x['totalstockholderequity_rolling'] + x['netdebt_rolling'].fillna(0)),
-                     ebitpershare_rolling=lambda x: x['ebit_rolling'] / x['commonstocksharesoutstanding_rolling'].fillna(0),
-                     ebitdapershare_rolling=lambda x: x['ebitda_rolling'] / x['commonstocksharesoutstanding_rolling'].fillna(0),
-                     netincomepershare_rolling=lambda x: x['netincome_rolling'] / x['commonstocksharesoutstanding_rolling'].fillna(0),
-                     fcfpershare_rolling=lambda x: x['freecashflow_rolling'] / x['commonstocksharesoutstanding_rolling'].fillna(0),
-                     # New Recommended Ratios
-                     gross_margin=lambda x: x['grossprofit_rolling'] / x['totalrevenue_rolling'],
-                     return_on_assets=lambda x: x['netincome_rolling'] / x['totalassets_rolling'],
-                     return_on_equity=lambda x: x['netincome_rolling'] / x['totalstockholderequity_rolling'],
-                     debt_to_equity=lambda x: x['netdebt_rolling'].fillna(0) / x['totalstockholderequity_rolling'],
-                     asset_turnover=lambda x: x['totalrevenue_rolling'] / x['totalassets_rolling']
-                 ))
-        
-        # Replace potential division-by-zero infinities with NaN
-        funda.replace([np.inf, -np.inf], np.nan, inplace=True)
+        pl_income = (
+            to_polars(income[['ticker', 'date', 'filing_date'] + income_cols_to_annualize])
+            .with_columns([
+                pl.col('ticker').cast(pl.Utf8),
+                pl.col('date').cast(pl.Date, strict=False).alias('date'),
+                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date'),
+                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_income'),
+            ])
+            .sort(['ticker', 'filing_date_income'])
+            .group_by(['ticker', 'quarter_end'])
+            .agg(
+                [pl.col('filing_date_income').last().alias('filing_date_income')]
+                + [pl.col(col).last().alias(col) for col in income_cols_to_annualize]
+            )
+            .sort(['ticker', 'filing_date_income'])
+        )
+        pl_income = pl_income.with_columns([
+            pl.col(col).cast(pl.Float64, strict=False).alias(col)
+            for col in income_cols_to_annualize
+        ])
+        pl_income = pl_income.with_columns([
+            (pl.col(col).rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias(f"{col.lower()}_rolling")
+            for col in income_cols_to_annualize
+        ])
 
-        # --- Dynamic defaults if lists are not provided ---
+        pl_cash = (
+            to_polars(cashflow[['ticker', 'date', 'filing_date', 'freeCashFlow']])
+            .with_columns([
+                pl.col('ticker').cast(pl.Utf8),
+                pl.col('date').cast(pl.Date, strict=False).alias('date'),
+                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date'),
+                pl.col('freeCashFlow').cast(pl.Float64, strict=False).alias('freeCashFlow'),
+                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_cash'),
+            ])
+            .sort(['ticker', 'filing_date_cash'])
+            .group_by(['ticker', 'quarter_end'])
+            .agg([
+                pl.col('filing_date_cash').last().alias('filing_date_cash'),
+                pl.col('freeCashFlow').last().alias('freeCashFlow'),
+            ])
+            .sort(['ticker', 'filing_date_cash'])
+            .with_columns(
+                (pl.col('freeCashFlow').rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias('freecashflow_rolling')
+            )
+        )
+
+        funda = (
+            pl_income
+            .join(pl_cash, on=['ticker', 'quarter_end'], how='full', coalesce=True)
+            .join(pl_balance, on=['ticker', 'quarter_end'], how='full', coalesce=True)
+            .join(
+                pl_earnings.select(['ticker', 'quarter_end', 'filing_date_earning', 'epsActual', 'epsactual_rolling']),
+                on=['ticker', 'quarter_end'],
+                how='full',
+                coalesce=True,
+            )
+            .sort(['ticker', 'quarter_end'])
+            .with_columns([
+                (pl.col('netincome_rolling') / pl.col('totalrevenue_rolling')).alias('netmargin'),
+                (pl.col('ebit_rolling') / pl.col('totalrevenue_rolling')).alias('ebitmargin'),
+                (pl.col('ebitda_rolling') / pl.col('totalrevenue_rolling')).alias('ebitdamargin'),
+                (pl.col('ebit_rolling') / (pl.col('totalstockholderequity_rolling') + pl.col('netdebt_rolling').fill_null(0))).alias('roic'),
+                (pl.col('ebit_rolling') / pl.col('commonstocksharesoutstanding_rolling').fill_null(0)).alias('ebitpershare_rolling'),
+                (pl.col('ebitda_rolling') / pl.col('commonstocksharesoutstanding_rolling').fill_null(0)).alias('ebitdapershare_rolling'),
+                (pl.col('netincome_rolling') / pl.col('commonstocksharesoutstanding_rolling').fill_null(0)).alias('netincomepershare_rolling'),
+                (pl.col('freecashflow_rolling') / pl.col('commonstocksharesoutstanding_rolling').fill_null(0)).alias('fcfpershare_rolling'),
+                (pl.col('grossprofit_rolling') / pl.col('totalrevenue_rolling')).alias('gross_margin'),
+                (pl.col('netincome_rolling') / pl.col('totalassets_rolling')).alias('return_on_assets'),
+                (pl.col('netincome_rolling') / pl.col('totalstockholderequity_rolling')).alias('return_on_equity'),
+                (pl.col('netdebt_rolling').fill_null(0) / pl.col('totalstockholderequity_rolling')).alias('debt_to_equity'),
+                (pl.col('totalrevenue_rolling') / pl.col('totalassets_rolling')).alias('asset_turnover'),
+            ])
+        )
+        numeric_cols = [
+            c for c, d in funda.schema.items()
+            if d in {
+                pl.Float32, pl.Float64, pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+                pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
+            }
+        ]
+        if numeric_cols:
+            funda = funda.with_columns([
+                pl.when(pl.col(c).cast(pl.Float64).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
+                for c in numeric_cols
+            ])
+
         if not list_lag_increase:
             list_lag_increase = [1, 4]
-        # KPIs where we want growth/acceleration (rolling fundamentals)
         if not list_kpi_toincrease:
-            kpi_candidates = ['totalrevenue_rolling', 'ebit_rolling', 'netincome_rolling',
-                              'freecashflow_rolling', 'ebitda_rolling']
+            kpi_candidates = ['totalrevenue_rolling', 'ebit_rolling', 'netincome_rolling', 'freecashflow_rolling', 'ebitda_rolling']
             list_kpi_toincrease = [c for c in kpi_candidates if c in funda.columns]
         if not list_kpi_toaccelerate:
             list_kpi_toaccelerate = list_kpi_toincrease[:]
-        # Ratios where we want simple change
         if not list_ratios_toincrease:
-            ratio_candidates = ['gross_margin', 'netmargin', 'return_on_equity','debt_to_equity']
+            ratio_candidates = ['gross_margin', 'netmargin', 'return_on_equity', 'debt_to_equity']
             list_ratios_toincrease = [c for c in ratio_candidates if c in funda.columns]
-        # Ratios to augment
         if not list_ratios_to_augment:
             list_ratios_to_augment = []
 
-        # --- 6. Calculate Growth and Acceleration Metrics (using dynamic lists) ---
         for col in list_kpi_toincrease:
+            if col not in funda.columns:
+                continue
             for lag in list_lag_increase:
-                funda[f"{col}_lag{lag}"] = funda.groupby('ticker')[col].transform(lambda x: TechnicalIndicators.increase(x, lag, diff=False))
+                prev = pl.col(col).shift(lag).over('ticker')
+                growth = (pl.col(col) - prev) / prev.abs()
+                base = 1 + growth
+                funda = funda.with_columns(
+                    pl.when(prev.abs() == 0)
+                    .then(None)
+                    .otherwise(
+                        pl.when(base > 0).then(base.pow(4.0 / lag) - 1).otherwise(base)
+                    )
+                    .alias(f"{col}_lag{lag}")
+                )
 
         for col in list_ratios_toincrease:
+            if col not in funda.columns:
+                continue
             for lag in list_lag_increase:
-                funda[f"{col}_lag{lag}"] = funda.groupby('ticker')[col].transform(lambda x: TechnicalIndicators.increase(x, lag, diff=True))
+                funda = funda.with_columns(
+                    (pl.col(col) - pl.col(col).shift(lag).over('ticker')).alias(f"{col}_lag{lag}")
+                )
 
         for col in list_kpi_toaccelerate:
+            if col not in funda.columns:
+                continue
             for lag in list_lag_increase:
-                funda[f"{col}_lag{lag}_lag1"] = funda.groupby('ticker')[col].transform(
-                    lambda x: TechnicalIndicators.increase(TechnicalIndicators.increase(x, lag, diff=False), 1, diff=True))
+                lag_col = f"{col}_lag{lag}"
+                if lag_col in funda.columns:
+                    funda = funda.with_columns(
+                        (pl.col(lag_col) - pl.col(lag_col).shift(1).over('ticker')).alias(f"{col}_lag{lag}_lag1")
+                    )
 
-        # --- 7. Finalize DataFrame with automatic filing-date max (no hard-coded list) ---
         filing_cols = [c for c in funda.columns if c.startswith('filing_date_')]
         date_cols = [c for c in (list_date_to_maximise or []) if c in funda.columns] or filing_cols
-        funda = (funda
-                 .drop(columns=['date', 'date_x', 'date_y'], errors='ignore')
-                 .assign(date=funda[date_cols].max(axis=1)))
+        funda = funda.drop(['date', 'date_x', 'date_y'], strict=False)
+        if date_cols:
+            funda = funda.with_columns(pl.max_horizontal([pl.col(c) for c in date_cols]).alias('date'))
 
         if list_ratios_to_augment:
-            funda = TechnicalIndicators.augmenting_ratios(funda, list_ratios_to_augment, 'date')
-            
-        funda = funda.drop(columns=balance_cols_to_roll + ['epsActual','freeCashFlow']+ income_cols_to_annualize)
+            funda_pd = to_pandas(funda)
+            funda_pd = TechnicalIndicators.augmenting_ratios(funda_pd, list_ratios_to_augment, 'date')
+            funda = to_polars(funda_pd)
 
-        return funda
+        funda = funda.drop(balance_cols_to_roll + ['epsActual', 'freeCashFlow'] + income_cols_to_annualize, strict=False)
+        return to_pandas(funda)
 
     @staticmethod
     def calculate_pe_ratios(
@@ -391,7 +530,8 @@ class FundamentalProcessor :
         income: pd.DataFrame, 
         earning_choice: str, 
         monthly_return: pd.DataFrame, 
-        list_date_to_maximise: List[str]
+        list_date_to_maximise: List[str],
+        backend: Optional[Backend] = None,
     ) -> pd.DataFrame:
         """
         Calculates valuation ratios by merging fundamental data with market price data.
@@ -414,12 +554,17 @@ class FundamentalProcessor :
             pd.DataFrame: A DataFrame with one row per ticker per month, containing key
                           valuation ratios and market cap data.
         """
+        backend_name = ensure_backend_name(backend, default="polars")
+        if backend_name != "polars":
+            raise ValueError("Pandas backend is disabled for FundamentalProcessor.calculate_pe_ratios.")
+
         # --- 1. Get Base Fundamental Data ---
         fundamental = FundamentalProcessor.calculate_fundamental_ratios(
             balance=balance, cashflow=cashflow, income=income, earnings=earnings,
             list_kpi_toincrease=[], list_ratios_toincrease=[],
             list_kpi_toaccelerate=[], list_lag_increase=[],
-            list_ratios_to_augment=[], list_date_to_maximise=list_date_to_maximise
+            list_ratios_to_augment=[], list_date_to_maximise=list_date_to_maximise,
+            backend=backend_name,
         )
 
         # --- 2. Select Earnings Metric ---
@@ -435,46 +580,48 @@ class FundamentalProcessor :
             'cashandshortterminvestments_rolling', 'ebitda_rolling'
         ]
         
-        monthly_return['date'] = pd.to_datetime(monthly_return['date'])
-        price_merge = (monthly_return
-                       .merge(fundamental[funda_cols], on=['ticker', 'date'], how='outer')
-                       .sort_values(by=['ticker', 'date']))
-        
-        # Forward-fill fundamental data to align with daily/monthly prices
-        # This assumes the last reported fundamental data is valid until a new report is released.
+        output_cols = ['ticker', 'year_month', 'pe', 'ps_ratio', 'pb_ratio', 'ev_ebitda_ratio', 'market_cap']
         ffill_cols = [
             'last_close', 'rolling_epsactual', 'commonstocksharesoutstanding_rolling',
             'totalrevenue_rolling', 'totalstockholderequity_rolling', 'netdebt_rolling',
             'cashandshortterminvestments_rolling', 'ebitda_rolling'
         ]
-        price_merge[ffill_cols] = price_merge.groupby('ticker')[ffill_cols].ffill()
-        price_merge = price_merge.dropna(subset=['last_close', 'rolling_epsactual'])
 
-        # --- 4. Calculate Valuation Ratios ---
-        price_merge['market_cap'] = price_merge['last_close'] * pd.to_numeric(price_merge['commonstocksharesoutstanding_rolling'])
-        
-        # Enterprise Value (EV) = Market Cap + Net Debt
-        price_merge['enterprise_value'] = price_merge['market_cap'] + price_merge['netdebt_rolling'].fillna(0)
-        
-        # Standard Valuation Ratios
-        price_merge['pe'] = price_merge['last_close'] / price_merge['rolling_epsactual']
-        price_merge['ps_ratio'] = price_merge['market_cap'] / price_merge['totalrevenue_rolling']
-        price_merge['pb_ratio'] = price_merge['market_cap'] / price_merge['totalstockholderequity_rolling']
-        price_merge['ev_ebitda_ratio'] = price_merge['enterprise_value'] / price_merge['ebitda_rolling']
-        
-        # Replace potential infinities from division-by-zero with NaN
-        price_merge.replace([np.inf, -np.inf], np.nan, inplace=True)
-
-        # --- 5. Resample to Last Day of the Month ---
-        price_merge['year_month'] = pd.to_datetime(price_merge['date']).dt.to_period('M')
-        price_merge_last_day = price_merge.groupby(['ticker', 'year_month']).last().reset_index()
-
-        output_cols = [
-            'ticker', 'year_month', 'pe', 'ps_ratio', 'pb_ratio', 
-            'ev_ebitda_ratio', 'market_cap'
-        ]
-        
-        return price_merge_last_day[output_cols]
+        require_polars()
+        mret = monthly_return.copy()
+        mret = mret.drop(columns=['year_month'], errors='ignore')
+        mret['date'] = pd.to_datetime(mret['date'], errors='coerce').dt.normalize()
+        fcopy = fundamental.copy()
+        fcopy['date'] = pd.to_datetime(fcopy['date'], errors='coerce').dt.normalize()
+        pl_monthly = to_polars(mret).with_columns(pl.col('date').cast(pl.Date))
+        pl_funda = to_polars(fcopy[funda_cols]).with_columns(pl.col('date').cast(pl.Date))
+        merged = (
+            pl_monthly.join(pl_funda, on=['ticker', 'date'], how='full', coalesce=True)
+            .sort(['ticker', 'date'])
+            .with_columns([pl.col(c).forward_fill().over('ticker').alias(c) for c in ffill_cols])
+            .filter(pl.col('last_close').is_not_null() & pl.col('rolling_epsactual').is_not_null())
+            .with_columns([
+                (pl.col('last_close') * pl.col('commonstocksharesoutstanding_rolling').cast(pl.Float64)).alias('market_cap'),
+            ])
+            .with_columns([
+                (pl.col('market_cap') + pl.col('netdebt_rolling').fill_null(0)).alias('enterprise_value'),
+                (pl.col('last_close') / pl.col('rolling_epsactual')).alias('pe'),
+                (pl.col('market_cap') / pl.col('totalrevenue_rolling')).alias('ps_ratio'),
+                (pl.col('market_cap') / pl.col('totalstockholderequity_rolling')).alias('pb_ratio'),
+                pl.col('date').dt.truncate('1mo').alias('year_month'),
+            ])
+            .with_columns((pl.col('enterprise_value') / pl.col('ebitda_rolling')).alias('ev_ebitda_ratio'))
+            .with_columns([
+                pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
+                for c in ['pe', 'ps_ratio', 'pb_ratio', 'ev_ebitda_ratio', 'market_cap']
+            ])
+            .sort(['ticker', 'year_month', 'date'])
+            .group_by(['ticker', 'year_month'])
+            .agg(pl.all().last())
+        )
+        result = to_pandas(merged.select(output_cols))
+        result = normalize_year_month_to_period(result, 'year_month')
+        return result
 
     @staticmethod
     def calculate_all_ratios(
@@ -482,7 +629,8 @@ class FundamentalProcessor :
         cash_flow: pd.DataFrame,
         income_statement: pd.DataFrame,
         earnings: pd.DataFrame,
-        monthly_return: pd.DataFrame
+        monthly_return: pd.DataFrame,
+        backend: Optional[Backend] = None,
     ) -> pd.DataFrame:
         """
         Build a unified monthly dataset:
@@ -504,6 +652,10 @@ class FundamentalProcessor :
             'totalrevenue_rolling', 'netincome_rolling', 'ebitda_rolling', 'epsactual_rolling'
         ]
 
+        backend_name = ensure_backend_name(backend, default="polars")
+        if backend_name != "polars":
+            raise ValueError("Pandas backend is disabled for FundamentalProcessor.calculate_all_ratios.")
+
         # Compute fundamentals with dynamic defaults (no hard-coded lists)
         fundamentals_df = FundamentalProcessor.calculate_fundamental_ratios(
             balance=balance_sheet,
@@ -515,38 +667,57 @@ class FundamentalProcessor :
             list_kpi_toaccelerate=kpis_accel,
             list_lag_increase=[1, 4],
             list_ratios_to_augment=[],
-            list_date_to_maximise=[]            # auto-select filing_date_* columns
+            list_date_to_maximise=[],            # auto-select filing_date_* columns
+            backend=backend_name,
         )
 
-        # Merge with prices and compute valuations
-        monthly_return = monthly_return.copy()
-        monthly_return['date'] = pd.to_datetime(monthly_return['date'])
-        fundamentals_df['date'] = pd.to_datetime(fundamentals_df['date'])
+        require_polars()
+        mret = monthly_return.copy()
+        fdf = fundamentals_df.copy()
+        mret['date'] = pd.to_datetime(mret['date'], errors='coerce').dt.normalize()
+        fdf['date'] = pd.to_datetime(fdf['date'], errors='coerce').dt.normalize()
+        if 'quarter_end' in fdf.columns:
+            fdf = normalize_year_month_to_timestamp(fdf, col='quarter_end')
 
-        combined_df = (monthly_return
-                       .merge(fundamentals_df, on=['ticker', 'date'], how='outer')
-                       .sort_values(['ticker', 'date']))
+        pl_mret = to_polars(mret).with_columns(pl.col('date').cast(pl.Date))
+        pl_fdf = to_polars(fdf).with_columns(pl.col('date').cast(pl.Date))
+        ffill_cols = [c for c in fdf.columns if c not in ['ticker', 'date']]
 
-        ffill_cols = [c for c in fundamentals_df.columns if c not in ['ticker', 'date']]
-        combined_df[ffill_cols] = combined_df.groupby('ticker')[ffill_cols].ffill()
-
-        if 'quarter_end' in combined_df.columns:
-            combined_df.dropna(subset=['quarter_end'], inplace=True)
-
-        combined_df = combined_df.assign(
-            market_cap=lambda x: x['last_close'] * pd.to_numeric(x.get('commonstocksharesoutstanding_rolling')),
-            enterprise_value=lambda x: x['market_cap'] + x.get('netdebt_rolling', 0).fillna(0) - x.get('cashandshortterminvestments_rolling', 0).fillna(0),
-            pebit=lambda x: x['market_cap'] / x.get('ebit_rolling'),
-            pebitda=lambda x: x['market_cap'] / x.get('ebitda_rolling'),
-            pnetresult=lambda x: x['market_cap'] / x.get('netincome_rolling'),
-            pfcf=lambda x: x['market_cap'] / x.get('freecashflow_rolling'),
-            ps_ratio=lambda x: x['market_cap'] / x.get('totalrevenue_rolling'),
-            pb_ratio=lambda x: x['market_cap'] / x.get('totalstockholderequity_rolling'),
-            ev_ebitda_ratio=lambda x: x['enterprise_value'] / x.get('ebitda_rolling'),
+        combined = (
+            pl_mret.join(pl_fdf, on=['ticker', 'date'], how='full', coalesce=True)
+            .sort(['ticker', 'date'])
+            .with_columns([pl.col(c).forward_fill().over('ticker').alias(c) for c in ffill_cols])
         )
+        if 'quarter_end' in combined.columns:
+            combined = combined.filter(pl.col('quarter_end').is_not_null())
 
-        combined_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        combined_df['year_month'] = pd.to_datetime(combined_df['date']).dt.to_period('M')
-        final_df = combined_df.groupby(['ticker', 'year_month']).last().reset_index()
+        combined = combined.with_columns([
+            (pl.col('last_close') * pl.col('commonstocksharesoutstanding_rolling').cast(pl.Float64)).alias('market_cap'),
+        ]).with_columns([
+            (
+                pl.col('market_cap')
+                + pl.col('netdebt_rolling').fill_null(0)
+                - pl.col('cashandshortterminvestments_rolling').fill_null(0)
+            ).alias('enterprise_value'),
+        ]).with_columns([
+            (pl.col('market_cap') / pl.col('ebit_rolling')).alias('pebit'),
+            (pl.col('market_cap') / pl.col('ebitda_rolling')).alias('pebitda'),
+            (pl.col('market_cap') / pl.col('netincome_rolling')).alias('pnetresult'),
+            (pl.col('market_cap') / pl.col('freecashflow_rolling')).alias('pfcf'),
+            (pl.col('market_cap') / pl.col('totalrevenue_rolling')).alias('ps_ratio'),
+            (pl.col('market_cap') / pl.col('totalstockholderequity_rolling')).alias('pb_ratio'),
+            (pl.col('enterprise_value') / pl.col('ebitda_rolling')).alias('ev_ebitda_ratio'),
+            pl.col('date').dt.truncate('1mo').alias('year_month'),
+        ]).with_columns([
+            pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
+            for c in ['market_cap', 'enterprise_value', 'pebit', 'pebitda', 'pnetresult', 'pfcf', 'ps_ratio', 'pb_ratio', 'ev_ebitda_ratio']
+        ])
 
-        return final_df
+        final_df = (
+            combined.sort(['ticker', 'year_month', 'date'])
+            .group_by(['ticker', 'year_month'])
+            .agg(pl.all().last())
+        )
+        out = to_pandas(final_df)
+        out = normalize_year_month_to_period(out, 'year_month')
+        return out

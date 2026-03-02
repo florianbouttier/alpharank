@@ -8,9 +8,26 @@ This ensures consistency across the entire codebase and eliminates confusion bet
 multiplicative (1.02) and decimal (0.02) return formats.
 """
 
-import pandas as pd
-import numpy as np
+from __future__ import annotations
+
 from typing import Optional
+
+import numpy as np
+import pandas as pd
+
+from alpharank.utils.frame_backend import (
+    Backend,
+    ensure_backend_name,
+    normalize_year_month_to_period,
+    require_polars,
+    to_pandas,
+    to_polars,
+)
+
+try:
+    import polars as pl
+except Exception:  # pragma: no cover - optional dependency
+    pl = None
 
 
 def calculate_simple_return(current_price: float, previous_price: float) -> float:
@@ -36,11 +53,12 @@ def calculate_simple_return(current_price: float, previous_price: float) -> floa
 
 
 def calculate_daily_returns(
-    df: pd.DataFrame,
+    df,
     price_column: str = 'close',
     date_column: str = 'date',
     ticker_column: Optional[str] = 'ticker',
-    return_column: str = 'daily_return'
+    return_column: str = 'daily_return',
+    backend: Optional[Backend] = None,
 ) -> pd.DataFrame:
     """
     Calculate daily returns for a DataFrame of prices.
@@ -58,26 +76,30 @@ def calculate_daily_returns(
     Note:
         Returns are in decimal format (0.02 for 2% gain)
     """
-    result = df.copy()
-    result[date_column] = pd.to_datetime(result[date_column])
-    result = result.sort_values(by=[ticker_column, date_column] if ticker_column else [date_column])
-    
+    backend_name = ensure_backend_name(backend, default="polars")
+    if backend_name != "polars":
+        raise ValueError("Pandas backend is disabled for returns.calculate_daily_returns.")
+
+    require_polars()
+    pldf = to_polars(df).with_columns(pl.col(date_column).cast(pl.Date, strict=False))
+    sort_cols = [ticker_column, date_column] if ticker_column else [date_column]
+    pldf = pldf.sort(sort_cols)
     if ticker_column:
-        # Group by ticker and calculate returns
-        result[return_column] = result.groupby(ticker_column)[price_column].pct_change()
+        pldf = pldf.with_columns(
+            pl.col(price_column).pct_change().over(ticker_column).alias(return_column)
+        )
     else:
-        # Single series (e.g., index)
-        result[return_column] = result[price_column].pct_change()
-    
-    return result
+        pldf = pldf.with_columns(pl.col(price_column).pct_change().alias(return_column))
+    return to_pandas(pldf)
 
 
 def calculate_monthly_returns(
-    df: pd.DataFrame,
+    df,
     price_column: str = 'close',
     date_column: str = 'date',
     ticker_column: Optional[str] = 'ticker',
-    return_column: str = 'monthly_return'
+    return_column: str = 'monthly_return',
+    backend: Optional[Backend] = None,
 ) -> pd.DataFrame:
     """
     Calculate monthly returns from daily price data.
@@ -96,42 +118,38 @@ def calculate_monthly_returns(
         Returns are in decimal format (0.02 for 2% gain)
         Uses end-of-month prices to calculate month-over-month returns
     """
-    result = df.copy()
-    result[date_column] = pd.to_datetime(result[date_column])
-    result['year_month'] = result[date_column].dt.to_period('M')
-    
+    backend_name = ensure_backend_name(backend, default="polars")
+    if backend_name != "polars":
+        raise ValueError("Pandas backend is disabled for returns.calculate_monthly_returns.")
+
+    require_polars()
+    pldf = to_polars(df).with_columns(pl.col(date_column).cast(pl.Date, strict=False))
+    pldf = pldf.with_columns(pl.col(date_column).dt.truncate("1mo").alias("year_month"))
     if ticker_column:
-        # Group by ticker and year_month, take last price and date of each month
-        monthly_data = (
-            result.groupby([ticker_column, 'year_month'])
-            .agg({
-                price_column: 'last',
-                date_column: 'last'
-            })
-            .reset_index()
+        monthly = (
+            pldf.sort([ticker_column, date_column])
+            .group_by([ticker_column, "year_month"])
+            .agg(
+                pl.col(price_column).last().alias("last_close"),
+                pl.col(date_column).last().alias(date_column),
+            )
+            .sort([ticker_column, "year_month"])
+            .with_columns(pl.col("last_close").pct_change().over(ticker_column).alias(return_column))
         )
-        # Calculate returns within each ticker
-        monthly_data[return_column] = (
-            monthly_data.groupby(ticker_column)[price_column].pct_change()
-        )
-        # Rename price column to 'last_close' for backward compatibility
-        monthly_data = monthly_data.rename(columns={price_column: 'last_close'})
     else:
-        # Single series (e.g., index)
-        monthly_data = (
-            result.groupby('year_month')
-            .agg({
-                price_column: 'last',
-                date_column: 'last'
-            })
-            .reset_index()
+        monthly = (
+            pldf.sort([date_column])
+            .group_by(["year_month"])
+            .agg(
+                pl.col(price_column).last().alias("last_close"),
+                pl.col(date_column).last().alias(date_column),
+            )
+            .sort(["year_month"])
+            .with_columns(pl.col("last_close").pct_change().alias(return_column))
         )
-        monthly_data[return_column] = monthly_data[price_column].pct_change()
-        # For index, keep the original column name
-        if price_column != 'last_close':
-            monthly_data = monthly_data.rename(columns={price_column: 'last_close'})
-    
-    return monthly_data
+    result = to_pandas(monthly)
+    result = normalize_year_month_to_period(result, "year_month")
+    return result
 
 
 def aggregate_returns(
