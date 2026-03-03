@@ -9,16 +9,12 @@ from typing import List, Tuple
 
 # Add src to python path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
-#sys.path.append(str(Path(__file__).parent.parent))
-%load_ext autoreload
-%autoreload 2
 
-from src.alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
+from alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
 from alpharank.features.indicators import DecorrelatedIndicatorGenerator
 from alpharank.data.datasets import prepare_data_for_xgboost
 from alpharank.utils.data_utils import remove_columns_by_keywords
 from alpharank.models.xgboost import XGBoostModel
-from alpharank.visualization.plotting import StockComparisonPlotter
 import plotly.io as pio
 import matplotlib.pyplot as plt
 
@@ -77,8 +73,7 @@ def preprocess_data(final_price, general, income_statement, balance_sheet, cash_
         income_statement=income_statement.copy(),
         cash_flow=cash_flow.copy(),
         earnings=earnings.copy(),
-        monthly_return=monthly_return.copy(),
-
+        monthly_return=monthly_return.copy()
     )
     
     # Drop unnecessary columns
@@ -104,10 +99,10 @@ def preprocess_data(final_price, general, income_statement, balance_sheet, cash_
 
     return final_price, fundamental, monthly_returns_vs_index, index_data
 
-def generate_indicators(final_price,SEED_PAIRS = [(10, 100)],n_to_find=20,correlation_threshold=0.98,max_tries=50):
+def generate_indicators(final_price):
     """Generates technical indicators."""
     print("Generating technical indicators...")
-    
+    SEED_PAIRS = [(10, 100)]
     generator = DecorrelatedIndicatorGenerator(
         daily_prices_df=final_price.copy(),
         price_column='close_vs_index'
@@ -116,16 +111,16 @@ def generate_indicators(final_price,SEED_PAIRS = [(10, 100)],n_to_find=20,correl
     # Generate a small set for testing/demo purposes
     generator.generate_decorrelated_ema_ratios(
         seed_pairs=SEED_PAIRS,
-        n_to_find=n_to_find, # Reduced for speed in this script
-        correlation_threshold=correlation_threshold,
-        max_tries=max_tries
+        n_to_find=20, # Reduced for speed in this script
+        correlation_threshold=0.98,
+        max_tries=50
     )
     
     generator.generate_decorrelated_rsi(
         seed_params=[],
-        n_to_find=n_to_find, # Reduced for speed
-        correlation_threshold=correlation_threshold,
-        max_tries=max_tries
+        n_to_find=20, # Reduced for speed
+        correlation_threshold=0.98,
+        max_tries=50
     )
     
     return generator.get_final_indicators()
@@ -148,7 +143,7 @@ def main():
     )
 
     # 3. Feature Engineering
-    technical_indicators_df = generate_indicators(final_price,SEED_PAIRS = [(10, 100)],n_to_find=20,correlation_threshold=0.98,max_tries=50)
+    technical_indicators_df = generate_indicators(final_price)
     
     # 4. Merge Data
     print("Merging data...")
@@ -168,142 +163,32 @@ def main():
     df_xg = df_xg[df_xg['year_month'] > '2000-01']
     
     # 6. Train Strategy
-    print("Initializing XGBoost Strategy (Classification Mode)...")
-    strategy = XGBoostModel(mode='classification', n_simu=10)
+    print("Initializing XGBoost Model (Classification Mode)...")
+    model = XGBoostModel(mode='classification', n_simu=30)
     
     # Split Data (Train until 2023, Test 2023+)
     split_date = '2023-01'
+    df_xg['future_return'] = df_xg['future_return'] > 0.05
     train_df = df_xg[df_xg['year_month'] < split_date]
     test_df = df_xg[df_xg['year_month'] >= split_date]
     
     target_col = 'future_return'
     
-    print(f"Training on data before {split_date}...")
-    a = strategy.optimize_hyperparameters(
-        train_df=train_df, 
-        validation_df=test_df, 
-        hparam_space=None, 
-        n_trials=100, 
-        n_simu=10,
-        metric_col='precision@100',
-        target_col='future_return',
-        min_volatility= 0.005,
-        exponential_factor=5,
-        n_startup_trials=50,
-        optuna_report_path = 'optuna_report.html'
+    model.optimize_hyperparameters(
+        data=train_df,
+        target_col=target_col,
+        metric='roc_auc',
+        n_trials=20,
+        cv_folds=4,
+        n_startup_trials=10,
     )
-    
-    strategy.train(train_df, target_col=target_col)
-    
-    # 7. Predict and Evaluate
-    print(f"Predicting on data from {split_date}...")
-    predictions = a['trained_model'].predict(test_df)
-    
-    # Merge predictions with actual returns for evaluation
-    results = predictions.merge(test_df[['ticker', 'year_month', 'monthly_return']], on=['ticker', 'year_month'])
-    
-    # Build Top 10 Portfolio
-    print("Building Top 10 Portfolio...")
-    top_10 = results.sort_values(['year_month', 'prediction'], ascending=[True, False]) \
-                    .groupby('year_month').head(10)
-    
-    # All returns are now in standardized decimal format (0.02 for 2% gain)
-    # from alpharank.utils.returns module
-    portfolio_perf = top_10.groupby('year_month')['monthly_return'].mean()
-    
-    # Compare with Index
-    # Index returns are also in decimal format from the standardized function
-    index_perf = index_data.monthly_returns.set_index('year_month')['monthly_return']
-    comparison = pd.DataFrame({
-        'Portfolio': portfolio_perf,
-        'Index': index_perf
-    }).dropna()
-    
-    comparison['Active_Return'] = comparison['Portfolio'] - comparison['Index']
-    
-    print("\nPerformance Summary:")
-    print(comparison.describe())
-    
-    # 8. Visualization and Comparison
-    print("Generating Comprehensive Report...")
-    
-    from alpharank.utils.metrics import compare_models
-    
-    # Prepare models dictionary
-    # Both are in standardized decimal format (0.02 for 2% gain)
-    models = {
-        'XGBoost_Strategy': portfolio_perf,
-        'SP500': index_perf
-    }
-    
-    # Try to load legacy returns
-    legacy_path = project_root / "outputs" / "legacy_returns.csv"
-    if legacy_path.exists():
-        print(f"Loading legacy returns from {legacy_path}...")
-        try:
-            legacy_returns = pd.read_csv(legacy_path)
-            # Ensure index is Period
-            if 'year_month' in legacy_returns.columns:
-                legacy_returns['year_month'] = pd.to_datetime(legacy_returns['year_month']).dt.to_period('M')
-                legacy_returns = legacy_returns.set_index('year_month')
-            
-            # Find return column
-            col = legacy_returns.columns[0] if len(legacy_returns.columns) > 0 else None
-            if col:
-                models['Legacy_Strategy'] = legacy_returns[col]
-        except Exception as e:
-            print(f"Failed to load legacy returns: {e}")
-            
-    # Run comparison
-    metrics_df, cumulative, correlation, worst_periods, figures = compare_models(models, start_year=2006)
-    
-    print("\n--- Strategy Metrics ---")
-    print(metrics_df)
-    
-    # Save Report
-    report_path = project_root / 'backtest_report.html'
-    
-    # Save figures to HTML
-    with open(report_path, 'w') as f:
-        f.write("<html><body>")
-        f.write("<h1>AlphaRank Strategy Backtest Report</h1>")
+
+    preds = model.predict(test_df)
+    print(preds.head())
+     
         
-        f.write("<h2>Performance Metrics</h2>")
-        f.write(metrics_df.to_html())
-        
-        f.write("<h2>Worst Periods</h2>")
-        f.write(worst_periods.to_html())
-        
-        f.write("<h2>Plots</h2>")
-        # Convert matplotlib figures to base64 for embedding
-        import io
-        import base64
-        
-        for name, fig in figures.items():
-            if isinstance(fig, dict): # Handle dictionary of figures (heatmaps)
-                f.write(f"<h3>{name}</h3>")
-                for sub_name, sub_fig in fig.items():
-                    buf = io.BytesIO()
-                    sub_fig.savefig(buf, format='png')
-                    buf.seek(0)
-                    img_str = base64.b64encode(buf.read()).decode('utf-8')
-                    f.write(f"<h4>{sub_name}</h4>")
-                    f.write(f'<img src="data:image/png;base64,{img_str}" />')
-                    plt.close(sub_fig)
-            else:
-                buf = io.BytesIO()
-                fig.savefig(buf, format='png')
-                buf.seek(0)
-                img_str = base64.b64encode(buf.read()).decode('utf-8')
-                f.write(f"<h3>{name}</h3>")
-                f.write(f'<img src="data:image/png;base64,{img_str}" />')
-                plt.close(fig)
-                
-        f.write("</body></html>")
-        
-    print(f"Report saved to {report_path}")
+    print(f"Report saved to {project_root}")
 
 if __name__ == "__main__":
     main()
-
-# %%
+     

@@ -4,6 +4,11 @@ import itertools
 from typing import List, Tuple, Dict, Any
 from tqdm import tqdm
 import random
+
+try:
+    import polars as pl
+except Exception:  # pragma: no cover - optional dependency
+    pl = None
 # %%
 class TechnicalIndicators:
     """
@@ -11,13 +16,23 @@ class TechnicalIndicators:
     This class serves as a collection of calculation functions.
     """
     @staticmethod
+    def _to_pandas_series(series) -> pd.Series:
+        if isinstance(series, pd.Series):
+            return series
+        if pl is not None and isinstance(series, pl.Series):
+            return series.to_pandas()
+        return pd.Series(series)
+
+    @staticmethod
     def ema(series: pd.Series, n: int) -> pd.Series:
         """Calculates the Exponential Moving Average (EMA)."""
+        series = TechnicalIndicators._to_pandas_series(series)
         return series.ewm(span=n, adjust=False).mean()
 
     @staticmethod
     def sma(series: pd.Series, n: int) -> pd.Series:
         """Calculates the Simple Moving Average (SMA)."""
+        series = TechnicalIndicators._to_pandas_series(series)
         return series.rolling(window=n, min_periods=1).mean()
 
     @staticmethod
@@ -57,7 +72,7 @@ class TechnicalIndicators:
     @staticmethod
     def increase(values, n, diff=True, annual_base=4):
         """Calculates the increase in values over a specified period."""
-        values = pd.Series(values)
+        values = TechnicalIndicators._to_pandas_series(values)
         if diff:
             return values - values.shift(n)
         v0, v1 = values.shift(n), values

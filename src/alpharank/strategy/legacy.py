@@ -518,6 +518,15 @@ class StrategyLearner:
         list_spliting_date_end_of_year = sorted(prices['year_month'].unique())
         list_spliting_date_end_of_year = [d for d in list_spliting_date_end_of_year if d.month == 1]
         list_spliting_date_end_of_year = [d for d in list_spliting_date_end_of_year if d >= first_date]
+        print(
+            f"[Optuna] full run: splits={len(list_spliting_date_end_of_year)}, "
+            f"trials_per_split={n_trials}, n_jobs={n_jobs}"
+        )
+        if n_trials >= 30 and len(list_spliting_date_end_of_year) >= 10:
+            print(
+                "[Optuna] heavy configuration detected; first trial can take several minutes. "
+                "Use --n-trials 1..5 for a quick validation run."
+            )
         
         detailled_portfolio = pd.DataFrame()
         aggregated_portfolio = pd.DataFrame()

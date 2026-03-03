@@ -1,12 +1,9 @@
 # %%
-import sys
 import os
 import pandas as pd
 from pathlib import Path
 
-# Add src to python path
 project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root / "src"))
 
 from alpharank.data.processing import FundamentalProcessor, PricesDataPreprocessor
 from alpharank.visualization.financial_comparison import FinancialReportGenerator

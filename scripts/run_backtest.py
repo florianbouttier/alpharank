@@ -1,67 +1,60 @@
-import os
-import sys
-import pandas as pd
-import numpy as np
+from __future__ import annotations
+
 from pathlib import Path
 
-# Add src to python path
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+from alpharank.backtest import BacktestConfig, BacktestArtifacts, run_boosting_backtest
 
-from alpharank.strategy.xgboost import XGBoostStrategy
-from alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
-from alpharank.utils.metrics import evaluate_classifier
 
-def main():
-    print("Running AlphaRank Backtest...")
-    
-    # Load data (Placeholder - replace with actual data loading logic)
-    # For now, we assume data is available in a specific location or we mock it for the script structure
-    # In a real scenario, we would load the parquet files here.
-    
-    # Example usage of XGBoostStrategy
-    print("Initializing Strategy...")
-    strategy = XGBoostStrategy(mode='classification', n_simu=3)
-    
-    # Mock data for demonstration
-    dates = pd.date_range(start='2020-01-01', periods=24, freq='M')
-    tickers = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'TSLA']
-    data = []
-    for date in dates:
-        for ticker in tickers:
-            data.append({
-                'year_month': date.to_period('M'),
-                'ticker': ticker,
-                'feature1': np.random.rand(),
-                'feature2': np.random.rand(),
-                'future_return': np.random.rand() - 0.5, # Random return
-                'monthly_return': np.random.rand() - 0.5
-            })
-    df = pd.DataFrame(data)
-    
-    print("Training Strategy...")
-    # Split train/test
-    train_df = df[df['year_month'] < '2021-01']
-    test_df = df[df['year_month'] >= '2021-01']
-    
-    strategy.train(train_df, target_col='future_return')
-    
-    print("Predicting...")
-    predictions = strategy.predict(test_df)
-    print(predictions.head())
-    
-    # Optimization example
-    print("Optimizing Hyperparameters...")
-    best_params = strategy.optimize_hyperparameters(
-        train_df=train_df,
-        validation_df=test_df, # In real usage, use a separate validation set
-        hparam_space={
-            'n_estimators': ('int', 50, 200),
-            'learning_rate': ('float', 0.01, 0.3),
-            'max_depth': ('int', 3, 10)
-        },
-        n_trials=2
+def default_config() -> BacktestConfig:
+    project_root = Path(__file__).parent.parent
+
+    return BacktestConfig(
+        data_dir=project_root / "data",
+        output_dir=project_root / "outputs",
+        start_month="2006-01",
+        n_folds=10,
+        top_n=20,
+        prediction_threshold=0.02,
+        min_train_months=24,
+        missing_feature_threshold=0.35,
+        n_optuna_trials=40,
+        optuna_lambda_gap=0.2,
+        optuna_startup_trials=12,
+        risk_free_rate=0.02,
+        random_seed=42,
+        verbose=True,
+        show_optuna_progress=True,
+        optuna_progress_every=1,
     )
-    print("Best Params:", best_params)
+
+
+def run_backtest(config: BacktestConfig | None = None) -> BacktestArtifacts:
+    cfg = config if config is not None else default_config()
+    return run_boosting_backtest(cfg)
+
+
+def main() -> None:
+    artifacts = run_backtest()
+
+    print("\n=== Backtest Completed ===")
+    print(f"Modeling rows: {artifacts.model_frame.height}")
+    print(f"Predictions rows: {artifacts.predictions.height}")
+    print(f"Selections rows: {artifacts.selections.height}")
+    print(f"Completed folds: {artifacts.fold_metrics.height}")
+    print(f"Features used: {len(artifacts.features_used)}")
+    if artifacts.dropped_features:
+        print(f"Dropped sparse features ({len(artifacts.dropped_features)}): {artifacts.dropped_features}")
+
+    print("\n=== Fold Metrics ===")
+    print(artifacts.fold_metrics)
+
+    print("\n=== KPIs (No NA) ===")
+    print(artifacts.kpis)
+
+    print("\n=== Output Paths ===")
+    for key, path in artifacts.output_paths.items():
+        print(f"{key}: {path}")
+
 
 if __name__ == "__main__":
     main()

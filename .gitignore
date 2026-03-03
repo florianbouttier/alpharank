@@ -1,0 +1,24 @@
+# OS / editor
+.DS_Store
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+
+# Runtime outputs
+outputs/
+*.html
+
+# Local env
+.env
+
+# Large temporary artifacts
+*.parquet.tmp

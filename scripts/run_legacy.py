@@ -1,16 +1,12 @@
 # %%
 import argparse
 import os
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import polars as pl
-
-# Add src to python path
-sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
 from alpharank.features.indicators import TechnicalIndicators
@@ -87,6 +83,7 @@ def run_pipeline(
     project_root = Path(__file__).parent.parent
     data_dir = data_dir if data_dir is not None else project_root / "data"
     output_dir = output_dir if output_dir is not None else project_root / "outputs"
+    run_day_dir = output_dir / datetime.now().strftime("%Y-%m-%d")
     os.chdir(data_dir)  # Keep legacy behaviour.
 
     payload = _load_data(data_dir)
@@ -324,7 +321,7 @@ def run_pipeline(
     )
     is_test_run = n_trials < 30
     file_suffix = "_test" if is_test_run else datetime.now().strftime("%Y-%m-%d")
-    comparison_file = output_dir / f"performance_of_models_{backend}{file_suffix}.html"
+    comparison_file = run_day_dir / f"performance_of_models_{backend}{file_suffix}.html"
     _save_html(comparison_html, comparison_file)
 
     if "close" not in final_price.columns and "adjusted_close" in final_price.columns:
@@ -343,7 +340,7 @@ def run_pipeline(
         earnings=to_pandas(earnings),
         backend="polars",
     )
-    freq_file = output_dir / f"portfolio_report_frequency_{backend}{file_suffix}.html"
+    freq_file = run_day_dir / f"portfolio_report_frequency_{backend}{file_suffix}.html"
     _save_html(report_html_freq, freq_file)
 
     current_portfolio_equal = StrategyLearner.get_portfolio_at_month(combined_equal)
@@ -357,8 +354,45 @@ def run_pipeline(
         earnings=to_pandas(earnings),
         backend="polars",
     )
-    equal_file = output_dir / f"portfolio_report_equal_{backend}{file_suffix}.html"
+    equal_file = run_day_dir / f"portfolio_report_equal_{backend}{file_suffix}.html"
     _save_html(report_html_equal, equal_file)
+
+    # Generate end-of-month portfolio snapshots for the last 3 months available in backtest outputs.
+    available_months = sorted(to_pandas(combined_frequency["aggregated"])["year_month"].dropna().unique())
+    last_three_months = available_months[-3:]
+    monthly_snapshot_files: Dict[str, Path] = {}
+    for month in last_three_months:
+        month_label = str(month).replace("/", "-")
+
+        freq_month_portfolio = StrategyLearner.get_portfolio_at_month(combined_frequency, month=month)
+        freq_month_html = PortfolioVisualizer.make_portfolio_report(
+            portfolio=freq_month_portfolio,
+            title=f"Aggregated Portfolio (Frequency Weighted) - {backend} - {month_label}",
+            price_data=to_pandas(final_price_long),
+            balance_sheet=to_pandas(balance_sheet),
+            income_statement=to_pandas(income_statement),
+            cash_flow=to_pandas(cash_flow),
+            earnings=to_pandas(earnings),
+            backend="polars",
+        )
+        freq_month_file = run_day_dir / f"portfolio_report_frequency_{backend}_{month_label}.html"
+        _save_html(freq_month_html, freq_month_file)
+        monthly_snapshot_files[f"portfolio_frequency_{month_label}"] = freq_month_file
+
+        equal_month_portfolio = StrategyLearner.get_portfolio_at_month(combined_equal, month=month)
+        equal_month_html = PortfolioVisualizer.make_portfolio_report(
+            portfolio=equal_month_portfolio,
+            title=f"Aggregated Portfolio (Equal Weighted) - {backend} - {month_label}",
+            price_data=to_pandas(final_price_long),
+            balance_sheet=to_pandas(balance_sheet),
+            income_statement=to_pandas(income_statement),
+            cash_flow=to_pandas(cash_flow),
+            earnings=to_pandas(earnings),
+            backend="polars",
+        )
+        equal_month_file = run_day_dir / f"portfolio_report_equal_{backend}_{month_label}.html"
+        _save_html(equal_month_html, equal_month_file)
+        monthly_snapshot_files[f"portfolio_equal_{month_label}"] = equal_month_file
 
     return PipelineOutput(
         monthly_return=monthly_return,
@@ -372,6 +406,7 @@ def run_pipeline(
             "comparison_html": comparison_file,
             "portfolio_frequency_html": freq_file,
             "portfolio_equal_html": equal_file,
+            **monthly_snapshot_files,
         },
     )
 
@@ -379,7 +414,7 @@ def run_pipeline(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Legacy strategy runner (polars backend).")
     parser.add_argument("--n-trials", type=int, default=30)
-    parser.add_argument("--n-jobs", type=int, default=-1)
+    parser.add_argument("--n-jobs", type=int, default=1)
     parser.add_argument("--first-date", type=str, default="2010-01")
     parser.add_argument("--data-dir", type=str, default=None, help="Path to data directory containing legacy input files.")
     parser.add_argument("--output-dir", type=str, default=None, help="Path where HTML outputs will be written.")
