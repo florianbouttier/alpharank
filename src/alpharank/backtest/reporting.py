@@ -452,6 +452,25 @@ def write_html_report(
             sections.append(f"<h4>{html.escape(str(key))}</h4>")
             sections.append(asset_tag(path))
 
+    optuna_assets_by_fold: List[tuple[str, List[tuple[str, Path]]]] = []
+    for idx, assets in enumerate(fold_assets, start=1):
+        label = str(assets.get("__label__", f"Fold {idx}"))
+        optuna_items = [
+            (str(key), path)
+            for key, path in sorted(assets.items())
+            if key != "__label__" and (str(key).startswith("optuna_") or str(key) == "optuna_trials")
+        ]
+        if optuna_items:
+            optuna_assets_by_fold.append((label, optuna_items))
+
+    if optuna_assets_by_fold:
+        sections.append("<h2>Optuna Visualizations</h2>")
+        for label, items in optuna_assets_by_fold:
+            sections.append(f"<h3>{html.escape(label)}</h3>")
+            for key, path in items:
+                sections.append(f"<h4>{html.escape(key)}</h4>")
+                sections.append(asset_tag(path))
+
     html_content = (
         "<html><head><meta charset='utf-8'/>"
         "<title>Backtest Report</title>"

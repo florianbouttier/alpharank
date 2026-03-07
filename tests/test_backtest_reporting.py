@@ -90,6 +90,8 @@ def test_write_html_report_omits_per_fold_section(tmp_path: Path) -> None:
     table = pl.DataFrame({"metric": ["a"], "value": [1.0]})
     image_path = tmp_path / "chart.png"
     image_path.write_bytes(b"fake")
+    optuna_path = tmp_path / "fold_01_optuna_slice.html"
+    optuna_path.write_text("<html></html>", encoding="utf-8")
 
     write_html_report(
         title="Test report",
@@ -99,13 +101,20 @@ def test_write_html_report_omits_per_fold_section(tmp_path: Path) -> None:
         fold_metrics=table,
         best_params=table,
         global_assets={"chart": image_path},
-        fold_assets=[{"__label__": "fold_01", "learning_curve": image_path}],
+        fold_assets=[
+            {
+                "__label__": "fold_01",
+                "learning_curve": image_path,
+                "optuna_slice": optuna_path,
+            }
+        ],
     )
 
     content = report_path.read_text(encoding="utf-8")
     assert "Global Visualizations" in content
     assert "Per-Fold Analysis" not in content
-    assert "fold_01" not in content
+    assert "Optuna Visualizations" in content
+    assert "optuna_slice" in content
 
 
 def test_generate_global_shap_report_pdf(tmp_path: Path, monkeypatch) -> None:
