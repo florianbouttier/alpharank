@@ -18,6 +18,7 @@ def test_backtest_target_uses_future_excess_return() -> None:
         {
             "ticker": ["AAA.US", "AAA.US", "BBB.US", "BBB.US"],
             "year_month": [date(2020, 1, 1), date(2020, 2, 1), date(2020, 1, 1), date(2020, 2, 1)],
+            "date": [date(2020, 1, 31), date(2020, 2, 29), date(2020, 1, 31), date(2020, 2, 29)],
             "monthly_return": [0.01, 0.10, 0.01, 0.03],
         }
     )
@@ -65,6 +66,9 @@ def test_backtest_target_uses_future_excess_return() -> None:
     assert jan_rows.get_column("future_return").to_list() == [0.10, 0.03]
     assert jan_rows.get_column("benchmark_future_return").to_list() == [0.05, 0.05]
     assert np.allclose(jan_rows.get_column("future_excess_return").to_numpy(), np.array([0.05, -0.02]))
+    assert jan_rows.get_column("decision_month").to_list() == [date(2020, 1, 1), date(2020, 1, 1)]
+    assert jan_rows.get_column("holding_month").to_list() == [date(2020, 2, 1), date(2020, 2, 1)]
+    assert jan_rows.get_column("holding_period_complete").to_list() == [True, True]
 
     target = _binary_target(jan_rows, threshold=0.0)
     assert target.tolist() == [1, 0]

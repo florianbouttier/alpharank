@@ -143,6 +143,12 @@ def _empty_predictions() -> pl.DataFrame:
         schema={
             "ticker": pl.Utf8,
             "year_month": pl.Date,
+            "decision_month": pl.Date,
+            "holding_month": pl.Date,
+            "decision_asof_date": pl.Date,
+            "holding_asof_date": pl.Date,
+            "benchmark_holding_asof_date": pl.Date,
+            "holding_period_complete": pl.Boolean,
             "monthly_return": pl.Float64,
             "future_return": pl.Float64,
             "benchmark_future_return": pl.Float64,
@@ -372,6 +378,12 @@ def _build_prediction_debug_frames(
     debug_core = [
         "ticker",
         "year_month",
+        "decision_month",
+        "holding_month",
+        "decision_asof_date",
+        "holding_asof_date",
+        "benchmark_holding_asof_date",
+        "holding_period_complete",
         "monthly_return",
         "future_return",
         "benchmark_future_return",
@@ -662,6 +674,12 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             [
                 "ticker",
                 "year_month",
+                "decision_month",
+                "holding_month",
+                "decision_asof_date",
+                "holding_asof_date",
+                "benchmark_holding_asof_date",
+                "holding_period_complete",
                 "monthly_return",
                 "future_return",
                 "benchmark_future_return",
@@ -831,6 +849,8 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
         selections.select(
             [
                 "year_month",
+                "decision_month",
+                "holding_month",
                 "future_return",
                 "benchmark_future_return",
                 "future_excess_return",
@@ -845,6 +865,8 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
         fold_monthly = pl.DataFrame(
             schema={
                 "fold": pl.Int64,
+                "decision_month": pl.Date,
+                "holding_month": pl.Date,
                 "year_month": pl.Date,
                 "portfolio_return": pl.Float64,
                 "benchmark_return": pl.Float64,
@@ -855,8 +877,9 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
         )
     else:
         fold_monthly = (
-            selections.group_by(["fold", "year_month"])
+            selections.group_by(["fold", "holding_month"])
             .agg(
+                pl.col("decision_month").min().alias("decision_month"),
                 pl.mean("future_return").alias("portfolio_return"),
                 pl.mean("benchmark_future_return").alias("benchmark_return"),
                 pl.mean("target_label").alias("hit_rate"),
@@ -866,8 +889,11 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
                 pl.col("benchmark_return").fill_null(0.0).alias("benchmark_return"),
                 pl.col("hit_rate").fill_null(0.0).alias("hit_rate"),
             )
-            .with_columns((pl.col("portfolio_return") - pl.col("benchmark_return")).alias("active_return"))
-            .sort(["fold", "year_month"])
+            .with_columns(
+                (pl.col("portfolio_return") - pl.col("benchmark_return")).alias("active_return"),
+                pl.col("holding_month").alias("year_month"),
+            )
+            .sort(["fold", "holding_month"])
         )
 
     fold_backtest_metrics = (

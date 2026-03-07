@@ -541,8 +541,8 @@ def write_backtest_audit_report(
             monthly_pdf,
             x="year_month",
             y="active_return",
-            title="Monthly Active Return",
-            hover_data=["portfolio_return", "benchmark_return", "hit_rate", "n_positions"],
+            title="Monthly Active Return (holding month)",
+            hover_data=["decision_month", "portfolio_return", "benchmark_return", "hit_rate", "n_positions"],
         )
         active_fig.update_xaxes(rangeslider_visible=True)
         active_fig.update_layout(height=500)
@@ -554,7 +554,16 @@ def write_backtest_audit_report(
             x="prediction",
             y="future_excess_return",
             color="selected_top_n",
-            hover_data=["year_month", "ticker", "fold", "prediction_rank_in_month", "future_return", "benchmark_future_return"],
+            hover_data=[
+                "decision_month",
+                "holding_month",
+                "ticker",
+                "fold",
+                "prediction_rank_in_month",
+                "future_return",
+                "benchmark_future_return",
+                "holding_period_complete",
+            ],
             title="Prediction vs Future Excess Return (all scored rows)",
         )
         scored_fig.update_layout(height=550)
@@ -565,8 +574,18 @@ def write_backtest_audit_report(
             selections_pdf,
             x="prediction",
             y="future_excess_return",
-            color="year_month",
-            hover_data=["ticker", "fold", "rank", "future_return", "benchmark_future_return", "future_relative_return"],
+            color="decision_month",
+            hover_data=[
+                "decision_month",
+                "holding_month",
+                "ticker",
+                "fold",
+                "rank",
+                "future_return",
+                "benchmark_future_return",
+                "future_relative_return",
+                "holding_period_complete",
+            ],
             title="Bought Positions: prediction vs realized excess return",
         )
         bought_fig.update_layout(height=600)
@@ -574,11 +593,20 @@ def write_backtest_audit_report(
 
         monthly_selection_fig = px.strip(
             selections_pdf,
-            x="year_month",
+            x="holding_month",
             y="future_excess_return",
             color="fold",
-            hover_data=["ticker", "prediction", "rank", "future_return", "benchmark_future_return"],
-            title="Bought Positions by Month",
+            hover_data=[
+                "decision_month",
+                "holding_month",
+                "ticker",
+                "prediction",
+                "rank",
+                "future_return",
+                "benchmark_future_return",
+                "holding_period_complete",
+            ],
+            title="Bought Positions by Holding Month",
         )
         monthly_selection_fig.update_xaxes(rangeslider_visible=True)
         monthly_selection_fig.update_layout(height=600)
@@ -614,7 +642,7 @@ def write_backtest_audit_report(
         "h1,h2,h3{margin-top:26px;} details{margin:16px 0;} iframe{margin-bottom:18px;}</style>"
         "</head><body>"
         "<h1>Backtest Audit Report</h1>"
-        "<p>This report is focused on realized backtest behavior: scored rows, bought positions, monthly active return, and fold coverage.</p>"
+        "<p>This report is focused on realized backtest behavior: decision month, holding month, scored rows, bought positions, monthly active return, and fold coverage.</p>"
         "<h2>Linked Artifacts</h2>"
         f"<ul>{linked}</ul>"
         "<h2>Fold Coverage</h2>"

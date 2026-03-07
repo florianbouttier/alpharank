@@ -168,6 +168,8 @@ def test_write_backtest_audit_report(tmp_path: Path) -> None:
     monthly_returns = pl.DataFrame(
         {
             "year_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "decision_month": [date(2019, 12, 1), date(2020, 1, 1)],
+            "holding_month": [date(2020, 1, 1), date(2020, 2, 1)],
             "portfolio_return": [0.04, -0.01],
             "benchmark_return": [0.01, -0.02],
             "active_return": [0.03, 0.01],
@@ -179,6 +181,8 @@ def test_write_backtest_audit_report(tmp_path: Path) -> None:
         {
             "ticker": ["AAA.US", "BBB.US"],
             "year_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "decision_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "holding_month": [date(2020, 2, 1), date(2020, 3, 1)],
             "prediction": [0.8, 0.3],
             "rank": [1, 2],
             "fold": [1, 1],
@@ -186,6 +190,7 @@ def test_write_backtest_audit_report(tmp_path: Path) -> None:
             "benchmark_future_return": [0.01, -0.02],
             "future_excess_return": [0.04, 0.01],
             "future_relative_return": [0.0396, 0.0102],
+            "holding_period_complete": [True, True],
         }
     )
     debug_predictions_long = selections.with_columns(
@@ -206,6 +211,10 @@ def test_write_backtest_audit_report(tmp_path: Path) -> None:
         pl.Series("val_positive_rate", [0.5, 0.5], dtype=pl.Float64),
         pl.Series("test_positive_rate", [0.6, 0.6], dtype=pl.Float64),
         pl.Series("is_scored", [True, True], dtype=pl.Boolean),
+        pl.Series("decision_asof_date", [date(2020, 1, 31), date(2020, 2, 29)]),
+        pl.Series("holding_asof_date", [date(2020, 2, 29), date(2020, 3, 31)]),
+        pl.Series("benchmark_holding_asof_date", [date(2020, 2, 29), date(2020, 3, 31)]),
+        pl.Series("holding_period_complete", [True, True], dtype=pl.Boolean),
         pl.Series("monthly_return", [0.01, 0.02], dtype=pl.Float64),
     )
     fold_index = pl.DataFrame(
