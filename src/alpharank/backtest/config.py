@@ -55,7 +55,7 @@ class BacktestConfig:
     random_seed: int = 42
     shap_sample_size: int = 1000
     shap_top_features: int = 20
-    lift_bins: int = 10
+    calibration_buckets: int = 20
     fold_min_train_rows: int = 250
     fold_min_val_rows: int = 80
     fold_min_test_rows: int = 80
@@ -63,5 +63,6 @@ class BacktestConfig:
     verbose: bool = True
     show_optuna_progress: bool = True
     optuna_progress_every: int = 1
+    save_optuna_all_plots: bool = True
     xgb_params: Dict[str, Any] = field(default_factory=default_xgb_params)
     optuna_space: Dict[str, Tuple[str, float, float]] = field(default_factory=default_optuna_space)

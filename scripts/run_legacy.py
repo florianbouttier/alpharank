@@ -3,11 +3,14 @@ import argparse
 import os
 from dataclasses import dataclass
 from datetime import datetime
+from calendar import monthrange
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import pandas as pd
 import polars as pl
 
+from alpharank.data.lineage import load_latest_manifest, write_manifest
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
@@ -41,6 +44,19 @@ def _load_data(data_dir: Path) -> Dict[str, pl.DataFrame]:
     }
 
 
+def _input_files(data_dir: Path) -> Dict[str, Path]:
+    return {
+        "final_price": data_dir / "US_Finalprice.parquet",
+        "general": data_dir / "US_General.parquet",
+        "income_statement": data_dir / "US_Income_statement.parquet",
+        "balance_sheet": data_dir / "US_Balance_sheet.parquet",
+        "cash_flow": data_dir / "US_Cash_flow.parquet",
+        "earnings": data_dir / "US_Earnings.parquet",
+        "sp500_constituents": data_dir / "SP500_Constituents.csv",
+        "sp500_price": data_dir / "SP500Price.parquet",
+    }
+
+
 def _write_checkpoint(df: Any, checkpoints_dir: Optional[Path], name: str) -> None:
     if checkpoints_dir is None:
         return
@@ -70,6 +86,61 @@ def _extract_start_year(first_date: str) -> int:
         raise ValueError(f"Invalid --first-date format: {first_date!r}. Expected YYYY-MM.") from exc
 
 
+def _max_file_mtime(paths: Dict[str, Path]) -> str:
+    latest = max(path.stat().st_mtime for path in paths.values())
+    return datetime.fromtimestamp(latest).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _max_date_str(df: pl.DataFrame, col: str) -> str:
+    if col not in df.columns or df.is_empty():
+        return "n/a"
+    value = df.select(pl.col(col).max().alias("max_value")).item()
+    return "n/a" if value is None else str(value)
+
+
+def _month_view_date(month: Any) -> str:
+    try:
+        period = pd.Period(str(month), freq="M")
+        last_day = monthrange(period.year, period.month)[1]
+        return f"{period.year:04d}-{period.month:02d}-{last_day:02d}"
+    except Exception:
+        return str(month)
+
+
+def _build_report_context(
+    *,
+    month: Any,
+    input_files: Dict[str, Path],
+    run_manifest: Dict[str, Any] | None,
+    final_price: pl.DataFrame,
+    sp500_price: pl.DataFrame,
+    us_historical_company: pl.DataFrame,
+    income_statement: pl.DataFrame,
+    balance_sheet: pl.DataFrame,
+    cash_flow: pl.DataFrame,
+    earnings: pl.DataFrame,
+) -> Dict[str, str]:
+    context = {
+        "portfolio_month": str(month),
+        "portfolio_view_date": _month_view_date(month),
+        "report_generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "data_snapshot_at": _max_file_mtime(input_files),
+        "price_data_max_date": _max_date_str(final_price, "date"),
+        "sp500_price_max_date": _max_date_str(sp500_price, "date"),
+        "sp500_constituents_max_month": _max_date_str(us_historical_company, "year_month"),
+        "income_statement_max_date": _max_date_str(income_statement, "date"),
+        "balance_sheet_max_date": _max_date_str(balance_sheet, "date"),
+        "cash_flow_max_date": _max_date_str(cash_flow, "date"),
+        "earnings_max_date": _max_date_str(earnings, "date"),
+    }
+    if run_manifest is not None:
+        context["data_snapshot_id"] = str(run_manifest.get("snapshot_id", "n/a"))
+        source_generated_at = run_manifest.get("source_snapshot_generated_at")
+        if source_generated_at:
+            context["source_snapshot_generated_at"] = str(source_generated_at)
+    return context
+
+
 def run_pipeline(
     *,
     n_trials: int,
@@ -86,7 +157,28 @@ def run_pipeline(
     run_day_dir = output_dir / datetime.now().strftime("%Y-%m-%d")
     os.chdir(data_dir)  # Keep legacy behaviour.
 
+    input_files = _input_files(data_dir)
     payload = _load_data(data_dir)
+    latest_snapshot = load_latest_manifest(data_dir)
+    run_manifest = write_manifest(
+        manifest_path=run_day_dir / "data_input_manifest.json",
+        files=input_files,
+        frames={
+            "final_price": payload["final_price"],
+            "general": payload["general"],
+            "income_statement": payload["income_statement"],
+            "balance_sheet": payload["balance_sheet"],
+            "cash_flow": payload["cash_flow"],
+            "earnings": payload["earnings"],
+            "sp500_constituents": payload["us_historical_company"],
+            "sp500_price": payload["sp500_price"],
+        },
+        snapshot_id=(latest_snapshot or {}).get("snapshot_id"),
+        extra={
+            "source_snapshot_generated_at": (latest_snapshot or {}).get("generated_at"),
+            "source_snapshot_dir": (latest_snapshot or {}).get("snapshot_dir"),
+        },
+    )
     final_price = payload["final_price"]
     general = payload["general"]
     income_statement = payload["income_statement"]
@@ -330,6 +422,18 @@ def run_pipeline(
         final_price_long = final_price
 
     current_portfolio_freq = StrategyLearner.get_portfolio_at_month(combined_frequency)
+    current_freq_context = _build_report_context(
+        month=current_portfolio_freq.attrs.get("month", "Latest"),
+        input_files=input_files,
+        run_manifest=run_manifest,
+        final_price=final_price_long,
+        sp500_price=sp500_price,
+        us_historical_company=us_historical_company,
+        income_statement=income_statement,
+        balance_sheet=balance_sheet,
+        cash_flow=cash_flow,
+        earnings=earnings,
+    )
     report_html_freq = PortfolioVisualizer.make_portfolio_report(
         portfolio=current_portfolio_freq,
         title=f"Aggregated Portfolio (Frequency Weighted) - {backend}",
@@ -339,11 +443,24 @@ def run_pipeline(
         cash_flow=to_pandas(cash_flow),
         earnings=to_pandas(earnings),
         backend="polars",
+        report_context=current_freq_context,
     )
     freq_file = run_day_dir / f"portfolio_report_frequency_{backend}{file_suffix}.html"
     _save_html(report_html_freq, freq_file)
 
     current_portfolio_equal = StrategyLearner.get_portfolio_at_month(combined_equal)
+    current_equal_context = _build_report_context(
+        month=current_portfolio_equal.attrs.get("month", "Latest"),
+        input_files=input_files,
+        run_manifest=run_manifest,
+        final_price=final_price_long,
+        sp500_price=sp500_price,
+        us_historical_company=us_historical_company,
+        income_statement=income_statement,
+        balance_sheet=balance_sheet,
+        cash_flow=cash_flow,
+        earnings=earnings,
+    )
     report_html_equal = PortfolioVisualizer.make_portfolio_report(
         portfolio=current_portfolio_equal,
         title=f"Aggregated Portfolio (Equal Weighted) - {backend}",
@@ -353,6 +470,7 @@ def run_pipeline(
         cash_flow=to_pandas(cash_flow),
         earnings=to_pandas(earnings),
         backend="polars",
+        report_context=current_equal_context,
     )
     equal_file = run_day_dir / f"portfolio_report_equal_{backend}{file_suffix}.html"
     _save_html(report_html_equal, equal_file)
@@ -363,6 +481,18 @@ def run_pipeline(
     monthly_snapshot_files: Dict[str, Path] = {}
     for month in last_three_months:
         month_label = str(month).replace("/", "-")
+        month_context = _build_report_context(
+            month=month,
+            input_files=input_files,
+            run_manifest=run_manifest,
+            final_price=final_price_long,
+            sp500_price=sp500_price,
+            us_historical_company=us_historical_company,
+            income_statement=income_statement,
+            balance_sheet=balance_sheet,
+            cash_flow=cash_flow,
+            earnings=earnings,
+        )
 
         freq_month_portfolio = StrategyLearner.get_portfolio_at_month(combined_frequency, month=month)
         freq_month_html = PortfolioVisualizer.make_portfolio_report(
@@ -374,6 +504,7 @@ def run_pipeline(
             cash_flow=to_pandas(cash_flow),
             earnings=to_pandas(earnings),
             backend="polars",
+            report_context=month_context,
         )
         freq_month_file = run_day_dir / f"portfolio_report_frequency_{backend}_{month_label}.html"
         _save_html(freq_month_html, freq_month_file)
@@ -389,6 +520,7 @@ def run_pipeline(
             cash_flow=to_pandas(cash_flow),
             earnings=to_pandas(earnings),
             backend="polars",
+            report_context=month_context,
         )
         equal_month_file = run_day_dir / f"portfolio_report_equal_{backend}_{month_label}.html"
         _save_html(equal_month_html, equal_month_file)
@@ -406,6 +538,7 @@ def run_pipeline(
             "comparison_html": comparison_file,
             "portfolio_frequency_html": freq_file,
             "portfolio_equal_html": equal_file,
+            "data_input_manifest": run_day_dir / "data_input_manifest.json",
             **monthly_snapshot_files,
         },
     )

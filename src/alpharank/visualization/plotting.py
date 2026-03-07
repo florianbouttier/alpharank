@@ -1,4 +1,5 @@
 from typing import List, Dict, Optional, Union, Sequence, Tuple
+from html import escape
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -82,6 +83,7 @@ class PortfolioVisualizer:
         cash_flow: pd.DataFrame = None,
         earnings: pd.DataFrame = None,
         backend: str = "polars",
+        report_context: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Generate a complete HTML portfolio report with detailed per-stock analysis.
@@ -102,6 +104,43 @@ class PortfolioVisualizer:
         # 1. Summary Section
         sector_chart = PortfolioVisualizer.sector_allocation_chart(portfolio)
         stock_table = PortfolioVisualizer.stock_table_html(portfolio)
+
+        context_html = ""
+        if report_context:
+            context_rows = []
+            labels = {
+                "portfolio_month": "Portfolio Month",
+                "portfolio_view_date": "Portfolio View Date",
+                "report_generated_at": "Report Generated At",
+                "data_snapshot_id": "Data Snapshot ID",
+                "data_snapshot_at": "Data Snapshot At",
+                "source_snapshot_generated_at": "Source Snapshot Generated At",
+                "price_data_max_date": "Price Data Max Date",
+                "sp500_price_max_date": "SP500 Price Max Date",
+                "sp500_constituents_max_month": "SP500 Constituents Max Month",
+                "income_statement_max_date": "Income Statement Max Date",
+                "balance_sheet_max_date": "Balance Sheet Max Date",
+                "cash_flow_max_date": "Cash Flow Max Date",
+                "earnings_max_date": "Earnings Max Date",
+            }
+            for key, label in labels.items():
+                value = report_context.get(key)
+                if value:
+                    context_rows.append(
+                        f"""
+                        <div class="meta-card">
+                            <div class="meta-label">{escape(label)}</div>
+                            <div class="meta-value">{escape(str(value))}</div>
+                        </div>
+                        """
+                    )
+            if context_rows:
+                context_html = f"""
+                <div class="card meta-panel">
+                    <h2>Snapshot Context</h2>
+                    <div class="meta-grid">{''.join(context_rows)}</div>
+                </div>
+                """
         
         # 2. Detailed Stock Analysis
         stock_details_html = ""
@@ -299,6 +338,11 @@ class PortfolioVisualizer:
             .ratio-card { background: #f8fafc; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
             .ratio-card .label { font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 4px; }
             .ratio-card .value { font-size: 1.25rem; font-weight: 700; color: #0f172a; }
+            .meta-panel { margin-bottom: 24px; }
+            .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+            .meta-card { background: #f8fafc; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; }
+            .meta-label { font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; }
+            .meta-value { font-size: 1rem; font-weight: 600; color: #0f172a; }
             
             .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
             .chart-box { border-radius: 8px; overflow: hidden; background: white; }
@@ -325,7 +369,7 @@ class PortfolioVisualizer:
         {css}
         </head><body>
             <h1>{title} <span style="font-size: 0.6em; color: #64748b; font-weight: normal;">({month})</span></h1>
-            
+            {context_html}
             <div class="summary-grid">
                 <div class="card"><h2>Sector Allocation</h2>{sector_chart}</div>
                 <div class="card"><h2>Holdings</h2>{stock_table}</div>

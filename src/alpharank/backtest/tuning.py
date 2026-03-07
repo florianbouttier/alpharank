@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import time
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import optuna
@@ -26,7 +26,11 @@ class TunedModelResult:
     y_test_proba: np.ndarray
     evals_result: Dict[str, Dict[str, List[float]]]
     trials_df: List[Dict[str, Any]]
+    train_metrics: Dict[str, float]
+    val_metrics: Dict[str, float]
+    test_metrics: Dict[str, float]
     model: xgb.XGBClassifier
+    study: optuna.Study | None
 
 
 def safe_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
@@ -43,6 +47,75 @@ def safe_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
         return float(roc_auc_score(y_true, y_score))
     except Exception:
         return 0.5
+
+
+def compute_classification_metrics(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    threshold: float = 0.5,
+) -> Dict[str, float]:
+    from sklearn.metrics import (
+        accuracy_score,
+        average_precision_score,
+        brier_score_loss,
+        f1_score,
+        log_loss,
+        precision_score,
+        recall_score,
+    )
+
+    y_true = np.asarray(y_true).astype(int)
+    y_score = np.asarray(y_score).astype(float)
+
+    if y_true.size == 0:
+        return {
+            "auc": 0.5,
+            "average_precision": 0.0,
+            "logloss": 0.0,
+            "brier": 0.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "accuracy": 0.0,
+            "pred_positive_rate": 0.0,
+            "realized_positive_rate": 0.0,
+        }
+
+    y_pred = (y_score >= threshold).astype(int)
+
+    try:
+        ap = float(average_precision_score(y_true, y_score))
+    except Exception:
+        ap = 0.0
+
+    try:
+        ll = float(log_loss(y_true, y_score, labels=[0, 1]))
+    except Exception:
+        ll = 0.0
+
+    try:
+        brier = float(brier_score_loss(y_true, y_score))
+    except Exception:
+        brier = 0.0
+
+    metrics = {
+        "auc": safe_auc(y_true, y_score),
+        "average_precision": ap,
+        "logloss": ll,
+        "brier": brier,
+        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "pred_positive_rate": float(np.mean(y_pred)),
+        "realized_positive_rate": float(np.mean(y_true)),
+    }
+
+    sanitized: Dict[str, float] = {}
+    for key, value in metrics.items():
+        val = float(value)
+        sanitized[key] = val if np.isfinite(val) else 0.0
+    return sanitized
 
 
 def _sample_params(
@@ -118,7 +191,11 @@ def tune_and_fit_fold(
             y_test_proba=fallback_test,
             evals_result={},
             trials_df=[],
+            train_metrics=compute_classification_metrics(y_train, fallback),
+            val_metrics=compute_classification_metrics(y_val, fallback_val),
+            test_metrics=compute_classification_metrics(y_test, fallback_test),
             model=fake_model,
+            study=None,
         )
 
     def objective(trial: optuna.Trial) -> float:
@@ -161,6 +238,7 @@ def tune_and_fit_fold(
     def _progress_callback(study: optuna.Study, trial: optuna.trial.FrozenTrial) -> None:
         if not show_progress:
             return
+
         done = trial.number + 1
         if done % safe_every != 0 and done != n_trials:
             return
@@ -194,8 +272,7 @@ def tune_and_fit_fold(
     )
     study.optimize(objective, n_trials=n_trials, callbacks=[_progress_callback])
 
-    best_trial = study.best_trial
-    best_params = {**base_params, **best_trial.params}
+    best_params = {**base_params, **study.best_trial.params}
 
     final_model = xgb.XGBClassifier(**best_params)
     final_model.fit(
@@ -209,9 +286,13 @@ def tune_and_fit_fold(
     p_val = final_model.predict_proba(X_val)[:, 1]
     p_test = final_model.predict_proba(X_test)[:, 1]
 
-    train_auc = safe_auc(y_train, p_train)
-    val_auc = safe_auc(y_val, p_val)
-    test_auc = safe_auc(y_test, p_test)
+    train_metrics = compute_classification_metrics(y_train, p_train)
+    val_metrics = compute_classification_metrics(y_val, p_val)
+    test_metrics = compute_classification_metrics(y_test, p_test)
+
+    train_auc = train_metrics["auc"]
+    val_auc = val_metrics["auc"]
+    test_auc = test_metrics["auc"]
     objective_score = float(val_auc - lambda_gap * abs(train_auc - val_auc))
 
     if show_progress:
@@ -250,5 +331,9 @@ def tune_and_fit_fold(
         y_test_proba=p_test,
         evals_result=final_model.evals_result(),
         trials_df=trials_df,
+        train_metrics=train_metrics,
+        val_metrics=val_metrics,
+        test_metrics=test_metrics,
         model=final_model,
+        study=study,
     )
