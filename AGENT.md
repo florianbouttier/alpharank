@@ -29,6 +29,12 @@ This archive is kept for reference only and should not be used for new developme
 
 Other scripts may exist for utility/debug tasks but are not core project entry points.
 
+Boosting workflow is modularized in the library with explicit phases:
+
+- `run_learning_phase(config)` for fold training/validation/test modeling outputs
+- `run_backtest_phase(config, learning_artifacts)` for portfolio construction/backtest
+- `run_boosting_backtest(config)` orchestration helper that runs both phases and writes final report/artifacts
+
 ## Packaging / Imports
 
 The project uses a `src/` layout and is intended to be installed in editable mode:
@@ -39,6 +45,20 @@ pip install -e .
 
 After installation, imports should always use `alpharank.*`.
 Do not add `sys.path.append(...)` hacks.
+
+## Conda Setup
+
+Dedicated environment setup is standardized with:
+
+- `environment.yml`
+- `scripts/setup_conda_env.sh`
+
+Use:
+
+```bash
+bash scripts/setup_conda_env.sh alpharank
+conda activate alpharank
+```
 
 ## Development Notes
 

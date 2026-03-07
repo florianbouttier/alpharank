@@ -24,6 +24,8 @@ dependencies = [
   "tqdm>=4.65",
   "requests>=2.31",
   "beautifulsoup4>=4.12",
+  "lxml>=5.0",
+  "html5lib>=1.1",
   "python-dotenv>=1.0",
 ]
 
