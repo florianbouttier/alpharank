@@ -251,6 +251,38 @@ def _plot_per_fold_beeswarms(
         _save_current_figure(pdf)
 
 
+def _plot_per_fold_exhaustive_dependence_pages(
+    pdf: PdfPages,
+    explanations: List[ShapFoldExplanation],
+) -> None:
+    import shap
+
+    for explanation in explanations:
+        _plot_text_page(
+            pdf,
+            title=f"{explanation.fold_label} SHAP 1D Dependence",
+            lines=[
+                f"fold={explanation.fold_label}",
+                f"samples={explanation.X_sample.shape[0]}",
+                f"features={len(explanation.feature_names)}",
+                "",
+                "The following pages contain all 1D SHAP dependence plots for this fold.",
+            ],
+        )
+        for feature_name in explanation.feature_names:
+            plt.figure(figsize=(10, 6))
+            shap.dependence_plot(
+                feature_name,
+                explanation.shap_values,
+                explanation.X_sample,
+                feature_names=explanation.feature_names,
+                show=False,
+                interaction_index=None,
+            )
+            plt.title(f"{explanation.fold_label} SHAP Dependence: {feature_name}")
+            _save_current_figure(pdf)
+
+
 def _plot_interaction_heatmap(
     pdf: PdfPages,
     interaction_values: np.ndarray,
@@ -381,6 +413,7 @@ def generate_global_shap_report_pdf(
         _plot_global_importance_bar(pdf, shap_values=all_shap, X=all_X, feature_names=feature_names, max_features=max_features)
         _plot_dependence_pages(pdf, shap_values=all_shap, X=all_X, feature_names=feature_names, max_features=max_features)
         _plot_per_fold_beeswarms(pdf, explanations=explanations, max_features=max_features)
+        _plot_per_fold_exhaustive_dependence_pages(pdf, explanations=explanations)
 
         if interaction_ready:
             interaction_sample = np.concatenate(
