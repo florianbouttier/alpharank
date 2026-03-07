@@ -86,25 +86,6 @@ def _interaction_ranking(interaction_values: np.ndarray) -> List[Dict[str, float
     return rows
 
 
-def _significant_interactions(
-    interaction_values: np.ndarray,
-    max_interactions: int,
-) -> List[Dict[str, float]]:
-    ranked = _interaction_ranking(interaction_values)
-    if not ranked:
-        return []
-
-    max_strength = float(ranked[0]["strength"])
-    if max_strength <= 0.0:
-        return []
-
-    threshold = max(max_strength * 0.15, np.percentile([row["strength"] for row in ranked], 90))
-    significant = [row for row in ranked if row["strength"] >= threshold]
-    if not significant:
-        significant = ranked[:1]
-    return significant[: max(1, int(max_interactions))]
-
-
 def collect_shap_explanation(
     model,
     X_test: np.ndarray,
@@ -327,55 +308,39 @@ def _plot_interaction_heatmap(
     pdf: PdfPages,
     interaction_values: np.ndarray,
     feature_names: List[str],
-    max_features: int,
     title: str,
-) -> List[Dict[str, float]]:
-    top_pairs = _significant_interactions(interaction_values, max_interactions=min(8, max_features))
-    if not top_pairs:
-        return []
-
-    selected = sorted(
-        {
-            int(row["i"])
-            for row in top_pairs
-        }
-        | {
-            int(row["j"])
-            for row in top_pairs
-        }
-    )
-    selected = selected[: min(len(selected), 10)]
-
+) -> None:
     mean_abs = np.mean(np.abs(interaction_values), axis=0)
     mean_abs = 0.5 * (mean_abs + mean_abs.T)
-    matrix = mean_abs[np.ix_(selected, selected)]
-    labels = [feature_names[idx] for idx in selected]
+    np.fill_diagonal(mean_abs, 0.0)
+    labels = list(feature_names)
 
-    fig, ax = plt.subplots(figsize=(10, 8))
-    im = ax.imshow(matrix, cmap="viridis")
+    fig_width = max(10, min(22, len(labels) * 0.45))
+    fig_height = max(8, min(22, len(labels) * 0.45))
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    im = ax.imshow(mean_abs, cmap="viridis")
     ax.set_xticks(np.arange(len(labels)))
     ax.set_xticklabels(labels, rotation=45, ha="right")
     ax.set_yticks(np.arange(len(labels)))
     ax.set_yticklabels(labels)
     ax.set_title(title)
-    for row_idx in range(matrix.shape[0]):
-        for col_idx in range(matrix.shape[1]):
-            ax.text(col_idx, row_idx, f"{matrix[row_idx, col_idx]:.3f}", ha="center", va="center", color="white")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
 
-    return top_pairs
-
-
 def _plot_interaction_ranking(
     pdf: PdfPages,
-    top_pairs: List[Dict[str, float]],
+    ranked_pairs: List[Dict[str, float]],
     feature_names: List[str],
     title: str,
+    max_pairs: int = 25,
 ) -> None:
-    labels = [f"{feature_names[int(row['i'])]} x {feature_names[int(row['j'])]}" for row in top_pairs]
-    values = [float(row["strength"]) for row in top_pairs]
+    if not ranked_pairs:
+        return
+
+    selected_pairs = ranked_pairs[: max(1, min(int(max_pairs), len(ranked_pairs)))]
+    labels = [f"{feature_names[int(row['i'])]} x {feature_names[int(row['j'])]}" for row in selected_pairs]
+    values = [float(row["strength"]) for row in selected_pairs]
 
     fig, ax = plt.subplots(figsize=(11, 6))
     ax.barh(labels[::-1], values[::-1], color="#2a9d8f")
@@ -391,26 +356,25 @@ def _plot_interaction_dependence_pages(
     interaction_values: np.ndarray,
     interaction_sample: np.ndarray,
     feature_names: List[str],
-    top_pairs: List[Dict[str, float]],
     fold_label: str,
 ) -> None:
-    for row in top_pairs:
-        i = int(row["i"])
-        j = int(row["j"])
-        x = interaction_sample[:, i]
-        color = interaction_sample[:, j]
-        y = interaction_values[:, i, j]
+    feature_count = len(feature_names)
+    for i in range(feature_count):
+        for j in range(i + 1, feature_count):
+            x = interaction_sample[:, i]
+            color = interaction_sample[:, j]
+            y = interaction_values[:, i, j]
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        scatter = ax.scatter(x, y, c=color, cmap="coolwarm", alpha=0.75, s=24)
-        ax.set_xlabel(feature_names[i])
-        ax.set_ylabel(f"Interaction SHAP: {feature_names[i]} x {feature_names[j]}")
-        ax.set_title(f"{fold_label} interaction: {feature_names[i]} x {feature_names[j]}")
-        ax.grid(alpha=0.2)
-        cbar = fig.colorbar(scatter, ax=ax)
-        cbar.set_label(feature_names[j])
-        pdf.savefig(fig, bbox_inches="tight")
-        plt.close(fig)
+            fig, ax = plt.subplots(figsize=(10, 6))
+            scatter = ax.scatter(x, y, c=color, cmap="coolwarm", alpha=0.75, s=24)
+            ax.set_xlabel(feature_names[i])
+            ax.set_ylabel(f"Interaction SHAP: {feature_names[i]} x {feature_names[j]}")
+            ax.set_title(f"{fold_label} interaction: {feature_names[i]} x {feature_names[j]}")
+            ax.grid(alpha=0.2)
+            cbar = fig.colorbar(scatter, ax=ax)
+            cbar.set_label(feature_names[j])
+            pdf.savefig(fig, bbox_inches="tight")
+            plt.close(fig)
 
 
 def _plot_fold_section(
@@ -431,7 +395,9 @@ def _plot_fold_section(
             "1. beeswarm",
             "2. importance bar",
             "3. exhaustive 1D dependence plots",
-            "4. interaction analysis (if available)",
+            "4. interaction heatmap",
+            "5. top interaction ranking",
+            "6. exhaustive 2D interaction dependence plots",
         ],
     )
     _plot_fold_beeswarm(pdf, explanation=explanation, max_features=max_features)
@@ -446,33 +412,32 @@ def _plot_fold_section(
         )
         return
 
-    top_pairs = _plot_interaction_heatmap(
+    ranked_pairs = _interaction_ranking(explanation.interaction_values)
+    _plot_interaction_heatmap(
         pdf,
         interaction_values=explanation.interaction_values,
         feature_names=explanation.feature_names,
-        max_features=max_features,
         title=f"{explanation.fold_label} Mean |SHAP interaction| heatmap",
     )
-    if not top_pairs:
+    if not ranked_pairs:
         _plot_text_page(
             pdf,
             title=f"{explanation.fold_label} SHAP Interactions",
-            lines=["No dominant second-order interactions were detected for this fold."],
+            lines=["No second-order interaction pairs were computed for this fold."],
         )
         return
 
     _plot_interaction_ranking(
         pdf,
-        top_pairs=top_pairs,
+        ranked_pairs=ranked_pairs,
         feature_names=explanation.feature_names,
-        title=f"{explanation.fold_label} Top significant SHAP interactions",
+        title=f"{explanation.fold_label} Top SHAP interactions",
     )
     _plot_interaction_dependence_pages(
         pdf,
         interaction_values=explanation.interaction_values,
         interaction_sample=explanation.interaction_sample,
         feature_names=explanation.feature_names,
-        top_pairs=top_pairs,
         fold_label=explanation.fold_label,
     )
 
