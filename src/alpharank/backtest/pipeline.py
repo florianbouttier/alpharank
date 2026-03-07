@@ -33,6 +33,7 @@ from alpharank.backtest.reporting import (
     save_bucket_frequency_curve,
     save_hyperparams_overview,
     save_learning_curve,
+    save_lift_curve,
     save_optuna_trials_curve,
     save_optuna_visualizations,
     write_backtest_audit_report,
@@ -722,6 +723,16 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         if bucket_val is not None:
             fold_plot_assets["bucket_validation"] = bucket_val
 
+        lift_val = save_lift_curve(
+            y_true=y_val,
+            y_score=tuned.y_val_proba,
+            path=fold_dir / f"{fold_label}_validation_lift_curve.png",
+            fold_label=fold_label,
+            split_label="Validation",
+        )
+        if lift_val is not None:
+            fold_plot_assets["lift_validation"] = lift_val
+
         bucket_test = save_bucket_frequency_curve(
             y_true=y_test,
             y_score=tuned.y_test_proba,
@@ -732,6 +743,16 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         )
         if bucket_test is not None:
             fold_plot_assets["bucket_test"] = bucket_test
+
+        lift_test = save_lift_curve(
+            y_true=y_test,
+            y_score=tuned.y_test_proba,
+            path=fold_dir / f"{fold_label}_test_lift_curve.png",
+            fold_label=fold_label,
+            split_label="Test",
+        )
+        if lift_test is not None:
+            fold_plot_assets["lift_test"] = lift_test
 
         trial_plot = save_optuna_trials_curve(
             trials_rows=tuned.trials_df,

@@ -14,6 +14,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 from alpharank.backtest.explainability import ShapFoldExplanation, generate_global_shap_report_pdf
 from alpharank.backtest.reporting import (
     save_learning_curve,
+    save_lift_curve,
     save_optuna_visualizations,
     write_backtest_audit_report,
     write_html_report,
@@ -94,6 +95,8 @@ def test_write_html_report_omits_per_fold_section(tmp_path: Path) -> None:
     image_path.write_bytes(b"fake")
     optuna_path = tmp_path / "fold_01_optuna_slice.html"
     optuna_path.write_text("<html></html>", encoding="utf-8")
+    lift_path = tmp_path / "fold_01_validation_lift_curve.png"
+    lift_path.write_bytes(b"fake")
 
     write_html_report(
         title="Test report",
@@ -108,6 +111,7 @@ def test_write_html_report_omits_per_fold_section(tmp_path: Path) -> None:
                 "__label__": "fold_01",
                 "learning_curve": image_path,
                 "optuna_slice": optuna_path,
+                "lift_validation": lift_path,
             }
         ],
     )
@@ -117,6 +121,23 @@ def test_write_html_report_omits_per_fold_section(tmp_path: Path) -> None:
     assert "Per-Fold Analysis" not in content
     assert "Optuna Visualizations" in content
     assert "optuna_slice" in content
+    assert "Lift Curves" in content
+    assert "lift_validation" in content
+
+
+def test_save_lift_curve(tmp_path: Path) -> None:
+    path = tmp_path / "lift_curve.png"
+    out = save_lift_curve(
+        y_true=np.array([1, 0, 1, 0, 1, 0], dtype=float),
+        y_score=np.array([0.9, 0.8, 0.7, 0.3, 0.2, 0.1], dtype=float),
+        path=path,
+        fold_label="fold_01",
+        split_label="Validation",
+    )
+
+    assert out == path
+    assert path.exists()
+    assert path.stat().st_size > 0
 
 
 def test_generate_global_shap_report_pdf(tmp_path: Path, monkeypatch) -> None:

@@ -131,6 +131,45 @@ def save_bucket_frequency_curve(
     return path
 
 
+def save_lift_curve(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    path: Path,
+    fold_label: str,
+    split_label: str,
+) -> Path | None:
+    y_true = np.asarray(y_true).astype(float)
+    y_score = np.asarray(y_score).astype(float)
+
+    if y_true.size == 0 or y_score.size == 0 or y_true.size != y_score.size:
+        return None
+
+    base_rate = float(np.mean(y_true))
+    if not np.isfinite(base_rate) or base_rate <= 0.0:
+        return None
+
+    order = np.argsort(y_score)[::-1]
+    y_sorted = y_true[order]
+    cum_positives = np.cumsum(y_sorted)
+    ranks = np.arange(1, y_sorted.size + 1, dtype=float)
+    sample_share = ranks / float(y_sorted.size)
+    cumulative_rate = cum_positives / ranks
+    lift = cumulative_rate / base_rate
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(sample_share, lift, color="#1f77b4", linewidth=2, label="Model lift")
+    plt.axhline(1.0, color="#d62728", linestyle="--", linewidth=1.5, label="Random baseline")
+    plt.title(f"{fold_label} {split_label} Lift Curve")
+    plt.xlabel("Share of ranked sample kept")
+    plt.ylabel("Lift vs baseline")
+    plt.grid(alpha=0.25)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.close()
+    return path
+
+
 def save_auc_score_overview(fold_metrics: pl.DataFrame, out_dir: Path) -> Dict[str, Path]:
     _ensure_dir(out_dir)
     paths: Dict[str, Path] = {}
@@ -466,6 +505,25 @@ def write_html_report(
     if optuna_assets_by_fold:
         sections.append("<h2>Optuna Visualizations</h2>")
         for label, items in optuna_assets_by_fold:
+            sections.append(f"<h3>{html.escape(label)}</h3>")
+            for key, path in items:
+                sections.append(f"<h4>{html.escape(key)}</h4>")
+                sections.append(asset_tag(path))
+
+    lift_assets_by_fold: List[tuple[str, List[tuple[str, Path]]]] = []
+    for idx, assets in enumerate(fold_assets, start=1):
+        label = str(assets.get("__label__", f"Fold {idx}"))
+        lift_items = [
+            (str(key), path)
+            for key, path in sorted(assets.items())
+            if key != "__label__" and str(key).startswith("lift_")
+        ]
+        if lift_items:
+            lift_assets_by_fold.append((label, lift_items))
+
+    if lift_assets_by_fold:
+        sections.append("<h2>Lift Curves</h2>")
+        for label, items in lift_assets_by_fold:
             sections.append(f"<h3>{html.escape(label)}</h3>")
             for key, path in items:
                 sections.append(f"<h4>{html.escape(key)}</h4>")
