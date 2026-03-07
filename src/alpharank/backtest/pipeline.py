@@ -101,7 +101,7 @@ def _format_eta(end_in_seconds: float) -> str:
 
 
 def _binary_target(df: pl.DataFrame, threshold: float) -> np.ndarray:
-    return (df.get_column("future_return").to_numpy() > threshold).astype(np.int8)
+    return (df.get_column("future_excess_return").to_numpy() > threshold).astype(np.int8)
 
 
 def _feature_matrix(df: pl.DataFrame, feature_cols: List[str]) -> np.ndarray:
@@ -137,6 +137,8 @@ def _empty_predictions() -> pl.DataFrame:
             "monthly_return": pl.Float64,
             "future_return": pl.Float64,
             "benchmark_future_return": pl.Float64,
+            "future_excess_return": pl.Float64,
+            "future_relative_return": pl.Float64,
             "prediction": pl.Float64,
             "target_label": pl.Int8,
             "fold": pl.Int64,
@@ -297,9 +299,9 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         fold_dir = run_dir / fold_label
         fold_prefix = f"[Fold {window_position}/{total_windows} | {fold_label}]"
 
-        train_df = filter_by_months(model_frame, window.train_months).filter(pl.col("future_return").is_not_null())
-        val_df = filter_by_months(model_frame, window.val_months).filter(pl.col("future_return").is_not_null())
-        test_df = filter_by_months(model_frame, window.test_months).filter(pl.col("future_return").is_not_null())
+        train_df = filter_by_months(model_frame, window.train_months).filter(pl.col("future_excess_return").is_not_null())
+        val_df = filter_by_months(model_frame, window.val_months).filter(pl.col("future_excess_return").is_not_null())
+        test_df = filter_by_months(model_frame, window.test_months).filter(pl.col("future_excess_return").is_not_null())
 
         train_month_count = train_df.select(pl.col("year_month").n_unique()).item() if not train_df.is_empty() else 0
 
@@ -343,9 +345,9 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         X_val = _feature_matrix(val_df, features_used)
         X_test = _feature_matrix(test_df, features_used)
 
-        y_train = _binary_target(train_df, config.prediction_threshold)
-        y_val = _binary_target(val_df, config.prediction_threshold)
-        y_test = _binary_target(test_df, config.prediction_threshold)
+        y_train = _binary_target(train_df, config.outperformance_threshold)
+        y_val = _binary_target(val_df, config.outperformance_threshold)
+        y_test = _binary_target(test_df, config.outperformance_threshold)
 
         tuned = tune_and_fit_fold(
             X_train=X_train,
@@ -370,7 +372,15 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         )
 
         fold_predictions = test_df.select(
-            ["ticker", "year_month", "monthly_return", "future_return", "benchmark_future_return"]
+            [
+                "ticker",
+                "year_month",
+                "monthly_return",
+                "future_return",
+                "benchmark_future_return",
+                "future_excess_return",
+                "future_relative_return",
+            ]
         ).with_columns(
             pl.Series("prediction", tuned.y_test_proba, dtype=pl.Float64),
             pl.Series("target_label", y_test, dtype=pl.Int8),
@@ -534,6 +544,7 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
                 "year_month",
                 "future_return",
                 "benchmark_future_return",
+                "future_excess_return",
                 "target_label",
                 "prediction",
                 "ticker",
@@ -724,13 +735,14 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
         "features_used": learning.features_used,
         "dropped_features": learning.dropped_features,
         "n_completed_folds": int(fold_metrics.height),
+        "target_definition": "future_excess_return > outperformance_threshold",
         "config": {
             "data_dir": str(config.data_dir),
             "output_dir": str(config.output_dir),
             "start_month": config.start_month,
             "n_folds": config.n_folds,
             "top_n": config.top_n,
-            "prediction_threshold": config.prediction_threshold,
+            "outperformance_threshold": config.outperformance_threshold,
             "min_train_months": config.min_train_months,
             "missing_feature_threshold": config.missing_feature_threshold,
             "n_optuna_trials": config.n_optuna_trials,

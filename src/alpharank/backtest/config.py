@@ -45,7 +45,8 @@ class BacktestConfig:
     start_month: str = "2006-01"
     n_folds: int = 10
     top_n: int = 20
-    prediction_threshold: float = 0.02
+    outperformance_threshold: float = 0.0
+    prediction_threshold: float | None = None
     min_train_months: int = 24
     missing_feature_threshold: float = 0.35
     risk_free_rate: float = 0.02
@@ -59,10 +60,14 @@ class BacktestConfig:
     fold_min_train_rows: int = 250
     fold_min_val_rows: int = 80
     fold_min_test_rows: int = 80
-    report_title: str = "XGBoost Time-Fold Backtest Report"
+    report_title: str = "XGBoost Time-Fold Overperformance Backtest Report"
     verbose: bool = True
     show_optuna_progress: bool = True
     optuna_progress_every: int = 1
     save_optuna_all_plots: bool = True
     xgb_params: Dict[str, Any] = field(default_factory=default_xgb_params)
     optuna_space: Dict[str, Tuple[str, float, float]] = field(default_factory=default_optuna_space)
+
+    def __post_init__(self) -> None:
+        if self.prediction_threshold is not None:
+            self.outperformance_threshold = float(self.prediction_threshold)

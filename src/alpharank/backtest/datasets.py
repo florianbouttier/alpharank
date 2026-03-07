@@ -110,12 +110,26 @@ def build_model_frame(
         .with_columns(pl.col("index_monthly_return").shift(-1).alias("benchmark_future_return"))
         .select(["year_month", "benchmark_future_return"])
     )
-    frame = frame.join(benchmark, on="year_month", how="left")
+    frame = frame.join(benchmark, on="year_month", how="left").with_columns(
+        (pl.col("future_return") - pl.col("benchmark_future_return")).alias("future_excess_return"),
+        pl.when((pl.col("benchmark_future_return") + 1.0).abs() > 1e-12)
+        .then((1.0 + pl.col("future_return")) / (1.0 + pl.col("benchmark_future_return")) - 1.0)
+        .otherwise(None)
+        .alias("future_relative_return"),
+    )
 
     start_date = _parse_start_month(start_month)
     frame = frame.filter(pl.col("year_month") >= pl.lit(start_date))
 
-    excluded = {"ticker", "year_month", "monthly_return", "future_return", "benchmark_future_return"}
+    excluded = {
+        "ticker",
+        "year_month",
+        "monthly_return",
+        "future_return",
+        "benchmark_future_return",
+        "future_excess_return",
+        "future_relative_return",
+    }
     candidate_features = [
         col for col in frame.columns if col not in excluded and frame.schema.get(col) in NUMERIC_DTYPES
     ]
