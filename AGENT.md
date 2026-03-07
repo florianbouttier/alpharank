@@ -29,6 +29,24 @@ This archive is kept for reference only and should not be used for new developme
 
 Other scripts may exist for utility/debug tasks but are not core project entry points.
 
+## Backtest Feature Reference
+
+For any work on `scripts/run_backtest.py` or `src/alpharank/backtest/*`, the feature/data construction source of truth is:
+
+- `docs/backtest_feature_reference.md`
+
+This file documents:
+
+- raw input mapping
+- timing semantics (`decision_month`, `holding_month`)
+- target construction
+- technical feature formulas
+- fundamental feature formulas
+- sparse-feature filtering and imputation
+- portfolio aggregation logic
+
+Do not infer these formulas from memory when the document is available; use the document as the canonical reference and update it when the code changes.
+
 Boosting workflow is modularized in the library with explicit phases:
 
 - `run_learning_phase(config)` for fold training/validation/test modeling outputs
