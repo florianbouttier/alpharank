@@ -4,6 +4,7 @@ from pathlib import Path
 
 project_root = Path(__file__).resolve().parent.parent
 
+from alpharank.data.lineage import create_snapshot
 from alpharank.data.service import APIClient, EODHDDataService, FundamentalData, PriceData
 
 def main():
@@ -66,13 +67,18 @@ def main():
     
     Selected_Exchange = 'US'
     print(f"Writing data to parquet files in {data_dir}...")
-    
-    historical_company_sp500.to_csv(data_dir / 'SP500_Constituents.csv', index=False)
+    written_files = {}
+
+    constituents_path = data_dir / 'SP500_Constituents.csv'
+    historical_company_sp500.to_csv(constituents_path, index=False)
+    written_files["sp500_constituents"] = constituents_path
     
     # Helper to save parquet safely
     def save_parquet(df, filename):
         if not df.empty:
-            df.to_parquet(data_dir / filename)
+            path = data_dir / filename
+            df.to_parquet(path)
+            written_files[filename.replace(".parquet", "").lower()] = path
         else:
             print(f"Warning: DataFrame for {filename} is empty, skipping save.")
 
@@ -84,7 +90,24 @@ def main():
     save_parquet(earnings, f'{Selected_Exchange}_Earnings.parquet')
     save_parquet(outstanding_shares, f'{Selected_Exchange}_share.parquet')
     save_parquet(SP500Price, "SP500Price.parquet")
-    
+    manifest = create_snapshot(
+        data_dir=data_dir,
+        files=written_files,
+        frames={
+            "sp500_constituents": historical_company_sp500,
+            f"{Selected_Exchange}_finalprice".lower(): prices,
+            f"{Selected_Exchange}_general".lower(): general,
+            f"{Selected_Exchange}_income_statement".lower(): income_statement,
+            f"{Selected_Exchange}_balance_sheet".lower(): balance_sheet,
+            f"{Selected_Exchange}_cash_flow".lower(): cash_flow,
+            f"{Selected_Exchange}_earnings".lower(): earnings,
+            f"{Selected_Exchange}_share".lower(): outstanding_shares,
+            "sp500price": SP500Price,
+        },
+    )
+    print(f"Snapshot created: {manifest['snapshot_dir']}")
+    print(f"Latest manifest: {data_dir / 'latest_snapshot.json'}")
+
     print("Done!")
 
 if __name__ == "__main__":

@@ -152,9 +152,19 @@ class IndexData:
         
         # Extract historical changes
         changes_table = soup.find('table', {'id': 'changes'})
-        changes = pd.read_html(str(changes_table), header=0)[0]
+        if changes_table is None:
+            raise ValueError("No table with id='changes' found on Wikipedia page.")
+
+        changes = pd.read_html(StringIO(str(changes_table)), header=0)[0]
+        if changes.shape[1] < 6:
+            raise ValueError(f"Unexpected 'changes' table format (columns={changes.shape[1]}).")
+
+        # Keep the expected 6 fields and normalize names regardless of source header labels.
+        changes = changes.iloc[:, :6].copy()
         changes.columns = ['Date', 'AddTicker', 'AddName', 'RemovedTicker', 'RemovedName', 'Reason']
-        changes = changes.drop([0, 1]).reset_index(drop=True)
+
+        # Wikipedia includes repeated header rows in tbody; remove them generically.
+        changes = changes[changes['Date'].astype(str).str.lower() != 'effective date'].reset_index(drop=True)
         changes['Date'] = pd.to_datetime(changes['Date'], format='mixed', errors='coerce')
         changes['year'] = changes['Date'].dt.year
         changes['month'] = changes['Date'].dt.month
