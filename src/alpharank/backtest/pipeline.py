@@ -35,6 +35,7 @@ from alpharank.backtest.reporting import (
     save_learning_curve,
     save_optuna_trials_curve,
     save_optuna_visualizations,
+    write_backtest_audit_report,
     write_html_report,
 )
 from alpharank.backtest.time_folds import filter_by_months, rolling_fold_windows
@@ -996,6 +997,21 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
         global_assets=backtest_phase.global_assets,
         fold_assets=learning.fold_assets,
     )
+    audit_report_path = learning.run_dir / "backtest_audit_report.html"
+    write_backtest_audit_report(
+        output_path=audit_report_path,
+        monthly_returns=monthly_returns,
+        selections=backtest_phase.selections,
+        debug_predictions_long=debug_predictions_long,
+        fold_index=fold_index,
+        linked_artifacts={
+            "selections": learning.run_dir / "selections.parquet",
+            "debug_predictions_long": learning.run_dir / "debug_predictions_long.parquet",
+            "debug_predictions_full": learning.run_dir / "debug_predictions_full.parquet",
+            "fold_index": learning.run_dir / "fold_index.parquet",
+            "monthly_returns": learning.run_dir / "monthly_returns.parquet",
+        },
+    )
 
     paths = {
         "run_dir": learning.run_dir,
@@ -1012,6 +1028,7 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
         "debug_predictions_long": learning.run_dir / "debug_predictions_long.parquet",
         "debug_predictions_full": learning.run_dir / "debug_predictions_full.parquet",
         "report_html": report_path,
+        "backtest_audit_report": audit_report_path,
         "metadata": learning.run_dir / "metadata.json",
     }
     shap_report_path = backtest_phase.global_assets.get("shap_global_report")

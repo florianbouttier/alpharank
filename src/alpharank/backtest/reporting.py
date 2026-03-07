@@ -484,3 +484,159 @@ def write_html_report(
 
     output_path.write_text(html_content, encoding="utf-8")
     return output_path
+
+
+def write_backtest_audit_report(
+    output_path: Path,
+    monthly_returns: pl.DataFrame,
+    selections: pl.DataFrame,
+    debug_predictions_long: pl.DataFrame,
+    fold_index: pl.DataFrame,
+    linked_artifacts: Dict[str, Path],
+) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def asset_link(path: Path | None) -> str:
+        if path is None:
+            return ""
+        try:
+            rel = path.relative_to(output_path.parent).as_posix()
+        except Exception:
+            rel = path.name
+        return f"<li><a href='{html.escape(rel)}' target='_blank'>{html.escape(path.name)}</a></li>"
+
+    def plotly_div(fig) -> str:
+        return fig.to_html(full_html=False, include_plotlyjs="cdn")
+
+    monthly_pdf = monthly_returns.to_pandas() if not monthly_returns.is_empty() else None
+    selections_pdf = selections.to_pandas() if not selections.is_empty() else None
+    debug_pdf = debug_predictions_long.to_pandas() if not debug_predictions_long.is_empty() else None
+    fold_pdf = fold_index.to_pandas() if not fold_index.is_empty() else None
+
+    plots: List[str] = []
+    try:
+        import plotly.express as px
+        import plotly.graph_objects as go
+    except Exception:
+        px = None
+        go = None
+
+    if px is not None and monthly_pdf is not None and not monthly_pdf.empty:
+        cumulative_df = monthly_pdf.copy()
+        cumulative_df["portfolio_growth"] = (1.0 + cumulative_df["portfolio_return"]).cumprod()
+        cumulative_df["benchmark_growth"] = (1.0 + cumulative_df["benchmark_return"]).cumprod()
+
+        cumulative_fig = go.Figure()
+        cumulative_fig.add_trace(
+            go.Scatter(x=cumulative_df["year_month"], y=cumulative_df["portfolio_growth"], mode="lines", name="Portfolio")
+        )
+        cumulative_fig.add_trace(
+            go.Scatter(x=cumulative_df["year_month"], y=cumulative_df["benchmark_growth"], mode="lines", name="SP500")
+        )
+        cumulative_fig.update_layout(title="Cumulative Performance", height=500)
+        cumulative_fig.update_xaxes(rangeslider_visible=True)
+        plots.append(plotly_div(cumulative_fig))
+
+        active_fig = px.bar(
+            monthly_pdf,
+            x="year_month",
+            y="active_return",
+            title="Monthly Active Return",
+            hover_data=["portfolio_return", "benchmark_return", "hit_rate", "n_positions"],
+        )
+        active_fig.update_xaxes(rangeslider_visible=True)
+        active_fig.update_layout(height=500)
+        plots.append(plotly_div(active_fig))
+
+    if px is not None and debug_pdf is not None and not debug_pdf.empty:
+        scored_fig = px.scatter(
+            debug_pdf,
+            x="prediction",
+            y="future_excess_return",
+            color="selected_top_n",
+            hover_data=["year_month", "ticker", "fold", "prediction_rank_in_month", "future_return", "benchmark_future_return"],
+            title="Prediction vs Future Excess Return (all scored rows)",
+        )
+        scored_fig.update_layout(height=550)
+        plots.append(plotly_div(scored_fig))
+
+    if px is not None and selections_pdf is not None and not selections_pdf.empty:
+        bought_fig = px.scatter(
+            selections_pdf,
+            x="prediction",
+            y="future_excess_return",
+            color="year_month",
+            hover_data=["ticker", "fold", "rank", "future_return", "benchmark_future_return", "future_relative_return"],
+            title="Bought Positions: prediction vs realized excess return",
+        )
+        bought_fig.update_layout(height=600)
+        plots.append(plotly_div(bought_fig))
+
+        monthly_selection_fig = px.strip(
+            selections_pdf,
+            x="year_month",
+            y="future_excess_return",
+            color="fold",
+            hover_data=["ticker", "prediction", "rank", "future_return", "benchmark_future_return"],
+            title="Bought Positions by Month",
+        )
+        monthly_selection_fig.update_xaxes(rangeslider_visible=True)
+        monthly_selection_fig.update_layout(height=600)
+        plots.append(plotly_div(monthly_selection_fig))
+
+    best_months = (
+        monthly_returns.sort("active_return", descending=True).head(15)
+        if not monthly_returns.is_empty()
+        else monthly_returns
+    )
+    worst_months = (
+        monthly_returns.sort("active_return", descending=False).head(15)
+        if not monthly_returns.is_empty()
+        else monthly_returns
+    )
+    best_positions = (
+        selections.sort("future_excess_return", descending=True).head(30)
+        if not selections.is_empty()
+        else selections
+    )
+    worst_positions = (
+        selections.sort("future_excess_return", descending=False).head(30)
+        if not selections.is_empty()
+        else selections
+    )
+
+    linked = "".join(asset_link(path) for _, path in sorted(linked_artifacts.items()))
+    html_content = (
+        "<html><head><meta charset='utf-8'/>"
+        "<title>Backtest Audit Report</title>"
+        "<style>body{font-family:Arial,sans-serif;max-width:1500px;margin:24px auto;padding:0 20px;}"
+        "table{border-collapse:collapse;margin-bottom:18px;}th{background:#f3f3f3;}"
+        "h1,h2,h3{margin-top:26px;} details{margin:16px 0;} iframe{margin-bottom:18px;}</style>"
+        "</head><body>"
+        "<h1>Backtest Audit Report</h1>"
+        "<p>This report is focused on realized backtest behavior: scored rows, bought positions, monthly active return, and fold coverage.</p>"
+        "<h2>Linked Artifacts</h2>"
+        f"<ul>{linked}</ul>"
+        "<h2>Fold Coverage</h2>"
+        f"{_polars_to_html_table(fold_index, precision=6)}"
+        "<h2>Interactive Charts</h2>"
+        + "\n".join(plots)
+        + "<h2>Best Months</h2>"
+        + _polars_to_html_table(best_months, precision=6)
+        + "<h2>Worst Months</h2>"
+        + _polars_to_html_table(worst_months, precision=6)
+        + "<h2>Best Bought Positions</h2>"
+        + _polars_to_html_table(best_positions, precision=6)
+        + "<h2>Worst Bought Positions</h2>"
+        + _polars_to_html_table(worst_positions, precision=6)
+        + "<details><summary>All bought positions</summary>"
+        + _polars_to_html_table(selections.sort(["year_month", "rank"]), precision=6)
+        + "</details>"
+        + "<details><summary>All scored rows</summary>"
+        + _polars_to_html_table(debug_predictions_long.sort(["year_month", "prediction_rank_in_month", "ticker"]), precision=6)
+        + "</details>"
+        + "</body></html>"
+    )
+
+    output_path.write_text(html_content, encoding="utf-8")
+    return output_path

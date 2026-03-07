@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import date
 from pathlib import Path
 from types import ModuleType
 
@@ -14,6 +15,7 @@ from alpharank.backtest.explainability import ShapFoldExplanation, generate_glob
 from alpharank.backtest.reporting import (
     save_learning_curve,
     save_optuna_visualizations,
+    write_backtest_audit_report,
     write_html_report,
 )
 
@@ -160,3 +162,84 @@ def test_generate_global_shap_report_pdf(tmp_path: Path, monkeypatch) -> None:
     assert out is not None
     assert out.exists()
     assert out.stat().st_size > 0
+
+
+def test_write_backtest_audit_report(tmp_path: Path) -> None:
+    monthly_returns = pl.DataFrame(
+        {
+            "year_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "portfolio_return": [0.04, -0.01],
+            "benchmark_return": [0.01, -0.02],
+            "active_return": [0.03, 0.01],
+            "hit_rate": [0.6, 0.4],
+            "n_positions": [10, 10],
+        }
+    )
+    selections = pl.DataFrame(
+        {
+            "ticker": ["AAA.US", "BBB.US"],
+            "year_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "prediction": [0.8, 0.3],
+            "rank": [1, 2],
+            "fold": [1, 1],
+            "future_return": [0.05, -0.01],
+            "benchmark_future_return": [0.01, -0.02],
+            "future_excess_return": [0.04, 0.01],
+            "future_relative_return": [0.0396, 0.0102],
+        }
+    )
+    debug_predictions_long = selections.with_columns(
+        pl.Series("target_label", [1, 1], dtype=pl.Int8),
+        pl.Series("prediction_rank_in_month", [1, 2], dtype=pl.Int64),
+        pl.Series("selected_top_n", [True, False], dtype=pl.Boolean),
+        pl.Series("objective_score", [0.7, 0.7], dtype=pl.Float64),
+        pl.Series("objective_score_val", [0.65, 0.65], dtype=pl.Float64),
+        pl.Series("status", ["completed", "completed"]),
+        pl.Series("skip_reason", [None, None]),
+        pl.Series("train_month_start", ["2019-01-01", "2019-01-01"]),
+        pl.Series("train_month_end", ["2019-12-01", "2019-12-01"]),
+        pl.Series("val_month_start", ["2020-01-01", "2020-01-01"]),
+        pl.Series("val_month_end", ["2020-01-01", "2020-01-01"]),
+        pl.Series("test_month_start", ["2020-02-01", "2020-02-01"]),
+        pl.Series("test_month_end", ["2020-02-01", "2020-02-01"]),
+        pl.Series("train_positive_rate", [0.4, 0.4], dtype=pl.Float64),
+        pl.Series("val_positive_rate", [0.5, 0.5], dtype=pl.Float64),
+        pl.Series("test_positive_rate", [0.6, 0.6], dtype=pl.Float64),
+        pl.Series("is_scored", [True, True], dtype=pl.Boolean),
+        pl.Series("monthly_return", [0.01, 0.02], dtype=pl.Float64),
+    )
+    fold_index = pl.DataFrame(
+        {
+            "fold": [1],
+            "status": ["completed"],
+            "skip_reason": [None],
+            "train_month_start": ["2019-01-01"],
+            "train_month_end": ["2019-12-01"],
+            "val_month_start": ["2020-01-01"],
+            "val_month_end": ["2020-01-01"],
+            "test_month_start": ["2020-02-01"],
+            "test_month_end": ["2020-02-01"],
+            "train_rows": [100],
+            "val_rows": [20],
+            "test_rows": [20],
+            "train_positive_rate": [0.4],
+            "val_positive_rate": [0.5],
+            "test_positive_rate": [0.6],
+        }
+    )
+
+    report_path = tmp_path / "backtest_audit_report.html"
+    out = write_backtest_audit_report(
+        output_path=report_path,
+        monthly_returns=monthly_returns,
+        selections=selections,
+        debug_predictions_long=debug_predictions_long,
+        fold_index=fold_index,
+        linked_artifacts={"debug_predictions_long": tmp_path / "debug_predictions_long.parquet"},
+    )
+
+    content = out.read_text(encoding="utf-8")
+    assert out.exists()
+    assert "Backtest Audit Report" in content
+    assert "Prediction vs Future Excess Return" in content
+    assert "debug_predictions_long.parquet" in content

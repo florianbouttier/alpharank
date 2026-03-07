@@ -44,6 +44,7 @@ def main() -> None:
     print(f"Completed folds: {artifacts.fold_metrics.height}")
     print(f"Features used: {len(artifacts.features_used)}")
     print(f"Report: {artifacts.output_paths['report_html']}")
+    print(f"Backtest audit report: {artifacts.output_paths['backtest_audit_report']}")
     if "shap_global_report" in artifacts.output_paths:
         print(f"SHAP report: {artifacts.output_paths['shap_global_report']}")
     print(f"Fold index: {artifacts.output_paths['fold_index']}")
