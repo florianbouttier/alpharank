@@ -93,6 +93,31 @@ def _add_ttm_features(
     return with_ttm
 
 
+def _add_growth_features(
+    df: pl.DataFrame,
+    base_cols: Iterable[str],
+    quarter_lags: Iterable[int],
+) -> pl.DataFrame:
+    if df.is_empty():
+        return df
+
+    exprs: List[pl.Expr] = []
+    for col_name in base_cols:
+        if col_name not in df.columns:
+            continue
+        for lag in quarter_lags:
+            lagged = pl.col(col_name).shift(lag).over("ticker")
+            valid_denominator = lagged.is_not_null() & (lagged.abs() > 1e-12)
+            exprs.append(
+                pl.when(valid_denominator)
+                .then(pl.col(col_name) / lagged - 1.0)
+                .otherwise(None)
+                .alias(f"{col_name}_growth_{int(lag)}q")
+            )
+
+    return df.sort(["ticker", "report_date"]).with_columns(exprs)
+
+
 def _asof_join_monthly(monthly_df: pl.DataFrame, statement_df: pl.DataFrame) -> pl.DataFrame:
     if statement_df.is_empty():
         return monthly_df
@@ -154,10 +179,20 @@ def build_monthly_fundamental_features(
     cash_map = {"free_cashflow": ["freeCashFlow"]}
     earnings_map = {"eps_actual": ["epsActual"]}
 
-    income_ttm = _add_ttm_features(
-        _prepare_quarterly_statement(income_statement, income_map, filing_candidates=["filing_date"]),
-        sum_cols=["total_revenue", "net_income", "ebitda", "ebit", "gross_profit"],
-        mean_cols=[],
+    income_ttm = _add_growth_features(
+        _add_ttm_features(
+            _prepare_quarterly_statement(income_statement, income_map, filing_candidates=["filing_date"]),
+            sum_cols=["total_revenue", "net_income", "ebitda", "ebit", "gross_profit"],
+            mean_cols=[],
+        ),
+        base_cols=[
+            "total_revenue_ttm",
+            "net_income_ttm",
+            "ebitda_ttm",
+            "ebit_ttm",
+            "gross_profit_ttm",
+        ],
+        quarter_lags=[1, 4, 12],
     )
 
     balance_ttm = _add_ttm_features(
@@ -166,16 +201,24 @@ def build_monthly_fundamental_features(
         mean_cols=["shares_outstanding", "equity", "net_debt", "total_assets", "cash_short_term"],
     )
 
-    cash_ttm = _add_ttm_features(
-        _prepare_quarterly_statement(cash_flow, cash_map, filing_candidates=["filing_date"]),
-        sum_cols=["free_cashflow"],
-        mean_cols=[],
+    cash_ttm = _add_growth_features(
+        _add_ttm_features(
+            _prepare_quarterly_statement(cash_flow, cash_map, filing_candidates=["filing_date"]),
+            sum_cols=["free_cashflow"],
+            mean_cols=[],
+        ),
+        base_cols=["free_cashflow_ttm"],
+        quarter_lags=[1, 4, 12],
     )
 
-    earnings_ttm = _add_ttm_features(
-        _prepare_quarterly_statement(earnings, earnings_map, filing_candidates=["reportDate", "report_date"]),
-        sum_cols=["eps_actual"],
-        mean_cols=[],
+    earnings_ttm = _add_growth_features(
+        _add_ttm_features(
+            _prepare_quarterly_statement(earnings, earnings_map, filing_candidates=["reportDate", "report_date"]),
+            sum_cols=["eps_actual"],
+            mean_cols=[],
+        ),
+        base_cols=["eps_actual_ttm"],
+        quarter_lags=[1, 4, 12],
     )
 
     monthly = monthly_prices.select(["ticker", "date", "year_month", "last_close"]) \
@@ -232,24 +275,11 @@ def build_monthly_fundamental_features(
             _safe_div(pl.col("enterprise_value"), pl.col("ebitda_ttm"), "ev_to_ebitda"),
         )
         .sort(["ticker", "year_month"])
-        .with_columns(
-            (pl.col("total_revenue_ttm") / pl.col("total_revenue_ttm").shift(4).over("ticker") - 1.0).alias(
-                "revenue_growth_yoy"
-            ),
-            (pl.col("net_income_ttm") / pl.col("net_income_ttm").shift(4).over("ticker") - 1.0).alias(
-                "net_income_growth_yoy"
-            ),
-            (pl.col("eps_actual_ttm") / pl.col("eps_actual_ttm").shift(1).over("ticker") - 1.0).alias(
-                "eps_growth_qoq"
-            ),
-        )
     )
 
     candidate_columns = [
         "ticker",
         "year_month",
-        "market_cap",
-        "enterprise_value",
         "net_margin_ttm",
         "ebitda_margin_ttm",
         "gross_margin_ttm",
@@ -261,13 +291,27 @@ def build_monthly_fundamental_features(
         "price_to_sales",
         "price_to_book",
         "ev_to_ebitda",
-        "revenue_growth_yoy",
-        "net_income_growth_yoy",
-        "eps_growth_qoq",
-        "total_revenue_ttm",
-        "net_income_ttm",
-        "ebitda_ttm",
-        "free_cashflow_ttm",
+        "total_revenue_ttm_growth_1q",
+        "total_revenue_ttm_growth_4q",
+        "total_revenue_ttm_growth_12q",
+        "net_income_ttm_growth_1q",
+        "net_income_ttm_growth_4q",
+        "net_income_ttm_growth_12q",
+        "ebitda_ttm_growth_1q",
+        "ebitda_ttm_growth_4q",
+        "ebitda_ttm_growth_12q",
+        "ebit_ttm_growth_1q",
+        "ebit_ttm_growth_4q",
+        "ebit_ttm_growth_12q",
+        "gross_profit_ttm_growth_1q",
+        "gross_profit_ttm_growth_4q",
+        "gross_profit_ttm_growth_12q",
+        "free_cashflow_ttm_growth_1q",
+        "free_cashflow_ttm_growth_4q",
+        "free_cashflow_ttm_growth_12q",
+        "eps_actual_ttm_growth_1q",
+        "eps_actual_ttm_growth_4q",
+        "eps_actual_ttm_growth_12q",
     ]
     selected_columns = [col for col in candidate_columns if col in with_ratios.columns]
 

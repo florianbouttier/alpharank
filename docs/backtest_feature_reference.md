@@ -236,6 +236,12 @@ Market-value layer:
 - `market_cap_t = last_close_t * shares_outstanding_avg4q_t`
 - `enterprise_value_t = market_cap_t + net_debt_avg4q_t - cash_short_term_avg4q_t`
 
+Important:
+
+- `market_cap` and `enterprise_value` are intermediate construction variables
+- they are used to build valuation ratios
+- they are **not** exposed as model features
+
 Margins and returns:
 
 - `net_margin_ttm = net_income_ttm / total_revenue_ttm`
@@ -264,6 +270,64 @@ Division rule:
 - all ratios use a guarded division
 - denominator must be non-null and `abs(denominator) > 1e-12`
 - otherwise the result is `null`
+
+## Fundamental Growth Features Used By The Model
+
+Raw dollar TTM levels are **not** selected as model features.
+
+The model keeps only:
+
+- valuation / quality / margin ratios
+- growth features derived from TTM series
+
+For each TTM series `x_ttm`, the following quarterly growths are constructed on the quarterly reporting timeline before monthly `asof` joining:
+
+- `x_ttm_growth_1q = x_ttm_t / x_ttm_{t-1q} - 1`
+- `x_ttm_growth_4q = x_ttm_t / x_ttm_{t-4q} - 1`
+- `x_ttm_growth_12q = x_ttm_t / x_ttm_{t-12q} - 1`
+
+Applied to:
+
+- `total_revenue_ttm`
+- `net_income_ttm`
+- `ebitda_ttm`
+- `ebit_ttm`
+- `gross_profit_ttm`
+- `free_cashflow_ttm`
+- `eps_actual_ttm`
+
+This means the selected fundamental growth features are:
+
+- `total_revenue_ttm_growth_1q`
+- `total_revenue_ttm_growth_4q`
+- `total_revenue_ttm_growth_12q`
+- `net_income_ttm_growth_1q`
+- `net_income_ttm_growth_4q`
+- `net_income_ttm_growth_12q`
+- `ebitda_ttm_growth_1q`
+- `ebitda_ttm_growth_4q`
+- `ebitda_ttm_growth_12q`
+- `ebit_ttm_growth_1q`
+- `ebit_ttm_growth_4q`
+- `ebit_ttm_growth_12q`
+- `gross_profit_ttm_growth_1q`
+- `gross_profit_ttm_growth_4q`
+- `gross_profit_ttm_growth_12q`
+- `free_cashflow_ttm_growth_1q`
+- `free_cashflow_ttm_growth_4q`
+- `free_cashflow_ttm_growth_12q`
+- `eps_actual_ttm_growth_1q`
+- `eps_actual_ttm_growth_4q`
+- `eps_actual_ttm_growth_12q`
+
+The following raw dollar features are intentionally excluded from the model:
+
+- `market_cap`
+- `enterprise_value`
+- `total_revenue_ttm`
+- `net_income_ttm`
+- `ebitda_ttm`
+- `free_cashflow_ttm`
 
 ## Feature Filtering and Imputation
 
