@@ -48,6 +48,7 @@ class LearningArtifacts:
     model_frame: pl.DataFrame
     predictions: pl.DataFrame
     fold_metrics: pl.DataFrame
+    fold_index: pl.DataFrame
     best_params: pl.DataFrame
     features_used: List[str]
     dropped_features: List[str]
@@ -75,6 +76,7 @@ class BacktestArtifacts:
     kpis: pl.DataFrame
     split_kpis: pl.DataFrame
     fold_metrics: pl.DataFrame
+    fold_index: pl.DataFrame
     best_params: pl.DataFrame
     features_used: List[str]
     dropped_features: List[str]
@@ -106,6 +108,12 @@ def _binary_target(df: pl.DataFrame, threshold: float) -> np.ndarray:
 
 def _feature_matrix(df: pl.DataFrame, feature_cols: List[str]) -> np.ndarray:
     return df.select(feature_cols).to_numpy()
+
+
+def _positive_rate(y: np.ndarray) -> float:
+    if y.size == 0:
+        return 0.0
+    return float(np.mean(y.astype(float)))
 
 
 def _flatten_metrics(prefix: str, metrics: Dict[str, float]) -> Dict[str, float]:
@@ -197,6 +205,28 @@ def _empty_fold_metrics() -> pl.DataFrame:
     )
 
 
+def _empty_fold_index() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "fold": pl.Int64,
+            "status": pl.Utf8,
+            "skip_reason": pl.Utf8,
+            "train_month_start": pl.Utf8,
+            "train_month_end": pl.Utf8,
+            "val_month_start": pl.Utf8,
+            "val_month_end": pl.Utf8,
+            "test_month_start": pl.Utf8,
+            "test_month_end": pl.Utf8,
+            "train_rows": pl.Int64,
+            "val_rows": pl.Int64,
+            "test_rows": pl.Int64,
+            "train_positive_rate": pl.Float64,
+            "val_positive_rate": pl.Float64,
+            "test_positive_rate": pl.Float64,
+        }
+    )
+
+
 def _build_split_kpis(fold_metrics: pl.DataFrame) -> pl.DataFrame:
     base_metrics = [
         "auc",
@@ -261,6 +291,180 @@ def _prepare_modeling_frame(config: BacktestConfig) -> tuple[pl.DataFrame, List[
     return model_frame, features_used, dropped_features
 
 
+def _build_fold_index_row(
+    *,
+    fold: int,
+    status: str,
+    skip_reason: str | None,
+    train_months: List[Any],
+    val_months: List[Any],
+    test_months: List[Any],
+    train_rows: int,
+    val_rows: int,
+    test_rows: int,
+    train_positive_rate: float | None = None,
+    val_positive_rate: float | None = None,
+    test_positive_rate: float | None = None,
+) -> Dict[str, Any]:
+    return {
+        "fold": int(fold),
+        "status": status,
+        "skip_reason": skip_reason,
+        "train_month_start": str(train_months[0]) if train_months else None,
+        "train_month_end": str(train_months[-1]) if train_months else None,
+        "val_month_start": str(val_months[0]) if val_months else None,
+        "val_month_end": str(val_months[-1]) if val_months else None,
+        "test_month_start": str(test_months[0]) if test_months else None,
+        "test_month_end": str(test_months[-1]) if test_months else None,
+        "train_rows": int(train_rows),
+        "val_rows": int(val_rows),
+        "test_rows": int(test_rows),
+        "train_positive_rate": train_positive_rate,
+        "val_positive_rate": val_positive_rate,
+        "test_positive_rate": test_positive_rate,
+    }
+
+
+def _build_prediction_debug_frames(
+    *,
+    model_frame: pl.DataFrame,
+    predictions: pl.DataFrame,
+    fold_index: pl.DataFrame,
+    top_n: int,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    fold_meta_cols = [
+        "fold",
+        "status",
+        "skip_reason",
+        "train_month_start",
+        "train_month_end",
+        "val_month_start",
+        "val_month_end",
+        "test_month_start",
+        "test_month_end",
+        "train_positive_rate",
+        "val_positive_rate",
+        "test_positive_rate",
+    ]
+
+    if predictions.is_empty():
+        scored_long = predictions.with_columns(
+            pl.lit(None, dtype=pl.Int64).alias("prediction_rank_in_month"),
+            pl.lit(False).alias("selected_top_n"),
+            pl.lit(False).alias("is_scored"),
+        )
+    else:
+        scored_long = (
+            predictions.sort(["year_month", "prediction"], descending=[False, True])
+            .with_columns(
+                pl.col("prediction").rank(method="ordinal", descending=True).over("year_month").cast(pl.Int64).alias(
+                    "prediction_rank_in_month"
+                )
+            )
+            .with_columns(
+                (pl.col("prediction_rank_in_month") <= pl.lit(top_n)).alias("selected_top_n"),
+                pl.lit(True).alias("is_scored"),
+            )
+            .join(fold_index.select(fold_meta_cols), on="fold", how="left")
+        )
+
+    debug_core = [
+        "ticker",
+        "year_month",
+        "monthly_return",
+        "future_return",
+        "benchmark_future_return",
+        "future_excess_return",
+        "future_relative_return",
+    ]
+    debug_pred = [
+        "fold",
+        "prediction",
+        "target_label",
+        "prediction_rank_in_month",
+        "selected_top_n",
+        "objective_score",
+        "objective_score_val",
+        "status",
+        "skip_reason",
+        "train_month_start",
+        "train_month_end",
+        "val_month_start",
+        "val_month_end",
+        "test_month_start",
+        "test_month_end",
+        "train_positive_rate",
+        "val_positive_rate",
+        "test_positive_rate",
+        "is_scored",
+    ]
+
+    debug_long = (
+        scored_long.select(debug_core + debug_pred)
+        if not scored_long.is_empty()
+        else pl.DataFrame(schema={**{col: model_frame.schema.get(col, pl.Float64) for col in debug_core}, **{
+            "fold": pl.Int64,
+            "prediction": pl.Float64,
+            "target_label": pl.Int8,
+            "prediction_rank_in_month": pl.Int64,
+            "selected_top_n": pl.Boolean,
+            "objective_score": pl.Float64,
+            "objective_score_val": pl.Float64,
+            "status": pl.Utf8,
+            "skip_reason": pl.Utf8,
+            "train_month_start": pl.Utf8,
+            "train_month_end": pl.Utf8,
+            "val_month_start": pl.Utf8,
+            "val_month_end": pl.Utf8,
+            "test_month_start": pl.Utf8,
+            "test_month_end": pl.Utf8,
+            "train_positive_rate": pl.Float64,
+            "val_positive_rate": pl.Float64,
+            "test_positive_rate": pl.Float64,
+            "is_scored": pl.Boolean,
+        }})
+    )
+
+    debug_full = (
+        model_frame.join(
+            scored_long.select(
+                [
+                    "ticker",
+                    "year_month",
+                    "fold",
+                    "prediction",
+                    "target_label",
+                    "prediction_rank_in_month",
+                    "selected_top_n",
+                    "objective_score",
+                    "objective_score_val",
+                    "status",
+                    "skip_reason",
+                    "train_month_start",
+                    "train_month_end",
+                    "val_month_start",
+                    "val_month_end",
+                    "test_month_start",
+                    "test_month_end",
+                    "train_positive_rate",
+                    "val_positive_rate",
+                    "test_positive_rate",
+                    "is_scored",
+                ]
+            ),
+            on=["ticker", "year_month"],
+            how="left",
+        )
+        .with_columns(
+            pl.col("prediction").is_not_null().fill_null(False).alias("is_scored"),
+            pl.col("future_excess_return").is_not_null().fill_null(False).alias("has_target"),
+        )
+        .sort(["year_month", "ticker"])
+    )
+
+    return debug_long.sort(["year_month", "prediction_rank_in_month", "ticker"]), debug_full
+
+
 def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     run_dir = _create_run_dir(config.output_dir)
     figures_dir = run_dir / "figures"
@@ -289,6 +493,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
 
     all_predictions: List[pl.DataFrame] = []
     fold_rows: List[Dict[str, Any]] = []
+    fold_index_rows: List[Dict[str, Any]] = []
     best_param_rows: List[Dict[str, Any]] = []
     fold_assets: List[Dict[str, Any]] = []
     shap_explanations: List[ShapFoldExplanation] = []
@@ -317,24 +522,76 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             )
 
         if train_month_count < config.min_train_months:
+            fold_index_rows.append(
+                _build_fold_index_row(
+                    fold=window.fold_index,
+                    status="skipped",
+                    skip_reason="min_train_months",
+                    train_months=window.train_months,
+                    val_months=window.val_months,
+                    test_months=window.test_months,
+                    train_rows=train_df.height,
+                    val_rows=val_df.height,
+                    test_rows=test_df.height,
+                )
+            )
             if config.verbose:
                 print(
                     f"{fold_prefix} skipped: train_months={train_month_count} < min_train_months={config.min_train_months}"
                 )
             continue
         if train_df.height < config.fold_min_train_rows:
+            fold_index_rows.append(
+                _build_fold_index_row(
+                    fold=window.fold_index,
+                    status="skipped",
+                    skip_reason="fold_min_train_rows",
+                    train_months=window.train_months,
+                    val_months=window.val_months,
+                    test_months=window.test_months,
+                    train_rows=train_df.height,
+                    val_rows=val_df.height,
+                    test_rows=test_df.height,
+                )
+            )
             if config.verbose:
                 print(
                     f"{fold_prefix} skipped: train_rows={train_df.height} < fold_min_train_rows={config.fold_min_train_rows}"
                 )
             continue
         if val_df.height < config.fold_min_val_rows:
+            fold_index_rows.append(
+                _build_fold_index_row(
+                    fold=window.fold_index,
+                    status="skipped",
+                    skip_reason="fold_min_val_rows",
+                    train_months=window.train_months,
+                    val_months=window.val_months,
+                    test_months=window.test_months,
+                    train_rows=train_df.height,
+                    val_rows=val_df.height,
+                    test_rows=test_df.height,
+                )
+            )
             if config.verbose:
                 print(
                     f"{fold_prefix} skipped: val_rows={val_df.height} < fold_min_val_rows={config.fold_min_val_rows}"
                 )
             continue
         if test_df.height < config.fold_min_test_rows:
+            fold_index_rows.append(
+                _build_fold_index_row(
+                    fold=window.fold_index,
+                    status="skipped",
+                    skip_reason="fold_min_test_rows",
+                    train_months=window.train_months,
+                    val_months=window.val_months,
+                    test_months=window.test_months,
+                    train_rows=train_df.height,
+                    val_rows=val_df.height,
+                    test_rows=test_df.height,
+                )
+            )
             if config.verbose:
                 print(
                     f"{fold_prefix} skipped: test_rows={test_df.height} < fold_min_test_rows={config.fold_min_test_rows}"
@@ -348,6 +605,35 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         y_train = _binary_target(train_df, config.outperformance_threshold)
         y_val = _binary_target(val_df, config.outperformance_threshold)
         y_test = _binary_target(test_df, config.outperformance_threshold)
+        train_positive_rate = _positive_rate(y_train)
+        val_positive_rate = _positive_rate(y_val)
+        test_positive_rate = _positive_rate(y_test)
+
+        if config.verbose:
+            print(
+                f"{fold_prefix} target positive rate "
+                f"train={train_positive_rate:.1%} "
+                f"val={val_positive_rate:.1%} "
+                f"test={test_positive_rate:.1%} "
+                f"(outperformance_threshold={config.outperformance_threshold:.4f})"
+            )
+
+        fold_index_rows.append(
+            _build_fold_index_row(
+                fold=window.fold_index,
+                status="completed",
+                skip_reason=None,
+                train_months=window.train_months,
+                val_months=window.val_months,
+                test_months=window.test_months,
+                train_rows=train_df.height,
+                val_rows=val_df.height,
+                test_rows=test_df.height,
+                train_positive_rate=train_positive_rate,
+                val_positive_rate=val_positive_rate,
+                test_positive_rate=test_positive_rate,
+            )
+        )
 
         tuned = tune_and_fit_fold(
             X_train=X_train,
@@ -516,6 +802,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
 
     predictions = pl.concat(all_predictions, how="vertical") if all_predictions else _empty_predictions()
     fold_metrics = pl.DataFrame(fold_rows) if fold_rows else _empty_fold_metrics()
+    fold_index = pl.DataFrame(fold_index_rows) if fold_index_rows else _empty_fold_index()
     best_params = pl.DataFrame(best_param_rows) if best_param_rows else pl.DataFrame(schema={"fold": pl.Int64})
 
     return LearningArtifacts(
@@ -524,6 +811,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         model_frame=model_frame,
         predictions=predictions,
         fold_metrics=fold_metrics,
+        fold_index=fold_index,
         best_params=best_params,
         features_used=features_used,
         dropped_features=dropped_features,
@@ -682,9 +970,16 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
 
     monthly_returns = sanitize_numeric_frame(backtest_phase.monthly_returns)
     fold_metrics = sanitize_numeric_frame(fold_metrics)
+    fold_index = sanitize_numeric_frame(learning.fold_index)
     best_params = sanitize_numeric_frame(learning.best_params)
     backtest_kpis = sanitize_numeric_frame(backtest_phase.backtest_kpis)
     split_kpis = sanitize_numeric_frame(backtest_phase.split_kpis)
+    debug_predictions_long, debug_predictions_full = _build_prediction_debug_frames(
+        model_frame=learning.model_frame,
+        predictions=learning.predictions,
+        fold_index=fold_index,
+        top_n=config.top_n,
+    )
 
     assert_no_numeric_na(fold_metrics, context="fold_metrics")
     assert_no_numeric_na(backtest_kpis, context="backtest_kpis")
@@ -709,10 +1004,13 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
         "selections": learning.run_dir / "selections.parquet",
         "monthly_returns": learning.run_dir / "monthly_returns.parquet",
         "fold_metrics": learning.run_dir / "fold_metrics.parquet",
+        "fold_index": learning.run_dir / "fold_index.parquet",
         "best_params": learning.run_dir / "best_params.parquet",
         "split_kpis": learning.run_dir / "split_kpis.parquet",
         "kpis_parquet": learning.run_dir / "kpis.parquet",
         "kpis_csv": learning.run_dir / "kpis.csv",
+        "debug_predictions_long": learning.run_dir / "debug_predictions_long.parquet",
+        "debug_predictions_full": learning.run_dir / "debug_predictions_full.parquet",
         "report_html": report_path,
         "metadata": learning.run_dir / "metadata.json",
     }
@@ -725,10 +1023,13 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
     backtest_phase.selections.write_parquet(paths["selections"])
     monthly_returns.write_parquet(paths["monthly_returns"])
     fold_metrics.write_parquet(paths["fold_metrics"])
+    fold_index.write_parquet(paths["fold_index"])
     best_params.write_parquet(paths["best_params"])
     split_kpis.write_parquet(paths["split_kpis"])
     backtest_kpis.write_parquet(paths["kpis_parquet"])
     backtest_kpis.write_csv(paths["kpis_csv"])
+    debug_predictions_long.write_parquet(paths["debug_predictions_long"])
+    debug_predictions_full.write_parquet(paths["debug_predictions_full"])
 
     metadata = {
         "created_at": datetime.now().isoformat(),
@@ -777,6 +1078,7 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
         kpis=backtest_kpis,
         split_kpis=split_kpis,
         fold_metrics=fold_metrics,
+        fold_index=fold_index,
         best_params=best_params,
         features_used=learning.features_used,
         dropped_features=learning.dropped_features,

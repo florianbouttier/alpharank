@@ -62,6 +62,7 @@ def _save_current_figure(pdf: PdfPages) -> None:
     fig.tight_layout()
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
+    plt.close("all")
 
 
 def _top_feature_indices(mean_abs_shap: np.ndarray, max_features: int) -> np.ndarray:

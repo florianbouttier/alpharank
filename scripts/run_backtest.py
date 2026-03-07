@@ -16,14 +16,14 @@ def default_config() -> BacktestConfig:
     return BacktestConfig(
         data_dir=PROJECT_ROOT / "data",
         output_dir=PROJECT_ROOT / "outputs",
-        start_month="2006-01",
+        start_month="2000-01",
         n_folds=10,
-        top_n=20,
-        outperformance_threshold=0.0,
+        top_n=10,
+        outperformance_threshold=0.10,
         min_train_months=24,
-        missing_feature_threshold=0.35,
-        n_optuna_trials=40,
-        optuna_lambda_gap=3.0,
+        missing_feature_threshold=0.05,
+        n_optuna_trials=100,
+        optuna_lambda_gap=4,
         optuna_startup_trials=30,
         risk_free_rate=0.02,
         random_seed=42,
@@ -46,6 +46,9 @@ def main() -> None:
     print(f"Report: {artifacts.output_paths['report_html']}")
     if "shap_global_report" in artifacts.output_paths:
         print(f"SHAP report: {artifacts.output_paths['shap_global_report']}")
+    print(f"Fold index: {artifacts.output_paths['fold_index']}")
+    print(f"Debug predictions (long): {artifacts.output_paths['debug_predictions_long']}")
+    print(f"Debug predictions (full): {artifacts.output_paths['debug_predictions_full']}")
 
 
 if __name__ == "__main__":
