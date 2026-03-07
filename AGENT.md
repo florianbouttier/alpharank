@@ -47,6 +47,10 @@ This file documents:
 
 Do not infer these formulas from memory when the document is available; use the document as the canonical reference and update it when the code changes.
 
+For cross-session continuity and recent repo history/decisions, also use:
+
+- `docs/CODEX_HANDOFF.md`
+
 Boosting workflow is modularized in the library with explicit phases:
 
 - `run_learning_phase(config)` for fold training/validation/test modeling outputs

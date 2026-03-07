@@ -1,0 +1,323 @@
+# Codex Handoff
+
+Last updated: 2026-03-08
+Branch at write time: `update_probalisor`
+
+This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
+
+## 1. Current priorities
+
+The repository has two real working tracks:
+
+1. `scripts/run_legacy.py`
+2. `scripts/run_backtest.py`
+
+The user currently cares about both, but with different intent:
+
+### Legacy
+
+- goal: speed up the old pipeline
+- direction chosen: migrate the runtime path to `polars` as much as possible
+- constraint: keep `pandas` only when absolutely necessary, mainly visualization/report rendering
+- key user expectation: no silent regression, parity and auditability matter more than elegance
+
+### Backtest / boosting
+
+- goal: learn stock outperformance versus benchmark, not absolute return
+- benchmark logic now matters explicitly in the target
+- the user wants auditability first:
+  - fold-by-fold visibility
+  - full SHAP visibility
+  - clean debug exports
+  - explicit timing semantics
+
+## 2. Current architecture
+
+- `scripts/run_legacy.py`: legacy pipeline entrypoint
+- `scripts/run_backtest.py`: boosting / walk-forward backtest entrypoint
+- `src/alpharank/backtest/`: modular backtest pipeline
+- `src/alpharank/data/`: shared data transforms
+- `src/alpharank/strategy/`: legacy strategy path
+- `src/alpharank/visualization/`: reporting / plotting helpers
+- `src/_old/`: archived code, not for new work
+
+Canonical reference for backtest formulas and feature construction:
+
+- [`docs/backtest_feature_reference.md`](/Users/nicolas.rusinger/AlphaRank/docs/backtest_feature_reference.md)
+
+Do not reconstruct feature formulas from memory when this document exists. Update it when behavior changes.
+
+## 3. Legacy pipeline state
+
+### Decisions already made
+
+- `run_legacy` is intended to be `polars`-first.
+- `pandas` should remain only at visualization/report boundaries if needed.
+- user explicitly wants pandas removed from the critical path wherever possible.
+
+### Important files
+
+- [`scripts/run_legacy.py`](/Users/nicolas.rusinger/AlphaRank/scripts/run_legacy.py)
+- [`src/alpharank/data/processing.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/data/processing.py)
+- [`src/alpharank/utils/returns.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/utils/returns.py)
+- [`src/alpharank/features/indicators.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/features/indicators.py)
+- [`src/alpharank/strategy/legacy.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/strategy/legacy.py)
+- [`src/alpharank/visualization/plotting.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/visualization/plotting.py)
+
+### Legacy-specific notes
+
+- `StrategyLearner.fiting` was identified by the user as a major bottleneck and should stay under scrutiny for runtime.
+- benchmark work for legacy exists under:
+  - `benchmarks/legacy-benchmark-repo/`
+- benchmark data/logs/results are intentionally ignored from git.
+
+## 4. Backtest pipeline state
+
+### 4.1 Target definition
+
+The backtest is now designed to predict benchmark outperformance.
+
+Current target logic:
+
+- `future_return`: next-month stock return
+- `benchmark_future_return`: next-month benchmark return
+- `future_excess_return = future_return - benchmark_future_return`
+- `future_relative_return = (1 + future_return) / (1 + benchmark_future_return) - 1`
+- `target_label = future_excess_return > outperformance_threshold`
+
+This replaced the old absolute-return target logic.
+
+Main files:
+
+- [`src/alpharank/backtest/datasets.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/datasets.py)
+- [`src/alpharank/backtest/pipeline.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/pipeline.py)
+- [`scripts/run_backtest.py`](/Users/nicolas.rusinger/AlphaRank/scripts/run_backtest.py)
+
+### 4.2 Timing semantics
+
+This was a major source of confusion and has been clarified.
+
+- `decision_month`: month at which the decision is formed using information available at that point
+- `holding_month`: next month, during which the simulated position is held
+
+Interpretation:
+
+- a row with `decision_month = 2010-05-01` means the model decides at end of May 2010
+- the realized return that validates the decision is in June 2010
+
+Important:
+
+- exports/reports should prefer `decision_month` and `holding_month`
+- do not rely on `year_month` alone if semantics matter
+
+### 4.3 One-month horizon enforcement
+
+A real issue existed: some targets were effectively using the next available observation, not necessarily the next calendar month.
+
+This has been fixed:
+
+- only strict one-month holding transitions are retained
+- gaps larger than one month are excluded from target construction
+
+If results ever look suspiciously optimistic again, re-check this first.
+
+### 4.4 Fundamental feature policy
+
+The user does not want raw absolute dollar-level accounting values in the model.
+
+Do not use features like:
+
+- raw `net_income_ttm`
+- raw `total_revenue_ttm`
+- raw `ebitda_ttm`
+- raw `free_cashflow_ttm`
+- raw `market_cap`
+- raw `enterprise_value`
+
+The model should use:
+
+- ratios
+- growth rates
+- relative quantities
+
+Current fundamental policy:
+
+- keep ratio features such as margins, ROE/ROA, debt ratios, valuation ratios
+- for revenue / net income / EBITDA / EBIT / gross profit / FCF / EPS:
+  - compute growth over:
+    - `1q`
+    - `4q`
+    - `12q`
+
+Main file:
+
+- [`src/alpharank/backtest/fundamentals.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/fundamentals.py)
+
+### 4.5 SHAP reporting policy
+
+The user wants exhaustive SHAP visibility, fold by fold.
+
+Current expectation for the PDF:
+
+- fold 1 full block, then fold 2 full block, etc.
+- for each fold:
+  - beeswarm
+  - importance bar
+  - all 1D dependence plots
+  - interaction heatmap
+  - interaction ranking
+  - all 2D interaction dependence plots
+
+Main file:
+
+- [`src/alpharank/backtest/explainability.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/explainability.py)
+
+### 4.6 Backtest audit exports
+
+The user wanted a clean table to inspect what happened line by line.
+
+Current exported debug artifacts include:
+
+- `fold_index.parquet`
+- `debug_predictions_long.parquet`
+- `debug_predictions_full.parquet`
+
+Purpose:
+
+- `debug_predictions_long`: only rows actually scored by a fold
+- `debug_predictions_full`: full model frame plus scoring columns when available
+- `fold_index`: fold metadata, split sizes, skip reasons, positive rates
+
+Main files:
+
+- [`src/alpharank/backtest/pipeline.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/pipeline.py)
+- [`src/alpharank/backtest/reporting.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/reporting.py)
+
+### 4.7 Dedicated audit report
+
+A separate HTML audit report exists for deep backtest inspection.
+
+Expected content includes:
+
+- portfolio vs benchmark over time
+- active return
+- prediction vs realized excess return scatter
+- purchased names
+- monthly selections
+- best/worst periods
+- best/worst positions
+- folds summary
+
+Main file:
+
+- [`src/alpharank/backtest/reporting.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/reporting.py)
+
+## 5. Data source caveat
+
+There was confusion between:
+
+- root `data/*.parquet`
+- nested `data/US/*.parquet`
+
+At one point, `run_backtest.py` was reading older data from `data/US/` while `run_legacy.py` used fresher root-level files. This explained why one path seemed to stop earlier in time than the other.
+
+When debugging date coverage, always verify:
+
+1. which loader is used
+2. which path wins
+3. max available date in the actual file consumed
+
+Relevant file:
+
+- [`src/alpharank/backtest/data_loading.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/data_loading.py)
+
+## 6. Git and repo hygiene
+
+### 6.1 History rewrite already happened
+
+The repo history was rewritten to remove oversized tracked data blobs that blocked GitHub pushes.
+
+Removed from history:
+
+- large files under `data/`
+- `.env`
+- `.DS_Store`
+- `experiments/optuna_report.html`
+
+This means:
+
+- commit hashes before the rewrite are obsolete
+- if another clone exists elsewhere, it may need a clean resync
+
+### 6.2 Current `.gitignore` policy
+
+The repo now ignores:
+
+- `outputs/`
+- `debug/`
+- parquet/csv/feather/arrow/ipc/h5/hdf5/pickle artifacts
+- dataset snapshots under `data/**`
+- benchmark artifacts under `benchmarks/**/data`, `logs`, `results`
+
+Tracked under `data/` should remain code only, e.g.:
+
+- [`data/US/df_data.py`](/Users/nicolas.rusinger/AlphaRank/data/US/df_data.py)
+
+## 7. Testing and environment
+
+### Environment
+
+The user often runs the project from:
+
+- `/Users/nicolas.rusinger/miniconda3/envs/mlpers/bin/python`
+
+`python3` on the host may not have `pytest` or project deps. Prefer the project env when validating.
+
+### Typical test commands
+
+```bash
+/Users/nicolas.rusinger/miniconda3/envs/mlpers/bin/python -m pytest -q tests
+```
+
+or targeted:
+
+```bash
+/Users/nicolas.rusinger/miniconda3/envs/mlpers/bin/python -m pytest -q tests/test_backtest_reporting.py tests/test_backtest_fundamentals.py
+```
+
+## 8. Recent commits worth reading
+
+Recent useful history on `update_probalisor` after the history rewrite:
+
+- `c773539` `chore: stop tracking local data artifacts`
+- `79e8d76` `feat: export exhaustive 2d shap interactions by fold`
+- `0c051cf` `feat: keep only ratio and growth fundamental features`
+- `20d2a61` `docs: add backtest feature and formula reference`
+- `cc46da3` `fix: align lift curves with ranked bucket calibration`
+- `147c04e` `feat: add per-fold validation and test lift curves`
+- `e488a02` `fix: clarify backtest timing and enforce 1m holding horizon`
+- `d08b82f` `feat: add dedicated backtest audit report`
+- `8e96763` `feat: export detailed backtest debug prediction tables`
+- `8200acb` `feat: add exhaustive per-fold shap dependence plots`
+- `098e807` `fix: restore retained optuna charts in training report`
+- `5c9afe6` `fix: target benchmark outperformance in backtest`
+
+## 9. Working rules that matter with this user
+
+- Prefer small targeted commits.
+- Commit regularly.
+- Do not hide regressions behind refactors.
+- If performance does not improve, explain why concretely.
+- If a result is optimistic, provide audit surfaces instead of hand-waving.
+- The user values directness over polish.
+
+## 10. Current local state at handoff time
+
+At the time this file was written:
+
+- branch: `update_probalisor`
+- upstream: `origin/update_probalisor`
+- there is a local modification on:
+  - [`scripts/run_backtest.py`](/Users/nicolas.rusinger/AlphaRank/scripts/run_backtest.py)
+
+Do not overwrite that file casually. Read it first if continuing from this exact working tree.
