@@ -17,9 +17,36 @@ venv/
 # Runtime outputs
 outputs/
 *.html
+debug/
 
 # Local env
 .env
 
 # Large temporary artifacts
 *.parquet.tmp
+*.parquet
+*.feather
+*.arrow
+*.ipc
+*.h5
+*.hdf5
+*.pickle
+*.pkl
+
+# Dataset snapshots
+data/**/*.parquet
+data/**/*.csv
+data/**/*.feather
+data/**/*.arrow
+data/**/*.ipc
+data/**/*.h5
+data/**/*.hdf5
+data/**/*.pickle
+data/**/*.pkl
+data/**/*.json
+data/**/*.xlsx
+
+# Benchmark artifacts
+benchmarks/**/data/
+benchmarks/**/logs/
+benchmarks/**/results/
