@@ -134,34 +134,25 @@ def save_bucket_frequency_curve(
 def save_lift_curve(
     y_true: np.ndarray,
     y_score: np.ndarray,
+    n_buckets: int,
     path: Path,
     fold_label: str,
     split_label: str,
 ) -> Path | None:
-    y_true = np.asarray(y_true).astype(float)
-    y_score = np.asarray(y_score).astype(float)
-
-    if y_true.size == 0 or y_score.size == 0 or y_true.size != y_score.size:
+    frame = _bucket_frequency_frame(y_true=y_true, y_score=y_score, n_buckets=n_buckets)
+    if frame.is_empty():
         return None
 
-    base_rate = float(np.mean(y_true))
-    if not np.isfinite(base_rate) or base_rate <= 0.0:
-        return None
-
-    order = np.argsort(y_score)[::-1]
-    y_sorted = y_true[order]
-    cum_positives = np.cumsum(y_sorted)
-    ranks = np.arange(1, y_sorted.size + 1, dtype=float)
-    sample_share = ranks / float(y_sorted.size)
-    cumulative_rate = cum_positives / ranks
-    lift = cumulative_rate / base_rate
+    x = frame.get_column("bucket").to_numpy()
+    pred = frame.get_column("predicted_rate").to_numpy()
+    real = frame.get_column("realized_rate").to_numpy()
 
     plt.figure(figsize=(10, 5))
-    plt.plot(sample_share, lift, color="#1f77b4", linewidth=2, label="Model lift")
-    plt.axhline(1.0, color="#d62728", linestyle="--", linewidth=1.5, label="Random baseline")
-    plt.title(f"{fold_label} {split_label} Lift Curve")
-    plt.xlabel("Share of ranked sample kept")
-    plt.ylabel("Lift vs baseline")
+    plt.plot(x, pred, marker="o", color="#1f77b4", linewidth=2, label="Mean predicted")
+    plt.plot(x, real, marker="o", color="#d62728", linewidth=2, label="Mean realized")
+    plt.title(f"{fold_label} {split_label} Lift Curve ({int(n_buckets)} ranked buckets)")
+    plt.xlabel("Bucket rank (1 = highest prediction)")
+    plt.ylabel("Positive frequency")
     plt.grid(alpha=0.25)
     plt.legend()
     plt.tight_layout()

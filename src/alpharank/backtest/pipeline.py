@@ -726,6 +726,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         lift_val = save_lift_curve(
             y_true=y_val,
             y_score=tuned.y_val_proba,
+            n_buckets=config.calibration_buckets,
             path=fold_dir / f"{fold_label}_validation_lift_curve.png",
             fold_label=fold_label,
             split_label="Validation",
@@ -747,6 +748,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         lift_test = save_lift_curve(
             y_true=y_test,
             y_score=tuned.y_test_proba,
+            n_buckets=config.calibration_buckets,
             path=fold_dir / f"{fold_label}_test_lift_curve.png",
             fold_label=fold_label,
             split_label="Test",

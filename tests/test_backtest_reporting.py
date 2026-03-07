@@ -130,6 +130,7 @@ def test_save_lift_curve(tmp_path: Path) -> None:
     out = save_lift_curve(
         y_true=np.array([1, 0, 1, 0, 1, 0], dtype=float),
         y_score=np.array([0.9, 0.8, 0.7, 0.3, 0.2, 0.1], dtype=float),
+        n_buckets=3,
         path=path,
         fold_label="fold_01",
         split_label="Validation",
