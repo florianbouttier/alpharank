@@ -38,7 +38,7 @@ class APIClient:
             env_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) if '__file__' in globals() else os.getcwd()
             config = configparser.ConfigParser()
             config.read(os.path.join(env_dir, 'config.ini'))
-            api_key = config['API_KEYS']['MY_API_KEY']
+            api_key = config.get('API_KEYS', 'MY_API_KEY', fallback='')
         
         return api_key
 
