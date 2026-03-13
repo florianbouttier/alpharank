@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import json
 from pathlib import Path
+import re
 import time
 from typing import Any, Iterable
 
@@ -128,22 +129,22 @@ def _select_best_facts(
     tags: Iterable[str],
     facts_payload: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    chosen: dict[str, dict[str, Any]] = {}
-    for tag in tags:
+    candidates: list[dict[str, Any]] = []
+    for tag_priority, tag in enumerate(tags):
         for fact_root in fact_roots:
             unit_payload = facts_payload.get(fact_root, {}).get(tag, {}).get("units", {})
             records = _extract_unit_records(unit_payload)
-            cleaned = [_clean_fact(statement, tag, record) for record in records]
-            cleaned = [record for record in cleaned if record is not None]
-            cleaned.sort(key=lambda record: record["filed"] or "", reverse=True)
-            for record in cleaned:
-                end = record["end"]
-                if end not in chosen:
-                    chosen[end] = record
-    return list(chosen.values())
+            cleaned = [_clean_fact(statement, tag, record, tag_priority=tag_priority) for record in records]
+            candidates.extend(record for record in cleaned if record is not None)
+
+    if statement == "shares":
+        return _select_share_facts(candidates)
+    if statement in {"income_statement", "cash_flow"}:
+        return _select_duration_facts(candidates)
+    return _select_instant_facts(candidates)
 
 
-def _clean_fact(statement: str, tag: str, fact: dict[str, Any]) -> dict[str, Any] | None:
+def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority: int) -> dict[str, Any] | None:
     end = fact.get("end")
     filed = fact.get("filed")
     value = fact.get("val")
@@ -155,25 +156,30 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any]) -> dict[str, Any
         return None
 
     start = fact.get("start")
+    frame = fact.get("frame")
+    calendarized_end = _calendarized_date_from_frame(frame) if statement == "shares" else None
+    duration_days = None
     if statement in {"income_statement", "cash_flow"}:
         if start is None:
             return None
         try:
-            duration = (datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")).days
+            duration_days = (datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")).days
         except ValueError:
-            return None
-        if duration < 70 or duration > 110:
             return None
 
     return {
         "tag": tag,
+        "tag_priority": tag_priority,
         "start": start,
-        "end": end,
+        "end": calendarized_end or end,
+        "raw_end": end,
         "filed": filed,
         "val": value,
         "fy": fact.get("fy"),
         "fp": fact.get("fp"),
         "form": form,
+        "duration_days": duration_days,
+        "frame": frame,
     }
 
 
@@ -186,6 +192,136 @@ def _extract_unit_records(unit_payload: dict[str, Any]) -> list[dict[str, Any]]:
         if records:
             return records
     return []
+
+
+def _calendarized_date_from_frame(frame: object) -> str | None:
+    if frame is None:
+        return None
+    match = re.fullmatch(r"CY(\d{4})Q([1-4])I?", str(frame))
+    if not match:
+        return None
+    year = int(match.group(1))
+    quarter = int(match.group(2))
+    quarter_end = {
+        1: f"{year}-03-31",
+        2: f"{year}-06-30",
+        3: f"{year}-09-30",
+        4: f"{year}-12-31",
+    }
+    return quarter_end[quarter]
+
+
+def _select_share_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    chosen: dict[str, dict[str, Any]] = {}
+    share_candidates = [
+        record
+        for record in candidates
+        if record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
+        or _calendarized_date_from_frame(record.get("frame")) is not None
+        or (record.get("fp") == "FY" and str(record.get("tag")) == "CommonStockSharesOutstanding")
+    ]
+    for record in sorted(
+        share_candidates,
+        key=lambda item: (
+            item["filed"] or "",
+            item["end"],
+            item["tag_priority"],
+        ),
+    ):
+        key = str(record.get("filed") or record["end"])
+        current = chosen.get(key)
+        if current is None or _is_better_share_record(record, current):
+            chosen[key] = record
+    return list(chosen.values())
+
+
+def _share_sort_key(record: dict[str, Any]) -> tuple[int, str, str]:
+    preferred_tag_rank = 0 if str(record.get("tag")) == "CommonStockSharesOutstanding" else 1
+    return (preferred_tag_rank, int(record["tag_priority"]), str(record.get("filed") or ""), str(record["end"]))
+
+
+def _is_better_share_record(candidate: dict[str, Any], current: dict[str, Any]) -> bool:
+    candidate_key = _share_sort_key(candidate)
+    current_key = _share_sort_key(current)
+    if candidate_key[:2] != current_key[:2]:
+        return candidate_key[:2] < current_key[:2]
+    return str(candidate["end"]) > str(current["end"])
+
+
+def _select_duration_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    quarterlies = [
+        record
+        for record in candidates
+        if record.get("duration_days") is not None and 70 <= int(record["duration_days"]) <= 110 and record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
+    ]
+    annuals = [
+        record
+        for record in candidates
+        if record.get("duration_days") is not None and int(record["duration_days"]) >= 300 and record.get("fp") == "FY"
+    ]
+
+    chosen_by_end = _dedupe_by_end(quarterlies)
+    derived_q4 = _derive_q4_facts(chosen_by_end.values(), annuals)
+    for record in derived_q4:
+        if record["end"] not in chosen_by_end:
+            chosen_by_end[record["end"]] = record
+    return list(chosen_by_end.values())
+
+
+def _select_instant_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return list(_dedupe_by_end(candidates).values())
+
+
+def _dedupe_by_end(candidates: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    chosen: dict[str, dict[str, Any]] = {}
+    for record in sorted(
+        candidates,
+        key=lambda item: (
+            item["end"],
+            item["tag_priority"],
+            item.get("filed") or "",
+        ),
+    ):
+        end = str(record["end"])
+        current = chosen.get(end)
+        if current is None or _record_sort_key(record) < _record_sort_key(current):
+            chosen[end] = record
+    return chosen
+
+
+def _record_sort_key(record: dict[str, Any]) -> tuple[int, str]:
+    return (int(record["tag_priority"]), str(record.get("filed") or ""))
+
+
+def _derive_q4_facts(quarterlies: Iterable[dict[str, Any]], annuals: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    quarterly_records = list(quarterlies)
+    quarterly_by_fy_fp = {
+        (record.get("fy"), record.get("fp")): record
+        for record in quarterly_records
+        if record.get("fy") is not None and record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
+    }
+    derived: list[dict[str, Any]] = []
+    for annual in annuals:
+        fy = annual.get("fy")
+        if fy is None:
+            continue
+        q1 = quarterly_by_fy_fp.get((fy, "Q1"))
+        q2 = quarterly_by_fy_fp.get((fy, "Q2"))
+        q3 = quarterly_by_fy_fp.get((fy, "Q3"))
+        q4 = quarterly_by_fy_fp.get((fy, "Q4"))
+        if q4 is not None or q1 is None or q2 is None or q3 is None:
+            continue
+        derived.append(
+            {
+                **annual,
+                "fp": "Q4",
+                "val": float(annual["val"]) - float(q1["val"]) - float(q2["val"]) - float(q3["val"]),
+                "tag": f"{annual['tag']}_derived_q4",
+                "tag_priority": -1,
+                "duration_days": 90,
+            }
+        )
+    return derived
 
 
 def _derive_free_cash_flow(frame: pl.DataFrame) -> pl.DataFrame:

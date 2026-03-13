@@ -146,6 +146,140 @@ def test_select_best_facts_prefers_quarterly_duration_and_tag_priority() -> None
     assert selected[0]["val"] == 10.0
 
 
+def test_select_best_facts_derives_q4_from_annual_fact() -> None:
+    facts = {
+        "us-gaap": {
+            "Revenues": {
+                "units": {
+                    "USD": [
+                        {
+                            "start": "2024-09-29",
+                            "end": "2024-12-28",
+                            "val": 100.0,
+                            "filed": "2025-01-31",
+                            "form": "10-Q",
+                            "fy": 2025,
+                            "fp": "Q1",
+                        },
+                        {
+                            "start": "2024-12-29",
+                            "end": "2025-03-29",
+                            "val": 110.0,
+                            "filed": "2025-05-02",
+                            "form": "10-Q",
+                            "fy": 2025,
+                            "fp": "Q2",
+                        },
+                        {
+                            "start": "2025-03-30",
+                            "end": "2025-06-28",
+                            "val": 120.0,
+                            "filed": "2025-08-01",
+                            "form": "10-Q",
+                            "fy": 2025,
+                            "fp": "Q3",
+                        },
+                        {
+                            "start": "2024-09-29",
+                            "end": "2025-09-27",
+                            "val": 460.0,
+                            "filed": "2025-10-31",
+                            "form": "10-K",
+                            "fy": 2025,
+                            "fp": "FY",
+                        },
+                    ]
+                }
+            }
+        }
+    }
+
+    selected = _select_best_facts("income_statement", ("us-gaap",), ("Revenues",), facts)
+    q4 = [row for row in selected if row["end"] == "2025-09-27"]
+
+    assert len(q4) == 1
+    assert q4[0]["fp"] == "Q4"
+    assert q4[0]["val"] == 130.0
+
+
+def test_select_best_facts_prefers_period_end_share_fact() -> None:
+    facts = {
+        "dei": {
+            "EntityCommonStockSharesOutstanding": {
+                "units": {
+                    "shares": [
+                        {
+                            "end": "2025-04-18",
+                            "val": 14935826000.0,
+                            "filed": "2025-05-02",
+                            "form": "10-Q",
+                            "fy": 2025,
+                            "fp": "Q2",
+                        }
+                    ]
+                }
+            },
+            "CommonStockSharesOutstanding": {
+                "units": {
+                    "shares": [
+                        {
+                            "end": "2025-03-29",
+                            "val": 14939315000.0,
+                            "filed": "2025-05-02",
+                            "form": "10-Q",
+                            "fy": 2025,
+                            "fp": "Q2",
+                        }
+                    ]
+                }
+            },
+        }
+    }
+
+    selected = _select_best_facts(
+        "shares",
+        ("dei",),
+        ("EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding"),
+        facts,
+    )
+
+    assert len(selected) == 1
+    assert selected[0]["end"] == "2025-03-29"
+    assert selected[0]["tag"] == "CommonStockSharesOutstanding"
+
+
+def test_select_best_facts_calendarizes_frame_when_available() -> None:
+    facts = {
+        "dei": {
+            "EntityCommonStockSharesOutstanding": {
+                "units": {
+                    "shares": [
+                        {
+                            "end": "2025-04-24",
+                            "val": 7432543865.0,
+                            "filed": "2025-04-30",
+                            "form": "10-Q",
+                            "fy": 2025,
+                            "fp": "Q3",
+                            "frame": "CY2025Q1I",
+                        }
+                    ]
+                }
+            }
+        }
+    }
+
+    selected = _select_best_facts(
+        "shares",
+        ("dei",),
+        ("EntityCommonStockSharesOutstanding",),
+        facts,
+    )
+
+    assert len(selected) == 1
+    assert selected[0]["end"] == "2025-03-31"
+
+
 def test_build_error_summary_tables_applies_threshold_pct() -> None:
     price_alignment = pl.DataFrame(
         {
