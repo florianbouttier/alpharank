@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Sequence
 
 import pandas as pd
 import polars as pl
@@ -140,6 +140,37 @@ class YahooFinanceClient:
 
         return pl.concat(frames, how="vertical") if frames else _empty_financial_frame()
 
+    def audit_price_availability(
+        self,
+        tickers: Sequence[str],
+        start_date: str,
+        end_date: str,
+        chunk_size: int = 50,
+    ) -> pl.DataFrame:
+        rows: list[dict[str, object]] = []
+        for start_idx in range(0, len(tickers), chunk_size):
+            chunk = list(tickers[start_idx : start_idx + chunk_size])
+            history = yf.download(
+                chunk,
+                start=start_date,
+                end=end_date,
+                auto_adjust=False,
+                progress=False,
+                threads=True,
+                group_by="ticker",
+            )
+            for ticker in chunk:
+                rows.append(
+                    {
+                        "ticker": f"{ticker}.US",
+                        "ticker_root": ticker,
+                        "yahoo_price_available": _history_has_prices(history, ticker),
+                    }
+                )
+        return pl.DataFrame(rows).sort("ticker") if rows else pl.DataFrame(
+            schema={"ticker": pl.String, "ticker_root": pl.String, "yahoo_price_available": pl.Boolean}
+        )
+
 
 def _extract_statement_frame(ticker: str, statement: str, wide: pd.DataFrame) -> pl.DataFrame:
     rows: list[dict[str, object]] = []
@@ -187,3 +218,14 @@ def _as_float(value: object) -> float | None:
     if value is None or pd.isna(value):
         return None
     return float(value)
+
+
+def _history_has_prices(history: pd.DataFrame, ticker: str) -> bool:
+    if history is None or history.empty:
+        return False
+    if isinstance(history.columns, pd.MultiIndex):
+        if ticker not in history.columns.get_level_values(0):
+            return False
+        ticker_frame = history[ticker]
+        return not ticker_frame.dropna(how="all").empty
+    return not history.dropna(how="all").empty

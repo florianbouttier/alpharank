@@ -1,7 +1,11 @@
 import pandas as pd
 import polars as pl
 
-from alpharank.data.open_source.benchmark import build_financial_alignment, build_price_alignment
+from alpharank.data.open_source.benchmark import (
+    build_error_summary_tables,
+    build_financial_alignment,
+    build_price_alignment,
+)
 from alpharank.data.open_source.sec import _select_best_facts
 from alpharank.data.open_source.yahoo import _extract_statement_frame
 
@@ -134,3 +138,34 @@ def test_select_best_facts_prefers_quarterly_duration_and_tag_priority() -> None
 
     assert len(selected) == 1
     assert selected[0]["val"] == 10.0
+
+
+def test_build_error_summary_tables_applies_threshold_pct() -> None:
+    price_alignment = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US", "AAPL.US", "AAPL.US"],
+            "date": ["2025-01-02", "2025-01-03", "2025-01-04"],
+            "match_status": ["matched", "matched", "eodhd_only"],
+            "adjusted_close_diff_bps": [20.0, 80.0, None],
+        }
+    )
+    financial_alignment = pl.DataFrame(
+        {
+            "open_source": ["yfinance", "yfinance", "sec_companyfacts"],
+            "statement": ["income_statement", "income_statement", "balance_sheet"],
+            "metric": ["revenue", "revenue", "total_assets"],
+            "match_status": ["matched", "open_only", "matched"],
+            "value_diff_bps": [60.0, None, 10.0],
+        }
+    )
+
+    price_summary, statement_summary, metric_summary = build_error_summary_tables(
+        price_alignment=price_alignment,
+        financial_alignment=financial_alignment,
+        threshold_pct=0.5,
+    )
+
+    assert price_summary["error_rows"].item() == 1
+    assert price_summary["error_rate_pct"].item() == 50.0
+    assert statement_summary.filter(pl.col("source") == "yfinance")["error_rows"].item() == 1
+    assert metric_summary.filter(pl.col("metric") == "revenue")["error_rows"].item() == 1

@@ -22,6 +22,20 @@ def load_eodhd_prices(data_dir: Path, tickers: Iterable[str], year: int) -> pl.D
     )
 
 
+def load_sp500_tickers_for_year(data_dir: Path, year: int) -> tuple[str, ...]:
+    return tuple(
+        pl.read_csv(data_dir / "SP500_Constituents.csv", try_parse_dates=True)
+        .filter(pl.col("Date").dt.year() == year)
+        .filter(pl.col("Ticker").is_not_null() & (pl.col("Ticker") != ""))
+        .with_columns(pl.col("Ticker").str.replace_all(r"\.", "-").alias("Ticker"))
+        .select("Ticker")
+        .unique()
+        .sort("Ticker")
+        .to_series()
+        .to_list()
+    )
+
+
 def normalize_eodhd_financials(data_dir: Path, tickers: Iterable[str], year: int) -> pl.DataFrame:
     ticker_set = [f"{ticker}.US" for ticker in tickers]
     frames: list[pl.DataFrame] = []
@@ -208,6 +222,145 @@ def summarize_alignment(
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def build_error_summary_tables(
+    *,
+    price_alignment: pl.DataFrame,
+    financial_alignment: pl.DataFrame,
+    threshold_pct: float,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    threshold_bps = threshold_pct * 100.0
+    price_summary = pl.DataFrame(
+        {
+            "dataset": ["price"],
+            "source": ["yfinance"],
+            "matched_rows": [_count_rows(price_alignment, pl.col("match_status") == "matched")],
+            "error_rows": [_count_rows(price_alignment, (pl.col("match_status") == "matched") & (pl.col("adjusted_close_diff_bps").abs() > threshold_bps))],
+            "eodhd_only_rows": [_count_rows(price_alignment, pl.col("match_status") == "eodhd_only")],
+            "open_only_rows": [_count_rows(price_alignment, pl.col("match_status") == "yahoo_only")],
+            "max_abs_diff_pct": [(_safe_max(price_alignment, "adjusted_close_diff_bps") or 0.0) / 100.0],
+        }
+    ).with_columns(
+        _error_rate_expr("matched_rows", "error_rows").alias("error_rate_pct")
+    )
+
+    statement_summary = _aggregate_errors(
+        financial_alignment,
+        by=["open_source", "statement"],
+        diff_col="value_diff_bps",
+        threshold_bps=threshold_bps,
+    ).rename({"open_source": "source"})
+    metric_summary = _aggregate_errors(
+        financial_alignment,
+        by=["open_source", "statement", "metric"],
+        diff_col="value_diff_bps",
+        threshold_bps=threshold_bps,
+    ).rename({"open_source": "source"})
+    return price_summary, statement_summary, metric_summary
+
+
+def build_coverage_audit(
+    *,
+    sp500_tickers: tuple[str, ...],
+    benchmark_tickers: tuple[str, ...],
+    sec_mapping: pl.DataFrame,
+    yahoo_availability: pl.DataFrame,
+) -> pl.DataFrame:
+    base = pl.DataFrame({"ticker_root": list(sp500_tickers)}).with_columns(
+        [
+            (pl.col("ticker_root") + pl.lit(".US")).alias("ticker"),
+            pl.col("ticker_root").is_in(list(benchmark_tickers)).alias("selected_for_benchmark"),
+        ]
+    )
+    sec_rows = sec_mapping.select(
+        [
+            pl.col("ticker").alias("ticker_root"),
+            pl.lit(True).alias("sec_filing_available"),
+            pl.col("name").alias("sec_name"),
+            pl.col("exchange").alias("sec_exchange"),
+            pl.col("cik").cast(pl.Utf8).str.zfill(10).alias("sec_cik"),
+        ]
+    )
+    return (
+        base.join(sec_rows, on="ticker_root", how="left", coalesce=True)
+        .join(yahoo_availability, on=["ticker", "ticker_root"], how="left", coalesce=True)
+        .with_columns(
+            [
+                pl.col("sec_filing_available").fill_null(False),
+                pl.col("yahoo_price_available").fill_null(False),
+            ]
+        )
+        .with_columns(
+            (pl.col("sec_filing_available") | pl.col("yahoo_price_available")).alias("available_in_yahoo_or_sec")
+        )
+        .sort("ticker_root")
+    )
+
+
+def write_html_report(
+    *,
+    output_path: Path,
+    year: int,
+    threshold_pct: float,
+    benchmark_tickers: tuple[str, ...],
+    coverage: pl.DataFrame,
+    price_summary: pl.DataFrame,
+    statement_summary: pl.DataFrame,
+    metric_summary: pl.DataFrame,
+) -> None:
+    coverage_totals = coverage.select(
+        [
+            pl.len().alias("sp500_2025_tickers"),
+            pl.col("yahoo_price_available").sum().alias("yahoo_price_available"),
+            pl.col("sec_filing_available").sum().alias("sec_filing_available"),
+            pl.col("available_in_yahoo_or_sec").sum().alias("available_in_yahoo_or_sec"),
+        ]
+    ).to_dicts()[0]
+    missing = coverage.filter(~pl.col("available_in_yahoo_or_sec")).select(["ticker_root"]).to_series().to_list()
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open-source cadrage {year}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; color: #1f2937; background: #f8fafc; }}
+    h1, h2 {{ margin-bottom: 8px; }}
+    .meta {{ margin-bottom: 24px; color: #475569; }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0 24px; }}
+    .card {{ background: white; border: 1px solid #dbeafe; border-radius: 10px; padding: 14px; }}
+    table {{ border-collapse: collapse; width: 100%; margin: 12px 0 24px; background: white; }}
+    th, td {{ border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; font-size: 13px; }}
+    th {{ background: #eff6ff; }}
+    code {{ background: #e2e8f0; padding: 1px 4px; border-radius: 4px; }}
+    .muted {{ color: #64748b; }}
+  </style>
+</head>
+<body>
+  <h1>Open-source cadrage {year}</h1>
+  <div class="meta">
+    Benchmark tickers: <code>{", ".join(benchmark_tickers)}</code><br>
+    Error threshold: <code>{threshold_pct:.3f}%</code>
+  </div>
+  <h2>Coverage Audit</h2>
+  <div class="grid">
+    <div class="card"><strong>S&amp;P 500 tickers in {year}</strong><br>{coverage_totals["sp500_2025_tickers"]}</div>
+    <div class="card"><strong>Yahoo price available</strong><br>{coverage_totals["yahoo_price_available"]}</div>
+    <div class="card"><strong>SEC filing available</strong><br>{coverage_totals["sec_filing_available"]}</div>
+    <div class="card"><strong>Available in Yahoo or SEC</strong><br>{coverage_totals["available_in_yahoo_or_sec"]}</div>
+  </div>
+  <p class="muted">Missing from both sources: {", ".join(missing) if missing else "none"}</p>
+  <h2>Price Errors</h2>
+  {_frame_to_html(price_summary)}
+  <h2>Statement Errors</h2>
+  {_frame_to_html(statement_summary)}
+  <h2>Metric Errors</h2>
+  {_frame_to_html(metric_summary)}
+</body>
+</html>
+"""
+    output_path.write_text(html, encoding="utf-8")
+
+
 def _date_diff_days_expr(left: str, right: str) -> pl.Expr:
     left_date = pl.col(left).str.strptime(pl.Date, strict=False)
     right_date = pl.col(right).str.strptime(pl.Date, strict=False)
@@ -227,3 +380,45 @@ def _empty_financial_frame() -> pl.DataFrame:
             "source_label": pl.String,
         }
     )
+
+
+def _aggregate_errors(df: pl.DataFrame, *, by: list[str], diff_col: str, threshold_bps: float) -> pl.DataFrame:
+    return df.group_by(by).agg(
+        [
+            _count_expr(pl.col("match_status") == "matched").alias("matched_rows"),
+            _count_expr((pl.col("match_status") == "matched") & (pl.col(diff_col).abs() > threshold_bps)).alias("error_rows"),
+            _count_expr(pl.col("match_status") == "eodhd_only").alias("eodhd_only_rows"),
+            _count_expr(pl.col("match_status") == "open_only").alias("open_only_rows"),
+            (pl.col(diff_col).abs().max() / 100.0).alias("max_abs_diff_pct"),
+        ]
+    ).with_columns(_error_rate_expr("matched_rows", "error_rows").alias("error_rate_pct")).sort(by)
+
+
+def _count_expr(predicate: pl.Expr) -> pl.Expr:
+    return pl.when(predicate).then(pl.lit(1)).otherwise(pl.lit(0)).sum()
+
+
+def _count_rows(df: pl.DataFrame, predicate: pl.Expr) -> int:
+    return int(df.select(_count_expr(predicate).alias("count")).item())
+
+
+def _safe_max(df: pl.DataFrame, column: str) -> float | None:
+    if column not in df.columns or df.is_empty():
+        return None
+    value = df.select(pl.col(column).abs().max()).item()
+    return None if value is None else float(value)
+
+
+def _error_rate_expr(matched_col: str, error_col: str) -> pl.Expr:
+    return (
+        pl.when(pl.col(matched_col) > 0)
+        .then((pl.col(error_col) / pl.col(matched_col)) * 100.0)
+        .otherwise(0.0)
+    )
+
+
+def _frame_to_html(df: pl.DataFrame) -> str:
+    if df.is_empty():
+        return "<p class='muted'>No rows.</p>"
+    pdf = df.to_pandas()
+    return pdf.to_html(index=False, border=0)
