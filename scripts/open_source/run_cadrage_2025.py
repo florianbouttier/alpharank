@@ -39,6 +39,8 @@ def main() -> None:
     print(f"Yahoo price rows: {result.price_rows}")
     print(f"SEC financial rows: {result.sec_rows}")
     print(f"Yahoo financial rows: {result.yfinance_financial_rows}")
+    print(f"Yahoo earnings rows: {result.yfinance_earnings_rows}")
+    print(f"Earnings alignment rows: {result.earnings_alignment_rows}")
     print(f"Price alignment rows: {result.price_alignment_rows}")
     print(f"Financial alignment rows: {result.financial_alignment_rows}")
 

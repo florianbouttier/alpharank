@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -9,11 +10,14 @@ import polars as pl
 
 from alpharank.data.open_source.benchmark import (
     build_coverage_audit,
+    build_error_detail_tables,
     build_error_summary_tables,
+    build_earnings_alignment,
     build_financial_alignment,
     build_price_alignment,
     load_eodhd_prices,
     load_sp500_tickers_for_year,
+    normalize_eodhd_earnings,
     normalize_eodhd_financials,
     summarize_alignment,
     write_html_report,
@@ -32,6 +36,8 @@ class OpenSourceCadrageResult:
     price_rows: int
     sec_rows: int
     yfinance_financial_rows: int
+    yfinance_earnings_rows: int
+    earnings_alignment_rows: int
     price_alignment_rows: int
     financial_alignment_rows: int
 
@@ -48,8 +54,11 @@ def run_open_source_cadrage(
 ) -> OpenSourceCadrageResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or project_root / "data"
-    output_dir = output_dir or project_root / "data" / "open_source" / f"pilot_{year}"
+    default_folder = f"{universe.replace('-', '_')}_{year}" if tickers is None else f"custom_{year}"
+    output_dir = output_dir or project_root / "data" / "open_source" / default_folder
     output_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = project_root / "data" / "open_source" / "_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     sp500_tickers = load_sp500_tickers_for_year(reference_data_dir, year)
     if tickers is not None:
@@ -58,15 +67,22 @@ def run_open_source_cadrage(
         ticker_list = sp500_tickers
     else:
         ticker_list = tuple(PILOT_TICKERS)
+    include_yfinance_financials = universe != "sp500-2025"
+    include_yfinance_earnings = universe != "sp500-2025"
     yahoo_client = YahooFinanceClient()
     sec_client = SecCompanyFactsClient(user_agent=user_agent)
 
     sec_mapping_all = sec_client.fetch_company_mapping()
-    yahoo_availability = yahoo_client.audit_price_availability(
-        sp500_tickers,
-        start_date=f"{year}-12-01",
-        end_date=f"{year}-12-15",
-    )
+    coverage_cache_path = cache_dir / f"ticker_coverage_{year}.parquet"
+    if coverage_cache_path.exists():
+        yahoo_availability = pl.read_parquet(coverage_cache_path).select(["ticker", "ticker_root", "yahoo_price_available"])
+    else:
+        yahoo_availability = yahoo_client.audit_price_availability(
+            sp500_tickers,
+            start_date=f"{year}-12-01",
+            end_date=f"{year}-12-15",
+        )
+        yahoo_availability.write_parquet(coverage_cache_path)
     coverage = build_coverage_audit(
         sp500_tickers=sp500_tickers,
         benchmark_tickers=ticker_list,
@@ -77,26 +93,50 @@ def run_open_source_cadrage(
     sec_mapping = sec_mapping_all.filter(pl.col("ticker").is_in(ticker_list))
     general_reference = yahoo_client.fetch_general_reference(ticker_list, sec_mapping)
     yahoo_prices = yahoo_client.download_prices(ticker_list, f"{year}-01-01", f"{year + 1}-01-01")
-    yahoo_earnings = yahoo_client.fetch_earnings_dates(ticker_list)
-    yahoo_financials = yahoo_client.fetch_quarterly_financials(ticker_list).filter(pl.col("date").str.starts_with(f"{year}"))
+    if include_yfinance_earnings:
+        yahoo_earnings = yahoo_client.fetch_earnings_dates(ticker_list)
+        yahoo_earnings_long = yahoo_client.normalize_earnings_long(yahoo_earnings)
+    else:
+        yahoo_earnings = pl.DataFrame(
+            schema={
+                "ticker": pl.String,
+                "reportDate": pl.String,
+                "earningsDatetime": pl.String,
+                "period_end": pl.String,
+                "epsEstimate": pl.Float64,
+                "epsActual": pl.Float64,
+                "surprisePercent": pl.Float64,
+                "source": pl.String,
+            }
+        )
+        yahoo_earnings_long = _empty_financials().select(["ticker", "statement", "metric", "date", "filing_date", "value", "source", "source_label"])
+    if include_yfinance_financials:
+        yahoo_financials = yahoo_client.fetch_quarterly_financials(ticker_list).filter(pl.col("date").str.starts_with(f"{year}"))
+    else:
+        yahoo_financials = _empty_financials().select(["ticker", "statement", "metric", "date", "filing_date", "value", "source", "source_label"])
 
-    sec_frames = []
-    for row in sec_mapping.select(["ticker", "cik"]).iter_rows(named=True):
-        sec_frames.append(sec_client.extract_financials(str(row["ticker"]), str(row["cik"])))
+    sec_frames = _fetch_sec_financials(sec_client, sec_mapping)
     sec_financials = pl.concat(sec_frames, how="vertical") if sec_frames else _empty_financials()
     sec_financials = sec_financials.filter(pl.col("date").str.starts_with(f"{year}"))
 
     eodhd_prices = load_eodhd_prices(reference_data_dir, ticker_list, year)
     eodhd_financials = normalize_eodhd_financials(reference_data_dir, ticker_list, year)
+    eodhd_earnings = normalize_eodhd_earnings(reference_data_dir, ticker_list, year)
     price_alignment = build_price_alignment(eodhd_prices, yahoo_prices)
     financial_alignment = pl.concat(
         [
             build_financial_alignment(eodhd_financials, sec_financials, "sec_companyfacts"),
-            build_financial_alignment(eodhd_financials, yahoo_financials, "yfinance"),
+            *([build_earnings_alignment(eodhd_earnings, yahoo_earnings_long)] if include_yfinance_earnings else []),
+            *([build_financial_alignment(eodhd_financials, yahoo_financials, "yfinance")] if include_yfinance_financials else []),
         ],
         how="vertical",
     )
-    price_summary, statement_summary, metric_summary = build_error_summary_tables(
+    price_summary, statement_summary, metric_summary, ticker_summary, ticker_metric_summary = build_error_summary_tables(
+        price_alignment=price_alignment,
+        financial_alignment=financial_alignment,
+        threshold_pct=threshold_pct,
+    )
+    price_error_details, financial_error_details = build_error_detail_tables(
         price_alignment=price_alignment,
         financial_alignment=financial_alignment,
         threshold_pct=threshold_pct,
@@ -108,6 +148,7 @@ def run_open_source_cadrage(
         general_reference=general_reference,
         yahoo_prices=yahoo_prices,
         yahoo_earnings=yahoo_earnings,
+        yahoo_earnings_long=yahoo_earnings_long,
         yahoo_financials=yahoo_financials,
         sec_financials=sec_financials,
         price_alignment=price_alignment,
@@ -115,6 +156,10 @@ def run_open_source_cadrage(
         price_summary=price_summary,
         statement_summary=statement_summary,
         metric_summary=metric_summary,
+        ticker_summary=ticker_summary,
+        ticker_metric_summary=ticker_metric_summary,
+        price_error_details=price_error_details,
+        financial_error_details=financial_error_details,
         tickers=ticker_list,
         year=year,
         threshold_pct=threshold_pct,
@@ -128,6 +173,8 @@ def run_open_source_cadrage(
         price_rows=yahoo_prices.height,
         sec_rows=sec_financials.height,
         yfinance_financial_rows=yahoo_financials.height,
+        yfinance_earnings_rows=yahoo_earnings_long.height,
+        earnings_alignment_rows=financial_alignment.filter(pl.col("statement") == "earnings").height,
         price_alignment_rows=price_alignment.height,
         financial_alignment_rows=financial_alignment.height,
     )
@@ -140,6 +187,7 @@ def _write_outputs(
     general_reference: pl.DataFrame,
     yahoo_prices: pl.DataFrame,
     yahoo_earnings: pl.DataFrame,
+    yahoo_earnings_long: pl.DataFrame,
     yahoo_financials: pl.DataFrame,
     sec_financials: pl.DataFrame,
     price_alignment: pl.DataFrame,
@@ -147,6 +195,10 @@ def _write_outputs(
     price_summary: pl.DataFrame,
     statement_summary: pl.DataFrame,
     metric_summary: pl.DataFrame,
+    ticker_summary: pl.DataFrame,
+    ticker_metric_summary: pl.DataFrame,
+    price_error_details: pl.DataFrame,
+    financial_error_details: pl.DataFrame,
     tickers: tuple[str, ...],
     year: int,
     threshold_pct: float,
@@ -155,6 +207,7 @@ def _write_outputs(
     general_reference.write_parquet(output_dir / "general_reference.parquet")
     yahoo_prices.write_parquet(output_dir / "prices_yfinance.parquet")
     yahoo_earnings.write_parquet(output_dir / "earnings_yfinance.parquet")
+    yahoo_earnings_long.write_parquet(output_dir / "earnings_yfinance_long.parquet")
     yahoo_financials.write_parquet(output_dir / "financials_yfinance.parquet")
     sec_financials.write_parquet(output_dir / "financials_sec_companyfacts.parquet")
     price_alignment.write_parquet(output_dir / f"price_alignment_{year}.parquet")
@@ -162,6 +215,10 @@ def _write_outputs(
     price_summary.write_parquet(output_dir / "price_error_summary.parquet")
     statement_summary.write_parquet(output_dir / "statement_error_summary.parquet")
     metric_summary.write_parquet(output_dir / "metric_error_summary.parquet")
+    ticker_summary.write_parquet(output_dir / "ticker_error_summary.parquet")
+    ticker_metric_summary.write_parquet(output_dir / "ticker_metric_error_summary.parquet")
+    price_error_details.write_parquet(output_dir / "price_error_details.parquet")
+    financial_error_details.write_parquet(output_dir / "financial_error_details.parquet")
     summarize_alignment(
         tickers=tickers,
         price_alignment=price_alignment,
@@ -177,6 +234,8 @@ def _write_outputs(
         price_summary=price_summary,
         statement_summary=statement_summary,
         metric_summary=metric_summary,
+        ticker_summary=ticker_summary,
+        ticker_metric_summary=ticker_metric_summary,
     )
     (output_dir / "run_config.json").write_text(
         json.dumps(
@@ -189,6 +248,7 @@ def _write_outputs(
                     "general_reference": "general_reference.parquet",
                     "prices_yfinance": "prices_yfinance.parquet",
                     "earnings_yfinance": "earnings_yfinance.parquet",
+                    "earnings_yfinance_long": "earnings_yfinance_long.parquet",
                     "financials_yfinance": "financials_yfinance.parquet",
                     "financials_sec_companyfacts": "financials_sec_companyfacts.parquet",
                     "price_alignment": f"price_alignment_{year}.parquet",
@@ -196,6 +256,10 @@ def _write_outputs(
                     "price_error_summary": "price_error_summary.parquet",
                     "statement_error_summary": "statement_error_summary.parquet",
                     "metric_error_summary": "metric_error_summary.parquet",
+                    "ticker_error_summary": "ticker_error_summary.parquet",
+                    "ticker_metric_error_summary": "ticker_metric_error_summary.parquet",
+                    "price_error_details": "price_error_details.parquet",
+                    "financial_error_details": "financial_error_details.parquet",
                     "report_html": "report.html",
                     "summary": "summary.json",
                 },
@@ -222,3 +286,20 @@ def _empty_financials() -> pl.DataFrame:
             "fiscal_year": pl.Int64,
         }
     )
+
+
+def _fetch_sec_financials(
+    sec_client: SecCompanyFactsClient,
+    sec_mapping: pl.DataFrame,
+    max_workers: int = 8,
+) -> list[pl.DataFrame]:
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    frames: list[pl.DataFrame] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_financials, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            frames.append(future.result())
+    return frames

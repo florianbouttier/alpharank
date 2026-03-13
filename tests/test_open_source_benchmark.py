@@ -40,7 +40,7 @@ def test_build_price_alignment_computes_diffs() -> None:
 
     assert result.height == 2
     assert result["match_status"].to_list() == ["matched", "matched"]
-    assert result["adjusted_close_diff"].to_list() == [0.5, -1.0]
+    assert result["value_diff"].to_list() == [0.5, -1.0]
 
 
 def test_build_financial_alignment_keeps_filing_date_diff() -> None:
@@ -76,7 +76,7 @@ def test_build_financial_alignment_keeps_filing_date_diff() -> None:
 
     assert result.height == 1
     assert result["match_status"].item() == "matched"
-    assert result["filing_date_diff_days"].item() == 1
+    assert result["date_diff_days"].item() == 0
 
 
 def test_extract_statement_frame_normalizes_yfinance_wide_frame() -> None:
@@ -98,40 +98,43 @@ def test_extract_statement_frame_normalizes_yfinance_wide_frame() -> None:
 
 def test_select_best_facts_prefers_quarterly_duration_and_tag_priority() -> None:
     facts = {
-        "RevenueFromContractWithCustomerExcludingAssessedTax": {
-            "units": {
-                "USD": [
-                    {
-                        "start": "2025-10-01",
-                        "end": "2025-12-31",
-                        "val": 10.0,
-                        "filed": "2026-01-30",
-                        "form": "10-Q",
-                        "fy": 2026,
-                        "fp": "Q1",
-                    }
-                ]
-            }
-        },
-        "Revenues": {
-            "units": {
-                "USD": [
-                    {
-                        "start": "2025-01-01",
-                        "end": "2025-12-31",
-                        "val": 99.0,
-                        "filed": "2026-02-01",
-                        "form": "10-K",
-                        "fy": 2025,
-                        "fp": "FY",
-                    }
-                ]
-            }
-        },
+        "us-gaap": {
+            "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                "units": {
+                    "USD": [
+                        {
+                            "start": "2025-10-01",
+                            "end": "2025-12-31",
+                            "val": 10.0,
+                            "filed": "2026-01-30",
+                            "form": "10-Q",
+                            "fy": 2026,
+                            "fp": "Q1",
+                        }
+                    ]
+                }
+            },
+            "Revenues": {
+                "units": {
+                    "USD": [
+                        {
+                            "start": "2025-01-01",
+                            "end": "2025-12-31",
+                            "val": 99.0,
+                            "filed": "2026-02-01",
+                            "form": "10-K",
+                            "fy": 2025,
+                            "fp": "FY",
+                        }
+                    ]
+                }
+            },
+        }
     }
 
     selected = _select_best_facts(
         "income_statement",
+        ("us-gaap",),
         ("RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues"),
         facts,
     )
@@ -145,21 +148,27 @@ def test_build_error_summary_tables_applies_threshold_pct() -> None:
         {
             "ticker": ["AAPL.US", "AAPL.US", "AAPL.US"],
             "date": ["2025-01-02", "2025-01-03", "2025-01-04"],
+            "source": ["yfinance", "yfinance", "yfinance"],
+            "statement": ["price", "price", "price"],
+            "metric": ["adjusted_close", "adjusted_close", "adjusted_close"],
             "match_status": ["matched", "matched", "eodhd_only"],
-            "adjusted_close_diff_bps": [20.0, 80.0, None],
+            "diff_pct": [0.2, 0.8, None],
+            "date_diff_days": [0, 0, None],
         }
     )
     financial_alignment = pl.DataFrame(
         {
-            "open_source": ["yfinance", "yfinance", "sec_companyfacts"],
+            "source": ["yfinance", "yfinance", "sec_companyfacts"],
+            "ticker": ["AAPL.US", "AAPL.US", "MSFT.US"],
             "statement": ["income_statement", "income_statement", "balance_sheet"],
             "metric": ["revenue", "revenue", "total_assets"],
             "match_status": ["matched", "open_only", "matched"],
-            "value_diff_bps": [60.0, None, 10.0],
+            "diff_pct": [0.6, None, 0.1],
+            "date_diff_days": [0, None, 0],
         }
     )
 
-    price_summary, statement_summary, metric_summary = build_error_summary_tables(
+    price_summary, statement_summary, metric_summary, ticker_summary, ticker_metric_summary = build_error_summary_tables(
         price_alignment=price_alignment,
         financial_alignment=financial_alignment,
         threshold_pct=0.5,
@@ -169,3 +178,40 @@ def test_build_error_summary_tables_applies_threshold_pct() -> None:
     assert price_summary["error_rate_pct"].item() == 50.0
     assert statement_summary.filter(pl.col("source") == "yfinance")["error_rows"].item() == 1
     assert metric_summary.filter(pl.col("metric") == "revenue")["error_rows"].item() == 1
+    assert ticker_summary.filter(pl.col("ticker") == "AAPL.US")["error_rows"].item() == 1
+    assert ticker_metric_summary.filter((pl.col("ticker") == "AAPL.US") & (pl.col("metric") == "revenue"))["error_rows"].item() == 1
+
+
+def test_build_financial_alignment_matches_nearest_quarter_end() -> None:
+    eodhd = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["balance_sheet"],
+            "metric": ["total_assets"],
+            "date": ["2025-12-31"],
+            "filing_date": ["2026-01-30"],
+            "value": [100.0],
+            "source": ["eodhd"],
+            "source_label": ["totalAssets"],
+        }
+    )
+    sec = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["balance_sheet"],
+            "metric": ["total_assets"],
+            "date": ["2025-12-27"],
+            "filing_date": ["2026-01-30"],
+            "value": [100.0],
+            "source": ["sec_companyfacts"],
+            "source_label": ["Assets"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2026],
+        }
+    )
+
+    result = build_financial_alignment(eodhd, sec, "sec_companyfacts", tolerance_days=10)
+
+    assert result["match_status"].item() == "matched"
+    assert result["date_diff_days"].item() == -4

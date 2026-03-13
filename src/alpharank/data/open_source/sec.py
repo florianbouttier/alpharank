@@ -45,11 +45,11 @@ class SecCompanyFactsClient:
 
     def extract_financials(self, ticker: str, cik: str | int) -> pl.DataFrame:
         payload = self.fetch_company_facts(cik)
-        facts = payload.get("facts", {}).get("us-gaap", {})
+        facts_payload = payload.get("facts", {})
         rows: list[dict[str, object]] = []
 
         for spec in METRIC_SPECS:
-            selected = _select_best_facts(spec.statement, spec.sec_tags, facts)
+            selected = _select_best_facts(spec.statement, spec.sec_fact_roots, spec.sec_tags, facts_payload)
             if spec.metric == "free_cash_flow":
                 continue
             for fact in selected:
@@ -83,18 +83,24 @@ class SecCompanyFactsClient:
         return frame.sort(["ticker", "statement", "metric", "date"])
 
 
-def _select_best_facts(statement: str, tags: Iterable[str], facts: dict[str, Any]) -> list[dict[str, Any]]:
+def _select_best_facts(
+    statement: str,
+    fact_roots: Iterable[str],
+    tags: Iterable[str],
+    facts_payload: dict[str, Any],
+) -> list[dict[str, Any]]:
     chosen: dict[str, dict[str, Any]] = {}
     for tag in tags:
-        unit_payload = facts.get(tag, {}).get("units", {})
-        records = unit_payload.get("USD", [])
-        cleaned = [_clean_fact(statement, tag, record) for record in records]
-        cleaned = [record for record in cleaned if record is not None]
-        cleaned.sort(key=lambda record: record["filed"] or "", reverse=True)
-        for record in cleaned:
-            end = record["end"]
-            if end not in chosen:
-                chosen[end] = record
+        for fact_root in fact_roots:
+            unit_payload = facts_payload.get(fact_root, {}).get(tag, {}).get("units", {})
+            records = _extract_unit_records(unit_payload)
+            cleaned = [_clean_fact(statement, tag, record) for record in records]
+            cleaned = [record for record in cleaned if record is not None]
+            cleaned.sort(key=lambda record: record["filed"] or "", reverse=True)
+            for record in cleaned:
+                end = record["end"]
+                if end not in chosen:
+                    chosen[end] = record
     return list(chosen.values())
 
 
@@ -130,6 +136,17 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any]) -> dict[str, Any
         "fp": fact.get("fp"),
         "form": form,
     }
+
+
+def _extract_unit_records(unit_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    for unit in ("USD", "shares", "pure"):
+        records = unit_payload.get(unit, [])
+        if records:
+            return records
+    for records in unit_payload.values():
+        if records:
+            return records
+    return []
 
 
 def _derive_free_cash_flow(frame: pl.DataFrame) -> pl.DataFrame:
