@@ -2,6 +2,8 @@ import pandas as pd
 import polars as pl
 
 from alpharank.data.open_source.benchmark import (
+    _build_financial_comparison_table,
+    _build_price_comparison_table,
     build_audited_metric_catalog,
     build_error_summary_tables,
     build_financial_alignment,
@@ -240,3 +242,59 @@ def test_build_audited_metric_catalog_lists_enabled_sources() -> None:
     assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "sec_companyfacts")).height == 1
     assert catalog.filter(pl.col("source") == "yfinance_earnings").is_empty()
     assert catalog.filter((pl.col("statement") == "price") & (pl.col("metric") == "adjusted_close") & (pl.col("source") == "yfinance")).height == 1
+
+
+def test_comparison_tables_include_side_by_side_values_and_status() -> None:
+    price_alignment = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US", "AAPL.US", "AAPL.US"],
+            "date": ["2025-01-02", "2025-01-03", "2025-01-04"],
+            "eodhd_adjusted_close": [100.0, 100.0, 100.0],
+            "yahoo_adjusted_close": [100.2, 101.0, None],
+            "source": ["yfinance", "yfinance", "yfinance"],
+            "statement": ["price", "price", "price"],
+            "metric": ["adjusted_close", "adjusted_close", "adjusted_close"],
+            "match_status": ["matched", "matched", "eodhd_only"],
+            "value_diff": [0.2, 1.0, None],
+            "diff_pct": [0.2, 1.0, None],
+            "date_diff_days": [0, 0, None],
+        }
+    )
+    price_table = _build_price_comparison_table(price_alignment, threshold_pct=0.5)
+
+    assert price_table["comparison_status"].to_list() == [
+        "within_threshold",
+        "threshold_breach",
+        "missing_in_open_source",
+    ]
+    assert price_table["eodhd_adjusted_close"].to_list() == [100.0, 100.0, 100.0]
+    assert price_table["yfinance_adjusted_close"].to_list() == [100.2, 101.0, None]
+
+    financial_alignment = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US", "AAPL.US", "AAPL.US"],
+            "source": ["sec_companyfacts", "sec_companyfacts", "sec_companyfacts"],
+            "statement": ["income_statement", "income_statement", "income_statement"],
+            "metric": ["net_income", "net_income", "net_income"],
+            "date": ["2025-03-31", "2025-06-30", "2025-09-30"],
+            "match_status": ["matched", "matched", "open_only"],
+            "eodhd_value": [10.0, 10.0, None],
+            "open_value": [10.0, 11.0, 12.0],
+            "value_diff": [0.0, 1.0, None],
+            "diff_pct": [0.0, 10.0, None],
+            "eodhd_filing_date": ["2025-05-01", "2025-08-01", None],
+            "open_filing_date": ["2025-05-02", "2025-08-02", "2025-11-02"],
+            "date_diff_days": [1, 1, None],
+            "eodhd_source_label": ["netIncome", "netIncome", None],
+            "open_source_label": ["NetIncomeLoss", "NetIncomeLoss", "NetIncomeLoss"],
+        }
+    )
+    financial_table = _build_financial_comparison_table(financial_alignment, threshold_pct=0.5)
+
+    assert financial_table["comparison_status"].to_list() == [
+        "within_threshold",
+        "threshold_breach",
+        "missing_in_eodhd",
+    ]
+    assert financial_table["eodhd_value"].to_list() == [10.0, 10.0, None]
+    assert financial_table["open_value"].to_list() == [10.0, 11.0, 12.0]

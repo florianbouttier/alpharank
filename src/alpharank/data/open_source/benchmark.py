@@ -446,6 +446,14 @@ def write_detail_reports(
             ),
             keys=["source", "statement"],
         )
+        local_price_comparison = _build_price_comparison_table(
+            price_alignment.filter(pl.col("ticker") == ticker),
+            threshold_pct=threshold_pct,
+        )
+        local_financial_comparison = _build_financial_comparison_table(
+            financial_alignment.filter(pl.col("ticker") == ticker),
+            threshold_pct=threshold_pct,
+        )
         local_price_errors = price_error_details.filter(pl.col("ticker") == ticker)
         local_financial_errors = financial_error_details.filter(pl.col("ticker") == ticker)
 
@@ -459,6 +467,8 @@ def write_detail_reports(
             sections=[
                 ("Statement coverage", _sort_for_display(local_statement_summary)),
                 ("KPI coverage", _sort_for_display(local_kpi_summary)),
+                ("Price comparison", local_price_comparison),
+                ("Financial comparison", local_financial_comparison),
                 ("Price errors", local_price_errors),
                 ("Financial errors", local_financial_errors),
             ],
@@ -894,6 +904,96 @@ def _aggregate_overview(df: pl.DataFrame, prefix: str) -> dict[str, float]:
     error_rows = int(row["error_rows"])
     error_rate_pct = (error_rows / matched_rows * 100.0) if matched_rows else 0.0
     return {"matched_rows": matched_rows, "error_rows": error_rows, "error_rate_pct": error_rate_pct}
+
+
+def _build_price_comparison_table(df: pl.DataFrame, *, threshold_pct: float) -> pl.DataFrame:
+    if df.is_empty():
+        return pl.DataFrame(
+            schema={
+                "date": pl.String,
+                "match_status": pl.String,
+                "comparison_status": pl.String,
+                "eodhd_adjusted_close": pl.Float64,
+                "yfinance_adjusted_close": pl.Float64,
+                "value_diff": pl.Float64,
+                "diff_pct": pl.Float64,
+            }
+        )
+    return (
+        df.with_columns(_comparison_status_expr(threshold_pct).alias("comparison_status"))
+        .select(
+            [
+                pl.col("date"),
+                pl.col("match_status"),
+                pl.col("comparison_status"),
+                pl.col("eodhd_adjusted_close"),
+                pl.col("yahoo_adjusted_close").alias("yfinance_adjusted_close"),
+                pl.col("value_diff"),
+                pl.col("diff_pct"),
+            ]
+        )
+        .sort("date")
+    )
+
+
+def _build_financial_comparison_table(df: pl.DataFrame, *, threshold_pct: float) -> pl.DataFrame:
+    if df.is_empty():
+        return pl.DataFrame(
+            schema={
+                "source": pl.String,
+                "statement": pl.String,
+                "metric": pl.String,
+                "date": pl.String,
+                "match_status": pl.String,
+                "comparison_status": pl.String,
+                "eodhd_value": pl.Float64,
+                "open_value": pl.Float64,
+                "value_diff": pl.Float64,
+                "diff_pct": pl.Float64,
+                "eodhd_filing_date": pl.String,
+                "open_filing_date": pl.String,
+                "date_diff_days": pl.Int64,
+                "eodhd_source_label": pl.String,
+                "open_source_label": pl.String,
+            }
+        )
+    return (
+        df.with_columns(_comparison_status_expr(threshold_pct).alias("comparison_status"))
+        .select(
+            [
+                pl.col("source"),
+                pl.col("statement"),
+                pl.col("metric"),
+                pl.col("date"),
+                pl.col("match_status"),
+                pl.col("comparison_status"),
+                pl.col("eodhd_value"),
+                pl.col("open_value"),
+                pl.col("value_diff"),
+                pl.col("diff_pct"),
+                pl.col("eodhd_filing_date"),
+                pl.col("open_filing_date"),
+                pl.col("date_diff_days"),
+                pl.col("eodhd_source_label"),
+                pl.col("open_source_label"),
+            ]
+        )
+        .sort(["source", "statement", "metric", "date"])
+    )
+
+
+def _comparison_status_expr(threshold_pct: float) -> pl.Expr:
+    return (
+        pl.when(pl.col("match_status") == "matched")
+        .then(
+            pl.when(pl.col("diff_pct").abs() > threshold_pct)
+            .then(pl.lit("threshold_breach"))
+            .otherwise(pl.lit("within_threshold"))
+        )
+        .when(pl.col("match_status") == "eodhd_only")
+        .then(pl.lit("missing_in_open_source"))
+        .otherwise(pl.lit("missing_in_eodhd"))
+    )
 
 
 def _slugify(value: str) -> str:
