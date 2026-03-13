@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
+from pathlib import Path
+import time
 from typing import Any, Iterable
 
 import polars as pl
@@ -10,8 +13,20 @@ from alpharank.data.open_source.config import METRIC_SPECS
 
 
 class SecCompanyFactsClient:
-    def __init__(self, user_agent: str, timeout: int = 30) -> None:
+    def __init__(
+        self,
+        user_agent: str,
+        timeout: int = 30,
+        cache_dir: Path | None = None,
+        max_retries: int = 5,
+        request_pause_seconds: float = 0.25,
+    ) -> None:
         self.timeout = timeout
+        self.cache_dir = cache_dir
+        self.max_retries = max_retries
+        self.request_pause_seconds = request_pause_seconds
+        if self.cache_dir is not None:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -21,9 +36,7 @@ class SecCompanyFactsClient:
         )
 
     def fetch_company_mapping(self) -> pl.DataFrame:
-        response = self.session.get("https://www.sec.gov/files/company_tickers_exchange.json", timeout=self.timeout)
-        response.raise_for_status()
-        payload = response.json()
+        payload = self._get_json("https://www.sec.gov/files/company_tickers_exchange.json", cache_name="company_tickers_exchange.json")
         fields = payload["fields"]
         return pl.DataFrame(payload["data"], schema=fields, orient="row").with_columns(
             [
@@ -36,12 +49,10 @@ class SecCompanyFactsClient:
 
     def fetch_company_facts(self, cik: str | int) -> dict[str, Any]:
         cik_str = str(cik).zfill(10)
-        response = self.session.get(
+        return self._get_json(
             f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_str}.json",
-            timeout=self.timeout,
+            cache_name=f"CIK{cik_str}.json",
         )
-        response.raise_for_status()
-        return response.json()
 
     def extract_financials(self, ticker: str, cik: str | int) -> pl.DataFrame:
         payload = self.fetch_company_facts(cik)
@@ -81,6 +92,34 @@ class SecCompanyFactsClient:
             frame = pl.concat([frame, free_cash_flow], how="vertical")
 
         return frame.sort(["ticker", "statement", "metric", "date"])
+
+    def _get_json(self, url: str, cache_name: str) -> dict[str, Any]:
+        cache_path = self.cache_dir / cache_name if self.cache_dir is not None else None
+        if cache_path is not None and cache_path.exists():
+            return json.loads(cache_path.read_text(encoding="utf-8"))
+
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries):
+            try:
+                response = self.session.get(url, timeout=self.timeout)
+                if response.status_code == 429:
+                    retry_after = response.headers.get("Retry-After")
+                    sleep_seconds = float(retry_after) if retry_after else min(30.0, 2.0 ** attempt)
+                    time.sleep(sleep_seconds)
+                    continue
+                response.raise_for_status()
+                payload = response.json()
+                if cache_path is not None:
+                    cache_path.write_text(json.dumps(payload), encoding="utf-8")
+                time.sleep(self.request_pause_seconds)
+                return payload
+            except requests.RequestException as exc:
+                last_error = exc
+                time.sleep(min(30.0, 2.0 ** attempt))
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Unable to fetch SEC payload from {url}")
 
 
 def _select_best_facts(

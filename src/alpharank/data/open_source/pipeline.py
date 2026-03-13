@@ -9,6 +9,7 @@ from typing import Sequence
 import polars as pl
 
 from alpharank.data.open_source.benchmark import (
+    build_audited_metric_catalog,
     build_coverage_audit,
     build_error_detail_tables,
     build_error_summary_tables,
@@ -20,6 +21,7 @@ from alpharank.data.open_source.benchmark import (
     normalize_eodhd_earnings,
     normalize_eodhd_financials,
     summarize_alignment,
+    write_detail_reports,
     write_html_report,
 )
 from alpharank.data.open_source.config import PILOT_TICKERS
@@ -70,7 +72,10 @@ def run_open_source_cadrage(
     include_yfinance_financials = universe != "sp500-2025"
     include_yfinance_earnings = universe != "sp500-2025"
     yahoo_client = YahooFinanceClient()
-    sec_client = SecCompanyFactsClient(user_agent=user_agent)
+    sec_client = SecCompanyFactsClient(
+        user_agent=user_agent,
+        cache_dir=cache_dir / "sec_companyfacts",
+    )
 
     sec_mapping_all = sec_client.fetch_company_mapping()
     coverage_cache_path = cache_dir / f"ticker_coverage_{year}.parquet"
@@ -115,7 +120,7 @@ def run_open_source_cadrage(
     else:
         yahoo_financials = _empty_financials().select(["ticker", "statement", "metric", "date", "filing_date", "value", "source", "source_label"])
 
-    sec_frames = _fetch_sec_financials(sec_client, sec_mapping)
+    sec_frames, sec_fetch_failures = _fetch_sec_financials(sec_client, sec_mapping)
     sec_financials = pl.concat(sec_frames, how="vertical") if sec_frames else _empty_financials()
     sec_financials = sec_financials.filter(pl.col("date").str.starts_with(f"{year}"))
 
@@ -131,7 +136,15 @@ def run_open_source_cadrage(
         ],
         how="vertical",
     )
-    price_summary, statement_summary, metric_summary, ticker_summary, ticker_metric_summary = build_error_summary_tables(
+    (
+        price_summary,
+        statement_summary,
+        metric_summary,
+        ticker_summary,
+        ticker_metric_summary,
+        price_ticker_summary,
+        price_ticker_metric_summary,
+    ) = build_error_summary_tables(
         price_alignment=price_alignment,
         financial_alignment=financial_alignment,
         threshold_pct=threshold_pct,
@@ -141,10 +154,16 @@ def run_open_source_cadrage(
         financial_alignment=financial_alignment,
         threshold_pct=threshold_pct,
     )
+    audited_metric_catalog = build_audited_metric_catalog(
+        include_yfinance_financials=include_yfinance_financials,
+        include_yfinance_earnings=include_yfinance_earnings,
+    )
 
     _write_outputs(
         output_dir=output_dir,
         coverage=coverage,
+        audited_metric_catalog=audited_metric_catalog,
+        sec_fetch_failures=sec_fetch_failures,
         general_reference=general_reference,
         yahoo_prices=yahoo_prices,
         yahoo_earnings=yahoo_earnings,
@@ -158,6 +177,8 @@ def run_open_source_cadrage(
         metric_summary=metric_summary,
         ticker_summary=ticker_summary,
         ticker_metric_summary=ticker_metric_summary,
+        price_ticker_summary=price_ticker_summary,
+        price_ticker_metric_summary=price_ticker_metric_summary,
         price_error_details=price_error_details,
         financial_error_details=financial_error_details,
         tickers=ticker_list,
@@ -184,6 +205,8 @@ def _write_outputs(
     *,
     output_dir: Path,
     coverage: pl.DataFrame,
+    audited_metric_catalog: pl.DataFrame,
+    sec_fetch_failures: list[dict[str, str]],
     general_reference: pl.DataFrame,
     yahoo_prices: pl.DataFrame,
     yahoo_earnings: pl.DataFrame,
@@ -197,6 +220,8 @@ def _write_outputs(
     metric_summary: pl.DataFrame,
     ticker_summary: pl.DataFrame,
     ticker_metric_summary: pl.DataFrame,
+    price_ticker_summary: pl.DataFrame,
+    price_ticker_metric_summary: pl.DataFrame,
     price_error_details: pl.DataFrame,
     financial_error_details: pl.DataFrame,
     tickers: tuple[str, ...],
@@ -204,6 +229,8 @@ def _write_outputs(
     threshold_pct: float,
 ) -> None:
     coverage.write_parquet(output_dir / f"ticker_coverage_{year}.parquet")
+    audited_metric_catalog.write_parquet(output_dir / "audited_metric_catalog.parquet")
+    (output_dir / "sec_fetch_failures.json").write_text(json.dumps(sec_fetch_failures, indent=2), encoding="utf-8")
     general_reference.write_parquet(output_dir / "general_reference.parquet")
     yahoo_prices.write_parquet(output_dir / "prices_yfinance.parquet")
     yahoo_earnings.write_parquet(output_dir / "earnings_yfinance.parquet")
@@ -217,6 +244,8 @@ def _write_outputs(
     metric_summary.write_parquet(output_dir / "metric_error_summary.parquet")
     ticker_summary.write_parquet(output_dir / "ticker_error_summary.parquet")
     ticker_metric_summary.write_parquet(output_dir / "ticker_metric_error_summary.parquet")
+    price_ticker_summary.write_parquet(output_dir / "price_ticker_error_summary.parquet")
+    price_ticker_metric_summary.write_parquet(output_dir / "price_ticker_metric_error_summary.parquet")
     price_error_details.write_parquet(output_dir / "price_error_details.parquet")
     financial_error_details.write_parquet(output_dir / "financial_error_details.parquet")
     summarize_alignment(
@@ -231,11 +260,30 @@ def _write_outputs(
         threshold_pct=threshold_pct,
         benchmark_tickers=tickers,
         coverage=coverage,
+        audited_metric_catalog=audited_metric_catalog,
         price_summary=price_summary,
         statement_summary=statement_summary,
         metric_summary=metric_summary,
         ticker_summary=ticker_summary,
         ticker_metric_summary=ticker_metric_summary,
+        price_ticker_summary=price_ticker_summary,
+    )
+    write_detail_reports(
+        output_dir=output_dir,
+        year=year,
+        threshold_pct=threshold_pct,
+        coverage=coverage,
+        audited_metric_catalog=audited_metric_catalog,
+        price_alignment=price_alignment,
+        financial_alignment=financial_alignment,
+        price_error_details=price_error_details,
+        financial_error_details=financial_error_details,
+        price_summary=price_summary,
+        metric_summary=metric_summary,
+        ticker_summary=ticker_summary,
+        ticker_metric_summary=ticker_metric_summary,
+        price_ticker_summary=price_ticker_summary,
+        price_ticker_metric_summary=price_ticker_metric_summary,
     )
     (output_dir / "run_config.json").write_text(
         json.dumps(
@@ -245,6 +293,8 @@ def _write_outputs(
                 "threshold_pct": threshold_pct,
                 "files": {
                     "ticker_coverage": f"ticker_coverage_{year}.parquet",
+                    "audited_metric_catalog": "audited_metric_catalog.parquet",
+                    "sec_fetch_failures": "sec_fetch_failures.json",
                     "general_reference": "general_reference.parquet",
                     "prices_yfinance": "prices_yfinance.parquet",
                     "earnings_yfinance": "earnings_yfinance.parquet",
@@ -258,9 +308,13 @@ def _write_outputs(
                     "metric_error_summary": "metric_error_summary.parquet",
                     "ticker_error_summary": "ticker_error_summary.parquet",
                     "ticker_metric_error_summary": "ticker_metric_error_summary.parquet",
+                    "price_ticker_error_summary": "price_ticker_error_summary.parquet",
+                    "price_ticker_metric_error_summary": "price_ticker_metric_error_summary.parquet",
                     "price_error_details": "price_error_details.parquet",
                     "financial_error_details": "financial_error_details.parquet",
                     "report_html": "report.html",
+                    "ticker_report_index_html": "tickers/index.html",
+                    "kpi_report_index_html": "kpis/index.html",
                     "summary": "summary.json",
                 },
             },
@@ -291,15 +345,21 @@ def _empty_financials() -> pl.DataFrame:
 def _fetch_sec_financials(
     sec_client: SecCompanyFactsClient,
     sec_mapping: pl.DataFrame,
-    max_workers: int = 8,
-) -> list[pl.DataFrame]:
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
     rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
     frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(sec_client.extract_financials, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
             for row in rows
         }
         for future in as_completed(futures):
-            frames.append(future.result())
-    return frames
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                print(f"SEC fetch failed for {ticker}: {exc}")
+                failures.append({"ticker": ticker, "error": str(exc)})
+    return frames, failures

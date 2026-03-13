@@ -2,6 +2,7 @@ import pandas as pd
 import polars as pl
 
 from alpharank.data.open_source.benchmark import (
+    build_audited_metric_catalog,
     build_error_summary_tables,
     build_financial_alignment,
     build_price_alignment,
@@ -168,7 +169,15 @@ def test_build_error_summary_tables_applies_threshold_pct() -> None:
         }
     )
 
-    price_summary, statement_summary, metric_summary, ticker_summary, ticker_metric_summary = build_error_summary_tables(
+    (
+        price_summary,
+        statement_summary,
+        metric_summary,
+        ticker_summary,
+        ticker_metric_summary,
+        price_ticker_summary,
+        price_ticker_metric_summary,
+    ) = build_error_summary_tables(
         price_alignment=price_alignment,
         financial_alignment=financial_alignment,
         threshold_pct=0.5,
@@ -176,10 +185,15 @@ def test_build_error_summary_tables_applies_threshold_pct() -> None:
 
     assert price_summary["error_rows"].item() == 1
     assert price_summary["error_rate_pct"].item() == 50.0
+    assert price_summary["ok_rows"].item() == 1
+    assert price_summary["eodhd_rows"].item() == 3
+    assert price_summary["open_rows"].item() == 2
     assert statement_summary.filter(pl.col("source") == "yfinance")["error_rows"].item() == 1
     assert metric_summary.filter(pl.col("metric") == "revenue")["error_rows"].item() == 1
     assert ticker_summary.filter(pl.col("ticker") == "AAPL.US")["error_rows"].item() == 1
     assert ticker_metric_summary.filter((pl.col("ticker") == "AAPL.US") & (pl.col("metric") == "revenue"))["error_rows"].item() == 1
+    assert price_ticker_summary.filter(pl.col("ticker") == "AAPL.US")["error_rows"].item() == 1
+    assert price_ticker_metric_summary.filter(pl.col("ticker") == "AAPL.US")["matched_rows"].item() == 2
 
 
 def test_build_financial_alignment_matches_nearest_quarter_end() -> None:
@@ -215,3 +229,14 @@ def test_build_financial_alignment_matches_nearest_quarter_end() -> None:
 
     assert result["match_status"].item() == "matched"
     assert result["date_diff_days"].item() == -4
+
+
+def test_build_audited_metric_catalog_lists_enabled_sources() -> None:
+    catalog = build_audited_metric_catalog(
+        include_yfinance_financials=False,
+        include_yfinance_earnings=False,
+    )
+
+    assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "sec_companyfacts")).height == 1
+    assert catalog.filter(pl.col("source") == "yfinance_earnings").is_empty()
+    assert catalog.filter((pl.col("statement") == "price") & (pl.col("metric") == "adjusted_close") & (pl.col("source") == "yfinance")).height == 1

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import math
+from html import escape
 from pathlib import Path
 from typing import Iterable
 
@@ -205,13 +207,32 @@ def summarize_alignment(*, tickers: Iterable[str], price_alignment: pl.DataFrame
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def build_error_summary_tables(*, price_alignment: pl.DataFrame, financial_alignment: pl.DataFrame, threshold_pct: float) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+def build_error_summary_tables(
+    *,
+    price_alignment: pl.DataFrame,
+    financial_alignment: pl.DataFrame,
+    threshold_pct: float,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     price_summary = _aggregate_errors(price_alignment, by=["source", "statement", "metric"], threshold_pct=threshold_pct)
     statement_summary = _aggregate_errors(financial_alignment, by=["source", "statement"], threshold_pct=threshold_pct)
     metric_summary = _aggregate_errors(financial_alignment, by=["source", "statement", "metric"], threshold_pct=threshold_pct)
     ticker_summary = _aggregate_errors(financial_alignment, by=["source", "ticker", "statement"], threshold_pct=threshold_pct)
     ticker_metric_summary = _aggregate_errors(financial_alignment, by=["source", "ticker", "statement", "metric"], threshold_pct=threshold_pct)
-    return price_summary, statement_summary, metric_summary, ticker_summary, ticker_metric_summary
+    price_ticker_summary = _aggregate_errors(price_alignment, by=["source", "ticker", "statement"], threshold_pct=threshold_pct)
+    price_ticker_metric_summary = _aggregate_errors(
+        price_alignment,
+        by=["source", "ticker", "statement", "metric"],
+        threshold_pct=threshold_pct,
+    )
+    return (
+        price_summary,
+        statement_summary,
+        metric_summary,
+        ticker_summary,
+        ticker_metric_summary,
+        price_ticker_summary,
+        price_ticker_metric_summary,
+    )
 
 
 def build_error_detail_tables(*, price_alignment: pl.DataFrame, financial_alignment: pl.DataFrame, threshold_pct: float) -> tuple[pl.DataFrame, pl.DataFrame]:
@@ -256,7 +277,70 @@ def build_coverage_audit(*, sp500_tickers: tuple[str, ...], benchmark_tickers: t
     )
 
 
-def write_html_report(*, output_path: Path, year: int, threshold_pct: float, benchmark_tickers: tuple[str, ...], coverage: pl.DataFrame, price_summary: pl.DataFrame, statement_summary: pl.DataFrame, metric_summary: pl.DataFrame, ticker_summary: pl.DataFrame, ticker_metric_summary: pl.DataFrame) -> None:
+def build_audited_metric_catalog(
+    *,
+    include_yfinance_financials: bool,
+    include_yfinance_earnings: bool,
+) -> pl.DataFrame:
+    rows: list[dict[str, str]] = [
+        {
+            "source": "yfinance",
+            "statement": "price",
+            "metric": "adjusted_close",
+            "reference_field": "adjusted_close",
+            "open_source_field": "adjusted_close",
+        }
+    ]
+    for spec in METRIC_SPECS:
+        if spec.statement == "earnings":
+            if include_yfinance_earnings:
+                rows.append(
+                    {
+                        "source": "yfinance_earnings",
+                        "statement": spec.statement,
+                        "metric": spec.metric,
+                        "reference_field": spec.eodhd_column,
+                        "open_source_field": spec.metric,
+                    }
+                )
+            continue
+        rows.append(
+            {
+                "source": "sec_companyfacts",
+                "statement": spec.statement,
+                "metric": spec.metric,
+                "reference_field": spec.eodhd_column,
+                "open_source_field": ",".join(spec.sec_tags) if spec.sec_tags else "derived",
+            }
+        )
+        if include_yfinance_financials and spec.yfinance_rows:
+            rows.append(
+                {
+                    "source": "yfinance",
+                    "statement": spec.statement,
+                    "metric": spec.metric,
+                    "reference_field": spec.eodhd_column,
+                    "open_source_field": ",".join(spec.yfinance_rows),
+                }
+            )
+    return pl.DataFrame(rows).sort(["source", "statement", "metric"])
+
+
+def write_html_report(
+    *,
+    output_path: Path,
+    year: int,
+    threshold_pct: float,
+    benchmark_tickers: tuple[str, ...],
+    coverage: pl.DataFrame,
+    audited_metric_catalog: pl.DataFrame,
+    price_summary: pl.DataFrame,
+    statement_summary: pl.DataFrame,
+    metric_summary: pl.DataFrame,
+    ticker_summary: pl.DataFrame,
+    ticker_metric_summary: pl.DataFrame,
+    price_ticker_summary: pl.DataFrame,
+) -> None:
     coverage_totals = coverage.select(
         [
             pl.len().alias("sp500_2025_tickers"),
@@ -266,6 +350,7 @@ def write_html_report(*, output_path: Path, year: int, threshold_pct: float, ben
         ]
     ).to_dicts()[0]
     missing = coverage.filter(~pl.col("available_in_yahoo_or_sec")).select(["ticker_root"]).to_series().to_list()
+    ticker_overview = _build_ticker_overview(coverage=coverage, price_ticker_summary=price_ticker_summary, ticker_summary=ticker_summary)
     html = f"""<!doctype html>
 <html lang=\"en\">
 <head>
@@ -282,6 +367,7 @@ def write_html_report(*, output_path: Path, year: int, threshold_pct: float, ben
     th {{ background: #eff6ff; position: sticky; top: 0; }}
     .muted {{ color: #64748b; }}
     .section {{ margin-top: 28px; }}
+    a {{ color: #1d4ed8; text-decoration: none; }}
   </style>
 </head>
 <body>
@@ -294,15 +380,182 @@ def write_html_report(*, output_path: Path, year: int, threshold_pct: float, ben
     <div class=\"card\"><strong>Available in Yahoo or SEC</strong><br>{coverage_totals['available_in_yahoo_or_sec']}</div>
   </div>
   <p class=\"muted\">Missing from both: {', '.join(missing) if missing else 'none'}</p>
-  <div class=\"section\"><h2>Price Summary</h2>{_frame_to_html(price_summary)}</div>
-  <div class=\"section\"><h2>By Statement</h2>{_frame_to_html(statement_summary)}</div>
-  <div class=\"section\"><h2>By KPI</h2>{_frame_to_html(metric_summary)}</div>
-  <div class=\"section\"><h2>By Ticker</h2>{_frame_to_html(ticker_summary)}</div>
-  <div class=\"section\"><h2>By Ticker and KPI</h2>{_frame_to_html(ticker_metric_summary)}</div>
+  <p><a href=\"tickers/index.html\">Ticker reports</a> | <a href=\"kpis/index.html\">KPI reports</a></p>
+  <div class=\"section\"><h2>Audited KPI Catalog</h2>{_frame_to_html(audited_metric_catalog)}</div>
+  <div class=\"section\"><h2>Price Summary</h2>{_frame_to_html(_sort_for_display(price_summary))}</div>
+  <div class=\"section\"><h2>By Statement</h2>{_frame_to_html(_sort_for_display(statement_summary))}</div>
+  <div class=\"section\"><h2>By KPI</h2>{_frame_to_html(_sort_for_display(metric_summary))}</div>
+  <div class=\"section\"><h2>By Ticker</h2>{_frame_to_html(_sort_for_display(ticker_overview))}</div>
+  <div class=\"section\"><h2>By Ticker and KPI</h2>{_frame_to_html(_sort_for_display(ticker_metric_summary))}</div>
 </body>
 </html>
 """
     output_path.write_text(html, encoding="utf-8")
+
+
+def write_detail_reports(
+    *,
+    output_dir: Path,
+    year: int,
+    threshold_pct: float,
+    coverage: pl.DataFrame,
+    audited_metric_catalog: pl.DataFrame,
+    price_alignment: pl.DataFrame,
+    financial_alignment: pl.DataFrame,
+    price_error_details: pl.DataFrame,
+    financial_error_details: pl.DataFrame,
+    price_summary: pl.DataFrame,
+    metric_summary: pl.DataFrame,
+    ticker_summary: pl.DataFrame,
+    ticker_metric_summary: pl.DataFrame,
+    price_ticker_summary: pl.DataFrame,
+    price_ticker_metric_summary: pl.DataFrame,
+) -> None:
+    ticker_dir = output_dir / "tickers"
+    metric_dir = output_dir / "kpis"
+    ticker_dir.mkdir(parents=True, exist_ok=True)
+    metric_dir.mkdir(parents=True, exist_ok=True)
+
+    ticker_index_rows: list[dict[str, object]] = []
+    statement_catalog = (
+        audited_metric_catalog.select(["source", "statement"])
+        .unique()
+        .sort(["source", "statement"])
+    )
+    for coverage_row in coverage.sort("ticker").iter_rows(named=True):
+        ticker = str(coverage_row["ticker"])
+        ticker_root = str(coverage_row["ticker_root"])
+        file_name = f"{_slugify(ticker)}.html"
+        page_path = ticker_dir / file_name
+
+        local_price_summary = price_ticker_metric_summary.filter(pl.col("ticker") == ticker)
+        local_metric_summary = ticker_metric_summary.filter(pl.col("ticker") == ticker)
+        local_kpi_summary = _catalog_join(
+            audited_metric_catalog,
+            pl.concat([local_price_summary, local_metric_summary], how="diagonal_relaxed"),
+            keys=["source", "statement", "metric"],
+        )
+        local_statement_summary = _catalog_join(
+            statement_catalog,
+            pl.concat(
+                [
+                    price_ticker_summary.filter(pl.col("ticker") == ticker),
+                    ticker_summary.filter(pl.col("ticker") == ticker),
+                ],
+                how="diagonal_relaxed",
+            ),
+            keys=["source", "statement"],
+        )
+        local_price_errors = price_error_details.filter(pl.col("ticker") == ticker)
+        local_financial_errors = financial_error_details.filter(pl.col("ticker") == ticker)
+
+        _write_html_page(
+            output_path=page_path,
+            title=f"{ticker} audit {year}",
+            subtitle=(
+                f"Threshold {threshold_pct:.3f}% | Yahoo price available: {coverage_row['yahoo_price_available']} | "
+                f"SEC filing available: {coverage_row['sec_filing_available']}"
+            ),
+            sections=[
+                ("Statement coverage", _sort_for_display(local_statement_summary)),
+                ("KPI coverage", _sort_for_display(local_kpi_summary)),
+                ("Price errors", local_price_errors),
+                ("Financial errors", local_financial_errors),
+            ],
+            navigation='<p><a href="../report.html">Global report</a> | <a href="index.html">Ticker index</a> | <a href="../kpis/index.html">KPI index</a></p>',
+        )
+
+        price_overview = _aggregate_overview(price_ticker_summary.filter(pl.col("ticker") == ticker), "price")
+        financial_overview = _aggregate_overview(ticker_summary.filter(pl.col("ticker") == ticker), "financial")
+        ticker_index_rows.append(
+            {
+                "ticker": ticker,
+                "ticker_root": ticker_root,
+                "yahoo_price_available": bool(coverage_row["yahoo_price_available"]),
+                "sec_filing_available": bool(coverage_row["sec_filing_available"]),
+                "price_matched_rows": price_overview["matched_rows"],
+                "price_error_rows": price_overview["error_rows"],
+                "price_error_rate_pct": price_overview["error_rate_pct"],
+                "financial_matched_rows": financial_overview["matched_rows"],
+                "financial_error_rows": financial_overview["error_rows"],
+                "financial_error_rate_pct": financial_overview["error_rate_pct"],
+                "report": file_name,
+            }
+        )
+
+    ticker_index = pl.DataFrame(ticker_index_rows).sort(["financial_error_rate_pct", "price_error_rate_pct", "ticker"], descending=[True, True, False])
+    _write_html_page(
+        output_path=ticker_dir / "index.html",
+        title=f"Ticker audit index {year}",
+        subtitle=f"Threshold {threshold_pct:.3f}%",
+        sections=[("Tickers", _with_links(ticker_index, "report", label_col="ticker"))],
+        navigation='<p><a href="../report.html">Global report</a> | <a href="../kpis/index.html">KPI index</a></p>',
+    )
+
+    metric_index_rows: list[dict[str, object]] = []
+    metric_catalog = audited_metric_catalog.select(["source", "statement", "metric"]).iter_rows(named=True)
+    for metric_row in metric_catalog:
+        source = str(metric_row["source"])
+        statement = str(metric_row["statement"])
+        metric = str(metric_row["metric"])
+        file_name = f"{_slugify(source)}__{_slugify(statement)}__{_slugify(metric)}.html"
+        page_path = metric_dir / file_name
+
+        if statement == "price":
+            global_summary = price_summary.filter(
+                (pl.col("source") == source) & (pl.col("statement") == statement) & (pl.col("metric") == metric)
+            )
+            ticker_rows = price_ticker_metric_summary.filter(
+                (pl.col("source") == source) & (pl.col("statement") == statement) & (pl.col("metric") == metric)
+            )
+            error_rows = price_error_details.filter(
+                (pl.col("source") == source) & (pl.col("statement") == statement) & (pl.col("metric") == metric)
+            )
+        else:
+            global_summary = metric_summary.filter(
+                (pl.col("source") == source) & (pl.col("statement") == statement) & (pl.col("metric") == metric)
+            )
+            ticker_rows = ticker_metric_summary.filter(
+                (pl.col("source") == source) & (pl.col("statement") == statement) & (pl.col("metric") == metric)
+            )
+            error_rows = financial_error_details.filter(
+                (pl.col("source") == source) & (pl.col("statement") == statement) & (pl.col("metric") == metric)
+            )
+
+        _write_html_page(
+            output_path=page_path,
+            title=f"{source} / {statement} / {metric}",
+            subtitle=f"Threshold {threshold_pct:.3f}%",
+            sections=[
+                ("Global summary", global_summary),
+                ("By ticker", _sort_for_display(ticker_rows)),
+                ("Error details", error_rows),
+            ],
+            navigation='<p><a href="../report.html">Global report</a> | <a href="../tickers/index.html">Ticker index</a> | <a href="index.html">KPI index</a></p>',
+        )
+        summary_row = global_summary.to_dicts()[0] if not global_summary.is_empty() else {}
+        metric_index_rows.append(
+            {
+                "source": source,
+                "statement": statement,
+                "metric": metric,
+                "matched_rows": int(summary_row.get("matched_rows", 0)),
+                "error_rows": int(summary_row.get("error_rows", 0)),
+                "error_rate_pct": float(summary_row.get("error_rate_pct", 0.0)),
+                "eodhd_rows": int(summary_row.get("eodhd_rows", 0)),
+                "open_rows": int(summary_row.get("open_rows", 0)),
+                "report": file_name,
+            }
+        )
+
+    metric_index = pl.DataFrame(metric_index_rows).sort(["error_rate_pct", "matched_rows", "metric"], descending=[True, True, False])
+    _write_html_page(
+        output_path=metric_dir / "index.html",
+        title=f"KPI audit index {year}",
+        subtitle=f"Threshold {threshold_pct:.3f}%",
+        sections=[("KPIs", _with_links(metric_index, "report", label_cols=["source", "statement", "metric"]))],
+        navigation='<p><a href="../report.html">Global report</a> | <a href="../tickers/index.html">Ticker index</a></p>',
+    )
 
 
 def _aggregate_errors(df: pl.DataFrame, *, by: list[str], threshold_pct: float) -> pl.DataFrame:
@@ -315,7 +568,16 @@ def _aggregate_errors(df: pl.DataFrame, *, by: list[str], threshold_pct: float) 
             pl.col("diff_pct").abs().max().alias("max_abs_diff_pct"),
             pl.col("date_diff_days").abs().max().alias("max_abs_date_diff_days"),
         ]
-    ).with_columns(_error_rate_expr("matched_rows", "error_rows").alias("error_rate_pct")).sort(by)
+    ).with_columns(
+        [
+            (pl.col("matched_rows") - pl.col("error_rows")).alias("ok_rows"),
+            (pl.col("matched_rows") + pl.col("eodhd_only_rows")).alias("eodhd_rows"),
+            (pl.col("matched_rows") + pl.col("open_only_rows")).alias("open_rows"),
+            (pl.col("matched_rows") + pl.col("eodhd_only_rows") + pl.col("open_only_rows")).alias("total_rows"),
+            (pl.col("eodhd_only_rows") + pl.col("open_only_rows")).alias("coverage_gap_rows"),
+            _error_rate_expr("matched_rows", "error_rows").alias("error_rate_pct"),
+        ]
+    ).sort(by)
 
 
 def _build_nearest_alignment(*, eodhd_frame: pl.DataFrame, open_frame: pl.DataFrame, open_source: str, key_cols: list[str], tolerance_days: int) -> pl.DataFrame:
@@ -465,7 +727,13 @@ def _error_rate_expr(matched_col: str, error_col: str) -> pl.Expr:
 def _frame_to_html(df: pl.DataFrame) -> str:
     if df.is_empty():
         return "<p>No rows.</p>"
-    return df.to_pandas().to_html(index=False, border=0)
+    headers = "".join(f"<th>{escape(str(column))}</th>" for column in df.columns)
+    body_rows = []
+    for row in df.iter_rows(named=True):
+        cells = "".join(f"<td>{_format_html_value(row[column])}</td>" for column in df.columns)
+        body_rows.append(f"<tr>{cells}</tr>")
+    body = "".join(body_rows)
+    return f"<table><thead><tr>{headers}</tr></thead><tbody>{body}</tbody></table>"
 
 
 def _empty_financial_frame() -> pl.DataFrame:
@@ -517,3 +785,161 @@ def _standardize_alignment_output(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("diff_pct").cast(pl.Float64, strict=False),
         ]
     )
+
+
+def _format_html_value(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str) and value.startswith("<a href=") and value.endswith("</a>"):
+        return value
+    if isinstance(value, float):
+        if math.isnan(value):
+            return ""
+        if value.is_integer():
+            return f"{int(value):,}"
+        return f"{value:,.6f}".rstrip("0").rstrip(".")
+    return escape(str(value))
+
+
+def _catalog_join(catalog: pl.DataFrame, actual: pl.DataFrame, *, keys: list[str]) -> pl.DataFrame:
+    numeric_columns = [
+        "matched_rows",
+        "ok_rows",
+        "error_rows",
+        "eodhd_rows",
+        "open_rows",
+        "total_rows",
+        "coverage_gap_rows",
+        "eodhd_only_rows",
+        "open_only_rows",
+    ]
+    value_columns = ["max_abs_diff_pct", "max_abs_date_diff_days", "error_rate_pct"]
+    return (
+        catalog.join(actual, on=keys, how="left", coalesce=True)
+        .with_columns(
+            [pl.col(column).fill_null(0) for column in numeric_columns if column in actual.columns]
+            + [pl.col(column).fill_null(0.0) for column in value_columns if column in actual.columns]
+        )
+        .sort(keys)
+    )
+
+
+def _sort_for_display(df: pl.DataFrame) -> pl.DataFrame:
+    sort_columns: list[str] = []
+    descending: list[bool] = []
+    for column in ("error_rate_pct", "error_rows", "matched_rows"):
+        if column in df.columns:
+            sort_columns.append(column)
+            descending.append(True)
+    if "ticker" in df.columns:
+        sort_columns.append("ticker")
+        descending.append(False)
+    elif "metric" in df.columns:
+        sort_columns.append("metric")
+        descending.append(False)
+    elif "statement" in df.columns:
+        sort_columns.append("statement")
+        descending.append(False)
+    return df.sort(sort_columns, descending=descending) if sort_columns else df
+
+
+def _build_ticker_overview(*, coverage: pl.DataFrame, price_ticker_summary: pl.DataFrame, ticker_summary: pl.DataFrame) -> pl.DataFrame:
+    price_overview = _build_group_overview(price_ticker_summary, "ticker", "price")
+    financial_overview = _build_group_overview(ticker_summary, "ticker", "financial")
+    return (
+        coverage.select(["ticker", "ticker_root", "yahoo_price_available", "sec_filing_available"])
+        .join(price_overview, on="ticker", how="left", coalesce=True)
+        .join(financial_overview, on="ticker", how="left", coalesce=True)
+        .with_columns(
+            [
+                pl.col("price_matched_rows").fill_null(0),
+                pl.col("price_error_rows").fill_null(0),
+                pl.col("price_error_rate_pct").fill_null(0.0),
+                pl.col("financial_matched_rows").fill_null(0),
+                pl.col("financial_error_rows").fill_null(0),
+                pl.col("financial_error_rate_pct").fill_null(0.0),
+            ]
+        )
+    )
+
+
+def _build_group_overview(df: pl.DataFrame, group_col: str, prefix: str) -> pl.DataFrame:
+    if df.is_empty():
+        return pl.DataFrame(
+            schema={
+                group_col: pl.String,
+                f"{prefix}_matched_rows": pl.Int64,
+                f"{prefix}_error_rows": pl.Int64,
+                f"{prefix}_error_rate_pct": pl.Float64,
+            }
+        )
+    return df.group_by(group_col).agg(
+        [
+            pl.col("matched_rows").sum().alias(f"{prefix}_matched_rows"),
+            pl.col("error_rows").sum().alias(f"{prefix}_error_rows"),
+        ]
+    ).with_columns(_error_rate_expr(f"{prefix}_matched_rows", f"{prefix}_error_rows").alias(f"{prefix}_error_rate_pct"))
+
+
+def _aggregate_overview(df: pl.DataFrame, prefix: str) -> dict[str, float]:
+    if df.is_empty():
+        return {"matched_rows": 0, "error_rows": 0, "error_rate_pct": 0.0}
+    row = df.select(
+        [
+            pl.col("matched_rows").sum().alias("matched_rows"),
+            pl.col("error_rows").sum().alias("error_rows"),
+        ]
+    ).to_dicts()[0]
+    matched_rows = int(row["matched_rows"])
+    error_rows = int(row["error_rows"])
+    error_rate_pct = (error_rows / matched_rows * 100.0) if matched_rows else 0.0
+    return {"matched_rows": matched_rows, "error_rows": error_rows, "error_rate_pct": error_rate_pct}
+
+
+def _slugify(value: str) -> str:
+    return value.lower().replace(".", "_").replace("/", "_").replace(" ", "_")
+
+
+def _write_html_page(*, output_path: Path, title: str, subtitle: str, sections: list[tuple[str, pl.DataFrame]], navigation: str) -> None:
+    section_html = "".join(f"<div class=\"section\"><h2>{escape(name)}</h2>{_frame_to_html(frame)}</div>" for name, frame in sections)
+    html = f"""<!doctype html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"utf-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+  <title>{escape(title)}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 24px; color: #111827; background: #f8fafc; }}
+    h1, h2 {{ margin-bottom: 8px; }}
+    table {{ border-collapse: collapse; width: 100%; margin: 12px 0 24px; background: white; }}
+    th, td {{ border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-size: 12px; vertical-align: top; }}
+    th {{ background: #eff6ff; position: sticky; top: 0; }}
+    a {{ color: #1d4ed8; text-decoration: none; }}
+    .muted {{ color: #64748b; }}
+    .section {{ margin-top: 28px; }}
+  </style>
+</head>
+<body>
+  <h1>{escape(title)}</h1>
+  <div class=\"muted\">{escape(subtitle)}</div>
+  {navigation}
+  {section_html}
+</body>
+</html>
+"""
+    output_path.write_text(html, encoding="utf-8")
+
+
+def _with_links(df: pl.DataFrame, link_col: str, *, label_col: str | None = None, label_cols: list[str] | None = None) -> pl.DataFrame:
+    rows = []
+    for row in df.iter_rows(named=True):
+        label = row[label_col] if label_col is not None else " / ".join(str(row[col]) for col in (label_cols or []))
+        link = row.get(link_col)
+        rows.append(
+            {
+                **{key: value for key, value in row.items() if key != link_col},
+                "report_link": f'<a href="{escape(str(link))}">{escape(str(label))}</a>' if link else "",
+            }
+        )
+    ordered_columns = ["report_link"] + [column for column in df.columns if column != link_col]
+    return pl.DataFrame(rows).select([column for column in ordered_columns if column in rows[0]] if rows else [])
