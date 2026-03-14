@@ -40,6 +40,7 @@ def main() -> None:
     print(f"Tickers available in Yahoo or SEC: {result.coverage_available_in_yahoo_or_sec}")
     print(f"Yahoo price rows: {result.price_rows}")
     print(f"SEC financial rows: {result.sec_rows}")
+    print(f"SEC filing financial rows: {result.sec_filing_rows}")
     print(f"SimFin financial rows: {result.simfin_rows}")
     print(f"Yahoo financial fallback tickers: {result.yfinance_financial_ticker_count}")
     print(f"Open-source consolidated financial rows: {result.consolidated_rows}")

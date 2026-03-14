@@ -281,6 +281,7 @@ def build_audited_metric_catalog(
     *,
     include_yfinance_financials: bool,
     include_yfinance_earnings: bool,
+    include_sec_filing_financials: bool,
     include_simfin_financials: bool,
     include_open_source_consolidated: bool,
 ) -> pl.DataFrame:
@@ -315,6 +316,16 @@ def build_audited_metric_catalog(
                 "open_source_field": ",".join(spec.sec_tags) if spec.sec_tags else "derived",
             }
         )
+        if include_sec_filing_financials:
+            rows.append(
+                {
+                    "source": "sec_filing",
+                    "statement": spec.statement,
+                    "metric": spec.metric,
+                    "reference_field": spec.eodhd_column,
+                    "open_source_field": ",".join(spec.sec_tags) if spec.sec_tags else "derived_from_filing",
+                }
+            )
         if include_yfinance_financials and spec.yfinance_rows:
             rows.append(
                 {
@@ -342,7 +353,7 @@ def build_audited_metric_catalog(
                     "statement": spec.statement,
                     "metric": spec.metric,
                     "reference_field": spec.eodhd_column,
-                    "open_source_field": "sec_companyfacts -> simfin -> yfinance fallback",
+                    "open_source_field": "sec_companyfacts -> sec_filing -> simfin -> yfinance fallback",
                 }
             )
     return pl.DataFrame(rows).sort(["source", "statement", "metric"])

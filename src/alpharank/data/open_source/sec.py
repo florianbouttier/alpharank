@@ -180,6 +180,7 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
         "form": form,
         "duration_days": duration_days,
         "frame": frame,
+        "has_dimensions": bool(fact.get("has_dimensions")) or fact.get("segment") is not None,
     }
 
 
@@ -235,9 +236,15 @@ def _select_share_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]
     return list(chosen.values())
 
 
-def _share_sort_key(record: dict[str, Any]) -> tuple[int, str, str]:
+def _share_sort_key(record: dict[str, Any]) -> tuple[int, int, int, str, str]:
     preferred_tag_rank = 0 if str(record.get("tag")) == "CommonStockSharesOutstanding" else 1
-    return (preferred_tag_rank, int(record["tag_priority"]), str(record.get("filed") or ""), str(record["end"]))
+    return (
+        preferred_tag_rank,
+        int(bool(record.get("has_dimensions"))),
+        int(record["tag_priority"]),
+        str(record.get("filed") or ""),
+        str(record["end"]),
+    )
 
 
 def _is_better_share_record(candidate: dict[str, Any], current: dict[str, Any]) -> bool:
@@ -289,8 +296,8 @@ def _dedupe_by_end(candidates: Iterable[dict[str, Any]]) -> dict[str, dict[str, 
     return chosen
 
 
-def _record_sort_key(record: dict[str, Any]) -> tuple[int, str]:
-    return (int(record["tag_priority"]), str(record.get("filed") or ""))
+def _record_sort_key(record: dict[str, Any]) -> tuple[int, int, str]:
+    return (int(bool(record.get("has_dimensions"))), int(record["tag_priority"]), str(record.get("filed") or ""))
 
 
 def _derive_q4_facts(quarterlies: Iterable[dict[str, Any]], annuals: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:

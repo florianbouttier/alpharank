@@ -1,5 +1,6 @@
 import pandas as pd
 import polars as pl
+import xml.etree.ElementTree as ET
 
 from alpharank.data.open_source.benchmark import (
     _build_financial_comparison_table,
@@ -11,8 +12,12 @@ from alpharank.data.open_source.benchmark import (
 )
 from alpharank.data.open_source.consolidation import FinancialSourceInput, consolidate_financial_sources
 from alpharank.data.open_source.config import METRIC_SPECS
-from alpharank.data.open_source.pipeline import _identify_yfinance_financial_fallback_tickers
+from alpharank.data.open_source.pipeline import (
+    _identify_sec_filing_fallback_tickers,
+    _identify_yfinance_financial_fallback_tickers,
+)
 from alpharank.data.open_source.sec import _select_best_facts
+from alpharank.data.open_source.sec_filing import _derive_missing_total_liabilities, _parse_contexts, _parse_document_focus
 from alpharank.data.open_source.simfin import _extract_metric_frames
 from alpharank.data.open_source.yahoo import _extract_statement_frame
 
@@ -375,11 +380,13 @@ def test_build_audited_metric_catalog_lists_enabled_sources() -> None:
     catalog = build_audited_metric_catalog(
         include_yfinance_financials=False,
         include_yfinance_earnings=False,
+        include_sec_filing_financials=True,
         include_simfin_financials=True,
         include_open_source_consolidated=True,
     )
 
     assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "sec_companyfacts")).height == 1
+    assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "sec_filing")).height == 1
     assert catalog.filter(pl.col("source") == "yfinance_earnings").is_empty()
     assert catalog.filter((pl.col("statement") == "price") & (pl.col("metric") == "adjusted_close") & (pl.col("source") == "yfinance")).height == 1
     assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "simfin")).height == 1
@@ -596,6 +603,97 @@ def test_identify_yfinance_financial_fallback_tickers_returns_only_incomplete_se
         )
     sec = pl.DataFrame(rows)
 
-    fallback = _identify_yfinance_financial_fallback_tickers(("AAPL", "MSFT", "NVDA"), sec)
+    fallback = _identify_yfinance_financial_fallback_tickers(
+        tickers=("AAPL", "MSFT", "NVDA"),
+        sec_companyfacts=sec,
+        sec_filing=pl.DataFrame(schema=sec.schema),
+    )
 
     assert fallback == ("MSFT", "NVDA")
+
+
+def test_identify_sec_filing_fallback_tickers_targets_incomplete_companyfacts() -> None:
+    rows = [
+        {
+            "ticker": "AAPL.US",
+            "statement": "income_statement",
+            "metric": "revenue",
+            "date": date,
+            "filing_date": "2025-05-01",
+            "value": 1.0,
+            "source": "sec_companyfacts",
+            "source_label": "RevenueFromContractWithCustomerExcludingAssessedTax",
+            "form": "10-Q",
+            "fiscal_period": period,
+            "fiscal_year": 2025,
+        }
+        for date, period in zip(["2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"], ["Q1", "Q2", "Q3", "Q4"], strict=True)
+    ]
+    sec = pl.DataFrame(rows)
+
+    fallback = _identify_sec_filing_fallback_tickers(("AAPL", "MSFT"), sec)
+
+    assert fallback == ("AAPL", "MSFT")
+
+
+def test_parse_contexts_marks_dimensional_contexts() -> None:
+    xml = """
+    <xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+      <context id="c1">
+        <entity><identifier scheme="http://www.sec.gov/CIK">1</identifier></entity>
+        <period><startDate>2025-01-01</startDate><endDate>2025-03-31</endDate></period>
+      </context>
+      <context id="c2">
+        <entity>
+          <identifier scheme="http://www.sec.gov/CIK">1</identifier>
+          <segment><xbrldi:explicitMember dimension="us-gaap:StatementBusinessSegmentsAxis">foo:Bar</xbrldi:explicitMember></segment>
+        </entity>
+        <period><instant>2025-03-31</instant></period>
+      </context>
+    </xbrl>
+    """
+    contexts = _parse_contexts(ET.fromstring(xml))
+
+    assert contexts["c1"]["has_dimensions"] is False
+    assert contexts["c1"]["end"] == "2025-03-31"
+    assert contexts["c2"]["has_dimensions"] is True
+    assert contexts["c2"]["instant"] == "2025-03-31"
+
+
+def test_parse_document_focus_extracts_fiscal_year_and_period() -> None:
+    xml = """
+    <xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:dei="http://xbrl.sec.gov/dei/2024">
+      <dei:DocumentFiscalYearFocus contextRef="c1">2025</dei:DocumentFiscalYearFocus>
+      <dei:DocumentFiscalPeriodFocus contextRef="c1">Q2</dei:DocumentFiscalPeriodFocus>
+    </xbrl>
+    """
+    root = ET.fromstring(xml)
+
+    fiscal_year, fiscal_period = _parse_document_focus(root)
+
+    assert fiscal_year == 2025
+    assert fiscal_period == "Q2"
+
+
+def test_derive_missing_total_liabilities_from_assets_and_equity() -> None:
+    frame = pl.DataFrame(
+        {
+            "ticker": ["OXY.US", "OXY.US"],
+            "statement": ["balance_sheet", "balance_sheet"],
+            "metric": ["total_assets", "stockholders_equity"],
+            "date": ["2025-03-31", "2025-03-31"],
+            "filing_date": ["2025-05-07", "2025-05-07"],
+            "value": [84_967_000_000.0, 34_712_000_000.0],
+            "source": ["sec_filing", "sec_filing"],
+            "source_label": ["Assets", "StockholdersEquity"],
+            "form": ["10-Q", "10-Q"],
+            "fiscal_period": ["Q1", "Q1"],
+            "fiscal_year": [2025, 2025],
+        }
+    )
+
+    derived = _derive_missing_total_liabilities(frame).sort("metric")
+
+    assert derived.height == 3
+    assert derived.filter(pl.col("metric") == "total_liabilities")["value"].item() == 50_255_000_000.0
+    assert derived.filter(pl.col("metric") == "total_liabilities")["source_label"].item() == "derived_from_assets_minus_stockholders_equity"

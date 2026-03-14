@@ -31,6 +31,7 @@ from alpharank.data.open_source.consolidation import (
 )
 from alpharank.data.open_source.config import METRIC_SPECS, PILOT_TICKERS
 from alpharank.data.open_source.sec import SecCompanyFactsClient
+from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.simfin import SimFinClient
 from alpharank.data.open_source.yahoo import YahooFinanceClient
 
@@ -43,6 +44,7 @@ class OpenSourceCadrageResult:
     coverage_available_in_yahoo_or_sec: int
     price_rows: int
     sec_rows: int
+    sec_filing_rows: int
     simfin_rows: int
     consolidated_rows: int
     lineage_rows: int
@@ -91,6 +93,10 @@ def run_open_source_cadrage(
         user_agent=user_agent,
         cache_dir=cache_dir / "sec_companyfacts",
     )
+    sec_filing_client = SecFilingFactsClient(
+        user_agent=user_agent,
+        cache_dir=cache_dir / "sec_filing",
+    )
 
     sec_mapping_all = sec_client.fetch_company_mapping()
     coverage_cache_path = cache_dir / f"ticker_coverage_{year}.parquet"
@@ -133,8 +139,24 @@ def run_open_source_cadrage(
     sec_frames, sec_fetch_failures = _fetch_sec_financials(sec_client, sec_mapping)
     sec_financials = pl.concat(sec_frames, how="vertical") if sec_frames else _empty_financials()
     sec_financials = sec_financials.filter(pl.col("date").str.starts_with(f"{year}"))
+    sec_filing_tickers = _identify_sec_filing_fallback_tickers(ticker_list, sec_financials)
+    sec_filing_financials = _empty_financials()
+    sec_filing_fetch_failures: list[dict[str, str]] = []
+    if sec_filing_tickers:
+        sec_filing_mapping = sec_mapping.filter(pl.col("ticker").is_in(sec_filing_tickers))
+        sec_filing_frames, sec_filing_fetch_failures = _fetch_sec_filing_financials(
+            sec_filing_client,
+            sec_filing_mapping,
+            year=year,
+        )
+        if sec_filing_frames:
+            sec_filing_financials = pl.concat(sec_filing_frames, how="vertical").filter(pl.col("date").str.starts_with(f"{year}"))
     if include_yfinance_financials:
-        yfinance_financial_tickers = _identify_yfinance_financial_fallback_tickers(ticker_list, sec_financials)
+        yfinance_financial_tickers = _identify_yfinance_financial_fallback_tickers(
+            tickers=ticker_list,
+            sec_companyfacts=sec_financials,
+            sec_filing=sec_filing_financials,
+        )
         yahoo_financials = (
             yahoo_client.fetch_quarterly_financials(yfinance_financial_tickers).filter(pl.col("date").str.starts_with(f"{year}"))
             if yfinance_financial_tickers
@@ -155,11 +177,13 @@ def run_open_source_cadrage(
     consolidated_financials, consolidated_lineage, consolidation_source_summary = consolidate_financial_sources(
         [
             FinancialSourceInput(source_name="sec_companyfacts", frame=sec_financials, priority=1),
-            FinancialSourceInput(source_name="simfin", frame=simfin_financials, priority=2),
-            FinancialSourceInput(source_name="yfinance", frame=yahoo_financials, priority=3),
+            FinancialSourceInput(source_name="sec_filing", frame=sec_filing_financials, priority=2),
+            FinancialSourceInput(source_name="simfin", frame=simfin_financials, priority=3),
+            FinancialSourceInput(source_name="yfinance", frame=yahoo_financials, priority=4),
         ]
     )
     consolidated_by_statement = split_consolidated_by_statement(consolidated_financials)
+    has_sec_filing_financials = not sec_filing_financials.is_empty()
     has_simfin_financials = not simfin_financials.is_empty()
     has_consolidated_financials = not consolidated_financials.is_empty()
 
@@ -170,6 +194,7 @@ def run_open_source_cadrage(
     financial_alignment = pl.concat(
         [
             build_financial_alignment(eodhd_financials, sec_financials, "sec_companyfacts"),
+            *([build_financial_alignment(eodhd_financials, sec_filing_financials, "sec_filing")] if not sec_filing_financials.is_empty() else []),
             *([build_financial_alignment(eodhd_financials, simfin_financials, "simfin")] if not simfin_financials.is_empty() else []),
             *(
                 [build_financial_alignment(eodhd_financials, consolidated_financials, "open_source_consolidated")]
@@ -202,6 +227,7 @@ def run_open_source_cadrage(
     audited_metric_catalog = build_audited_metric_catalog(
         include_yfinance_financials=include_yfinance_financials,
         include_yfinance_earnings=include_yfinance_earnings,
+        include_sec_filing_financials=has_sec_filing_financials,
         include_simfin_financials=has_simfin_financials,
         include_open_source_consolidated=has_consolidated_financials,
     )
@@ -211,6 +237,7 @@ def run_open_source_cadrage(
         coverage=coverage,
         audited_metric_catalog=audited_metric_catalog,
         sec_fetch_failures=sec_fetch_failures,
+        sec_filing_fetch_failures=sec_filing_fetch_failures,
         simfin_fetch_failures=simfin_fetch_failures,
         consolidation_source_summary=consolidation_source_summary,
         general_reference=general_reference,
@@ -219,6 +246,7 @@ def run_open_source_cadrage(
         yahoo_earnings_long=yahoo_earnings_long,
         yahoo_financials=yahoo_financials,
         sec_financials=sec_financials,
+        sec_filing_financials=sec_filing_financials,
         simfin_financials=simfin_financials,
         consolidated_financials=consolidated_financials,
         consolidated_lineage=consolidated_lineage,
@@ -248,6 +276,7 @@ def run_open_source_cadrage(
         coverage_available_in_yahoo_or_sec=int(coverage.select(pl.col("available_in_yahoo_or_sec").sum()).item()),
         price_rows=yahoo_prices.height,
         sec_rows=sec_financials.height,
+        sec_filing_rows=sec_filing_financials.height,
         simfin_rows=simfin_financials.height,
         consolidated_rows=consolidated_financials.height,
         lineage_rows=consolidated_lineage.height,
@@ -266,6 +295,7 @@ def _write_outputs(
     coverage: pl.DataFrame,
     audited_metric_catalog: pl.DataFrame,
     sec_fetch_failures: list[dict[str, str]],
+    sec_filing_fetch_failures: list[dict[str, str]],
     simfin_fetch_failures: list[dict[str, str]],
     consolidation_source_summary: pl.DataFrame,
     general_reference: pl.DataFrame,
@@ -274,6 +304,7 @@ def _write_outputs(
     yahoo_earnings_long: pl.DataFrame,
     yahoo_financials: pl.DataFrame,
     sec_financials: pl.DataFrame,
+    sec_filing_financials: pl.DataFrame,
     simfin_financials: pl.DataFrame,
     consolidated_financials: pl.DataFrame,
     consolidated_lineage: pl.DataFrame,
@@ -298,6 +329,7 @@ def _write_outputs(
     coverage.write_parquet(output_dir / f"ticker_coverage_{year}.parquet")
     audited_metric_catalog.write_parquet(output_dir / "audited_metric_catalog.parquet")
     (output_dir / "sec_fetch_failures.json").write_text(json.dumps(sec_fetch_failures, indent=2), encoding="utf-8")
+    (output_dir / "sec_filing_fetch_failures.json").write_text(json.dumps(sec_filing_fetch_failures, indent=2), encoding="utf-8")
     (output_dir / "simfin_fetch_failures.json").write_text(json.dumps(simfin_fetch_failures, indent=2), encoding="utf-8")
     general_reference.write_parquet(output_dir / "general_reference.parquet")
     yahoo_prices.write_parquet(output_dir / "prices_yfinance.parquet")
@@ -305,6 +337,7 @@ def _write_outputs(
     yahoo_earnings_long.write_parquet(output_dir / "earnings_yfinance_long.parquet")
     yahoo_financials.write_parquet(output_dir / "financials_yfinance.parquet")
     sec_financials.write_parquet(output_dir / "financials_sec_companyfacts.parquet")
+    sec_filing_financials.write_parquet(output_dir / "financials_sec_filing.parquet")
     simfin_financials.write_parquet(output_dir / "financials_simfin.parquet")
     consolidated_financials.write_parquet(output_dir / "financials_open_source_consolidated.parquet")
     consolidated_lineage.write_parquet(output_dir / "financials_open_source_lineage.parquet")
@@ -374,6 +407,7 @@ def _write_outputs(
                     "ticker_coverage": f"ticker_coverage_{year}.parquet",
                     "audited_metric_catalog": "audited_metric_catalog.parquet",
                     "sec_fetch_failures": "sec_fetch_failures.json",
+                    "sec_filing_fetch_failures": "sec_filing_fetch_failures.json",
                     "simfin_fetch_failures": "simfin_fetch_failures.json",
                     "general_reference": "general_reference.parquet",
                     "prices_yfinance": "prices_yfinance.parquet",
@@ -381,6 +415,7 @@ def _write_outputs(
                     "earnings_yfinance_long": "earnings_yfinance_long.parquet",
                     "financials_yfinance": "financials_yfinance.parquet",
                     "financials_sec_companyfacts": "financials_sec_companyfacts.parquet",
+                    "financials_sec_filing": "financials_sec_filing.parquet",
                     "financials_simfin": "financials_simfin.parquet",
                     "financials_open_source_consolidated": "financials_open_source_consolidated.parquet",
                     "financials_open_source_lineage": "financials_open_source_lineage.parquet",
@@ -406,6 +441,7 @@ def _write_outputs(
                     "yfinance_financials": include_yfinance_financials,
                     "yfinance_earnings": include_yfinance_earnings,
                     "sec_companyfacts": not sec_financials.is_empty(),
+                    "sec_filing": not sec_filing_financials.is_empty(),
                     "simfin": not simfin_financials.is_empty(),
                     "open_source_consolidated": not consolidated_financials.is_empty(),
                 },
@@ -457,29 +493,77 @@ def _fetch_sec_financials(
     return frames, failures
 
 
-def _identify_yfinance_financial_fallback_tickers(
-    tickers: tuple[str, ...],
-    sec_financials: pl.DataFrame,
-) -> tuple[str, ...]:
-    expected_metrics = [
-        {"statement": spec.statement, "metric": spec.metric}
-        for spec in METRIC_SPECS
-        if spec.statement != "earnings" and spec.yfinance_rows
-    ]
-    if not expected_metrics:
-        return ()
+def _fetch_sec_filing_financials(
+    sec_client: SecFilingFactsClient,
+    sec_mapping: pl.DataFrame,
+    *,
+    year: int,
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_financials, str(row["ticker"]), str(row["cik"]), year): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                print(f"SEC filing fetch failed for {ticker}: {exc}")
+                failures.append({"ticker": ticker, "error": str(exc)})
+    return frames, failures
 
-    expectation_grid = pl.DataFrame({"ticker": [f"{ticker}.US" for ticker in tickers]}).join(
-        pl.DataFrame(expected_metrics),
-        how="cross",
+
+def _identify_sec_filing_fallback_tickers(
+    tickers: tuple[str, ...],
+    sec_companyfacts: pl.DataFrame,
+) -> tuple[str, ...]:
+    return _identify_metric_gap_tickers(
+        tickers=tickers,
+        financials=sec_companyfacts,
+        supported_metrics={
+            (spec.statement, spec.metric)
+            for spec in METRIC_SPECS
+            if spec.statement != "earnings" and (spec.sec_tags or spec.metric in {"free_cash_flow"})
+        },
     )
-    sec_counts = (
-        sec_financials.filter(pl.col("metric").is_in([row["metric"] for row in expected_metrics]))
-        .group_by(["ticker", "statement", "metric"])
-        .agg(pl.col("date").n_unique().alias("quarter_count"))
+
+
+def _identify_yfinance_financial_fallback_tickers(
+    *,
+    tickers: tuple[str, ...],
+    sec_companyfacts: pl.DataFrame,
+    sec_filing: pl.DataFrame,
+) -> tuple[str, ...]:
+    sec_combined = pl.concat([sec_companyfacts, sec_filing], how="vertical") if not sec_filing.is_empty() else sec_companyfacts
+    return _identify_metric_gap_tickers(
+        tickers=tickers,
+        financials=sec_combined,
+        supported_metrics={
+            (spec.statement, spec.metric)
+            for spec in METRIC_SPECS
+            if spec.statement != "earnings" and spec.yfinance_rows
+        },
     )
+
+
+def _identify_metric_gap_tickers(
+    *,
+    tickers: tuple[str, ...],
+    financials: pl.DataFrame,
+    supported_metrics: set[tuple[str, str]],
+) -> tuple[str, ...]:
+    if not supported_metrics:
+        return ()
+    expected_metrics = [{"statement": statement, "metric": metric} for statement, metric in sorted(supported_metrics)]
+    expectation_grid = pl.DataFrame({"ticker": [f"{ticker}.US" for ticker in tickers]}).join(pl.DataFrame(expected_metrics), how="cross")
+    counts = financials.group_by(["ticker", "statement", "metric"]).agg(pl.col("date").n_unique().alias("quarter_count"))
     fallback = (
-        expectation_grid.join(sec_counts, on=["ticker", "statement", "metric"], how="left")
+        expectation_grid.join(counts, on=["ticker", "statement", "metric"], how="left")
         .with_columns(pl.col("quarter_count").fill_null(0))
         .filter(pl.col("quarter_count") < 4)
         .select("ticker")

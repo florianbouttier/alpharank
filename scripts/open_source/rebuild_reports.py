@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument("--threshold-pct", type=float, default=None)
     parser.add_argument("--include-yfinance-financials", action="store_true")
     parser.add_argument("--include-yfinance-earnings", action="store_true")
+    parser.add_argument("--include-sec-filing-financials", action="store_true")
     parser.add_argument("--include-simfin-financials", action="store_true")
     parser.add_argument("--include-open-source-consolidated", action="store_true")
     args = parser.parse_args()
@@ -42,6 +43,7 @@ def main() -> None:
     consolidation_source_summary = _read_optional_parquet(args.output_dir / "financials_open_source_source_summary.parquet")
     include_yfinance_financials = args.include_yfinance_financials or _has_alignment_source(financial_alignment, "yfinance")
     include_yfinance_earnings = args.include_yfinance_earnings or _has_alignment_source(financial_alignment, "yfinance_earnings")
+    include_sec_filing_financials = args.include_sec_filing_financials or _has_alignment_source(financial_alignment, "sec_filing")
     include_simfin_financials = args.include_simfin_financials or _has_alignment_source(financial_alignment, "simfin")
     include_open_source_consolidated = args.include_open_source_consolidated or _has_alignment_source(
         financial_alignment, "open_source_consolidated"
@@ -68,6 +70,7 @@ def main() -> None:
     audited_metric_catalog = build_audited_metric_catalog(
         include_yfinance_financials=include_yfinance_financials,
         include_yfinance_earnings=include_yfinance_earnings,
+        include_sec_filing_financials=include_sec_filing_financials,
         include_simfin_financials=include_simfin_financials,
         include_open_source_consolidated=include_open_source_consolidated,
     )
