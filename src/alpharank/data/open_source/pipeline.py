@@ -26,6 +26,7 @@ from alpharank.data.open_source.benchmark import (
 )
 from alpharank.data.open_source.config import PILOT_TICKERS
 from alpharank.data.open_source.sec import SecCompanyFactsClient
+from alpharank.data.open_source.simfin import SimFinClient
 from alpharank.data.open_source.yahoo import YahooFinanceClient
 
 
@@ -37,6 +38,8 @@ class OpenSourceCadrageResult:
     coverage_available_in_yahoo_or_sec: int
     price_rows: int
     sec_rows: int
+    simfin_rows: int
+    best_effort_rows: int
     yfinance_financial_rows: int
     yfinance_earnings_rows: int
     earnings_alignment_rows: int
@@ -53,6 +56,7 @@ def run_open_source_cadrage(
     reference_data_dir: Path | None = None,
     output_dir: Path | None = None,
     user_agent: str = "Florian Bouttier florianbouttier@example.com",
+    simfin_api_key: str | None = None,
 ) -> OpenSourceCadrageResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or project_root / "data"
@@ -72,6 +76,10 @@ def run_open_source_cadrage(
     include_yfinance_financials = universe != "sp500-2025"
     include_yfinance_earnings = universe != "sp500-2025"
     yahoo_client = YahooFinanceClient()
+    simfin_client = SimFinClient(
+        api_key=simfin_api_key,
+        data_dir=cache_dir / "simfin",
+    )
     sec_client = SecCompanyFactsClient(
         user_agent=user_agent,
         cache_dir=cache_dir / "sec_companyfacts",
@@ -123,6 +131,17 @@ def run_open_source_cadrage(
     sec_frames, sec_fetch_failures = _fetch_sec_financials(sec_client, sec_mapping)
     sec_financials = pl.concat(sec_frames, how="vertical") if sec_frames else _empty_financials()
     sec_financials = sec_financials.filter(pl.col("date").str.starts_with(f"{year}"))
+    simfin_financials = _empty_financials()
+    simfin_fetch_failures: list[dict[str, str]] = []
+    if simfin_client.enabled:
+        try:
+            simfin_financials = simfin_client.fetch_quarterly_financials(ticker_list, year)
+        except Exception as exc:
+            print(f"SimFin fetch failed: {exc}")
+            simfin_fetch_failures.append({"error": str(exc)})
+    best_effort_financials = _build_best_effort_financials(sec_financials, simfin_financials)
+    has_simfin_financials = not simfin_financials.is_empty()
+    has_best_effort_financials = not best_effort_financials.is_empty()
 
     eodhd_prices = load_eodhd_prices(reference_data_dir, ticker_list, year)
     eodhd_financials = normalize_eodhd_financials(reference_data_dir, ticker_list, year)
@@ -131,6 +150,8 @@ def run_open_source_cadrage(
     financial_alignment = pl.concat(
         [
             build_financial_alignment(eodhd_financials, sec_financials, "sec_companyfacts"),
+            *([build_financial_alignment(eodhd_financials, simfin_financials, "simfin")] if not simfin_financials.is_empty() else []),
+            *([build_financial_alignment(eodhd_financials, best_effort_financials, "best_effort")] if not best_effort_financials.is_empty() else []),
             *([build_earnings_alignment(eodhd_earnings, yahoo_earnings_long)] if include_yfinance_earnings else []),
             *([build_financial_alignment(eodhd_financials, yahoo_financials, "yfinance")] if include_yfinance_financials else []),
         ],
@@ -157,6 +178,8 @@ def run_open_source_cadrage(
     audited_metric_catalog = build_audited_metric_catalog(
         include_yfinance_financials=include_yfinance_financials,
         include_yfinance_earnings=include_yfinance_earnings,
+        include_simfin_financials=has_simfin_financials,
+        include_best_effort_financials=has_best_effort_financials,
     )
 
     _write_outputs(
@@ -164,12 +187,15 @@ def run_open_source_cadrage(
         coverage=coverage,
         audited_metric_catalog=audited_metric_catalog,
         sec_fetch_failures=sec_fetch_failures,
+        simfin_fetch_failures=simfin_fetch_failures,
         general_reference=general_reference,
         yahoo_prices=yahoo_prices,
         yahoo_earnings=yahoo_earnings,
         yahoo_earnings_long=yahoo_earnings_long,
         yahoo_financials=yahoo_financials,
         sec_financials=sec_financials,
+        simfin_financials=simfin_financials,
+        best_effort_financials=best_effort_financials,
         price_alignment=price_alignment,
         financial_alignment=financial_alignment,
         price_summary=price_summary,
@@ -184,6 +210,8 @@ def run_open_source_cadrage(
         tickers=ticker_list,
         year=year,
         threshold_pct=threshold_pct,
+        include_yfinance_financials=include_yfinance_financials,
+        include_yfinance_earnings=include_yfinance_earnings,
     )
 
     return OpenSourceCadrageResult(
@@ -193,6 +221,8 @@ def run_open_source_cadrage(
         coverage_available_in_yahoo_or_sec=int(coverage.select(pl.col("available_in_yahoo_or_sec").sum()).item()),
         price_rows=yahoo_prices.height,
         sec_rows=sec_financials.height,
+        simfin_rows=simfin_financials.height,
+        best_effort_rows=best_effort_financials.height,
         yfinance_financial_rows=yahoo_financials.height,
         yfinance_earnings_rows=yahoo_earnings_long.height,
         earnings_alignment_rows=financial_alignment.filter(pl.col("statement") == "earnings").height,
@@ -207,12 +237,15 @@ def _write_outputs(
     coverage: pl.DataFrame,
     audited_metric_catalog: pl.DataFrame,
     sec_fetch_failures: list[dict[str, str]],
+    simfin_fetch_failures: list[dict[str, str]],
     general_reference: pl.DataFrame,
     yahoo_prices: pl.DataFrame,
     yahoo_earnings: pl.DataFrame,
     yahoo_earnings_long: pl.DataFrame,
     yahoo_financials: pl.DataFrame,
     sec_financials: pl.DataFrame,
+    simfin_financials: pl.DataFrame,
+    best_effort_financials: pl.DataFrame,
     price_alignment: pl.DataFrame,
     financial_alignment: pl.DataFrame,
     price_summary: pl.DataFrame,
@@ -227,16 +260,21 @@ def _write_outputs(
     tickers: tuple[str, ...],
     year: int,
     threshold_pct: float,
+    include_yfinance_financials: bool,
+    include_yfinance_earnings: bool,
 ) -> None:
     coverage.write_parquet(output_dir / f"ticker_coverage_{year}.parquet")
     audited_metric_catalog.write_parquet(output_dir / "audited_metric_catalog.parquet")
     (output_dir / "sec_fetch_failures.json").write_text(json.dumps(sec_fetch_failures, indent=2), encoding="utf-8")
+    (output_dir / "simfin_fetch_failures.json").write_text(json.dumps(simfin_fetch_failures, indent=2), encoding="utf-8")
     general_reference.write_parquet(output_dir / "general_reference.parquet")
     yahoo_prices.write_parquet(output_dir / "prices_yfinance.parquet")
     yahoo_earnings.write_parquet(output_dir / "earnings_yfinance.parquet")
     yahoo_earnings_long.write_parquet(output_dir / "earnings_yfinance_long.parquet")
     yahoo_financials.write_parquet(output_dir / "financials_yfinance.parquet")
     sec_financials.write_parquet(output_dir / "financials_sec_companyfacts.parquet")
+    simfin_financials.write_parquet(output_dir / "financials_simfin.parquet")
+    best_effort_financials.write_parquet(output_dir / "financials_best_effort.parquet")
     price_alignment.write_parquet(output_dir / f"price_alignment_{year}.parquet")
     financial_alignment.write_parquet(output_dir / f"financial_alignment_{year}.parquet")
     price_summary.write_parquet(output_dir / "price_error_summary.parquet")
@@ -295,12 +333,15 @@ def _write_outputs(
                     "ticker_coverage": f"ticker_coverage_{year}.parquet",
                     "audited_metric_catalog": "audited_metric_catalog.parquet",
                     "sec_fetch_failures": "sec_fetch_failures.json",
+                    "simfin_fetch_failures": "simfin_fetch_failures.json",
                     "general_reference": "general_reference.parquet",
                     "prices_yfinance": "prices_yfinance.parquet",
                     "earnings_yfinance": "earnings_yfinance.parquet",
                     "earnings_yfinance_long": "earnings_yfinance_long.parquet",
                     "financials_yfinance": "financials_yfinance.parquet",
                     "financials_sec_companyfacts": "financials_sec_companyfacts.parquet",
+                    "financials_simfin": "financials_simfin.parquet",
+                    "financials_best_effort": "financials_best_effort.parquet",
                     "price_alignment": f"price_alignment_{year}.parquet",
                     "financial_alignment": f"financial_alignment_{year}.parquet",
                     "price_error_summary": "price_error_summary.parquet",
@@ -316,6 +357,13 @@ def _write_outputs(
                     "ticker_report_index_html": "tickers/index.html",
                     "kpi_report_index_html": "kpis/index.html",
                     "summary": "summary.json",
+                },
+                "source_presence": {
+                    "yfinance_financials": include_yfinance_financials,
+                    "yfinance_earnings": include_yfinance_earnings,
+                    "sec_companyfacts": not sec_financials.is_empty(),
+                    "simfin": not simfin_financials.is_empty(),
+                    "best_effort": not best_effort_financials.is_empty(),
                 },
             },
             indent=2,
@@ -363,3 +411,29 @@ def _fetch_sec_financials(
                 print(f"SEC fetch failed for {ticker}: {exc}")
                 failures.append({"ticker": ticker, "error": str(exc)})
     return frames, failures
+
+
+def _build_best_effort_financials(primary: pl.DataFrame, fallback: pl.DataFrame) -> pl.DataFrame:
+    if primary.is_empty() and fallback.is_empty():
+        return _empty_financials()
+    if fallback.is_empty():
+        return _empty_financials()
+    if primary.is_empty():
+        return _retag_financials(fallback, source="best_effort", label_prefix="simfin")
+
+    key_cols = ["ticker", "statement", "metric", "date"]
+    primary_best = _retag_financials(primary, source="best_effort", label_prefix="sec_companyfacts")
+    fallback_missing = fallback.join(primary.select(key_cols), on=key_cols, how="anti")
+    fallback_best = _retag_financials(fallback_missing, source="best_effort", label_prefix="simfin")
+    return pl.concat([primary_best, fallback_best], how="vertical").sort(key_cols)
+
+
+def _retag_financials(frame: pl.DataFrame, *, source: str, label_prefix: str) -> pl.DataFrame:
+    if frame.is_empty():
+        return _empty_financials()
+    return frame.with_columns(
+        [
+            pl.lit(source).alias("source"),
+            (pl.lit(f"{label_prefix}:") + pl.col("source_label").cast(pl.Utf8, strict=False)).alias("source_label"),
+        ]
+    )

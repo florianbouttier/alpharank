@@ -15,6 +15,7 @@ def main() -> None:
     parser.add_argument("--threshold-pct", type=float, default=0.5)
     parser.add_argument("--reference-data-dir", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, default=None)
+    parser.add_argument("--simfin-api-key", default=None, help="Optional SimFin API key. Falls back to SIMFIN_API_KEY env var.")
     parser.add_argument(
         "--user-agent",
         default="Florian Bouttier florianbouttier@example.com",
@@ -30,6 +31,7 @@ def main() -> None:
         reference_data_dir=args.reference_data_dir,
         output_dir=args.output_dir,
         user_agent=args.user_agent,
+        simfin_api_key=args.simfin_api_key,
     )
 
     print(f"Open-source cadrage written to: {result.output_dir}")
@@ -38,6 +40,8 @@ def main() -> None:
     print(f"Tickers available in Yahoo or SEC: {result.coverage_available_in_yahoo_or_sec}")
     print(f"Yahoo price rows: {result.price_rows}")
     print(f"SEC financial rows: {result.sec_rows}")
+    print(f"SimFin financial rows: {result.simfin_rows}")
+    print(f"Best-effort financial rows: {result.best_effort_rows}")
     print(f"Yahoo financial rows: {result.yfinance_financial_rows}")
     print(f"Yahoo earnings rows: {result.yfinance_earnings_rows}")
     print(f"Earnings alignment rows: {result.earnings_alignment_rows}")

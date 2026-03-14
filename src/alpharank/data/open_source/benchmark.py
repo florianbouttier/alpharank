@@ -281,6 +281,8 @@ def build_audited_metric_catalog(
     *,
     include_yfinance_financials: bool,
     include_yfinance_earnings: bool,
+    include_simfin_financials: bool,
+    include_best_effort_financials: bool,
 ) -> pl.DataFrame:
     rows: list[dict[str, str]] = [
         {
@@ -321,6 +323,26 @@ def build_audited_metric_catalog(
                     "metric": spec.metric,
                     "reference_field": spec.eodhd_column,
                     "open_source_field": ",".join(spec.yfinance_rows),
+                }
+            )
+        if include_simfin_financials and spec.simfin_columns:
+            rows.append(
+                {
+                    "source": "simfin",
+                    "statement": spec.statement,
+                    "metric": spec.metric,
+                    "reference_field": spec.eodhd_column,
+                    "open_source_field": ",".join(spec.simfin_columns),
+                }
+            )
+        if include_best_effort_financials and spec.statement != "earnings":
+            rows.append(
+                {
+                    "source": "best_effort",
+                    "statement": spec.statement,
+                    "metric": spec.metric,
+                    "reference_field": spec.eodhd_column,
+                    "open_source_field": "sec_companyfacts -> simfin fallback",
                 }
             )
     return pl.DataFrame(rows).sort(["source", "statement", "metric"])

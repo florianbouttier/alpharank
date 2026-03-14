@@ -9,7 +9,10 @@ from alpharank.data.open_source.benchmark import (
     build_financial_alignment,
     build_price_alignment,
 )
+from alpharank.data.open_source.config import METRIC_SPECS
+from alpharank.data.open_source.pipeline import _build_best_effort_financials
 from alpharank.data.open_source.sec import _select_best_facts
+from alpharank.data.open_source.simfin import _extract_metric_frames
 from alpharank.data.open_source.yahoo import _extract_statement_frame
 
 
@@ -371,11 +374,15 @@ def test_build_audited_metric_catalog_lists_enabled_sources() -> None:
     catalog = build_audited_metric_catalog(
         include_yfinance_financials=False,
         include_yfinance_earnings=False,
+        include_simfin_financials=True,
+        include_best_effort_financials=True,
     )
 
     assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "sec_companyfacts")).height == 1
     assert catalog.filter(pl.col("source") == "yfinance_earnings").is_empty()
     assert catalog.filter((pl.col("statement") == "price") & (pl.col("metric") == "adjusted_close") & (pl.col("source") == "yfinance")).height == 1
+    assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "simfin")).height == 1
+    assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "best_effort")).height == 1
 
 
 def test_comparison_tables_include_side_by_side_values_and_status() -> None:
@@ -432,3 +439,90 @@ def test_comparison_tables_include_side_by_side_values_and_status() -> None:
     ]
     assert financial_table["eodhd_value"].to_list() == [10.0, 10.0, None]
     assert financial_table["open_value"].to_list() == [10.0, 11.0, 12.0]
+
+
+def test_extract_metric_frames_normalizes_simfin_quarterly_data() -> None:
+    spec = next(spec for spec in METRIC_SPECS if spec.metric == "revenue")
+    dataset_frames = {
+        "income_statement": pd.DataFrame(
+            {
+                "Ticker": ["AAPL", "AAPL"],
+                "Report Date": [pd.Timestamp("2025-03-31"), pd.Timestamp("2025-06-30")],
+                "Publish Date": [pd.Timestamp("2025-05-02"), pd.Timestamp("2025-08-01")],
+                "Fiscal Period": ["Q1", "Q2"],
+                "Fiscal Year": [2025, 2025],
+                "Revenue": [100.0, 110.0],
+            }
+        )
+    }
+
+    result = _extract_metric_frames(spec=spec, dataset_frames=dataset_frames, year=2025)
+
+    assert result.height == 2
+    assert result["ticker"].to_list() == ["AAPL.US", "AAPL.US"]
+    assert result["date"].to_list() == ["2025-03-31", "2025-06-30"]
+    assert result["filing_date"].to_list() == ["2025-05-02", "2025-08-01"]
+    assert result["value"].to_list() == [100.0, 110.0]
+    assert result["source"].unique().to_list() == ["simfin"]
+
+
+def test_build_best_effort_financials_prefers_sec_and_fills_simfin_gaps() -> None:
+    sec = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2025-03-31"],
+            "filing_date": ["2025-05-02"],
+            "value": [100.0],
+            "source": ["sec_companyfacts"],
+            "source_label": ["RevenueFromContractWithCustomerExcludingAssessedTax"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2025],
+        }
+    )
+    simfin = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US", "AAPL.US"],
+            "statement": ["income_statement", "income_statement"],
+            "metric": ["revenue", "revenue"],
+            "date": ["2025-03-31", "2025-06-30"],
+            "filing_date": ["2025-05-02", "2025-08-01"],
+            "value": [101.0, 110.0],
+            "source": ["simfin", "simfin"],
+            "source_label": ["Revenue", "Revenue"],
+            "form": [None, None],
+            "fiscal_period": ["Q1", "Q2"],
+            "fiscal_year": [2025, 2025],
+        }
+    )
+
+    result = _build_best_effort_financials(sec, simfin)
+
+    assert result.height == 2
+    assert result["source"].unique().to_list() == ["best_effort"]
+    assert result.sort("date")["date"].to_list() == ["2025-03-31", "2025-06-30"]
+    assert result.sort("date")["value"].to_list() == [100.0, 110.0]
+
+
+def test_build_best_effort_financials_requires_fallback_data() -> None:
+    sec = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2025-03-31"],
+            "filing_date": ["2025-05-02"],
+            "value": [100.0],
+            "source": ["sec_companyfacts"],
+            "source_label": ["RevenueFromContractWithCustomerExcludingAssessedTax"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2025],
+        }
+    )
+
+    result = _build_best_effort_financials(sec, pl.DataFrame(schema=sec.schema))
+
+    assert result.is_empty()
