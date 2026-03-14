@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-03-10
+Last updated: 2026-03-14
 Branch at write time: `update_probalisor`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -188,7 +188,50 @@ Main file:
 
 - `src/alpharank/backtest/explainability.py`
 
-### 4.6 Backtest audit exports
+### 4.6 Notebook-first orchestration
+
+`scripts/run_backtest.py` should now be treated as a notebook orchestration helper, not just a terminal entrypoint.
+
+Preferred workflow:
+
+1. phase 1 learning only
+2. inspect predictions / fold KPIs
+3. phase 2 backtest from the learning artifacts you decided to keep
+
+The script exposes these helpers:
+
+- `default_config(**overrides)`: reproducible config factory for notebook use
+- `run_learning(config=None)`: runs only phase 1 and persists intermediate outputs under the run directory
+- `load_learning(run_dir)`: reloads the persisted phase-1 artifacts
+- `learning_kpis(...)`: compact fold-level modeling KPI view
+- `list_folds(...)`: fold windows / skip reasons / row counts
+- `load_fold_predictions(run_dir, fold)`: reload a specific fold scoring table
+- `run_backtest(config=None, learning=..., run_dir=...)`: runs only phase 2 from an in-memory or reloaded learning run
+- `backtest_fold_kpis(...)`: compact fold-level trading KPI view
+- `load_fold_monthly_returns(run_dir, fold)`: reload per-fold portfolio returns after phase 2
+
+Important:
+
+- `run_learning(...)` writes top-level intermediate files immediately:
+  - `model_frame.parquet`
+  - `predictions.parquet`
+  - `fold_metrics.parquet`
+  - `fold_index.parquet`
+  - `best_params.parquet`
+  - `learning_metadata.json`
+- each fold still keeps its own folder with:
+  - `fold_##/predictions.parquet`
+  - `fold_##/optuna_trials.csv`
+  - `fold_##/best_params.json`
+  - SHAP / Optuna / calibration assets
+
+This separation exists because the user wants explicit control over:
+
+- the classification KPIs used to judge the model
+- the prediction tables inspected before any trading backtest
+- the exact transition from "predict outperformance" to "simulate the strategy"
+
+### 4.7 Backtest audit exports
 
 The user wanted a clean table to inspect what happened line by line.
 
@@ -209,7 +252,7 @@ Main files:
 - `src/alpharank/backtest/pipeline.py`
 - `src/alpharank/backtest/reporting.py`
 
-### 4.7 Dedicated audit report
+### 4.8 Dedicated audit report
 
 A separate HTML audit report exists for deep backtest inspection.
 
@@ -325,15 +368,30 @@ Recent useful history on `update_probalisor` after the history rewrite:
 - If a result is optimistic, provide audit surfaces instead of hand-waving.
 - The user values directness over polish.
 
+### 4.9 Reload caveat
+
+Reloading a learning run from disk with `load_learning(run_dir)` is enough to:
+
+- inspect fold predictions
+- inspect modeling KPIs
+- rerun the portfolio backtest from saved predictions
+
+But it does not reload in-memory SHAP explanation objects. Consequence:
+
+- fold-level SHAP assets already written on disk remain available
+- the consolidated global SHAP PDF is only guaranteed when phase 2 is run from the original in-memory `LearningArtifacts`
+
 ## 10. Current local state at handoff time
 
 At the time this file was written:
 
 - branch: `update_probalisor`
 - upstream: `origin/update_probalisor`
-- the tree may be dirty; currently observed local changes include:
-  - `data/US/df_data.py` deleted locally
-  - `experiments/US/` untracked locally
-  - modern backtest refactor work in `scripts/run_backtest.py`, `src/alpharank/backtest/`, and targeted tests
+- the tree may or may not be dirty depending on the exact checkpoint; always read `git status` first
+- the most recent backtest-oriented changes to understand before continuing are in:
+  - `scripts/run_backtest.py`
+  - `src/alpharank/backtest/pipeline.py`
+  - `docs/backtest_feature_reference.md`
+  - targeted tests under `tests/test_backtest_*.py`
 
 Do not overwrite local state casually. Read the working tree first if continuing from this exact checkout.

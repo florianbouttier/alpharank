@@ -990,33 +990,13 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
     )
 
 
-def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
-    pipeline_start = time.perf_counter()
-
-    if config.verbose:
-        print("[Pipeline] phase 1/2: learning started")
-    learning_start = time.perf_counter()
-    learning = run_learning_phase(config)
-    learning_elapsed = time.perf_counter() - learning_start
-    if config.verbose:
-        print(
-            "[Pipeline] phase 1/2: learning completed "
-            f"elapsed={_format_seconds(learning_elapsed)} "
-            f"completed_folds={learning.fold_metrics.height}/{learning.total_windows}"
-        )
-
-    if config.verbose:
-        print("[Pipeline] phase 2/2: backtest started")
-    backtest_start = time.perf_counter()
-    backtest_phase = run_backtest_phase(config, learning)
-    backtest_elapsed = time.perf_counter() - backtest_start
-    if config.verbose:
-        print(
-            "[Pipeline] phase 2/2: backtest completed "
-            f"elapsed={_format_seconds(backtest_elapsed)} "
-            f"months={backtest_phase.monthly_returns.height}"
-        )
-
+def _finalize_backtest_run(
+    config: BacktestConfig,
+    learning: LearningArtifacts,
+    backtest_phase: BacktestPhaseArtifacts,
+    *,
+    pipeline_elapsed: float | None = None,
+) -> BacktestArtifacts:
     fold_metrics = learning.fold_metrics.join(
         backtest_phase.fold_backtest_metrics,
         on="fold",
@@ -1107,6 +1087,7 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
         "features_used": learning.features_used,
         "dropped_features": learning.dropped_features,
         "n_completed_folds": int(fold_metrics.height),
+        "n_total_windows": int(learning.total_windows),
         "target_definition": "future_excess_return > outperformance_threshold",
         "config": {
             "data_dir": str(config.data_dir),
@@ -1134,11 +1115,10 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
     }
     paths["metadata"].write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-    total_elapsed = time.perf_counter() - pipeline_start
-    if config.verbose:
+    if config.verbose and pipeline_elapsed is not None:
         print(
             "[Pipeline] completed "
-            f"elapsed={_format_seconds(total_elapsed)} "
+            f"elapsed={_format_seconds(pipeline_elapsed)} "
             f"completed_folds={fold_metrics.height}/{learning.total_windows} "
             f"report={report_path}"
         )
@@ -1156,4 +1136,54 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
         features_used=learning.features_used,
         dropped_features=learning.dropped_features,
         output_paths=paths,
+    )
+
+
+def run_backtest_from_learning(config: BacktestConfig, learning: LearningArtifacts) -> BacktestArtifacts:
+    if config.verbose:
+        print("[Pipeline] phase 2/2: backtest started")
+    backtest_start = time.perf_counter()
+    backtest_phase = run_backtest_phase(config, learning)
+    backtest_elapsed = time.perf_counter() - backtest_start
+    if config.verbose:
+        print(
+            "[Pipeline] phase 2/2: backtest completed "
+            f"elapsed={_format_seconds(backtest_elapsed)} "
+            f"months={backtest_phase.monthly_returns.height}"
+        )
+    return _finalize_backtest_run(config, learning, backtest_phase)
+
+
+def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
+    pipeline_start = time.perf_counter()
+
+    if config.verbose:
+        print("[Pipeline] phase 1/2: learning started")
+    learning_start = time.perf_counter()
+    learning = run_learning_phase(config)
+    learning_elapsed = time.perf_counter() - learning_start
+    if config.verbose:
+        print(
+            "[Pipeline] phase 1/2: learning completed "
+            f"elapsed={_format_seconds(learning_elapsed)} "
+            f"completed_folds={learning.fold_metrics.height}/{learning.total_windows}"
+        )
+
+    if config.verbose:
+        print("[Pipeline] phase 2/2: backtest started")
+    backtest_start = time.perf_counter()
+    backtest_phase = run_backtest_phase(config, learning)
+    backtest_elapsed = time.perf_counter() - backtest_start
+    if config.verbose:
+        print(
+            "[Pipeline] phase 2/2: backtest completed "
+            f"elapsed={_format_seconds(backtest_elapsed)} "
+            f"months={backtest_phase.monthly_returns.height}"
+        )
+
+    return _finalize_backtest_run(
+        config,
+        learning,
+        backtest_phase,
+        pipeline_elapsed=time.perf_counter() - pipeline_start,
     )
