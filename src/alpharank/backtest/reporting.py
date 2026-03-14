@@ -192,18 +192,96 @@ def save_auc_score_overview(fold_metrics: pl.DataFrame, out_dir: Path) -> Dict[s
 
     score_path = out_dir / "score_by_fold.png"
     score = sorted_df.get_column("objective_score").to_numpy()
+    test_penalty = np.maximum(0.0, test_auc - score)
     plt.figure(figsize=(10, 5))
-    plt.plot(x, score, marker="o", color="#d62728")
+    plt.plot(x, test_auc, marker="o", color="#2ca02c", label="Raw test AUC")
+    plt.plot(x, score, marker="o", color="#d62728", label="Penalized test score")
+    plt.bar(x, test_penalty, alpha=0.25, color="#9467bd", label="Penalty amount")
     plt.xlabel("Fold")
     plt.ylabel("Score")
     plt.title("Score by Fold (AUC_test penalized by train-test gap)")
     plt.grid(alpha=0.25)
+    plt.legend()
     plt.tight_layout()
     plt.savefig(score_path, dpi=150)
     plt.close()
     paths["score_by_fold"] = score_path
 
     return paths
+
+
+def _safe_implied_penalty_weight(penalty_amount: pl.Expr, gap: pl.Expr) -> pl.Expr:
+    return (
+        pl.when(gap.abs() > 1e-12)
+        .then(penalty_amount / gap)
+        .otherwise(None)
+    )
+
+
+def build_optimization_focus_table(fold_metrics: pl.DataFrame) -> pl.DataFrame:
+    required_cols = {
+        "fold",
+        "train_auc",
+        "val_auc",
+        "test_auc",
+        "objective_score_val",
+        "objective_score",
+    }
+    if fold_metrics.is_empty() or not required_cols.issubset(set(fold_metrics.columns)):
+        return pl.DataFrame(
+            schema={
+                "fold": pl.Int64,
+                "train_auc": pl.Float64,
+                "val_auc": pl.Float64,
+                "test_auc": pl.Float64,
+                "train_val_gap_abs": pl.Float64,
+                "train_test_gap_abs": pl.Float64,
+                "val_penalty": pl.Float64,
+                "test_penalty": pl.Float64,
+                "objective_score_val": pl.Float64,
+                "objective_score": pl.Float64,
+                "implied_lambda_val": pl.Float64,
+                "implied_lambda_test": pl.Float64,
+            }
+        )
+
+    return (
+        fold_metrics.sort("fold")
+        .with_columns(
+            [
+                (pl.col("train_auc") - pl.col("val_auc")).abs().alias("train_val_gap_abs"),
+                (pl.col("train_auc") - pl.col("test_auc")).abs().alias("train_test_gap_abs"),
+                (pl.col("val_auc") - pl.col("objective_score_val")).alias("val_penalty"),
+                (pl.col("test_auc") - pl.col("objective_score")).alias("test_penalty"),
+            ]
+        )
+        .with_columns(
+            [
+                _safe_implied_penalty_weight(pl.col("val_penalty"), pl.col("train_val_gap_abs")).alias(
+                    "implied_lambda_val"
+                ),
+                _safe_implied_penalty_weight(pl.col("test_penalty"), pl.col("train_test_gap_abs")).alias(
+                    "implied_lambda_test"
+                ),
+            ]
+        )
+        .select(
+            [
+                "fold",
+                "train_auc",
+                "val_auc",
+                "test_auc",
+                "train_val_gap_abs",
+                "train_test_gap_abs",
+                "val_penalty",
+                "test_penalty",
+                "objective_score_val",
+                "objective_score",
+                "implied_lambda_val",
+                "implied_lambda_test",
+            ]
+        )
+    )
 
 
 def _numeric_columns(df: pl.DataFrame, exclude: Iterable[str]) -> List[str]:
@@ -442,6 +520,7 @@ def write_html_report(
     fold_assets: List[Dict[str, Any]],
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    optimization_focus = build_optimization_focus_table(fold_metrics)
 
     def asset_tag(path: Path | None) -> str:
         if path is None:
@@ -466,6 +545,15 @@ def write_html_report(
 
     sections: List[str] = [
         f"<h1>{html.escape(title)}</h1>",
+        "<h2>Optimization Metric Focus</h2>",
+        (
+            "<p>Primary objective per fold: penalized AUC. "
+            "Validation optimization score = AUC_val - penalty. "
+            "Backtest summary score = AUC_test - penalty. "
+            "The penalty grows with the absolute train-vs-validation or train-vs-test AUC gap, "
+            "so a fold with high raw AUC but poor generalization is pushed down.</p>"
+        ),
+        _polars_to_html_table(optimization_focus, precision=6),
         "<h2>Model KPIs (Train / Validation / Test)</h2>",
         _polars_to_html_table(split_kpis, precision=6),
         "<h2>Fold Metrics</h2>",

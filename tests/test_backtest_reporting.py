@@ -8,11 +8,13 @@ from types import ModuleType
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+import pytest
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from alpharank.backtest.explainability import ShapFoldExplanation, generate_global_shap_report_pdf
 from alpharank.backtest.reporting import (
+    build_optimization_focus_table,
     save_learning_curve,
     save_lift_curve,
     save_optuna_visualizations,
@@ -117,12 +119,38 @@ def test_write_html_report_omits_per_fold_section(tmp_path: Path) -> None:
     )
 
     content = report_path.read_text(encoding="utf-8")
+    assert "Optimization Metric Focus" in content
+    assert "train_val_gap_abs" in content
+    assert "test_penalty" in content
     assert "Global Visualizations" in content
     assert "Per-Fold Analysis" not in content
     assert "Optuna Visualizations" in content
     assert "optuna_slice" in content
     assert "Lift Curves" in content
     assert "lift_validation" in content
+
+
+def test_build_optimization_focus_table_exposes_penalty_impact() -> None:
+    fold_metrics = pl.DataFrame(
+        {
+            "fold": [1],
+            "train_auc": [0.90],
+            "val_auc": [0.70],
+            "test_auc": [0.80],
+            "objective_score_val": [0.30],
+            "objective_score": [0.30],
+        }
+    )
+
+    out = build_optimization_focus_table(fold_metrics)
+    row = out.to_dicts()[0]
+
+    assert row["train_val_gap_abs"] == pytest.approx(0.20)
+    assert row["train_test_gap_abs"] == pytest.approx(0.10)
+    assert row["val_penalty"] == pytest.approx(0.40)
+    assert row["test_penalty"] == pytest.approx(0.50)
+    assert row["implied_lambda_val"] == pytest.approx(2.0)
+    assert row["implied_lambda_test"] == pytest.approx(5.0)
 
 
 def test_save_lift_curve(tmp_path: Path) -> None:
