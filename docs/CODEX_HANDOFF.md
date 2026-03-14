@@ -258,10 +258,13 @@ Main files:
 
 ### 4.8 Dedicated audit report
 
-A separate HTML audit report exists for deep backtest inspection.
+A separate HTML backtest report exists for deep backtest inspection, distinct from the learning/training report.
 
 Expected content includes:
 
+- global backtest KPIs
+- per-fold test-period KPIs (`Portfolio` / `Benchmark` / `Active`)
+- fold-by-fold test-period tables
 - portfolio vs benchmark over time
 - active return
 - prediction vs realized excess return scatter

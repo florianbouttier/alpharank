@@ -113,6 +113,65 @@ def compute_backtest_kpis(monthly_returns: pl.DataFrame, risk_free_rate: float) 
     return sanitize_numeric_frame(kpis)
 
 
+def compute_backtest_kpis_by_fold(fold_monthly_returns: pl.DataFrame, risk_free_rate: float) -> pl.DataFrame:
+    if fold_monthly_returns.is_empty() or "fold" not in fold_monthly_returns.columns:
+        return pl.DataFrame(
+            schema={
+                "fold": pl.Int64,
+                "strategy": pl.Utf8,
+                "total_return": pl.Float64,
+                "cagr": pl.Float64,
+                "avg_monthly_return": pl.Float64,
+                "annualized_volatility": pl.Float64,
+                "sharpe_ratio": pl.Float64,
+                "sortino_ratio": pl.Float64,
+                "calmar_ratio": pl.Float64,
+                "max_drawdown": pl.Float64,
+                "win_rate": pl.Float64,
+                "months": pl.Float64,
+                "avg_hit_rate": pl.Float64,
+                "avg_positions": pl.Float64,
+            }
+        )
+
+    frames: List[pl.DataFrame] = []
+    for fold_key, frame in fold_monthly_returns.partition_by("fold", as_dict=True).items():
+        fold_id = int(fold_key[0]) if isinstance(fold_key, tuple) else int(fold_key)
+        kpis = compute_backtest_kpis(
+            frame.select(
+                [
+                    "year_month",
+                    "portfolio_return",
+                    "benchmark_return",
+                    "active_return",
+                    "hit_rate",
+                    "n_positions",
+                ]
+            ),
+            risk_free_rate=risk_free_rate,
+        ).with_columns(pl.lit(fold_id).cast(pl.Int64).alias("fold"))
+        frames.append(kpis)
+
+    return sanitize_numeric_frame(pl.concat(frames, how="vertical")).select(
+        [
+            "fold",
+            "strategy",
+            "total_return",
+            "cagr",
+            "avg_monthly_return",
+            "annualized_volatility",
+            "sharpe_ratio",
+            "sortino_ratio",
+            "calmar_ratio",
+            "max_drawdown",
+            "win_rate",
+            "months",
+            "avg_hit_rate",
+            "avg_positions",
+        ]
+    )
+
+
 def sanitize_numeric_frame(df: pl.DataFrame) -> pl.DataFrame:
     exprs = []
     for col_name, dtype in df.schema.items():

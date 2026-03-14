@@ -509,6 +509,51 @@ def _polars_to_html_table(df: pl.DataFrame, precision: int = 4) -> str:
     )
 
 
+def build_backtest_fold_focus_table(
+    fold_backtest_kpis: pl.DataFrame,
+    fold_index: pl.DataFrame,
+) -> pl.DataFrame:
+    required = {"fold", "strategy"}
+    if fold_backtest_kpis.is_empty() or not required.issubset(set(fold_backtest_kpis.columns)):
+        return pl.DataFrame(
+            schema={
+                "fold": pl.Int64,
+                "strategy": pl.Utf8,
+                "test_month_start": pl.Utf8,
+                "test_month_end": pl.Utf8,
+                "total_return": pl.Float64,
+                "cagr": pl.Float64,
+                "avg_monthly_return": pl.Float64,
+                "annualized_volatility": pl.Float64,
+                "sharpe_ratio": pl.Float64,
+                "sortino_ratio": pl.Float64,
+                "calmar_ratio": pl.Float64,
+                "max_drawdown": pl.Float64,
+                "win_rate": pl.Float64,
+                "months": pl.Float64,
+                "avg_hit_rate": pl.Float64,
+                "avg_positions": pl.Float64,
+            }
+        )
+
+    test_period_cols = [
+        col for col in ["fold", "test_month_start", "test_month_end", "test_rows", "status", "skip_reason"] if col in fold_index.columns
+    ]
+    if test_period_cols:
+        fold_focus = fold_backtest_kpis.join(fold_index.select(test_period_cols), on="fold", how="left")
+    else:
+        fold_focus = fold_backtest_kpis
+
+    strategy_order = (
+        pl.when(pl.col("strategy") == "Portfolio").then(0)
+        .when(pl.col("strategy") == "Benchmark").then(1)
+        .when(pl.col("strategy") == "Active").then(2)
+        .otherwise(99)
+        .alias("__strategy_order")
+    )
+    return fold_focus.with_columns(strategy_order).sort(["fold", "__strategy_order"]).drop("__strategy_order")
+
+
 def write_html_report(
     title: str,
     output_path: Path,
@@ -626,12 +671,16 @@ def write_html_report(
 def write_backtest_audit_report(
     output_path: Path,
     monthly_returns: pl.DataFrame,
+    fold_monthly_returns: pl.DataFrame,
+    backtest_kpis: pl.DataFrame,
+    fold_backtest_kpis: pl.DataFrame,
     selections: pl.DataFrame,
     debug_predictions_long: pl.DataFrame,
     fold_index: pl.DataFrame,
     linked_artifacts: Dict[str, Path],
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    fold_focus = build_backtest_fold_focus_table(fold_backtest_kpis, fold_index)
 
     def asset_link(path: Path | None) -> str:
         if path is None:
@@ -648,7 +697,6 @@ def write_backtest_audit_report(
     monthly_pdf = monthly_returns.to_pandas() if not monthly_returns.is_empty() else None
     selections_pdf = selections.to_pandas() if not selections.is_empty() else None
     debug_pdf = debug_predictions_long.to_pandas() if not debug_predictions_long.is_empty() else None
-    fold_pdf = fold_index.to_pandas() if not fold_index.is_empty() else None
 
     plots: List[str] = []
     try:
@@ -770,22 +818,46 @@ def write_backtest_audit_report(
         else selections
     )
 
+    fold_sections: List[str] = []
+    if not fold_monthly_returns.is_empty() and not fold_focus.is_empty():
+        for fold_key, frame in fold_monthly_returns.partition_by("fold", as_dict=True).items():
+            fold_id = int(fold_key[0]) if isinstance(fold_key, tuple) else int(fold_key)
+            fold_kpi_table = fold_focus.filter(pl.col("fold") == fold_id)
+            fold_meta = fold_index.filter(pl.col("fold") == fold_id)
+            period_label = ""
+            if not fold_meta.is_empty():
+                meta_row = fold_meta.to_dicts()[0]
+                period_label = (
+                    f"test={meta_row.get('test_month_start', 'n/a')} -> {meta_row.get('test_month_end', 'n/a')}"
+                )
+            fold_sections.append(f"<h3>Fold {fold_id:02d} {html.escape(period_label)}</h3>")
+            if not fold_meta.is_empty():
+                fold_sections.append(_polars_to_html_table(fold_meta, precision=6))
+            fold_sections.append(_polars_to_html_table(fold_kpi_table, precision=6))
+            fold_sections.append(_polars_to_html_table(frame.sort("holding_month"), precision=6))
+
     linked = "".join(asset_link(path) for _, path in sorted(linked_artifacts.items()))
     html_content = (
         "<html><head><meta charset='utf-8'/>"
-        "<title>Backtest Audit Report</title>"
+        "<title>Backtest Report</title>"
         "<style>body{font-family:Arial,sans-serif;max-width:1500px;margin:24px auto;padding:0 20px;}"
         "table{border-collapse:collapse;margin-bottom:18px;}th{background:#f3f3f3;}"
         "h1,h2,h3{margin-top:26px;} details{margin:16px 0;} iframe{margin-bottom:18px;}</style>"
         "</head><body>"
-        "<h1>Backtest Audit Report</h1>"
-        "<p>This report is focused on realized backtest behavior: decision month, holding month, scored rows, bought positions, monthly active return, and fold coverage.</p>"
+        "<h1>Backtest Report</h1>"
+        "<p>This HTML is specialized on realized trading behavior, with explicit KPI focus by test fold period.</p>"
+        "<h2>Global Backtest KPIs</h2>"
+        f"{_polars_to_html_table(backtest_kpis, precision=6)}"
+        "<h2>Test Fold KPI Focus</h2>"
+        f"{_polars_to_html_table(fold_focus, precision=6)}"
         "<h2>Linked Artifacts</h2>"
         f"<ul>{linked}</ul>"
         "<h2>Fold Coverage</h2>"
         f"{_polars_to_html_table(fold_index, precision=6)}"
         "<h2>Interactive Charts</h2>"
         + "\n".join(plots)
+        + "<h2>Fold-by-Fold Test Period Breakdown</h2>"
+        + "\n".join(fold_sections)
         + "<h2>Best Months</h2>"
         + _polars_to_html_table(best_months, precision=6)
         + "<h2>Worst Months</h2>"

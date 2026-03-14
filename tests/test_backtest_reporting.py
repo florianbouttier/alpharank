@@ -14,6 +14,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from alpharank.backtest.explainability import ShapFoldExplanation, generate_global_shap_report_pdf
 from alpharank.backtest.reporting import (
+    build_backtest_fold_focus_table,
     build_optimization_focus_table,
     save_learning_curve,
     save_lift_curve,
@@ -153,6 +154,42 @@ def test_build_optimization_focus_table_exposes_penalty_impact() -> None:
     assert row["implied_lambda_test"] == pytest.approx(5.0)
 
 
+def test_build_backtest_fold_focus_table_keeps_test_period_context() -> None:
+    fold_backtest_kpis = pl.DataFrame(
+        {
+            "fold": [1, 1, 1],
+            "strategy": ["Portfolio", "Benchmark", "Active"],
+            "total_return": [0.12, 0.03, 0.09],
+            "cagr": [0.12, 0.03, 0.09],
+            "avg_monthly_return": [0.06, 0.015, 0.045],
+            "annualized_volatility": [0.10, 0.08, 0.12],
+            "sharpe_ratio": [1.2, 0.3, 0.8],
+            "sortino_ratio": [1.4, 0.4, 0.9],
+            "calmar_ratio": [2.0, 0.5, 1.1],
+            "max_drawdown": [-0.06, -0.04, -0.08],
+            "win_rate": [0.5, 0.5, 0.5],
+            "months": [2.0, 2.0, 2.0],
+            "avg_hit_rate": [0.55, 0.0, 0.0],
+            "avg_positions": [10.0, 0.0, 0.0],
+        }
+    )
+    fold_index = pl.DataFrame(
+        {
+            "fold": [1],
+            "test_month_start": ["2020-02-01"],
+            "test_month_end": ["2020-03-01"],
+            "test_rows": [20],
+            "status": ["completed"],
+            "skip_reason": [None],
+        }
+    )
+
+    out = build_backtest_fold_focus_table(fold_backtest_kpis, fold_index)
+
+    assert out.get_column("strategy").to_list() == ["Portfolio", "Benchmark", "Active"]
+    assert out.get_column("test_month_start").to_list() == ["2020-02-01", "2020-02-01", "2020-02-01"]
+
+
 def test_save_lift_curve(tmp_path: Path) -> None:
     path = tmp_path / "lift_curve.png"
     out = save_lift_curve(
@@ -227,6 +264,54 @@ def test_write_backtest_audit_report(tmp_path: Path) -> None:
             "n_positions": [10, 10],
         }
     )
+    fold_monthly_returns = pl.DataFrame(
+        {
+            "fold": [1, 1],
+            "decision_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "holding_month": [date(2020, 2, 1), date(2020, 3, 1)],
+            "year_month": [date(2020, 2, 1), date(2020, 3, 1)],
+            "portfolio_return": [0.05, -0.01],
+            "benchmark_return": [0.01, -0.02],
+            "hit_rate": [0.7, 0.5],
+            "n_positions": [10, 10],
+            "active_return": [0.04, 0.01],
+        }
+    )
+    backtest_kpis = pl.DataFrame(
+        {
+            "strategy": ["Portfolio", "Benchmark", "Active"],
+            "total_return": [0.0395, -0.0102, 0.0501],
+            "cagr": [0.26, -0.06, 0.34],
+            "avg_monthly_return": [0.015, -0.005, 0.02],
+            "annualized_volatility": [0.12, 0.10, 0.15],
+            "sharpe_ratio": [1.8, -0.4, 1.2],
+            "sortino_ratio": [2.1, -0.5, 1.5],
+            "calmar_ratio": [2.0, -0.3, 1.6],
+            "max_drawdown": [-0.02, -0.03, -0.01],
+            "win_rate": [0.5, 0.5, 0.5],
+            "months": [2.0, 2.0, 2.0],
+            "avg_hit_rate": [0.5, 0.0, 0.0],
+            "avg_positions": [10.0, 0.0, 0.0],
+        }
+    )
+    fold_backtest_kpis = pl.DataFrame(
+        {
+            "fold": [1, 1, 1],
+            "strategy": ["Portfolio", "Benchmark", "Active"],
+            "total_return": [0.0395, -0.0102, 0.0501],
+            "cagr": [0.26, -0.06, 0.34],
+            "avg_monthly_return": [0.02, -0.005, 0.025],
+            "annualized_volatility": [0.12, 0.10, 0.15],
+            "sharpe_ratio": [1.8, -0.4, 1.2],
+            "sortino_ratio": [2.1, -0.5, 1.5],
+            "calmar_ratio": [2.0, -0.3, 1.6],
+            "max_drawdown": [-0.02, -0.03, -0.01],
+            "win_rate": [0.5, 0.5, 0.5],
+            "months": [2.0, 2.0, 2.0],
+            "avg_hit_rate": [0.6, 0.0, 0.0],
+            "avg_positions": [10.0, 0.0, 0.0],
+        }
+    )
     selections = pl.DataFrame(
         {
             "ticker": ["AAA.US", "BBB.US"],
@@ -291,6 +376,9 @@ def test_write_backtest_audit_report(tmp_path: Path) -> None:
     out = write_backtest_audit_report(
         output_path=report_path,
         monthly_returns=monthly_returns,
+        fold_monthly_returns=fold_monthly_returns,
+        backtest_kpis=backtest_kpis,
+        fold_backtest_kpis=fold_backtest_kpis,
         selections=selections,
         debug_predictions_long=debug_predictions_long,
         fold_index=fold_index,
@@ -299,6 +387,9 @@ def test_write_backtest_audit_report(tmp_path: Path) -> None:
 
     content = out.read_text(encoding="utf-8")
     assert out.exists()
-    assert "Backtest Audit Report" in content
+    assert "Backtest Report" in content
+    assert "Test Fold KPI Focus" in content
+    assert "Fold-by-Fold Test Period Breakdown" in content
+    assert "Fold 01" in content
     assert "Prediction vs Future Excess Return" in content
     assert "debug_predictions_long.parquet" in content

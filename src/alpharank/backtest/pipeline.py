@@ -24,7 +24,12 @@ from alpharank.backtest.features import (
     compute_technical_features,
 )
 from alpharank.backtest.fundamentals import build_monthly_fundamental_features
-from alpharank.backtest.kpis import assert_no_numeric_na, compute_backtest_kpis, sanitize_numeric_frame
+from alpharank.backtest.kpis import (
+    assert_no_numeric_na,
+    compute_backtest_kpis,
+    compute_backtest_kpis_by_fold,
+    sanitize_numeric_frame,
+)
 from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
 from alpharank.backtest.reporting import (
     save_auc_score_overview,
@@ -62,7 +67,9 @@ class LearningArtifacts:
 class BacktestPhaseArtifacts:
     selections: pl.DataFrame
     monthly_returns: pl.DataFrame
+    fold_monthly_returns: pl.DataFrame
     backtest_kpis: pl.DataFrame
+    fold_backtest_kpis: pl.DataFrame
     split_kpis: pl.DataFrame
     fold_backtest_metrics: pl.DataFrame
     global_assets: Dict[str, Path]
@@ -74,7 +81,9 @@ class BacktestArtifacts:
     predictions: pl.DataFrame
     selections: pl.DataFrame
     monthly_returns: pl.DataFrame
+    fold_monthly_returns: pl.DataFrame
     kpis: pl.DataFrame
+    fold_backtest_kpis: pl.DataFrame
     split_kpis: pl.DataFrame
     fold_metrics: pl.DataFrame
     fold_index: pl.DataFrame
@@ -966,6 +975,10 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
         monthly_returns=monthly_returns,
         risk_free_rate=config.risk_free_rate,
     )
+    fold_backtest_kpis = compute_backtest_kpis_by_fold(
+        fold_monthly_returns=fold_monthly,
+        risk_free_rate=config.risk_free_rate,
+    )
     split_kpis = _build_split_kpis(learning.fold_metrics)
 
     global_assets: Dict[str, Path] = {}
@@ -988,7 +1001,9 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
     return BacktestPhaseArtifacts(
         selections=selections,
         monthly_returns=monthly_returns,
+        fold_monthly_returns=fold_monthly,
         backtest_kpis=backtest_kpis,
+        fold_backtest_kpis=fold_backtest_kpis,
         split_kpis=split_kpis,
         fold_backtest_metrics=fold_backtest_metrics,
         global_assets=global_assets,
@@ -1009,10 +1024,12 @@ def _finalize_backtest_run(
     )
 
     monthly_returns = sanitize_numeric_frame(backtest_phase.monthly_returns)
+    fold_monthly_returns = sanitize_numeric_frame(backtest_phase.fold_monthly_returns)
     fold_metrics = sanitize_numeric_frame(fold_metrics)
     fold_index = sanitize_numeric_frame(learning.fold_index)
     best_params = sanitize_numeric_frame(learning.best_params)
     backtest_kpis = sanitize_numeric_frame(backtest_phase.backtest_kpis)
+    fold_backtest_kpis = sanitize_numeric_frame(backtest_phase.fold_backtest_kpis)
     split_kpis = sanitize_numeric_frame(backtest_phase.split_kpis)
     debug_predictions_long, debug_predictions_full = _build_prediction_debug_frames(
         model_frame=learning.model_frame,
@@ -1040,6 +1057,9 @@ def _finalize_backtest_run(
     write_backtest_audit_report(
         output_path=audit_report_path,
         monthly_returns=monthly_returns,
+        fold_monthly_returns=fold_monthly_returns,
+        backtest_kpis=backtest_kpis,
+        fold_backtest_kpis=fold_backtest_kpis,
         selections=backtest_phase.selections,
         debug_predictions_long=debug_predictions_long,
         fold_index=fold_index,
@@ -1049,6 +1069,8 @@ def _finalize_backtest_run(
             "debug_predictions_full": learning.run_dir / "debug_predictions_full.parquet",
             "fold_index": learning.run_dir / "fold_index.parquet",
             "monthly_returns": learning.run_dir / "monthly_returns.parquet",
+            "fold_monthly_returns": learning.run_dir / "fold_monthly_returns.parquet",
+            "fold_backtest_kpis": learning.run_dir / "fold_backtest_kpis.parquet",
         },
     )
 
@@ -1058,12 +1080,14 @@ def _finalize_backtest_run(
         "predictions": learning.run_dir / "predictions.parquet",
         "selections": learning.run_dir / "selections.parquet",
         "monthly_returns": learning.run_dir / "monthly_returns.parquet",
+        "fold_monthly_returns": learning.run_dir / "fold_monthly_returns.parquet",
         "fold_metrics": learning.run_dir / "fold_metrics.parquet",
         "fold_index": learning.run_dir / "fold_index.parquet",
         "best_params": learning.run_dir / "best_params.parquet",
         "split_kpis": learning.run_dir / "split_kpis.parquet",
         "kpis_parquet": learning.run_dir / "kpis.parquet",
         "kpis_csv": learning.run_dir / "kpis.csv",
+        "fold_backtest_kpis": learning.run_dir / "fold_backtest_kpis.parquet",
         "debug_predictions_long": learning.run_dir / "debug_predictions_long.parquet",
         "debug_predictions_full": learning.run_dir / "debug_predictions_full.parquet",
         "report_html": report_path,
@@ -1078,12 +1102,14 @@ def _finalize_backtest_run(
     learning.predictions.write_parquet(paths["predictions"])
     backtest_phase.selections.write_parquet(paths["selections"])
     monthly_returns.write_parquet(paths["monthly_returns"])
+    fold_monthly_returns.write_parquet(paths["fold_monthly_returns"])
     fold_metrics.write_parquet(paths["fold_metrics"])
     fold_index.write_parquet(paths["fold_index"])
     best_params.write_parquet(paths["best_params"])
     split_kpis.write_parquet(paths["split_kpis"])
     backtest_kpis.write_parquet(paths["kpis_parquet"])
     backtest_kpis.write_csv(paths["kpis_csv"])
+    fold_backtest_kpis.write_parquet(paths["fold_backtest_kpis"])
     debug_predictions_long.write_parquet(paths["debug_predictions_long"])
     debug_predictions_full.write_parquet(paths["debug_predictions_full"])
 
@@ -1136,7 +1162,9 @@ def _finalize_backtest_run(
         predictions=learning.predictions,
         selections=backtest_phase.selections,
         monthly_returns=monthly_returns,
+        fold_monthly_returns=fold_monthly_returns,
         kpis=backtest_kpis,
+        fold_backtest_kpis=fold_backtest_kpis,
         split_kpis=split_kpis,
         fold_metrics=fold_metrics,
         fold_index=fold_index,
