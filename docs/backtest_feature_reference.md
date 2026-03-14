@@ -109,8 +109,8 @@ Constructed fields:
 
 Derived target variables:
 
-- `future_excess_return_{i,t} = future_return_{i,t} - benchmark_future_return_t`
-- `future_relative_return_{i,t} = (1 + future_return_{i,t}) / (1 + benchmark_future_return_t) - 1`
+- `future_relative_return_{i,t} = (1 + future_return_{i,t}) / (1 + benchmark_future_return_t)`
+- `future_excess_return_{i,t} = future_relative_return_{i,t} - 1`
 
 Binary classification label used by the model:
 

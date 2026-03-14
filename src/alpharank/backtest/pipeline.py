@@ -271,7 +271,11 @@ def _build_split_kpis(fold_metrics: pl.DataFrame) -> pl.DataFrame:
 
 
 def _prepare_modeling_frame(config: BacktestConfig) -> tuple[pl.DataFrame, List[str], List[str]]:
-    raw = load_raw_data(config.data_dir)
+    raw = load_raw_data(
+        config.data_dir,
+        final_price_path=config.final_price_path,
+        sp500_price_path=config.sp500_price_path,
+    )
 
     monthly_prices = compute_monthly_stock_prices(raw.final_price)
     index_monthly = compute_monthly_index_returns(raw.sp500_price)
@@ -1088,7 +1092,7 @@ def _finalize_backtest_run(
         "dropped_features": learning.dropped_features,
         "n_completed_folds": int(fold_metrics.height),
         "n_total_windows": int(learning.total_windows),
-        "target_definition": "future_excess_return > outperformance_threshold",
+        "target_definition": "((1 + future_return) / (1 + benchmark_future_return) - 1) > outperformance_threshold",
         "config": {
             "data_dir": str(config.data_dir),
             "output_dir": str(config.output_dir),

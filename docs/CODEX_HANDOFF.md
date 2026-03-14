@@ -81,8 +81,8 @@ Current target logic:
 
 - `future_return`: next-month stock return
 - `benchmark_future_return`: next-month benchmark return
-- `future_excess_return = future_return - benchmark_future_return`
-- `future_relative_return = (1 + future_return) / (1 + benchmark_future_return) - 1`
+- `future_relative_return = (1 + future_return) / (1 + benchmark_future_return)`
+- `future_excess_return = future_relative_return - 1`
 - `target_label = future_excess_return > outperformance_threshold`
 
 This replaced the old absolute-return target logic.

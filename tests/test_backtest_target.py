@@ -65,7 +65,14 @@ def test_backtest_target_uses_future_excess_return() -> None:
     assert dropped_features == []
     assert jan_rows.get_column("future_return").to_list() == [0.10, 0.03]
     assert jan_rows.get_column("benchmark_future_return").to_list() == [0.05, 0.05]
-    assert np.allclose(jan_rows.get_column("future_excess_return").to_numpy(), np.array([0.05, -0.02]))
+    assert np.allclose(
+        jan_rows.get_column("future_excess_return").to_numpy(),
+        np.array([(1.10 / 1.05) - 1.0, (1.03 / 1.05) - 1.0]),
+    )
+    assert np.allclose(
+        jan_rows.get_column("future_relative_return").to_numpy(),
+        np.array([1.10 / 1.05, 1.03 / 1.05]),
+    )
     assert jan_rows.get_column("decision_month").to_list() == [date(2020, 1, 1), date(2020, 1, 1)]
     assert jan_rows.get_column("holding_month").to_list() == [date(2020, 2, 1), date(2020, 2, 1)]
     assert jan_rows.get_column("holding_period_complete").to_list() == [True, True]

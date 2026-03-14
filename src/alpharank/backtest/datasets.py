@@ -144,13 +144,15 @@ def build_model_frame(
             }
         ).with_columns(pl.lit(None).cast(pl.Date).alias("benchmark_holding_asof_date"))
     month_end_threshold = pl.col("holding_month").dt.offset_by("1mo").dt.offset_by("-7d")
+    future_relative_ratio = (
+        pl.when((pl.col("benchmark_future_return") + 1.0).abs() > 1e-12)
+        .then((1.0 + pl.col("future_return")) / (1.0 + pl.col("benchmark_future_return")))
+        .otherwise(None)
+    )
     frame = frame.join(benchmark, on="holding_month", how="left").with_columns(
         [
-            (pl.col("future_return") - pl.col("benchmark_future_return")).alias("future_excess_return"),
-            pl.when((pl.col("benchmark_future_return") + 1.0).abs() > 1e-12)
-            .then((1.0 + pl.col("future_return")) / (1.0 + pl.col("benchmark_future_return")) - 1.0)
-            .otherwise(None)
-            .alias("future_relative_return"),
+            (future_relative_ratio - 1.0).alias("future_excess_return"),
+            future_relative_ratio.alias("future_relative_return"),
             (
                 (pl.col("holding_asof_date") >= month_end_threshold)
                 & (pl.col("benchmark_holding_asof_date").fill_null(pl.col("holding_asof_date")) >= month_end_threshold)
