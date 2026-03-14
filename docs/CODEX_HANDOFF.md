@@ -235,7 +235,25 @@ This separation exists because the user wants explicit control over:
 - the prediction tables inspected before any trading backtest
 - the exact transition from "predict outperformance" to "simulate the strategy"
 
-### 4.7 Backtest audit exports
+### 4.7 Dedicated application-backtest layer
+
+There is now a distinct application/backtest layer for testing trading rules without changing the learning pipeline itself.
+
+Main files:
+
+- `src/alpharank/backtest/application.py`
+- `scripts/run_backtest_application.py`
+
+Intended use:
+
+- load predictions already produced by the boosting pipeline
+- apply a dedicated trading rule (`top_n` or `prediction > threshold`)
+- optionally filter names whose last available decision-month price is older than `x` months
+- compare one or several resulting backtest curves, including legacy curves, with the legacy comparison report machinery
+
+Do not fold these application experiments back into the learning config. The user wants them decoupled on purpose.
+
+### 4.8 Backtest audit exports
 
 The user wanted a clean table to inspect what happened line by line.
 
@@ -256,7 +274,7 @@ Main files:
 - `src/alpharank/backtest/pipeline.py`
 - `src/alpharank/backtest/reporting.py`
 
-### 4.8 Dedicated audit report
+### 4.9 Dedicated audit report
 
 A separate HTML backtest report exists for deep backtest inspection, distinct from the learning/training report.
 
@@ -375,7 +393,7 @@ Recent useful history on `update_probalisor` after the history rewrite:
 - If a result is optimistic, provide audit surfaces instead of hand-waving.
 - The user values directness over polish.
 
-### 4.9 Reload caveat
+### 4.10 Reload caveat
 
 Reloading a learning run from disk with `load_learning(run_dir)` is enough to:
 
