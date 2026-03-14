@@ -11,7 +11,7 @@ import numpy as np
 import polars as pl
 
 from alpharank.backtest.config import BacktestConfig
-from alpharank.backtest.data_loading import load_raw_data
+from alpharank.backtest.data_loading import RawDataBundle, find_existing_column, load_raw_data
 from alpharank.backtest.datasets import build_model_frame
 from alpharank.backtest.explainability import (
     ShapFoldExplanation,
@@ -279,12 +279,51 @@ def _build_split_kpis(fold_metrics: pl.DataFrame) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
+def _filter_frame_on_tickers(df: pl.DataFrame, excluded_tickers: tuple[str, ...]) -> pl.DataFrame:
+    if df.is_empty() or not excluded_tickers:
+        return df
+    ticker_col = find_existing_column(df, ["ticker", "Ticker"])
+    if ticker_col is None:
+        return df
+    raw_ticker = pl.col(ticker_col).cast(pl.Utf8).str.to_uppercase()
+    normalized_ticker = (
+        pl.when(raw_ticker.str.ends_with(".US"))
+        .then(raw_ticker)
+        .otherwise(raw_ticker.str.replace_all(r"\.", "-") + pl.lit(".US"))
+    )
+    return df.filter(~normalized_ticker.is_in(excluded_tickers))
+
+
+def _apply_data_quality_ticker_exclusions(
+    raw: RawDataBundle,
+    excluded_tickers: tuple[str, ...],
+) -> RawDataBundle:
+    if not excluded_tickers:
+        return raw
+
+    return RawDataBundle(
+        final_price=_filter_frame_on_tickers(raw.final_price, excluded_tickers),
+        income_statement=_filter_frame_on_tickers(raw.income_statement, excluded_tickers),
+        balance_sheet=_filter_frame_on_tickers(raw.balance_sheet, excluded_tickers),
+        cash_flow=_filter_frame_on_tickers(raw.cash_flow, excluded_tickers),
+        earnings=_filter_frame_on_tickers(raw.earnings, excluded_tickers),
+        constituents=_filter_frame_on_tickers(raw.constituents, excluded_tickers),
+        sp500_price=raw.sp500_price,
+    )
+
+
 def _prepare_modeling_frame(config: BacktestConfig) -> tuple[pl.DataFrame, List[str], List[str]]:
     raw = load_raw_data(
         config.data_dir,
         final_price_path=config.final_price_path,
         sp500_price_path=config.sp500_price_path,
     )
+    raw = _apply_data_quality_ticker_exclusions(raw, config.excluded_tickers)
+    if config.verbose and config.excluded_tickers:
+        print(
+            "[DataQuality] Excluding tickers from backtest inputs: "
+            + ", ".join(config.excluded_tickers)
+        )
 
     monthly_prices = compute_monthly_stock_prices(raw.final_price)
     index_monthly = compute_monthly_index_returns(raw.sp500_price)

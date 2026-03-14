@@ -97,6 +97,7 @@ class BacktestConfig:
     output_dir: Path
     final_price_path: Path | None = None
     sp500_price_path: Path | None = None
+    excluded_tickers: Tuple[str, ...] = ()
     start_month: str = "2006-01"
     n_folds: int = 10
     top_n: int = 20
@@ -127,5 +128,6 @@ class BacktestConfig:
     optuna_space: Dict[str, Tuple[str, float, float]] = field(default_factory=default_optuna_space)
 
     def __post_init__(self) -> None:
+        self.excluded_tickers = tuple(str(ticker).upper() for ticker in self.excluded_tickers)
         if self.prediction_threshold is not None:
             self.outperformance_threshold = float(self.prediction_threshold)

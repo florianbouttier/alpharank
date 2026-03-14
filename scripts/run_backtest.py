@@ -21,6 +21,7 @@ from alpharank.backtest import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LEGACY_DATA_QUALITY_EXCLUDED_TICKERS = ("SII.US", "CBE.US", "TIE.US")
 
 DEFAULT_LEARNING_KPI_COLUMNS = (
     "fold",
@@ -53,22 +54,23 @@ def default_config(**overrides: Any) -> BacktestConfig:
     params: dict[str, Any] = {
         "data_dir": PROJECT_ROOT / "data",
         "output_dir": PROJECT_ROOT / "outputs",
+        "excluded_tickers": LEGACY_DATA_QUALITY_EXCLUDED_TICKERS,
         "start_month": "2000-01",
-        "n_folds": 7,
-        "top_n": 30,
+        "n_folds": 5,
+        "top_n": 10,
         "outperformance_threshold": 0.15,
         "min_train_months": 24,
         "missing_feature_threshold": 0.05,
-        "n_optuna_trials": 20,
+        "n_optuna_trials":100,
         "optuna_lambda_gap": 5,
         "optuna_startup_trials": 20,
         "risk_free_rate": 0.02,
         "random_seed": 42,
         "verbose": True,
         "show_optuna_progress": True,
-        "optuna_progress_every": 10,
+        "optuna_progress_every": 1,
         "technical_feature_config": TechnicalFeatureConfig(
-            roc_windows=(1, 3, 6, 12),
+            roc_windows=(1, 3, 6, 12,15, 24),
             ema_pairs=((2, 6), (3, 6), (3, 12), (6, 12), (6, 18), (12, 24)),
             price_to_ema_spans=(3, 6, 12, 24),
             rsi_windows=(3, 6, 12, 24),
@@ -76,7 +78,7 @@ def default_config(**overrides: Any) -> BacktestConfig:
             bollinger_windows=(6, 12),
             stochastic_windows=((6, 3), (12, 3)),
             range_windows=(6, 12,21),
-            volatility_windows=(3, 6, 12),
+            volatility_windows=(2,3, 6, 12,24),
             volatility_ratio_pairs=((3, 12), (6, 12)),
         ),
         "fundamental_feature_config": FundamentalFeatureConfig(
@@ -93,6 +95,7 @@ def _config_to_metadata(config: BacktestConfig) -> dict[str, Any]:
         "output_dir": str(config.output_dir),
         "final_price_path": str(config.final_price_path) if config.final_price_path is not None else None,
         "sp500_price_path": str(config.sp500_price_path) if config.sp500_price_path is not None else None,
+        "excluded_tickers": list(config.excluded_tickers),
         "start_month": config.start_month,
         "n_folds": config.n_folds,
         "top_n": config.top_n,
@@ -130,6 +133,7 @@ def _config_from_metadata(config_data: dict[str, Any]) -> BacktestConfig:
     params["output_dir"] = Path(params["output_dir"])
     params["final_price_path"] = Path(params["final_price_path"]) if params.get("final_price_path") else None
     params["sp500_price_path"] = Path(params["sp500_price_path"]) if params.get("sp500_price_path") else None
+    params["excluded_tickers"] = tuple(params.get("excluded_tickers", []))
     params["technical_feature_config"] = TechnicalFeatureConfig(**params["technical_feature_config"])
     params["fundamental_feature_config"] = FundamentalFeatureConfig(**params["fundamental_feature_config"])
     return BacktestConfig(**params)
