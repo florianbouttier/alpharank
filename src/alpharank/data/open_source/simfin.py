@@ -25,7 +25,7 @@ class SimFinClient:
         data_dir: Path | None = None,
         refresh_days: int = 30,
     ) -> None:
-        load_dotenv()
+        _load_local_dotenv()
         self.api_key = (api_key or os.getenv("SIMFIN_API_KEY", "")).strip()
         self.data_dir = data_dir
         self.refresh_days = refresh_days
@@ -182,3 +182,13 @@ def _empty_financials() -> pl.DataFrame:
             "fiscal_year": pl.Int64,
         }
     )
+
+
+def _load_local_dotenv() -> None:
+    current = Path.cwd().resolve()
+    for candidate in (current, *current.parents):
+        dotenv_path = candidate / ".env"
+        if dotenv_path.exists():
+            load_dotenv(dotenv_path=dotenv_path)
+            return
+    load_dotenv()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from typing import Iterable, Sequence
 
@@ -90,23 +91,15 @@ class YahooFinanceClient:
             )
         return pl.DataFrame(rows).sort(["ticker", "reportDate"])
 
-    def fetch_quarterly_financials(self, tickers: Iterable[str]) -> pl.DataFrame:
+    def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 8) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
-        statement_map = {
-            "income_statement": lambda ticker_obj: ticker_obj.quarterly_income_stmt,
-            "balance_sheet": lambda ticker_obj: ticker_obj.quarterly_balance_sheet,
-            "cash_flow": lambda ticker_obj: ticker_obj.quarterly_cashflow,
-            "shares": lambda ticker_obj: ticker_obj.quarterly_balance_sheet,
-        }
-
-        for ticker in tickers:
-            ticker_obj = self._ticker(ticker)
-            for statement, getter in statement_map.items():
-                wide = getter(ticker_obj)
-                if wide is None or wide.empty:
-                    continue
-                frames.append(_extract_statement_frame(ticker, statement, wide))
-
+        ticker_list = list(tickers)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(_fetch_ticker_financial_frames, ticker): ticker for ticker in ticker_list}
+            for future in as_completed(futures):
+                ticker_frames = future.result()
+                if ticker_frames:
+                    frames.extend(ticker_frames)
         return pl.concat(frames, how="vertical") if frames else _empty_financial_frame()
 
     def normalize_earnings_long(self, earnings_dates: pl.DataFrame) -> pl.DataFrame:
@@ -193,6 +186,28 @@ def _extract_statement_frame(ticker: str, statement: str, wide: pd.DataFrame) ->
                 }
             )
     return pl.DataFrame(rows) if rows else _empty_financial_frame()
+
+
+def _fetch_ticker_financial_frames(ticker: str) -> list[pl.DataFrame]:
+    ticker_obj = yf.Ticker(ticker)
+    statement_map = {
+        "income_statement": lambda current: current.quarterly_income_stmt,
+        "balance_sheet": lambda current: current.quarterly_balance_sheet,
+        "cash_flow": lambda current: current.quarterly_cashflow,
+        "shares": lambda current: current.quarterly_balance_sheet,
+    }
+    frames: list[pl.DataFrame] = []
+    for statement, getter in statement_map.items():
+        try:
+            wide = getter(ticker_obj)
+        except Exception:
+            continue
+        if wide is None or wide.empty:
+            continue
+        frame = _extract_statement_frame(ticker, statement, wide)
+        if not frame.is_empty():
+            frames.append(frame)
+    return frames
 
 
 def _empty_financial_frame() -> pl.DataFrame:

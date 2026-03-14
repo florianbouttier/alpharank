@@ -282,7 +282,7 @@ def build_audited_metric_catalog(
     include_yfinance_financials: bool,
     include_yfinance_earnings: bool,
     include_simfin_financials: bool,
-    include_best_effort_financials: bool,
+    include_open_source_consolidated: bool,
 ) -> pl.DataFrame:
     rows: list[dict[str, str]] = [
         {
@@ -335,14 +335,14 @@ def build_audited_metric_catalog(
                     "open_source_field": ",".join(spec.simfin_columns),
                 }
             )
-        if include_best_effort_financials and spec.statement != "earnings":
+        if include_open_source_consolidated and spec.statement != "earnings":
             rows.append(
                 {
-                    "source": "best_effort",
+                    "source": "open_source_consolidated",
                     "statement": spec.statement,
                     "metric": spec.metric,
                     "reference_field": spec.eodhd_column,
-                    "open_source_field": "sec_companyfacts -> simfin fallback",
+                    "open_source_field": "sec_companyfacts -> simfin -> yfinance fallback",
                 }
             )
     return pl.DataFrame(rows).sort(["source", "statement", "metric"])
@@ -356,6 +356,7 @@ def write_html_report(
     benchmark_tickers: tuple[str, ...],
     coverage: pl.DataFrame,
     audited_metric_catalog: pl.DataFrame,
+    consolidation_source_summary: pl.DataFrame,
     price_summary: pl.DataFrame,
     statement_summary: pl.DataFrame,
     metric_summary: pl.DataFrame,
@@ -405,6 +406,7 @@ def write_html_report(
   <p><a href=\"tickers/index.html\">Ticker reports</a> | <a href=\"kpis/index.html\">KPI reports</a></p>
   <div class=\"section\"><h2>Audited KPI Catalog</h2>{_frame_to_html(audited_metric_catalog)}</div>
   <div class=\"section\"><h2>Price Summary</h2>{_frame_to_html(_sort_for_display(price_summary))}</div>
+  <div class=\"section\"><h2>Open-source Consolidation Lineage</h2>{_frame_to_html(_sort_for_display(consolidation_source_summary))}</div>
   <div class=\"section\"><h2>By Statement</h2>{_frame_to_html(_sort_for_display(statement_summary))}</div>
   <div class=\"section\"><h2>By KPI</h2>{_frame_to_html(_sort_for_display(metric_summary))}</div>
   <div class=\"section\"><h2>By Ticker</h2>{_frame_to_html(_sort_for_display(ticker_overview))}</div>
@@ -422,6 +424,8 @@ def write_detail_reports(
     threshold_pct: float,
     coverage: pl.DataFrame,
     audited_metric_catalog: pl.DataFrame,
+    consolidated_financials: pl.DataFrame,
+    consolidated_lineage: pl.DataFrame,
     price_alignment: pl.DataFrame,
     financial_alignment: pl.DataFrame,
     price_error_details: pl.DataFrame,
@@ -472,6 +476,12 @@ def write_detail_reports(
             price_alignment.filter(pl.col("ticker") == ticker),
             threshold_pct=threshold_pct,
         )
+        local_consolidated_financials = _build_consolidated_financial_table(
+            consolidated_financials.filter(pl.col("ticker") == ticker)
+        )
+        local_consolidated_lineage = _build_consolidated_lineage_table(
+            consolidated_lineage.filter(pl.col("ticker") == ticker)
+        )
         local_financial_comparison = _build_financial_comparison_table(
             financial_alignment.filter(pl.col("ticker") == ticker),
             threshold_pct=threshold_pct,
@@ -490,6 +500,8 @@ def write_detail_reports(
                 ("Statement coverage", _sort_for_display(local_statement_summary)),
                 ("KPI coverage", _sort_for_display(local_kpi_summary)),
                 ("Price comparison", local_price_comparison),
+                ("Open-source consolidated financials", local_consolidated_financials),
+                ("Open-source source lineage", local_consolidated_lineage),
                 ("Financial comparison", local_financial_comparison),
                 ("Price errors", local_price_errors),
                 ("Financial errors", local_financial_errors),
@@ -1002,6 +1014,72 @@ def _build_financial_comparison_table(df: pl.DataFrame, *, threshold_pct: float)
         )
         .sort(["source", "statement", "metric", "date"])
     )
+
+
+def _build_consolidated_financial_table(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty():
+        return pl.DataFrame(
+            schema={
+                "statement": pl.String,
+                "metric": pl.String,
+                "date": pl.String,
+                "value": pl.Float64,
+                "filing_date": pl.String,
+                "selected_source": pl.String,
+                "selected_source_label": pl.String,
+                "fallback_used": pl.Boolean,
+                "candidate_source_count": pl.Int64,
+                "candidate_sources": pl.String,
+            }
+        )
+    return df.select(
+        [
+            pl.col("statement"),
+            pl.col("metric"),
+            pl.col("date"),
+            pl.col("value"),
+            pl.col("filing_date"),
+            pl.col("selected_source"),
+            pl.col("selected_source_label"),
+            pl.col("fallback_used"),
+            pl.col("candidate_source_count"),
+            pl.col("candidate_sources"),
+        ]
+    ).sort(["statement", "metric", "date"])
+
+
+def _build_consolidated_lineage_table(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty():
+        return pl.DataFrame(
+            schema={
+                "statement": pl.String,
+                "metric": pl.String,
+                "date": pl.String,
+                "source": pl.String,
+                "source_priority": pl.Int64,
+                "value": pl.Float64,
+                "filing_date": pl.String,
+                "source_label": pl.String,
+                "selected_form": pl.String,
+                "selected_fiscal_period": pl.String,
+                "selected_fiscal_year": pl.Int64,
+            }
+        )
+    return df.select(
+        [
+            pl.col("statement"),
+            pl.col("metric"),
+            pl.col("date"),
+            pl.col("source"),
+            pl.col("source_priority"),
+            pl.col("value"),
+            pl.col("filing_date"),
+            pl.col("source_label"),
+            pl.col("selected_form"),
+            pl.col("selected_fiscal_period"),
+            pl.col("selected_fiscal_year"),
+        ]
+    ).sort(["statement", "metric", "date", "source_priority"])
 
 
 def _comparison_status_expr(threshold_pct: float) -> pl.Expr:

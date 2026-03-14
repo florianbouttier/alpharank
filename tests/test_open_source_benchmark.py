@@ -9,8 +9,9 @@ from alpharank.data.open_source.benchmark import (
     build_financial_alignment,
     build_price_alignment,
 )
+from alpharank.data.open_source.consolidation import FinancialSourceInput, consolidate_financial_sources
 from alpharank.data.open_source.config import METRIC_SPECS
-from alpharank.data.open_source.pipeline import _build_best_effort_financials
+from alpharank.data.open_source.pipeline import _identify_yfinance_financial_fallback_tickers
 from alpharank.data.open_source.sec import _select_best_facts
 from alpharank.data.open_source.simfin import _extract_metric_frames
 from alpharank.data.open_source.yahoo import _extract_statement_frame
@@ -375,14 +376,14 @@ def test_build_audited_metric_catalog_lists_enabled_sources() -> None:
         include_yfinance_financials=False,
         include_yfinance_earnings=False,
         include_simfin_financials=True,
-        include_best_effort_financials=True,
+        include_open_source_consolidated=True,
     )
 
     assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "sec_companyfacts")).height == 1
     assert catalog.filter(pl.col("source") == "yfinance_earnings").is_empty()
     assert catalog.filter((pl.col("statement") == "price") & (pl.col("metric") == "adjusted_close") & (pl.col("source") == "yfinance")).height == 1
     assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "simfin")).height == 1
-    assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "best_effort")).height == 1
+    assert catalog.filter((pl.col("statement") == "income_statement") & (pl.col("metric") == "net_income") & (pl.col("source") == "open_source_consolidated")).height == 1
 
 
 def test_comparison_tables_include_side_by_side_values_and_status() -> None:
@@ -466,7 +467,7 @@ def test_extract_metric_frames_normalizes_simfin_quarterly_data() -> None:
     assert result["source"].unique().to_list() == ["simfin"]
 
 
-def test_build_best_effort_financials_prefers_sec_and_fills_simfin_gaps() -> None:
+def test_consolidate_financial_sources_prefers_sec_and_fills_simfin_gaps() -> None:
     sec = pl.DataFrame(
         {
             "ticker": ["AAPL.US"],
@@ -498,15 +499,24 @@ def test_build_best_effort_financials_prefers_sec_and_fills_simfin_gaps() -> Non
         }
     )
 
-    result = _build_best_effort_financials(sec, simfin)
+    consolidated, lineage, summary = consolidate_financial_sources(
+        [
+            FinancialSourceInput("sec_companyfacts", sec, priority=1),
+            FinancialSourceInput("simfin", simfin, priority=2),
+        ]
+    )
 
-    assert result.height == 2
-    assert result["source"].unique().to_list() == ["best_effort"]
-    assert result.sort("date")["date"].to_list() == ["2025-03-31", "2025-06-30"]
-    assert result.sort("date")["value"].to_list() == [100.0, 110.0]
+    assert consolidated.height == 2
+    assert consolidated["source"].unique().to_list() == ["open_source_consolidated"]
+    assert consolidated.sort("date")["date"].to_list() == ["2025-03-31", "2025-06-30"]
+    assert consolidated.sort("date")["value"].to_list() == [100.0, 110.0]
+    assert consolidated.sort("date")["selected_source"].to_list() == ["sec_companyfacts", "simfin"]
+    assert consolidated.sort("date")["fallback_used"].to_list() == [False, True]
+    assert lineage.height == 3
+    assert summary.filter(pl.col("selected_source") == "simfin")["selected_rows"].item() == 1
 
 
-def test_build_best_effort_financials_requires_fallback_data() -> None:
+def test_consolidate_financial_sources_handles_missing_lineage_columns() -> None:
     sec = pl.DataFrame(
         {
             "ticker": ["AAPL.US"],
@@ -522,7 +532,70 @@ def test_build_best_effort_financials_requires_fallback_data() -> None:
             "fiscal_year": [2025],
         }
     )
+    yfinance = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2025-06-30"],
+            "filing_date": [None],
+            "value": [110.0],
+            "source": ["yfinance"],
+            "source_label": ["Total Revenue"],
+        }
+    )
 
-    result = _build_best_effort_financials(sec, pl.DataFrame(schema=sec.schema))
+    consolidated, lineage, _ = consolidate_financial_sources(
+        [
+            FinancialSourceInput("sec_companyfacts", sec, priority=1),
+            FinancialSourceInput("yfinance", yfinance, priority=3),
+        ]
+    )
 
-    assert result.is_empty()
+    assert consolidated.height == 2
+    assert consolidated.sort("date")["selected_source"].to_list() == ["sec_companyfacts", "yfinance"]
+    assert consolidated.sort("date")["candidate_source_count"].to_list() == [1, 1]
+    assert lineage.filter(pl.col("source") == "yfinance")["selected_form"].to_list() == [None]
+
+
+def test_identify_yfinance_financial_fallback_tickers_returns_only_incomplete_sec_tickers() -> None:
+    quarter_dates = ["2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"]
+    rows: list[dict[str, object]] = []
+    for spec in [spec for spec in METRIC_SPECS if spec.statement != "earnings" and spec.yfinance_rows]:
+        for date, period in zip(quarter_dates, ["Q1", "Q2", "Q3", "Q4"], strict=True):
+            rows.append(
+                {
+                    "ticker": "AAPL.US",
+                    "statement": spec.statement,
+                    "metric": spec.metric,
+                    "date": date,
+                    "filing_date": None,
+                    "value": 1.0,
+                    "source": "sec_companyfacts",
+                    "source_label": spec.sec_tags[0] if spec.sec_tags else "derived",
+                    "form": "10-Q",
+                    "fiscal_period": period,
+                    "fiscal_year": 2025,
+                }
+            )
+    for date, period in zip(quarter_dates[:3], ["Q1", "Q2", "Q3"], strict=True):
+        rows.append(
+            {
+                "ticker": "MSFT.US",
+                "statement": "income_statement",
+                "metric": "revenue",
+                "date": date,
+                "filing_date": None,
+                "value": 1.0,
+                "source": "sec_companyfacts",
+                "source_label": "Revenue",
+                "form": "10-Q",
+                "fiscal_period": period,
+                "fiscal_year": 2025,
+            }
+        )
+    sec = pl.DataFrame(rows)
+
+    fallback = _identify_yfinance_financial_fallback_tickers(("AAPL", "MSFT", "NVDA"), sec)
+
+    assert fallback == ("MSFT", "NVDA")

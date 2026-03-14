@@ -25,7 +25,7 @@ def main() -> None:
     parser.add_argument("--include-yfinance-financials", action="store_true")
     parser.add_argument("--include-yfinance-earnings", action="store_true")
     parser.add_argument("--include-simfin-financials", action="store_true")
-    parser.add_argument("--include-best-effort-financials", action="store_true")
+    parser.add_argument("--include-open-source-consolidated", action="store_true")
     args = parser.parse_args()
 
     config_path = args.output_dir / "run_config.json"
@@ -37,10 +37,15 @@ def main() -> None:
     coverage = pl.read_parquet(args.output_dir / f"ticker_coverage_{year}.parquet")
     price_alignment = pl.read_parquet(args.output_dir / f"price_alignment_{year}.parquet")
     financial_alignment = pl.read_parquet(args.output_dir / f"financial_alignment_{year}.parquet")
+    consolidated_financials = _read_optional_parquet(args.output_dir / "financials_open_source_consolidated.parquet")
+    consolidated_lineage = _read_optional_parquet(args.output_dir / "financials_open_source_lineage.parquet")
+    consolidation_source_summary = _read_optional_parquet(args.output_dir / "financials_open_source_source_summary.parquet")
     include_yfinance_financials = args.include_yfinance_financials or _has_alignment_source(financial_alignment, "yfinance")
     include_yfinance_earnings = args.include_yfinance_earnings or _has_alignment_source(financial_alignment, "yfinance_earnings")
     include_simfin_financials = args.include_simfin_financials or _has_alignment_source(financial_alignment, "simfin")
-    include_best_effort_financials = args.include_best_effort_financials or _has_alignment_source(financial_alignment, "best_effort")
+    include_open_source_consolidated = args.include_open_source_consolidated or _has_alignment_source(
+        financial_alignment, "open_source_consolidated"
+    )
 
     (
         price_summary,
@@ -64,7 +69,7 @@ def main() -> None:
         include_yfinance_financials=include_yfinance_financials,
         include_yfinance_earnings=include_yfinance_earnings,
         include_simfin_financials=include_simfin_financials,
-        include_best_effort_financials=include_best_effort_financials,
+        include_open_source_consolidated=include_open_source_consolidated,
     )
 
     audited_metric_catalog.write_parquet(args.output_dir / "audited_metric_catalog.parquet")
@@ -91,6 +96,7 @@ def main() -> None:
         benchmark_tickers=tickers,
         coverage=coverage,
         audited_metric_catalog=audited_metric_catalog,
+        consolidation_source_summary=consolidation_source_summary,
         price_summary=price_summary,
         statement_summary=statement_summary,
         metric_summary=metric_summary,
@@ -104,6 +110,8 @@ def main() -> None:
         threshold_pct=threshold_pct,
         coverage=coverage,
         audited_metric_catalog=audited_metric_catalog,
+        consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
         price_alignment=price_alignment,
         financial_alignment=financial_alignment,
         price_error_details=price_error_details,
@@ -121,6 +129,12 @@ def main() -> None:
 
 def _has_alignment_source(financial_alignment: pl.DataFrame, source: str) -> bool:
     return financial_alignment.filter(pl.col("source") == source).height > 0
+
+
+def _read_optional_parquet(path: Path) -> pl.DataFrame:
+    if path.exists():
+        return pl.read_parquet(path)
+    return pl.DataFrame()
 
 
 if __name__ == "__main__":
