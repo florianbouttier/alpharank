@@ -72,10 +72,22 @@ def _top_feature_indices(mean_abs_shap: np.ndarray, max_features: int) -> np.nda
     return np.argsort(mean_abs_shap)[::-1][:limit]
 
 
-def _interaction_ranking(interaction_values: np.ndarray) -> List[Dict[str, float]]:
+def _ordered_feature_indices(mean_abs_shap: np.ndarray) -> np.ndarray:
+    if mean_abs_shap.size == 0:
+        return np.array([], dtype=int)
+    return np.argsort(mean_abs_shap)[::-1]
+
+
+def _interaction_strength_matrix(interaction_values: np.ndarray, include_diagonal: bool = True) -> np.ndarray:
     mean_abs = np.mean(np.abs(interaction_values), axis=0)
     mean_abs = 0.5 * (mean_abs + mean_abs.T)
-    np.fill_diagonal(mean_abs, 0.0)
+    if not include_diagonal:
+        np.fill_diagonal(mean_abs, 0.0)
+    return mean_abs
+
+
+def _interaction_ranking(interaction_values: np.ndarray) -> List[Dict[str, float]]:
+    mean_abs = _interaction_strength_matrix(interaction_values, include_diagonal=False)
 
     rows: List[Dict[str, float]] = []
     for i in range(mean_abs.shape[0]):
@@ -279,6 +291,7 @@ def _plot_per_fold_exhaustive_dependence_pages(
     import shap
 
     for explanation in explanations:
+        ordered_indices = _ordered_feature_indices(explanation.mean_abs_shap)
         _plot_text_page(
             pdf,
             title=f"{explanation.fold_label} SHAP 1D Dependence",
@@ -287,10 +300,12 @@ def _plot_per_fold_exhaustive_dependence_pages(
                 f"samples={explanation.X_sample.shape[0]}",
                 f"features={len(explanation.feature_names)}",
                 "",
-                "The following pages contain all 1D SHAP dependence plots for this fold.",
+                "The following pages contain all 1D SHAP dependence plots for this fold,",
+                "sorted by decreasing mean(|SHAP|).",
             ],
         )
-        for feature_name in explanation.feature_names:
+        for idx in ordered_indices:
+            feature_name = explanation.feature_names[int(idx)]
             plt.figure(figsize=(10, 6))
             shap.dependence_plot(
                 feature_name,
@@ -298,7 +313,7 @@ def _plot_per_fold_exhaustive_dependence_pages(
                 explanation.X_sample,
                 feature_names=explanation.feature_names,
                 show=False,
-                interaction_index=None,
+                interaction_index="auto",
             )
             plt.title(f"{explanation.fold_label} SHAP Dependence: {feature_name}")
             _save_current_figure(pdf)
@@ -310,9 +325,7 @@ def _plot_interaction_heatmap(
     feature_names: List[str],
     title: str,
 ) -> None:
-    mean_abs = np.mean(np.abs(interaction_values), axis=0)
-    mean_abs = 0.5 * (mean_abs + mean_abs.T)
-    np.fill_diagonal(mean_abs, 0.0)
+    mean_abs = _interaction_strength_matrix(interaction_values, include_diagonal=True)
     labels = list(feature_names)
 
     fig_width = max(10, min(22, len(labels) * 0.45))
@@ -357,30 +370,40 @@ def _plot_interaction_dependence_pages(
     interaction_sample: np.ndarray,
     feature_names: List[str],
     fold_label: str,
+    max_pairs: int,
 ) -> None:
-    feature_count = len(feature_names)
-    for i in range(feature_count):
-        for j in range(i + 1, feature_count):
-            x = interaction_sample[:, i]
-            color = interaction_sample[:, j]
-            y = interaction_values[:, i, j]
+    ranked_pairs = _interaction_ranking(interaction_values)
+    if not ranked_pairs:
+        return
 
-            fig, ax = plt.subplots(figsize=(10, 6))
-            scatter = ax.scatter(x, y, c=color, cmap="coolwarm", alpha=0.75, s=24)
-            ax.set_xlabel(feature_names[i])
-            ax.set_ylabel(f"Interaction SHAP: {feature_names[i]} x {feature_names[j]}")
-            ax.set_title(f"{fold_label} interaction: {feature_names[i]} x {feature_names[j]}")
-            ax.grid(alpha=0.2)
-            cbar = fig.colorbar(scatter, ax=ax)
-            cbar.set_label(feature_names[j])
-            pdf.savefig(fig, bbox_inches="tight")
-            plt.close(fig)
+    selected_pairs = ranked_pairs[: max(1, min(int(max_pairs), len(ranked_pairs)))]
+    for pair in selected_pairs:
+        i = int(pair["i"])
+        j = int(pair["j"])
+        x = interaction_sample[:, i]
+        color = interaction_sample[:, j]
+        y = interaction_values[:, i, j]
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        scatter = ax.scatter(x, y, c=color, cmap="coolwarm", alpha=0.75, s=24)
+        ax.set_xlabel(feature_names[i])
+        ax.set_ylabel(f"Interaction SHAP: {feature_names[i]} x {feature_names[j]}")
+        ax.set_title(
+            f"{fold_label} interaction: {feature_names[i]} x {feature_names[j]} "
+            f"(ranked by mean |interaction SHAP|)"
+        )
+        ax.grid(alpha=0.2)
+        cbar = fig.colorbar(scatter, ax=ax)
+        cbar.set_label(feature_names[j])
+        pdf.savefig(fig, bbox_inches="tight")
+        plt.close(fig)
 
 
 def _plot_fold_section(
     pdf: PdfPages,
     explanation: ShapFoldExplanation,
     max_features: int,
+    max_interaction_pairs: int,
 ) -> None:
     _plot_text_page(
         pdf,
@@ -393,18 +416,15 @@ def _plot_fold_section(
             "",
             "Pages follow in this order:",
             "1. beeswarm",
-            "2. importance bar",
-            "3. exhaustive 1D dependence plots",
-            "4. interaction heatmap",
-            "5. top interaction ranking",
-            "6. exhaustive 2D interaction dependence plots",
+            "2. interaction heatmap (including diagonal main effects)",
+            "3. 1D dependence plots sorted by decreasing mean(|SHAP|), colored by interaction feature",
+            f"4. top {max_interaction_pairs} interaction dependence plots ranked by mean |interaction SHAP|",
         ],
     )
     _plot_fold_beeswarm(pdf, explanation=explanation, max_features=max_features)
-    _plot_fold_importance_bar(pdf, explanation=explanation, max_features=max_features)
-    _plot_per_fold_exhaustive_dependence_pages(pdf, [explanation])
 
     if explanation.interaction_values is None or explanation.interaction_sample is None:
+        _plot_per_fold_exhaustive_dependence_pages(pdf, [explanation])
         _plot_text_page(
             pdf,
             title=f"{explanation.fold_label} SHAP Interactions",
@@ -417,28 +437,20 @@ def _plot_fold_section(
         pdf,
         interaction_values=explanation.interaction_values,
         feature_names=explanation.feature_names,
-        title=f"{explanation.fold_label} Mean |SHAP interaction| heatmap",
+        title=f"{explanation.fold_label} Mean |SHAP interaction| heatmap (diagonal kept)",
     )
+    _plot_per_fold_exhaustive_dependence_pages(pdf, [explanation])
+
     if not ranked_pairs:
-        _plot_text_page(
-            pdf,
-            title=f"{explanation.fold_label} SHAP Interactions",
-            lines=["No second-order interaction pairs were computed for this fold."],
-        )
         return
 
-    _plot_interaction_ranking(
-        pdf,
-        ranked_pairs=ranked_pairs,
-        feature_names=explanation.feature_names,
-        title=f"{explanation.fold_label} Top SHAP interactions",
-    )
     _plot_interaction_dependence_pages(
         pdf,
         interaction_values=explanation.interaction_values,
         interaction_sample=explanation.interaction_sample,
         feature_names=explanation.feature_names,
         fold_label=explanation.fold_label,
+        max_pairs=max_interaction_pairs,
     )
 
 
@@ -446,6 +458,7 @@ def generate_global_shap_report_pdf(
     explanations: List[ShapFoldExplanation],
     out_path: Path,
     max_features: int,
+    max_interaction_pairs: int = 5,
 ) -> Path | None:
     explanations = [explanation for explanation in explanations if explanation is not None]
     if not explanations:
@@ -476,7 +489,12 @@ def generate_global_shap_report_pdf(
         ]
         _plot_text_page(pdf, title="Global SHAP Analysis", lines=summary_lines)
         for explanation in explanations:
-            _plot_fold_section(pdf, explanation=explanation, max_features=max_features)
+            _plot_fold_section(
+                pdf,
+                explanation=explanation,
+                max_features=max_features,
+                max_interaction_pairs=max_interaction_pairs,
+            )
 
         _plot_text_page(
             pdf,

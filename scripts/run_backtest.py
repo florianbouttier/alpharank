@@ -1,3 +1,4 @@
+# %%
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -74,7 +75,7 @@ def default_config(**overrides: Any) -> BacktestConfig:
             rsi_ratio_pairs=((3, 12), (6, 24)),
             bollinger_windows=(6, 12),
             stochastic_windows=((6, 3), (12, 3)),
-            range_windows=(6, 12),
+            range_windows=(6, 12,21),
             volatility_windows=(3, 6, 12),
             volatility_ratio_pairs=((3, 12), (6, 12)),
         ),
@@ -106,6 +107,7 @@ def _config_to_metadata(config: BacktestConfig) -> dict[str, Any]:
         "random_seed": config.random_seed,
         "shap_sample_size": config.shap_sample_size,
         "shap_top_features": config.shap_top_features,
+        "shap_top_interactions": config.shap_top_interactions,
         "calibration_buckets": config.calibration_buckets,
         "fold_min_train_rows": config.fold_min_train_rows,
         "fold_min_val_rows": config.fold_min_val_rows,
@@ -320,6 +322,6 @@ def main() -> BacktestArtifacts:
     print(f"Audit report: {artifacts.output_paths['backtest_audit_report']}")
     return artifacts
 
-
+# %%
 if __name__ == "__main__":
     main()

@@ -111,6 +111,7 @@ class BacktestConfig:
     random_seed: int = 42
     shap_sample_size: int = 1000
     shap_top_features: int = 20
+    shap_top_interactions: int = 5
     calibration_buckets: int = 20
     fold_min_train_rows: int = 250
     fold_min_val_rows: int = 80

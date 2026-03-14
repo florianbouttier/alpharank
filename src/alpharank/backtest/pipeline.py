@@ -980,6 +980,7 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
         explanations=learning.shap_explanations,
         out_path=learning.run_dir / "shap_global_report.pdf",
         max_features=config.shap_top_features,
+        max_interaction_pairs=config.shap_top_interactions,
     )
     if shap_report is not None:
         global_assets["shap_global_report"] = shap_report
@@ -1105,6 +1106,9 @@ def _finalize_backtest_run(
             "n_optuna_trials": config.n_optuna_trials,
             "optuna_lambda_gap": config.optuna_lambda_gap,
             "optuna_startup_trials": config.optuna_startup_trials,
+            "shap_sample_size": config.shap_sample_size,
+            "shap_top_features": config.shap_top_features,
+            "shap_top_interactions": config.shap_top_interactions,
             "calibration_buckets": config.calibration_buckets,
             "save_optuna_all_plots": config.save_optuna_all_plots,
             "verbose": config.verbose,

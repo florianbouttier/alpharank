@@ -178,11 +178,15 @@ Current expectation for the PDF:
 - fold 1 full block, then fold 2 full block, etc.
 - for each fold:
   - beeswarm
-  - importance bar
-  - all 1D dependence plots
-  - interaction heatmap
-  - interaction ranking
-  - all 2D interaction dependence plots
+  - second-order SHAP matrix / heatmap with diagonal kept
+  - all 1D dependence plots sorted by decreasing mean `|SHAP|`, with color driven by interaction feature
+  - top interaction dependence plots only, ranked by mean `|interaction SHAP|`
+
+Current parameterization:
+
+- `shap_top_features`: controls the breadth of the fold/global SHAP views
+- `shap_top_interactions`: controls how many top interaction pair plots are rendered per fold
+- default `shap_top_interactions = 5`
 
 Main file:
 
