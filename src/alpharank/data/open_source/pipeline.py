@@ -148,6 +148,7 @@ def run_open_source_cadrage(
     if simfin_client.enabled:
         try:
             simfin_financials = simfin_client.fetch_quarterly_financials(ticker_list, year)
+            simfin_fetch_failures.extend(simfin_client.last_fetch_failures)
         except Exception as exc:
             print(f"SimFin fetch failed: {exc}")
             simfin_fetch_failures.append({"error": str(exc)})

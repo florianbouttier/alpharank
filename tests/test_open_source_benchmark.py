@@ -445,11 +445,11 @@ def test_comparison_tables_include_side_by_side_values_and_status() -> None:
 def test_extract_metric_frames_normalizes_simfin_quarterly_data() -> None:
     spec = next(spec for spec in METRIC_SPECS if spec.metric == "revenue")
     dataset_frames = {
-        "income_statement": pd.DataFrame(
+        "income_statement": pl.DataFrame(
             {
                 "Ticker": ["AAPL", "AAPL"],
-                "Report Date": [pd.Timestamp("2025-03-31"), pd.Timestamp("2025-06-30")],
-                "Publish Date": [pd.Timestamp("2025-05-02"), pd.Timestamp("2025-08-01")],
+                "Report Date": ["2025-03-31", "2025-06-30"],
+                "Publish Date": ["2025-05-02", "2025-08-01"],
                 "Fiscal Period": ["Q1", "Q2"],
                 "Fiscal Year": [2025, 2025],
                 "Revenue": [100.0, 110.0],

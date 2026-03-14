@@ -1,23 +1,21 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 import os
 from pathlib import Path
 from typing import Iterable
 
 from dotenv import load_dotenv
-import pandas as pd
 import polars as pl
 import simfin as sf
+from simfin.download import _maybe_download_dataset
+from simfin.paths import _path_dataset
 
 from alpharank.data.open_source.config import METRIC_SPECS, MetricSpec
 
 
 class SimFinClient:
-    """Thin adapter around SimFin's pandas-based API.
-
-    The rest of the project remains Polars-first; pandas is only used at the
-    vendor boundary because the SimFin client returns pandas DataFrames.
-    """
+    """Polars-first SimFin adapter using the official bulk-download endpoints."""
 
     def __init__(
         self,
@@ -27,10 +25,11 @@ class SimFinClient:
     ) -> None:
         _load_local_dotenv()
         self.api_key = (api_key or os.getenv("SIMFIN_API_KEY", "")).strip()
-        self.data_dir = data_dir
+        self.data_dir = data_dir or (Path.cwd() / "data" / "open_source" / "_cache" / "simfin")
         self.refresh_days = refresh_days
         self.enabled = bool(self.api_key)
         self._configured = False
+        self.last_fetch_failures: list[dict[str, str]] = []
 
     def configure(self) -> None:
         if self._configured or not self.enabled:
@@ -49,72 +48,68 @@ class SimFinClient:
             return _empty_financials()
 
         self.configure()
+        self.last_fetch_failures = []
         ticker_set = set(tickers)
         dataset_frames = {
-            "income_statement": sf.load_income(
-                market="us",
-                variant="quarterly",
-                start_date=f"{year}-01-01",
-                end_date=f"{year}-12-31",
-                refresh_days=self.refresh_days,
-            ),
-            "balance_sheet": sf.load_balance(
-                market="us",
-                variant="quarterly",
-                start_date=f"{year}-01-01",
-                end_date=f"{year}-12-31",
-                refresh_days=self.refresh_days,
-            ),
-            "cash_flow": sf.load_cashflow(
-                market="us",
-                variant="quarterly",
-                start_date=f"{year}-01-01",
-                end_date=f"{year}-12-31",
-                refresh_days=self.refresh_days,
-            ),
-            "derived": sf.load_derived(
-                market="us",
-                variant="quarterly",
-                start_date=f"{year}-01-01",
-                end_date=f"{year}-12-31",
-                refresh_days=self.refresh_days,
-            ),
+            "income_statement": self._load_dataset_frame_safe("income", ticker_set, year),
+            "balance_sheet": self._load_dataset_frame_safe("balance", ticker_set, year),
+            "cash_flow": self._load_dataset_frame_safe("cashflow", ticker_set, year),
+            "derived": self._load_dataset_frame_safe("derived", ticker_set, year),
         }
 
-        normalized = {
-            dataset_name: _prepare_dataset_frame(frame, ticker_set)
-            for dataset_name, frame in dataset_frames.items()
-        }
         frames: list[pl.DataFrame] = []
         for spec in METRIC_SPECS:
             if spec.statement == "earnings" or not spec.simfin_datasets or not spec.simfin_columns:
                 continue
-            extracted = _extract_metric_frames(spec=spec, dataset_frames=normalized, year=year)
+            extracted = _extract_metric_frames(spec=spec, dataset_frames=dataset_frames, year=year)
             if not extracted.is_empty():
                 frames.append(extracted)
-        return pl.concat(frames, how="vertical").sort(["ticker", "statement", "metric", "date"]) if frames else _empty_financials()
+        combined = pl.concat(frames, how="vertical").sort(["ticker", "statement", "metric", "date"]) if frames else _empty_financials()
+        return _derive_missing_metrics(_standardize_financials(combined))
+
+    def _load_dataset_frame_safe(self, dataset: str, ticker_set: set[str], year: int) -> pl.DataFrame:
+        try:
+            return _load_dataset_frame(dataset, ticker_set, year, self.refresh_days)
+        except Exception as exc:
+            self.last_fetch_failures.append({"dataset": dataset, "error": str(exc)})
+            return pl.DataFrame()
 
 
-def _prepare_dataset_frame(frame: pd.DataFrame, ticker_set: set[str]) -> pd.DataFrame:
-    if frame is None or frame.empty:
-        return pd.DataFrame()
-    prepared = frame.reset_index()
-    if "Ticker" not in prepared.columns:
-        return pd.DataFrame()
-    prepared = prepared.loc[prepared["Ticker"].isin(ticker_set)].copy()
-    return prepared
+def _load_dataset_frame(dataset: str, ticker_set: set[str], year: int, refresh_days: int) -> pl.DataFrame:
+    _maybe_download_dataset(refresh_days=refresh_days, dataset=dataset, market="us", variant="quarterly")
+    path = Path(_path_dataset(dataset=dataset, market="us", variant="quarterly"))
+    if not path.exists():
+        return pl.DataFrame()
+
+    frame = pl.read_csv(
+        path,
+        separator=";",
+        try_parse_dates=True,
+        null_values=["", "null", "None", "N/A"],
+        infer_schema_length=10000,
+    )
+    if "Ticker" not in frame.columns:
+        return pl.DataFrame()
+    if "Report Date" not in frame.columns:
+        return pl.DataFrame()
+    return (
+        frame.filter(pl.col("Ticker").is_in(list(ticker_set)))
+        .with_columns(pl.col("Report Date").cast(pl.Utf8, strict=False).alias("_report_date_str"))
+        .filter(pl.col("_report_date_str").str.starts_with(str(year)))
+        .drop("_report_date_str")
+    )
 
 
-def _extract_metric_frames(*, spec: MetricSpec, dataset_frames: dict[str, pd.DataFrame], year: int) -> pl.DataFrame:
+def _extract_metric_frames(*, spec: MetricSpec, dataset_frames: dict[str, pl.DataFrame], year: int) -> pl.DataFrame:
     rows: list[dict[str, object]] = []
     for dataset_name in spec.simfin_datasets:
         frame = dataset_frames.get(dataset_name)
-        if frame is None or frame.empty:
+        if frame is None or frame.is_empty():
             continue
         column_name = next((column for column in spec.simfin_columns if column in frame.columns), None)
         if column_name is None:
             continue
-        for record in frame.to_dict(orient="records"):
+        for record in frame.select(_required_columns(frame, column_name)).iter_rows(named=True):
             report_date = _format_date(record.get("Report Date"))
             if report_date is None or not report_date.startswith(str(year)):
                 continue
@@ -142,28 +137,55 @@ def _extract_metric_frames(*, spec: MetricSpec, dataset_frames: dict[str, pd.Dat
     return pl.DataFrame(rows) if rows else _empty_financials()
 
 
+def _required_columns(frame: pl.DataFrame, metric_column: str) -> list[str]:
+    optional = ["Publish Date", "Fiscal Period", "Fiscal Year"]
+    columns = ["Ticker", "Report Date", metric_column]
+    columns.extend(column for column in optional if column in frame.columns)
+    return columns
+
+
 def _format_date(value: object) -> str | None:
-    if value is None or pd.isna(value):
+    if value is None:
         return None
-    return pd.Timestamp(value).strftime("%Y-%m-%d")
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, date):
+        return value.isoformat()
+    text = str(value).strip()
+    if not text or text.lower() == "null":
+        return None
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return text[:10]
+    return None
 
 
 def _as_float(value: object) -> float | None:
-    if value is None or pd.isna(value):
+    if value is None:
         return None
-    return float(value)
+    if isinstance(value, str) and not value.strip():
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _as_int(value: object) -> int | None:
-    if value is None or pd.isna(value):
+    if value is None:
         return None
-    return int(value)
+    if isinstance(value, str) and not value.strip():
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _as_str(value: object) -> str | None:
-    if value is None or pd.isna(value):
+    if value is None:
         return None
-    return str(value)
+    text = str(value).strip()
+    return text or None
 
 
 def _empty_financials() -> pl.DataFrame:
@@ -181,6 +203,101 @@ def _empty_financials() -> pl.DataFrame:
             "fiscal_period": pl.String,
             "fiscal_year": pl.Int64,
         }
+    )
+
+
+def _derive_missing_metrics(frame: pl.DataFrame) -> pl.DataFrame:
+    if frame.is_empty():
+        return frame
+    free_cash_flow = _derive_free_cash_flow(frame)
+    if free_cash_flow.is_empty():
+        return frame
+    without_existing = _standardize_financials(
+        frame.filter(~((pl.col("statement") == "cash_flow") & (pl.col("metric") == "free_cash_flow")))
+    )
+    return pl.concat([without_existing, free_cash_flow], how="vertical").sort(["ticker", "statement", "metric", "date"])
+
+
+def _derive_free_cash_flow(frame: pl.DataFrame) -> pl.DataFrame:
+    operating = (
+        frame.filter((pl.col("statement") == "cash_flow") & (pl.col("metric") == "operating_cash_flow"))
+        .rename(
+            {
+                "value": "operating_cash_flow",
+                "filing_date": "operating_filing_date",
+                "source_label": "operating_source_label",
+            }
+        )
+        .select(["ticker", "date", "operating_cash_flow", "operating_filing_date", "operating_source_label", "fiscal_period", "fiscal_year"])
+    )
+    capex = (
+        frame.filter((pl.col("statement") == "cash_flow") & (pl.col("metric") == "capital_expenditures"))
+        .rename(
+            {
+                "value": "capital_expenditures",
+                "filing_date": "capex_filing_date",
+                "source_label": "capex_source_label",
+            }
+        )
+        .select(["ticker", "date", "capital_expenditures", "capex_filing_date", "capex_source_label"])
+    )
+    joined = operating.join(capex, on=["ticker", "date"], how="inner")
+    if joined.is_empty():
+        return _empty_financials()
+    derived = joined.select(
+        [
+            pl.col("ticker"),
+            pl.lit("cash_flow").alias("statement"),
+            pl.lit("free_cash_flow").alias("metric"),
+            pl.col("date"),
+            pl.coalesce([pl.col("operating_filing_date"), pl.col("capex_filing_date")]).alias("filing_date"),
+            (pl.col("operating_cash_flow") - pl.col("capital_expenditures")).alias("value"),
+            pl.lit("simfin").alias("source"),
+            (
+                pl.lit("derived:")
+                + pl.col("operating_source_label")
+                + pl.lit(" - ")
+                + pl.col("capex_source_label")
+            ).alias("source_label"),
+            pl.lit(None).cast(pl.Utf8).alias("form"),
+            pl.col("fiscal_period"),
+            pl.col("fiscal_year"),
+        ]
+    )
+    return _standardize_financials(derived.select(
+        [
+            pl.col("ticker").cast(pl.String),
+            pl.col("statement").cast(pl.String),
+            pl.col("metric").cast(pl.String),
+            pl.col("date").cast(pl.String),
+            pl.col("filing_date").cast(pl.String),
+            pl.col("value").cast(pl.Float64),
+            pl.col("source").cast(pl.String),
+            pl.col("source_label").cast(pl.String),
+            pl.col("form").cast(pl.String),
+            pl.col("fiscal_period").cast(pl.String),
+            pl.col("fiscal_year").cast(pl.Int64),
+        ]
+    ))
+
+
+def _standardize_financials(frame: pl.DataFrame) -> pl.DataFrame:
+    if frame.is_empty():
+        return _empty_financials()
+    return frame.select(
+        [
+            pl.col("ticker").cast(pl.String),
+            pl.col("statement").cast(pl.String),
+            pl.col("metric").cast(pl.String),
+            pl.col("date").cast(pl.String),
+            pl.col("filing_date").cast(pl.String),
+            pl.col("value").cast(pl.Float64),
+            pl.col("source").cast(pl.String),
+            pl.col("source_label").cast(pl.String),
+            pl.col("form").cast(pl.String),
+            pl.col("fiscal_period").cast(pl.String),
+            pl.col("fiscal_year").cast(pl.Int64),
+        ]
     )
 
 
