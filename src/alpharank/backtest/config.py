@@ -95,6 +95,8 @@ def default_optuna_space() -> Dict[str, Tuple[str, float, float]]:
 class BacktestConfig:
     data_dir: Path
     output_dir: Path
+    final_price_path: Path | None = None
+    sp500_price_path: Path | None = None
     start_month: str = "2006-01"
     n_folds: int = 10
     top_n: int = 20

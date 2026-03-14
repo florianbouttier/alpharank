@@ -69,7 +69,36 @@ src/
 
 - Legacy pipeline: `scripts/run_legacy.py`
 - Boosting pipeline: `scripts/run_backtest.py`
+- Open-source price transition audit: `scripts/open_source/run_price_transition.py`
 - Data lineage audit: `scripts/audit_data_lineage.py`
+
+## Open-Source Price Transition
+
+To materialize Yahoo-based price history in the repo's canonical parquet shape and audit it against the existing EODHD reference data:
+
+```bash
+./.venv/bin/python scripts/open_source/run_price_transition.py --start-date 2005-01-01
+```
+
+This writes a reusable price dataset under `data/open_source/price_transition_20050101/` with:
+
+- `US_Finalprice.parquet`
+- `SP500Price.parquet`
+- HTML audit reports and per-ticker deep dives
+
+You can then test the backtests with open-source prices only while keeping the existing EODHD financial statements:
+
+```bash
+./.venv/bin/python scripts/run_backtest_open_source_prices.py
+```
+
+Or for the legacy runner:
+
+```bash
+./.venv/bin/python scripts/run_legacy.py \
+  --final-price-path data/open_source/price_transition_20050101/US_Finalprice.parquet \
+  --sp500-price-path data/open_source/price_transition_20050101/SP500Price.parquet
+```
 
 ## Data Snapshotting
 

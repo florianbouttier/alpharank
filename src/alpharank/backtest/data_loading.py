@@ -39,14 +39,24 @@ def _read_csv_with_fallbacks(base_dir: Path, candidates: Iterable[str]) -> pl.Da
     raise FileNotFoundError(f"Could not locate csv file in {base_dir} among: {list(candidates)}")
 
 
-def load_raw_data(data_dir: Path) -> RawDataBundle:
+def load_raw_data(
+    data_dir: Path,
+    *,
+    final_price_path: Path | None = None,
+    sp500_price_path: Path | None = None,
+) -> RawDataBundle:
     base_dir = _resolve_dataset_dir(data_dir)
+    final_price = pl.read_parquet(final_price_path) if final_price_path is not None else _read_parquet_with_fallbacks(
+        base_dir,
+        ["US_Finalprice.parquet", "US_finalprice.parquet"],
+    )
+    sp500_price = pl.read_parquet(sp500_price_path) if sp500_price_path is not None else _read_parquet_with_fallbacks(
+        base_dir,
+        ["SP500Price.parquet", "SP500_price.parquet"],
+    )
 
     return RawDataBundle(
-        final_price=_read_parquet_with_fallbacks(
-            base_dir,
-            ["US_Finalprice.parquet", "US_finalprice.parquet"],
-        ),
+        final_price=final_price,
         income_statement=_read_parquet_with_fallbacks(
             base_dir,
             ["US_Income_statement.parquet", "US_income_statement.parquet"],
@@ -67,10 +77,7 @@ def load_raw_data(data_dir: Path) -> RawDataBundle:
             base_dir,
             ["SP500_Constituents.csv", "sp500_constituents.csv"],
         ),
-        sp500_price=_read_parquet_with_fallbacks(
-            base_dir,
-            ["SP500Price.parquet", "SP500_price.parquet"],
-        ),
+        sp500_price=sp500_price,
     )
 
 

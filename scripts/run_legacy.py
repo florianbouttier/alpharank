@@ -30,30 +30,35 @@ class PipelineOutput:
     artifacts: Dict[str, Path]
 
 
-def _load_data(data_dir: Path) -> Dict[str, pl.DataFrame]:
+def _load_data(
+    data_dir: Path,
+    *,
+    final_price_path: Path | None = None,
+    sp500_price_path: Path | None = None,
+) -> Dict[str, pl.DataFrame]:
     print("Loading data...")
     return {
-        "final_price": pl.read_parquet(data_dir / "US_Finalprice.parquet"),
+        "final_price": pl.read_parquet(final_price_path or (data_dir / "US_Finalprice.parquet")),
         "general": pl.read_parquet(data_dir / "US_General.parquet"),
         "income_statement": pl.read_parquet(data_dir / "US_Income_statement.parquet"),
         "balance_sheet": pl.read_parquet(data_dir / "US_Balance_sheet.parquet"),
         "cash_flow": pl.read_parquet(data_dir / "US_Cash_flow.parquet"),
         "earnings": pl.read_parquet(data_dir / "US_Earnings.parquet"),
         "us_historical_company": pl.read_csv(data_dir / "SP500_Constituents.csv", try_parse_dates=True),
-        "sp500_price": pl.read_parquet(data_dir / "SP500Price.parquet"),
+        "sp500_price": pl.read_parquet(sp500_price_path or (data_dir / "SP500Price.parquet")),
     }
 
 
-def _input_files(data_dir: Path) -> Dict[str, Path]:
+def _input_files(data_dir: Path, *, final_price_path: Path | None = None, sp500_price_path: Path | None = None) -> Dict[str, Path]:
     return {
-        "final_price": data_dir / "US_Finalprice.parquet",
+        "final_price": final_price_path or (data_dir / "US_Finalprice.parquet"),
         "general": data_dir / "US_General.parquet",
         "income_statement": data_dir / "US_Income_statement.parquet",
         "balance_sheet": data_dir / "US_Balance_sheet.parquet",
         "cash_flow": data_dir / "US_Cash_flow.parquet",
         "earnings": data_dir / "US_Earnings.parquet",
         "sp500_constituents": data_dir / "SP500_Constituents.csv",
-        "sp500_price": data_dir / "SP500Price.parquet",
+        "sp500_price": sp500_price_path or (data_dir / "SP500Price.parquet"),
     }
 
 
@@ -149,6 +154,8 @@ def run_pipeline(
     data_dir: Optional[Path] = None,
     output_dir: Optional[Path] = None,
     checkpoints_dir: Optional[Path] = None,
+    final_price_path: Optional[Path] = None,
+    sp500_price_path: Optional[Path] = None,
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).parent.parent
@@ -157,8 +164,8 @@ def run_pipeline(
     run_day_dir = output_dir / datetime.now().strftime("%Y-%m-%d")
     os.chdir(data_dir)  # Keep legacy behaviour.
 
-    input_files = _input_files(data_dir)
-    payload = _load_data(data_dir)
+    input_files = _input_files(data_dir, final_price_path=final_price_path, sp500_price_path=sp500_price_path)
+    payload = _load_data(data_dir, final_price_path=final_price_path, sp500_price_path=sp500_price_path)
     latest_snapshot = load_latest_manifest(data_dir)
     run_manifest = write_manifest(
         manifest_path=run_day_dir / "data_input_manifest.json",
@@ -552,6 +559,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-dir", type=str, default=None, help="Path to data directory containing legacy input files.")
     parser.add_argument("--output-dir", type=str, default=None, help="Path where HTML outputs will be written.")
     parser.add_argument("--checkpoints-dir", type=str, default="outputs/checkpoints")
+    parser.add_argument("--final-price-path", type=str, default=None, help="Optional override parquet for stock prices.")
+    parser.add_argument("--sp500-price-path", type=str, default=None, help="Optional override parquet for SP500 proxy prices.")
     return parser.parse_args()
 
 
@@ -560,6 +569,8 @@ def main() -> None:
     checkpoints_dir = Path(args.checkpoints_dir)
     data_dir = Path(args.data_dir).resolve() if args.data_dir else None
     output_dir = Path(args.output_dir).resolve() if args.output_dir else None
+    final_price_path = Path(args.final_price_path).resolve() if args.final_price_path else None
+    sp500_price_path = Path(args.sp500_price_path).resolve() if args.sp500_price_path else None
 
     out = run_pipeline(
         n_trials=args.n_trials,
@@ -568,6 +579,8 @@ def main() -> None:
         data_dir=data_dir,
         output_dir=output_dir,
         checkpoints_dir=checkpoints_dir,
+        final_price_path=final_price_path,
+        sp500_price_path=sp500_price_path,
     )
     print("Artifacts:")
     for k, v in out.artifacts.items():

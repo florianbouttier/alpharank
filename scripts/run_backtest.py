@@ -90,6 +90,8 @@ def _config_to_metadata(config: BacktestConfig) -> dict[str, Any]:
     return {
         "data_dir": str(config.data_dir),
         "output_dir": str(config.output_dir),
+        "final_price_path": str(config.final_price_path) if config.final_price_path is not None else None,
+        "sp500_price_path": str(config.sp500_price_path) if config.sp500_price_path is not None else None,
         "start_month": config.start_month,
         "n_folds": config.n_folds,
         "top_n": config.top_n,
@@ -124,6 +126,8 @@ def _config_from_metadata(config_data: dict[str, Any]) -> BacktestConfig:
     params = dict(config_data)
     params["data_dir"] = Path(params["data_dir"])
     params["output_dir"] = Path(params["output_dir"])
+    params["final_price_path"] = Path(params["final_price_path"]) if params.get("final_price_path") else None
+    params["sp500_price_path"] = Path(params["sp500_price_path"]) if params.get("sp500_price_path") else None
     params["technical_feature_config"] = TechnicalFeatureConfig(**params["technical_feature_config"])
     params["fundamental_feature_config"] = FundamentalFeatureConfig(**params["fundamental_feature_config"])
     return BacktestConfig(**params)

@@ -11,16 +11,29 @@ import polars as pl
 from alpharank.data.open_source.config import METRIC_SPECS
 
 
-def load_eodhd_prices(data_dir: Path, tickers: Iterable[str], year: int) -> pl.DataFrame:
-    start = f"{year}-01-01"
-    end = f"{year}-12-31"
+def load_eodhd_prices_between(
+    data_dir: Path,
+    tickers: Iterable[str],
+    *,
+    start_date: str,
+    end_date: str,
+) -> pl.DataFrame:
     ticker_set = [f"{ticker}.US" for ticker in tickers]
     return (
         pl.read_parquet(data_dir / "US_Finalprice.parquet")
         .filter(pl.col("ticker").is_in(ticker_set))
-        .filter((pl.col("date") >= pl.lit(start)) & (pl.col("date") <= pl.lit(end)))
+        .filter((pl.col("date") >= pl.lit(start_date)) & (pl.col("date") <= pl.lit(end_date)))
         .select(["ticker", "date", "adjusted_close", "close", "open", "high", "low", "volume"])
         .sort(["ticker", "date"])
+    )
+
+
+def load_eodhd_prices(data_dir: Path, tickers: Iterable[str], year: int) -> pl.DataFrame:
+    return load_eodhd_prices_between(
+        data_dir,
+        tickers,
+        start_date=f"{year}-01-01",
+        end_date=f"{year}-12-31",
     )
 
 
