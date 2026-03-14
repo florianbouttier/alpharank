@@ -6,9 +6,12 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import optuna
-import xgboost as xgb
 from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler
+
+from alpharank.utils.xgboost_runtime import load_xgboost
+
+xgb = load_xgboost()
 
 
 @dataclass
@@ -47,7 +50,6 @@ def safe_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
         return float(roc_auc_score(y_true, y_score))
     except Exception:
         return 0.5
-
 
 def compute_classification_metrics(
     y_true: np.ndarray,

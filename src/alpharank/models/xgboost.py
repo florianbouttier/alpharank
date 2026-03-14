@@ -4,7 +4,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import optuna
 import pandas as pd
-import xgboost as xgb
 from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler
 from sklearn.metrics import (
@@ -19,6 +18,9 @@ from sklearn.model_selection import TimeSeriesSplit
 from alpharank.strategy.base import BaseStrategy
 from alpharank.data.datasets import clean_to_category
 from alpharank.models.shap_analysis import run_shap_analysis
+from alpharank.utils.xgboost_runtime import load_xgboost
+
+xgb = load_xgboost()
 
 
 class XGBoostModel(BaseStrategy):
@@ -336,4 +338,3 @@ class XGBoostModel(BaseStrategy):
         model = next(iter(self.models.values()))
         X = clean_to_category(data[self.features])
         run_shap_analysis(model, X, top_n_heatmap=top_n)
-
