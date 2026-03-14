@@ -5,6 +5,7 @@ from typing import Dict, Iterable, List
 
 import polars as pl
 
+from alpharank.backtest.config import FundamentalFeatureConfig
 from alpharank.backtest.data_loading import find_existing_column
 
 
@@ -161,7 +162,10 @@ def build_monthly_fundamental_features(
     income_statement: pl.DataFrame,
     cash_flow: pl.DataFrame,
     earnings: pl.DataFrame,
+    config: FundamentalFeatureConfig | None = None,
 ) -> pl.DataFrame:
+    feature_config = config or FundamentalFeatureConfig()
+
     income_map = {
         "total_revenue": ["totalRevenue"],
         "net_income": ["netIncome"],
@@ -179,6 +183,8 @@ def build_monthly_fundamental_features(
     cash_map = {"free_cashflow": ["freeCashFlow"]}
     earnings_map = {"eps_actual": ["epsActual"]}
 
+    growth_lags = feature_config.quarterly_growth_lags
+
     income_ttm = _add_growth_features(
         _add_ttm_features(
             _prepare_quarterly_statement(income_statement, income_map, filing_candidates=["filing_date"]),
@@ -192,13 +198,17 @@ def build_monthly_fundamental_features(
             "ebit_ttm",
             "gross_profit_ttm",
         ],
-        quarter_lags=[1, 4, 12],
+        quarter_lags=growth_lags,
     )
 
-    balance_ttm = _add_ttm_features(
-        _prepare_quarterly_statement(balance_sheet, balance_map, filing_candidates=["filing_date"]),
-        sum_cols=[],
-        mean_cols=["shares_outstanding", "equity", "net_debt", "total_assets", "cash_short_term"],
+    balance_ttm = _add_growth_features(
+        _add_ttm_features(
+            _prepare_quarterly_statement(balance_sheet, balance_map, filing_candidates=["filing_date"]),
+            sum_cols=[],
+            mean_cols=["shares_outstanding", "equity", "net_debt", "total_assets", "cash_short_term"],
+        ),
+        base_cols=["shares_outstanding_avg4q"],
+        quarter_lags=growth_lags,
     )
 
     cash_ttm = _add_growth_features(
@@ -208,7 +218,7 @@ def build_monthly_fundamental_features(
             mean_cols=[],
         ),
         base_cols=["free_cashflow_ttm"],
-        quarter_lags=[1, 4, 12],
+        quarter_lags=growth_lags,
     )
 
     earnings_ttm = _add_growth_features(
@@ -218,7 +228,7 @@ def build_monthly_fundamental_features(
             mean_cols=[],
         ),
         base_cols=["eps_actual_ttm"],
-        quarter_lags=[1, 4, 12],
+        quarter_lags=growth_lags,
     )
 
     monthly = monthly_prices.select(["ticker", "date", "year_month", "last_close"]) \
@@ -258,21 +268,43 @@ def build_monthly_fundamental_features(
             (
                 pl.col("market_cap")
                 + pl.col("net_debt_avg4q").fill_null(0.0)
-                - pl.col("cash_short_term_avg4q").fill_null(0.0)
             ).alias("enterprise_value")
         )
         .with_columns(
-            _safe_div(pl.col("net_income_ttm"), pl.col("total_revenue_ttm"), "net_margin_ttm"),
-            _safe_div(pl.col("ebitda_ttm"), pl.col("total_revenue_ttm"), "ebitda_margin_ttm"),
             _safe_div(pl.col("gross_profit_ttm"), pl.col("total_revenue_ttm"), "gross_margin_ttm"),
+            _safe_div(pl.col("ebit_ttm"), pl.col("total_revenue_ttm"), "ebit_margin_ttm"),
+            _safe_div(pl.col("ebitda_ttm"), pl.col("total_revenue_ttm"), "ebitda_margin_ttm"),
+            _safe_div(pl.col("net_income_ttm"), pl.col("total_revenue_ttm"), "net_margin_ttm"),
+            _safe_div(pl.col("free_cashflow_ttm"), pl.col("total_revenue_ttm"), "fcf_margin_ttm"),
             _safe_div(pl.col("net_income_ttm"), pl.col("equity_avg4q"), "roe_ttm"),
             _safe_div(pl.col("net_income_ttm"), pl.col("total_assets_avg4q"), "roa_ttm"),
+            _safe_div(pl.col("gross_profit_ttm"), pl.col("total_assets_avg4q"), "gross_profit_to_assets"),
+            _safe_div(pl.col("ebit_ttm"), pl.col("total_assets_avg4q"), "ebit_to_assets"),
+            _safe_div(pl.col("free_cashflow_ttm"), pl.col("total_assets_avg4q"), "fcf_to_assets"),
+            _safe_div(pl.col("total_revenue_ttm"), pl.col("total_assets_avg4q"), "asset_turnover_ttm"),
+            _safe_div(
+                pl.col("net_income_ttm") - pl.col("free_cashflow_ttm"),
+                pl.col("total_assets_avg4q"),
+                "accrual_ratio",
+            ),
+            _safe_div(pl.col("free_cashflow_ttm"), pl.col("net_income_ttm"), "fcf_to_net_income"),
             _safe_div(pl.col("net_debt_avg4q"), pl.col("equity_avg4q"), "debt_to_equity"),
-            _safe_div(pl.col("free_cashflow_ttm"), pl.col("total_revenue_ttm"), "fcf_margin_ttm"),
-            _safe_div(pl.col("last_close"), pl.col("eps_actual_ttm"), "pe_ttm"),
-            _safe_div(pl.col("market_cap"), pl.col("total_revenue_ttm"), "price_to_sales"),
-            _safe_div(pl.col("market_cap"), pl.col("equity_avg4q"), "price_to_book"),
-            _safe_div(pl.col("enterprise_value"), pl.col("ebitda_ttm"), "ev_to_ebitda"),
+            _safe_div(pl.col("net_debt_avg4q"), pl.col("total_assets_avg4q"), "net_debt_to_assets"),
+            _safe_div(pl.col("net_debt_avg4q"), pl.col("ebitda_ttm"), "net_debt_to_ebitda"),
+            _safe_div(pl.col("equity_avg4q"), pl.col("total_assets_avg4q"), "equity_to_assets"),
+            _safe_div(pl.col("cash_short_term_avg4q"), pl.col("total_assets_avg4q"), "cash_to_assets"),
+            _safe_div(pl.col("eps_actual_ttm"), pl.col("last_close"), "earnings_yield"),
+            _safe_div(pl.col("total_revenue_ttm"), pl.col("market_cap"), "sales_yield"),
+            _safe_div(pl.col("equity_avg4q"), pl.col("market_cap"), "book_to_price"),
+            _safe_div(pl.col("free_cashflow_ttm"), pl.col("market_cap"), "fcf_yield"),
+            _safe_div(pl.col("ebitda_ttm"), pl.col("enterprise_value"), "ebitda_to_ev"),
+        )
+        .with_columns(
+            [
+                pl.col(f"shares_outstanding_avg4q_growth_{lag}q").alias(f"share_dilution_{lag}q")
+                for lag in growth_lags
+                if f"shares_outstanding_avg4q_growth_{lag}q" in monthly.columns
+            ]
         )
         .sort(["ticker", "year_month"])
     )
@@ -280,39 +312,42 @@ def build_monthly_fundamental_features(
     candidate_columns = [
         "ticker",
         "year_month",
-        "net_margin_ttm",
-        "ebitda_margin_ttm",
         "gross_margin_ttm",
+        "ebit_margin_ttm",
+        "ebitda_margin_ttm",
+        "net_margin_ttm",
+        "fcf_margin_ttm",
         "roe_ttm",
         "roa_ttm",
+        "gross_profit_to_assets",
+        "ebit_to_assets",
+        "fcf_to_assets",
+        "asset_turnover_ttm",
+        "accrual_ratio",
+        "fcf_to_net_income",
         "debt_to_equity",
-        "fcf_margin_ttm",
-        "pe_ttm",
-        "price_to_sales",
-        "price_to_book",
-        "ev_to_ebitda",
-        "total_revenue_ttm_growth_1q",
-        "total_revenue_ttm_growth_4q",
-        "total_revenue_ttm_growth_12q",
-        "net_income_ttm_growth_1q",
-        "net_income_ttm_growth_4q",
-        "net_income_ttm_growth_12q",
-        "ebitda_ttm_growth_1q",
-        "ebitda_ttm_growth_4q",
-        "ebitda_ttm_growth_12q",
-        "ebit_ttm_growth_1q",
-        "ebit_ttm_growth_4q",
-        "ebit_ttm_growth_12q",
-        "gross_profit_ttm_growth_1q",
-        "gross_profit_ttm_growth_4q",
-        "gross_profit_ttm_growth_12q",
-        "free_cashflow_ttm_growth_1q",
-        "free_cashflow_ttm_growth_4q",
-        "free_cashflow_ttm_growth_12q",
-        "eps_actual_ttm_growth_1q",
-        "eps_actual_ttm_growth_4q",
-        "eps_actual_ttm_growth_12q",
+        "net_debt_to_assets",
+        "net_debt_to_ebitda",
+        "equity_to_assets",
+        "cash_to_assets",
+        "earnings_yield",
+        "sales_yield",
+        "book_to_price",
+        "fcf_yield",
+        "ebitda_to_ev",
     ]
+    growth_bases = [
+        "total_revenue_ttm",
+        "net_income_ttm",
+        "ebitda_ttm",
+        "ebit_ttm",
+        "gross_profit_ttm",
+        "free_cashflow_ttm",
+        "eps_actual_ttm",
+    ]
+    for base_name in growth_bases:
+        candidate_columns.extend(f"{base_name}_growth_{lag}q" for lag in growth_lags)
+    candidate_columns.extend(f"share_dilution_{lag}q" for lag in growth_lags)
     selected_columns = [col for col in candidate_columns if col in with_ratios.columns]
 
     return with_ratios.select(selected_columns)

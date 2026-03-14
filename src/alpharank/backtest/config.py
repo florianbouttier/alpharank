@@ -5,6 +5,59 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 
+def _validate_positive_int_tuple(values: Tuple[int, ...], field_name: str) -> None:
+    if any(value <= 0 for value in values):
+        raise ValueError(f"{field_name} must contain only positive integers.")
+
+
+def _validate_ordered_pairs(values: Tuple[Tuple[int, int], ...], field_name: str) -> None:
+    for left, right in values:
+        if left <= 0 or right <= 0:
+            raise ValueError(f"{field_name} must contain only positive integers.")
+        if left >= right:
+            raise ValueError(f"{field_name} must use strictly increasing pairs, got {(left, right)!r}.")
+
+
+def _validate_positive_pairs(values: Tuple[Tuple[int, int], ...], field_name: str) -> None:
+    for left, right in values:
+        if left <= 0 or right <= 0:
+            raise ValueError(f"{field_name} must contain only positive integers.")
+
+
+@dataclass(frozen=True)
+class TechnicalFeatureConfig:
+    roc_windows: Tuple[int, ...] = (1, 3, 6, 12)
+    ema_pairs: Tuple[Tuple[int, int], ...] = ((2, 6), (3, 6), (3, 12), (6, 12), (6, 18), (12, 24))
+    price_to_ema_spans: Tuple[int, ...] = (3, 6, 12, 24)
+    rsi_windows: Tuple[int, ...] = (3, 6, 12, 24)
+    rsi_ratio_pairs: Tuple[Tuple[int, int], ...] = ((3, 12), (6, 24))
+    bollinger_windows: Tuple[int, ...] = (6, 12)
+    stochastic_windows: Tuple[Tuple[int, int], ...] = ((6, 3), (12, 3))
+    range_windows: Tuple[int, ...] = (6, 12)
+    volatility_windows: Tuple[int, ...] = (3, 6, 12)
+    volatility_ratio_pairs: Tuple[Tuple[int, int], ...] = ((3, 12), (6, 12))
+
+    def __post_init__(self) -> None:
+        _validate_positive_int_tuple(self.roc_windows, "roc_windows")
+        _validate_ordered_pairs(self.ema_pairs, "ema_pairs")
+        _validate_positive_int_tuple(self.price_to_ema_spans, "price_to_ema_spans")
+        _validate_positive_int_tuple(self.rsi_windows, "rsi_windows")
+        _validate_ordered_pairs(self.rsi_ratio_pairs, "rsi_ratio_pairs")
+        _validate_positive_int_tuple(self.bollinger_windows, "bollinger_windows")
+        _validate_positive_pairs(self.stochastic_windows, "stochastic_windows")
+        _validate_positive_int_tuple(self.range_windows, "range_windows")
+        _validate_positive_int_tuple(self.volatility_windows, "volatility_windows")
+        _validate_ordered_pairs(self.volatility_ratio_pairs, "volatility_ratio_pairs")
+
+
+@dataclass(frozen=True)
+class FundamentalFeatureConfig:
+    quarterly_growth_lags: Tuple[int, ...] = (1, 4, 12)
+
+    def __post_init__(self) -> None:
+        _validate_positive_int_tuple(self.quarterly_growth_lags, "quarterly_growth_lags")
+
+
 def default_xgb_params() -> Dict[str, Any]:
     """Default XGBoost hyperparameters for monthly cross-sectional classification."""
     return {
@@ -65,6 +118,8 @@ class BacktestConfig:
     show_optuna_progress: bool = True
     optuna_progress_every: int = 1
     save_optuna_all_plots: bool = True
+    technical_feature_config: TechnicalFeatureConfig = field(default_factory=TechnicalFeatureConfig)
+    fundamental_feature_config: FundamentalFeatureConfig = field(default_factory=FundamentalFeatureConfig)
     xgb_params: Dict[str, Any] = field(default_factory=default_xgb_params)
     optuna_space: Dict[str, Tuple[str, float, float]] = field(default_factory=default_optuna_space)
 

@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-03-08
+Last updated: 2026-03-10
 Branch at write time: `update_probalisor`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -43,7 +43,7 @@ The user currently cares about both, but with different intent:
 
 Canonical reference for backtest formulas and feature construction:
 
-- [`docs/backtest_feature_reference.md`](/Users/nicolas.rusinger/AlphaRank/docs/backtest_feature_reference.md)
+- [`docs/backtest_feature_reference.md`](./backtest_feature_reference.md)
 
 Do not reconstruct feature formulas from memory when this document exists. Update it when behavior changes.
 
@@ -57,12 +57,12 @@ Do not reconstruct feature formulas from memory when this document exists. Updat
 
 ### Important files
 
-- [`scripts/run_legacy.py`](/Users/nicolas.rusinger/AlphaRank/scripts/run_legacy.py)
-- [`src/alpharank/data/processing.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/data/processing.py)
-- [`src/alpharank/utils/returns.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/utils/returns.py)
-- [`src/alpharank/features/indicators.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/features/indicators.py)
-- [`src/alpharank/strategy/legacy.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/strategy/legacy.py)
-- [`src/alpharank/visualization/plotting.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/visualization/plotting.py)
+- `scripts/run_legacy.py`
+- `src/alpharank/data/processing.py`
+- `src/alpharank/utils/returns.py`
+- `src/alpharank/features/indicators.py`
+- `src/alpharank/strategy/legacy.py`
+- `src/alpharank/visualization/plotting.py`
 
 ### Legacy-specific notes
 
@@ -89,9 +89,9 @@ This replaced the old absolute-return target logic.
 
 Main files:
 
-- [`src/alpharank/backtest/datasets.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/datasets.py)
-- [`src/alpharank/backtest/pipeline.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/pipeline.py)
-- [`scripts/run_backtest.py`](/Users/nicolas.rusinger/AlphaRank/scripts/run_backtest.py)
+- `src/alpharank/backtest/datasets.py`
+- `src/alpharank/backtest/pipeline.py`
+- `scripts/run_backtest.py`
 
 ### 4.2 Timing semantics
 
@@ -140,18 +140,34 @@ The model should use:
 - growth rates
 - relative quantities
 
-Current fundamental policy:
+Current backtest feature policy:
 
-- keep ratio features such as margins, ROE/ROA, debt ratios, valuation ratios
-- for revenue / net income / EBITDA / EBIT / gross profit / FCF / EPS:
-  - compute growth over:
-    - `1q`
-    - `4q`
-    - `12q`
+- technical features should come from explicit indicator families, not ad hoc lags
+- the modern path is configured through:
+  - `TechnicalFeatureConfig`
+  - `FundamentalFeatureConfig`
+- the active `scripts/run_backtest.py` preset emphasizes:
+  - ROC windows
+  - EMA ratios
+  - price-to-EMA distances
+  - RSI levels and RSI ratios
+  - Bollinger relative position / bandwidth
+  - stochastic oscillator
+  - range location
+  - volatility levels and volatility ratios
+- fundamental features should remain ratio-first:
+  - margins
+  - returns on capital / assets
+  - balance-sheet structure ratios
+  - inverted valuation multiples / yields
+  - dilution
+  - TTM growth for revenue / earnings / EBITDA / EBIT / gross profit / FCF / EPS
+- do not reintroduce raw size proxies or dollar-level statement features into the model
+- preserve the monthly `join_asof(..., strategy="backward")` rule to avoid lookahead bias
 
 Main file:
 
-- [`src/alpharank/backtest/fundamentals.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/fundamentals.py)
+- `src/alpharank/backtest/fundamentals.py`
 
 ### 4.5 SHAP reporting policy
 
@@ -170,7 +186,7 @@ Current expectation for the PDF:
 
 Main file:
 
-- [`src/alpharank/backtest/explainability.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/explainability.py)
+- `src/alpharank/backtest/explainability.py`
 
 ### 4.6 Backtest audit exports
 
@@ -190,8 +206,8 @@ Purpose:
 
 Main files:
 
-- [`src/alpharank/backtest/pipeline.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/pipeline.py)
-- [`src/alpharank/backtest/reporting.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/reporting.py)
+- `src/alpharank/backtest/pipeline.py`
+- `src/alpharank/backtest/reporting.py`
 
 ### 4.7 Dedicated audit report
 
@@ -210,7 +226,7 @@ Expected content includes:
 
 Main file:
 
-- [`src/alpharank/backtest/reporting.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/reporting.py)
+- `src/alpharank/backtest/reporting.py`
 
 ## 5. Data source caveat
 
@@ -229,7 +245,7 @@ When debugging date coverage, always verify:
 
 Relevant file:
 
-- [`src/alpharank/backtest/data_loading.py`](/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/data_loading.py)
+- `src/alpharank/backtest/data_loading.py`
 
 ## 6. Git and repo hygiene
 
@@ -261,28 +277,26 @@ The repo now ignores:
 
 Tracked under `data/` should remain code only, e.g.:
 
-- [`data/US/df_data.py`](/Users/nicolas.rusinger/AlphaRank/data/US/df_data.py)
+- `data/US/df_data.py`
 
 ## 7. Testing and environment
 
 ### Environment
 
-The user often runs the project from:
+`python3` on the host may not have `pytest` or project deps. Prefer the repo virtualenv when validating:
 
-- `/Users/nicolas.rusinger/miniconda3/envs/mlpers/bin/python`
-
-`python3` on the host may not have `pytest` or project deps. Prefer the project env when validating.
+- `.venv/bin/python`
 
 ### Typical test commands
 
 ```bash
-/Users/nicolas.rusinger/miniconda3/envs/mlpers/bin/python -m pytest -q tests
+.venv/bin/python -m pytest -q tests
 ```
 
 or targeted:
 
 ```bash
-/Users/nicolas.rusinger/miniconda3/envs/mlpers/bin/python -m pytest -q tests/test_backtest_reporting.py tests/test_backtest_fundamentals.py
+.venv/bin/python -m pytest -q tests/test_backtest_features.py tests/test_backtest_fundamentals.py
 ```
 
 ## 8. Recent commits worth reading
@@ -317,7 +331,9 @@ At the time this file was written:
 
 - branch: `update_probalisor`
 - upstream: `origin/update_probalisor`
-- there is a local modification on:
-  - [`scripts/run_backtest.py`](/Users/nicolas.rusinger/AlphaRank/scripts/run_backtest.py)
+- the tree may be dirty; currently observed local changes include:
+  - `data/US/df_data.py` deleted locally
+  - `experiments/US/` untracked locally
+  - modern backtest refactor work in `scripts/run_backtest.py`, `src/alpharank/backtest/`, and targeted tests
 
-Do not overwrite that file casually. Read it first if continuing from this exact working tree.
+Do not overwrite local state casually. Read the working tree first if continuing from this exact checkout.

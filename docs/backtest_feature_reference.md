@@ -16,12 +16,13 @@ It describes:
 
 Main code paths:
 
-- `/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/data_loading.py`
-- `/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/features.py`
-- `/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/fundamentals.py`
-- `/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/datasets.py`
-- `/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/pipeline.py`
-- `/Users/nicolas.rusinger/AlphaRank/src/alpharank/backtest/portfolio.py`
+- `src/alpharank/backtest/config.py`
+- `src/alpharank/backtest/data_loading.py`
+- `src/alpharank/backtest/features.py`
+- `src/alpharank/backtest/fundamentals.py`
+- `src/alpharank/backtest/datasets.py`
+- `src/alpharank/backtest/pipeline.py`
+- `src/alpharank/backtest/portfolio.py`
 
 ## Raw Inputs
 
@@ -115,9 +116,46 @@ Binary classification label used by the model:
 
 - `target_label_{i,t} = 1[ future_excess_return_{i,t} > outperformance_threshold ]`
 
-Default in `scripts/run_backtest.py`:
+Current entrypoint preset in `scripts/run_backtest.py`:
 
-- `outperformance_threshold = 0.0`
+- `outperformance_threshold = 0.15`
+
+## Feature Configuration
+
+The modern backtest path is now explicitly parameterized.
+
+`TechnicalFeatureConfig` controls:
+
+- `roc_windows`
+- `ema_pairs`
+- `price_to_ema_spans`
+- `rsi_windows`
+- `rsi_ratio_pairs`
+- `bollinger_windows`
+- `stochastic_windows`
+- `range_windows`
+- `volatility_windows`
+- `volatility_ratio_pairs`
+
+`FundamentalFeatureConfig` controls:
+
+- `quarterly_growth_lags`
+
+Current preset in `scripts/run_backtest.py`:
+
+- `roc_windows = (1, 3, 6, 12)`
+- `ema_pairs = ((2, 6), (3, 6), (3, 12), (6, 12), (6, 18), (12, 24))`
+- `price_to_ema_spans = (3, 6, 12, 24)`
+- `rsi_windows = (3, 6, 12, 24)`
+- `rsi_ratio_pairs = ((3, 12), (6, 24))`
+- `bollinger_windows = (6, 12)`
+- `stochastic_windows = ((6, 3), (12, 3))`
+- `range_windows = (6, 12)`
+- `volatility_windows = (3, 6, 12)`
+- `volatility_ratio_pairs = ((3, 12), (6, 12))`
+- `quarterly_growth_lags = (1, 4, 12)`
+
+These selected specs are persisted in each run `metadata.json`.
 
 ## Technical Features
 
@@ -128,38 +166,92 @@ Base series:
 - `r_t = monthly_return_t`
 - `P_t = last_close_t`
 
-Features:
+The old lag/mean/momentum placeholders (`ret_lag_*`, `ret_mean_*`, `mom_*`) are no longer the core technical feature set.
 
-- `ret_lag_1_t = r_{t-1}`
-- `ret_lag_2_t = r_{t-2}`
-- `ret_mean_3m_t = mean(r_t, r_{t-1}, r_{t-2})`
-- `ret_mean_6m_t = mean(r_t, ..., r_{t-5})`
-- `ret_vol_3m_t = std(r_t, r_{t-1}, r_{t-2})`
-- `ret_vol_6m_t = std(r_t, ..., r_{t-5})`
-- `mom_3m_t = sum(r_t, r_{t-1}, r_{t-2})`
-- `mom_6m_t = sum(r_t, ..., r_{t-5})`
+The current design intentionally uses indicator families and relative transforms.
 
-EMAs:
+### ROC / relative price change
 
-- `ema_3_t = EWM(P_t, span=3, adjust=False)`
-- `ema_12_t = EWM(P_t, span=12, adjust=False)`
-- `ema_ratio_3_12_t = ema_3_t / ema_12_t`
+For each `w` in `roc_windows`:
 
-Range / position:
+- `price_roc_{w}m = P_t / P_{t-w} - 1`
 
-- `rolling_high_12m_t = max(P_t, ..., P_{t-11})`
-- `rolling_low_12m_t = min(P_t, ..., P_{t-11})`
-- `dist_to_12m_high_t = P_t / rolling_high_12m_t - 1`
-- `dist_to_12m_low_t = P_t / rolling_low_12m_t - 1`
+### EMA structure
 
-RSI-like feature:
+For each EMA span `s`:
+
+- `ema_s = EWM(P_t, span=s, adjust=False)`
+
+For each pair `(s, l)` in `ema_pairs`:
+
+- `ema_ratio_{s}_{l} = ema_s / ema_l`
+
+For each `s` in `price_to_ema_spans`:
+
+- `price_to_ema_s = P_t / ema_s - 1`
+
+### RSI family
+
+Define:
 
 - `gain_t = max(r_t, 0)`
 - `loss_t = max(-r_t, 0)`
-- `avg_gain_6m_t = mean(gain_t, ..., gain_{t-5})`
-- `avg_loss_6m_t = mean(loss_t, ..., loss_{t-5})`
-- `RS_t = avg_gain_6m_t / (avg_loss_6m_t + 1e-12)`
-- `rsi_6m_t = 100 - 100 / (1 + RS_t)`
+
+For each `w` in `rsi_windows`:
+
+- `avg_gain_w = mean(gain_t, ..., gain_{t-w+1})`
+- `avg_loss_w = mean(loss_t, ..., loss_{t-w+1})`
+- `RS_w = avg_gain_w / avg_loss_w`
+- `rsi_{w}m = 100 - 100 / (1 + RS_w)`
+
+For each pair `(s, l)` in `rsi_ratio_pairs`:
+
+- `rsi_ratio_{s}_{l} = rsi_s / rsi_l`
+
+### Bollinger relative position
+
+For each `w` in `bollinger_windows`:
+
+- `sma_w = mean(P_t, ..., P_{t-w+1})`
+- `std_w = std(P_t, ..., P_{t-w+1})`
+- `upper_w = sma_w + 2 * std_w`
+- `lower_w = sma_w - 2 * std_w`
+- `bollinger_percent_b_{w}m = (P_t - lower_w) / (upper_w - lower_w)`
+- `bollinger_bandwidth_{w}m = (upper_w - lower_w) / sma_w`
+
+### Stochastic oscillator
+
+For each pair `(n, d)` in `stochastic_windows`:
+
+- `low_n = min(P_t, ..., P_{t-n+1})`
+- `high_n = max(P_t, ..., P_{t-n+1})`
+- `%K_{n} = 100 * (P_t - low_n) / (high_n - low_n)`
+- `stoch_d_{n}_{d} = mean(%K_n over last d months)`
+
+### Range location
+
+For each `w` in `range_windows`:
+
+- `rolling_high_{w}m = max(P_t, ..., P_{t-w+1})`
+- `rolling_low_{w}m = min(P_t, ..., P_{t-w+1})`
+- `dist_to_{w}m_high = P_t / rolling_high_{w}m - 1`
+- `dist_to_{w}m_low = P_t / rolling_low_{w}m - 1`
+- `range_position_{w}m = (P_t - rolling_low_{w}m) / (rolling_high_{w}m - rolling_low_{w}m)`
+
+### Volatility regime
+
+For each `w` in `volatility_windows`:
+
+- `volatility_{w}m = std(r_t, ..., r_{t-w+1})`
+
+For each pair `(s, l)` in `volatility_ratio_pairs`:
+
+- `volatility_ratio_{s}_{l} = volatility_s / volatility_l`
+
+Division rule for all technical ratios:
+
+- denominator must be non-null and `abs(denominator) > 1e-12`
+- otherwise the ratio is set to `null`
 
 ## Fundamental Data Preparation
 
@@ -234,7 +326,7 @@ TTM sums:
 Market-value layer:
 
 - `market_cap_t = last_close_t * shares_outstanding_avg4q_t`
-- `enterprise_value_t = market_cap_t + net_debt_avg4q_t - cash_short_term_avg4q_t`
+- `enterprise_value_t = market_cap_t + net_debt_avg4q_t`
 
 Important:
 
@@ -242,28 +334,43 @@ Important:
 - they are used to build valuation ratios
 - they are **not** exposed as model features
 
-Margins and returns:
+Profitability / quality:
 
-- `net_margin_ttm = net_income_ttm / total_revenue_ttm`
-- `ebitda_margin_ttm = ebitda_ttm / total_revenue_ttm`
 - `gross_margin_ttm = gross_profit_ttm / total_revenue_ttm`
+- `ebit_margin_ttm = ebit_ttm / total_revenue_ttm`
+- `ebitda_margin_ttm = ebitda_ttm / total_revenue_ttm`
+- `net_margin_ttm = net_income_ttm / total_revenue_ttm`
+- `fcf_margin_ttm = free_cashflow_ttm / total_revenue_ttm`
 - `roe_ttm = net_income_ttm / equity_avg4q`
 - `roa_ttm = net_income_ttm / total_assets_avg4q`
+- `gross_profit_to_assets = gross_profit_ttm / total_assets_avg4q`
+- `ebit_to_assets = ebit_ttm / total_assets_avg4q`
+- `fcf_to_assets = free_cashflow_ttm / total_assets_avg4q`
+- `asset_turnover_ttm = total_revenue_ttm / total_assets_avg4q`
+- `accrual_ratio = (net_income_ttm - free_cashflow_ttm) / total_assets_avg4q`
+- `fcf_to_net_income = free_cashflow_ttm / net_income_ttm`
+
+Balance sheet / capital structure:
+
 - `debt_to_equity = net_debt_avg4q / equity_avg4q`
-- `fcf_margin_ttm = free_cashflow_ttm / total_revenue_ttm`
+- `net_debt_to_assets = net_debt_avg4q / total_assets_avg4q`
+- `net_debt_to_ebitda = net_debt_avg4q / ebitda_ttm`
+- `equity_to_assets = equity_avg4q / total_assets_avg4q`
+- `cash_to_assets = cash_short_term_avg4q / total_assets_avg4q`
 
-Valuation:
+Valuation yields / inverted multiples:
 
-- `pe_ttm = last_close_t / eps_actual_ttm`
-- `price_to_sales = market_cap_t / total_revenue_ttm`
-- `price_to_book = market_cap_t / equity_avg4q`
-- `ev_to_ebitda = enterprise_value_t / ebitda_ttm`
+- `earnings_yield = eps_actual_ttm / last_close_t`
+- `sales_yield = total_revenue_ttm / market_cap_t`
+- `book_to_price = equity_avg4q / market_cap_t`
+- `fcf_yield = free_cashflow_ttm / market_cap_t`
+- `ebitda_to_ev = ebitda_ttm / enterprise_value_t`
 
 Growth:
 
-- `revenue_growth_yoy_t = total_revenue_ttm_t / total_revenue_ttm_{t-4} - 1`
-- `net_income_growth_yoy_t = net_income_ttm_t / net_income_ttm_{t-4} - 1`
-- `eps_growth_qoq_t = eps_actual_ttm_t / eps_actual_ttm_{t-1} - 1`
+- for each lag `L` in `quarterly_growth_lags`:
+  - `x_ttm_growth_{L}q = x_ttm_t / x_ttm_{t-L} - 1`
+- `share_dilution_{L}q = shares_outstanding_avg4q_t / shares_outstanding_avg4q_{t-L} - 1`
 
 Division rule:
 
@@ -277,8 +384,9 @@ Raw dollar TTM levels are **not** selected as model features.
 
 The model keeps only:
 
-- valuation / quality / margin ratios
+- valuation yields / quality / margin ratios
 - growth features derived from TTM series
+- dilution features derived from shares outstanding growth
 
 For each TTM series `x_ttm`, the following quarterly growths are constructed on the quarterly reporting timeline before monthly `asof` joining:
 
@@ -319,6 +427,9 @@ This means the selected fundamental growth features are:
 - `eps_actual_ttm_growth_1q`
 - `eps_actual_ttm_growth_4q`
 - `eps_actual_ttm_growth_12q`
+- `share_dilution_1q`
+- `share_dilution_4q`
+- `share_dilution_12q`
 
 The following raw dollar features are intentionally excluded from the model:
 
@@ -328,6 +439,10 @@ The following raw dollar features are intentionally excluded from the model:
 - `net_income_ttm`
 - `ebitda_ttm`
 - `free_cashflow_ttm`
+- `shares_outstanding_avg4q`
+- `equity_avg4q`
+- `net_debt_avg4q`
+- `total_assets_avg4q`
 
 ## Feature Filtering and Imputation
 

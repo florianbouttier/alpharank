@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
@@ -40,7 +40,6 @@ from alpharank.backtest.reporting import (
     write_html_report,
 )
 from alpharank.backtest.time_folds import filter_by_months, rolling_fold_windows
-from alpharank.backtest.tuning import tune_and_fit_fold
 
 
 @dataclass
@@ -277,13 +276,17 @@ def _prepare_modeling_frame(config: BacktestConfig) -> tuple[pl.DataFrame, List[
     monthly_prices = compute_monthly_stock_prices(raw.final_price)
     index_monthly = compute_monthly_index_returns(raw.sp500_price)
 
-    technical_features = compute_technical_features(monthly_prices)
+    technical_features = compute_technical_features(
+        monthly_prices,
+        config=config.technical_feature_config,
+    )
     fundamental_features = build_monthly_fundamental_features(
         monthly_prices=monthly_prices,
         balance_sheet=raw.balance_sheet,
         income_statement=raw.income_statement,
         cash_flow=raw.cash_flow,
         earnings=raw.earnings,
+        config=config.fundamental_feature_config,
     )
 
     model_frame, features_used, dropped_features = build_model_frame(
@@ -480,6 +483,8 @@ def _build_prediction_debug_frames(
 
 
 def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
+    from alpharank.backtest.tuning import tune_and_fit_fold
+
     run_dir = _create_run_dir(config.output_dir)
     figures_dir = run_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
@@ -1121,6 +1126,8 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
             "show_optuna_progress": config.show_optuna_progress,
             "optuna_progress_every": config.optuna_progress_every,
             "risk_free_rate": config.risk_free_rate,
+            "technical_feature_config": asdict(config.technical_feature_config),
+            "fundamental_feature_config": asdict(config.fundamental_feature_config),
             "xgb_params": config.xgb_params,
             "optuna_space": config.optuna_space,
         },

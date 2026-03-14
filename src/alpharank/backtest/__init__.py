@@ -1,4 +1,4 @@
-from alpharank.backtest.config import BacktestConfig
+from alpharank.backtest.config import BacktestConfig, FundamentalFeatureConfig, TechnicalFeatureConfig
 from alpharank.backtest.pipeline import (
     BacktestArtifacts,
     BacktestPhaseArtifacts,
@@ -10,6 +10,8 @@ from alpharank.backtest.pipeline import (
 
 __all__ = [
     "BacktestConfig",
+    "TechnicalFeatureConfig",
+    "FundamentalFeatureConfig",
     "LearningArtifacts",
     "BacktestPhaseArtifacts",
     "BacktestArtifacts",
