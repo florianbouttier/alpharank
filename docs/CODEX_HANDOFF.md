@@ -252,6 +252,7 @@ Intended use:
 - apply a dedicated trading rule (`top_n` or `prediction > threshold`)
 - optionally filter names whose last available decision-month price is older than `x` months
 - compare one or several resulting backtest curves, including legacy curves, with the legacy comparison report machinery
+- `scripts/run_backtest_application.py` is meant to be edited via its top-level `SCENARIO_SPECS` block and then run directly, not driven through CLI flags
 
 Do not fold these application experiments back into the learning config. The user wants them decoupled on purpose.
 

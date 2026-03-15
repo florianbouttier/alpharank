@@ -17,6 +17,27 @@ from alpharank.backtest.application import (
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+# Edit this block, then run the script directly.
+RUN_DIR: str | Path | None = None
+OUTPUT_DIR: str | Path | None = None
+REPORT_PATH: str | Path | None = None
+REPORT_NAME = "application_backtest_comparison.html"
+REPORT_TITLE = "Application Backtest Comparison"
+START_YEAR: int | None = None
+END_YEAR: int | None = None
+RISK_FREE_RATE = 0.02
+
+SCENARIO_SPECS: list[dict[str, Any]] = [
+    {"name": "top_n_10", "selection_mode": "top_n", "top_n": 10},
+    {"name": "top_n_20", "selection_mode": "top_n", "top_n": 20},
+    {"name": "prediction_gt_0_20", "selection_mode": "prediction_threshold", "prediction_threshold": 0.20},
+    {"name": "prediction_gt_0_30", "selection_mode": "prediction_threshold", "prediction_threshold": 0.30},
+    {"name": "prediction_gt_0_40", "selection_mode": "prediction_threshold", "prediction_threshold": 0.40},
+    # Example:
+    # {"name": "prediction_gt_0_35_stale_1m", "selection_mode": "prediction_threshold", "prediction_threshold": 0.35, "max_price_staleness_months": 1},
+]
+
+
 def latest_run_dir(output_dir: str | Path | None = None) -> Path:
     active_output_dir = Path(output_dir) if output_dir is not None else PROJECT_ROOT / "outputs"
     run_dirs = sorted(
@@ -36,19 +57,9 @@ def load_predictions(run_dir: str | Path) -> pl.DataFrame:
     return pl.read_parquet(path)
 
 
-def default_application_configs() -> list[ApplicationBacktestConfig]:
-    return [
-        ApplicationBacktestConfig(
-            name="top_n_10",
-            selection_mode="top_n",
-            top_n=10,
-        ),
-        ApplicationBacktestConfig(
-            name="prediction_gt_0_60",
-            selection_mode="prediction_threshold",
-            prediction_threshold=0.60,
-        ),
-    ]
+def build_application_configs(scenario_specs: list[dict[str, Any]] | None = None) -> list[ApplicationBacktestConfig]:
+    specs = SCENARIO_SPECS if scenario_specs is None else scenario_specs
+    return [ApplicationBacktestConfig(**spec) for spec in specs]
 
 
 def run_application_backtests(
@@ -90,81 +101,40 @@ def default_report_path(run_dir: str | Path, report_name: str = "application_bac
     return resolved_run_dir / report_name
 
 
-def _main_configs(
-    *,
-    top_n: int,
-    prediction_threshold: float,
-    max_price_staleness_months: int | None,
-) -> list[ApplicationBacktestConfig]:
-    suffix = (
-        f"_stale_le_{max_price_staleness_months}m"
-        if max_price_staleness_months is not None
-        else ""
-    )
-    return [
-        ApplicationBacktestConfig(
-            name=f"top_n_{top_n}{suffix}",
-            selection_mode="top_n",
-            top_n=top_n,
-            max_price_staleness_months=max_price_staleness_months,
-        ),
-        ApplicationBacktestConfig(
-            name=f"prediction_gt_{str(prediction_threshold).replace('.', '_')}{suffix}",
-            selection_mode="prediction_threshold",
-            prediction_threshold=prediction_threshold,
-            max_price_staleness_months=max_price_staleness_months,
-        ),
-    ]
-
-
-def main(
-    *,
-    run_dir: str | Path | None = None,
-    output_dir: str | Path | None = None,
-    report_path: str | Path | None = None,
-    start_year: int | None = None,
-    end_year: int | None = None,
-    risk_free_rate: float = 0.02,
-    top_n: int = 10,
-    prediction_threshold: float = 0.60,
-    max_price_staleness_months: int | None = None,
-) -> BacktestComparisonResult:
-    resolved_run_dir = Path(run_dir).expanduser().resolve() if run_dir else latest_run_dir(output_dir)
+def main() -> BacktestComparisonResult:
+    resolved_run_dir = Path(RUN_DIR).expanduser().resolve() if RUN_DIR else latest_run_dir(OUTPUT_DIR)
     report_path = (
-        Path(report_path).expanduser().resolve()
-        if report_path is not None
-        else default_report_path(resolved_run_dir)
+        Path(REPORT_PATH).expanduser().resolve()
+        if REPORT_PATH is not None
+        else default_report_path(resolved_run_dir, REPORT_NAME)
     )
 
-    configs = _main_configs(
-        top_n=top_n,
-        prediction_threshold=prediction_threshold,
-        max_price_staleness_months=max_price_staleness_months,
-    )
+    configs = build_application_configs()
+    if not configs:
+        raise ValueError("SCENARIO_SPECS is empty. Add at least one scenario before running the script.")
     results = run_application_backtests(
         resolved_run_dir,
         configs,
-        risk_free_rate=risk_free_rate,
+        risk_free_rate=RISK_FREE_RATE,
     )
     comparison = compare_application_backtests(
         results,
         output_path=report_path,
-        title="Application Backtest Comparison",
-        start_year=start_year,
-        end_year=end_year,
-        risk_free_rate=risk_free_rate,
+        title=REPORT_TITLE,
+        start_year=START_YEAR,
+        end_year=END_YEAR,
+        risk_free_rate=RISK_FREE_RATE,
     )
 
     print(f"Run dir: {resolved_run_dir}")
     print(f"Report: {comparison.output_path}")
-    print("Backtests:")
+    print(f"Scenarios: {len(configs)}")
     for name, result in results.items():
         portfolio_kpis = result.kpis.filter(pl.col("strategy") == "Portfolio")
         total_return = portfolio_kpis.get_column("total_return").item() if not portfolio_kpis.is_empty() else 0.0
         sharpe = portfolio_kpis.get_column("sharpe_ratio").item() if not portfolio_kpis.is_empty() else 0.0
         print(
-            f"  {name}: eligible={result.eligible_predictions.height} "
-            f"selected={result.selections.height} months={result.monthly_returns.height} "
+            f"- {name}: selected={result.selections.height} months={result.monthly_returns.height} "
             f"total_return={total_return:.4f} sharpe={sharpe:.4f}"
         )
     return comparison

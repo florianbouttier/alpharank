@@ -397,8 +397,7 @@ class PortfolioVisualizer:
         Generates a comprehensive interactive HTML report comparing multiple strategies.
         Features Tabbed Interface for Deep Dive into every KPI.
         """
-        print("DEBUG: make_comparison_report called")
-        
+
         # Determine common date range for subtitle
         try:
             start_date = cumulative_returns.index[0].strftime('%Y-%m-%d')
