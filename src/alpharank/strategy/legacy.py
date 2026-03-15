@@ -525,7 +525,7 @@ class StrategyLearner:
         if n_trials >= 30 and len(list_spliting_date_end_of_year) >= 10:
             print(
                 "[Optuna] heavy configuration detected; first trial can take several minutes. "
-                "Use --n-trials 1..5 for a quick validation run."
+                "Use n_trials=1..5 in the script/main() for a quick validation run."
             )
         
         detailled_portfolio = pd.DataFrame()

@@ -4,8 +4,9 @@ from datetime import date
 
 import pandas as pd
 import polars as pl
+import pytest
 
-from scripts.run_legacy import _indexed_frame_to_polars, _named_frames_to_long
+from scripts.run_legacy import _get_detailed_output, _indexed_frame_to_polars, _named_frames_to_long
 
 
 def test_named_frames_to_long_adds_model_label_and_sorts() -> None:
@@ -41,3 +42,15 @@ def test_indexed_frame_to_polars_turns_series_index_into_year_month_column() -> 
 
     assert out.columns == ["year_month", "monthly_return"]
     assert out.height == 2
+
+
+def test_get_detailed_output_accepts_both_legacy_spellings() -> None:
+    detailed = pl.DataFrame({"ticker": ["AAA.US"], "year_month": [date(2020, 1, 1)]})
+
+    assert _get_detailed_output({"detailed": detailed}).equals(detailed)
+    assert _get_detailed_output({"detailled": detailed}).equals(detailed)
+
+
+def test_get_detailed_output_raises_if_missing() -> None:
+    with pytest.raises(KeyError, match="Missing `detailed`/`detailled` portfolio output"):
+        _get_detailed_output({"aggregated": pl.DataFrame()}, label="Legacy_Optuna_11")

@@ -121,6 +121,15 @@ def _indexed_frame_to_polars(df: Any, *, index_name: str = "year_month") -> pl.D
     return to_polars(out)
 
 
+def _get_detailed_output(output: Dict[str, Any], *, label: str | None = None) -> Any:
+    if "detailed" in output:
+        return output["detailed"]
+    if "detailled" in output:
+        return output["detailled"]
+    suffix = f" for {label}" if label else ""
+    raise KeyError(f"Missing `detailed`/`detailled` portfolio output{suffix}.")
+
+
 def _write_artifact_frame(frame: Any, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _sort_monthly_frame(frame).write_parquet(output_path)
@@ -415,8 +424,7 @@ def run_pipeline(
     }
     for key, out in optuna_outputs.items():
         _write_checkpoint(out["aggregated"], checkpoints_dir, f"{backend}_optuna_output_{key}_aggregated")
-        detail_key = "detailed" if "detailed" in out else "detailled"
-        _write_checkpoint(out[detail_key], checkpoints_dir, f"{backend}_optuna_output_{key}_detailed")
+        _write_checkpoint(_get_detailed_output(out, label=f"optuna_output_{key}"), checkpoints_dir, f"{backend}_optuna_output_{key}_detailed")
 
     combined_equal = StrategyLearner.aggregate_portfolios(
         [optuna_output_1, optuna_output_12, optuna_output_21, optuna_output_22],
@@ -432,8 +440,8 @@ def run_pipeline(
     )
     _write_checkpoint(combined_equal["aggregated"], checkpoints_dir, f"{backend}_combined_equal")
     _write_checkpoint(combined_frequency["aggregated"], checkpoints_dir, f"{backend}_combined_frequency")
-    _write_checkpoint(combined_equal["detailed"], checkpoints_dir, f"{backend}_combined_equal_detailed")
-    _write_checkpoint(combined_frequency["detailed"], checkpoints_dir, f"{backend}_combined_frequency_detailed")
+    _write_checkpoint(_get_detailed_output(combined_equal, label="combined_equal"), checkpoints_dir, f"{backend}_combined_equal_detailed")
+    _write_checkpoint(_get_detailed_output(combined_frequency, label="combined_frequency"), checkpoints_dir, f"{backend}_combined_frequency_detailed")
     _write_checkpoint(index_data.monthly_returns, checkpoints_dir, f"{backend}_sp500")
 
     models = {
@@ -452,12 +460,12 @@ def run_pipeline(
     _write_checkpoint(metrics.reset_index().rename(columns={"index": "model"}), checkpoints_dir, f"{backend}_metrics")
 
     detailed_outputs = {
-        "Legacy_Optuna_11": optuna_output_1["detailed"],
-        "Legacy_Optuna_12": optuna_output_12["detailed"],
-        "Legacy_Optuna_21": optuna_output_21["detailed"],
-        "Legacy_Optuna_22": optuna_output_22["detailed"],
-        "Combined_Equal": combined_equal["detailed"],
-        "Combined_Frequency": combined_frequency["detailed"],
+        "Legacy_Optuna_11": _get_detailed_output(optuna_output_1, label="Legacy_Optuna_11"),
+        "Legacy_Optuna_12": _get_detailed_output(optuna_output_12, label="Legacy_Optuna_12"),
+        "Legacy_Optuna_21": _get_detailed_output(optuna_output_21, label="Legacy_Optuna_21"),
+        "Legacy_Optuna_22": _get_detailed_output(optuna_output_22, label="Legacy_Optuna_22"),
+        "Combined_Equal": _get_detailed_output(combined_equal, label="Combined_Equal"),
+        "Combined_Frequency": _get_detailed_output(combined_frequency, label="Combined_Frequency"),
     }
     aggregated_outputs = {
         "Legacy_Optuna_11": optuna_output_1["aggregated"],
