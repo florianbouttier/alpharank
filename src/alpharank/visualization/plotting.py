@@ -497,8 +497,17 @@ class PortfolioVisualizer:
                     ),
                     vertical_spacing=0.16,
                 )
+
+                combined_values = pd.concat(
+                    [
+                        df_cum.apply(pd.to_numeric, errors='coerce').stack(dropna=False),
+                        df_ann.apply(pd.to_numeric, errors='coerce').stack(dropna=False),
+                    ]
+                ).dropna()
+                zmin = float(combined_values.min()) if not combined_values.empty else None
+                zmax = float(combined_values.max()) if not combined_values.empty else None
                 
-                def _add_heatmap(df, row, col, colorscale='RdYlGn'):
+                def _add_heatmap(df, row, col, colorscale='RdYlGn', showscale=False):
                     # Force numeric
                     vals = df.apply(pd.to_numeric, errors='coerce').round(4).T # Transpose: Model=Y, Year=X
                     z = vals.values
@@ -513,15 +522,29 @@ class PortfolioVisualizer:
                         z=z, x=x, y=y, 
                         texttemplate=fmt_str,
                         textfont={"size": 11},
-                        colorscale=colorscale, 
-                        showscale=True
+                        colorscale=colorscale,
+                        zmin=zmin,
+                        zmax=zmax,
+                        showscale=showscale
                     ), row=row, col=col)
                     
                     # Force X-axis to be integers (Years)
                     fig.update_xaxes(type='category', row=row, col=col)
 
-                _add_heatmap(df_cum, 1, 1, 'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn')
-                _add_heatmap(df_ann, 2, 1, 'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn')
+                _add_heatmap(
+                    df_cum,
+                    1,
+                    1,
+                    'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn',
+                    showscale=True,
+                )
+                _add_heatmap(
+                    df_ann,
+                    2,
+                    1,
+                    'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn',
+                    showscale=False,
+                )
                 
                 fig.update_layout(height=1050, title_text=f"Deep Dive: {metric}", template="plotly_white")
                 kpi_htmls[metric] = pio.to_html(fig, full_html=False, include_plotlyjs=True)
@@ -700,15 +723,15 @@ class PortfolioVisualizer:
                         }}
                     }});
                 }}
-                document.addEventListener('shown.bs.tab', function (event) {{
-                    var paneSelector = event.target.getAttribute('href');
+                $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function (event) {{
+                    var paneSelector = $(event.target).attr('href');
                     if (!paneSelector) return;
                     var pane = document.querySelector(paneSelector);
                     if (pane) {{
                         setTimeout(function() {{ resizeVisiblePlots(pane); }}, 50);
                     }}
                 }});
-                window.addEventListener('load', function () {{
+                $(window).on('load', function () {{
                     setTimeout(function() {{ resizeVisiblePlots(document); }}, 50);
                 }});
             </script>
