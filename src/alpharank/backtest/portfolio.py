@@ -17,6 +17,7 @@ def compute_monthly_portfolio_returns(selections: pl.DataFrame) -> pl.DataFrame:
     if selections.is_empty():
         return pl.DataFrame(
             schema={
+                "year_month": pl.Date,
                 "decision_month": pl.Date,
                 "holding_month": pl.Date,
                 "portfolio_return": pl.Float64,

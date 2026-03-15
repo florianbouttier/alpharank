@@ -109,6 +109,59 @@ def select_predictions_above_threshold(predictions: pl.DataFrame, threshold: flo
     return ranked.filter(pl.col("prediction") > pl.lit(float(threshold))).sort(["year_month", "rank"])
 
 
+def _complete_application_monthly_returns(
+    eligible_predictions: pl.DataFrame,
+    monthly_returns: pl.DataFrame,
+) -> pl.DataFrame:
+    if eligible_predictions.is_empty():
+        return monthly_returns
+
+    base_months = (
+        eligible_predictions.group_by("holding_month")
+        .agg(
+            pl.col("decision_month").min().alias("decision_month"),
+            pl.mean("benchmark_future_return").alias("benchmark_return"),
+        )
+        .sort("holding_month")
+        .with_columns(pl.col("holding_month").alias("year_month"))
+    )
+
+    completed = base_months.join(
+        monthly_returns.select(["holding_month", "portfolio_return", "hit_rate", "n_positions"])
+        if not monthly_returns.is_empty()
+        else pl.DataFrame(
+            schema={
+                "holding_month": pl.Date,
+                "portfolio_return": pl.Float64,
+                "hit_rate": pl.Float64,
+                "n_positions": pl.Int64,
+            }
+        ),
+        on="holding_month",
+        how="left",
+    ).with_columns(
+        pl.col("portfolio_return").fill_null(0.0).alias("portfolio_return"),
+        pl.col("benchmark_return").fill_null(0.0).alias("benchmark_return"),
+        pl.col("hit_rate").fill_null(0.0).alias("hit_rate"),
+        pl.col("n_positions").fill_null(0).cast(pl.Int64).alias("n_positions"),
+    )
+
+    return completed.with_columns(
+        (pl.col("portfolio_return") - pl.col("benchmark_return")).alias("active_return")
+    ).select(
+        [
+            "year_month",
+            "decision_month",
+            "holding_month",
+            "portfolio_return",
+            "benchmark_return",
+            "active_return",
+            "hit_rate",
+            "n_positions",
+        ]
+    )
+
+
 def run_application_backtest(
     predictions: pl.DataFrame,
     config: ApplicationBacktestConfig,
@@ -145,6 +198,7 @@ def run_application_backtest(
         if not selections.is_empty()
         else selections
     )
+    monthly_returns = _complete_application_monthly_returns(eligible_predictions, monthly_returns)
     kpis = compute_backtest_kpis(monthly_returns=monthly_returns, risk_free_rate=risk_free_rate)
 
     return ApplicationBacktestResult(
@@ -207,6 +261,11 @@ def compare_backtest_curves(
         name: _standardize_curve_frame(curve, return_column=return_column)
         for name, curve in curves.items()
     }
+    empty_curves = [name for name, frame in models_data.items() if frame.empty]
+    if empty_curves:
+        raise ValueError(
+            "Comparison curves have no monthly observations after filtering: " + ", ".join(sorted(empty_curves))
+        )
 
     (
         metrics,

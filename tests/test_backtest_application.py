@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from alpharank.backtest.application import (
     ApplicationBacktestConfig,
+    compare_backtest_curves,
     filter_predictions_by_price_staleness,
     run_application_backtest,
 )
@@ -64,3 +65,38 @@ def test_run_application_backtest_supports_top_n_and_prediction_threshold() -> N
     assert threshold_result.selections.height == 2
     assert threshold_result.selections.get_column("ticker").to_list() == ["AAA.US", "BBB.US"]
     assert threshold_result.kpis.filter(pl.col("strategy") == "Portfolio").get_column("months").item() == 2.0
+
+
+def test_compare_backtest_curves_supports_empty_threshold_strategy() -> None:
+    predictions = _predictions_fixture()
+
+    top_n_result = run_application_backtest(
+        predictions,
+        ApplicationBacktestConfig(name="top_n_1", selection_mode="top_n", top_n=1),
+        risk_free_rate=0.02,
+    )
+    empty_threshold_result = run_application_backtest(
+        predictions,
+        ApplicationBacktestConfig(
+            name="pred_gt_0_99",
+            selection_mode="prediction_threshold",
+            prediction_threshold=0.99,
+        ),
+        risk_free_rate=0.02,
+    )
+
+    assert empty_threshold_result.selections.is_empty()
+    assert "year_month" in empty_threshold_result.monthly_returns.columns
+    assert empty_threshold_result.monthly_returns.get_column("portfolio_return").to_list() == [0.0, 0.0]
+    assert empty_threshold_result.monthly_returns.get_column("n_positions").to_list() == [0, 0]
+
+    comparison = compare_backtest_curves(
+        {
+            top_n_result.name: top_n_result,
+            empty_threshold_result.name: empty_threshold_result,
+        },
+        risk_free_rate=0.02,
+    )
+
+    assert "pred_gt_0_99" in comparison.metrics.index
+    assert comparison.metrics.loc["pred_gt_0_99", "Total Return"] == "0.00%"
