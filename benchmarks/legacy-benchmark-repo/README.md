@@ -10,27 +10,33 @@ Toolkit de benchmark pour `run_legacy` (version polars-only) sur un subset contr
 - `logs/`: logs complets des runs.
 
 ## 1) Générer un subset clair
-```bash
-python3 scripts/create_subset.py \
-  --source-data-dir /Users/nicolas.rusinger/AlphaRank/data \
-  --target-data-dir data/subset_legacy_v1 \
-  --start-date 2019-01-01 \
-  --end-date 2022-12-31 \
-  --max-tickers 80 \
-  --fundamentals-lookback-days 730
+```python
+from scripts.create_subset import main
+
+main(
+    source_data_dir="/Users/nicolas.rusinger/AlphaRank/data",
+    target_data_dir="data/subset_legacy_v1",
+    start_date="2019-01-01",
+    end_date="2022-12-31",
+    max_tickers=80,
+    fundamentals_lookback_days=730,
+)
 ```
 
 ## 2) Lancer benchmark
-```bash
-python3 scripts/run_benchmark.py \
-  --alpharank-repo /Users/nicolas.rusinger/AlphaRank \
-  --data-dir data/subset_legacy_v1 \
-  --results-dir results/legacy_v1 \
-  --logs-dir logs/legacy_v1 \
-  --n-trials 2 \
-  --first-date 2020-01 \
-  --warmups 1 \
-  --runs 3
+```python
+from scripts.run_benchmark import main
+
+main(
+    alpharank_repo="/Users/nicolas.rusinger/AlphaRank",
+    data_dir="data/subset_legacy_v1",
+    results_dir="results/legacy_v1",
+    logs_dir="logs/legacy_v1",
+    n_trials=2,
+    first_date="2020-01",
+    warmups=1,
+    runs=3,
+)
 ```
 
 ## Sorties

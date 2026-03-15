@@ -2,14 +2,13 @@
 """Portfolio allocation utility with live Yahoo Finance quotes.
 
 Examples:
-  python scripts/portfolio_allocation.py --amount 10000 --currency USD --tickers AAPL MSFT NVDA
-  python scripts/portfolio_allocation.py --amount 5000 --currency EUR --tickers AAPL MSFT --weights 70 30
-  python scripts/portfolio_allocation.py --amount 3000 --currency EUR --tickers AAPL TSLA --watch 5
+  python -c "from scripts.portfolio_allocation import main; main(amount=10000, currency='USD', tickers=('AAPL', 'MSFT', 'NVDA'))"
+  python -c "from scripts.portfolio_allocation import main; main(amount=5000, currency='EUR', tickers=('AAPL', 'MSFT'), weights=(70, 30))"
+  python -c "from scripts.portfolio_allocation import main; main(amount=3000, currency='EUR', tickers=('AAPL', 'TSLA'), watch=5)"
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 import time
@@ -114,45 +113,6 @@ def fetch_quotes(symbols: List[str], timeout: int = 8) -> tuple[Dict[str, Quote]
         if out:
             return out, "stooq (fallback)"
         raise RuntimeError("Unable to fetch prices from Yahoo Finance and fallback source.")
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Live portfolio allocation with Yahoo Finance")
-    parser.add_argument("--amount", type=float, required=True, help="Total portfolio amount")
-    parser.add_argument(
-        "--currency",
-        type=str,
-        default="USD",
-        choices=["USD", "EUR"],
-        help="Portfolio currency",
-    )
-    parser.add_argument(
-        "--tickers",
-        nargs="+",
-        required=True,
-        help="Ticker list (example: AAPL MSFT NVDA)",
-    )
-    parser.add_argument(
-        "--weights",
-        nargs="+",
-        type=float,
-        help="Optional weights. Either decimals (0.4 0.6) or percentages (40 60)",
-    )
-    parser.add_argument(
-        "--watch",
-        type=int,
-        default=0,
-        help="Refresh every N seconds (0 = run once)",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=8,
-        help="HTTP timeout in seconds per request",
-    )
-    return parser.parse_args()
-
-
 def normalize_weights(raw_weights: List[float] | None, n: int) -> List[float]:
     if raw_weights is None:
         return [1.0 / n] * n
@@ -263,33 +223,39 @@ def allocate_once(
     print("=" * 90)
 
 
-def main() -> int:
-    args = parse_args()
-
-    if args.amount <= 0:
+def main(
+    *,
+    amount: float = 10000.0,
+    currency: str = "USD",
+    tickers: List[str] | tuple[str, ...] = ("AAPL", "MSFT", "NVDA"),
+    weights: List[float] | tuple[float, ...] | None = None,
+    watch: int = 0,
+    timeout: int = 8,
+) -> int:
+    if amount <= 0:
         print("Error: --amount must be > 0.", file=sys.stderr)
         return 1
 
-    tickers = [t.strip().upper() for t in args.tickers if t.strip()]
+    tickers = [t.strip().upper() for t in tickers if t.strip()]
     if not tickers:
         print("Error: provide at least one ticker.", file=sys.stderr)
         return 1
 
     try:
-        weights = normalize_weights(args.weights, len(tickers))
+        normalized_weights = normalize_weights(list(weights) if weights is not None else None, len(tickers))
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    watch = max(args.watch, 0)
+    watch = max(watch, 0)
     try:
         if watch == 0:
-            allocate_once(args.amount, args.currency, tickers, weights, timeout=args.timeout)
+            allocate_once(amount, currency, tickers, normalized_weights, timeout=timeout)
             return 0
 
         print(f"Live mode enabled. Refresh every {watch}s. Press Ctrl+C to stop.")
         while True:
-            allocate_once(args.amount, args.currency, tickers, weights, timeout=args.timeout)
+            allocate_once(amount, currency, tickers, normalized_weights, timeout=timeout)
             time.sleep(watch)
     except KeyboardInterrupt:
         print("\nStopped.")

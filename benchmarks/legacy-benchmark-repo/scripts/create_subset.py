@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import json
 import re
 from pathlib import Path
@@ -13,23 +12,31 @@ def _norm_ticker_from_constituents(series: pd.Series) -> pd.Series:
     return series.apply(lambda x: re.sub(r"\\.", "-", x) if isinstance(x, str) else x).astype(str) + ".US"
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Create a deterministic legacy subset dataset for benchmark.")
-    parser.add_argument("--source-data-dir", type=str, required=True)
-    parser.add_argument("--target-data-dir", type=str, required=True)
-    parser.add_argument("--start-date", type=str, default="2019-01-01")
-    parser.add_argument("--end-date", type=str, default="2022-12-31")
-    parser.add_argument("--max-tickers", type=int, default=80)
-    parser.add_argument("--fundamentals-lookback-days", type=int, default=730)
-    args = parser.parse_args()
-
-    src = Path(args.source_data_dir).resolve()
-    dst = Path(args.target_data_dir).resolve()
+def main(
+    *,
+    source_data_dir: str | Path | None = None,
+    target_data_dir: str | Path | None = None,
+    start_date: str = "2019-01-01",
+    end_date: str = "2022-12-31",
+    max_tickers: int = 80,
+    fundamentals_lookback_days: int = 730,
+) -> None:
+    benchmark_repo_root = Path(__file__).resolve().parents[1]
+    src = (
+        Path(source_data_dir).expanduser().resolve()
+        if source_data_dir
+        else benchmark_repo_root.parents[1] / "data"
+    )
+    dst = (
+        Path(target_data_dir).expanduser().resolve()
+        if target_data_dir
+        else benchmark_repo_root / "data" / "subset_legacy_v1"
+    )
     dst.mkdir(parents=True, exist_ok=True)
 
-    start = pd.Timestamp(args.start_date)
-    end = pd.Timestamp(args.end_date)
-    fundamentals_start = start - pd.Timedelta(days=args.fundamentals_lookback_days)
+    start = pd.Timestamp(start_date)
+    end = pd.Timestamp(end_date)
+    fundamentals_start = start - pd.Timedelta(days=fundamentals_lookback_days)
 
     final_price = pd.read_parquet(src / "US_Finalprice.parquet")
     final_price["date"] = pd.to_datetime(final_price["date"], errors="coerce")
@@ -39,7 +46,7 @@ def main() -> None:
         fp_window.groupby("ticker", as_index=False)
         .size()
         .sort_values(["size", "ticker"], ascending=[False, True])
-        .head(args.max_tickers)
+        .head(max_tickers)
     )
     tickers = sorted(top["ticker"].tolist())
 
@@ -93,7 +100,7 @@ def main() -> None:
         "start_date": str(start.date()),
         "end_date": str(end.date()),
         "fundamentals_start_date": str(fundamentals_start.date()),
-        "max_tickers": args.max_tickers,
+        "max_tickers": max_tickers,
         "selected_tickers": tickers,
         "rows": {
             "US_Finalprice": int(len(final_price_sub)),

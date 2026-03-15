@@ -1,5 +1,4 @@
 # %%
-import argparse
 import os
 from dataclasses import dataclass
 from datetime import datetime
@@ -551,31 +550,27 @@ def run_pipeline(
     )
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Legacy strategy runner (polars backend).")
-    parser.add_argument("--n-trials", type=int, default=30)
-    parser.add_argument("--n-jobs", type=int, default=1)
-    parser.add_argument("--first-date", type=str, default="2010-01")
-    parser.add_argument("--data-dir", type=str, default=None, help="Path to data directory containing legacy input files.")
-    parser.add_argument("--output-dir", type=str, default=None, help="Path where HTML outputs will be written.")
-    parser.add_argument("--checkpoints-dir", type=str, default="outputs/checkpoints")
-    parser.add_argument("--final-price-path", type=str, default=None, help="Optional override parquet for stock prices.")
-    parser.add_argument("--sp500-price-path", type=str, default=None, help="Optional override parquet for SP500 proxy prices.")
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-    checkpoints_dir = Path(args.checkpoints_dir)
-    data_dir = Path(args.data_dir).resolve() if args.data_dir else None
-    output_dir = Path(args.output_dir).resolve() if args.output_dir else None
-    final_price_path = Path(args.final_price_path).resolve() if args.final_price_path else None
-    sp500_price_path = Path(args.sp500_price_path).resolve() if args.sp500_price_path else None
+def main(
+    *,
+    n_trials: int = 30,
+    n_jobs: int = 1,
+    first_date: str = "2010-01",
+    data_dir: str | Path | None = None,
+    output_dir: str | Path | None = None,
+    checkpoints_dir: str | Path = "outputs/checkpoints",
+    final_price_path: str | Path | None = None,
+    sp500_price_path: str | Path | None = None,
+) -> None:
+    checkpoints_dir = Path(checkpoints_dir).expanduser().resolve()
+    data_dir = Path(data_dir).expanduser().resolve() if data_dir else None
+    output_dir = Path(output_dir).expanduser().resolve() if output_dir else None
+    final_price_path = Path(final_price_path).expanduser().resolve() if final_price_path else None
+    sp500_price_path = Path(sp500_price_path).expanduser().resolve() if sp500_price_path else None
 
     out = run_pipeline(
-        n_trials=args.n_trials,
-        n_jobs=args.n_jobs,
-        first_date=args.first_date,
+        n_trials=n_trials,
+        n_jobs=n_jobs,
+        first_date=first_date,
         data_dir=data_dir,
         output_dir=output_dir,
         checkpoints_dir=checkpoints_dir,

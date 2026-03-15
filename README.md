@@ -76,8 +76,10 @@ src/
 
 To materialize Yahoo-based price history in the repo's canonical parquet shape and audit it against the existing EODHD reference data:
 
-```bash
-./.venv/bin/python scripts/open_source/run_price_transition.py --start-date 2005-01-01
+```python
+from scripts.open_source.run_price_transition import main
+
+main(start_date="2005-01-01")
 ```
 
 This writes a reusable price dataset under `data/open_source/price_transition_20050101/` with:
@@ -94,10 +96,13 @@ You can then test the backtests with open-source prices only while keeping the e
 
 Or for the legacy runner:
 
-```bash
-./.venv/bin/python scripts/run_legacy.py \
-  --final-price-path data/open_source/price_transition_20050101/US_Finalprice.parquet \
-  --sp500-price-path data/open_source/price_transition_20050101/SP500Price.parquet
+```python
+from scripts.run_legacy import main
+
+main(
+    final_price_path="data/open_source/price_transition_20050101/US_Finalprice.parquet",
+    sp500_price_path="data/open_source/price_transition_20050101/SP500Price.parquet",
+)
 ```
 
 ## Data Snapshotting

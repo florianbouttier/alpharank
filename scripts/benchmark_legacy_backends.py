@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-import argparse
 import statistics
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -17,17 +17,21 @@ def _run_once(cmd: List[str]) -> float:
     return time.perf_counter() - start
 
 
-def bench_backend(repo_root: Path, backend: str, n_trials: int, warmups: int, runs: int) -> Dict[str, float]:
-    script = repo_root / "scripts" / "run_legacy.py"
+def bench_legacy_runtime(
+    repo_root: Path,
+    *,
+    n_trials: int,
+    warmups: int,
+    runs: int,
+) -> Dict[str, float]:
+    checkpoint_dir = repo_root / "outputs" / "benchmark_checkpoints"
     cmd = [
-        "python3",
-        str(script),
-        "--backend",
-        backend,
-        "--n-trials",
-        str(n_trials),
-        "--n-jobs",
-        "1",
+        sys.executable,
+        "-c",
+        (
+            "from scripts.run_legacy import main; "
+            f"main(n_trials={n_trials}, n_jobs=1, checkpoints_dir={str(checkpoint_dir)!r})"
+        ),
     ]
     for _ in range(warmups):
         _run_once(cmd)
@@ -40,26 +44,28 @@ def bench_backend(repo_root: Path, backend: str, n_trials: int, warmups: int, ru
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Benchmark legacy pipeline runtime (pandas vs polars).")
-    parser.add_argument("--n-trials", type=int, default=5)
-    parser.add_argument("--warmups", type=int, default=3)
-    parser.add_argument("--runs", type=int, default=5)
-    parser.add_argument("--target-ratio", type=float, default=0.70, help="Expected polars/pandas median ratio.")
-    parser.add_argument("--enforce-target", action="store_true")
-    args = parser.parse_args()
-
+def main(
+    *,
+    n_trials: int = 5,
+    warmups: int = 3,
+    runs: int = 5,
+    target_median_seconds: float | None = None,
+    enforce_target: bool = False,
+) -> None:
     repo_root = Path(__file__).resolve().parent.parent
-    pandas_stats = bench_backend(repo_root, "pandas", args.n_trials, args.warmups, args.runs)
-    polars_stats = bench_backend(repo_root, "polars", args.n_trials, args.warmups, args.runs)
-    ratio = polars_stats["median"] / pandas_stats["median"]
+    stats = bench_legacy_runtime(
+        repo_root,
+        n_trials=n_trials,
+        warmups=warmups,
+        runs=runs,
+    )
 
-    print("Pandas stats:", pandas_stats)
-    print("Polars stats:", polars_stats)
-    print(f"Median ratio (polars/pandas): {ratio:.4f}")
+    print("Legacy runtime stats:", stats)
 
-    if args.enforce_target and ratio > args.target_ratio:
-        raise SystemExit(f"Performance target failed: ratio={ratio:.4f} > {args.target_ratio:.4f}")
+    if enforce_target and target_median_seconds is not None and stats["median"] > target_median_seconds:
+        raise SystemExit(
+            f"Performance target failed: median={stats['median']:.4f}s > {target_median_seconds:.4f}s"
+        )
 
 
 if __name__ == "__main__":

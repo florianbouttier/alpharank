@@ -1,42 +1,36 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
 from alpharank.data.open_source import run_open_source_cadrage
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the 2025 open-source data cadrage pilot.")
-    parser.add_argument("--year", type=int, default=2025)
-    parser.add_argument("--tickers", nargs="*", default=None, help="Pilot tickers without .US suffix.")
-    parser.add_argument("--universe", choices=["pilot", "sp500-2025"], default="pilot")
-    parser.add_argument("--threshold-pct", type=float, default=0.5)
-    parser.add_argument("--reference-data-dir", type=Path, default=None)
-    parser.add_argument("--output-dir", type=Path, default=None)
-    parser.add_argument("--simfin-api-key", default=None, help="Optional SimFin API key. Falls back to SIMFIN_API_KEY env var.")
-    parser.add_argument(
-        "--user-agent",
-        default="Florian Bouttier florianbouttier@example.com",
-        help="SEC-compatible User-Agent header.",
-    )
-    args = parser.parse_args()
-
+def main(
+    *,
+    year: int = 2025,
+    tickers: tuple[str, ...] | list[str] | None = None,
+    universe: str = "pilot",
+    threshold_pct: float = 0.5,
+    reference_data_dir: str | Path | None = None,
+    output_dir: str | Path | None = None,
+    simfin_api_key: str | None = None,
+    user_agent: str = "Florian Bouttier florianbouttier@example.com",
+) -> None:
     result = run_open_source_cadrage(
-        year=args.year,
-        tickers=args.tickers,
-        universe=args.universe,
-        threshold_pct=args.threshold_pct,
-        reference_data_dir=args.reference_data_dir,
-        output_dir=args.output_dir,
-        user_agent=args.user_agent,
-        simfin_api_key=args.simfin_api_key,
+        year=year,
+        tickers=tickers,
+        universe=universe,
+        threshold_pct=threshold_pct,
+        reference_data_dir=Path(reference_data_dir).expanduser().resolve() if reference_data_dir else None,
+        output_dir=Path(output_dir).expanduser().resolve() if output_dir else None,
+        user_agent=user_agent,
+        simfin_api_key=simfin_api_key,
     )
 
     print(f"Open-source cadrage written to: {result.output_dir}")
     print(f"Tickers: {', '.join(result.tickers)}")
-    print(f"S&P 500 {args.year} tickers audited: {result.sp500_ticker_count}")
+    print(f"S&P 500 {year} tickers audited: {result.sp500_ticker_count}")
     print(f"Tickers available in Yahoo or SEC: {result.coverage_available_in_yahoo_or_sec}")
     print(f"Yahoo price rows: {result.price_rows}")
     print(f"SEC financial rows: {result.sec_rows}")

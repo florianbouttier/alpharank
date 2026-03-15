@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import csv
 import json
 import statistics
 import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -35,22 +35,15 @@ def bench_polars(
     runs: int,
     logs_dir: Path,
 ) -> Dict[str, float]:
-    script = alpharank_repo / "scripts" / "run_legacy.py"
     cmd = [
-        "python3",
-        str(script),
-        "--n-trials",
-        str(n_trials),
-        "--n-jobs",
-        "1",
-        "--first-date",
-        first_date,
-        "--data-dir",
-        str(data_dir),
-        "--output-dir",
-        str(output_dir),
-        "--checkpoints-dir",
-        str(checkpoints_dir),
+        sys.executable,
+        "-c",
+        (
+            "from scripts.run_legacy import main; "
+            f"main(n_trials={n_trials}, n_jobs=1, first_date={first_date!r}, "
+            f"data_dir={str(data_dir)!r}, output_dir={str(output_dir)!r}, "
+            f"checkpoints_dir={str(checkpoints_dir)!r})"
+        ),
     ]
 
     for i in range(warmups):
@@ -70,22 +63,38 @@ def bench_polars(
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Benchmark legacy polars runtime on a subset dataset.")
-    parser.add_argument("--alpharank-repo", type=str, required=True)
-    parser.add_argument("--data-dir", type=str, required=True)
-    parser.add_argument("--results-dir", type=str, required=True)
-    parser.add_argument("--logs-dir", type=str, required=True)
-    parser.add_argument("--n-trials", type=int, default=2)
-    parser.add_argument("--first-date", type=str, default="2020-01")
-    parser.add_argument("--warmups", type=int, default=1)
-    parser.add_argument("--runs", type=int, default=3)
-    args = parser.parse_args()
-
-    alpharank_repo = Path(args.alpharank_repo).resolve()
-    data_dir = Path(args.data_dir).resolve()
-    results_dir = Path(args.results_dir).resolve()
-    logs_dir = Path(args.logs_dir).resolve()
+def main(
+    *,
+    alpharank_repo: str | Path | None = None,
+    data_dir: str | Path | None = None,
+    results_dir: str | Path | None = None,
+    logs_dir: str | Path | None = None,
+    n_trials: int = 2,
+    first_date: str = "2020-01",
+    warmups: int = 1,
+    runs: int = 3,
+) -> None:
+    benchmark_repo_root = Path(__file__).resolve().parents[1]
+    alpharank_repo = (
+        Path(alpharank_repo).expanduser().resolve()
+        if alpharank_repo
+        else benchmark_repo_root.parents[1]
+    )
+    data_dir = (
+        Path(data_dir).expanduser().resolve()
+        if data_dir
+        else benchmark_repo_root / "data" / "subset_legacy_v1"
+    )
+    results_dir = (
+        Path(results_dir).expanduser().resolve()
+        if results_dir
+        else benchmark_repo_root / "results" / "legacy_v1"
+    )
+    logs_dir = (
+        Path(logs_dir).expanduser().resolve()
+        if logs_dir
+        else benchmark_repo_root / "logs" / "legacy_v1"
+    )
     output_dir = results_dir / "outputs"
     checkpoints_dir = results_dir / "checkpoints"
 
@@ -97,10 +106,10 @@ def main() -> None:
         data_dir=data_dir,
         output_dir=output_dir,
         checkpoints_dir=checkpoints_dir,
-        n_trials=args.n_trials,
-        first_date=args.first_date,
-        warmups=args.warmups,
-        runs=args.runs,
+        n_trials=n_trials,
+        first_date=first_date,
+        warmups=warmups,
+        runs=runs,
         logs_dir=logs_dir,
     )
 
@@ -109,10 +118,10 @@ def main() -> None:
         "alpharank_repo": str(alpharank_repo),
         "data_dir": str(data_dir),
         "config": {
-            "n_trials": args.n_trials,
-            "first_date": args.first_date,
-            "warmups": args.warmups,
-            "runs": args.runs,
+            "n_trials": n_trials,
+            "first_date": first_date,
+            "warmups": warmups,
+            "runs": runs,
         },
         "polars": polars_stats,
     }

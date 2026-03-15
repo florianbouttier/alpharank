@@ -216,6 +216,8 @@ The script exposes these helpers:
 
 Important:
 
+- prefer `main(...)` parameters and notebook helpers over `argparse` for the user-facing workflow scripts
+- the user does not want CLI flag orchestration for the main flows; if a script is meant to be edited and launched locally, keep the parameters explicit in code
 - `run_learning(...)` writes top-level intermediate files immediately:
   - `model_frame.parquet`
   - `predictions.parquet`
@@ -392,6 +394,7 @@ Recent useful history on `update_probalisor` after the history rewrite:
 - If performance does not improve, explain why concretely.
 - If a result is optimistic, provide audit surfaces instead of hand-waving.
 - The user values directness over polish.
+- The user does not want `argparse` in the main workflow scripts; prefer editable `main(...)` arguments.
 
 ### 4.10 Reload caveat
 
