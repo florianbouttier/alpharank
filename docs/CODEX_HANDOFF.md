@@ -70,6 +70,16 @@ Do not reconstruct feature formulas from memory when this document exists. Updat
 - benchmark work for legacy exists under:
   - `benchmarks/legacy-benchmark-repo/`
 - benchmark data/logs/results are intentionally ignored from git.
+- `run_legacy.py` now writes reusable parquet audit artifacts in addition to HTML:
+  - `legacy_comparison_curves_polars.parquet`
+  - `legacy_aggregated_returns_polars.parquet`
+  - `legacy_detailed_returns_polars.parquet`
+  - `legacy_monthly_returns_polars.parquet`
+  - `legacy_cumulative_returns_polars.parquet`
+  - `legacy_drawdowns_polars.parquet`
+  - `legacy_annual_returns_polars.parquet`
+  - `legacy_metrics_polars.parquet`
+- the same family is also checkpointed under `outputs/checkpoints/` for reload without rerunning the whole legacy pipeline
 
 ## 4. Backtest pipeline state
 

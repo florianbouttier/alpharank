@@ -83,6 +83,50 @@ def _sort_monthly_frame(df: Any) -> pl.DataFrame:
     return out
 
 
+def _named_frames_to_long(named_frames: Dict[str, Any], *, label_col: str = "model") -> pl.DataFrame:
+    frames: list[pl.DataFrame] = []
+    for label, frame in named_frames.items():
+        sorted_frame = _sort_monthly_frame(frame)
+        if sorted_frame.is_empty():
+            continue
+        frames.append(
+            sorted_frame.with_columns(pl.lit(label).alias(label_col)).select(
+                [label_col, *sorted_frame.columns]
+            )
+        )
+
+    if not frames:
+        return pl.DataFrame(schema={label_col: pl.Utf8})
+
+    combined = pl.concat(frames, how="vertical_relaxed")
+    sort_cols = [c for c in [label_col, "year_month", "ticker"] if c in combined.columns]
+    if sort_cols:
+        combined = combined.sort(sort_cols)
+    return combined
+
+
+def _indexed_frame_to_polars(df: Any, *, index_name: str = "year_month") -> pl.DataFrame:
+    if isinstance(df, pl.DataFrame):
+        return df
+
+    if isinstance(df, pd.Series):
+        value_name = df.name if df.name is not None else "value"
+        out = df.rename(value_name).rename_axis(index_name).reset_index()
+    elif isinstance(df, pd.DataFrame):
+        out = df.reset_index(names=index_name) if df.index.name is not None else df.reset_index()
+    else:
+        out = pd.DataFrame(df)
+
+    out = out.rename(columns={"index": index_name})
+    return to_polars(out)
+
+
+def _write_artifact_frame(frame: Any, output_path: Path) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    _sort_monthly_frame(frame).write_parquet(output_path)
+    return output_path
+
+
 def _extract_start_year(first_date: str) -> int:
     try:
         return int(str(first_date).split("-")[0])
@@ -388,6 +432,9 @@ def run_pipeline(
     )
     _write_checkpoint(combined_equal["aggregated"], checkpoints_dir, f"{backend}_combined_equal")
     _write_checkpoint(combined_frequency["aggregated"], checkpoints_dir, f"{backend}_combined_frequency")
+    _write_checkpoint(combined_equal["detailed"], checkpoints_dir, f"{backend}_combined_equal_detailed")
+    _write_checkpoint(combined_frequency["detailed"], checkpoints_dir, f"{backend}_combined_frequency_detailed")
+    _write_checkpoint(index_data.monthly_returns, checkpoints_dir, f"{backend}_sp500")
 
     models = {
         "Legacy_Optuna_11": to_pandas(_sort_monthly_frame(optuna_output_1["aggregated"])),
@@ -403,6 +450,37 @@ def run_pipeline(
         start_year=_extract_start_year(first_date),
     )
     _write_checkpoint(metrics.reset_index().rename(columns={"index": "model"}), checkpoints_dir, f"{backend}_metrics")
+
+    detailed_outputs = {
+        "Legacy_Optuna_11": optuna_output_1["detailed"],
+        "Legacy_Optuna_12": optuna_output_12["detailed"],
+        "Legacy_Optuna_21": optuna_output_21["detailed"],
+        "Legacy_Optuna_22": optuna_output_22["detailed"],
+        "Combined_Equal": combined_equal["detailed"],
+        "Combined_Frequency": combined_frequency["detailed"],
+    }
+    aggregated_outputs = {
+        "Legacy_Optuna_11": optuna_output_1["aggregated"],
+        "Legacy_Optuna_12": optuna_output_12["aggregated"],
+        "Legacy_Optuna_21": optuna_output_21["aggregated"],
+        "Legacy_Optuna_22": optuna_output_22["aggregated"],
+        "Combined_Equal": combined_equal["aggregated"],
+        "Combined_Frequency": combined_frequency["aggregated"],
+        "SP500": index_data.monthly_returns,
+    }
+    comparison_curves_long = _named_frames_to_long(models)
+    detailed_returns_long = _named_frames_to_long(detailed_outputs)
+    aggregated_returns_long = _named_frames_to_long(aggregated_outputs)
+    comparison_monthly_returns_long = _named_frames_to_long(
+        {
+            model_name: _indexed_frame_to_polars(returns_series.rename("monthly_return"))
+            for model_name, returns_series in monthly_returns.items()
+        }
+    )
+    _write_checkpoint(comparison_curves_long, checkpoints_dir, f"{backend}_comparison_curves")
+    _write_checkpoint(aggregated_returns_long, checkpoints_dir, f"{backend}_aggregated_returns")
+    _write_checkpoint(detailed_returns_long, checkpoints_dir, f"{backend}_detailed_returns")
+    _write_checkpoint(comparison_monthly_returns_long, checkpoints_dir, f"{backend}_comparison_monthly_returns")
 
     print("Generating reports...")
     comparison_html = PortfolioVisualizer.make_comparison_report(
@@ -421,6 +499,39 @@ def run_pipeline(
     file_suffix = "_test" if is_test_run else datetime.now().strftime("%Y-%m-%d")
     comparison_file = run_day_dir / f"performance_of_models_{backend}{file_suffix}.html"
     _save_html(comparison_html, comparison_file)
+
+    comparison_curves_file = _write_artifact_frame(
+        comparison_curves_long,
+        run_day_dir / f"legacy_comparison_curves_{backend}.parquet",
+    )
+    aggregated_returns_file = _write_artifact_frame(
+        aggregated_returns_long,
+        run_day_dir / f"legacy_aggregated_returns_{backend}.parquet",
+    )
+    detailed_returns_file = _write_artifact_frame(
+        detailed_returns_long,
+        run_day_dir / f"legacy_detailed_returns_{backend}.parquet",
+    )
+    monthly_returns_file = _write_artifact_frame(
+        comparison_monthly_returns_long,
+        run_day_dir / f"legacy_monthly_returns_{backend}.parquet",
+    )
+    cumulative_returns_file = _write_artifact_frame(
+        _indexed_frame_to_polars(cumulative),
+        run_day_dir / f"legacy_cumulative_returns_{backend}.parquet",
+    )
+    drawdowns_file = _write_artifact_frame(
+        _indexed_frame_to_polars(drawdowns),
+        run_day_dir / f"legacy_drawdowns_{backend}.parquet",
+    )
+    annual_returns_file = _write_artifact_frame(
+        _indexed_frame_to_polars(annual_returns),
+        run_day_dir / f"legacy_annual_returns_{backend}.parquet",
+    )
+    metrics_file = _write_artifact_frame(
+        metrics.reset_index().rename(columns={"index": "model"}),
+        run_day_dir / f"legacy_metrics_{backend}.parquet",
+    )
 
     if "close" not in final_price.columns and "adjusted_close" in final_price.columns:
         final_price_long = final_price.rename({"adjusted_close": "close"})
@@ -542,6 +653,14 @@ def run_pipeline(
         metrics=metrics,
         artifacts={
             "comparison_html": comparison_file,
+            "comparison_curves": comparison_curves_file,
+            "aggregated_returns": aggregated_returns_file,
+            "detailed_returns": detailed_returns_file,
+            "monthly_returns": monthly_returns_file,
+            "cumulative_returns": cumulative_returns_file,
+            "drawdowns": drawdowns_file,
+            "annual_returns": annual_returns_file,
+            "metrics": metrics_file,
             "portfolio_frequency_html": freq_file,
             "portfolio_equal_html": equal_file,
             "data_input_manifest": run_day_dir / "data_input_manifest.json",
