@@ -45,6 +45,7 @@ from alpharank.backtest.reporting import (
     write_html_report,
 )
 from alpharank.backtest.time_folds import filter_by_months, rolling_fold_windows
+from alpharank.data.lineage import load_latest_manifest, write_manifest
 
 
 @dataclass
@@ -309,15 +310,103 @@ def _apply_data_quality_ticker_exclusions(
         earnings=_filter_frame_on_tickers(raw.earnings, excluded_tickers),
         constituents=_filter_frame_on_tickers(raw.constituents, excluded_tickers),
         sp500_price=raw.sp500_price,
+        source_paths=raw.source_paths,
     )
 
 
-def _prepare_modeling_frame(config: BacktestConfig) -> tuple[pl.DataFrame, List[str], List[str]]:
+def _resolve_lineage_root(data_dir: Path) -> Path:
+    if (data_dir / "latest_snapshot.json").exists():
+        return data_dir
+    if data_dir.name.upper() == "US" and (data_dir.parent / "latest_snapshot.json").exists():
+        return data_dir.parent
+    return data_dir
+
+
+def _raw_bundle_frames(raw: RawDataBundle) -> Dict[str, pl.DataFrame]:
+    return {
+        "final_price": raw.final_price,
+        "income_statement": raw.income_statement,
+        "balance_sheet": raw.balance_sheet,
+        "cash_flow": raw.cash_flow,
+        "earnings": raw.earnings,
+        "sp500_constituents": raw.constituents,
+        "sp500_price": raw.sp500_price,
+    }
+
+
+def _snapshot_path_match_status(source_paths: Dict[str, Path], latest_snapshot: Dict[str, Any] | None) -> str | None:
+    if latest_snapshot is None:
+        return None
+
+    manifest_paths = {
+        str(Path(entry["canonical_path"]).resolve())
+        for entry in latest_snapshot.get("datasets", {}).values()
+        if entry.get("canonical_path")
+    }
+    input_paths = {str(path.resolve()) for path in source_paths.values()}
+    if not input_paths or not manifest_paths:
+        return None
+    if input_paths.issubset(manifest_paths):
+        return "full_match"
+    if input_paths & manifest_paths:
+        return "partial_match"
+    return "no_path_match"
+
+
+def _write_run_data_input_manifest(
+    *,
+    run_dir: Path,
+    data_dir: Path,
+    raw: RawDataBundle,
+) -> Dict[str, Any]:
+    lineage_root = _resolve_lineage_root(data_dir)
+    latest_snapshot = load_latest_manifest(lineage_root)
+    source_snapshot_match = _snapshot_path_match_status(raw.source_paths, latest_snapshot)
+    extra: Dict[str, Any] = {
+        "run_dir": str(run_dir.resolve()),
+        "data_dir": str(data_dir.resolve()),
+        "lineage_root": str(lineage_root.resolve()),
+        "consumer": "alpharank.backtest.run_learning_phase",
+    }
+    if latest_snapshot is not None:
+        extra["source_snapshot_id"] = latest_snapshot.get("snapshot_id")
+        extra["source_snapshot_generated_at"] = latest_snapshot.get("generated_at")
+        extra["source_snapshot_dir"] = latest_snapshot.get("snapshot_dir")
+        extra["source_snapshot_manifest_path"] = latest_snapshot.get("manifest_path")
+    if source_snapshot_match is not None:
+        extra["source_snapshot_match"] = source_snapshot_match
+
+    return write_manifest(
+        manifest_path=run_dir / "data_input_manifest.json",
+        files=raw.source_paths,
+        frames=_raw_bundle_frames(raw),
+        extra={key: value for key, value in extra.items() if value is not None},
+    )
+
+
+def _read_run_data_lineage(run_dir: Path) -> Dict[str, Any]:
+    manifest_path = run_dir / "data_input_manifest.json"
+    if not manifest_path.exists():
+        return {}
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return {
+        "data_input_manifest": str(manifest_path),
+        "input_snapshot_id": manifest.get("snapshot_id"),
+        "source_data_snapshot_id": manifest.get("source_snapshot_id"),
+        "source_snapshot_match": manifest.get("source_snapshot_match"),
+        "source_snapshot_manifest_path": manifest.get("source_snapshot_manifest_path"),
+        "source_snapshot_dir": manifest.get("source_snapshot_dir"),
+    }
+
+
+def _prepare_modeling_frame(config: BacktestConfig, *, run_dir: Path) -> tuple[pl.DataFrame, List[str], List[str]]:
     raw = load_raw_data(
         config.data_dir,
         final_price_path=config.final_price_path,
         sp500_price_path=config.sp500_price_path,
     )
+    _write_run_data_input_manifest(run_dir=run_dir, data_dir=config.data_dir, raw=raw)
     raw = _apply_data_quality_ticker_exclusions(raw, config.excluded_tickers)
     if config.verbose and config.excluded_tickers:
         print(
@@ -541,7 +630,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     figures_dir = run_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
 
-    model_frame, features_used, dropped_features = _prepare_modeling_frame(config)
+    model_frame, features_used, dropped_features = _prepare_modeling_frame(config, run_dir=run_dir)
 
     months = (
         model_frame.select("year_month")
@@ -1117,6 +1206,7 @@ def _finalize_backtest_run(
         "run_dir": learning.run_dir,
         "model_frame": learning.run_dir / "model_frame.parquet",
         "predictions": learning.run_dir / "predictions.parquet",
+        "data_input_manifest": learning.run_dir / "data_input_manifest.json",
         "selections": learning.run_dir / "selections.parquet",
         "monthly_returns": learning.run_dir / "monthly_returns.parquet",
         "fold_monthly_returns": learning.run_dir / "fold_monthly_returns.parquet",
@@ -1159,6 +1249,7 @@ def _finalize_backtest_run(
         "n_completed_folds": int(fold_metrics.height),
         "n_total_windows": int(learning.total_windows),
         "target_definition": "((1 + future_return) / (1 + benchmark_future_return) - 1) > outperformance_threshold",
+        "data_lineage": _read_run_data_lineage(learning.run_dir),
         "config": {
             "data_dir": str(config.data_dir),
             "output_dir": str(config.output_dir),

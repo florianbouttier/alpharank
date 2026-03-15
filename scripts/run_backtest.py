@@ -146,6 +146,7 @@ def _learning_paths(run_dir: Path) -> dict[str, Path]:
         "fold_metrics": run_dir / "fold_metrics.parquet",
         "fold_index": run_dir / "fold_index.parquet",
         "best_params": run_dir / "best_params.parquet",
+        "data_input_manifest": run_dir / "data_input_manifest.json",
         "learning_metadata": run_dir / "learning_metadata.json",
         "metadata": run_dir / "metadata.json",
     }
@@ -156,6 +157,22 @@ def _resolve_run_dir(run_dir: str | Path) -> Path:
     if not resolved.exists():
         raise FileNotFoundError(f"Run directory not found: {resolved}")
     return resolved
+
+
+def _read_data_lineage(run_dir: Path) -> dict[str, Any]:
+    manifest_path = run_dir / "data_input_manifest.json"
+    if not manifest_path.exists():
+        return {}
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return {
+        "data_input_manifest": str(manifest_path),
+        "input_snapshot_id": manifest.get("snapshot_id"),
+        "source_data_snapshot_id": manifest.get("source_snapshot_id"),
+        "source_snapshot_match": manifest.get("source_snapshot_match"),
+        "source_snapshot_manifest_path": manifest.get("source_snapshot_manifest_path"),
+        "source_snapshot_dir": manifest.get("source_snapshot_dir"),
+    }
 
 
 def save_learning_outputs(config: BacktestConfig, learning: LearningArtifacts) -> dict[str, Path]:
@@ -175,6 +192,7 @@ def save_learning_outputs(config: BacktestConfig, learning: LearningArtifacts) -
         "dropped_features": learning.dropped_features,
         "n_completed_folds": int(learning.fold_metrics.height),
         "n_total_windows": int(learning.total_windows),
+        "data_lineage": _read_data_lineage(learning.run_dir),
         "config": _config_to_metadata(config),
     }
     paths["learning_metadata"].write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -257,6 +275,14 @@ def load_fold_predictions(run_dir: str | Path, fold: int) -> pl.DataFrame:
     return pl.read_parquet(fold_path)
 
 
+def load_data_input_manifest(run_dir: str | Path) -> dict[str, Any]:
+    resolved_run_dir = _resolve_run_dir(run_dir)
+    manifest_path = resolved_run_dir / "data_input_manifest.json"
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Missing data input manifest: {manifest_path}")
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
 def load_fold_monthly_returns(run_dir: str | Path, fold: int) -> pl.DataFrame:
     resolved_run_dir = _resolve_run_dir(run_dir)
     fold_path = resolved_run_dir / f"fold_{int(fold):02d}" / "monthly_returns.parquet"
@@ -315,8 +341,15 @@ def run(config: BacktestConfig | None = None) -> BacktestArtifacts:
 
 def main() -> BacktestArtifacts:
     artifacts = run()
+    data_lineage = _read_data_lineage(Path(artifacts.output_paths["run_dir"]))
     print("\n=== Backtest Completed ===")
     print(f"Run dir: {artifacts.output_paths['run_dir']}")
+    if "data_input_manifest" in artifacts.output_paths:
+        print(f"Data manifest: {artifacts.output_paths['data_input_manifest']}")
+    if data_lineage.get("source_data_snapshot_id") is not None:
+        print(f"Source data snapshot: {data_lineage['source_data_snapshot_id']}")
+    if data_lineage.get("source_snapshot_match") is not None:
+        print(f"Snapshot match: {data_lineage['source_snapshot_match']}")
     print(f"Predictions rows: {artifacts.predictions.height}")
     print(f"Selections rows: {artifacts.selections.height}")
     print(f"Completed folds: {artifacts.fold_metrics.height}")

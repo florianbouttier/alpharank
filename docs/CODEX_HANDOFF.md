@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-03-14
+Last updated: 2026-03-15
 Branch at write time: `update_probalisor`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -234,12 +234,25 @@ Important:
   - `fold_metrics.parquet`
   - `fold_index.parquet`
   - `best_params.parquet`
+  - `data_input_manifest.json`
   - `learning_metadata.json`
 - each fold still keeps its own folder with:
   - `fold_##/predictions.parquet`
   - `fold_##/optuna_trials.csv`
   - `fold_##/best_params.json`
   - SHAP / Optuna / calibration assets
+
+Prediction/data lineage is now explicit at the run-folder level:
+
+- each `xgboost_timefold_backtest_YYYYMMDD_HHMMSS/` directory should be treated as a prediction snapshot
+- `data_input_manifest.json` records the exact input files used for that run, including canonical paths, hashes, timestamps, and frame summaries
+- when a data snapshot exists under `data/latest_snapshot.json`, the run manifest also stores:
+  - `source_snapshot_id`
+  - `source_snapshot_manifest_path`
+  - `source_snapshot_dir`
+  - `source_snapshot_match` (`full_match`, `partial_match`, or `no_path_match`)
+- `learning_metadata.json` and final `metadata.json` both expose a compact `data_lineage` block so you can tell immediately which data snapshot produced the predictions
+- notebook/helper access point: `load_data_input_manifest(run_dir)` in `scripts/run_backtest.py`
 
 This separation exists because the user wants explicit control over:
 

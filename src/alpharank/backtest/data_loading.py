@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable
 
@@ -16,6 +16,7 @@ class RawDataBundle:
     earnings: pl.DataFrame
     constituents: pl.DataFrame
     sp500_price: pl.DataFrame
+    source_paths: Dict[str, Path] = field(default_factory=dict)
 
 
 def _resolve_dataset_dir(data_dir: Path) -> Path:
@@ -23,19 +24,24 @@ def _resolve_dataset_dir(data_dir: Path) -> Path:
     return us_dir if us_dir.exists() else data_dir
 
 
-def _read_parquet_with_fallbacks(base_dir: Path, candidates: Iterable[str]) -> pl.DataFrame:
+def _resolve_existing_path(base_dir: Path, candidates: Iterable[str]) -> Path:
     for name in candidates:
         candidate = base_dir / name
         if candidate.exists():
-            return pl.read_parquet(candidate)
+            return candidate
     raise FileNotFoundError(f"Could not locate parquet file in {base_dir} among: {list(candidates)}")
 
 
-def _read_csv_with_fallbacks(base_dir: Path, candidates: Iterable[str]) -> pl.DataFrame:
+def _read_parquet_with_fallbacks(base_dir: Path, candidates: Iterable[str]) -> tuple[pl.DataFrame, Path]:
+    path = _resolve_existing_path(base_dir, candidates)
+    return pl.read_parquet(path), path
+
+
+def _read_csv_with_fallbacks(base_dir: Path, candidates: Iterable[str]) -> tuple[pl.DataFrame, Path]:
     for name in candidates:
         candidate = base_dir / name
         if candidate.exists():
-            return pl.read_csv(candidate, try_parse_dates=True)
+            return pl.read_csv(candidate, try_parse_dates=True), candidate
     raise FileNotFoundError(f"Could not locate csv file in {base_dir} among: {list(candidates)}")
 
 
@@ -46,38 +52,62 @@ def load_raw_data(
     sp500_price_path: Path | None = None,
 ) -> RawDataBundle:
     base_dir = _resolve_dataset_dir(data_dir)
-    final_price = pl.read_parquet(final_price_path) if final_price_path is not None else _read_parquet_with_fallbacks(
+    if final_price_path is not None:
+        final_price_source = Path(final_price_path)
+        final_price = pl.read_parquet(final_price_source)
+    else:
+        final_price, final_price_source = _read_parquet_with_fallbacks(
+            base_dir,
+            ["US_Finalprice.parquet", "US_finalprice.parquet"],
+        )
+
+    if sp500_price_path is not None:
+        sp500_price_source = Path(sp500_price_path)
+        sp500_price = pl.read_parquet(sp500_price_source)
+    else:
+        sp500_price, sp500_price_source = _read_parquet_with_fallbacks(
+            base_dir,
+            ["SP500Price.parquet", "SP500_price.parquet"],
+        )
+
+    income_statement, income_statement_source = _read_parquet_with_fallbacks(
         base_dir,
-        ["US_Finalprice.parquet", "US_finalprice.parquet"],
+        ["US_Income_statement.parquet", "US_income_statement.parquet"],
     )
-    sp500_price = pl.read_parquet(sp500_price_path) if sp500_price_path is not None else _read_parquet_with_fallbacks(
+    balance_sheet, balance_sheet_source = _read_parquet_with_fallbacks(
         base_dir,
-        ["SP500Price.parquet", "SP500_price.parquet"],
+        ["US_Balance_sheet.parquet", "US_balance_sheet.parquet"],
+    )
+    cash_flow, cash_flow_source = _read_parquet_with_fallbacks(
+        base_dir,
+        ["US_Cash_flow.parquet", "US_cash_flow.parquet"],
+    )
+    earnings, earnings_source = _read_parquet_with_fallbacks(
+        base_dir,
+        ["US_Earnings.parquet", "US_earnings.parquet"],
+    )
+    constituents, constituents_source = _read_csv_with_fallbacks(
+        base_dir,
+        ["SP500_Constituents.csv", "sp500_constituents.csv"],
     )
 
     return RawDataBundle(
         final_price=final_price,
-        income_statement=_read_parquet_with_fallbacks(
-            base_dir,
-            ["US_Income_statement.parquet", "US_income_statement.parquet"],
-        ),
-        balance_sheet=_read_parquet_with_fallbacks(
-            base_dir,
-            ["US_Balance_sheet.parquet", "US_balance_sheet.parquet"],
-        ),
-        cash_flow=_read_parquet_with_fallbacks(
-            base_dir,
-            ["US_Cash_flow.parquet", "US_cash_flow.parquet"],
-        ),
-        earnings=_read_parquet_with_fallbacks(
-            base_dir,
-            ["US_Earnings.parquet", "US_earnings.parquet"],
-        ),
-        constituents=_read_csv_with_fallbacks(
-            base_dir,
-            ["SP500_Constituents.csv", "sp500_constituents.csv"],
-        ),
+        income_statement=income_statement,
+        balance_sheet=balance_sheet,
+        cash_flow=cash_flow,
+        earnings=earnings,
+        constituents=constituents,
         sp500_price=sp500_price,
+        source_paths={
+            "final_price": final_price_source,
+            "income_statement": income_statement_source,
+            "balance_sheet": balance_sheet_source,
+            "cash_flow": cash_flow_source,
+            "earnings": earnings_source,
+            "sp500_constituents": constituents_source,
+            "sp500_price": sp500_price_source,
+        },
     )
 
 
