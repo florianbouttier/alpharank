@@ -391,25 +391,12 @@ class PortfolioVisualizer:
         cumulative_metrics_dict, 
         annual_metrics_dict,
         monthly_returns_dict,
-        positions_dict=None,
         title="Portfolio Strategy Comparison"
     ):
         """
         Generates a comprehensive interactive HTML report comparing multiple strategies.
         Features Tabbed Interface for Deep Dive into every KPI.
         """
-
-        positions_dict = positions_dict or {}
-
-        def _plotly_fragment(fig, *, height: str | int = "100%") -> str:
-            return pio.to_html(
-                fig,
-                full_html=False,
-                include_plotlyjs=False,
-                config={"responsive": True, "displaylogo": False},
-                default_width="100%",
-                default_height=height,
-            )
 
         # Determine common date range for subtitle
         try:
@@ -438,10 +425,9 @@ class PortfolioVisualizer:
                 yaxis_title="Value (Start=100)", 
                 template="plotly_white", 
                 height=500, 
-                hovermode="x unified",
-                margin=dict(l=40, r=20, t=80, b=40),
+                hovermode="x unified"
             )
-            html_cum = _plotly_fragment(fig_cum, height=500)
+            html_cum = pio.to_html(fig_cum, full_html=True, include_plotlyjs=True)
         except Exception as e:
             html_cum = f"<div class='alert alert-danger'>Error: {e}</div>"
 
@@ -455,40 +441,11 @@ class PortfolioVisualizer:
                 yaxis_tickformat='.1%', 
                 template="plotly_white", 
                 height=400, 
-                hovermode="x unified",
-                margin=dict(l=40, r=20, t=80, b=40),
+                hovermode="x unified"
             )
-            html_dd = _plotly_fragment(fig_dd, height=400)
+            html_dd = pio.to_html(fig_dd, full_html=True, include_plotlyjs=True)
         except Exception as e:
              html_dd = f"<div class='alert alert-danger'>Error: {e}</div>"
-
-        # --- 2b. Number of Positions ---
-        html_positions = ""
-        if positions_dict:
-            try:
-                fig_positions = go.Figure()
-                for model_name, positions_series in positions_dict.items():
-                    if positions_series is None or positions_series.empty:
-                        continue
-                    fig_positions.add_trace(
-                        go.Scatter(
-                            x=positions_series.index.to_timestamp(),
-                            y=positions_series.values,
-                            mode='lines',
-                            name=model_name,
-                        )
-                    )
-                fig_positions.update_layout(
-                    title=f'Number of Positions by Date<br><sup>{date_range_str}</sup>',
-                    yaxis_title='Positions',
-                    template="plotly_white",
-                    height=400,
-                    hovermode="x unified",
-                    margin=dict(l=40, r=20, t=80, b=40),
-                )
-                html_positions = _plotly_fragment(fig_positions, height=400)
-            except Exception as e:
-                html_positions = f"<div class='alert alert-danger'>Error: {e}</div>"
 
         # --- 3. KPI Deep Dive Heatmaps (Tabbed) ---
         kpi_htmls = {}
@@ -502,15 +459,7 @@ class PortfolioVisualizer:
                 if df_cum is None or df_ann is None: continue
 
                 # Subplots: Top=Cumulative, Bottom=Annual
-                fig = make_subplots(
-                    rows=2,
-                    cols=1,
-                    subplot_titles=(
-                        f"{metric}: Cumulative from Start Year (Consistency)",
-                        f"{metric}: Discrete Annual Performance",
-                    ),
-                    vertical_spacing=0.12,
-                )
+                fig = make_subplots(rows=2, cols=1, subplot_titles=(f"{metric}: Cumulative from Start Year (Consistency)", f"{metric}: Discrete Annual Performance"), vertical_spacing=0.20)
                 
                 def _add_heatmap(df, row, col, colorscale='RdYlGn'):
                     # Force numeric
@@ -526,45 +475,19 @@ class PortfolioVisualizer:
                     fig.add_trace(go.Heatmap(
                         z=z, x=x, y=y, 
                         texttemplate=fmt_str,
-                        textfont={"size": 12},
-                        colorscale=colorscale,
-                        coloraxis="coloraxis",
-                        xgap=1,
-                        ygap=1,
-                        hovertemplate=(
-                            "Model=%{y}<br>"
-                            "Year=%{x}<br>"
-                            f"{metric}=" + ("%{z:.2%}" if is_pct else "%{z:.3f}") +
-                            "<extra></extra>"
-                        ),
+                        textfont={"size": 11},
+                        colorscale=colorscale, 
+                        showscale=True
                     ), row=row, col=col)
                     
                     # Force X-axis to be integers (Years)
                     fig.update_xaxes(type='category', row=row, col=col)
-                    fig.update_yaxes(type='category', row=row, col=col)
 
-                is_diverging_metric = metric not in ['Annualized Volatility']
-                colorscale = 'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn'
-                _add_heatmap(df_cum, 1, 1, colorscale)
-                _add_heatmap(df_ann, 2, 1, colorscale)
+                _add_heatmap(df_cum, 1, 1, 'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn')
+                _add_heatmap(df_ann, 2, 1, 'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn')
                 
-                fig.update_layout(
-                    height=980,
-                    title_text=f"Deep Dive: {metric}",
-                    template="plotly_white",
-                    margin=dict(l=160, r=60, t=100, b=40),
-                    coloraxis=dict(
-                        colorscale=colorscale,
-                        cmid=0 if is_diverging_metric else None,
-                        colorbar=dict(
-                            title=metric,
-                            thickness=16,
-                            len=0.9,
-                            y=0.5,
-                        ),
-                    ),
-                )
-                kpi_htmls[metric] = _plotly_fragment(fig, height=980)
+                fig.update_layout(height=900, title_text=f"Deep Dive: {metric}", template="plotly_white")
+                kpi_htmls[metric] = pio.to_html(fig, full_html=False, include_plotlyjs=True)
             except Exception as e:
                 kpi_htmls[metric] = f"<div class='alert alert-danger'>Error: {e}</div>"
 
@@ -594,10 +517,9 @@ class PortfolioVisualizer:
                     title=f'{model_name} - Monthly Returns', 
                     height=max(400, len(pivot_df)*40), 
                     template="plotly_white",
-                    margin=dict(l=60, r=20, t=80, b=40),
                     yaxis=dict(dtick=1, type='category') # Ensure years are distinct
                 )
-                monthly_htmls[model_name] = _plotly_fragment(fig, height=max(400, len(pivot_df)*40))
+                monthly_htmls[model_name] = pio.to_html(fig, full_html=False, include_plotlyjs=true)
             except Exception as e: pass
 
         # --- G. Risk-Reward Scatter ---
@@ -620,10 +542,9 @@ class PortfolioVisualizer:
                      xaxis_tickformat='.0%', 
                      yaxis_tickformat='.0%', 
                      template="plotly_white", 
-                     height=400,
-                     margin=dict(l=40, r=20, t=80, b=40),
+                     height=400
                   )
-                 html_rr = _plotly_fragment(fig_rr, height=400)
+                 html_rr = pio.to_html(fig_rr, full_html=True, include_plotlyjs=True)
         except Exception: pass
         
         # --- Correlation Matrix ---
@@ -640,10 +561,9 @@ class PortfolioVisualizer:
             fig_corr.update_layout(
                 title=f'Correlation Matrix<br><sup>{date_range_str}</sup>', 
                 template="plotly_white", 
-                height=500,
-                margin=dict(l=40, r=20, t=80, b=40),
+                height=500
             )
-            html_corr = _plotly_fragment(fig_corr, height=500)
+            html_corr = pio.to_html(fig_corr, full_html=True, include_plotlyjs=True)
         except Exception: pass
 
         # --- Assemble HTML ---
@@ -670,10 +590,6 @@ class PortfolioVisualizer:
             mon_content += f'<div id="mon-{slug}" class="tab-pane fade {show}"><div class="chart-container">{html}</div></div>'
             first = False
 
-        positions_section = ""
-        if html_positions:
-            positions_section = f'<div class="card"><div class="card-body">{html_positions}</div></div>'
-
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -690,8 +606,7 @@ class PortfolioVisualizer:
                 body {{ background-color: #f8f9fa; padding: 20px; font-family: 'Segoe UI', sans-serif; }}
                 .card {{ margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; border-radius: 10px; }}
                 .card-header {{ background-color: #fff; border-bottom: 1px solid #eee; font-weight: bold; color: #333; }}
-                .chart-container {{ padding: 15px; background: white; border-radius: 8px; overflow-x: auto; }}
-                .chart-container .plotly-graph-div {{ width: 100% !important; }}
+                .chart-container {{ padding: 15px; background: white; border-radius: 8px; }}
                 h2 {{ color: #2c3e50; margin-bottom: 30px; font-weight: 700; }}
                 .nav-tabs .nav-link.active {{ background-color: #e9ECEF; font-weight: bold; color: #007bff; }}
                 .table-striped tbody tr:nth-of-type(odd) {{ background-color: rgba(0,0,0,.02); }}
@@ -713,7 +628,6 @@ class PortfolioVisualizer:
 
                 <div class="card"><div class="card-body">{html_cum}</div></div>
                 <div class="card"><div class="card-body">{html_dd}</div></div>
-                {positions_section}
                 
                 <div class="card">
                     <div class="card-header">KPI Stability Analysis (Annual vs Cumulative)</div>
