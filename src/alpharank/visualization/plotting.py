@@ -391,12 +391,14 @@ class PortfolioVisualizer:
         cumulative_metrics_dict, 
         annual_metrics_dict,
         monthly_returns_dict,
+        positions_dict=None,
         title="Portfolio Strategy Comparison"
     ):
         """
         Generates a comprehensive interactive HTML report comparing multiple strategies.
         Features Tabbed Interface for Deep Dive into every KPI.
         """
+        positions_dict = positions_dict or {}
 
         # Determine common date range for subtitle
         try:
@@ -447,6 +449,33 @@ class PortfolioVisualizer:
         except Exception as e:
              html_dd = f"<div class='alert alert-danger'>Error: {e}</div>"
 
+        # --- 2b. Number of Positions ---
+        html_positions = ""
+        if positions_dict:
+            try:
+                fig_positions = go.Figure()
+                for col, series in positions_dict.items():
+                    if series.empty:
+                        continue
+                    fig_positions.add_trace(
+                        go.Scatter(
+                            x=series.index.to_timestamp(),
+                            y=series.values,
+                            mode='lines',
+                            name=col,
+                        )
+                    )
+                fig_positions.update_layout(
+                    title=f"Number of Positions by Date<br><sup>{date_range_str}</sup>",
+                    yaxis_title="Positions",
+                    template="plotly_white",
+                    height=400,
+                    hovermode="x unified",
+                )
+                html_positions = pio.to_html(fig_positions, full_html=True, include_plotlyjs=True)
+            except Exception as e:
+                html_positions = f"<div class='alert alert-danger'>Error: {e}</div>"
+
         # --- 3. KPI Deep Dive Heatmaps (Tabbed) ---
         kpi_htmls = {}
         target_metrics = ['CAGR', 'Sharpe Ratio', 'Sortino Ratio', 'Max Drawdown', 'Annualized Volatility']
@@ -459,7 +488,15 @@ class PortfolioVisualizer:
                 if df_cum is None or df_ann is None: continue
 
                 # Subplots: Top=Cumulative, Bottom=Annual
-                fig = make_subplots(rows=2, cols=1, subplot_titles=(f"{metric}: Cumulative from Start Year (Consistency)", f"{metric}: Discrete Annual Performance"), vertical_spacing=0.20)
+                fig = make_subplots(
+                    rows=2,
+                    cols=1,
+                    subplot_titles=(
+                        f"{metric}: Cumulative from Start Year (Consistency)",
+                        f"{metric}: Discrete Annual Performance",
+                    ),
+                    vertical_spacing=0.16,
+                )
                 
                 def _add_heatmap(df, row, col, colorscale='RdYlGn'):
                     # Force numeric
@@ -486,7 +523,7 @@ class PortfolioVisualizer:
                 _add_heatmap(df_cum, 1, 1, 'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn')
                 _add_heatmap(df_ann, 2, 1, 'Viridis' if metric == 'Annualized Volatility' else 'RdYlGn')
                 
-                fig.update_layout(height=900, title_text=f"Deep Dive: {metric}", template="plotly_white")
+                fig.update_layout(height=1050, title_text=f"Deep Dive: {metric}", template="plotly_white")
                 kpi_htmls[metric] = pio.to_html(fig, full_html=False, include_plotlyjs=True)
             except Exception as e:
                 kpi_htmls[metric] = f"<div class='alert alert-danger'>Error: {e}</div>"
@@ -607,6 +644,7 @@ class PortfolioVisualizer:
                 .card {{ margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; border-radius: 10px; }}
                 .card-header {{ background-color: #fff; border-bottom: 1px solid #eee; font-weight: bold; color: #333; }}
                 .chart-container {{ padding: 15px; background: white; border-radius: 8px; }}
+                .chart-container .plotly-graph-div {{ width: 100% !important; }}
                 h2 {{ color: #2c3e50; margin-bottom: 30px; font-weight: 700; }}
                 .nav-tabs .nav-link.active {{ background-color: #e9ECEF; font-weight: bold; color: #007bff; }}
                 .table-striped tbody tr:nth-of-type(odd) {{ background-color: rgba(0,0,0,.02); }}
@@ -628,6 +666,7 @@ class PortfolioVisualizer:
 
                 <div class="card"><div class="card-body">{html_cum}</div></div>
                 <div class="card"><div class="card-body">{html_dd}</div></div>
+                {f'<div class="card"><div class="card-body">{html_positions}</div></div>' if html_positions else ''}
                 
                 <div class="card">
                     <div class="card-header">KPI Stability Analysis (Annual vs Cumulative)</div>
@@ -651,6 +690,28 @@ class PortfolioVisualizer:
                 </div>
 
             </div>
+            <script>
+                function resizeVisiblePlots(target) {{
+                    var scope = target || document;
+                    var plots = scope.querySelectorAll('.plotly-graph-div');
+                    plots.forEach(function(plot) {{
+                        if (window.Plotly && window.Plotly.Plots) {{
+                            window.Plotly.Plots.resize(plot);
+                        }}
+                    }});
+                }}
+                document.addEventListener('shown.bs.tab', function (event) {{
+                    var paneSelector = event.target.getAttribute('href');
+                    if (!paneSelector) return;
+                    var pane = document.querySelector(paneSelector);
+                    if (pane) {{
+                        setTimeout(function() {{ resizeVisiblePlots(pane); }}, 50);
+                    }}
+                }});
+                window.addEventListener('load', function () {{
+                    setTimeout(function() {{ resizeVisiblePlots(document); }}, 50);
+                }});
+            </script>
         </body>
         </html>
         """

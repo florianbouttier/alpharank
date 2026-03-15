@@ -261,6 +261,12 @@ def compare_backtest_curves(
         name: _standardize_curve_frame(curve, return_column=return_column)
         for name, curve in curves.items()
     }
+    positions_dict = {}
+    for name, frame in models_data.items():
+        if "n" not in frame.columns:
+            continue
+        month_index = pd.to_datetime(frame["year_month"]).dt.to_period("M")
+        positions_dict[name] = pd.Series(frame["n"].to_numpy(), index=month_index, name=name)
     empty_curves = [name for name, frame in models_data.items() if frame.empty]
     if empty_curves:
         raise ValueError(
@@ -294,6 +300,7 @@ def compare_backtest_curves(
         cumulative_metrics_dict=cumulative_metrics,
         annual_metrics_dict=annual_metrics,
         monthly_returns_dict=monthly_returns,
+        positions_dict=positions_dict,
         title=title,
     )
 
