@@ -100,3 +100,4 @@ def test_compare_backtest_curves_supports_empty_threshold_strategy() -> None:
 
     assert "pred_gt_0_99" in comparison.metrics.index
     assert comparison.metrics.loc["pred_gt_0_99", "Total Return"] == "0.00%"
+    assert "Number of Positions by Date" in comparison.html
