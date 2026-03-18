@@ -30,10 +30,15 @@ END_YEAR: int | None = None
 RISK_FREE_RATE = 0.02
 INCLUDE_SPY = True
 INCLUDE_LEGACY = True
-LEGACY_LABEL = "legacy_combined_frequency"
 LEGACY_CHECKPOINTS_DIR: str | Path = PROJECT_ROOT / "outputs" / "checkpoints"
-LEGACY_CHECKPOINT_NAME = "polars_combined_frequency.parquet"
 LEGACY_AUTO_RUN_IF_MISSING = True
+LEGACY_CURVE_SPECS: list[dict[str, str]] = [
+    {"label": "legacy_combined_frequency", "checkpoint_name": "polars_combined_frequency.parquet"},
+    {"label": "legacy_combined_equal", "checkpoint_name": "polars_combined_equal.parquet"},
+    # Examples:
+    # {"label": "legacy_optuna_11", "checkpoint_name": "polars_optuna_output_11_aggregated.parquet"},
+    # {"label": "legacy_optuna_12", "checkpoint_name": "polars_optuna_output_12_aggregated.parquet"},
+]
 
 SCENARIO_SPECS: list[dict[str, Any]] = [
     {"name": "top_n_5", "selection_mode": "top_n", "top_n": 5},
@@ -101,24 +106,38 @@ def build_spy_curve(backtests: dict[str, ApplicationBacktestResult]) -> pl.DataF
     )
 
 
-def legacy_checkpoint_path(checkpoints_dir: str | Path | None = None) -> Path:
-    base_dir = Path(checkpoints_dir).expanduser().resolve() if checkpoints_dir else Path(LEGACY_CHECKPOINTS_DIR).expanduser().resolve()
-    return base_dir / LEGACY_CHECKPOINT_NAME
-
-
-def ensure_legacy_checkpoint(checkpoint_path: str | Path | None = None) -> Path:
-    resolved_checkpoint_path = (
-        Path(checkpoint_path).expanduser().resolve()
-        if checkpoint_path is not None
-        else legacy_checkpoint_path()
+def legacy_checkpoint_path(
+    checkpoint_name: str,
+    checkpoints_dir: str | Path | None = None,
+) -> Path:
+    base_dir = (
+        Path(checkpoints_dir).expanduser().resolve()
+        if checkpoints_dir is not None
+        else Path(LEGACY_CHECKPOINTS_DIR).expanduser().resolve()
     )
-    if resolved_checkpoint_path.exists():
-        return resolved_checkpoint_path
+    return base_dir / checkpoint_name
+
+
+def ensure_legacy_checkpoints(
+    curve_specs: list[dict[str, str]] | None = None,
+    *,
+    checkpoints_dir: str | Path | None = None,
+) -> dict[str, Path]:
+    specs = LEGACY_CURVE_SPECS if curve_specs is None else curve_specs
+    checkpoint_paths = {
+        spec["label"]: legacy_checkpoint_path(spec["checkpoint_name"], checkpoints_dir=checkpoints_dir)
+        for spec in specs
+    }
+    missing = {label: path for label, path in checkpoint_paths.items() if not path.exists()}
+    if not missing:
+        return checkpoint_paths
 
     if not LEGACY_AUTO_RUN_IF_MISSING:
-        raise FileNotFoundError(f"Missing legacy checkpoint: {resolved_checkpoint_path}")
+        missing_display = ", ".join(f"{label} -> {path}" for label, path in missing.items())
+        raise FileNotFoundError(f"Missing legacy checkpoints: {missing_display}")
 
-    resolved_checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    first_missing = next(iter(missing.values()))
+    first_missing.parent.mkdir(parents=True, exist_ok=True)
     legacy_script = PROJECT_ROOT / "scripts" / "run_legacy.py"
     print(f"Legacy checkpoint missing. Running {legacy_script} to generate comparison artifacts...")
     subprocess.run(
@@ -126,15 +145,19 @@ def ensure_legacy_checkpoint(checkpoint_path: str | Path | None = None) -> Path:
         check=True,
         cwd=PROJECT_ROOT,
     )
-    if not resolved_checkpoint_path.exists():
-        raise FileNotFoundError(
-            f"Legacy run finished but checkpoint was not created: {resolved_checkpoint_path}"
-        )
-    return resolved_checkpoint_path
+    still_missing = {label: path for label, path in checkpoint_paths.items() if not path.exists()}
+    if still_missing:
+        missing_display = ", ".join(f"{label} -> {path}" for label, path in still_missing.items())
+        raise FileNotFoundError(f"Legacy run finished but checkpoints are still missing: {missing_display}")
+    return checkpoint_paths
 
 
-def load_legacy_curve(checkpoint_path: str | Path | None = None) -> pl.DataFrame:
-    path = ensure_legacy_checkpoint(checkpoint_path)
+def load_legacy_curve(
+    checkpoint_name: str,
+    *,
+    checkpoints_dir: str | Path | None = None,
+) -> pl.DataFrame:
+    path = legacy_checkpoint_path(checkpoint_name, checkpoints_dir=checkpoints_dir)
     frame = pl.read_parquet(path)
     required_cols = {"year_month", "monthly_return"}
     missing = required_cols - set(frame.columns)
@@ -145,6 +168,19 @@ def load_legacy_curve(checkpoint_path: str | Path | None = None) -> pl.DataFrame
     if "n" in frame.columns:
         keep_cols.append("n")
     return frame.select(keep_cols)
+
+
+def load_legacy_curves(
+    curve_specs: list[dict[str, str]] | None = None,
+    *,
+    checkpoints_dir: str | Path | None = None,
+) -> dict[str, pl.DataFrame]:
+    specs = LEGACY_CURVE_SPECS if curve_specs is None else curve_specs
+    checkpoint_paths = ensure_legacy_checkpoints(specs, checkpoints_dir=checkpoints_dir)
+    return {
+        label: load_legacy_curve(path.name, checkpoints_dir=path.parent)
+        for label, path in checkpoint_paths.items()
+    }
 
 
 def compare_application_backtests(
@@ -194,7 +230,7 @@ def main() -> BacktestComparisonResult:
     if INCLUDE_SPY:
         comparison_inputs["SPY"] = build_spy_curve(results)
     if INCLUDE_LEGACY:
-        comparison_inputs[LEGACY_LABEL] = load_legacy_curve()
+        comparison_inputs.update(load_legacy_curves())
 
     comparison = compare_application_backtests(
         comparison_inputs,
@@ -219,7 +255,9 @@ def main() -> BacktestComparisonResult:
     if INCLUDE_SPY:
         print("- SPY: added from benchmark_return in application backtests")
     if INCLUDE_LEGACY:
-        print(f"- {LEGACY_LABEL}: loaded from {legacy_checkpoint_path()}")
+        for spec in LEGACY_CURVE_SPECS:
+            checkpoint_path = legacy_checkpoint_path(spec["checkpoint_name"])
+            print(f"- {spec['label']}: loaded from {checkpoint_path}")
     return comparison
 
 
