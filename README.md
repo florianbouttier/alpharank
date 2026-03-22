@@ -70,6 +70,7 @@ src/
 - Legacy pipeline: `scripts/run_legacy.py`
 - Boosting pipeline: `scripts/run_backtest.py`
 - Open-source price transition audit: `scripts/open_source/run_price_transition.py`
+- Unified open-source ingestion: `scripts/open_source/run_ingestion.py`
 - Data lineage audit: `scripts/audit_data_lineage.py`
 
 ## Open-Source Price Transition
@@ -104,6 +105,47 @@ main(
     sp500_price_path="data/open_source/price_transition_20050101/SP500Price.parquet",
 )
 ```
+
+## Open-Source Live Ingestion
+
+The live ingestion pipeline writes:
+
+- raw normalized source tables
+- clean consolidated tables with lineage
+- legacy-compatible parquet exports
+- optional HTML audits
+
+Bootstrap the historical store:
+
+```python
+from scripts.open_source.run_ingestion import main
+
+main(
+    mode="bootstrap",
+    start_date="2005-01-01",
+    audit_years=(2025,),
+)
+```
+
+Daily incremental update:
+
+```python
+from scripts.open_source.run_ingestion import main
+
+main(
+    mode="daily",
+    start_date="2005-01-01",
+    audit_years=(2025,),
+)
+```
+
+Default live storage layout:
+
+- `data/open_source/live/raw/`
+- `data/open_source/live/clean/`
+- `data/open_source/live/clean/legacy_compatible/`
+- `data/open_source/live/audits/`
+- `data/open_source/live/manifests/`
 
 ## Data Snapshotting
 
