@@ -72,6 +72,8 @@ src/
 - Python source selection example: `scripts/backtest_data_source_examples.py`
 - Open-source price transition audit: `scripts/open_source/run_price_transition.py`
 - Unified open-source ingestion: `scripts/open_source/run_ingestion.py`
+- Nightly ingestion runner: `scripts/open_source/nightly_ingestion.py`
+- Nightly launchd installer: `scripts/open_source/install_nightly_launchd.py`
 - Data lineage audit: `scripts/audit_data_lineage.py`
 
 ## Open-Source Price Transition
@@ -147,6 +149,28 @@ Default live storage layout:
 - `data/open_source/live/clean/legacy_compatible/`
 - `data/open_source/live/audits/`
 - `data/open_source/live/manifests/`
+
+## Nightly Ingestion
+
+If you want the ingestion to run automatically during the night, the simplest Python-first setup is:
+
+1. Edit the constants in `scripts/open_source/nightly_ingestion.py`
+2. Run `scripts/open_source/install_nightly_launchd.py` once
+
+The nightly runner itself is just:
+
+```python
+from scripts.open_source.nightly_ingestion import main
+
+main()
+```
+
+The launchd installer writes a macOS LaunchAgent that runs the nightly Python script using the repo `.venv`.
+
+Logs are written under:
+
+- `logs/open_source_ingestion/stdout.log`
+- `logs/open_source_ingestion/stderr.log`
 
 ## Python-First Backtest Source Selection
 
