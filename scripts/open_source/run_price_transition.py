@@ -22,7 +22,7 @@ def main(
     resolved_output_dir = (
         Path(output_dir).expanduser().resolve()
         if output_dir
-        else project_root / "data" / "open_source" / f"price_transition_{start_date.replace('-', '')}"
+        else project_root / "data" / "open_source" / "audit" / f"price_transition_{start_date.replace('-', '')}"
     )
 
     result = run_open_source_price_transition(

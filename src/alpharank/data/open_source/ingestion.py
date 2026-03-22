@@ -106,6 +106,7 @@ class OpenSourceIngestionResult:
     run_id: str
     live_dir: Path
     raw_dir: Path
+    target_dir: Path
     clean_dir: Path
     legacy_dir: Path
     audit_dirs: tuple[Path, ...]
@@ -135,7 +136,11 @@ def run_open_source_ingestion(
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or (project_root / "data")
-    paths = OpenSourceLivePaths(live_dir or (project_root / "data" / "open_source" / "live"))
+    open_source_root = project_root / "data" / "open_source"
+    paths = OpenSourceLivePaths(
+        live_dir or (open_source_root / "official"),
+        audit_root_dir=open_source_root / "audit",
+    )
     paths.ensure()
 
     run_id = new_run_id()
@@ -371,7 +376,9 @@ def run_open_source_ingestion(
         "price_window": {"start_date": price_start, "end_date": end_date},
         "financial_years_refreshed": list(refreshed_years),
         "ticker_count": len(ticker_list),
+        "official_dir": str(paths.base_dir),
         "live_dir": str(paths.base_dir),
+        "target_dir": str(paths.target_dir),
         "raw_outputs": {
             "general_reference": "raw/general_reference.parquet",
             "prices_yfinance": "raw/prices_yfinance.parquet",
@@ -383,17 +390,17 @@ def run_open_source_ingestion(
             "financials_yfinance": "raw/financials_yfinance.parquet",
         },
         "clean_outputs": {
-            "prices_open_source": "clean/prices_open_source.parquet",
-            "benchmark_prices_open_source": "clean/benchmark_prices_open_source.parquet",
-            "earnings_open_source": "clean/earnings_open_source.parquet",
-            "earnings_open_source_long": "clean/earnings_open_source_long.parquet",
-            "financials_open_source_consolidated": "clean/financials_open_source_consolidated.parquet",
-            "financials_open_source_lineage": "clean/financials_open_source_lineage.parquet",
-            "financials_open_source_source_summary": "clean/financials_open_source_source_summary.parquet",
+            "prices_open_source": "target/prices_open_source.parquet",
+            "benchmark_prices_open_source": "target/benchmark_prices_open_source.parquet",
+            "earnings_open_source": "target/earnings_open_source.parquet",
+            "earnings_open_source_long": "target/earnings_open_source_long.parquet",
+            "financials_open_source_consolidated": "target/financials_open_source_consolidated.parquet",
+            "financials_open_source_lineage": "target/financials_open_source_lineage.parquet",
+            "financials_open_source_source_summary": "target/financials_open_source_source_summary.parquet",
         },
         "legacy_outputs": {name: str(path.relative_to(paths.base_dir)) for name, path in legacy_paths.items()},
         "failures": run_failures,
-        "audit_dirs": [str(path.relative_to(paths.base_dir)) for path in audit_dirs],
+        "audit_dirs": [str(path.relative_to(paths.root_dir)) for path in audit_dirs],
     }
     write_run_manifest(paths, run_id, manifest)
 
@@ -402,6 +409,7 @@ def run_open_source_ingestion(
         run_id=run_id,
         live_dir=paths.base_dir,
         raw_dir=paths.raw_dir,
+        target_dir=paths.target_dir,
         clean_dir=paths.clean_dir,
         legacy_dir=paths.legacy_dir,
         audit_dirs=tuple(audit_dirs),

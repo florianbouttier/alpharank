@@ -20,7 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def latest_open_source_output_dir(base_dir: str | Path | None = None) -> Path:
-    root = Path(base_dir).expanduser().resolve() if base_dir else PROJECT_ROOT / "data" / "open_source"
+    root = Path(base_dir).expanduser().resolve() if base_dir else PROJECT_ROOT / "data" / "open_source" / "audit"
     candidates = [
         path for path in root.iterdir()
         if path.is_dir() and not path.name.startswith("_") and (path / "run_config.json").exists()

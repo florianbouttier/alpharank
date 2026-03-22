@@ -12,8 +12,8 @@ def main() -> None:
     source = BacktestDataSource.custom(
         name="open_source_prices_2005_transition",
         data_dir=project_root / "data",
-        final_price_path=project_root / "data" / "open_source" / "price_transition_20050101" / "US_Finalprice.parquet",
-        sp500_price_path=project_root / "data" / "open_source" / "price_transition_20050101" / "SP500Price.parquet",
+        final_price_path=project_root / "data" / "open_source" / "audit" / "price_transition_20050101" / "US_Finalprice.parquet",
+        sp500_price_path=project_root / "data" / "open_source" / "audit" / "price_transition_20050101" / "SP500Price.parquet",
     )
     config = source.apply(default_config())
     artifacts = run(config)

@@ -10,13 +10,13 @@ The goal is not just to fetch data. The goal is to make the data store auditable
 2. Raw source tables are append/upsert only. The ingestion pipeline does not delete raw rows.
 3. Corrections are retrospective replacements on the same natural key, never silent drops of unrelated history.
 4. Clean tables are rebuilt from the full raw store on every successful run.
-5. Legacy-compatible outputs are exports from clean tables. They are not the source of truth.
-6. Every run writes its own immutable run delta under `data/open_source/live/runs/<run_id>/`.
-7. The latest successful run is referenced by `data/open_source/live/manifests/latest_run.json`.
+5. Legacy-compatible outputs are exports from target tables. They are not the source of truth.
+6. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
+7. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
 
 Important consequence:
 
-- If a delisted ticker has already been ingested into `raw/`, a nightly rerun does not remove it from the live store.
+- If a delisted ticker has already been ingested into `raw/`, a nightly rerun does not remove it from the official store.
 - The current pipeline has no built-in delete or purge path for open-source data.
 
 I verified this in code:
@@ -24,68 +24,73 @@ I verified this in code:
 - `src/alpharank/data/open_source/storage.py`
   `upsert_parquet(...)` concatenates `existing + delta`, then keeps the latest row for the same natural key.
 - `src/alpharank/data/open_source/ingestion.py`
-  clean outputs are rebuilt from the full `raw/*.parquet`, not only from the current nightly delta.
+  target outputs are rebuilt from the full `raw/*.parquet`, not only from the current nightly delta.
 - `src/alpharank/data/open_source/` and `scripts/open_source/`
-  there is currently no delete/remove/unlink/rmtree path for the live store.
+  there is currently no delete/remove/unlink/rmtree path for the official store.
 
 ## High-Level Flow
 
 ```mermaid
 flowchart TD
-    A["Source fetchers<br/>Yahoo / SEC companyfacts / SEC filing / SimFin"] --> B["Run delta<br/>data/open_source/live/runs/<run_id>/raw/*.parquet"]
-    B --> C["Raw canonical store<br/>data/open_source/live/raw/*.parquet<br/>append/upsert only"]
-    C --> D["Clean normalized outputs<br/>data/open_source/live/clean/*.parquet"]
+    A["Source fetchers<br/>Yahoo / SEC companyfacts / SEC filing / SimFin"] --> B["Run delta<br/>data/open_source/official/runs/<run_id>/raw/*.parquet"]
+    B --> C["Raw canonical store<br/>data/open_source/official/raw/*.parquet<br/>append/upsert only"]
+    C --> D["Target normalized outputs<br/>data/open_source/official/target/*.parquet"]
     C --> E["Financial consolidation<br/>source priority:<br/>sec_companyfacts -> sec_filing -> simfin -> yfinance"]
     E --> D
-    D --> F["Legacy-compatible exports<br/>data/open_source/live/clean/legacy_compatible/*.parquet"]
-    D --> G["HTML audits<br/>data/open_source/live/audits/<year>/"]
-    B --> H["Run manifest<br/>data/open_source/live/runs/<run_id>/manifest.json"]
-    H --> I["Latest successful manifest<br/>data/open_source/live/manifests/latest_run.json"]
+    D --> F["Legacy-compatible exports<br/>data/open_source/official/target/legacy_compatible/*.parquet"]
+    D --> G["HTML audits<br/>data/open_source/audit/<year>/"]
+    B --> H["Run manifest<br/>data/open_source/official/runs/<run_id>/manifest.json"]
+    H --> I["Latest successful manifest<br/>data/open_source/official/manifests/latest_run.json"]
 ```
 
 ## Storage Layout
 
 ```text
-data/open_source/live/
-  raw/
-    general_reference.parquet
-    prices_yfinance.parquet
-    prices_spy_yfinance.parquet
-    earnings_yfinance.parquet
-    financials_sec_companyfacts.parquet
-    financials_sec_filing.parquet
-    financials_simfin.parquet
-    financials_yfinance.parquet
-  clean/
-    prices_open_source.parquet
-    benchmark_prices_open_source.parquet
-    earnings_open_source.parquet
-    earnings_open_source_long.parquet
-    financials_open_source_consolidated.parquet
-    financials_open_source_lineage.parquet
-    financials_open_source_source_summary.parquet
-    legacy_compatible/
-      US_Finalprice.parquet
-      SP500Price.parquet
-      US_General.parquet
-      US_Income_statement.parquet
-      US_Balance_sheet.parquet
-      US_Cash_flow.parquet
-      US_share.parquet
-      US_Earnings.parquet
-  audits/
+data/open_source/
+  README.md
+  _cache/
+  official/
+    raw/
+      general_reference.parquet
+      prices_yfinance.parquet
+      prices_spy_yfinance.parquet
+      earnings_yfinance.parquet
+      financials_sec_companyfacts.parquet
+      financials_sec_filing.parquet
+      financials_simfin.parquet
+      financials_yfinance.parquet
+    target/
+      prices_open_source.parquet
+      benchmark_prices_open_source.parquet
+      earnings_open_source.parquet
+      earnings_open_source_long.parquet
+      financials_open_source_consolidated.parquet
+      financials_open_source_lineage.parquet
+      financials_open_source_source_summary.parquet
+      legacy_compatible/
+        US_Finalprice.parquet
+        SP500Price.parquet
+        US_General.parquet
+        US_Income_statement.parquet
+        US_Balance_sheet.parquet
+        US_Cash_flow.parquet
+        US_share.parquet
+        US_Earnings.parquet
+    manifests/
+      latest_run.json
+    runs/
+      20260322_214417/
+        raw/
+        manifest.json
+  audit/
     2025/
       report.html
       tickers/
       kpis/
       *.parquet
       summary.json
-  manifests/
-    latest_run.json
-  runs/
-    20260322_214417/
-      raw/
-      manifest.json
+  archive/
+    ...
 ```
 
 ## Layer Contract
@@ -112,7 +117,7 @@ Raw lineage columns:
 - `ingestion_run_id`
 - `ingested_at`
 
-### `clean/`
+### `target/`
 
 Purpose:
 
@@ -126,7 +131,7 @@ Status:
 - safe to recompute
 - can be replaced wholesale because it is reproducible from `raw/`
 
-### `clean/legacy_compatible/`
+### `target/legacy_compatible/`
 
 Purpose:
 
@@ -239,11 +244,11 @@ Financials are consolidated with this source priority:
 
 The consolidated file is:
 
-- `clean/financials_open_source_consolidated.parquet`
+- `target/financials_open_source_consolidated.parquet`
 
 The detailed candidate-level lineage file is:
 
-- `clean/financials_open_source_lineage.parquet`
+- `target/financials_open_source_lineage.parquet`
 
 The consolidated row carries:
 
@@ -281,7 +286,7 @@ flowchart LR
 
 Intent:
 
-- seed the live store with the historical universe you care about
+- seed the official store with the historical universe you care about
 
 Typical use:
 
@@ -304,7 +309,7 @@ Behavior:
 
 - prices refresh from `max(existing_date) - price_lookback_days`
 - financials refresh for recent years only via `financial_lookback_years`
-- clean, legacy, and audit layers are rebuilt from the full raw store
+- target, legacy, and audit layers are rebuilt from the full raw store
 
 Important limitation:
 
@@ -316,7 +321,7 @@ Important limitation:
 The nightly runner in `scripts/open_source/nightly_ingestion.py` now defaults to:
 
 - current S&P 500 universe from `SP500_Constituents.csv`
-- union existing live tickers already present in `data/open_source/live/raw/`
+- union existing official tickers already present in `data/open_source/official/raw/`
 
 This prevents the nightly process from silently narrowing the update universe after a broader historical bootstrap.
 
@@ -324,7 +329,7 @@ In practice:
 
 - if you bootstrap a broader universe once, those tickers remain part of the nightly target set
 - if a ticker later leaves the index or becomes delisted, its already-ingested history stays in `raw/`
-- downstream `clean/` and `legacy_compatible/` continue to include that history because they rebuild from the full raw store
+- downstream `target/` and `legacy_compatible/` continue to include that history because they rebuild from the full raw store
 
 ## What Can Change Retrospectively
 
@@ -341,7 +346,7 @@ When that happens, the intended mechanism is:
 1. fetch corrected source facts
 2. upsert on the same natural key
 3. keep the new version as the latest row
-4. rebuild clean and legacy exports from raw
+4. rebuild target and legacy exports from raw
 
 What the pipeline should not do:
 
@@ -352,7 +357,7 @@ What the pipeline should not do:
 ## Operational Safety Notes
 
 1. `raw/` is the asset to protect and back up.
-2. `clean/`, `legacy_compatible/`, and `audits/` are reproducible.
+2. `target/`, `legacy_compatible/`, and `audit/` are reproducible.
 3. `runs/<run_id>/` is the best place to debug a suspicious nightly run.
 4. `manifests/latest_run.json` should be treated as the pointer to the latest successful run, not just the latest attempted run.
 5. If you ever want an actual purge workflow, it should be implemented as an explicit maintenance tool with its own manifest and review step. It should not be implicit in the ingestion runner.

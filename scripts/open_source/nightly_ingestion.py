@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Edit these values directly in Python.
 START_DATE = "2005-01-01"
-LIVE_DIR = PROJECT_ROOT / "data" / "open_source" / "live"
+LIVE_DIR = PROJECT_ROOT / "data" / "open_source" / "official"
 REFERENCE_DATA_DIR = PROJECT_ROOT / "data"
 AUDIT_YEARS = (2025,)
 THRESHOLD_PCT = 0.5
@@ -88,7 +88,8 @@ def main() -> None:
         user_agent=USER_AGENT,
     )
     print(f"Nightly ingestion completed: {result.run_id}")
-    print(f"Live dir: {result.live_dir}")
+    print(f"Official dir: {result.live_dir}")
+    print(f"Target dir: {result.target_dir}")
     print(f"Tickers: {result.ticker_count}")
     print(f"Price window: {result.price_start_date} -> {result.price_end_date}")
     print(f"Financial years refreshed: {', '.join(str(year) for year in result.refreshed_years)}")

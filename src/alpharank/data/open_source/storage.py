@@ -12,22 +12,31 @@ import polars as pl
 @dataclass(frozen=True)
 class OpenSourceLivePaths:
     base_dir: Path
+    audit_root_dir: Path | None = None
+
+    @property
+    def root_dir(self) -> Path:
+        return self.base_dir.parent
 
     @property
     def raw_dir(self) -> Path:
         return self.base_dir / "raw"
 
     @property
+    def target_dir(self) -> Path:
+        return self.base_dir / "target"
+
+    @property
     def clean_dir(self) -> Path:
-        return self.base_dir / "clean"
+        return self.target_dir
 
     @property
     def legacy_dir(self) -> Path:
-        return self.clean_dir / "legacy_compatible"
+        return self.target_dir / "legacy_compatible"
 
     @property
     def audit_dir(self) -> Path:
-        return self.base_dir / "audits"
+        return self.audit_root_dir or (self.root_dir / "audit")
 
     @property
     def manifests_dir(self) -> Path:
@@ -43,9 +52,9 @@ class OpenSourceLivePaths:
 
     def ensure(self) -> None:
         for directory in (
-            self.base_dir,
+            self.root_dir,
             self.raw_dir,
-            self.clean_dir,
+            self.target_dir,
             self.legacy_dir,
             self.audit_dir,
             self.manifests_dir,

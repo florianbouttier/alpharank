@@ -6,7 +6,7 @@ from run_backtest import default_config, run
 
 
 # Edit this one line in Python, then run the script.
-DATA_SOURCE = BacktestDataSource.open_source_live()
+DATA_SOURCE = BacktestDataSource.open_source_official()
 
 
 def main() -> None:

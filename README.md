@@ -86,7 +86,7 @@ from scripts.open_source.run_price_transition import main
 main(start_date="2005-01-01")
 ```
 
-This writes a reusable price dataset under `data/open_source/price_transition_20050101/` with:
+This writes a reusable price dataset under `data/open_source/audit/price_transition_20050101/` with:
 
 - `US_Finalprice.parquet`
 - `SP500Price.parquet`
@@ -104,17 +104,17 @@ Or for the legacy runner:
 from scripts.run_legacy import main
 
 main(
-    final_price_path="data/open_source/price_transition_20050101/US_Finalprice.parquet",
-    sp500_price_path="data/open_source/price_transition_20050101/SP500Price.parquet",
+    final_price_path="data/open_source/audit/price_transition_20050101/US_Finalprice.parquet",
+    sp500_price_path="data/open_source/audit/price_transition_20050101/SP500Price.parquet",
 )
 ```
 
-## Open-Source Live Ingestion
+## Open-Source Official Ingestion
 
-The live ingestion pipeline writes:
+The official ingestion pipeline writes:
 
 - raw normalized source tables
-- clean consolidated tables with lineage
+- target consolidated tables with lineage
 - legacy-compatible parquet exports
 - optional HTML audits
 - immutable per-run deltas and manifests
@@ -145,12 +145,13 @@ main(
 
 Default live storage layout:
 
-- `data/open_source/live/raw/`
-- `data/open_source/live/clean/`
-- `data/open_source/live/clean/legacy_compatible/`
-- `data/open_source/live/audits/`
-- `data/open_source/live/manifests/`
-- `data/open_source/live/runs/`
+- `data/open_source/official/raw/`
+- `data/open_source/official/target/`
+- `data/open_source/official/target/legacy_compatible/`
+- `data/open_source/official/manifests/`
+- `data/open_source/official/runs/`
+- `data/open_source/audit/`
+- `data/open_source/archive/`
 
 For the full ingestion contract, lineage rules, natural keys, and the "never delete raw data" policy, see:
 
@@ -174,9 +175,9 @@ main()
 By default it refreshes the union of:
 
 - the current S&P 500 universe from `SP500_Constituents.csv`
-- tickers already present in `data/open_source/live/raw/`
+- tickers already present in `data/open_source/official/raw/`
 
-That means a nightly run does not silently narrow the live store after a broader bootstrap. Already-ingested delisted names stay in the raw store and stay present in the rebuilt clean/legacy exports unless someone manually purges the raw parquet files.
+That means a nightly run does not silently narrow the official store after a broader bootstrap. Already-ingested delisted names stay in the raw store and stay present in the rebuilt target/legacy exports unless someone manually purges the raw parquet files.
 
 The launchd installer writes a macOS LaunchAgent that runs the nightly Python script using the repo `.venv`.
 
@@ -193,7 +194,7 @@ Backtests can now be pointed to a dataset source directly from Python, without u
 from alpharank.backtest import BacktestDataSource
 from scripts.run_backtest import default_config, run
 
-source = BacktestDataSource.open_source_live()
+source = BacktestDataSource.open_source_official()
 config = source.apply(default_config())
 artifacts = run(config)
 ```
@@ -201,6 +202,7 @@ artifacts = run(config)
 Available source profiles:
 
 - `BacktestDataSource.eodhd()`
+- `BacktestDataSource.open_source_official()`
 - `BacktestDataSource.open_source_live()`
 - `BacktestDataSource.open_source_prices_only()`
 - `BacktestDataSource.custom(...)`

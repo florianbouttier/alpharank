@@ -12,15 +12,15 @@ Reference EODHD-style datasets:
 
 Current best full-open audit run:
 
-- `data/open_source/sp500_2025_2025_consolidated_v4/`
-- HTML report: `data/open_source/sp500_2025_2025_consolidated_v4/report.html`
-- Ticker deep dives: `data/open_source/sp500_2025_2025_consolidated_v4/tickers/`
-- KPI deep dives: `data/open_source/sp500_2025_2025_consolidated_v4/kpis/`
+- `data/open_source/audit/sp500_2025/`
+- HTML report: `data/open_source/audit/sp500_2025/report.html`
+- Ticker deep dives: `data/open_source/audit/sp500_2025/tickers/`
+- KPI deep dives: `data/open_source/audit/sp500_2025/kpis/`
 
 Historical price transition run:
 
-- `data/open_source/price_transition_20050101/`
-- HTML report: `data/open_source/price_transition_20050101/report.html`
+- `data/open_source/audit/price_transition_20050101/`
+- HTML report: `data/open_source/audit/price_transition_20050101/report.html`
 
 ## Executive Summary
 
@@ -29,7 +29,7 @@ Current status:
 - Price output can already match the old EODHD file format exactly.
 - Financial outputs do not yet match the old EODHD file format.
 - The current full-open financial layer is still a normalized long-format consolidation with lineage, not a drop-in replacement for the old wide parquets.
-- The best current 2025 reference is `sp500_2025_2025_consolidated_v4`.
+- The best current 2025 reference is `data/open_source/audit/sp500_2025`.
 
 Practical conclusion:
 
@@ -51,7 +51,7 @@ Old file:
 
 Open replacement:
 
-- `data/open_source/price_transition_20050101/US_Finalprice.parquet`
+- `data/open_source/audit/price_transition_20050101/US_Finalprice.parquet`
 - rows: `3,492,460`
 - columns: `8`
 
@@ -75,7 +75,7 @@ Old file:
 
 Open candidate:
 
-- `data/open_source/sp500_2025_2025_consolidated_v4/financials_open_source_consolidated/income_statement.parquet`
+- `data/open_source/audit/sp500_2025/financials_open_source_consolidated/income_statement.parquet`
 - rows: `8,882`
 - columns: `18`
 
@@ -95,7 +95,7 @@ Old file:
 
 Open candidate:
 
-- `data/open_source/sp500_2025_2025_consolidated_v4/financials_open_source_consolidated/balance_sheet.parquet`
+- `data/open_source/audit/sp500_2025/financials_open_source_consolidated/balance_sheet.parquet`
 - rows: `8,834`
 - columns: `18`
 
@@ -115,7 +115,7 @@ Old file:
 
 Open candidate:
 
-- `data/open_source/sp500_2025_2025_consolidated_v4/financials_open_source_consolidated/cash_flow.parquet`
+- `data/open_source/audit/sp500_2025/financials_open_source_consolidated/cash_flow.parquet`
 - rows: `6,204`
 - columns: `18`
 
@@ -135,7 +135,7 @@ Old file:
 
 Open candidate:
 
-- `data/open_source/sp500_2025_2025_consolidated_v4/earnings_yfinance.parquet`
+- `data/open_source/audit/sp500_2025/earnings_yfinance.parquet`
 - rows: `0`
 - columns: `8`
 
@@ -252,7 +252,7 @@ Interpretation:
 
 Reference output:
 
-- `data/open_source/price_transition_20050101/US_Finalprice.parquet`
+- `data/open_source/audit/price_transition_20050101/US_Finalprice.parquet`
 
 Coverage:
 

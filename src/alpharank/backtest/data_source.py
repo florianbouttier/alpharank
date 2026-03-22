@@ -30,13 +30,22 @@ class BacktestDataSource:
         )
 
     @classmethod
-    def open_source_live(cls, *, project_root: Path | None = None, live_dir: Path | None = None) -> BacktestDataSource:
+    def open_source_official(
+        cls,
+        *,
+        project_root: Path | None = None,
+        official_dir: Path | None = None,
+    ) -> BacktestDataSource:
         root = _project_root(project_root)
-        base_live_dir = live_dir or (root / "data" / "open_source" / "live")
+        base_official_dir = official_dir or (root / "data" / "open_source" / "official")
         return cls(
-            name="open_source_live",
-            data_dir=base_live_dir / "clean" / "legacy_compatible",
+            name="open_source_official",
+            data_dir=base_official_dir / "target" / "legacy_compatible",
         )
+
+    @classmethod
+    def open_source_live(cls, *, project_root: Path | None = None, live_dir: Path | None = None) -> BacktestDataSource:
+        return cls.open_source_official(project_root=project_root, official_dir=live_dir)
 
     @classmethod
     def open_source_prices_only(
@@ -44,12 +53,13 @@ class BacktestDataSource:
         *,
         project_root: Path | None = None,
         data_dir: Path | None = None,
+        official_dir: Path | None = None,
         live_dir: Path | None = None,
     ) -> BacktestDataSource:
         root = _project_root(project_root)
         base_data_dir = data_dir or (root / "data")
-        base_live_dir = live_dir or (root / "data" / "open_source" / "live")
-        legacy_dir = base_live_dir / "clean" / "legacy_compatible"
+        base_official_dir = official_dir or live_dir or (root / "data" / "open_source" / "official")
+        legacy_dir = base_official_dir / "target" / "legacy_compatible"
         return cls(
             name="open_source_prices_only",
             data_dir=base_data_dir,

@@ -69,8 +69,8 @@ def run_open_source_cadrage(
 ) -> OpenSourceCadrageResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or project_root / "data"
-    default_folder = f"{universe.replace('-', '_')}_{year}" if tickers is None else f"custom_{year}"
-    output_dir = output_dir or project_root / "data" / "open_source" / default_folder
+    default_folder = _default_audit_folder(year=year, universe=universe, tickers=tickers)
+    output_dir = output_dir or project_root / "data" / "open_source" / "audit" / default_folder
     output_dir.mkdir(parents=True, exist_ok=True)
     cache_dir = project_root / "data" / "open_source" / "_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -450,6 +450,14 @@ def _write_outputs(
         ),
         encoding="utf-8",
     )
+
+
+def _default_audit_folder(*, year: int, universe: str, tickers: Sequence[str] | None) -> str:
+    if tickers is not None:
+        return f"custom_{year}"
+    if universe == "sp500-2025":
+        return f"sp500_{year}"
+    return f"{universe.replace('-', '_')}_{year}"
 
 
 def _empty_financials() -> pl.DataFrame:
