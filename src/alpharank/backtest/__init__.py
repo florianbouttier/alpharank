@@ -8,6 +8,7 @@ from alpharank.backtest.application import (
     select_predictions_above_threshold,
 )
 from alpharank.backtest.config import BacktestConfig, FundamentalFeatureConfig, TechnicalFeatureConfig
+from alpharank.backtest.data_source import BacktestDataSource
 from alpharank.backtest.pipeline import (
     BacktestArtifacts,
     BacktestPhaseArtifacts,
@@ -22,6 +23,7 @@ __all__ = [
     "ApplicationBacktestConfig",
     "ApplicationBacktestResult",
     "BacktestConfig",
+    "BacktestDataSource",
     "BacktestComparisonResult",
     "TechnicalFeatureConfig",
     "FundamentalFeatureConfig",

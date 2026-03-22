@@ -69,6 +69,7 @@ src/
 
 - Legacy pipeline: `scripts/run_legacy.py`
 - Boosting pipeline: `scripts/run_backtest.py`
+- Python source selection example: `scripts/backtest_data_source_examples.py`
 - Open-source price transition audit: `scripts/open_source/run_price_transition.py`
 - Unified open-source ingestion: `scripts/open_source/run_ingestion.py`
 - Data lineage audit: `scripts/audit_data_lineage.py`
@@ -146,6 +147,26 @@ Default live storage layout:
 - `data/open_source/live/clean/legacy_compatible/`
 - `data/open_source/live/audits/`
 - `data/open_source/live/manifests/`
+
+## Python-First Backtest Source Selection
+
+Backtests can now be pointed to a dataset source directly from Python, without using CLI flags.
+
+```python
+from alpharank.backtest import BacktestDataSource
+from scripts.run_backtest import default_config, run
+
+source = BacktestDataSource.open_source_live()
+config = source.apply(default_config())
+artifacts = run(config)
+```
+
+Available source profiles:
+
+- `BacktestDataSource.eodhd()`
+- `BacktestDataSource.open_source_live()`
+- `BacktestDataSource.open_source_prices_only()`
+- `BacktestDataSource.custom(...)`
 
 ## Data Snapshotting
 
