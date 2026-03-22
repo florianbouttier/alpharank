@@ -22,11 +22,11 @@ class YahooFinanceClient:
             self._ticker_cache[symbol] = ticker
         return ticker
 
-    def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str) -> pl.DataFrame:
+    def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 20) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
         tickers = list(tickers)
-        for start_idx in range(0, len(tickers), 50):
-            chunk = tickers[start_idx : start_idx + 50]
+        for start_idx in range(0, len(tickers), chunk_size):
+            chunk = tickers[start_idx : start_idx + chunk_size]
             history = _download_with_retries(chunk, start_date, end_date)
             for ticker in chunk:
                 frame = _extract_price_frame(history, ticker)
@@ -91,7 +91,7 @@ class YahooFinanceClient:
             )
         return pl.DataFrame(rows).sort(["ticker", "reportDate"])
 
-    def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 8) -> pl.DataFrame:
+    def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 4) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
         ticker_list = list(tickers)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -134,7 +134,7 @@ class YahooFinanceClient:
         tickers: Sequence[str],
         start_date: str,
         end_date: str,
-        chunk_size: int = 50,
+        chunk_size: int = 20,
     ) -> pl.DataFrame:
         rows: list[dict[str, object]] = []
         for start_idx in range(0, len(tickers), chunk_size):
@@ -145,7 +145,7 @@ class YahooFinanceClient:
                 end=end_date,
                 auto_adjust=False,
                 progress=False,
-                threads=True,
+                threads=False,
                 group_by="ticker",
             )
             for ticker in chunk:
@@ -282,7 +282,7 @@ def _download_with_retries(chunk: list[str], start_date: str, end_date: str, ret
             end=end_date,
             auto_adjust=False,
             progress=False,
-            threads=True,
+            threads=False,
             group_by="ticker",
         )
         last_history = history
