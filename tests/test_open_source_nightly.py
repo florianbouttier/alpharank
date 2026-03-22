@@ -17,3 +17,6 @@ def test_launchd_plist_points_to_repo_python_script() -> None:
     assert isinstance(program_arguments, list)
     assert str(program_arguments[0]).endswith("/.venv/bin/python")
     assert str(program_arguments[1]).endswith("/scripts/open_source/nightly_ingestion.py")
+    env = plist["EnvironmentVariables"]
+    assert env["HOME"]
+    assert env["TMPDIR"] == "/tmp"

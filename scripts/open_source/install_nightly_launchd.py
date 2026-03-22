@@ -23,6 +23,11 @@ def build_plist() -> dict[str, object]:
         "Label": LABEL,
         "ProgramArguments": [str(PYTHON_BIN), str(SCRIPT_PATH)],
         "WorkingDirectory": str(PROJECT_ROOT),
+        "EnvironmentVariables": {
+            "HOME": str(Path.home()),
+            "PATH": f"{PROJECT_ROOT / '.venv' / 'bin'}:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/tmp",
+        },
         "RunAtLoad": False,
         "StartCalendarInterval": {
             "Hour": HOUR,
@@ -39,7 +44,14 @@ def install() -> Path:
     with PLIST_PATH.open("wb") as handle:
         plistlib.dump(build_plist(), handle)
 
-    subprocess.run(["launchctl", "bootout", domain, str(PLIST_PATH)], check=False)
+    bootout = subprocess.run(
+        ["launchctl", "bootout", domain, str(PLIST_PATH)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if bootout.returncode not in {0, 5}:
+        print(bootout.stderr.strip() or bootout.stdout.strip())
     subprocess.run(["launchctl", "bootstrap", domain, str(PLIST_PATH)], check=True)
     subprocess.run(["launchctl", "enable", f"{domain}/{LABEL}"], check=True)
     return PLIST_PATH
