@@ -165,6 +165,8 @@ from scripts.open_source.nightly_ingestion import main
 main()
 ```
 
+By default it refreshes the current S&P 500 universe from `SP500_Constituents.csv`.
+
 The launchd installer writes a macOS LaunchAgent that runs the nightly Python script using the repo `.venv`.
 
 Logs are written under:
