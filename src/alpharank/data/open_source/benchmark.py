@@ -11,6 +11,16 @@ import polars as pl
 from alpharank.data.open_source.config import METRIC_SPECS
 
 
+def resolve_eodhd_output_dir(data_dir: Path) -> Path:
+    direct = data_dir
+    nested = data_dir / "eodhd" / "output"
+    if (direct / "US_Finalprice.parquet").exists() and (direct / "SP500_Constituents.csv").exists():
+        return direct
+    if (nested / "US_Finalprice.parquet").exists() and (nested / "SP500_Constituents.csv").exists():
+        return nested
+    return direct
+
+
 def load_eodhd_prices_between(
     data_dir: Path,
     tickers: Iterable[str],
@@ -18,9 +28,10 @@ def load_eodhd_prices_between(
     start_date: str,
     end_date: str,
 ) -> pl.DataFrame:
+    resolved_dir = resolve_eodhd_output_dir(data_dir)
     ticker_set = [f"{ticker}.US" for ticker in tickers]
     return (
-        pl.read_parquet(data_dir / "US_Finalprice.parquet")
+        pl.read_parquet(resolved_dir / "US_Finalprice.parquet")
         .filter(pl.col("ticker").is_in(ticker_set))
         .filter((pl.col("date") >= pl.lit(start_date)) & (pl.col("date") <= pl.lit(end_date)))
         .select(["ticker", "date", "adjusted_close", "close", "open", "high", "low", "volume"])
@@ -38,8 +49,9 @@ def load_eodhd_prices(data_dir: Path, tickers: Iterable[str], year: int) -> pl.D
 
 
 def load_sp500_tickers_for_year(data_dir: Path, year: int) -> tuple[str, ...]:
+    resolved_dir = resolve_eodhd_output_dir(data_dir)
     return tuple(
-        pl.read_csv(data_dir / "SP500_Constituents.csv", try_parse_dates=True)
+        pl.read_csv(resolved_dir / "SP500_Constituents.csv", try_parse_dates=True)
         .filter(pl.col("Date").dt.year() == year)
         .filter(pl.col("Ticker").is_not_null() & (pl.col("Ticker") != ""))
         .with_columns(pl.col("Ticker").str.replace_all(r"\\.", "-").alias("Ticker"))
@@ -52,10 +64,11 @@ def load_sp500_tickers_for_year(data_dir: Path, year: int) -> tuple[str, ...]:
 
 
 def normalize_eodhd_financials(data_dir: Path, tickers: Iterable[str], year: int) -> pl.DataFrame:
+    resolved_dir = resolve_eodhd_output_dir(data_dir)
     ticker_set = [f"{ticker}.US" for ticker in tickers]
     frames: list[pl.DataFrame] = []
     for path in sorted({spec.eodhd_path for spec in METRIC_SPECS if spec.statement not in {"earnings"}}):
-        df = pl.read_parquet(data_dir / path).filter(pl.col("ticker").is_in(ticker_set))
+        df = pl.read_parquet(resolved_dir / path).filter(pl.col("ticker").is_in(ticker_set))
         date_col = "dateFormatted" if path == "US_share.parquet" else "date"
         if date_col not in df.columns:
             continue
@@ -82,9 +95,10 @@ def normalize_eodhd_financials(data_dir: Path, tickers: Iterable[str], year: int
 
 
 def normalize_eodhd_earnings(data_dir: Path, tickers: Iterable[str], year: int) -> pl.DataFrame:
+    resolved_dir = resolve_eodhd_output_dir(data_dir)
     ticker_set = [f"{ticker}.US" for ticker in tickers]
     df = (
-        pl.read_parquet(data_dir / "US_Earnings.parquet")
+        pl.read_parquet(resolved_dir / "US_Earnings.parquet")
         .filter(pl.col("ticker").is_in(ticker_set))
         .filter(pl.col("reportDate").str.starts_with(str(year)) | pl.col("date").str.starts_with(str(year)))
     )

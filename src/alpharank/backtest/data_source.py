@@ -26,7 +26,7 @@ class BacktestDataSource:
         root = _project_root(project_root)
         return cls(
             name="eodhd",
-            data_dir=root / "data",
+            data_dir=root / "data" / "eodhd" / "output",
         )
 
     @classmethod

@@ -12,8 +12,9 @@ The goal is not just to fetch data. The goal is to make the data store auditable
 4. Clean tables are rebuilt from the full raw store on every successful run.
 5. Legacy-compatible exact-name outputs are published under `data/open_source/output/`.
 6. The published lineage package lives under `data/open_source/output/lineage/`.
-7. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
-8. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
+7. Published outputs are historized under `data/open_source/history/output/` before overwrite.
+8. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
+9. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
 
 Important consequence:
 
@@ -98,6 +99,9 @@ data/open_source/
       financials_open_source_lineage.parquet
       financials_open_source_source_summary.parquet
       manifest.json
+  history/
+    output/
+      open_source_output_<timestamp>/
   audit/
     2025/
       report.html
@@ -388,9 +392,10 @@ What the pipeline should not do:
 
 1. `raw/` is the asset to protect and back up.
 2. `target/`, `output/`, `output/lineage/`, and `audit/` are reproducible.
-3. `runs/<run_id>/` is the best place to debug a suspicious nightly run.
-4. `manifests/latest_run.json` should be treated as the pointer to the latest successful run, not just the latest attempted run.
-5. If you ever want an actual purge workflow, it should be implemented as an explicit maintenance tool with its own manifest and review step. It should not be implicit in the ingestion runner.
+3. `history/output/` is the retained publication history for the user-facing package.
+4. `runs/<run_id>/` is the best place to debug a suspicious nightly run.
+5. `manifests/latest_run.json` should be treated as the pointer to the latest successful run, not just the latest attempted run.
+6. If you ever want an actual purge workflow, it should be implemented as an explicit maintenance tool with its own manifest and review step. It should not be implicit in the ingestion runner.
 
 ## Current Gaps
 

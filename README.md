@@ -70,6 +70,7 @@ src/
 - Legacy pipeline: `scripts/run_legacy.py`
 - Boosting pipeline: `scripts/run_backtest.py`
 - Python source selection example: `scripts/backtest_data_source_examples.py`
+- EODHD exact-name mirror builder: `scripts/sync_eodhd_output.py`
 - Open-source price transition audit: `scripts/open_source/run_price_transition.py`
 - Unified open-source ingestion: `scripts/open_source/run_ingestion.py`
 - Open-source exact-name output builder: `scripts/open_source/build_output_package.py`
@@ -152,10 +153,15 @@ Default live storage layout:
 - `data/open_source/official/target/legacy_compatible/`
 - `data/open_source/output/`
 - `data/open_source/output/lineage/`
+- `data/open_source/history/output/`
 - `data/open_source/official/manifests/`
 - `data/open_source/official/runs/`
 - `data/open_source/audit/`
 - `data/open_source/archive/`
+
+Legacy reference datasets are mirrored in:
+
+- `data/eodhd/output/`
 
 For the full ingestion contract, lineage rules, natural keys, and the "never delete raw data" policy, see:
 
@@ -218,6 +224,8 @@ Available source profiles:
 - `BacktestDataSource.open_source_live()`
 - `BacktestDataSource.open_source_prices_only()`
 - `BacktestDataSource.custom(...)`
+
+`BacktestDataSource.eodhd()` now points to `data/eodhd/output/`, and `BacktestDataSource.open_source_official()` points to `data/open_source/output/`. The folder switch is therefore symmetric.
 
 ## Data Snapshotting
 

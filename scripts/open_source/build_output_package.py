@@ -57,6 +57,7 @@ def main(
     published = publish_open_source_output_package(
         output_dir=resolved_output_dir,
         legacy_paths=legacy_paths,
+        constituents_source_path=resolved_reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
         benchmark_prices=benchmark_prices,
         general_reference=general_reference.select(["ticker", "name", "exchange", "cik", "source"]),
@@ -72,15 +73,19 @@ def main(
             "financial_source_dir": str(resolved_financial_source_dir),
             "reference_data_dir": str(resolved_reference_data_dir),
         },
+        history_root=project_root / "data" / "open_source" / "history" / "output",
     )
 
     print(f"Open-source output package written to: {resolved_output_dir}")
     print("Exact-name outputs:")
     for path in sorted(resolved_output_dir.glob("*.parquet")):
         print(f"  - {path.name}")
+    print("  - SP500_Constituents.csv")
     print("Lineage directory:")
     print(f"  - {resolved_output_dir / 'lineage'}")
-    print(f"Published files: {len(published)}")
+    if published.snapshot_dir is not None:
+        print(f"Previous output snapshot: {published.snapshot_dir}")
+    print(f"Published files: {len(published.published_paths)}")
 
 
 if __name__ == "__main__":

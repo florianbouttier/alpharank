@@ -112,6 +112,7 @@ class OpenSourceIngestionResult:
     legacy_dir: Path
     output_dir: Path
     output_lineage_dir: Path
+    output_snapshot_dir: Path | None
     audit_dirs: tuple[Path, ...]
     ticker_count: int
     price_start_date: str
@@ -362,6 +363,7 @@ def run_open_source_ingestion(
     published_output_paths = publish_open_source_output_package(
         output_dir=paths.output_dir,
         legacy_paths=legacy_paths,
+        constituents_source_path=reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference.select(["ticker", "name", "exchange", "cik", "source"]),
@@ -377,6 +379,7 @@ def run_open_source_ingestion(
             "output_dir": str(paths.output_dir),
             "legacy_dir": str(paths.legacy_dir),
         },
+        history_root=paths.root_dir / "history" / "output",
     )
 
     audit_dirs: list[Path] = []
@@ -421,7 +424,12 @@ def run_open_source_ingestion(
             "financials_open_source_source_summary": "target/financials_open_source_source_summary.parquet",
         },
         "legacy_outputs": {name: str(path.relative_to(paths.base_dir)) for name, path in legacy_paths.items()},
-        "published_output": {name: str(path.relative_to(paths.root_dir)) for name, path in published_output_paths.items()},
+        "published_output": {name: str(path.relative_to(paths.root_dir)) for name, path in published_output_paths.published_paths.items()},
+        "published_output_snapshot": (
+            str(published_output_paths.snapshot_dir.relative_to(paths.root_dir))
+            if published_output_paths.snapshot_dir is not None
+            else None
+        ),
         "failures": run_failures,
         "audit_dirs": [str(path.relative_to(paths.root_dir)) for path in audit_dirs],
     }
@@ -437,6 +445,7 @@ def run_open_source_ingestion(
         legacy_dir=paths.legacy_dir,
         output_dir=paths.output_dir,
         output_lineage_dir=paths.output_lineage_dir,
+        output_snapshot_dir=published_output_paths.snapshot_dir,
         audit_dirs=tuple(audit_dirs),
         ticker_count=len(ticker_list),
         price_start_date=price_start,

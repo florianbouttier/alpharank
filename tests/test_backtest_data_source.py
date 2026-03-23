@@ -6,6 +6,16 @@ from alpharank.backtest.config import BacktestConfig
 from alpharank.backtest.data_source import BacktestDataSource
 
 
+def test_eodhd_data_source_points_to_mirrored_output_folder(tmp_path: Path) -> None:
+    project_root = tmp_path / "repo"
+    config = BacktestConfig(data_dir=project_root / "data", output_dir=project_root / "outputs")
+
+    source = BacktestDataSource.eodhd(project_root=project_root)
+    applied = source.apply(config)
+
+    assert applied.data_dir == project_root / "data" / "eodhd" / "output"
+
+
 def test_open_source_live_data_source_applies_legacy_compatible_dir(tmp_path: Path) -> None:
     project_root = tmp_path / "repo"
     output_dir = project_root / "data" / "open_source" / "output"

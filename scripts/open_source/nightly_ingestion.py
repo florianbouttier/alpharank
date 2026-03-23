@@ -92,6 +92,8 @@ def main() -> None:
     print(f"Target dir: {result.target_dir}")
     print(f"Output dir: {result.output_dir}")
     print(f"Output lineage dir: {result.output_lineage_dir}")
+    if result.output_snapshot_dir is not None:
+        print(f"Output snapshot dir: {result.output_snapshot_dir}")
     print(f"Tickers: {result.ticker_count}")
     print(f"Price window: {result.price_start_date} -> {result.price_end_date}")
     print(f"Financial years refreshed: {', '.join(str(year) for year in result.refreshed_years)}")

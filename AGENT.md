@@ -108,5 +108,7 @@ Rules:
 - The internal canonical lineage lives under `data/open_source/official/target/`.
 - The user-facing exact-name package lives under `data/open_source/output/`.
 - The user-facing lineage package lives under `data/open_source/output/lineage/`.
+- Published open-source outputs must be historized under `data/open_source/history/output/` before overwrite.
+- The legacy reference mirror must live under `data/eodhd/output/` with the same exact filenames as `data/open_source/output/`.
 - If exploratory outputs must be kept, move them under `data/open_source/archive/` instead of leaving them at the root.
 - When documentation mentions the open-source store, prefer the words `official`, `target`, `output`, `audit`, and `archive` over ambiguous names like `live` or `clean`.
