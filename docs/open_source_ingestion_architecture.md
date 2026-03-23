@@ -10,9 +10,10 @@ The goal is not just to fetch data. The goal is to make the data store auditable
 2. Raw source tables are append/upsert only. The ingestion pipeline does not delete raw rows.
 3. Corrections are retrospective replacements on the same natural key, never silent drops of unrelated history.
 4. Clean tables are rebuilt from the full raw store on every successful run.
-5. Legacy-compatible outputs are exports from target tables. They are not the source of truth.
-6. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
-7. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
+5. Legacy-compatible exact-name outputs are published under `data/open_source/output/`.
+6. The published lineage package lives under `data/open_source/output/lineage/`.
+7. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
+8. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
 
 Important consequence:
 
@@ -37,10 +38,11 @@ flowchart TD
     C --> D["Target normalized outputs<br/>data/open_source/official/target/*.parquet"]
     C --> E["Financial consolidation<br/>source priority:<br/>sec_companyfacts -> sec_filing -> simfin -> yfinance"]
     E --> D
-    D --> F["Legacy-compatible exports<br/>data/open_source/official/target/legacy_compatible/*.parquet"]
-    D --> G["HTML audits<br/>data/open_source/audit/<year>/"]
-    B --> H["Run manifest<br/>data/open_source/official/runs/<run_id>/manifest.json"]
-    H --> I["Latest successful manifest<br/>data/open_source/official/manifests/latest_run.json"]
+    D --> F["Published exact-name package<br/>data/open_source/output/*.parquet"]
+    D --> G["Published lineage package<br/>data/open_source/output/lineage/*.parquet"]
+    D --> H["HTML audits<br/>data/open_source/audit/<year>/"]
+    B --> I["Run manifest<br/>data/open_source/official/runs/<run_id>/manifest.json"]
+    I --> J["Latest successful manifest<br/>data/open_source/official/manifests/latest_run.json"]
 ```
 
 ## Storage Layout
@@ -82,6 +84,20 @@ data/open_source/
       20260322_214417/
         raw/
         manifest.json
+  output/
+    US_Finalprice.parquet
+    SP500Price.parquet
+    US_General.parquet
+    US_Income_statement.parquet
+    US_Balance_sheet.parquet
+    US_Cash_flow.parquet
+    US_share.parquet
+    US_Earnings.parquet
+    lineage/
+      financials_open_source_consolidated.parquet
+      financials_open_source_lineage.parquet
+      financials_open_source_source_summary.parquet
+      manifest.json
   audit/
     2025/
       report.html
@@ -131,11 +147,25 @@ Status:
 - safe to recompute
 - can be replaced wholesale because it is reproducible from `raw/`
 
-### `target/legacy_compatible/`
+### `output/`
 
 Purpose:
 
-- preserve the historical AlphaRank file shapes so backtests can switch data stores with minimal code changes
+- expose the exact historical AlphaRank filenames in one user-facing folder
+- give backtests a stable drop-in folder with no extra nesting
+
+Status:
+
+- published from `target/`
+- user-facing
+- not the internal source of truth
+
+### `output/lineage/`
+
+Purpose:
+
+- expose the selected lineage package next to the exact-name outputs
+- make it possible to inspect provenance without opening the internal store
 
 Status:
 
@@ -357,7 +387,7 @@ What the pipeline should not do:
 ## Operational Safety Notes
 
 1. `raw/` is the asset to protect and back up.
-2. `target/`, `legacy_compatible/`, and `audit/` are reproducible.
+2. `target/`, `output/`, `output/lineage/`, and `audit/` are reproducible.
 3. `runs/<run_id>/` is the best place to debug a suspicious nightly run.
 4. `manifests/latest_run.json` should be treated as the pointer to the latest successful run, not just the latest attempted run.
 5. If you ever want an actual purge workflow, it should be implemented as an explicit maintenance tool with its own manifest and review step. It should not be implicit in the ingestion runner.

@@ -98,13 +98,15 @@ Use only these top-level folders under `data/open_source/`:
 
 - `_cache/`: fetch caches
 - `official/`: canonical ingestion outputs
+- `output/`: user-facing exact-name package for backtests and manual inspection
 - `audit/`: discrepancy reports and audit artifacts
 - `archive/`: preserved exploratory or legacy open-source runs
 
 Rules:
 
 - Never create ad hoc run folders directly under `data/open_source/`.
-- The canonical lineage lives under `data/open_source/official/target/`.
-- The canonical backtest-facing exports live under `data/open_source/official/target/legacy_compatible/`.
+- The internal canonical lineage lives under `data/open_source/official/target/`.
+- The user-facing exact-name package lives under `data/open_source/output/`.
+- The user-facing lineage package lives under `data/open_source/output/lineage/`.
 - If exploratory outputs must be kept, move them under `data/open_source/archive/` instead of leaving them at the root.
-- When documentation mentions the open-source store, prefer the words `official`, `target`, `audit`, and `archive` over ambiguous names like `live` or `clean`.
+- When documentation mentions the open-source store, prefer the words `official`, `target`, `output`, `audit`, and `archive` over ambiguous names like `live` or `clean`.

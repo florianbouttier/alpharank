@@ -90,6 +90,8 @@ def main() -> None:
     print(f"Nightly ingestion completed: {result.run_id}")
     print(f"Official dir: {result.live_dir}")
     print(f"Target dir: {result.target_dir}")
+    print(f"Output dir: {result.output_dir}")
+    print(f"Output lineage dir: {result.output_lineage_dir}")
     print(f"Tickers: {result.ticker_count}")
     print(f"Price window: {result.price_start_date} -> {result.price_end_date}")
     print(f"Financial years refreshed: {', '.join(str(year) for year in result.refreshed_years)}")

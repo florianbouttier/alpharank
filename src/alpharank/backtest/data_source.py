@@ -37,10 +37,10 @@ class BacktestDataSource:
         official_dir: Path | None = None,
     ) -> BacktestDataSource:
         root = _project_root(project_root)
-        base_official_dir = official_dir or (root / "data" / "open_source" / "official")
+        base_output_dir = official_dir or (root / "data" / "open_source" / "output")
         return cls(
             name="open_source_official",
-            data_dir=base_official_dir / "target" / "legacy_compatible",
+            data_dir=base_output_dir,
         )
 
     @classmethod
@@ -58,13 +58,12 @@ class BacktestDataSource:
     ) -> BacktestDataSource:
         root = _project_root(project_root)
         base_data_dir = data_dir or (root / "data")
-        base_official_dir = official_dir or live_dir or (root / "data" / "open_source" / "official")
-        legacy_dir = base_official_dir / "target" / "legacy_compatible"
+        base_output_dir = official_dir or live_dir or (root / "data" / "open_source" / "output")
         return cls(
             name="open_source_prices_only",
             data_dir=base_data_dir,
-            final_price_path=legacy_dir / "US_Finalprice.parquet",
-            sp500_price_path=legacy_dir / "SP500Price.parquet",
+            final_price_path=base_output_dir / "US_Finalprice.parquet",
+            sp500_price_path=base_output_dir / "SP500Price.parquet",
         )
 
     @classmethod

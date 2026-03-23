@@ -35,6 +35,14 @@ class OpenSourceLivePaths:
         return self.target_dir / "legacy_compatible"
 
     @property
+    def output_dir(self) -> Path:
+        return self.root_dir / "output"
+
+    @property
+    def output_lineage_dir(self) -> Path:
+        return self.output_dir / "lineage"
+
+    @property
     def audit_dir(self) -> Path:
         return self.audit_root_dir or (self.root_dir / "audit")
 
@@ -56,6 +64,8 @@ class OpenSourceLivePaths:
             self.raw_dir,
             self.target_dir,
             self.legacy_dir,
+            self.output_dir,
+            self.output_lineage_dir,
             self.audit_dir,
             self.manifests_dir,
             self.runs_dir,

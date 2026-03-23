@@ -28,6 +28,7 @@ from alpharank.data.open_source.benchmark import (
 from alpharank.data.open_source.consolidation import FinancialSourceInput, consolidate_financial_sources
 from alpharank.data.open_source.config import METRIC_SPECS
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
+from alpharank.data.open_source.publishing import publish_open_source_output_package
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.simfin import SimFinClient
@@ -109,6 +110,8 @@ class OpenSourceIngestionResult:
     target_dir: Path
     clean_dir: Path
     legacy_dir: Path
+    output_dir: Path
+    output_lineage_dir: Path
     audit_dirs: tuple[Path, ...]
     ticker_count: int
     price_start_date: str
@@ -356,6 +359,25 @@ def run_open_source_ingestion(
         reference_data_dir=reference_data_dir,
         output_dir=paths.legacy_dir,
     )
+    published_output_paths = publish_open_source_output_package(
+        output_dir=paths.output_dir,
+        legacy_paths=legacy_paths,
+        prices_frame=clean_prices,
+        benchmark_prices=clean_benchmark_prices,
+        general_reference=general_reference.select(["ticker", "name", "exchange", "cik", "source"]),
+        consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
+        source_summary=source_summary,
+        earnings_frame=clean_earnings,
+        earnings_long_frame=clean_earnings_long,
+        manifest={
+            "run_id": run_id,
+            "official_dir": str(paths.base_dir),
+            "target_dir": str(paths.target_dir),
+            "output_dir": str(paths.output_dir),
+            "legacy_dir": str(paths.legacy_dir),
+        },
+    )
 
     audit_dirs: list[Path] = []
     for year in audit_years:
@@ -399,6 +421,7 @@ def run_open_source_ingestion(
             "financials_open_source_source_summary": "target/financials_open_source_source_summary.parquet",
         },
         "legacy_outputs": {name: str(path.relative_to(paths.base_dir)) for name, path in legacy_paths.items()},
+        "published_output": {name: str(path.relative_to(paths.root_dir)) for name, path in published_output_paths.items()},
         "failures": run_failures,
         "audit_dirs": [str(path.relative_to(paths.root_dir)) for path in audit_dirs],
     }
@@ -412,6 +435,8 @@ def run_open_source_ingestion(
         target_dir=paths.target_dir,
         clean_dir=paths.clean_dir,
         legacy_dir=paths.legacy_dir,
+        output_dir=paths.output_dir,
+        output_lineage_dir=paths.output_lineage_dir,
         audit_dirs=tuple(audit_dirs),
         ticker_count=len(ticker_list),
         price_start_date=price_start,

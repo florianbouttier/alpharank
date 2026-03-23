@@ -72,6 +72,7 @@ src/
 - Python source selection example: `scripts/backtest_data_source_examples.py`
 - Open-source price transition audit: `scripts/open_source/run_price_transition.py`
 - Unified open-source ingestion: `scripts/open_source/run_ingestion.py`
+- Open-source exact-name output builder: `scripts/open_source/build_output_package.py`
 - Nightly ingestion runner: `scripts/open_source/nightly_ingestion.py`
 - Nightly launchd installer: `scripts/open_source/install_nightly_launchd.py`
 - Data lineage audit: `scripts/audit_data_lineage.py`
@@ -115,6 +116,7 @@ The official ingestion pipeline writes:
 
 - raw normalized source tables
 - target consolidated tables with lineage
+- published exact-name outputs for backtests/manual inspection
 - legacy-compatible parquet exports
 - optional HTML audits
 - immutable per-run deltas and manifests
@@ -148,6 +150,8 @@ Default live storage layout:
 - `data/open_source/official/raw/`
 - `data/open_source/official/target/`
 - `data/open_source/official/target/legacy_compatible/`
+- `data/open_source/output/`
+- `data/open_source/output/lineage/`
 - `data/open_source/official/manifests/`
 - `data/open_source/official/runs/`
 - `data/open_source/audit/`
@@ -156,6 +160,14 @@ Default live storage layout:
 For the full ingestion contract, lineage rules, natural keys, and the "never delete raw data" policy, see:
 
 - `docs/open_source_ingestion_architecture.md`
+
+If you want the exact legacy filenames in one user-facing folder, open:
+
+- `data/open_source/output/`
+
+The associated lineage package is:
+
+- `data/open_source/output/lineage/`
 
 ## Nightly Ingestion
 
