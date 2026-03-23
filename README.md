@@ -204,6 +204,13 @@ Logs are written under:
 - `logs/open_source_ingestion/stdout.log`
 - `logs/open_source_ingestion/stderr.log`
 
+Nightly run state is written under:
+
+- `data/open_source/official/manifests/nightly_status.json`
+- `data/open_source/official/manifests/nightly.lock.json`
+
+The lock file prevents two nightly runs from writing into the store at the same time. If one run is already active when launchd fires again, the second process exits cleanly instead of overlapping the first one.
+
 ## Python-First Backtest Source Selection
 
 Backtests can now be pointed to a dataset source directly from Python, without using CLI flags.

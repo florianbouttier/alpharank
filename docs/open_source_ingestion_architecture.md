@@ -15,6 +15,7 @@ The goal is not just to fetch data. The goal is to make the data store auditable
 7. Published outputs are historized under `data/open_source/history/output/` before overwrite.
 8. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
 9. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
+10. Nightly automation keeps a lock and status file under `data/open_source/official/manifests/` to avoid overlapping writers.
 
 Important consequence:
 
@@ -81,6 +82,8 @@ data/open_source/
         US_Earnings.parquet
     manifests/
       latest_run.json
+      nightly.lock.json
+      nightly_status.json
     runs/
       20260322_214417/
         raw/
@@ -199,6 +202,30 @@ Status:
 
 - immutable run artifact
 - if a run fails before manifest write, the partial run folder may exist without becoming the latest successful run
+
+### `manifests/nightly.lock.json`
+
+Purpose:
+
+- prevent two scheduled nightly writers from mutating the official store at the same time
+
+Status:
+
+- operational control file
+- not business data
+- stale locks are reclaimed automatically if the recorded PID is no longer running
+
+### `manifests/nightly_status.json`
+
+Purpose:
+
+- expose the latest nightly execution state in one stable JSON file
+- make it easy to inspect whether the current run is `running`, `success`, `failed`, or `skipped_locked`
+
+Status:
+
+- operational status file
+- safe to overwrite on the next nightly execution
 
 ## Natural Keys and Correction Semantics
 

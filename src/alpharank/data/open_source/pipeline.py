@@ -84,7 +84,7 @@ def run_open_source_cadrage(
         ticker_list = tuple(PILOT_TICKERS)
     include_yfinance_financials = True
     include_yfinance_earnings = universe != "sp500-2025"
-    yahoo_client = YahooFinanceClient()
+    yahoo_client = YahooFinanceClient(cache_dir=cache_dir / "yfinance")
     simfin_client = SimFinClient(
         api_key=simfin_api_key,
         data_dir=cache_dir / "simfin",
@@ -120,7 +120,21 @@ def run_open_source_cadrage(
     general_reference = yahoo_client.fetch_general_reference(ticker_list, sec_mapping)
     yahoo_prices = yahoo_client.download_prices(ticker_list, f"{year}-01-01", f"{year + 1}-01-01")
     if include_yfinance_earnings:
-        yahoo_earnings = yahoo_client.fetch_earnings_dates(ticker_list)
+        try:
+            yahoo_earnings = yahoo_client.fetch_earnings_dates(ticker_list)
+        except Exception:
+            yahoo_earnings = pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "reportDate": pl.String,
+                    "earningsDatetime": pl.String,
+                    "period_end": pl.String,
+                    "epsEstimate": pl.Float64,
+                    "epsActual": pl.Float64,
+                    "surprisePercent": pl.Float64,
+                    "source": pl.String,
+                }
+            )
         yahoo_earnings_long = yahoo_client.normalize_earnings_long(yahoo_earnings)
     else:
         yahoo_earnings = pl.DataFrame(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 import time
 from typing import Iterable, Sequence
 
@@ -12,8 +13,12 @@ from alpharank.data.open_source.config import GENERAL_COLUMNS, PRICE_COLUMNS, sp
 
 
 class YahooFinanceClient:
-    def __init__(self) -> None:
+    def __init__(self, *, cache_dir: str | Path | None = None) -> None:
         self._ticker_cache: dict[str, yf.Ticker] = {}
+        self._cache_dir = Path(cache_dir).expanduser().resolve() if cache_dir else None
+        if self._cache_dir is not None:
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            yf.set_tz_cache_location(str(self._cache_dir))
 
     def _ticker(self, symbol: str) -> yf.Ticker:
         ticker = self._ticker_cache.get(symbol)
@@ -22,7 +27,7 @@ class YahooFinanceClient:
             self._ticker_cache[symbol] = ticker
         return ticker
 
-    def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 20) -> pl.DataFrame:
+    def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 5) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
         tickers = list(tickers)
         for start_idx in range(0, len(tickers), chunk_size):
@@ -30,6 +35,8 @@ class YahooFinanceClient:
             history = _download_with_retries(chunk, start_date, end_date)
             for ticker in chunk:
                 frame = _extract_price_frame(history, ticker)
+                if frame is None:
+                    frame = _download_single_ticker_frame(ticker, start_date, end_date)
                 if frame is not None:
                     frames.append(frame)
 
@@ -57,11 +64,13 @@ class YahooFinanceClient:
     def fetch_earnings_dates(self, tickers: Iterable[str], limit: int = 8) -> pl.DataFrame:
         rows: list[dict[str, object]] = []
         for ticker in tickers:
-            history = self._ticker(ticker).get_earnings_dates(limit=limit)
+            history = _safe_get_earnings_dates(self._ticker(ticker), ticker=ticker, limit=limit)
             if history is None or history.empty:
                 continue
             frame = history.reset_index()
             date_col = frame.columns[0]
+            if date_col not in frame.columns:
+                continue
             for record in frame.to_dict(orient="records"):
                 earnings_date = pd.Timestamp(record[date_col]).tz_localize(None) if getattr(record[date_col], "tzinfo", None) else pd.Timestamp(record[date_col])
                 rows.append(
@@ -91,13 +100,16 @@ class YahooFinanceClient:
             )
         return pl.DataFrame(rows).sort(["ticker", "reportDate"])
 
-    def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 4) -> pl.DataFrame:
+    def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
         ticker_list = list(tickers)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(_fetch_ticker_financial_frames, ticker): ticker for ticker in ticker_list}
             for future in as_completed(futures):
-                ticker_frames = future.result()
+                try:
+                    ticker_frames = future.result()
+                except Exception:
+                    ticker_frames = []
                 if ticker_frames:
                     frames.extend(ticker_frames)
         return pl.concat(frames, how="vertical") if frames else _empty_financial_frame()
@@ -139,21 +151,17 @@ class YahooFinanceClient:
         rows: list[dict[str, object]] = []
         for start_idx in range(0, len(tickers), chunk_size):
             chunk = list(tickers[start_idx : start_idx + chunk_size])
-            history = yf.download(
-                chunk,
-                start=start_date,
-                end=end_date,
-                auto_adjust=False,
-                progress=False,
-                threads=False,
-                group_by="ticker",
-            )
+            history = _download_with_retries(chunk, start_date, end_date)
             for ticker in chunk:
+                available = _history_has_prices(history, ticker)
+                if not available:
+                    single = _download_with_retries([ticker], start_date, end_date)
+                    available = _history_has_prices(single, ticker)
                 rows.append(
                     {
                         "ticker": f"{ticker}.US",
                         "ticker_root": ticker,
-                        "yahoo_price_available": _history_has_prices(history, ticker),
+                        "yahoo_price_available": available,
                     }
                 )
         return pl.DataFrame(rows).sort("ticker") if rows else pl.DataFrame(
@@ -276,20 +284,41 @@ def _extract_price_frame(history: pd.DataFrame, ticker: str) -> pl.DataFrame | N
 def _download_with_retries(chunk: list[str], start_date: str, end_date: str, retries: int = 3) -> pd.DataFrame:
     last_history = pd.DataFrame()
     for attempt in range(retries):
-        history = yf.download(
-            chunk,
-            start=start_date,
-            end=end_date,
-            auto_adjust=False,
-            progress=False,
-            threads=False,
-            group_by="ticker",
-        )
+        try:
+            history = yf.download(
+                chunk,
+                start=start_date,
+                end=end_date,
+                auto_adjust=False,
+                progress=False,
+                threads=False,
+                group_by="ticker",
+            )
+        except Exception:
+            history = pd.DataFrame()
         last_history = history
         if not history.empty:
             return history
         time.sleep(2 * (attempt + 1))
     return last_history
+
+
+def _download_single_ticker_frame(ticker: str, start_date: str, end_date: str) -> pl.DataFrame | None:
+    history = _download_with_retries([ticker], start_date, end_date)
+    return _extract_price_frame(history, ticker)
+
+
+def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int) -> pd.DataFrame | None:
+    try:
+        history = ticker_obj.get_earnings_dates(limit=limit)
+    except Exception as exc:
+        print(f"{ticker}: earnings fetch skipped ({exc})")
+        return None
+    if history is None or history.empty:
+        return history
+    if "Earnings Date" not in history.columns and getattr(history.index, "name", None) != "Earnings Date":
+        return None
+    return history
 
 
 def _history_has_prices(history: pd.DataFrame, ticker: str) -> bool:

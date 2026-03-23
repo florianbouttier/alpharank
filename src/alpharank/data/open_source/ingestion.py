@@ -164,7 +164,7 @@ def run_open_source_ingestion(
         lookback_years=financial_lookback_years,
     )
 
-    yahoo_client = YahooFinanceClient()
+    yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
     sec_client = SecCompanyFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts")
     sec_filing_client = SecFilingFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing")
     simfin_client = SimFinClient(api_key=simfin_api_key, data_dir=project_root / "data" / "open_source" / "_cache" / "simfin")
@@ -220,11 +220,17 @@ def run_open_source_ingestion(
         "sec_companyfacts": [],
         "sec_filing": [],
         "simfin": [],
+        "yfinance_earnings": [],
     }
 
     if refreshed_years:
+        try:
+            earnings_fetched = yahoo_client.fetch_earnings_dates(ticker_list, limit=max(8, len(refreshed_years) * 4))
+        except Exception as exc:
+            earnings_fetched = _empty_raw_earnings_frame()
+            run_failures["yfinance_earnings"].append({"error": str(exc)})
         earnings_delta = _with_earnings_ingestion_metadata(
-            yahoo_client.fetch_earnings_dates(ticker_list, limit=max(8, len(refreshed_years) * 4)),
+            earnings_fetched,
             dataset="earnings_yfinance",
             run_id=run_id,
             ingested_at=ingested_at,

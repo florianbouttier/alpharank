@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -89,11 +90,47 @@ def write_json(path: Path, payload: dict[str, Any] | list[Any]) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def read_json(path: Path) -> dict[str, Any] | list[Any] | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def write_run_manifest(paths: OpenSourceLivePaths, run_id: str, manifest: dict[str, Any]) -> Path:
     run_manifest_path = paths.run_dir(run_id) / "manifest.json"
     write_json(run_manifest_path, manifest)
     write_json(paths.latest_manifest_path, manifest)
     return run_manifest_path
+
+
+def try_acquire_json_lock(path: Path, payload: dict[str, Any]) -> tuple[bool, dict[str, Any] | None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = read_json(path)
+    if isinstance(existing, dict):
+        existing_pid = existing.get("pid")
+        if isinstance(existing_pid, int) and _pid_is_running(existing_pid):
+            return False, existing
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        existing = read_json(path)
+        return False, existing if isinstance(existing, dict) else None
+
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    return True, None
+
+
+def release_json_lock(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def append_run_delta(path: Path, frame: pl.DataFrame) -> None:
@@ -140,3 +177,13 @@ def coerce_schema(frame: pl.DataFrame, schema: dict[str, pl.DataType]) -> pl.Dat
         else:
             expressions.append(pl.lit(None).cast(dtype).alias(column))
     return frame.with_columns(expressions).select(list(schema))
+
+
+def _pid_is_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True

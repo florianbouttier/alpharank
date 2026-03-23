@@ -40,7 +40,7 @@ def run_open_source_price_transition(
     tickers: Sequence[str] | None = None,
     threshold_pct: float = 0.5,
 ) -> OpenSourcePriceTransitionResult:
-    yahoo_client = YahooFinanceClient()
+    yahoo_client = YahooFinanceClient(cache_dir=reference_data_dir / "open_source" / "_cache" / "yfinance")
     end_date = end_date or date.today().strftime("%Y-%m-%d")
     ticker_list = tuple(tickers) if tickers is not None else _load_reference_tickers(reference_data_dir, start_date=start_date)
     output_dir.mkdir(parents=True, exist_ok=True)
