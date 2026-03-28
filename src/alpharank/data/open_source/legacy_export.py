@@ -45,12 +45,21 @@ def export_legacy_compatible_outputs(
     _build_general_legacy_frame(general_reference, reference_data_dir).write_parquet(general_path)
     exported["US_General.parquet"] = general_path
 
-    for statement, file_name in LEGACY_STATEMENT_FILES.items():
-        frame = _build_financial_legacy_frame(
+    financial_frames: dict[str, pl.DataFrame] = {}
+    for statement in LEGACY_STATEMENT_FILES:
+        financial_frames[statement] = _build_financial_legacy_frame(
             statement=statement,
             consolidated_financials=consolidated_financials,
             reference_data_dir=reference_data_dir,
         )
+
+    financial_frames["balance_sheet"] = _merge_balance_shares(
+        balance_frame=financial_frames["balance_sheet"],
+        shares_frame=financial_frames["shares"],
+    )
+
+    for statement, file_name in LEGACY_STATEMENT_FILES.items():
+        frame = financial_frames[statement]
         path = output_dir / file_name
         frame.write_parquet(path)
         exported[file_name] = path
@@ -150,3 +159,32 @@ def _build_earnings_legacy_frame(earnings_frame: pl.DataFrame, reference_data_di
         .unique(subset=["ticker", "reportDate"], keep="last", maintain_order=True)
     )
     return coerce_schema(frame, reference_schema)
+
+
+def _merge_balance_shares(*, balance_frame: pl.DataFrame, shares_frame: pl.DataFrame) -> pl.DataFrame:
+    if balance_frame.is_empty() or shares_frame.is_empty():
+        return balance_frame
+    if "commonStockSharesOutstanding" not in balance_frame.columns or "shares" not in shares_frame.columns:
+        return balance_frame
+
+    share_lookup = (
+        shares_frame.select(
+            [
+                pl.col("ticker"),
+                pl.col("dateFormatted").cast(pl.Utf8).alias("date"),
+                pl.col("shares").cast(pl.Float64, strict=False).alias("shares_from_legacy_share"),
+            ]
+        )
+        .unique(subset=["ticker", "date"], keep="last", maintain_order=True)
+    )
+
+    joined = balance_frame.join(share_lookup, on=["ticker", "date"], how="left")
+    enriched = joined.with_columns(
+        pl.coalesce(
+            [
+                pl.col("commonStockSharesOutstanding").cast(pl.Float64, strict=False),
+                pl.col("shares_from_legacy_share"),
+            ]
+        ).alias("commonStockSharesOutstanding")
+    )
+    return enriched.drop("shares_from_legacy_share")

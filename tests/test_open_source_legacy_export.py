@@ -42,7 +42,16 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     pl.DataFrame({"ticker": ["AAPL.US"], "date": ["2025-03-31"], "filing_date": ["2025-05-01"], "totalRevenue": [100.0], "netIncome": [20.0]}).write_parquet(
         reference_dir / "US_Income_statement.parquet"
     )
-    pl.DataFrame({"ticker": ["AAPL.US"], "date": ["2025-03-31"], "filing_date": ["2025-05-01"], "totalAssets": [500.0], "totalLiab": [300.0]}).write_parquet(
+    pl.DataFrame(
+        {
+                "ticker": ["AAPL.US"],
+                "date": ["2025-03-31"],
+                "filing_date": ["2025-05-01"],
+                "commonStockSharesOutstanding": ["0.0"],
+                "totalAssets": [500.0],
+                "totalLiab": [300.0],
+            }
+    ).write_parquet(
         reference_dir / "US_Balance_sheet.parquet"
     )
     pl.DataFrame({"ticker": ["AAPL.US"], "date": ["2025-03-31"], "filing_date": ["2025-05-01"], "freeCashFlow": [50.0]}).write_parquet(
@@ -116,11 +125,13 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     )
 
     income = pl.read_parquet(output_dir / "US_Income_statement.parquet")
+    balance = pl.read_parquet(output_dir / "US_Balance_sheet.parquet")
     shares = pl.read_parquet(output_dir / "US_share.parquet")
     earnings_export = pl.read_parquet(output_dir / "US_Earnings.parquet")
 
     assert "totalRevenue" in income.columns
     assert income["totalRevenue"].to_list() == [100.0]
+    assert balance["commonStockSharesOutstanding"].to_list() == [10_000_000.0]
     assert shares["shares"].to_list() == [10_000_000.0]
     assert shares["sharesMln"].to_list() == [10.0]
     assert earnings_export["epsDifference"].to_list() == [0.10000000000000009]
