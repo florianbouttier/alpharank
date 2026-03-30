@@ -12,6 +12,11 @@ This is the canonical open-source data store.
 
 ## Canonical lineage files
 
+- `target/general_reference.parquet`
+- `target/general_reference_lineage.parquet`
+- `target/earnings_open_source_consolidated.parquet`
+- `target/earnings_open_source_lineage.parquet`
+- `target/earnings_open_source_long.parquet`
 - `target/financials_open_source_consolidated.parquet`
 - `target/financials_open_source_lineage.parquet`
 - `target/financials_open_source_source_summary.parquet`

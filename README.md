@@ -117,6 +117,7 @@ The official ingestion pipeline writes:
 
 - raw normalized source tables
 - target consolidated tables with lineage
+- target earnings and general-reference consolidations with lineage
 - published exact-name outputs for backtests/manual inspection
 - legacy-compatible parquet exports
 - optional HTML audits
@@ -174,6 +175,18 @@ If you want the exact legacy filenames in one user-facing folder, open:
 The associated lineage package is:
 
 - `data/open_source/output/lineage/`
+
+The user-facing lineage folder now contains the official exported lineage of the new model, including:
+
+- `financials_open_source_consolidated.parquet`
+- `financials_open_source_lineage.parquet`
+- `financials_open_source_source_summary.parquet`
+- `general_reference.parquet`
+- `general_reference_lineage.parquet`
+- `earnings_open_source_consolidated.parquet`
+- `earnings_open_source_lineage.parquet`
+- `earnings_open_source_long.parquet`
+- `manifest.json`
 
 ## Nightly Ingestion
 

@@ -20,6 +20,10 @@ If you want the exact files for backtests/manual use, start here:
 If you want the internal canonical store, start here:
 
 - `official/raw/`
+- `official/target/general_reference.parquet`
+- `official/target/general_reference_lineage.parquet`
+- `official/target/earnings_open_source_consolidated.parquet`
+- `official/target/earnings_open_source_lineage.parquet`
 - `official/target/financials_open_source_consolidated.parquet`
 - `official/target/financials_open_source_lineage.parquet`
 - `official/target/financials_open_source_source_summary.parquet`

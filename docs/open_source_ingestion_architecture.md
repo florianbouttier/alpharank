@@ -56,9 +56,12 @@ data/open_source/
   official/
     raw/
       general_reference.parquet
+      general_reference_lineage.parquet
       prices_yfinance.parquet
       prices_spy_yfinance.parquet
       earnings_yfinance.parquet
+      earnings_sec_calendar.parquet
+      earnings_sec_actuals.parquet
       financials_sec_companyfacts.parquet
       financials_sec_filing.parquet
       financials_simfin.parquet
@@ -66,7 +69,10 @@ data/open_source/
     target/
       prices_open_source.parquet
       benchmark_prices_open_source.parquet
-      earnings_open_source.parquet
+      general_reference.parquet
+      general_reference_lineage.parquet
+      earnings_open_source_consolidated.parquet
+      earnings_open_source_lineage.parquet
       earnings_open_source_long.parquet
       financials_open_source_consolidated.parquet
       financials_open_source_lineage.parquet
@@ -101,6 +107,11 @@ data/open_source/
       financials_open_source_consolidated.parquet
       financials_open_source_lineage.parquet
       financials_open_source_source_summary.parquet
+      general_reference.parquet
+      general_reference_lineage.parquet
+      earnings_open_source_consolidated.parquet
+      earnings_open_source_lineage.parquet
+      earnings_open_source_long.parquet
       manifest.json
   history/
     output/
@@ -273,21 +284,30 @@ Correction rule:
 
 ### Earnings raw
 
-File:
+Files:
 
 - `raw/earnings_yfinance.parquet`
+- `raw/earnings_sec_calendar.parquet`
+- `raw/earnings_sec_actuals.parquet`
 
 Natural key:
 
 - `ticker`
-- `reportDate`
+- `period_end`
 - `source`
+
+Fallback natural keys used by source:
+
+- Yahoo events: `ticker`, `reportDate`, `source`
+- SEC calendar: `ticker`, `period_end`, `source`
+- SEC actuals: `ticker`, `period_end`, `source`
 
 ### General reference raw
 
-File:
+Files:
 
 - `raw/general_reference.parquet`
+- `raw/general_reference_lineage.parquet`
 
 Natural key:
 
@@ -340,6 +360,64 @@ flowchart LR
     F --> G["legacy financial parquets"]
     F --> H["HTML KPI and ticker audits"]
 ```
+
+## Earnings Consolidation and Lineage
+
+Earnings are consolidated with this priority:
+
+1. SEC submissions for canonical `period_end` and `reportDate`
+2. Yahoo for market-facing `epsActual`, `epsEstimate`, `surprisePercent`
+3. SEC companyfacts fallback for `epsActual` when Yahoo does not match the SEC calendar
+
+Official target files:
+
+- `target/earnings_open_source_consolidated.parquet`
+- `target/earnings_open_source_lineage.parquet`
+- `target/earnings_open_source_long.parquet`
+
+Published lineage files:
+
+- `output/lineage/earnings_open_source_consolidated.parquet`
+- `output/lineage/earnings_open_source_lineage.parquet`
+- `output/lineage/earnings_open_source_long.parquet`
+
+Every selected earnings row carries:
+
+- `selected_source`
+- `candidate_sources`
+- `calendar_source`
+- `actual_source`
+- `estimate_source`
+- `source_label`
+- `accession_number`
+
+## General Reference Consolidation and Lineage
+
+General reference rows are consolidated with this priority:
+
+1. Yahoo company metadata for `Sector` and `industry`
+2. SEC company mapping for `name`, `exchange`, `cik`
+3. SEC SIC fallback for `Sector` when Yahoo does not provide one
+
+Official target files:
+
+- `target/general_reference.parquet`
+- `target/general_reference_lineage.parquet`
+
+Published lineage files:
+
+- `output/lineage/general_reference.parquet`
+- `output/lineage/general_reference_lineage.parquet`
+
+Every selected general row carries:
+
+- `Sector`
+- `industry`
+- `sector_source`
+- `sector_raw_value`
+- `sic`
+- `sic_description`
+- `mapping_rule`
 
 ## Bootstrap vs Daily
 
