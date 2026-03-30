@@ -24,20 +24,19 @@ def test_launchd_plist_points_to_repo_python_script() -> None:
     assert env["TMPDIR"] == "/tmp"
 
 
-def test_load_existing_live_tickers_collects_union_from_raw_tables(tmp_path: Path) -> None:
+def test_load_existing_live_tickers_uses_existing_price_universe(tmp_path: Path) -> None:
     raw_dir = tmp_path / "raw"
     raw_dir.mkdir(parents=True)
 
-    pl.DataFrame({"ticker": ["AAPL.US", "MSFT.US"]}).write_parquet(raw_dir / "general_reference.parquet")
     pl.DataFrame({"ticker": ["OXY.US", "AAPL.US"]}).write_parquet(raw_dir / "prices_yfinance.parquet")
 
-    assert load_existing_live_tickers(tmp_path) == ("AAPL", "MSFT", "OXY")
+    assert load_existing_live_tickers(tmp_path) == ("AAPL", "OXY")
 
 
 def test_default_nightly_tickers_preserves_existing_live_tickers_outside_current_sp500(tmp_path: Path) -> None:
     raw_dir = tmp_path / "raw"
     raw_dir.mkdir(parents=True)
-    pl.DataFrame({"ticker": ["ZZZ.US"]}).write_parquet(raw_dir / "general_reference.parquet")
+    pl.DataFrame({"ticker": ["ZZZ.US"]}).write_parquet(raw_dir / "prices_yfinance.parquet")
 
     reference_data_dir = tmp_path / "reference"
     reference_data_dir.mkdir(parents=True)

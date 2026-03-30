@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from alpharank.data.open_source.yahoo import YahooFinanceClient
+from alpharank.data.open_source.yahoo import YahooFinanceClient, _normalize_yahoo_symbol
 
 
 class _FakeTicker:
@@ -38,3 +38,9 @@ def test_fetch_earnings_dates_skips_ticker_errors(tmp_path: Path) -> None:
 
     assert result.height == 1
     assert result["ticker"].to_list() == ["AAPL.US"]
+
+
+def test_normalize_yahoo_symbol_rewrites_dot_share_classes() -> None:
+    assert _normalize_yahoo_symbol("BRK.B") == "BRK-B"
+    assert _normalize_yahoo_symbol("BF.B") == "BF-B"
+    assert _normalize_yahoo_symbol("AAPL") == "AAPL"

@@ -6,7 +6,11 @@ import polars as pl
 
 from alpharank.data.open_source.benchmark import normalize_eodhd_earnings
 from alpharank.data.open_source.earnings import consolidate_earnings
-from alpharank.data.open_source.ingestion import _filter_earnings_years
+from alpharank.data.open_source.ingestion import (
+    _canonicalize_price_tickers,
+    _filter_earnings_years,
+    _identify_price_history_backfill_tickers,
+)
 from alpharank.data.open_source.general_reference import build_general_reference
 
 
@@ -159,3 +163,37 @@ def test_filter_earnings_years_falls_back_to_report_date_when_period_end_missing
     filtered = _filter_earnings_years(frame, [2025])
 
     assert filtered["ticker"].to_list() == ["AAPL.US"]
+
+
+def test_identify_price_history_backfill_tickers_flags_recently_added_price_histories() -> None:
+    existing = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US", "AAPL.US", "MSFT.US", "MSFT.US", "GEHC.US", "GEHC.US"],
+            "date": ["2005-01-03", "2026-03-27", "2026-03-13", "2026-03-27", "2023-01-04", "2026-03-27"],
+        }
+    )
+
+    result = _identify_price_history_backfill_tickers(
+        requested_tickers=["AAPL", "MSFT", "GEHC", "NVDA"],
+        existing_prices=existing,
+        explicit_start_date="2005-01-01",
+        mode="daily",
+    )
+
+    assert result == ("MSFT", "NVDA")
+
+
+def test_canonicalize_price_tickers_merges_share_class_aliases() -> None:
+    frame = pl.DataFrame(
+        {
+            "ticker": ["BRK-B.US", "BRK.B.US", "AAPL.US"],
+            "date": ["2026-03-27", "2026-03-27", "2026-03-27"],
+            "source": ["yfinance", "yfinance", "yfinance"],
+            "dataset": ["prices_yfinance_backfill", "prices_yfinance", "prices_yfinance"],
+            "ingested_at": ["2026-03-30T21:00:00Z", "2026-03-30T21:05:00Z", "2026-03-30T21:05:00Z"],
+        }
+    )
+
+    result = _canonicalize_price_tickers(frame, ticker_list=["BRK.B", "AAPL"])
+
+    assert result["ticker"].to_list() == ["AAPL.US", "BRK.B.US"]

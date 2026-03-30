@@ -28,18 +28,7 @@ USER_AGENT = "Florian Bouttier florianbouttier@example.com"
 TICKERS: tuple[str, ...] | None = None
 
 
-RAW_TICKER_FILES = (
-    "general_reference.parquet",
-    "general_reference_lineage.parquet",
-    "prices_yfinance.parquet",
-    "financials_sec_companyfacts.parquet",
-    "financials_sec_filing.parquet",
-    "financials_simfin.parquet",
-    "financials_yfinance.parquet",
-    "earnings_yfinance.parquet",
-    "earnings_sec_calendar.parquet",
-    "earnings_sec_actuals.parquet",
-)
+RAW_TICKER_FILES = ("prices_yfinance.parquet",)
 
 LOCK_PATH = LIVE_DIR / "manifests" / "nightly.lock.json"
 STATUS_PATH = LIVE_DIR / "manifests" / "nightly_status.json"
@@ -60,6 +49,17 @@ def load_existing_live_tickers(live_dir: Path = LIVE_DIR) -> tuple[str, ...]:
             )
             if ticker
         )
+    if not tickers:
+        output_path = live_dir.parent / "output" / "US_Finalprice.parquet"
+        if output_path.exists():
+            frame = pl.read_parquet(output_path, columns=["ticker"])
+            tickers.update(
+                ticker
+                for ticker in (
+                    frame.select(pl.col("ticker").cast(pl.Utf8, strict=False).str.replace(r"\.US$", "")).to_series().to_list()
+                )
+                if ticker
+            )
     return tuple(sorted(tickers))
 
 

@@ -3,6 +3,7 @@
 from alpharank.data.open_source.ingestion import (
     OpenSourceIngestionResult,
     OpenSourceReferenceRefreshResult,
+    repair_open_source_price_history,
     refresh_open_source_reference_layers,
     run_open_source_ingestion,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "OpenSourceIngestionResult",
     "OpenSourceReferenceRefreshResult",
     "OpenSourcePriceTransitionResult",
+    "repair_open_source_price_history",
     "refresh_open_source_reference_layers",
     "run_open_source_cadrage",
     "run_open_source_ingestion",

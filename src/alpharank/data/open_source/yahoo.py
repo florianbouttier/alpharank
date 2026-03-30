@@ -21,10 +21,11 @@ class YahooFinanceClient:
             yf.set_tz_cache_location(str(self._cache_dir))
 
     def _ticker(self, symbol: str) -> yf.Ticker:
-        ticker = self._ticker_cache.get(symbol)
+        yahoo_symbol = _normalize_yahoo_symbol(symbol)
+        ticker = self._ticker_cache.get(yahoo_symbol)
         if ticker is None:
-            ticker = yf.Ticker(symbol)
-            self._ticker_cache[symbol] = ticker
+            ticker = yf.Ticker(yahoo_symbol)
+            self._ticker_cache[yahoo_symbol] = ticker
         return ticker
 
     def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 5) -> pl.DataFrame:
@@ -32,9 +33,10 @@ class YahooFinanceClient:
         tickers = list(tickers)
         for start_idx in range(0, len(tickers), chunk_size):
             chunk = tickers[start_idx : start_idx + chunk_size]
-            history = _download_with_retries(chunk, start_date, end_date)
-            for ticker in chunk:
-                frame = _extract_price_frame(history, ticker)
+            yahoo_symbols = [_normalize_yahoo_symbol(ticker) for ticker in chunk]
+            history = _download_with_retries(yahoo_symbols, start_date, end_date)
+            for ticker, yahoo_symbol in zip(chunk, yahoo_symbols):
+                frame = _extract_price_frame(history, request_symbol=yahoo_symbol, ticker=ticker)
                 if frame is None:
                     frame = _download_single_ticker_frame(ticker, start_date, end_date)
                 if frame is not None:
@@ -201,12 +203,13 @@ class YahooFinanceClient:
         rows: list[dict[str, object]] = []
         for start_idx in range(0, len(tickers), chunk_size):
             chunk = list(tickers[start_idx : start_idx + chunk_size])
-            history = _download_with_retries(chunk, start_date, end_date)
-            for ticker in chunk:
-                available = _history_has_prices(history, ticker)
+            yahoo_symbols = [_normalize_yahoo_symbol(ticker) for ticker in chunk]
+            history = _download_with_retries(yahoo_symbols, start_date, end_date)
+            for ticker, yahoo_symbol in zip(chunk, yahoo_symbols):
+                available = _history_has_prices(history, yahoo_symbol)
                 if not available:
-                    single = _download_with_retries([ticker], start_date, end_date)
-                    available = _history_has_prices(single, ticker)
+                    single = _download_with_retries([yahoo_symbol], start_date, end_date)
+                    available = _history_has_prices(single, yahoo_symbol)
                 rows.append(
                     {
                         "ticker": f"{ticker}.US",
@@ -265,7 +268,7 @@ def _extract_statement_frame(ticker: str, statement: str, wide: pd.DataFrame) ->
 
 
 def _fetch_ticker_financial_frames(ticker: str) -> list[pl.DataFrame]:
-    ticker_obj = yf.Ticker(ticker)
+    ticker_obj = yf.Ticker(_normalize_yahoo_symbol(ticker))
     statement_map = {
         "income_statement": lambda current: current.quarterly_income_stmt,
         "balance_sheet": lambda current: current.quarterly_balance_sheet,
@@ -307,13 +310,13 @@ def _as_float(value: object) -> float | None:
     return float(value)
 
 
-def _extract_price_frame(history: pd.DataFrame, ticker: str) -> pl.DataFrame | None:
+def _extract_price_frame(history: pd.DataFrame, *, request_symbol: str, ticker: str) -> pl.DataFrame | None:
     if history is None or history.empty:
         return None
     if isinstance(history.columns, pd.MultiIndex):
-        if ticker not in history.columns.get_level_values(0):
+        if request_symbol not in history.columns.get_level_values(0):
             return None
-        ticker_history = history[ticker]
+        ticker_history = history[request_symbol]
     else:
         ticker_history = history
     if ticker_history.empty or ticker_history.dropna(how="all").empty:
@@ -372,8 +375,9 @@ def _download_with_retries(chunk: list[str], start_date: str, end_date: str, ret
 
 
 def _download_single_ticker_frame(ticker: str, start_date: str, end_date: str) -> pl.DataFrame | None:
-    history = _download_with_retries([ticker], start_date, end_date)
-    return _extract_price_frame(history, ticker)
+    yahoo_symbol = _normalize_yahoo_symbol(ticker)
+    history = _download_with_retries([yahoo_symbol], start_date, end_date)
+    return _extract_price_frame(history, request_symbol=yahoo_symbol, ticker=ticker)
 
 
 def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int) -> pd.DataFrame | None:
@@ -407,3 +411,7 @@ def _history_has_prices(history: pd.DataFrame, ticker: str) -> bool:
         ticker_frame = history[ticker]
         return not ticker_frame.dropna(how="all").empty
     return not history.dropna(how="all").empty
+
+
+def _normalize_yahoo_symbol(symbol: str) -> str:
+    return str(symbol).replace(".", "-")
