@@ -24,10 +24,12 @@ def publish_open_source_output_package(
     prices_frame: pl.DataFrame,
     benchmark_prices: pl.DataFrame,
     general_reference: pl.DataFrame,
+    general_reference_lineage: pl.DataFrame,
     consolidated_financials: pl.DataFrame,
     consolidated_lineage: pl.DataFrame,
     source_summary: pl.DataFrame,
-    earnings_frame: pl.DataFrame,
+    earnings_consolidated: pl.DataFrame,
+    earnings_lineage: pl.DataFrame,
     earnings_long_frame: pl.DataFrame,
     manifest: dict[str, Any] | None = None,
     history_root: Path | None = None,
@@ -48,6 +50,13 @@ def publish_open_source_output_package(
     lineage_dir.mkdir(parents=True, exist_ok=True)
 
     published: dict[str, Path] = {}
+    allowed_output_files = set(legacy_paths) | {"SP500_Constituents.csv", "README.md"}
+    for existing in output_dir.iterdir():
+        if existing.name == "lineage" or existing.name in allowed_output_files:
+            continue
+        if existing.is_file():
+            existing.unlink()
+
     for file_name, source_path in legacy_paths.items():
         destination = output_dir / file_name
         shutil.copy2(source_path, destination)
@@ -61,12 +70,20 @@ def publish_open_source_output_package(
         "prices_open_source.parquet": prices_frame,
         "benchmark_prices_open_source.parquet": benchmark_prices,
         "general_reference.parquet": general_reference,
-        "earnings_open_source.parquet": earnings_frame,
+        "general_reference_lineage.parquet": general_reference_lineage,
+        "earnings_open_source_consolidated.parquet": earnings_consolidated,
+        "earnings_open_source_lineage.parquet": earnings_lineage,
         "earnings_open_source_long.parquet": earnings_long_frame,
         "financials_open_source_consolidated.parquet": consolidated_financials,
         "financials_open_source_lineage.parquet": consolidated_lineage,
         "financials_open_source_source_summary.parquet": source_summary,
     }
+    allowed_lineage_files = set(lineage_outputs) | {"manifest.json"}
+    for existing in lineage_dir.iterdir():
+        if existing.name in allowed_lineage_files:
+            continue
+        if existing.is_file():
+            existing.unlink()
     for file_name, frame in lineage_outputs.items():
         path = lineage_dir / file_name
         frame.write_parquet(path)

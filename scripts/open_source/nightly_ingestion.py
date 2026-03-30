@@ -30,12 +30,15 @@ TICKERS: tuple[str, ...] | None = None
 
 RAW_TICKER_FILES = (
     "general_reference.parquet",
+    "general_reference_lineage.parquet",
     "prices_yfinance.parquet",
     "financials_sec_companyfacts.parquet",
     "financials_sec_filing.parquet",
     "financials_simfin.parquet",
     "financials_yfinance.parquet",
     "earnings_yfinance.parquet",
+    "earnings_sec_calendar.parquet",
+    "earnings_sec_actuals.parquet",
 )
 
 LOCK_PATH = LIVE_DIR / "manifests" / "nightly.lock.json"

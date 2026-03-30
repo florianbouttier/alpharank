@@ -29,7 +29,18 @@ PRICE_COLUMNS: tuple[str, ...] = (
     "ticker",
 )
 
-GENERAL_COLUMNS: tuple[str, ...] = ("ticker", "name", "exchange", "cik", "source")
+GENERAL_CORE_COLUMNS: tuple[str, ...] = ("ticker", "name", "exchange", "cik", "source")
+
+GENERAL_COLUMNS: tuple[str, ...] = (
+    *GENERAL_CORE_COLUMNS,
+    "Sector",
+    "industry",
+    "sector_source",
+    "sector_raw_value",
+    "sic",
+    "sic_description",
+    "mapping_rule",
+)
 
 METRIC_SPECS: tuple[MetricSpec, ...] = (
     MetricSpec(

@@ -25,6 +25,7 @@ class FilingMetadata:
     report_date: str
     form: str
     primary_document: str
+    acceptance_datetime: str | None = None
 
 
 class SecFilingFactsClient:
@@ -90,25 +91,91 @@ class SecFilingFactsClient:
             frame = pl.concat([frame, free_cash_flow.with_columns(pl.lit("sec_filing").alias("source"))], how="vertical")
         return frame.sort(["ticker", "statement", "metric", "date"])
 
-    def _list_filings_for_year(self, cik: str | int, year: int) -> list[FilingMetadata]:
-        payload = self._get_json(
-            f"https://data.sec.gov/submissions/CIK{str(cik).zfill(10)}.json",
-            cache_name=f"CIK{str(cik).zfill(10)}_submissions.json",
+    def fetch_company_submissions(self, cik: str | int) -> dict[str, Any]:
+        cik_str = str(cik).zfill(10)
+        return self._get_json(
+            f"https://data.sec.gov/submissions/CIK{cik_str}.json",
+            cache_name=f"CIK{cik_str}_submissions.json",
         )
+
+    def extract_company_profile(self, ticker: str, cik: str | int) -> pl.DataFrame:
+        payload = self.fetch_company_submissions(cik)
+        return pl.DataFrame(
+            [
+                {
+                    "ticker": f"{ticker}.US",
+                    "cik": str(cik).zfill(10),
+                    "sic": str(payload.get("sic")) if payload.get("sic") is not None else None,
+                    "sic_description": str(payload.get("sicDescription")) if payload.get("sicDescription") is not None else None,
+                }
+            ]
+        )
+
+    def list_filings(self, cik: str | int, years: list[int] | tuple[int, ...]) -> list[FilingMetadata]:
+        filings: list[FilingMetadata] = []
+        for year in sorted(set(int(year) for year in years)):
+            filings.extend(self._list_filings_for_year(cik, year))
+        return sorted(
+            filings,
+            key=lambda filing: (filing.report_date, filing.filing_date, filing.accession_number),
+        )
+
+    def extract_earnings_calendar(self, ticker: str, cik: str | int, years: list[int] | tuple[int, ...]) -> pl.DataFrame:
+        filings = self.list_filings(cik, years)
+        if not filings:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "period_end": pl.String,
+                    "reportDate": pl.String,
+                    "earningsDatetime": pl.String,
+                    "accession_number": pl.String,
+                    "form": pl.String,
+                    "fiscal_period": pl.String,
+                    "fiscal_year": pl.Int64,
+                    "source": pl.String,
+                    "source_label": pl.String,
+                }
+            )
+
+        rows: list[dict[str, object]] = []
+        for filing in filings:
+            fiscal_period = _quarter_for_date(filing.report_date)
+            fiscal_year = _year_for_date(filing.report_date)
+            rows.append(
+                {
+                    "ticker": f"{ticker}.US",
+                    "period_end": filing.report_date,
+                    "reportDate": filing.filing_date,
+                    "earningsDatetime": _normalize_acceptance_datetime(filing.acceptance_datetime, filing.filing_date),
+                    "accession_number": filing.accession_number,
+                    "form": filing.form,
+                    "fiscal_period": fiscal_period,
+                    "fiscal_year": fiscal_year,
+                    "source": "sec_submissions",
+                    "source_label": "reportDate",
+                }
+            )
+        return pl.DataFrame(rows).sort(["ticker", "period_end", "reportDate", "accession_number"])
+
+    def _list_filings_for_year(self, cik: str | int, year: int) -> list[FilingMetadata]:
+        payload = self.fetch_company_submissions(cik)
         recent = payload.get("filings", {}).get("recent", {})
         forms = recent.get("form", [])
         accession_numbers = recent.get("accessionNumber", [])
         filing_dates = recent.get("filingDate", [])
         report_dates = recent.get("reportDate", [])
         primary_documents = recent.get("primaryDocument", [])
+        acceptance_datetimes = recent.get("acceptanceDateTime", [])
 
         filings: list[FilingMetadata] = []
-        for form, accession_number, filing_date, report_date, primary_document in zip(
+        for form, accession_number, filing_date, report_date, primary_document, acceptance_datetime in zip(
             forms,
             accession_numbers,
             filing_dates,
             report_dates,
             primary_documents,
+            acceptance_datetimes,
             strict=False,
         ):
             if form not in {"10-Q", "10-K", "10-Q/A", "10-K/A"}:
@@ -122,6 +189,7 @@ class SecFilingFactsClient:
                     report_date=str(report_date),
                     form=str(form),
                     primary_document=str(primary_document),
+                    acceptance_datetime=str(acceptance_datetime) if acceptance_datetime is not None else None,
                 )
             )
         return sorted(filings, key=lambda filing: (filing.report_date, filing.filing_date, filing.accession_number))
@@ -319,6 +387,38 @@ def _fact_root_from_namespace(namespace_uri: str | None) -> str | None:
     if "xbrl.ifrs.org/taxonomy" in namespace_uri or "ifrs.org" in namespace_uri:
         return "ifrs-full"
     return None
+
+
+def _normalize_acceptance_datetime(value: str | None, filing_date: str) -> str:
+    if value is None:
+        return f"{filing_date} 00:00:00"
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if len(digits) >= 14:
+        return f"{digits[0:4]}-{digits[4:6]}-{digits[6:8]} {digits[8:10]}:{digits[10:12]}:{digits[12:14]}"
+    if "T" in value:
+        return value.replace("T", " ")
+    return value
+
+
+def _quarter_for_date(value: str) -> str | None:
+    try:
+        month = int(value[5:7])
+    except (TypeError, ValueError, IndexError):
+        return None
+    if month <= 3:
+        return "Q1"
+    if month <= 6:
+        return "Q2"
+    if month <= 9:
+        return "Q3"
+    return "Q4"
+
+
+def _year_for_date(value: str) -> int | None:
+    try:
+        return int(value[0:4])
+    except (TypeError, ValueError, IndexError):
+        return None
 
 
 def _parse_numeric_value(text: str | None) -> float | None:

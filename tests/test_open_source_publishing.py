@@ -30,10 +30,12 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
         prices_frame=frame,
         benchmark_prices=frame,
         general_reference=pl.DataFrame({"ticker": ["AAPL.US"], "name": ["Apple"], "exchange": ["NASDAQ"], "cik": ["1"], "source": ["sec_mapping"]}),
+        general_reference_lineage=pl.DataFrame({"ticker": ["AAPL.US"], "name": ["Apple"], "exchange": ["NASDAQ"], "cik": ["1"], "source": ["sec_mapping"]}),
         consolidated_financials=frame,
         consolidated_lineage=frame,
         source_summary=pl.DataFrame({"statement": ["income_statement"], "selected_source": ["sec_companyfacts"]}),
-        earnings_frame=pl.DataFrame({"ticker": ["AAPL.US"], "reportDate": ["2025-01-30"]}),
+        earnings_consolidated=pl.DataFrame({"ticker": ["AAPL.US"], "reportDate": ["2025-01-30"]}),
+        earnings_lineage=pl.DataFrame({"ticker": ["AAPL.US"], "reportDate": ["2025-01-30"]}),
         earnings_long_frame=frame,
         manifest={"run_id": "abc"},
         history_root=history_root,
@@ -43,6 +45,8 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
     assert (output_dir / "SP500Price.parquet").exists()
     assert (output_dir / "SP500_Constituents.csv").exists()
     assert (output_dir / "lineage" / "financials_open_source_lineage.parquet").exists()
+    assert (output_dir / "lineage" / "earnings_open_source_consolidated.parquet").exists()
+    assert (output_dir / "lineage" / "general_reference_lineage.parquet").exists()
     assert (output_dir / "lineage" / "manifest.json").exists()
     assert "lineage/financials_open_source_lineage.parquet" in published.published_paths
     assert published.snapshot_dir is None
@@ -54,10 +58,12 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
         prices_frame=frame,
         benchmark_prices=frame,
         general_reference=pl.DataFrame({"ticker": ["AAPL.US"], "name": ["Apple"], "exchange": ["NASDAQ"], "cik": ["1"], "source": ["sec_mapping"]}),
+        general_reference_lineage=pl.DataFrame({"ticker": ["AAPL.US"], "name": ["Apple"], "exchange": ["NASDAQ"], "cik": ["1"], "source": ["sec_mapping"]}),
         consolidated_financials=frame,
         consolidated_lineage=frame,
         source_summary=pl.DataFrame({"statement": ["income_statement"], "selected_source": ["sec_companyfacts"]}),
-        earnings_frame=pl.DataFrame({"ticker": ["AAPL.US"], "reportDate": ["2025-01-30"]}),
+        earnings_consolidated=pl.DataFrame({"ticker": ["AAPL.US"], "reportDate": ["2025-01-30"]}),
+        earnings_lineage=pl.DataFrame({"ticker": ["AAPL.US"], "reportDate": ["2025-01-30"]}),
         earnings_long_frame=frame,
         manifest={"run_id": "def"},
         history_root=history_root,

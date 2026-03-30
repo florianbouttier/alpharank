@@ -10,6 +10,13 @@ from alpharank.data.open_source.publishing import publish_open_source_output_pac
 from alpharank.data.open_source.storage import utc_now_iso
 
 
+def _read_first_existing(paths: list[Path]) -> pl.DataFrame:
+    for path in paths:
+        if path.exists():
+            return pl.read_parquet(path)
+    raise FileNotFoundError(f"None of the expected parquet files exist: {paths}")
+
+
 def main(
     *,
     price_source_dir: str | Path | None = None,
@@ -38,8 +45,31 @@ def main(
     clean_prices = pl.read_parquet(resolved_price_source_dir / "US_Finalprice.parquet")
     benchmark_prices = pl.read_parquet(resolved_price_source_dir / "SP500Price.parquet")
     general_reference = pl.read_parquet(resolved_financial_source_dir / "general_reference.parquet")
-    earnings_frame = pl.read_parquet(resolved_financial_source_dir / "earnings_yfinance.parquet")
-    earnings_long_frame = pl.read_parquet(resolved_financial_source_dir / "earnings_yfinance_long.parquet")
+    general_reference_lineage = _read_first_existing(
+        [
+            resolved_financial_source_dir / "general_reference_lineage.parquet",
+            resolved_financial_source_dir / "general_reference.parquet",
+        ]
+    )
+    earnings_consolidated = _read_first_existing(
+        [
+            resolved_financial_source_dir / "earnings_open_source_consolidated.parquet",
+            resolved_financial_source_dir / "earnings_yfinance.parquet",
+        ]
+    )
+    earnings_lineage = _read_first_existing(
+        [
+            resolved_financial_source_dir / "earnings_open_source_lineage.parquet",
+            resolved_financial_source_dir / "earnings_open_source_consolidated.parquet",
+            resolved_financial_source_dir / "earnings_yfinance.parquet",
+        ]
+    )
+    earnings_long_frame = _read_first_existing(
+        [
+            resolved_financial_source_dir / "earnings_open_source_long.parquet",
+            resolved_financial_source_dir / "earnings_yfinance_long.parquet",
+        ]
+    )
     consolidated_financials = pl.read_parquet(resolved_financial_source_dir / "financials_open_source_consolidated.parquet")
     consolidated_lineage = pl.read_parquet(resolved_financial_source_dir / "financials_open_source_lineage.parquet")
     source_summary = pl.read_parquet(resolved_financial_source_dir / "financials_open_source_source_summary.parquet")
@@ -48,9 +78,9 @@ def main(
     legacy_paths = export_legacy_compatible_outputs(
         clean_prices=clean_prices,
         benchmark_prices=benchmark_prices,
-        general_reference=general_reference.select(["ticker", "name", "exchange", "cik", "source"]),
+        general_reference=general_reference,
         consolidated_financials=consolidated_financials,
-        earnings_frame=earnings_frame,
+        earnings_frame=earnings_consolidated,
         reference_data_dir=resolved_reference_data_dir,
         output_dir=staging_dir,
     )
@@ -60,11 +90,13 @@ def main(
         constituents_source_path=resolved_reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
         benchmark_prices=benchmark_prices,
-        general_reference=general_reference.select(["ticker", "name", "exchange", "cik", "source"]),
+        general_reference=general_reference,
+        general_reference_lineage=general_reference_lineage,
         consolidated_financials=consolidated_financials,
         consolidated_lineage=consolidated_lineage,
         source_summary=source_summary,
-        earnings_frame=earnings_frame,
+        earnings_consolidated=earnings_consolidated,
+        earnings_lineage=earnings_lineage,
         earnings_long_frame=earnings_long_frame,
         manifest={
             "generated_at": utc_now_iso(),

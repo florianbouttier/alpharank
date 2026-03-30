@@ -13,9 +13,12 @@ from alpharank.data.open_source.config import METRIC_SPECS
 
 def resolve_eodhd_output_dir(data_dir: Path) -> Path:
     direct = data_dir
+    direct_output = data_dir / "output"
     nested = data_dir / "eodhd" / "output"
     if (direct / "US_Finalprice.parquet").exists() and (direct / "SP500_Constituents.csv").exists():
         return direct
+    if (direct_output / "US_Finalprice.parquet").exists() and (direct_output / "SP500_Constituents.csv").exists():
+        return direct_output
     if (nested / "US_Finalprice.parquet").exists() and (nested / "SP500_Constituents.csv").exists():
         return nested
     return direct
@@ -117,7 +120,7 @@ def normalize_eodhd_earnings(data_dir: Path, tickers: Iterable[str], year: int) 
                     pl.col("ticker"),
                     pl.lit("earnings").alias("statement"),
                     pl.lit(metric).alias("metric"),
-                    pl.col("reportDate").cast(pl.Utf8, strict=False).alias("date"),
+                    pl.col("date").cast(pl.Utf8, strict=False).alias("date"),
                     pl.col("reportDate").cast(pl.Utf8, strict=False).alias("filing_date"),
                     pl.col(column).cast(pl.Float64, strict=False).alias("value"),
                     pl.lit("eodhd").alias("source"),
@@ -199,12 +202,14 @@ def build_financial_alignment(
 def build_earnings_alignment(
     eodhd_earnings: pl.DataFrame,
     yahoo_earnings: pl.DataFrame,
+    *,
+    open_source: str = "open_source_earnings",
     tolerance_days: int = 7,
 ) -> pl.DataFrame:
     return _build_nearest_alignment(
         eodhd_frame=eodhd_earnings,
         open_frame=yahoo_earnings.filter(pl.col("statement") == "earnings"),
-        open_source="yfinance_earnings",
+        open_source=open_source,
         key_cols=["ticker", "statement", "metric"],
         tolerance_days=tolerance_days,
     )
@@ -326,11 +331,11 @@ def build_audited_metric_catalog(
             if include_yfinance_earnings:
                 rows.append(
                     {
-                        "source": "yfinance_earnings",
+                        "source": "open_source_earnings",
                         "statement": spec.statement,
                         "metric": spec.metric,
                         "reference_field": spec.eodhd_column,
-                        "open_source_field": spec.metric,
+                        "open_source_field": "sec_submissions -> yfinance -> sec_companyfacts fallback",
                     }
                 )
             continue

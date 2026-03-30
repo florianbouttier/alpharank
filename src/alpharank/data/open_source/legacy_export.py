@@ -74,7 +74,8 @@ def _build_general_legacy_frame(general_reference: pl.DataFrame, reference_data_
     reference_schema = pl.read_parquet(reference_data_dir / "US_General.parquet").schema
     if general_reference.is_empty():
         return pl.DataFrame(schema=reference_schema)
-    frame = general_reference.select(GENERAL_COLUMNS).with_columns(
+    prepared = _ensure_general_reference_columns(general_reference)
+    frame = prepared.select(GENERAL_COLUMNS).with_columns(
         [
             pl.col("ticker").str.replace(r"\.US$", "").alias("Code"),
             pl.col("name").alias("Name"),
@@ -84,6 +85,8 @@ def _build_general_legacy_frame(general_reference: pl.DataFrame, reference_data_
             pl.lit("United States").alias("CountryName"),
             pl.lit("US").alias("CountryISO"),
             pl.col("cik").alias("CIK"),
+            pl.col("Sector").alias("Sector"),
+            pl.col("industry").alias("Industry"),
         ]
     )
     return coerce_schema(frame, reference_schema).sort("Code")
@@ -143,6 +146,7 @@ def _build_earnings_legacy_frame(earnings_frame: pl.DataFrame, reference_data_di
                 pl.col("ticker"),
                 pl.coalesce([pl.col("period_end"), pl.col("reportDate")]).alias("date"),
                 pl.col("reportDate"),
+                pl.col("earningsDatetime"),
                 pl.col("epsEstimate"),
                 pl.col("epsActual"),
                 (pl.col("epsActual") - pl.col("epsEstimate")).alias("epsDifference"),
@@ -151,7 +155,7 @@ def _build_earnings_legacy_frame(earnings_frame: pl.DataFrame, reference_data_di
         )
         .with_columns(
             [
-                pl.lit(None).cast(pl.Utf8).alias("beforeAfterMarket"),
+                _classify_before_after_market(pl.col("earningsDatetime")).alias("beforeAfterMarket"),
                 pl.lit(None).cast(pl.Utf8).alias("currency"),
             ]
         )
@@ -188,3 +192,22 @@ def _merge_balance_shares(*, balance_frame: pl.DataFrame, shares_frame: pl.DataF
         ).alias("commonStockSharesOutstanding")
     )
     return enriched.drop("shares_from_legacy_share")
+
+
+def _ensure_general_reference_columns(frame: pl.DataFrame) -> pl.DataFrame:
+    expressions: list[pl.Expr] = []
+    for column in GENERAL_COLUMNS:
+        if column not in frame.columns:
+            expressions.append(pl.lit(None).cast(pl.Utf8).alias(column))
+    return frame.with_columns(expressions) if expressions else frame
+
+
+def _classify_before_after_market(column: pl.Expr) -> pl.Expr:
+    hour = column.str.slice(11, 2).cast(pl.Int64, strict=False)
+    return (
+        pl.when(hour < 12)
+        .then(pl.lit("BeforeMarket"))
+        .when(hour >= 16)
+        .then(pl.lit("AfterMarket"))
+        .otherwise(pl.lit(None).cast(pl.Utf8))
+    )

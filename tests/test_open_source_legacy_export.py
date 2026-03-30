@@ -36,7 +36,7 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
             "volume": [10.0],
         }
     ).write_parquet(reference_dir / "SP500Price.parquet")
-    pl.DataFrame({"Code": ["AAPL"], "Name": ["Apple"], "Exchange": ["NASDAQ"], "CurrencyCode": ["USD"], "CurrencySymbol": ["$"], "CIK": ["0000320193"]}).write_parquet(
+    pl.DataFrame({"Code": ["AAPL"], "Name": ["Apple"], "Exchange": ["NASDAQ"], "CurrencyCode": ["USD"], "CurrencySymbol": ["$"], "CIK": ["0000320193"], "Sector": [""], "Industry": [""]}).write_parquet(
         reference_dir / "US_General.parquet"
     )
     pl.DataFrame({"ticker": ["AAPL.US"], "date": ["2025-03-31"], "filing_date": ["2025-05-01"], "totalRevenue": [100.0], "netIncome": [20.0]}).write_parquet(
@@ -63,8 +63,8 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     pl.DataFrame(
         {
             "ticker": ["AAPL.US"],
-            "beforeAfterMarket": [None],
-            "currency": [None],
+            "beforeAfterMarket": [""],
+            "currency": [""],
             "date": ["2025-03-31"],
             "epsActual": [1.5],
             "epsDifference": [0.1],
@@ -77,7 +77,20 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     clean_prices = pl.read_parquet(reference_dir / "US_Finalprice.parquet")
     benchmark_prices = pl.read_parquet(reference_dir / "SP500Price.parquet")
     general_reference = pl.DataFrame(
-        {"ticker": ["AAPL.US"], "name": ["Apple"], "exchange": ["NASDAQ"], "cik": ["0000320193"], "source": ["sec_mapping"]}
+        {
+            "ticker": ["AAPL.US"],
+            "name": ["Apple"],
+            "exchange": ["NASDAQ"],
+            "cik": ["0000320193"],
+            "source": ["sec_mapping"],
+            "Sector": ["Technology"],
+            "industry": ["Consumer Electronics"],
+            "sector_source": ["yfinance"],
+            "sector_raw_value": ["Technology"],
+            "sic": [None],
+            "sic_description": [None],
+            "mapping_rule": ["yfinance:sector"],
+        }
     )
     consolidated_financials = pl.DataFrame(
         {
@@ -127,6 +140,7 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     income = pl.read_parquet(output_dir / "US_Income_statement.parquet")
     balance = pl.read_parquet(output_dir / "US_Balance_sheet.parquet")
     shares = pl.read_parquet(output_dir / "US_share.parquet")
+    general = pl.read_parquet(output_dir / "US_General.parquet")
     earnings_export = pl.read_parquet(output_dir / "US_Earnings.parquet")
 
     assert "totalRevenue" in income.columns
@@ -134,4 +148,7 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     assert balance["commonStockSharesOutstanding"].to_list() == [10_000_000.0]
     assert shares["shares"].to_list() == [10_000_000.0]
     assert shares["sharesMln"].to_list() == [10.0]
+    assert general["Sector"].to_list() == ["Technology"]
+    assert general["Industry"].to_list() == ["Consumer Electronics"]
     assert earnings_export["epsDifference"].to_list() == [0.10000000000000009]
+    assert earnings_export["beforeAfterMarket"].to_list() == ["AfterMarket"]

@@ -26,7 +26,21 @@ from alpharank.data.open_source.benchmark import (
     write_html_report,
 )
 from alpharank.data.open_source.consolidation import FinancialSourceInput, consolidate_financial_sources
-from alpharank.data.open_source.config import METRIC_SPECS
+from alpharank.data.open_source.config import GENERAL_COLUMNS, METRIC_SPECS
+from alpharank.data.open_source.earnings import (
+    build_sec_companyfacts_earnings_actuals,
+    consolidate_earnings,
+    empty_earnings_actuals_frame,
+    empty_earnings_calendar_frame,
+    empty_earnings_consolidated_frame,
+    empty_earnings_lineage_frame,
+    empty_earnings_long_frame,
+)
+from alpharank.data.open_source.general_reference import (
+    build_general_reference,
+    empty_general_reference_frame,
+    empty_general_reference_lineage_frame,
+)
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
 from alpharank.data.open_source.publishing import publish_open_source_output_package
 from alpharank.data.open_source.sec import SecCompanyFactsClient
@@ -77,13 +91,21 @@ RAW_FINANCIAL_SCHEMA = {
 
 RAW_EARNINGS_SCHEMA = {
     "ticker": pl.String,
+    "period_end": pl.String,
     "reportDate": pl.String,
     "earningsDatetime": pl.String,
-    "period_end": pl.String,
     "epsEstimate": pl.Float64,
     "epsActual": pl.Float64,
     "surprisePercent": pl.Float64,
     "source": pl.String,
+    "source_label": pl.String,
+    "calendar_source": pl.String,
+    "actual_source": pl.String,
+    "estimate_source": pl.String,
+    "accession_number": pl.String,
+    "form": pl.String,
+    "fiscal_period": pl.String,
+    "fiscal_year": pl.Int64,
     "dataset": pl.String,
     "ingestion_run_id": pl.String,
     "ingested_at": pl.String,
@@ -95,6 +117,13 @@ RAW_GENERAL_SCHEMA = {
     "exchange": pl.String,
     "cik": pl.String,
     "source": pl.String,
+    "Sector": pl.String,
+    "industry": pl.String,
+    "sector_source": pl.String,
+    "sector_raw_value": pl.String,
+    "sic": pl.String,
+    "sic_description": pl.String,
+    "mapping_rule": pl.String,
     "dataset": pl.String,
     "ingestion_run_id": pl.String,
     "ingested_at": pl.String,
@@ -121,6 +150,307 @@ class OpenSourceIngestionResult:
     price_rows: int
     consolidated_rows: int
     lineage_rows: int
+
+
+@dataclass(frozen=True)
+class OpenSourceReferenceRefreshResult:
+    run_id: str
+    live_dir: Path
+    raw_dir: Path
+    target_dir: Path
+    output_dir: Path
+    output_lineage_dir: Path
+    output_snapshot_dir: Path | None
+    audit_dirs: tuple[Path, ...]
+    ticker_count: int
+    refreshed_years: tuple[int, ...]
+    general_rows: int
+    general_sector_non_null_rows: int
+    earnings_rows: int
+    earnings_tickers: int
+
+
+def refresh_open_source_reference_layers(
+    *,
+    start_year: int = 2005,
+    end_year: int | None = None,
+    tickers: Sequence[str] | None = None,
+    live_dir: Path | None = None,
+    reference_data_dir: Path | None = None,
+    user_agent: str = "Florian Bouttier florianbouttier@example.com",
+    audit_years: Sequence[int] = (),
+    threshold_pct: float = 0.5,
+) -> OpenSourceReferenceRefreshResult:
+    project_root = Path(__file__).resolve().parents[4]
+    reference_data_dir = reference_data_dir or (project_root / "data")
+    open_source_root = project_root / "data" / "open_source"
+    paths = OpenSourceLivePaths(
+        live_dir or (open_source_root / "official"),
+        audit_root_dir=open_source_root / "audit",
+    )
+    paths.ensure()
+
+    run_id = new_run_id()
+    ingested_at = utc_now_iso()
+    final_end_year = end_year or date.today().year
+    refreshed_years = tuple(range(start_year, final_end_year + 1))
+    ticker_list = tuple(tickers) if tickers is not None else _load_existing_open_source_tickers(paths, reference_data_dir)
+
+    yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
+    sec_client = SecCompanyFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts")
+    sec_filing_client = SecFilingFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing")
+
+    sec_mapping_all = sec_client.fetch_company_mapping()
+    sec_mapping = sec_mapping_all.filter(pl.col("ticker").is_in(list(ticker_list)))
+
+    existing_general_reference = (
+        pl.read_parquet(paths.raw_dir / "general_reference.parquet")
+        if (paths.raw_dir / "general_reference.parquet").exists()
+        else empty_general_reference_frame()
+    )
+    existing_general_reference_lineage = (
+        pl.read_parquet(paths.raw_dir / "general_reference_lineage.parquet")
+        if (paths.raw_dir / "general_reference_lineage.parquet").exists()
+        else empty_general_reference_lineage_frame()
+    )
+    general_refresh_tickers = _identify_general_reference_refresh_tickers(
+        requested_tickers=ticker_list,
+        existing_general_reference=existing_general_reference,
+        mode="daily",
+    )
+    run_failures: list[dict[str, str]] = []
+    if general_refresh_tickers:
+        yahoo_general_metadata = yahoo_client.fetch_company_metadata(general_refresh_tickers)
+        sec_profile_frames, profile_failures = _fetch_sec_company_profiles(
+            sec_filing_client,
+            sec_mapping.filter(pl.col("ticker").is_in(list(general_refresh_tickers))),
+            max_workers=4,
+        )
+        run_failures.extend(profile_failures)
+        sec_profiles = _concat_or_empty(sec_profile_frames, empty=_empty_sec_profile_frame())
+        general_reference_selected, general_reference_lineage_selected = build_general_reference(
+            tickers=general_refresh_tickers,
+            sec_mapping=sec_mapping.filter(pl.col("ticker").is_in(list(general_refresh_tickers))),
+            yahoo_metadata=yahoo_general_metadata,
+            sec_profiles=sec_profiles,
+        )
+        general_reference_delta = _with_general_ingestion_metadata(
+            general_reference_selected,
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
+        append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference.parquet", general_reference_delta)
+        general_reference = upsert_parquet(
+            paths.raw_dir / "general_reference.parquet",
+            general_reference_delta,
+            key_cols=["ticker", "source"],
+            order_cols=["ingested_at"],
+        )
+        general_reference_lineage_delta = _with_general_lineage_ingestion_metadata(
+            general_reference_lineage_selected,
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
+        append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference_lineage.parquet", general_reference_lineage_delta)
+        general_reference_lineage = upsert_parquet(
+            paths.raw_dir / "general_reference_lineage.parquet",
+            general_reference_lineage_delta,
+            key_cols=["ticker", "source"],
+            order_cols=["ingested_at"],
+        )
+    else:
+        general_reference = existing_general_reference
+        general_reference_lineage = existing_general_reference_lineage
+    general_reference, general_reference_lineage = _canonicalize_general_outputs(
+        general_reference,
+        general_reference_lineage,
+    )
+
+    raw_yahoo_earnings = (
+        pl.read_parquet(paths.raw_dir / "earnings_yfinance.parquet")
+        if (paths.raw_dir / "earnings_yfinance.parquet").exists()
+        else _empty_raw_earnings_frame()
+    )
+    sec_calendar_frames, sec_calendar_failures = _fetch_sec_earnings_calendar(
+        sec_filing_client,
+        sec_mapping,
+        years=refreshed_years,
+        max_workers=4,
+    )
+    run_failures.extend(sec_calendar_failures)
+    sec_calendar_delta = _with_earnings_ingestion_metadata(
+        _concat_or_empty(sec_calendar_frames, empty=empty_earnings_calendar_frame()),
+        dataset="earnings_sec_calendar",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
+    append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_calendar.parquet", sec_calendar_delta)
+    raw_earnings_sec_calendar = upsert_parquet(
+        paths.raw_dir / "earnings_sec_calendar.parquet",
+        sec_calendar_delta,
+        key_cols=["ticker", "period_end", "reportDate", "accession_number", "source"],
+        order_cols=["ingested_at"],
+    )
+
+    sec_actual_frames, sec_actual_failures = _fetch_sec_earnings_actuals(
+        sec_client,
+        sec_mapping,
+        max_workers=2,
+    )
+    run_failures.extend(sec_actual_failures)
+    sec_actual_delta = _with_earnings_ingestion_metadata(
+        _concat_or_empty(sec_actual_frames, empty=empty_earnings_actuals_frame()),
+        dataset="earnings_sec_actuals",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
+    append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_actuals.parquet", sec_actual_delta)
+    raw_earnings_sec_actuals = upsert_parquet(
+        paths.raw_dir / "earnings_sec_actuals.parquet",
+        sec_actual_delta,
+        key_cols=["ticker", "period_end", "reportDate", "source"],
+        order_cols=["ingested_at"],
+    )
+
+    clean_earnings, clean_earnings_lineage, clean_earnings_long = consolidate_earnings(
+        sec_calendar=raw_earnings_sec_calendar.select(
+            [
+                "ticker",
+                "period_end",
+                "reportDate",
+                "earningsDatetime",
+                "accession_number",
+                "form",
+                "fiscal_period",
+                "fiscal_year",
+                "source",
+                "source_label",
+            ]
+        ),
+        yahoo_earnings=_filter_earnings_years(raw_yahoo_earnings, refreshed_years).select(
+            [
+                "ticker",
+                "period_end",
+                "reportDate",
+                "earningsDatetime",
+                "epsEstimate",
+                "epsActual",
+                "surprisePercent",
+                "source",
+            ]
+        ),
+        sec_actuals=raw_earnings_sec_actuals.select(
+            [
+                "ticker",
+                "period_end",
+                "reportDate",
+                "epsActual",
+                "source",
+                "source_label",
+                "form",
+                "fiscal_period",
+                "fiscal_year",
+            ]
+        ),
+    )
+
+    clean_prices = pl.read_parquet(paths.clean_dir / "prices_open_source.parquet")
+    clean_benchmark_prices = pl.read_parquet(paths.clean_dir / "benchmark_prices_open_source.parquet")
+    consolidated_financials = pl.read_parquet(paths.clean_dir / "financials_open_source_consolidated.parquet")
+    consolidated_lineage = pl.read_parquet(paths.clean_dir / "financials_open_source_lineage.parquet")
+    source_summary = pl.read_parquet(paths.clean_dir / "financials_open_source_source_summary.parquet")
+
+    clean_earnings.write_parquet(paths.clean_dir / "earnings_open_source_consolidated.parquet")
+    clean_earnings_lineage.write_parquet(paths.clean_dir / "earnings_open_source_lineage.parquet")
+    clean_earnings_long.write_parquet(paths.clean_dir / "earnings_open_source_long.parquet")
+    general_reference.write_parquet(paths.clean_dir / "general_reference.parquet")
+    general_reference_lineage.write_parquet(paths.clean_dir / "general_reference_lineage.parquet")
+
+    legacy_paths = export_legacy_compatible_outputs(
+        clean_prices=clean_prices,
+        benchmark_prices=clean_benchmark_prices,
+        general_reference=general_reference,
+        consolidated_financials=consolidated_financials,
+        earnings_frame=clean_earnings,
+        reference_data_dir=reference_data_dir,
+        output_dir=paths.legacy_dir,
+    )
+    published_output_paths = publish_open_source_output_package(
+        output_dir=paths.output_dir,
+        legacy_paths=legacy_paths,
+        constituents_source_path=reference_data_dir / "SP500_Constituents.csv",
+        prices_frame=clean_prices,
+        benchmark_prices=clean_benchmark_prices,
+        general_reference=general_reference,
+        general_reference_lineage=general_reference_lineage,
+        consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
+        source_summary=source_summary,
+        earnings_consolidated=clean_earnings,
+        earnings_lineage=clean_earnings_lineage,
+        earnings_long_frame=clean_earnings_long,
+        manifest={
+            "run_id": run_id,
+            "official_dir": str(paths.base_dir),
+            "target_dir": str(paths.target_dir),
+            "output_dir": str(paths.output_dir),
+            "legacy_dir": str(paths.legacy_dir),
+            "refresh_type": "reference_layers",
+            "refreshed_years": list(refreshed_years),
+        },
+        history_root=paths.root_dir / "history" / "output",
+    )
+
+    audit_dirs = tuple(
+        _write_live_audit(
+            paths=paths,
+            reference_data_dir=reference_data_dir,
+            year=year,
+            tickers=ticker_list,
+            threshold_pct=threshold_pct,
+        )
+        for year in audit_years
+    )
+
+    manifest = {
+        "run_id": run_id,
+        "mode": "reference_refresh",
+        "official_dir": str(paths.base_dir),
+        "target_dir": str(paths.target_dir),
+        "output_dir": str(paths.output_dir),
+        "legacy_dir": str(paths.legacy_dir),
+        "output_snapshot_dir": (
+            str(published_output_paths.snapshot_dir.relative_to(paths.root_dir))
+            if published_output_paths.snapshot_dir is not None
+            else None
+        ),
+        "ticker_count": len(ticker_list),
+        "refreshed_years": list(refreshed_years),
+        "general_rows": general_reference.height,
+        "general_sector_non_null_rows": general_reference.filter(pl.col("Sector").is_not_null() & (pl.col("Sector") != "")).height,
+        "earnings_rows": clean_earnings.height,
+        "earnings_tickers": clean_earnings.select(pl.col("ticker").n_unique()).item() if not clean_earnings.is_empty() else 0,
+        "failures": run_failures,
+        "audit_dirs": [str(path.relative_to(paths.root_dir)) for path in audit_dirs],
+    }
+    write_run_manifest(paths, run_id, manifest)
+
+    return OpenSourceReferenceRefreshResult(
+        run_id=run_id,
+        live_dir=paths.base_dir,
+        raw_dir=paths.raw_dir,
+        target_dir=paths.target_dir,
+        output_dir=paths.output_dir,
+        output_lineage_dir=paths.output_lineage_dir,
+        output_snapshot_dir=published_output_paths.snapshot_dir,
+        audit_dirs=audit_dirs,
+        ticker_count=len(ticker_list),
+        refreshed_years=refreshed_years,
+        general_rows=general_reference.height,
+        general_sector_non_null_rows=general_reference.filter(pl.col("Sector").is_not_null() & (pl.col("Sector") != "")).height,
+        earnings_rows=clean_earnings.height,
+        earnings_tickers=clean_earnings.select(pl.col("ticker").n_unique()).item() if not clean_earnings.is_empty() else 0,
+    )
 
 
 def run_open_source_ingestion(
@@ -171,17 +501,63 @@ def run_open_source_ingestion(
 
     sec_mapping_all = sec_client.fetch_company_mapping()
     sec_mapping = sec_mapping_all.filter(pl.col("ticker").is_in(list(ticker_list)))
-    general_reference_delta = _with_general_ingestion_metadata(
-        yahoo_client.fetch_general_reference(ticker_list, sec_mapping),
-        run_id=run_id,
-        ingested_at=ingested_at,
+    existing_general_reference = (
+        pl.read_parquet(paths.raw_dir / "general_reference.parquet")
+        if (paths.raw_dir / "general_reference.parquet").exists()
+        else empty_general_reference_frame()
     )
-    append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference.parquet", general_reference_delta)
-    general_reference = upsert_parquet(
-        paths.raw_dir / "general_reference.parquet",
-        general_reference_delta,
-        key_cols=["ticker", "source"],
-        order_cols=["ingested_at"],
+    existing_general_reference_lineage = (
+        pl.read_parquet(paths.raw_dir / "general_reference_lineage.parquet")
+        if (paths.raw_dir / "general_reference_lineage.parquet").exists()
+        else empty_general_reference_lineage_frame()
+    )
+    general_refresh_tickers = _identify_general_reference_refresh_tickers(
+        requested_tickers=ticker_list,
+        existing_general_reference=existing_general_reference,
+        mode=mode,
+    )
+    if general_refresh_tickers:
+        yahoo_general_metadata = yahoo_client.fetch_company_metadata(general_refresh_tickers)
+        sec_profile_frames, _ = _fetch_sec_company_profiles(
+            sec_filing_client,
+            sec_mapping.filter(pl.col("ticker").is_in(list(general_refresh_tickers))),
+        )
+        general_reference_selected, general_reference_lineage_selected = build_general_reference(
+            tickers=general_refresh_tickers,
+            sec_mapping=sec_mapping.filter(pl.col("ticker").is_in(list(general_refresh_tickers))),
+            yahoo_metadata=yahoo_general_metadata,
+            sec_profiles=_concat_or_empty(sec_profile_frames, empty=_empty_sec_profile_frame()),
+        )
+        general_reference_delta = _with_general_ingestion_metadata(
+            general_reference_selected,
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
+        append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference.parquet", general_reference_delta)
+        general_reference = upsert_parquet(
+            paths.raw_dir / "general_reference.parquet",
+            general_reference_delta,
+            key_cols=["ticker", "source"],
+            order_cols=["ingested_at"],
+        )
+        general_reference_lineage_delta = _with_general_lineage_ingestion_metadata(
+            general_reference_lineage_selected,
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
+        append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference_lineage.parquet", general_reference_lineage_delta)
+        general_reference_lineage = upsert_parquet(
+            paths.raw_dir / "general_reference_lineage.parquet",
+            general_reference_lineage_delta,
+            key_cols=["ticker", "source"],
+            order_cols=["ingested_at"],
+        )
+    else:
+        general_reference = existing_general_reference
+        general_reference_lineage = existing_general_reference_lineage
+    general_reference, general_reference_lineage = _canonicalize_general_outputs(
+        general_reference,
+        general_reference_lineage,
     )
 
     yahoo_prices_delta = _with_price_ingestion_metadata(
@@ -212,6 +588,8 @@ def run_open_source_ingestion(
     )
 
     earnings_delta = _empty_raw_earnings_frame()
+    earnings_sec_calendar_delta = _empty_raw_earnings_frame()
+    earnings_sec_actuals_delta = _empty_raw_earnings_frame()
     sec_financial_deltas: list[pl.DataFrame] = []
     sec_filing_deltas: list[pl.DataFrame] = []
     simfin_deltas: list[pl.DataFrame] = []
@@ -236,6 +614,24 @@ def run_open_source_ingestion(
             ingested_at=ingested_at,
         )
         append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_yfinance.parquet", earnings_delta)
+        sec_calendar_frames, sec_calendar_failures = _fetch_sec_earnings_calendar(sec_filing_client, sec_mapping, years=refreshed_years)
+        run_failures["sec_filing"].extend(sec_calendar_failures)
+        earnings_sec_calendar_delta = _with_earnings_ingestion_metadata(
+            _concat_or_empty(sec_calendar_frames, empty=empty_earnings_calendar_frame()),
+            dataset="earnings_sec_calendar",
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
+        append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_calendar.parquet", earnings_sec_calendar_delta)
+        sec_actual_frames, sec_actual_failures = _fetch_sec_earnings_actuals(sec_client, sec_mapping)
+        run_failures["sec_companyfacts"].extend(sec_actual_failures)
+        earnings_sec_actuals_delta = _with_earnings_ingestion_metadata(
+            _filter_earnings_years(_concat_or_empty(sec_actual_frames, empty=empty_earnings_actuals_frame()), refreshed_years),
+            dataset="earnings_sec_actuals",
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
+        append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_actuals.parquet", earnings_sec_actuals_delta)
 
     for year in refreshed_years:
         sec_frames, sec_failures = _fetch_sec_financials(sec_client, sec_mapping)
@@ -288,6 +684,18 @@ def run_open_source_ingestion(
         key_cols=["ticker", "reportDate", "source"],
         order_cols=["ingested_at"],
     )
+    raw_earnings_sec_calendar = upsert_parquet(
+        paths.raw_dir / "earnings_sec_calendar.parquet",
+        earnings_sec_calendar_delta,
+        key_cols=["ticker", "period_end", "reportDate", "accession_number", "source"],
+        order_cols=["ingested_at"],
+    )
+    raw_earnings_sec_actuals = upsert_parquet(
+        paths.raw_dir / "earnings_sec_actuals.parquet",
+        earnings_sec_actuals_delta,
+        key_cols=["ticker", "period_end", "reportDate", "source"],
+        order_cols=["ingested_at"],
+    )
     raw_sec_financials = _upsert_financial_dataset(
         paths=paths,
         run_id=run_id,
@@ -319,10 +727,17 @@ def run_open_source_ingestion(
     clean_benchmark_prices = raw_benchmark_prices.select(
         ["date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"]
     ).sort(["ticker", "date"])
-    clean_earnings = raw_earnings.select(
-        ["ticker", "reportDate", "earningsDatetime", "period_end", "epsEstimate", "epsActual", "surprisePercent", "source"]
-    ).sort(["ticker", "reportDate"])
-    clean_earnings_long = yahoo_client.normalize_earnings_long(clean_earnings)
+    clean_earnings, clean_earnings_lineage, clean_earnings_long = consolidate_earnings(
+        sec_calendar=raw_earnings_sec_calendar.select(
+            ["ticker", "period_end", "reportDate", "earningsDatetime", "accession_number", "form", "fiscal_period", "fiscal_year", "source", "source_label"]
+        ),
+        yahoo_earnings=raw_earnings.select(
+            ["ticker", "period_end", "reportDate", "earningsDatetime", "epsEstimate", "epsActual", "surprisePercent", "source"]
+        ),
+        sec_actuals=raw_earnings_sec_actuals.select(
+            ["ticker", "period_end", "reportDate", "epsActual", "source", "source_label", "form", "fiscal_period", "fiscal_year"]
+        ),
+    )
 
     consolidated_financials, consolidated_lineage, source_summary = consolidate_financial_sources(
         [
@@ -351,16 +766,19 @@ def run_open_source_ingestion(
 
     clean_prices.write_parquet(paths.clean_dir / "prices_open_source.parquet")
     clean_benchmark_prices.write_parquet(paths.clean_dir / "benchmark_prices_open_source.parquet")
-    clean_earnings.write_parquet(paths.clean_dir / "earnings_open_source.parquet")
+    clean_earnings.write_parquet(paths.clean_dir / "earnings_open_source_consolidated.parquet")
+    clean_earnings_lineage.write_parquet(paths.clean_dir / "earnings_open_source_lineage.parquet")
     clean_earnings_long.write_parquet(paths.clean_dir / "earnings_open_source_long.parquet")
     consolidated_financials.write_parquet(paths.clean_dir / "financials_open_source_consolidated.parquet")
     consolidated_lineage.write_parquet(paths.clean_dir / "financials_open_source_lineage.parquet")
     source_summary.write_parquet(paths.clean_dir / "financials_open_source_source_summary.parquet")
+    general_reference.write_parquet(paths.clean_dir / "general_reference.parquet")
+    general_reference_lineage.write_parquet(paths.clean_dir / "general_reference_lineage.parquet")
 
     legacy_paths = export_legacy_compatible_outputs(
         clean_prices=clean_prices,
         benchmark_prices=clean_benchmark_prices,
-        general_reference=general_reference.select(["ticker", "name", "exchange", "cik", "source"]),
+        general_reference=general_reference,
         consolidated_financials=consolidated_financials,
         earnings_frame=clean_earnings,
         reference_data_dir=reference_data_dir,
@@ -372,11 +790,13 @@ def run_open_source_ingestion(
         constituents_source_path=reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
         benchmark_prices=clean_benchmark_prices,
-        general_reference=general_reference.select(["ticker", "name", "exchange", "cik", "source"]),
+        general_reference=general_reference,
+        general_reference_lineage=general_reference_lineage,
         consolidated_financials=consolidated_financials,
         consolidated_lineage=consolidated_lineage,
         source_summary=source_summary,
-        earnings_frame=clean_earnings,
+        earnings_consolidated=clean_earnings,
+        earnings_lineage=clean_earnings_lineage,
         earnings_long_frame=clean_earnings_long,
         manifest={
             "run_id": run_id,
@@ -412,9 +832,12 @@ def run_open_source_ingestion(
         "target_dir": str(paths.target_dir),
         "raw_outputs": {
             "general_reference": "raw/general_reference.parquet",
+            "general_reference_lineage": "raw/general_reference_lineage.parquet",
             "prices_yfinance": "raw/prices_yfinance.parquet",
             "prices_spy_yfinance": "raw/prices_spy_yfinance.parquet",
             "earnings_yfinance": "raw/earnings_yfinance.parquet",
+            "earnings_sec_calendar": "raw/earnings_sec_calendar.parquet",
+            "earnings_sec_actuals": "raw/earnings_sec_actuals.parquet",
             "financials_sec_companyfacts": "raw/financials_sec_companyfacts.parquet",
             "financials_sec_filing": "raw/financials_sec_filing.parquet",
             "financials_simfin": "raw/financials_simfin.parquet",
@@ -423,7 +846,10 @@ def run_open_source_ingestion(
         "clean_outputs": {
             "prices_open_source": "target/prices_open_source.parquet",
             "benchmark_prices_open_source": "target/benchmark_prices_open_source.parquet",
-            "earnings_open_source": "target/earnings_open_source.parquet",
+            "general_reference": "target/general_reference.parquet",
+            "general_reference_lineage": "target/general_reference_lineage.parquet",
+            "earnings_open_source_consolidated": "target/earnings_open_source_consolidated.parquet",
+            "earnings_open_source_lineage": "target/earnings_open_source_lineage.parquet",
             "earnings_open_source_long": "target/earnings_open_source_long.parquet",
             "financials_open_source_consolidated": "target/financials_open_source_consolidated.parquet",
             "financials_open_source_lineage": "target/financials_open_source_lineage.parquet",
@@ -533,7 +959,7 @@ def _write_live_audit(
                 if not consolidated_financials.is_empty()
                 else []
             ),
-            *([build_earnings_alignment(eodhd_earnings, clean_earnings)] if not clean_earnings.is_empty() else []),
+            *([build_earnings_alignment(eodhd_earnings, clean_earnings, open_source="open_source_earnings")] if not clean_earnings.is_empty() else []),
         ],
         how="vertical",
     )
@@ -651,13 +1077,16 @@ def _with_financial_ingestion_metadata(frame: pl.DataFrame, *, dataset: str, run
 def _with_earnings_ingestion_metadata(frame: pl.DataFrame, *, dataset: str, run_id: str, ingested_at: str) -> pl.DataFrame:
     if frame.is_empty():
         return pl.DataFrame(schema=RAW_EARNINGS_SCHEMA)
-    return frame.with_columns(
-        [
-            pl.lit(dataset).alias("dataset"),
-            pl.lit(run_id).alias("ingestion_run_id"),
-            pl.lit(ingested_at).alias("ingested_at"),
-        ]
-    ).select(list(RAW_EARNINGS_SCHEMA))
+    expressions: list[pl.Expr] = [
+        pl.lit(dataset).alias("dataset"),
+        pl.lit(run_id).alias("ingestion_run_id"),
+        pl.lit(ingested_at).alias("ingested_at"),
+    ]
+    for column, dtype in RAW_EARNINGS_SCHEMA.items():
+        if column in frame.columns or column in {"dataset", "ingestion_run_id", "ingested_at"}:
+            continue
+        expressions.append(pl.lit(None).cast(dtype).alias(column))
+    return frame.with_columns(expressions).select(list(RAW_EARNINGS_SCHEMA))
 
 
 def _with_general_ingestion_metadata(frame: pl.DataFrame, *, run_id: str, ingested_at: str) -> pl.DataFrame:
@@ -673,6 +1102,20 @@ def _with_general_ingestion_metadata(frame: pl.DataFrame, *, run_id: str, ingest
     ).select(list(RAW_GENERAL_SCHEMA))
 
 
+def _with_general_lineage_ingestion_metadata(frame: pl.DataFrame, *, run_id: str, ingested_at: str) -> pl.DataFrame:
+    schema = {column: pl.String for column in empty_general_reference_lineage_frame().columns}
+    schema.update({"dataset": pl.String, "ingestion_run_id": pl.String, "ingested_at": pl.String})
+    if frame.is_empty():
+        return pl.DataFrame(schema=schema)
+    return frame.with_columns(
+        [
+            pl.lit("general_reference_lineage").alias("dataset"),
+            pl.lit(run_id).alias("ingestion_run_id"),
+            pl.lit(ingested_at).alias("ingested_at"),
+        ]
+    ).select(list(schema))
+
+
 def _resolve_price_start(*, mode: str, explicit_start_date: str, raw_price_path: Path, lookback_days: int) -> str:
     if mode == "bootstrap" or not raw_price_path.exists():
         return explicit_start_date
@@ -684,6 +1127,40 @@ def _resolve_price_start(*, mode: str, explicit_start_date: str, raw_price_path:
         return explicit_start_date
     start = datetime.strptime(str(max_date), "%Y-%m-%d").date() - timedelta(days=lookback_days)
     return max(start.isoformat(), explicit_start_date)
+
+
+def _identify_general_reference_refresh_tickers(
+    *,
+    requested_tickers: Sequence[str],
+    existing_general_reference: pl.DataFrame,
+    mode: str,
+) -> tuple[str, ...]:
+    if mode == "bootstrap" or existing_general_reference.is_empty():
+        return tuple(requested_tickers)
+    sort_cols = [column for column in ["ticker", "ingested_at"] if column in existing_general_reference.columns]
+    existing = existing_general_reference.select(
+        [
+            pl.col("ticker").cast(pl.Utf8),
+            pl.col("Sector").cast(pl.Utf8, strict=False).alias("Sector"),
+            pl.col("industry").cast(pl.Utf8, strict=False).alias("industry"),
+            *([pl.col("ingested_at").cast(pl.Utf8, strict=False)] if "ingested_at" in existing_general_reference.columns else []),
+        ]
+    )
+    if sort_cols:
+        existing = existing.sort(sort_cols)
+    existing = existing.unique(subset=["ticker"], keep="last", maintain_order=True)
+    missing: list[str] = []
+    for ticker in requested_tickers:
+        full_ticker = f"{ticker}.US"
+        row = existing.filter(pl.col("ticker") == full_ticker)
+        if row.is_empty():
+            missing.append(ticker)
+            continue
+        sector = row.select(pl.col("Sector")).head(1).item()
+        industry = row.select(pl.col("industry")).head(1).item()
+        if sector in {None, "", "Unknown"} or industry in {None, ""}:
+            missing.append(ticker)
+    return tuple(sorted(set(missing)))
 
 
 def _resolve_refreshed_years(*, mode: str, start_date: str, end_date: str, lookback_years: int) -> tuple[int, ...]:
@@ -707,6 +1184,68 @@ def _load_reference_tickers(reference_data_dir: Path, *, start_date: str) -> tup
     )
 
 
+def _load_existing_open_source_tickers(paths: OpenSourceLivePaths, reference_data_dir: Path) -> tuple[str, ...]:
+    candidate_paths = (
+        paths.output_dir / "US_Finalprice.parquet",
+        paths.clean_dir / "prices_open_source.parquet",
+        paths.raw_dir / "prices_yfinance.parquet",
+        reference_data_dir / "US_Finalprice.parquet",
+    )
+    for path in candidate_paths:
+        if not path.exists():
+            continue
+        frame = pl.read_parquet(path)
+        if frame.is_empty() or "ticker" not in frame.columns:
+            continue
+        return tuple(
+            frame.select(pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"))
+            .unique()
+            .sort("ticker")
+            .to_series()
+            .to_list()
+        )
+    return ()
+
+
+def _canonicalize_general_outputs(
+    general_reference: pl.DataFrame,
+    general_reference_lineage: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    lineage = general_reference_lineage
+    if not lineage.is_empty():
+        sort_cols = [column for column in ["ticker", "ingested_at"] if column in lineage.columns]
+        if sort_cols:
+            lineage = lineage.sort(sort_cols)
+        lineage = lineage.unique(subset=["ticker"], keep="last", maintain_order=True).sort("ticker")
+        return lineage.select(list(GENERAL_COLUMNS)), lineage
+
+    general = general_reference
+    if general.is_empty():
+        return general, lineage
+    sort_cols = [column for column in ["ticker", "ingested_at"] if column in general.columns]
+    if sort_cols:
+        general = general.sort(sort_cols)
+    general = general.unique(subset=["ticker"], keep="last", maintain_order=True).sort("ticker")
+    return general.select(list(GENERAL_COLUMNS)), lineage
+
+
+def _filter_earnings_years(frame: pl.DataFrame, years: Sequence[int]) -> pl.DataFrame:
+    if frame.is_empty():
+        return _empty_raw_earnings_frame()
+    prefixes = [str(year) for year in years]
+    period_or_report = pl.coalesce(
+        [
+            pl.col("period_end").cast(pl.Utf8, strict=False),
+            pl.col("reportDate").cast(pl.Utf8, strict=False),
+        ]
+    )
+    return frame.filter(
+        pl.any_horizontal(
+            [period_or_report.str.starts_with(prefix) for prefix in prefixes]
+        )
+    )
+
+
 def _upsert_financial_dataset(
     *,
     paths: OpenSourceLivePaths,
@@ -724,10 +1263,10 @@ def _upsert_financial_dataset(
     )
 
 
-def _concat_or_empty(frames: Sequence[pl.DataFrame]) -> pl.DataFrame:
+def _concat_or_empty(frames: Sequence[pl.DataFrame], *, empty: pl.DataFrame | None = None) -> pl.DataFrame:
     non_empty = [frame for frame in frames if not frame.is_empty()]
     if not non_empty:
-        return _empty_raw_financial_base()
+        return empty if empty is not None else _empty_raw_financial_base()
     return pl.concat(non_empty, how="vertical")
 
 
@@ -751,6 +1290,17 @@ def _empty_raw_financial_base() -> pl.DataFrame:
 
 def _empty_raw_earnings_frame() -> pl.DataFrame:
     return pl.DataFrame(schema=RAW_EARNINGS_SCHEMA)
+
+
+def _empty_sec_profile_frame() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "ticker": pl.String,
+            "cik": pl.String,
+            "sic": pl.String,
+            "sic_description": pl.String,
+        }
+    )
 
 
 def _clean_financial_columns() -> list[str]:
@@ -785,6 +1335,74 @@ def _fetch_sec_financials(
     return frames, failures
 
 
+def _fetch_sec_earnings_actuals(
+    sec_client: SecCompanyFactsClient,
+    sec_mapping: pl.DataFrame,
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_extract_sec_companyfacts_earnings_actuals, sec_client, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
+    return frames, failures
+
+
+def _fetch_sec_earnings_calendar(
+    sec_client: SecFilingFactsClient,
+    sec_mapping: pl.DataFrame,
+    *,
+    years: Sequence[int],
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_earnings_calendar, str(row["ticker"]), str(row["cik"]), list(years)): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
+    return frames, failures
+
+
+def _fetch_sec_company_profiles(
+    sec_client: SecFilingFactsClient,
+    sec_mapping: pl.DataFrame,
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_company_profile, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                failures.append({"ticker": ticker, "error": str(exc), "dataset": "general_reference"})
+    return frames, failures
+
+
 def _fetch_sec_filing_financials(
     sec_client: SecFilingFactsClient,
     sec_mapping: pl.DataFrame,
@@ -807,6 +1425,15 @@ def _fetch_sec_filing_financials(
             except Exception as exc:
                 failures.append({"ticker": ticker, "error": str(exc)})
     return frames, failures
+
+
+def _extract_sec_companyfacts_earnings_actuals(
+    sec_client: SecCompanyFactsClient,
+    ticker: str,
+    cik: str,
+) -> pl.DataFrame:
+    payload = sec_client.fetch_company_facts(cik)
+    return build_sec_companyfacts_earnings_actuals(ticker=ticker, facts_payload=payload)
 
 
 def _identify_sec_filing_fallback_tickers(

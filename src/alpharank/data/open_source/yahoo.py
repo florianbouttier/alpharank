@@ -42,21 +42,71 @@ class YahooFinanceClient:
 
         return pl.concat(frames, how="vertical") if frames else pl.DataFrame(schema={c: pl.String for c in PRICE_COLUMNS})
 
+    def fetch_company_metadata(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
+        rows: list[dict[str, object]] = []
+        ticker_list = list(tickers)
+        if not ticker_list:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "name": pl.String,
+                    "exchange": pl.String,
+                    "sector_raw_value": pl.String,
+                    "industry": pl.String,
+                }
+            )
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(self._fetch_ticker_metadata, ticker): ticker for ticker in ticker_list}
+            for future in as_completed(futures):
+                try:
+                    row = future.result()
+                except Exception:
+                    row = None
+                if row is not None:
+                    rows.append(row)
+
+        if not rows:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "name": pl.String,
+                    "exchange": pl.String,
+                    "sector_raw_value": pl.String,
+                    "industry": pl.String,
+                }
+            )
+        return pl.DataFrame(rows).sort("ticker")
+
     def fetch_general_reference(self, tickers: Iterable[str], sec_mapping: pl.DataFrame) -> pl.DataFrame:
         mapping = sec_mapping.with_columns(pl.col("cik").cast(pl.Utf8).str.zfill(10))
-        rows: list[dict[str, str]] = []
+        yahoo_metadata = self.fetch_company_metadata(tickers)
+        rows: list[dict[str, object]] = []
         for ticker in tickers:
             match = mapping.filter(pl.col("ticker") == ticker).select(["name", "exchange", "cik"]).to_dicts()
             if not match:
                 continue
             item = match[0]
+            yahoo_match = (
+                yahoo_metadata.filter(pl.col("ticker") == f"{ticker}.US")
+                .select(["name", "exchange", "sector_raw_value", "industry"])
+                .to_dicts()
+            )
+            yahoo_item = yahoo_match[0] if yahoo_match else {}
             rows.append(
                 {
                     "ticker": f"{ticker}.US",
-                    "name": str(item["name"]),
+                    "name": str(yahoo_item.get("name") or item["name"]),
                     "exchange": str(item["exchange"]),
                     "cik": str(item["cik"]),
-                    "source": "sec_mapping",
+                    "source": "open_source_general",
+                    "Sector": str(yahoo_item.get("sector_raw_value")) if yahoo_item.get("sector_raw_value") is not None else None,
+                    "industry": str(yahoo_item.get("industry")) if yahoo_item.get("industry") is not None else None,
+                    "sector_source": "yfinance" if yahoo_item.get("sector_raw_value") is not None else None,
+                    "sector_raw_value": str(yahoo_item.get("sector_raw_value")) if yahoo_item.get("sector_raw_value") is not None else None,
+                    "sic": None,
+                    "sic_description": None,
+                    "mapping_rule": "yfinance:sector" if yahoo_item.get("sector_raw_value") is not None else None,
                 }
             )
         return pl.DataFrame(rows).select(GENERAL_COLUMNS) if rows else pl.DataFrame(schema={c: pl.String for c in GENERAL_COLUMNS})
@@ -131,7 +181,7 @@ class YahooFinanceClient:
                         pl.col("ticker"),
                         pl.lit("earnings").alias("statement"),
                         pl.lit(metric).alias("metric"),
-                        pl.col("reportDate").alias("date"),
+                        pl.coalesce([pl.col("period_end"), pl.col("reportDate")]).alias("date"),
                         pl.col("reportDate").alias("filing_date"),
                         pl.col(column).cast(pl.Float64, strict=False).alias("value"),
                         pl.lit("yfinance").alias("source"),
@@ -167,6 +217,24 @@ class YahooFinanceClient:
         return pl.DataFrame(rows).sort("ticker") if rows else pl.DataFrame(
             schema={"ticker": pl.String, "ticker_root": pl.String, "yahoo_price_available": pl.Boolean}
         )
+
+    def _fetch_ticker_metadata(self, ticker: str) -> dict[str, object] | None:
+        info = _safe_get_info(self._ticker(ticker), ticker=ticker)
+        if not info:
+            return None
+        sector = info.get("sectorDisp") or info.get("sector")
+        industry = info.get("industryDisp") or info.get("industry")
+        exchange = info.get("fullExchangeName") or info.get("exchange")
+        name = info.get("longName") or info.get("shortName") or info.get("displayName")
+        if not any(value is not None for value in (name, exchange, sector, industry)):
+            return None
+        return {
+            "ticker": f"{ticker}.US",
+            "name": str(name) if name is not None else None,
+            "exchange": str(exchange) if exchange is not None else None,
+            "sector_raw_value": str(sector) if sector is not None else None,
+            "industry": str(industry) if industry is not None else None,
+        }
 
 
 def _extract_statement_frame(ticker: str, statement: str, wide: pd.DataFrame) -> pl.DataFrame:
@@ -319,6 +387,15 @@ def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int) 
     if "Earnings Date" not in history.columns and getattr(history.index, "name", None) != "Earnings Date":
         return None
     return history
+
+
+def _safe_get_info(ticker_obj: yf.Ticker, *, ticker: str) -> dict[str, object] | None:
+    try:
+        info = ticker_obj.get_info()
+    except Exception as exc:
+        print(f"{ticker}: metadata fetch skipped ({exc})")
+        return None
+    return info if isinstance(info, dict) else None
 
 
 def _history_has_prices(history: pd.DataFrame, ticker: str) -> bool:
