@@ -80,6 +80,7 @@ def empty_earnings_lineage_frame() -> pl.DataFrame:
             "ticker": pl.String,
             "period_end": pl.String,
             "reportDate": pl.String,
+            "sec_reportDate": pl.String,
             "earningsDatetime": pl.String,
             "accession_number": pl.String,
             "form": pl.String,
@@ -155,6 +156,7 @@ def consolidate_earnings(
         .sort(["ticker", "period_end"])
     )
     yahoo_matches = _match_yahoo_to_sec_calendar(sec_calendar=calendar, yahoo_earnings=yahoo_earnings, tolerance_days=match_tolerance_days)
+    calendar = calendar.rename({"reportDate": "sec_reportDate", "earningsDatetime": "sec_earningsDatetime"})
     sec_actual = (
         sec_actuals.rename(
             {
@@ -178,7 +180,8 @@ def consolidate_earnings(
     consolidated = (
         joined.with_columns(
             [
-                pl.coalesce([pl.col("yahoo_earningsDatetime"), pl.col("earningsDatetime")]).alias("earningsDatetime"),
+                pl.coalesce([pl.col("yahoo_reportDate"), pl.col("sec_reportDate")]).alias("reportDate"),
+                pl.coalesce([pl.col("yahoo_earningsDatetime"), pl.col("sec_earningsDatetime")]).alias("earningsDatetime"),
                 pl.coalesce([pl.col("yahoo_epsActual"), pl.col("sec_epsActual")]).alias("epsActual"),
                 pl.col("yahoo_epsEstimate").alias("epsEstimate"),
                 pl.col("yahoo_surprisePercent").alias("surprisePercent"),
@@ -238,7 +241,8 @@ def consolidate_earnings(
     lineage = (
         joined.with_columns(
             [
-                pl.coalesce([pl.col("yahoo_earningsDatetime"), pl.col("earningsDatetime")]).alias("earningsDatetime"),
+                pl.coalesce([pl.col("yahoo_reportDate"), pl.col("sec_reportDate")]).alias("reportDate"),
+                pl.coalesce([pl.col("yahoo_earningsDatetime"), pl.col("sec_earningsDatetime")]).alias("earningsDatetime"),
                 pl.coalesce([pl.col("yahoo_epsActual"), pl.col("sec_epsActual")]).alias("selected_epsActual"),
                 pl.col("yahoo_epsEstimate").alias("selected_epsEstimate"),
                 pl.col("yahoo_surprisePercent").alias("selected_surprisePercent"),
@@ -294,6 +298,7 @@ def consolidate_earnings(
                 "ticker",
                 "period_end",
                 "reportDate",
+                "sec_reportDate",
                 "earningsDatetime",
                 "accession_number",
                 "form",
@@ -384,7 +389,19 @@ def _match_yahoo_to_sec_calendar(*, sec_calendar: pl.DataFrame, yahoo_earnings: 
         )
 
     calendar = sec_calendar.select(["ticker", "period_end", "reportDate"]).with_row_index("calendar_row_id").with_columns(
-        pl.col("reportDate").cast(pl.Date, strict=False).alias("report_date_dt")
+        [
+            pl.col("reportDate").cast(pl.Date, strict=False).alias("report_date_dt"),
+            pl.col("period_end").cast(pl.Date, strict=False).alias("period_end_dt"),
+        ]
+    )
+    calendar = calendar.with_columns(
+        [
+            pl.when(pl.col("period_end_dt").is_not_null())
+            .then(pl.col("period_end_dt") - pl.duration(days=7))
+            .otherwise(pl.col("report_date_dt") - pl.duration(days=tolerance_days))
+            .alias("match_window_start"),
+            (pl.col("report_date_dt") + pl.duration(days=tolerance_days)).alias("match_window_end"),
+        ]
     )
     yahoo = (
         yahoo_earnings.select(["ticker", "reportDate", "earningsDatetime", "epsEstimate", "epsActual", "surprisePercent"])
@@ -402,10 +419,34 @@ def _match_yahoo_to_sec_calendar(*, sec_calendar: pl.DataFrame, yahoo_earnings: 
     )
     candidates = (
         calendar.join(yahoo, on="ticker", how="inner")
-        .with_columns((pl.col("yahoo_report_date_dt") - pl.col("report_date_dt")).dt.total_days().alias("date_diff_days"))
-        .with_columns(pl.col("date_diff_days").abs().alias("abs_date_diff_days"))
-        .filter(pl.col("abs_date_diff_days") <= tolerance_days)
-        .sort(["calendar_row_id", "abs_date_diff_days", "yahoo_row_id"])
+        .filter(
+            (pl.col("yahoo_report_date_dt") >= pl.col("match_window_start"))
+            & (pl.col("yahoo_report_date_dt") <= pl.col("match_window_end"))
+        )
+        .with_columns(
+            [
+                (pl.col("yahoo_report_date_dt") - pl.col("report_date_dt")).dt.total_days().alias("date_diff_days"),
+                (pl.col("report_date_dt") - pl.col("yahoo_report_date_dt")).dt.total_days().alias("sec_gap_days"),
+                pl.when(pl.col("period_end_dt").is_not_null())
+                .then((pl.col("yahoo_report_date_dt") - pl.col("period_end_dt")).dt.total_days())
+                .otherwise(pl.lit(0))
+                .alias("period_gap_days"),
+            ]
+        )
+        .with_columns(
+            [
+                pl.col("sec_gap_days").abs().alias("abs_sec_gap_days"),
+                pl.when(pl.col("yahoo_report_date_dt") <= pl.col("report_date_dt"))
+                .then(pl.lit(0))
+                .otherwise(pl.lit(1))
+                .alias("after_sec_penalty"),
+                pl.when(pl.col("period_gap_days") >= 0)
+                .then(pl.lit(0))
+                .otherwise(pl.lit(1))
+                .alias("before_period_penalty"),
+            ]
+        )
+        .sort(["calendar_row_id", "before_period_penalty", "after_sec_penalty", "abs_sec_gap_days", "yahoo_row_id"])
     )
 
     matched_rows: list[dict[str, object]] = []

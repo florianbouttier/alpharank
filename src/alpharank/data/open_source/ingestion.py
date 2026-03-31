@@ -503,46 +503,16 @@ def refresh_open_source_reference_layers(
         order_cols=["ingested_at"],
     )
 
-    clean_earnings, clean_earnings_lineage, clean_earnings_long = consolidate_earnings(
-        sec_calendar=raw_earnings_sec_calendar.select(
-            [
-                "ticker",
-                "period_end",
-                "reportDate",
-                "earningsDatetime",
-                "accession_number",
-                "form",
-                "fiscal_period",
-                "fiscal_year",
-                "source",
-                "source_label",
-            ]
-        ),
-        yahoo_earnings=_filter_earnings_years(raw_yahoo_earnings, refreshed_years).select(
-            [
-                "ticker",
-                "period_end",
-                "reportDate",
-                "earningsDatetime",
-                "epsEstimate",
-                "epsActual",
-                "surprisePercent",
-                "source",
-            ]
-        ),
-        sec_actuals=raw_earnings_sec_actuals.select(
-            [
-                "ticker",
-                "period_end",
-                "reportDate",
-                "epsActual",
-                "source",
-                "source_label",
-                "form",
-                "fiscal_period",
-                "fiscal_year",
-            ]
-        ),
+    raw_yahoo_earnings, clean_earnings, clean_earnings_lineage, clean_earnings_long, earnings_repair_tickers = _repair_yahoo_earnings(
+        paths=paths,
+        run_id=run_id,
+        ingested_at=ingested_at,
+        yahoo_client=yahoo_client,
+        raw_yahoo_earnings=raw_yahoo_earnings,
+        raw_earnings_sec_calendar=raw_earnings_sec_calendar,
+        raw_earnings_sec_actuals=raw_earnings_sec_actuals,
+        candidate_tickers=ticker_list,
+        years=refreshed_years,
     )
 
     clean_prices = pl.read_parquet(paths.clean_dir / "prices_open_source.parquet")
@@ -621,6 +591,8 @@ def refresh_open_source_reference_layers(
         "general_sector_non_null_rows": general_reference.filter(pl.col("Sector").is_not_null() & (pl.col("Sector") != "")).height,
         "earnings_rows": clean_earnings.height,
         "earnings_tickers": clean_earnings.select(pl.col("ticker").n_unique()).item() if not clean_earnings.is_empty() else 0,
+        "earnings_repair_ticker_count": len(earnings_repair_tickers),
+        "earnings_repair_ticker_examples": list(earnings_repair_tickers[:20]),
         "failures": run_failures,
         "audit_dirs": [str(path.relative_to(paths.root_dir)) for path in audit_dirs],
     }
@@ -825,7 +797,7 @@ def run_open_source_ingestion(
 
     if refreshed_years:
         try:
-            earnings_fetched = yahoo_client.fetch_earnings_dates(ticker_list, limit=max(8, len(refreshed_years) * 4))
+            earnings_fetched = yahoo_client.fetch_earnings_dates(ticker_list, limit=100)
         except Exception as exc:
             earnings_fetched = _empty_raw_earnings_frame()
             run_failures["yfinance_earnings"].append({"error": str(exc)})
@@ -949,16 +921,16 @@ def run_open_source_ingestion(
     clean_benchmark_prices = raw_benchmark_prices.select(
         ["date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"]
     ).sort(["ticker", "date"])
-    clean_earnings, clean_earnings_lineage, clean_earnings_long = consolidate_earnings(
-        sec_calendar=raw_earnings_sec_calendar.select(
-            ["ticker", "period_end", "reportDate", "earningsDatetime", "accession_number", "form", "fiscal_period", "fiscal_year", "source", "source_label"]
-        ),
-        yahoo_earnings=raw_earnings.select(
-            ["ticker", "period_end", "reportDate", "earningsDatetime", "epsEstimate", "epsActual", "surprisePercent", "source"]
-        ),
-        sec_actuals=raw_earnings_sec_actuals.select(
-            ["ticker", "period_end", "reportDate", "epsActual", "source", "source_label", "form", "fiscal_period", "fiscal_year"]
-        ),
+    raw_earnings, clean_earnings, clean_earnings_lineage, clean_earnings_long, earnings_repair_tickers = _repair_yahoo_earnings(
+        paths=paths,
+        run_id=run_id,
+        ingested_at=ingested_at,
+        yahoo_client=yahoo_client,
+        raw_yahoo_earnings=raw_earnings,
+        raw_earnings_sec_calendar=raw_earnings_sec_calendar,
+        raw_earnings_sec_actuals=raw_earnings_sec_actuals,
+        candidate_tickers=ticker_list,
+        years=refreshed_years,
     )
 
     consolidated_financials, consolidated_lineage, source_summary = consolidate_financial_sources(
@@ -1051,6 +1023,8 @@ def run_open_source_ingestion(
         "price_backfill_ticker_examples": list(price_backfill_tickers[:20]),
         "financial_years_refreshed": list(refreshed_years),
         "ticker_count": len(ticker_list),
+        "earnings_repair_ticker_count": len(earnings_repair_tickers),
+        "earnings_repair_ticker_examples": list(earnings_repair_tickers[:20]),
         "official_dir": str(paths.base_dir),
         "live_dir": str(paths.base_dir),
         "target_dir": str(paths.target_dir),
@@ -1540,6 +1514,162 @@ def _canonicalize_general_outputs(
         general = general.sort(sort_cols)
     general = general.unique(subset=["ticker"], keep="last", maintain_order=True).sort("ticker")
     return general.select(list(GENERAL_COLUMNS)), lineage
+
+
+def _build_clean_earnings(
+    *,
+    raw_yahoo_earnings: pl.DataFrame,
+    raw_earnings_sec_calendar: pl.DataFrame,
+    raw_earnings_sec_actuals: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    return consolidate_earnings(
+        sec_calendar=raw_earnings_sec_calendar.select(
+            [
+                "ticker",
+                "period_end",
+                "reportDate",
+                "earningsDatetime",
+                "accession_number",
+                "form",
+                "fiscal_period",
+                "fiscal_year",
+                "source",
+                "source_label",
+            ]
+        ),
+        yahoo_earnings=raw_yahoo_earnings.select(
+            [
+                "ticker",
+                "period_end",
+                "reportDate",
+                "earningsDatetime",
+                "epsEstimate",
+                "epsActual",
+                "surprisePercent",
+                "source",
+            ]
+        ),
+        sec_actuals=raw_earnings_sec_actuals.select(
+            [
+                "ticker",
+                "period_end",
+                "reportDate",
+                "epsActual",
+                "source",
+                "source_label",
+                "form",
+                "fiscal_period",
+                "fiscal_year",
+            ]
+        ),
+    )
+
+
+def _repair_yahoo_earnings(
+    *,
+    paths: OpenSourceLivePaths,
+    run_id: str,
+    ingested_at: str,
+    yahoo_client: YahooFinanceClient,
+    raw_yahoo_earnings: pl.DataFrame,
+    raw_earnings_sec_calendar: pl.DataFrame,
+    raw_earnings_sec_actuals: pl.DataFrame,
+    candidate_tickers: Sequence[str],
+    years: Sequence[int],
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, tuple[str, ...]]:
+    clean_earnings, clean_earnings_lineage, clean_earnings_long = _build_clean_earnings(
+        raw_yahoo_earnings=raw_yahoo_earnings,
+        raw_earnings_sec_calendar=raw_earnings_sec_calendar,
+        raw_earnings_sec_actuals=raw_earnings_sec_actuals,
+    )
+    repair_tickers = _identify_yahoo_earnings_repair_tickers(
+        clean_earnings_lineage=clean_earnings_lineage,
+        raw_yahoo_earnings=raw_yahoo_earnings,
+        candidate_tickers=candidate_tickers,
+        years=years,
+    )
+    if not repair_tickers:
+        return raw_yahoo_earnings, clean_earnings, clean_earnings_lineage, clean_earnings_long, ()
+
+    repaired = yahoo_client.fetch_earnings_dates(repair_tickers, limit=100)
+    if repaired.is_empty():
+        return raw_yahoo_earnings, clean_earnings, clean_earnings_lineage, clean_earnings_long, repair_tickers
+
+    repair_delta = _with_earnings_ingestion_metadata(
+        repaired,
+        dataset="earnings_yfinance_repair",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
+    append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_yfinance_repair.parquet", repair_delta)
+    repaired_raw = upsert_parquet(
+        paths.raw_dir / "earnings_yfinance.parquet",
+        repair_delta,
+        key_cols=["ticker", "reportDate", "source"],
+        order_cols=["ingested_at"],
+    )
+    clean_earnings, clean_earnings_lineage, clean_earnings_long = _build_clean_earnings(
+        raw_yahoo_earnings=repaired_raw,
+        raw_earnings_sec_calendar=raw_earnings_sec_calendar,
+        raw_earnings_sec_actuals=raw_earnings_sec_actuals,
+    )
+    return repaired_raw, clean_earnings, clean_earnings_lineage, clean_earnings_long, repair_tickers
+
+
+def _identify_yahoo_earnings_repair_tickers(
+    *,
+    clean_earnings_lineage: pl.DataFrame,
+    raw_yahoo_earnings: pl.DataFrame,
+    candidate_tickers: Sequence[str],
+    years: Sequence[int],
+) -> tuple[str, ...]:
+    requested = [f"{ticker}.US" if not str(ticker).endswith(".US") else str(ticker) for ticker in candidate_tickers]
+    if not requested:
+        return ()
+
+    base = pl.DataFrame({"ticker": requested})
+    filtered_lineage = _filter_earnings_years(clean_earnings_lineage, years)
+    if filtered_lineage.is_empty():
+        latest_lineage = base.with_columns(
+            [
+                pl.lit(None).cast(pl.Utf8).alias("yahoo_reportDate"),
+                pl.lit(None).cast(pl.Utf8).alias("actual_source"),
+                pl.lit(None).cast(pl.Utf8).alias("estimate_source"),
+                pl.lit(None).cast(pl.Utf8).alias("surprise_source"),
+            ]
+        )
+    else:
+        latest_lineage = (
+            filtered_lineage.sort(["ticker", "period_end", "reportDate", "sec_reportDate"])
+            .group_by("ticker")
+            .tail(1)
+            .select(["ticker", "yahoo_reportDate", "actual_source", "estimate_source", "surprise_source"])
+        )
+
+    filtered_raw = _filter_earnings_years(raw_yahoo_earnings, years)
+    if filtered_raw.is_empty():
+        raw_stats = base.with_columns(pl.lit(0).alias("yahoo_recent_count"))
+    else:
+        raw_stats = filtered_raw.group_by("ticker").agg(pl.len().alias("yahoo_recent_count"))
+
+    candidates = (
+        base.join(latest_lineage, on="ticker", how="left", coalesce=True)
+        .join(raw_stats, on="ticker", how="left", coalesce=True)
+        .with_columns(pl.col("yahoo_recent_count").fill_null(0))
+        .filter(
+            (pl.col("yahoo_recent_count") == 0)
+            | pl.col("yahoo_reportDate").is_null()
+            | (pl.col("actual_source") != "yfinance")
+            | pl.col("estimate_source").is_null()
+            | pl.col("surprise_source").is_null()
+        )
+        .select("ticker")
+        .unique()
+        .sort("ticker")
+        .to_series()
+        .to_list()
+    )
+    return tuple(ticker[:-3] if ticker.endswith(".US") else ticker for ticker in candidates)
 
 
 def _filter_earnings_years(frame: pl.DataFrame, years: Sequence[int]) -> pl.DataFrame:

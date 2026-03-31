@@ -40,6 +40,26 @@ def test_fetch_earnings_dates_skips_ticker_errors(tmp_path: Path) -> None:
     assert result["ticker"].to_list() == ["AAPL.US"]
 
 
+def test_fetch_earnings_dates_retries_with_fresh_ticker(tmp_path: Path) -> None:
+    client = YahooFinanceClient(cache_dir=tmp_path / "cache")
+    good_history = pd.DataFrame(
+        {
+            "EPS Estimate": [2.0],
+            "Reported EPS": [2.5],
+            "Surprise(%)": [25.0],
+        },
+        index=pd.Index([pd.Timestamp("2026-02-19 16:00:00")], name="Earnings Date"),
+    )
+    client._ticker = lambda symbol: _FakeTicker(history=None)  # type: ignore[method-assign]
+    client._fresh_ticker = lambda symbol: _FakeTicker(history=good_history)  # type: ignore[method-assign]
+
+    result = client.fetch_earnings_dates(["NEM"], limit=100)
+
+    assert result.height == 1
+    assert result["ticker"].to_list() == ["NEM.US"]
+    assert result["epsActual"].to_list() == [2.5]
+
+
 def test_normalize_yahoo_symbol_rewrites_dot_share_classes() -> None:
     assert _normalize_yahoo_symbol("BRK.B") == "BRK-B"
     assert _normalize_yahoo_symbol("BF.B") == "BF-B"

@@ -27,6 +27,7 @@ from run_legacy import _load_data, run_pipeline
 EODHD_DIR = PROJECT_ROOT / "data" / "eodhd" / "output"
 OPEN_SOURCE_DIR = PROJECT_ROOT / "data" / "open_source" / "output"
 OPEN_SOURCE_LINEAGE_DIR = OPEN_SOURCE_DIR / "lineage"
+AUDIT_2025_DIR = PROJECT_ROOT / "data" / "open_source" / "audit" / "2025"
 DEFAULT_FIRST_DATE = "2025-01"
 PRICE_HISTORY_START = "2005-01-03"
 
@@ -577,6 +578,435 @@ def _build_selection_input_coverage(output_root: Path) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
+def _parse_percent_like(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().replace("%", "")
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _build_price_return_equivalence_summary(output_root: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
+    eodhd_prices = _read_parquet_if_exists(output_root / "aligned_data" / "eodhd" / "US_Finalprice.parquet")
+    open_prices = _read_parquet_if_exists(output_root / "aligned_data" / "open_source" / "US_Finalprice.parquet")
+    if eodhd_prices.is_empty() or open_prices.is_empty():
+        return pl.DataFrame(), pl.DataFrame()
+
+    left = (
+        eodhd_prices.select(["ticker", "date", "adjusted_close"])
+        .with_columns(pl.col("date").cast(pl.Date, strict=False))
+        .sort(["ticker", "date"])
+        .with_columns(
+            ((pl.col("adjusted_close") / pl.col("adjusted_close").shift(1).over("ticker")) - 1.0).alias("eodhd_return")
+        )
+        .rename({"adjusted_close": "eodhd_adjusted_close"})
+    )
+    right = (
+        open_prices.select(["ticker", "date", "adjusted_close"])
+        .with_columns(pl.col("date").cast(pl.Date, strict=False))
+        .sort(["ticker", "date"])
+        .with_columns(
+            ((pl.col("adjusted_close") / pl.col("adjusted_close").shift(1).over("ticker")) - 1.0).alias("open_return")
+        )
+        .rename({"adjusted_close": "open_adjusted_close"})
+    )
+    joined = (
+        left.join(right, on=["ticker", "date"], how="inner")
+        .with_columns(
+            [
+                (
+                    (
+                        (pl.col("open_adjusted_close") - pl.col("eodhd_adjusted_close")).abs()
+                        / pl.col("eodhd_adjusted_close").abs()
+                    )
+                    * 100.0
+                )
+                .alias("level_diff_pct"),
+                ((pl.col("open_return") - pl.col("eodhd_return")).abs() * 10_000.0).alias("abs_return_diff_bps"),
+            ]
+        )
+    )
+    valid_returns = joined.filter(pl.col("eodhd_return").is_not_null() & pl.col("open_return").is_not_null())
+    if valid_returns.is_empty():
+        return pl.DataFrame(), pl.DataFrame()
+
+    summary = pl.DataFrame(
+        [
+            {
+                "matched_rows": valid_returns.height,
+                "matched_tickers": valid_returns.select(pl.col("ticker").n_unique()).item(),
+                "median_level_diff_pct": valid_returns.select(pl.col("level_diff_pct").median()).item(),
+                "p95_level_diff_pct": valid_returns.select(pl.col("level_diff_pct").quantile(0.95)).item(),
+                "median_abs_return_diff_bps": valid_returns.select(pl.col("abs_return_diff_bps").median()).item(),
+                "p95_abs_return_diff_bps": valid_returns.select(pl.col("abs_return_diff_bps").quantile(0.95)).item(),
+                "p99_abs_return_diff_bps": valid_returns.select(pl.col("abs_return_diff_bps").quantile(0.99)).item(),
+                "over_1bp_rows": valid_returns.filter(pl.col("abs_return_diff_bps") > 1.0).height,
+                "over_5bp_rows": valid_returns.filter(pl.col("abs_return_diff_bps") > 5.0).height,
+                "over_10bp_rows": valid_returns.filter(pl.col("abs_return_diff_bps") > 10.0).height,
+                "over_5bp_rate_pct": (
+                    valid_returns.filter(pl.col("abs_return_diff_bps") > 5.0).height / valid_returns.height
+                )
+                * 100.0,
+            }
+        ]
+    )
+    top_tickers = (
+        valid_returns.filter(pl.col("abs_return_diff_bps") > 5.0)
+        .group_by("ticker")
+        .agg(
+            [
+                pl.len().alias("rows_over_5bp"),
+                pl.col("abs_return_diff_bps").max().alias("max_abs_return_diff_bps"),
+                pl.col("level_diff_pct").median().alias("median_level_diff_pct"),
+            ]
+        )
+        .sort(["rows_over_5bp", "max_abs_return_diff_bps"], descending=[True, True])
+        .head(20)
+    )
+    return summary, top_tickers
+
+
+def _build_latest_model_drift_summary(output_root: Path) -> pl.DataFrame:
+    stage_files = {
+        "optuna_11": "polars_optuna_output_11_detailed.parquet",
+        "optuna_12": "polars_optuna_output_12_detailed.parquet",
+        "optuna_21": "polars_optuna_output_21_detailed.parquet",
+        "optuna_22": "polars_optuna_output_22_detailed.parquet",
+    }
+    rows: list[dict[str, object]] = []
+    for family, file_name in stage_files.items():
+        eodhd_frame = _read_parquet_if_exists(output_root / "checkpoints" / "eodhd" / file_name)
+        open_frame = _read_parquet_if_exists(output_root / "checkpoints" / "open_source" / file_name)
+        eodhd_latest, eodhd_latest_month = _latest_month_frame(eodhd_frame)
+        open_latest, open_latest_month = _latest_month_frame(open_frame)
+        eodhd_latest_model = _scalar_or_none(
+            eodhd_latest.select(pl.col("model").drop_nulls().unique().sort().head(1)),
+            "model",
+        )
+        open_latest_model = _scalar_or_none(
+            open_latest.select(pl.col("model").drop_nulls().unique().sort().head(1)),
+            "model",
+        )
+        eodhd_models = (
+            eodhd_frame.select(pl.col("model").drop_nulls().unique().sort()).to_series().to_list()
+            if not eodhd_frame.is_empty() and "model" in eodhd_frame.columns
+            else []
+        )
+        open_models = (
+            open_frame.select(pl.col("model").drop_nulls().unique().sort()).to_series().to_list()
+            if not open_frame.is_empty() and "model" in open_frame.columns
+            else []
+        )
+        overlap = sorted(set(str(model) for model in eodhd_models) & set(str(model) for model in open_models))
+        rows.append(
+            {
+                "family": family,
+                "eodhd_latest_month": eodhd_latest_month,
+                "open_latest_month": open_latest_month,
+                "eodhd_latest_model": eodhd_latest_model,
+                "open_latest_model": open_latest_model,
+                "latest_model_match": bool(eodhd_latest_model == open_latest_model and eodhd_latest_model is not None),
+                "eodhd_unique_models": len(eodhd_models),
+                "open_unique_models": len(open_models),
+                "historical_overlap_models": len(overlap),
+                "historical_overlap_list": ", ".join(overlap) if overlap else "",
+            }
+        )
+    return pl.DataFrame(rows).sort("family")
+
+
+def _build_earnings_latest_source_summary(output_root: Path) -> pl.DataFrame:
+    aligned_open_earnings = _read_parquet_if_exists(output_root / "aligned_data" / "open_source" / "US_Earnings.parquet")
+    earnings_lineage = _read_parquet_if_exists(OPEN_SOURCE_LINEAGE_DIR / "earnings_open_source_lineage.parquet")
+    if aligned_open_earnings.is_empty() or earnings_lineage.is_empty():
+        return pl.DataFrame()
+
+    aligned_tickers = _ticker_set(aligned_open_earnings)
+    lineage = earnings_lineage.filter(pl.col("ticker").is_in(sorted(aligned_tickers)))
+    if lineage.is_empty():
+        return pl.DataFrame()
+    sort_cols = [column for column in ["ticker", "period_end", "reportDate"] if column in lineage.columns]
+    latest = (
+        lineage.sort(sort_cols)
+        .group_by("ticker")
+        .tail(1)
+        .sort("ticker")
+    )
+    rows = {
+        "latest_tickers": latest.height,
+        "latest_actual_from_yahoo": latest.filter(pl.col("actual_source") == "yfinance").height if "actual_source" in latest.columns else 0,
+        "latest_estimate_from_yahoo": latest.filter(pl.col("estimate_source") == "yfinance").height if "estimate_source" in latest.columns else 0,
+        "latest_surprise_from_yahoo": latest.filter(pl.col("surprise_source") == "yfinance").height if "surprise_source" in latest.columns else 0,
+    }
+    latest_tickers = max(int(rows["latest_tickers"]), 1)
+    rows["latest_actual_from_yahoo_pct"] = (rows["latest_actual_from_yahoo"] / latest_tickers) * 100.0
+    rows["latest_estimate_from_yahoo_pct"] = (rows["latest_estimate_from_yahoo"] / latest_tickers) * 100.0
+    rows["latest_surprise_from_yahoo_pct"] = (rows["latest_surprise_from_yahoo"] / latest_tickers) * 100.0
+    return pl.DataFrame([rows])
+
+
+def _build_open_source_audit_summary() -> tuple[pl.DataFrame, pl.DataFrame]:
+    price_summary = _read_parquet_if_exists(AUDIT_2025_DIR / "price_error_summary.parquet")
+    statement_summary = _read_parquet_if_exists(AUDIT_2025_DIR / "statement_error_summary.parquet")
+    return price_summary, statement_summary
+
+
+def _lookup_statement_error_rate(statement_summary: pl.DataFrame, source: str, statement: str) -> float | None:
+    if statement_summary.is_empty():
+        return None
+    row = statement_summary.filter((pl.col("source") == source) & (pl.col("statement") == statement)).head(1)
+    return _scalar_or_none(row, "error_rate_pct")
+
+
+def _build_acceptance_gates(
+    *,
+    input_quality: pl.DataFrame,
+    selection_input_coverage: pl.DataFrame,
+    price_return_summary: pl.DataFrame,
+    model_drift_summary: pl.DataFrame,
+    earnings_source_summary: pl.DataFrame,
+    price_audit_summary: pl.DataFrame,
+    statement_audit_summary: pl.DataFrame,
+    metrics_diff: pl.DataFrame,
+    freq_summary: dict[str, Any],
+    equal_summary: dict[str, Any],
+) -> pl.DataFrame:
+    def gate_row(
+        *,
+        category: str,
+        metric: str,
+        comparator: str,
+        threshold: float,
+        actual: float | None,
+        unit: str,
+        evidence: str,
+    ) -> dict[str, object]:
+        passed = None
+        if actual is not None:
+            passed = actual <= threshold if comparator == "<=" else actual >= threshold
+        return {
+            "category": category,
+            "metric": metric,
+            "actual": actual,
+            "unit": unit,
+            "comparator": comparator,
+            "threshold": threshold,
+            "status": "PASS" if passed else "FAIL",
+            "evidence": evidence,
+        }
+
+    eodhd_input = input_quality.filter(pl.col("dataset") == "eodhd").head(1)
+    open_input = input_quality.filter(pl.col("dataset") == "open_source").head(1)
+    eodhd_selection = selection_input_coverage.filter(pl.col("dataset") == "eodhd").head(1)
+    open_selection = selection_input_coverage.filter(pl.col("dataset") == "open_source").head(1)
+    price_summary_row = price_return_summary.head(1)
+    earnings_row = earnings_source_summary.head(1)
+    latest_model_match_rate_pct = (
+        model_drift_summary.select(pl.col("latest_model_match").cast(pl.Int64).mean() * 100.0).item()
+        if not model_drift_summary.is_empty()
+        else None
+    )
+    latest_price_gap_pct = None
+    if not eodhd_selection.is_empty() and not open_selection.is_empty():
+        eodhd_price = float(_scalar_or_none(eodhd_selection, "latest_price_tickers") or 0)
+        open_price = float(_scalar_or_none(open_selection, "latest_price_tickers") or 0)
+        if eodhd_price:
+            latest_price_gap_pct = abs(open_price - eodhd_price) / eodhd_price * 100.0
+    latest_selection_gap_pct = None
+    if not eodhd_selection.is_empty() and not open_selection.is_empty():
+        eodhd_sel = float(_scalar_or_none(eodhd_selection, "latest_constituent_join_tickers") or 0)
+        open_sel = float(_scalar_or_none(open_selection, "latest_constituent_join_tickers") or 0)
+        if eodhd_sel:
+            latest_selection_gap_pct = abs(open_sel - eodhd_sel) / eodhd_sel * 100.0
+
+    combined_frequency = metrics_diff.filter(pl.col("model") == "Combined_Frequency").head(1)
+    combined_equal = metrics_diff.filter(pl.col("model") == "Combined_Equal").head(1)
+    combined_frequency_gap = None
+    combined_equal_gap = None
+    if not combined_frequency.is_empty():
+        e = _parse_percent_like(_scalar_or_none(combined_frequency, "eodhd_Total Return"))
+        o = _parse_percent_like(_scalar_or_none(combined_frequency, "open_Total Return"))
+        if e is not None and o is not None:
+            combined_frequency_gap = abs(o - e)
+    if not combined_equal.is_empty():
+        e = _parse_percent_like(_scalar_or_none(combined_equal, "eodhd_Total Return"))
+        o = _parse_percent_like(_scalar_or_none(combined_equal, "open_Total Return"))
+        if e is not None and o is not None:
+            combined_equal_gap = abs(o - e)
+
+    gates = [
+        gate_row(
+            category="coverage",
+            metric="sector_null_rate_aligned_scope",
+            comparator="<=",
+            threshold=0.5,
+            actual=((_scalar_or_none(open_input, "sector_null_rows") or 0) / max((_scalar_or_none(open_input, "general_rows") or 1), 1)) * 100.0,
+            unit="pct",
+            evidence="aligned_data/open_source/US_General.parquet",
+        ),
+        gate_row(
+            category="coverage",
+            metric="latest_price_ticker_gap_vs_eodhd",
+            comparator="<=",
+            threshold=1.0,
+            actual=latest_price_gap_pct,
+            unit="pct",
+            evidence="selection_input_coverage.latest_price_tickers",
+        ),
+        gate_row(
+            category="coverage",
+            metric="latest_selection_universe_gap_vs_eodhd",
+            comparator="<=",
+            threshold=1.0,
+            actual=latest_selection_gap_pct,
+            unit="pct",
+            evidence="selection_input_coverage.latest_constituent_join_tickers",
+        ),
+        gate_row(
+            category="prices",
+            metric="daily_return_p95_abs_diff",
+            comparator="<=",
+            threshold=0.1,
+            actual=_scalar_or_none(price_summary_row, "p95_abs_return_diff_bps"),
+            unit="bps",
+            evidence="aligned_data/*/US_Finalprice.parquet",
+        ),
+        gate_row(
+            category="prices",
+            metric="daily_return_rows_over_5bp",
+            comparator="<=",
+            threshold=0.1,
+            actual=_scalar_or_none(price_summary_row, "over_5bp_rate_pct"),
+            unit="pct",
+            evidence="aligned_data/*/US_Finalprice.parquet",
+        ),
+        gate_row(
+            category="prices",
+            metric="raw_adjusted_close_error_rate_2025",
+            comparator="<=",
+            threshold=2.0,
+            actual=_scalar_or_none(price_audit_summary.head(1), "error_rate_pct"),
+            unit="pct",
+            evidence="data/open_source/audit/2025/price_error_summary.parquet",
+        ),
+        gate_row(
+            category="earnings",
+            metric="latest_actual_from_market_source",
+            comparator=">=",
+            threshold=98.0,
+            actual=_scalar_or_none(earnings_row, "latest_actual_from_yahoo_pct"),
+            unit="pct",
+            evidence="output/lineage/earnings_open_source_lineage.parquet",
+        ),
+        gate_row(
+            category="earnings",
+            metric="latest_estimate_from_market_source",
+            comparator=">=",
+            threshold=98.0,
+            actual=_scalar_or_none(earnings_row, "latest_estimate_from_yahoo_pct"),
+            unit="pct",
+            evidence="output/lineage/earnings_open_source_lineage.parquet",
+        ),
+        gate_row(
+            category="audit_2025",
+            metric="balance_sheet_error_rate",
+            comparator="<=",
+            threshold=5.0,
+            actual=_lookup_statement_error_rate(statement_audit_summary, "open_source_consolidated", "balance_sheet"),
+            unit="pct",
+            evidence="data/open_source/audit/2025/statement_error_summary.parquet",
+        ),
+        gate_row(
+            category="audit_2025",
+            metric="income_statement_error_rate",
+            comparator="<=",
+            threshold=5.0,
+            actual=_lookup_statement_error_rate(statement_audit_summary, "open_source_consolidated", "income_statement"),
+            unit="pct",
+            evidence="data/open_source/audit/2025/statement_error_summary.parquet",
+        ),
+        gate_row(
+            category="audit_2025",
+            metric="cash_flow_error_rate",
+            comparator="<=",
+            threshold=5.0,
+            actual=_lookup_statement_error_rate(statement_audit_summary, "open_source_consolidated", "cash_flow"),
+            unit="pct",
+            evidence="data/open_source/audit/2025/statement_error_summary.parquet",
+        ),
+        gate_row(
+            category="audit_2025",
+            metric="shares_error_rate",
+            comparator="<=",
+            threshold=1.0,
+            actual=_lookup_statement_error_rate(statement_audit_summary, "open_source_consolidated", "shares"),
+            unit="pct",
+            evidence="data/open_source/audit/2025/statement_error_summary.parquet",
+        ),
+        gate_row(
+            category="audit_2025",
+            metric="earnings_error_rate",
+            comparator="<=",
+            threshold=10.0,
+            actual=_lookup_statement_error_rate(statement_audit_summary, "open_source_earnings", "earnings"),
+            unit="pct",
+            evidence="data/open_source/audit/2025/statement_error_summary.parquet",
+        ),
+        gate_row(
+            category="optimizer",
+            metric="latest_optuna_model_slot_overlap",
+            comparator=">=",
+            threshold=75.0,
+            actual=latest_model_match_rate_pct,
+            unit="pct",
+            evidence="checkpoints/*/polars_optuna_output_*_detailed.parquet",
+        ),
+        gate_row(
+            category="backtest",
+            metric="combined_frequency_total_return_gap",
+            comparator="<=",
+            threshold=5.0,
+            actual=combined_frequency_gap,
+            unit="pts",
+            evidence="comparison/model_metrics_diff.parquet",
+        ),
+        gate_row(
+            category="backtest",
+            metric="combined_equal_total_return_gap",
+            comparator="<=",
+            threshold=5.0,
+            actual=combined_equal_gap,
+            unit="pts",
+            evidence="comparison/model_metrics_diff.parquet",
+        ),
+        gate_row(
+            category="backtest",
+            metric="final_frequency_holdings_jaccard",
+            comparator=">=",
+            threshold=0.8,
+            actual=freq_summary.get("jaccard"),
+            unit="ratio",
+            evidence="comparison/portfolio_frequency_diff.parquet",
+        ),
+        gate_row(
+            category="backtest",
+            metric="final_equal_holdings_jaccard",
+            comparator=">=",
+            threshold=0.8,
+            actual=equal_summary.get("jaccard"),
+            unit="ratio",
+            evidence="comparison/portfolio_equal_diff.parquet",
+        ),
+    ]
+    return pl.DataFrame(gates)
+
+
 def _build_stage_summary(output_root: Path) -> pl.DataFrame:
     stage_files = {
         "stocks_selections": "polars_stocks_selections.parquet",
@@ -771,6 +1201,12 @@ def _select_ticker_row(frame: pl.DataFrame, ticker: str) -> pl.DataFrame:
     return frame.filter(pl.col("ticker") == ticker).head(1)
 
 
+def _select_ticker_rows(frame: pl.DataFrame, ticker: str) -> pl.DataFrame:
+    if frame.is_empty() or "ticker" not in frame.columns:
+        return pl.DataFrame()
+    return frame.filter(pl.col("ticker") == ticker)
+
+
 def _scalar_or_none(frame: pl.DataFrame, column: str) -> Any:
     if frame.is_empty() or column not in frame.columns:
         return None
@@ -872,6 +1308,22 @@ def _write_report(
     input_quality = _build_input_quality_summary(output_root)
     selection_input_coverage = _build_selection_input_coverage(output_root)
     stage_summary = _build_stage_summary(output_root)
+    price_return_summary, price_return_outliers = _build_price_return_equivalence_summary(output_root)
+    model_drift_summary = _build_latest_model_drift_summary(output_root)
+    earnings_source_summary = _build_earnings_latest_source_summary(output_root)
+    price_audit_summary, statement_audit_summary = _build_open_source_audit_summary()
+    acceptance_gates = _build_acceptance_gates(
+        input_quality=input_quality,
+        selection_input_coverage=selection_input_coverage,
+        price_return_summary=price_return_summary,
+        model_drift_summary=model_drift_summary,
+        earnings_source_summary=earnings_source_summary,
+        price_audit_summary=price_audit_summary,
+        statement_audit_summary=statement_audit_summary,
+        metrics_diff=metrics_diff,
+        freq_summary=freq_summary,
+        equal_summary=equal_summary,
+    )
     focus_ticker_diagnostics = _build_focus_ticker_diagnostics(
         output_root=output_root,
         frequency_diff=frequency_diff,
@@ -881,15 +1333,29 @@ def _write_report(
     open_input = input_quality.filter(pl.col("dataset") == "open_source").head(1)
     eodhd_selection_input = selection_input_coverage.filter(pl.col("dataset") == "eodhd").head(1)
     open_selection_input = selection_input_coverage.filter(pl.col("dataset") == "open_source").head(1)
+    price_summary_row = price_return_summary.head(1)
+    earnings_source_row = earnings_source_summary.head(1)
+    latest_model_match_rate_pct = (
+        model_drift_summary.select(pl.col("latest_model_match").cast(pl.Int64).mean() * 100.0).item()
+        if not model_drift_summary.is_empty()
+        else None
+    )
+    audit_failures = acceptance_gates.filter((pl.col("category") == "audit_2025") & (pl.col("status") == "FAIL"))
+    audit_failure_snippets = [
+        f"{row['metric']}={row['actual']:.2f}{row['unit']}"
+        for row in audit_failures.iter_rows(named=True)
+        if row.get("actual") is not None
+    ]
+    top_price_outlier = price_return_outliers.head(1)
     root_cause_lines = [
         "Sector coverage is no longer the blocker: open_source has 0 null sectors on the aligned scope and 0 null sectors in the latest strategy stages.",
         (
-            f"Latest monthly price coverage remains much thinner in open_source: "
+            f"Latest monthly price coverage is effectively aligned: "
             f"{_scalar_or_none(open_selection_input, 'latest_price_tickers')} tickers versus "
             f"{_scalar_or_none(eodhd_selection_input, 'latest_price_tickers')} in EODHD."
         ),
         (
-            f"That price gap flows directly into valuation coverage: "
+            f"Valuation coverage is also nearly aligned: "
             f"{_scalar_or_none(open_selection_input, 'latest_value_tickers')} open_source tickers get a latest-month valuation row "
             f"versus {_scalar_or_none(eodhd_selection_input, 'latest_value_tickers')} in EODHD."
         ),
@@ -904,9 +1370,25 @@ def _write_report(
             f"{_scalar_or_none(eodhd_selection_input, 'latest_constituent_join_tickers')} in EODHD."
         ),
         (
+            f"Price returns are close on most matched rows (p95 absolute daily return diff "
+            f"{_scalar_or_none(price_summary_row, 'p95_abs_return_diff_bps')} bps), but there is still a tail of "
+            f"{_scalar_or_none(price_summary_row, 'over_5bp_rate_pct')}% of rows above 5 bps, led by "
+            f"{_scalar_or_none(top_price_outlier, 'ticker')}."
+        ),
+        (
             f"Earnings coverage improved sharply and is no longer empty, but still trails EODHD: "
             f"{_scalar_or_none(open_input, 'earnings_rows')} rows / {_scalar_or_none(open_input, 'earnings_tickers')} tickers "
             f"versus {_scalar_or_none(eodhd_input, 'earnings_rows')} / {_scalar_or_none(eodhd_input, 'earnings_tickers')}."
+        ),
+        (
+            f"Latest market-source earnings coverage is now high "
+            f"({ _scalar_or_none(earnings_source_row, 'latest_actual_from_yahoo_pct') }% actual, "
+            f"{ _scalar_or_none(earnings_source_row, 'latest_estimate_from_yahoo_pct') }% estimate), "
+            f"but the 2025 audit still fails on core datasets: {', '.join(audit_failure_snippets) if audit_failure_snippets else 'n/a'}."
+        ),
+        (
+            f"The full legacy comparison still mixes data differences with optimizer drift: latest Optuna model-slot overlap is "
+            f"{latest_model_match_rate_pct}% and the latest chosen parameter sets differ between datasets."
         ),
     ]
 
@@ -950,6 +1432,10 @@ Source general ticker counts before alignment:
 
 {_markdown_table(input_quality, max_rows=10)}
 
+## Acceptance Gates
+
+{_markdown_table(acceptance_gates, max_rows=30)}
+
 ## Root Cause Summary
 
 {chr(10).join(f"- {line}" for line in root_cause_lines)}
@@ -957,6 +1443,28 @@ Source general ticker counts before alignment:
 ## Selection Input Coverage
 
 {_markdown_table(selection_input_coverage, max_rows=10)}
+
+## Price Return Equivalence
+
+{_markdown_table(price_return_summary, max_rows=5)}
+
+### Worst Price Return Outliers
+
+{_markdown_table(price_return_outliers, max_rows=20)}
+
+## Latest Model Drift
+
+{_markdown_table(model_drift_summary, max_rows=10)}
+
+## Open-Source 2025 Audit Summary
+
+### Price Audit
+
+{_markdown_table(price_audit_summary, max_rows=10)}
+
+### Statement Audit
+
+{_markdown_table(statement_audit_summary, max_rows=20)}
 
 ## Run Summary
 
@@ -1103,6 +1611,40 @@ Full metrics parquet:
                     "Latest open-source stock selection row",
                     _select_ticker_row(_latest_month_frame(_read_parquet_if_exists(output_root / "checkpoints" / "open_source" / "polars_stocks_selections.parquet"))[0], ticker),
                 ),
+                (
+                    "Latest EODHD model-stage rows",
+                    pl.concat(
+                        [
+                            _select_ticker_rows(_latest_month_frame(_read_parquet_if_exists(output_root / "checkpoints" / "eodhd" / name))[0], ticker).with_columns(pl.lit(stage).alias("stage"))
+                            for stage, name in {
+                                "optuna_11": "polars_optuna_output_11_detailed.parquet",
+                                "optuna_12": "polars_optuna_output_12_detailed.parquet",
+                                "optuna_21": "polars_optuna_output_21_detailed.parquet",
+                                "optuna_22": "polars_optuna_output_22_detailed.parquet",
+                                "combined_frequency": "polars_combined_frequency_detailed.parquet",
+                                "combined_equal": "polars_combined_equal_detailed.parquet",
+                            }.items()
+                        ],
+                        how="diagonal_relaxed",
+                    ),
+                ),
+                (
+                    "Latest open-source model-stage rows",
+                    pl.concat(
+                        [
+                            _select_ticker_rows(_latest_month_frame(_read_parquet_if_exists(output_root / "checkpoints" / "open_source" / name))[0], ticker).with_columns(pl.lit(stage).alias("stage"))
+                            for stage, name in {
+                                "optuna_11": "polars_optuna_output_11_detailed.parquet",
+                                "optuna_12": "polars_optuna_output_12_detailed.parquet",
+                                "optuna_21": "polars_optuna_output_21_detailed.parquet",
+                                "optuna_22": "polars_optuna_output_22_detailed.parquet",
+                                "combined_frequency": "polars_combined_frequency_detailed.parquet",
+                                "combined_equal": "polars_combined_equal_detailed.parquet",
+                            }.items()
+                        ],
+                        how="diagonal_relaxed",
+                    ),
+                ),
             ],
         )
 
@@ -1125,8 +1667,14 @@ Full metrics parquet:
         subtitle="Where the two datasets diverge through the legacy pipeline",
         navigation='<p><a href="../report.html">Global report</a> | <a href="../tickers/index.html">Ticker index</a></p>',
         sections=[
+            ("Acceptance gates", acceptance_gates),
             ("Input quality", input_quality),
             ("Selection input coverage", selection_input_coverage),
+            ("Price return equivalence", price_return_summary),
+            ("Price return outliers", price_return_outliers),
+            ("Latest model drift", model_drift_summary),
+            ("Open-source 2025 price audit", price_audit_summary),
+            ("Open-source 2025 statement audit", statement_audit_summary),
             ("Stage summary", stage_summary),
             ("Monthly return gaps", largest_monthly_model_gaps),
         ],
@@ -1138,8 +1686,14 @@ Full metrics parquet:
         subtitle=f"Aligned scope up to {alignment['price_cutoff_date']} with common ticker universe {alignment['common_tickers']}",
         navigation='<p><a href="tickers/index.html">Ticker index</a> | <a href="stages/index.html">Stage index</a></p>',
         sections=[
+            ("Acceptance gates", acceptance_gates),
             ("Input quality", input_quality),
             ("Selection input coverage", selection_input_coverage),
+            ("Price return equivalence", price_return_summary),
+            ("Price return outliers", price_return_outliers),
+            ("Latest model drift", model_drift_summary),
+            ("Open-source 2025 price audit", price_audit_summary),
+            ("Open-source 2025 statement audit", statement_audit_summary),
             ("Primary model metric diff", primary_models),
             ("Stage summary", stage_summary),
             ("Frequency final portfolio diff", frequency_diff),

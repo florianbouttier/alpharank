@@ -64,13 +64,68 @@ def test_consolidate_earnings_prefers_sec_calendar_and_yahoo_market_fields() -> 
 
     assert consolidated.height == 1
     assert consolidated["period_end"].to_list() == ["2025-03-31"]
-    assert consolidated["reportDate"].to_list() == ["2025-05-01"]
+    assert consolidated["reportDate"].to_list() == ["2025-04-30"]
     assert consolidated["epsActual"].to_list() == [1.50]
     assert consolidated["epsEstimate"].to_list() == [1.40]
     assert consolidated["selected_source"].to_list() == ["sec_submissions+yfinance"]
     assert lineage["candidate_sources"].to_list() == ["sec_submissions | yfinance | sec_companyfacts"]
+    assert lineage["sec_reportDate"].to_list() == ["2025-05-01"]
     assert long_frame.filter(pl.col("metric") == "eps_actual")["date"].to_list() == ["2025-03-31"]
-    assert long_frame.filter(pl.col("metric") == "eps_actual")["filing_date"].to_list() == ["2025-05-01"]
+    assert long_frame.filter(pl.col("metric") == "eps_actual")["filing_date"].to_list() == ["2025-04-30"]
+
+
+def test_consolidate_earnings_matches_yahoo_release_before_sec_filing_when_period_end_matches() -> None:
+    sec_calendar = pl.DataFrame(
+        {
+            "ticker": ["KEYS.US"],
+            "period_end": ["2025-10-31"],
+            "reportDate": ["2025-12-17"],
+            "earningsDatetime": ["2025-12-17 21:00:00"],
+            "accession_number": ["0002"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q4"],
+            "fiscal_year": [2025],
+            "source": ["sec_submissions"],
+            "source_label": ["reportDate"],
+        }
+    )
+    yahoo_earnings = pl.DataFrame(
+        {
+            "ticker": ["KEYS.US"],
+            "period_end": [None],
+            "reportDate": ["2025-11-25"],
+            "earningsDatetime": ["2025-11-25 21:00:00"],
+            "epsEstimate": [1.82],
+            "epsActual": [1.91],
+            "surprisePercent": [4.95],
+            "source": ["yfinance"],
+        }
+    )
+    sec_actuals = pl.DataFrame(
+        {
+            "ticker": ["KEYS.US"],
+            "period_end": ["2025-10-31"],
+            "reportDate": ["2025-12-17"],
+            "epsActual": [1.35],
+            "source": ["sec_companyfacts"],
+            "source_label": ["EarningsPerShareDiluted"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q4"],
+            "fiscal_year": [2025],
+        }
+    )
+
+    consolidated, lineage, _ = consolidate_earnings(
+        sec_calendar=sec_calendar,
+        yahoo_earnings=yahoo_earnings,
+        sec_actuals=sec_actuals,
+    )
+
+    assert consolidated["reportDate"].to_list() == ["2025-11-25"]
+    assert consolidated["epsEstimate"].to_list() == [1.82]
+    assert consolidated["epsActual"].to_list() == [1.91]
+    assert lineage["sec_reportDate"].to_list() == ["2025-12-17"]
+    assert lineage["yahoo_reportDate"].to_list() == ["2025-11-25"]
 
 
 def test_build_general_reference_falls_back_to_sec_sic_mapping() -> None:

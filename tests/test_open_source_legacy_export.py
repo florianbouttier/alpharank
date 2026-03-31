@@ -152,3 +152,146 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     assert general["Industry"].to_list() == ["Consumer Electronics"]
     assert earnings_export["epsDifference"].to_list() == [0.10000000000000009]
     assert earnings_export["beforeAfterMarket"].to_list() == ["AfterMarket"]
+
+
+def test_export_legacy_compatible_outputs_normalizes_earnings_period_end_to_legacy_month_end(tmp_path: Path) -> None:
+    reference_dir = tmp_path / "reference"
+    output_dir = tmp_path / "live" / "legacy"
+    reference_dir.mkdir(parents=True)
+
+    pl.DataFrame(
+        {
+            "ticker": ["WDC.US"],
+            "date": ["2025-01-01"],
+            "adjusted_close": [1.0],
+            "close": [1.0],
+            "open": [1.0],
+            "high": [1.0],
+            "low": [1.0],
+            "volume": [10.0],
+        }
+    ).write_parquet(reference_dir / "US_Finalprice.parquet")
+    pl.DataFrame(
+        {
+            "ticker": ["SPY.US"],
+            "date": ["2025-01-01"],
+            "adjusted_close": [1.0],
+            "close": [1.0],
+            "open": [1.0],
+            "high": [1.0],
+            "low": [1.0],
+            "volume": [10.0],
+        }
+    ).write_parquet(reference_dir / "SP500Price.parquet")
+    pl.DataFrame({"Code": ["WDC"], "Name": ["Western Digital"], "Exchange": ["NASDAQ"], "CurrencyCode": ["USD"], "CurrencySymbol": ["$"], "CIK": ["0000106040"], "Sector": ["Technology"], "Industry": ["Storage"]}).write_parquet(
+        reference_dir / "US_General.parquet"
+    )
+    pl.DataFrame({"ticker": ["WDC.US"], "date": ["2025-12-31"], "filing_date": ["2026-01-29"], "totalRevenue": [100.0], "netIncome": [20.0]}).write_parquet(
+        reference_dir / "US_Income_statement.parquet"
+    )
+    pl.DataFrame(
+        {
+            "ticker": ["WDC.US"],
+            "date": ["2025-12-31"],
+            "filing_date": ["2026-01-29"],
+            "commonStockSharesOutstanding": ["0.0"],
+            "totalAssets": [500.0],
+            "totalLiab": [300.0],
+        }
+    ).write_parquet(reference_dir / "US_Balance_sheet.parquet")
+    pl.DataFrame({"ticker": ["WDC.US"], "date": ["2025-12-31"], "filing_date": ["2026-01-29"], "freeCashFlow": [50.0]}).write_parquet(
+        reference_dir / "US_Cash_flow.parquet"
+    )
+    pl.DataFrame({"ticker": ["WDC.US"], "date": ["2025-12-31"], "dateFormatted": ["2025-12-31"], "sharesMln": [10.0], "shares": [10_000_000.0]}).write_parquet(
+        reference_dir / "US_share.parquet"
+    )
+    pl.DataFrame(
+        {
+            "ticker": ["WDC.US"],
+            "beforeAfterMarket": ["AfterMarket"],
+            "currency": ["USD"],
+            "date": ["2025-12-31"],
+            "epsActual": [2.13],
+            "epsDifference": [0.20],
+            "epsEstimate": [1.93],
+            "reportDate": ["2026-01-29"],
+            "surprisePercent": [10.36],
+        }
+    ).write_parquet(reference_dir / "US_Earnings.parquet")
+
+    clean_prices = pl.read_parquet(reference_dir / "US_Finalprice.parquet")
+    benchmark_prices = pl.read_parquet(reference_dir / "SP500Price.parquet")
+    general_reference = pl.DataFrame(
+        {
+            "ticker": ["WDC.US"],
+            "name": ["Western Digital"],
+            "exchange": ["NASDAQ"],
+            "cik": ["0000106040"],
+            "source": ["open_source_general"],
+            "Sector": ["Technology"],
+            "industry": ["Storage"],
+            "sector_source": ["yfinance"],
+            "sector_raw_value": ["Technology"],
+            "sic": [None],
+            "sic_description": [None],
+            "mapping_rule": ["yfinance:sector"],
+        }
+    )
+    consolidated_financials = pl.DataFrame(
+        {
+            "ticker": ["WDC.US", "WDC.US", "WDC.US", "WDC.US", "WDC.US"],
+            "statement": ["income_statement", "income_statement", "balance_sheet", "cash_flow", "shares"],
+            "metric": ["revenue", "net_income", "total_assets", "free_cash_flow", "outstanding_shares"],
+            "date": ["2025-12-31"] * 5,
+            "filing_date": ["2026-01-29"] * 5,
+            "value": [100.0, 20.0, 500.0, 50.0, 10_000_000.0],
+            "source": ["open_source_consolidated"] * 5,
+            "source_label": ["value"] * 5,
+            "selected_source": ["sec_companyfacts"] * 5,
+            "selected_source_label": ["tag"] * 5,
+            "selected_form": ["10-Q"] * 5,
+            "selected_fiscal_period": ["Q2"] * 5,
+            "selected_fiscal_year": [2026] * 5,
+            "source_priority": [1] * 5,
+            "fallback_used": [False] * 5,
+            "candidate_source_count": [1] * 5,
+            "candidate_sources": ["sec_companyfacts"] * 5,
+            "candidate_source_labels": ["tag"] * 5,
+        }
+    )
+    earnings = pl.DataFrame(
+        {
+            "ticker": ["WDC.US"],
+            "reportDate": ["2026-01-29"],
+            "earningsDatetime": ["2026-01-29 21:00:00"],
+            "period_end": ["2026-01-02"],
+            "epsEstimate": [1.93],
+            "epsActual": [2.13],
+            "surprisePercent": [10.36],
+            "selected_source": ["sec_submissions+yfinance"],
+            "candidate_sources": ["sec_submissions | yfinance"],
+            "calendar_source": ["sec_submissions"],
+            "actual_source": ["yfinance"],
+            "estimate_source": ["yfinance"],
+            "surprise_source": ["yfinance"],
+            "source_label": ["calendar=sec_submissions | actual=yfinance | estimate=yfinance"],
+            "accession_number": ["0001"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q2"],
+            "fiscal_year": [2026],
+        }
+    )
+
+    export_legacy_compatible_outputs(
+        clean_prices=clean_prices,
+        benchmark_prices=benchmark_prices,
+        general_reference=general_reference,
+        consolidated_financials=consolidated_financials,
+        earnings_frame=earnings,
+        reference_data_dir=reference_dir,
+        output_dir=output_dir,
+    )
+
+    earnings_export = pl.read_parquet(output_dir / "US_Earnings.parquet")
+
+    assert earnings_export["date"].to_list() == ["2025-12-31"]

@@ -92,11 +92,19 @@ conda activate alpharank
 - When comparing `data/eodhd/output/` versus `data/open_source/output/`, do not stop at aggregate performance deltas. Continue autonomously until the first failing stage is isolated with evidence:
   - input alignment and cutoff dates
   - price coverage
+  - price return equivalence, not only raw adjusted-close level comparisons
   - share-count / market-cap construction
   - `Sector` mapping
   - `US_Earnings` semantics and source mix (`period_end`, `reportDate`, EPS meaning, estimate/surprise coverage)
+  - Optuna/model-parameter drift between the two runs
   - latest model-stage vote differences and final portfolio overlap
 - For legacy replacement work, a claim like `can't replace EODHD yet` is not sufficient by itself. The output must identify which dataset or semantic mismatch is driving the gap and point to the concrete files/parquets used to prove it.
+- For source-replacement audits, always publish explicit acceptance gates with thresholds and pass/fail status. At minimum cover:
+  - selection/coverage equivalence
+  - price return equivalence
+  - 2025 statement/earnings error rates
+  - latest market-source earnings coverage
+  - final backtest overlap/performance gates
 
 ## Open-Source Data Layout
 

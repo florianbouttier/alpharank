@@ -28,6 +28,12 @@ class YahooFinanceClient:
             self._ticker_cache[yahoo_symbol] = ticker
         return ticker
 
+    def _fresh_ticker(self, symbol: str) -> yf.Ticker:
+        yahoo_symbol = _normalize_yahoo_symbol(symbol)
+        ticker = yf.Ticker(yahoo_symbol)
+        self._ticker_cache[yahoo_symbol] = ticker
+        return ticker
+
     def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 5) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
         tickers = list(tickers)
@@ -113,10 +119,13 @@ class YahooFinanceClient:
             )
         return pl.DataFrame(rows).select(GENERAL_COLUMNS) if rows else pl.DataFrame(schema={c: pl.String for c in GENERAL_COLUMNS})
 
-    def fetch_earnings_dates(self, tickers: Iterable[str], limit: int = 8) -> pl.DataFrame:
+    def fetch_earnings_dates(self, tickers: Iterable[str], limit: int = 100) -> pl.DataFrame:
         rows: list[dict[str, object]] = []
+        effective_limit = max(8, min(int(limit), 100))
         for ticker in tickers:
-            history = _safe_get_earnings_dates(self._ticker(ticker), ticker=ticker, limit=limit)
+            history = _safe_get_earnings_dates(self._ticker(ticker), ticker=ticker, limit=effective_limit)
+            if history is None or history.empty:
+                history = _safe_get_earnings_dates(self._fresh_ticker(ticker), ticker=ticker, limit=effective_limit)
             if history is None or history.empty:
                 continue
             frame = history.reset_index()
@@ -150,7 +159,12 @@ class YahooFinanceClient:
                     "source": pl.String,
                 }
             )
-        return pl.DataFrame(rows).sort(["ticker", "reportDate"])
+        return (
+            pl.DataFrame(rows)
+            .sort(["ticker", "reportDate", "earningsDatetime"])
+            .unique(subset=["ticker", "reportDate", "source"], keep="last", maintain_order=True)
+            .sort(["ticker", "reportDate"])
+        )
 
     def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
@@ -380,17 +394,21 @@ def _download_single_ticker_frame(ticker: str, start_date: str, end_date: str) -
     return _extract_price_frame(history, request_symbol=yahoo_symbol, ticker=ticker)
 
 
-def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int) -> pd.DataFrame | None:
-    try:
-        history = ticker_obj.get_earnings_dates(limit=limit)
-    except Exception as exc:
-        print(f"{ticker}: earnings fetch skipped ({exc})")
-        return None
-    if history is None or history.empty:
-        return history
-    if "Earnings Date" not in history.columns and getattr(history.index, "name", None) != "Earnings Date":
-        return None
-    return history
+def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int, retries: int = 3) -> pd.DataFrame | None:
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            history = ticker_obj.get_earnings_dates(limit=limit)
+        except Exception as exc:
+            last_error = exc
+            history = None
+        if history is not None and not history.empty:
+            if "Earnings Date" in history.columns or getattr(history.index, "name", None) == "Earnings Date":
+                return history
+        time.sleep(1.0 * (attempt + 1))
+    if last_error is not None:
+        print(f"{ticker}: earnings fetch skipped ({last_error})")
+    return None
 
 
 def _safe_get_info(ticker_obj: yf.Ticker, *, ticker: str) -> dict[str, object] | None:
