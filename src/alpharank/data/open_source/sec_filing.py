@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date as dt_date
 import json
 from pathlib import Path
 import time
@@ -208,6 +209,7 @@ class SecFilingFactsClient:
         units = _parse_units(root)
         filing_fy, filing_fp = _parse_document_focus(root)
         allowed_tags = {tag for spec in METRIC_SPECS for tag in spec.sec_tags}
+        share_tags = {tag for spec in METRIC_SPECS if spec.statement == "shares" for tag in spec.sec_tags}
         records: list[tuple[str, str, str, dict[str, object]]] = []
         for element in root.iter():
             context_ref = element.attrib.get("contextRef")
@@ -233,6 +235,8 @@ class SecFilingFactsClient:
                 end = context["end"]
             if end is None:
                 continue
+            if local_name in share_tags:
+                end = _normalize_share_end_date(end, filing.report_date)
             records.append(
                 (
                     fact_root,
@@ -247,6 +251,8 @@ class SecFilingFactsClient:
                         "fy": filing_fy,
                         "fp": filing_fp,
                         "has_dimensions": context["has_dimensions"],
+                        "dimensions": context.get("dimensions", ()),
+                        "statement_class_member": context.get("statement_class_member"),
                     },
                 )
             )
@@ -320,6 +326,17 @@ def _parse_contexts(root: ET.Element) -> dict[str, dict[str, object]]:
         start = period.findtext(f"{xbrli}startDate") if period is not None else None
         end = period.findtext(f"{xbrli}endDate") if period is not None else None
         instant = period.findtext(f"{xbrli}instant") if period is not None else None
+        dimensions: list[tuple[str, str]] = []
+        for explicit_member in context.findall(f".//{xbrldi}explicitMember"):
+            dimension = explicit_member.attrib.get("dimension")
+            member = str(explicit_member.text).strip() if explicit_member.text is not None else None
+            if dimension and member:
+                dimensions.append((dimension, member))
+        for typed_member in context.findall(f".//{xbrldi}typedMember"):
+            dimension = typed_member.attrib.get("dimension")
+            member = "".join(typed_member.itertext()).strip()
+            if dimension and member:
+                dimensions.append((dimension, member))
         has_dimensions = (
             context.find(f".//{xbrldi}explicitMember") is not None or context.find(f".//{xbrldi}typedMember") is not None
         )
@@ -328,6 +345,8 @@ def _parse_contexts(root: ET.Element) -> dict[str, dict[str, object]]:
             "end": end,
             "instant": instant,
             "has_dimensions": has_dimensions,
+            "dimensions": tuple(dimensions),
+            "statement_class_member": _statement_class_member(dimensions),
         }
     return contexts
 
@@ -441,6 +460,26 @@ def _namespace_uri(tag: str) -> str | None:
 
 def _local_name(tag: str) -> str:
     return tag.split("}", maxsplit=1)[-1]
+
+
+def _statement_class_member(dimensions: list[tuple[str, str]] | tuple[tuple[str, str], ...]) -> str | None:
+    for dimension, member in dimensions:
+        if dimension.endswith("StatementClassOfStockAxis"):
+            return member
+    return None
+
+
+def _normalize_share_end_date(end_date: str, report_date: str | None) -> str:
+    if report_date is None:
+        return end_date
+    try:
+        end_value = dt_date.fromisoformat(end_date)
+        report_value = dt_date.fromisoformat(report_date)
+    except ValueError:
+        return end_date
+    if end_value >= report_value and (end_value - report_value).days <= 35:
+        return report_date
+    return end_date
 
 
 def _derive_missing_total_liabilities(frame: pl.DataFrame) -> pl.DataFrame:

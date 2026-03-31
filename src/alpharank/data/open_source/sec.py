@@ -181,6 +181,8 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
         "duration_days": duration_days,
         "frame": frame,
         "has_dimensions": bool(fact.get("has_dimensions")) or fact.get("segment") is not None,
+        "dimensions": tuple(fact.get("dimensions", ())),
+        "statement_class_member": fact.get("statement_class_member"),
     }
 
 
@@ -213,7 +215,7 @@ def _calendarized_date_from_frame(frame: object) -> str | None:
 
 
 def _select_share_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    chosen: dict[str, dict[str, Any]] = {}
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     share_candidates = [
         record
         for record in candidates
@@ -221,38 +223,111 @@ def _select_share_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]
         or _calendarized_date_from_frame(record.get("frame")) is not None
         or (record.get("fp") == "FY" and str(record.get("tag")) == "CommonStockSharesOutstanding")
     ]
-    for record in sorted(
-        share_candidates,
-        key=lambda item: (
-            item["filed"] or "",
-            item["end"],
-            item["tag_priority"],
-        ),
-    ):
-        key = str(record.get("filed") or record["end"])
-        current = chosen.get(key)
-        if current is None or _is_better_share_record(record, current):
-            chosen[key] = record
-    return list(chosen.values())
+    for record in share_candidates:
+        key = (str(record.get("filed") or ""), str(record["end"]))
+        grouped.setdefault(key, []).append(record)
+
+    selected: list[dict[str, Any]] = []
+    for _, records in sorted(grouped.items()):
+        collapsed = _collapse_share_group(records)
+        if collapsed is not None:
+            selected.append(collapsed)
+    return selected
 
 
-def _share_sort_key(record: dict[str, Any]) -> tuple[int, int, int, str, str]:
-    preferred_tag_rank = 0 if str(record.get("tag")) == "CommonStockSharesOutstanding" else 1
+def _collapse_share_group(records: list[dict[str, Any]]) -> dict[str, Any] | None:
+    total_candidates = [record for record in records if _is_total_share_record(record)]
+    if total_candidates:
+        return max(total_candidates, key=_share_record_priority)
+
+    class_sum = _sum_share_class_records(records)
+    if class_sum is not None:
+        return class_sum
+
+    return max(records, key=_share_record_priority) if records else None
+
+
+def _is_total_share_record(record: dict[str, Any]) -> bool:
+    dimensions = tuple(record.get("dimensions") or ())
+    if not dimensions:
+        return True
+    non_class_dimensions = [
+        (dimension, member)
+        for dimension, member in dimensions
+        if not str(dimension).endswith("StatementClassOfStockAxis")
+    ]
+    if not non_class_dimensions:
+        return False
+    return all(
+        str(dimension).endswith("StatementEquityComponentsAxis") and str(member).endswith("CommonStockMember")
+        for dimension, member in non_class_dimensions
+    ) and record.get("statement_class_member") is None
+
+
+def _sum_share_class_records(records: list[dict[str, Any]]) -> dict[str, Any] | None:
+    class_records = [record for record in records if _is_share_class_component(record)]
+    if not class_records:
+        return None
+
+    best_by_member: dict[str, dict[str, Any]] = {}
+    for record in class_records:
+        member = _normalize_statement_class_member(record.get("statement_class_member"))
+        current = best_by_member.get(member)
+        if current is None or _share_record_priority(record) > _share_record_priority(current):
+            best_by_member[member] = record
+
+    if not best_by_member:
+        return None
+
+    representative = max(best_by_member.values(), key=_share_record_priority)
+    summed_value = sum(float(record["val"]) for record in best_by_member.values())
+    class_members = " | ".join(sorted(best_by_member))
+    return {
+        **representative,
+        "tag": "SummedStatementClassOfStockAxisMembers",
+        "val": summed_value,
+        "has_dimensions": False,
+        "dimensions": (),
+        "statement_class_member": None,
+        "class_member_count": len(best_by_member),
+        "class_members": class_members,
+    }
+
+
+def _is_share_class_component(record: dict[str, Any]) -> bool:
+    member = _normalize_statement_class_member(record.get("statement_class_member"))
+    if member is None:
+        return False
+    dimensions = tuple(record.get("dimensions") or ())
+    allowed_other_members = {"CommonStockMember"}
+    for dimension, raw_member in dimensions:
+        if str(dimension).endswith("StatementClassOfStockAxis"):
+            continue
+        member_name = _normalize_statement_class_member(raw_member)
+        if str(dimension).endswith("StatementEquityComponentsAxis") and member_name in allowed_other_members:
+            continue
+        return False
+    return True
+
+
+def _normalize_statement_class_member(value: object) -> str | None:
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if raw == "":
+        return None
+    return raw.rsplit(":", maxsplit=1)[-1]
+
+
+def _share_record_priority(record: dict[str, Any]) -> tuple[int, int, float, int, str, str]:
     return (
-        preferred_tag_rank,
-        int(bool(record.get("has_dimensions"))),
-        int(record["tag_priority"]),
+        int(_is_total_share_record(record)),
+        int(record.get("tag") == "EntityCommonStockSharesOutstanding"),
+        float(record.get("val") or 0.0),
+        -int(bool(record.get("has_dimensions"))),
         str(record.get("filed") or ""),
-        str(record["end"]),
+        str(record.get("end") or ""),
     )
-
-
-def _is_better_share_record(candidate: dict[str, Any], current: dict[str, Any]) -> bool:
-    candidate_key = _share_sort_key(candidate)
-    current_key = _share_sort_key(current)
-    if candidate_key[:2] != current_key[:2]:
-        return candidate_key[:2] < current_key[:2]
-    return str(candidate["end"]) > str(current["end"])
 
 
 def _select_duration_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:

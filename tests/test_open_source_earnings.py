@@ -12,6 +12,7 @@ from alpharank.data.open_source.ingestion import (
     _identify_price_history_backfill_tickers,
 )
 from alpharank.data.open_source.general_reference import build_general_reference
+from alpharank.data.open_source.sec import _select_share_facts
 
 
 def test_consolidate_earnings_prefers_sec_calendar_and_yahoo_market_fields() -> None:
@@ -197,3 +198,91 @@ def test_canonicalize_price_tickers_merges_share_class_aliases() -> None:
     result = _canonicalize_price_tickers(frame, ticker_list=["BRK.B", "AAPL"])
 
     assert result["ticker"].to_list() == ["AAPL.US", "BRK.B.US"]
+
+
+def test_select_share_facts_sums_share_classes_for_same_filing() -> None:
+    selected = _select_share_facts(
+        [
+            {
+                "tag": "EntityCommonStockSharesOutstanding",
+                "tag_priority": 0,
+                "end": "2025-11-30",
+                "filed": "2026-01-10",
+                "val": 289_000_000.0,
+                "fp": "Q4",
+                "form": "10-Q",
+                "has_dimensions": True,
+                "dimensions": (
+                    ("us-gaap:StatementClassOfStockAxis", "us-gaap:CommonClassAMember"),
+                    ("us-gaap:StatementEquityComponentsAxis", "us-gaap:CommonStockMember"),
+                ),
+                "statement_class_member": "us-gaap:CommonClassAMember",
+            },
+            {
+                "tag": "EntityCommonStockSharesOutstanding",
+                "tag_priority": 0,
+                "end": "2025-11-30",
+                "filed": "2026-01-10",
+                "val": 1_191_000_000.0,
+                "fp": "Q4",
+                "form": "10-Q",
+                "has_dimensions": True,
+                "dimensions": (
+                    ("us-gaap:StatementClassOfStockAxis", "us-gaap:CommonClassBMember"),
+                    ("us-gaap:StatementEquityComponentsAxis", "us-gaap:CommonStockMember"),
+                ),
+                "statement_class_member": "us-gaap:CommonClassBMember",
+            },
+        ]
+    )
+
+    assert len(selected) == 1
+    assert selected[0]["val"] == 1_480_000_000.0
+    assert selected[0]["tag"] == "SummedStatementClassOfStockAxisMembers"
+
+
+def test_select_share_facts_prefers_dimensionless_total_when_available() -> None:
+    selected = _select_share_facts(
+        [
+            {
+                "tag": "EntityCommonStockSharesOutstanding",
+                "tag_priority": 0,
+                "end": "2025-12-31",
+                "filed": "2026-02-01",
+                "val": 615_355_540.0,
+                "fp": "Q4",
+                "form": "10-K",
+                "has_dimensions": False,
+                "dimensions": (),
+                "statement_class_member": None,
+            },
+            {
+                "tag": "EntityCommonStockSharesOutstanding",
+                "tag_priority": 0,
+                "end": "2025-12-31",
+                "filed": "2026-02-01",
+                "val": 615_000_000.0,
+                "fp": "Q4",
+                "form": "10-K",
+                "has_dimensions": True,
+                "dimensions": (("us-gaap:StatementClassOfStockAxis", "us-gaap:CommonClassAMember"),),
+                "statement_class_member": "us-gaap:CommonClassAMember",
+            },
+            {
+                "tag": "EntityCommonStockSharesOutstanding",
+                "tag_priority": 0,
+                "end": "2025-12-31",
+                "filed": "2026-02-01",
+                "val": 355_540.0,
+                "fp": "Q4",
+                "form": "10-K",
+                "has_dimensions": True,
+                "dimensions": (("us-gaap:StatementClassOfStockAxis", "custom:ClassXMember"),),
+                "statement_class_member": "custom:ClassXMember",
+            },
+        ]
+    )
+
+    assert len(selected) == 1
+    assert selected[0]["val"] == 615_355_540.0
+    assert selected[0]["tag"] == "EntityCommonStockSharesOutstanding"

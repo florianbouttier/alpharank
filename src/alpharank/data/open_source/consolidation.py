@@ -23,11 +23,7 @@ def consolidate_financial_sources(
 
     candidates = _build_candidate_frame(source_list)
     selection_key = ["ticker", "statement", "metric", "date"]
-    selected = (
-        candidates.sort(selection_key + ["source_priority", "filing_date"], descending=[False, False, False, False, False, False])
-        .unique(subset=selection_key, keep="first", maintain_order=True)
-        .sort(selection_key)
-    )
+    selected = _select_candidate_rows(candidates)
 
     lineage_rollup = candidates.group_by(selection_key).agg(
         [
@@ -98,6 +94,57 @@ def _build_candidate_frame(sources: list[FinancialSourceInput]) -> pl.DataFrame:
             ).select(_lineage_columns())
         )
     return pl.concat(frames, how="vertical").sort(["ticker", "statement", "metric", "date", "source_priority"])
+
+
+def _select_candidate_rows(candidates: pl.DataFrame) -> pl.DataFrame:
+    if candidates.is_empty():
+        return _empty_lineage_frame()
+
+    selected_rows: list[dict[str, object]] = []
+    for group in candidates.group_by(["ticker", "statement", "metric", "date"], maintain_order=True):
+        group_frame = group[1].sort(["source_priority", "filing_date"], descending=[False, False])
+        selected_rows.append(_select_candidate_row(group_frame))
+    return pl.DataFrame(selected_rows, schema=_empty_lineage_frame().schema).sort(["ticker", "statement", "metric", "date"])
+
+
+def _select_candidate_row(group_frame: pl.DataFrame) -> dict[str, object]:
+    ordered_rows = group_frame.to_dicts()
+    if not ordered_rows:
+        return {}
+    default = ordered_rows[0]
+    if default.get("statement") != "shares":
+        return default
+
+    default_value = _coerce_positive_float(default.get("value"))
+    yfinance_row = next(
+        (
+            row
+            for row in ordered_rows
+            if row.get("source") == "yfinance" and _coerce_positive_float(row.get("value")) is not None
+        ),
+        None,
+    )
+    if default_value is None or yfinance_row is None:
+        return default
+
+    yahoo_value = _coerce_positive_float(yfinance_row.get("value"))
+    if yahoo_value is None:
+        return default
+
+    ratio = max(default_value, yahoo_value) / min(default_value, yahoo_value)
+    if ratio >= 1.5 and default.get("source") != "yfinance":
+        return yfinance_row
+    return default
+
+
+def _coerce_positive_float(value: object) -> float | None:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric <= 0:
+        return None
+    return numeric
 
 
 def _consolidated_columns() -> list[str]:
