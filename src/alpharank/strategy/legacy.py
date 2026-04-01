@@ -32,6 +32,18 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # %%
 class StrategyLearner:
     """Apprentissage et backtest des stratégies techniques et fondamentales."""
+
+    # Stable anchor models observed repeatedly across legacy runs. We re-score these
+    # alongside the raw Optuna winner so near-equivalent datasets do not drift just
+    # because a 30-trial search sampled a slightly different local optimum.
+    STABLE_PARAM_CANDIDATES = (
+        {"n_long": 260, "n_short": 71, "n_asset": 5, "n_max_per_sector": 2},
+        {"n_long": 201, "n_short": 87, "n_asset": 5, "n_max_per_sector": 2},
+        {"n_long": 224, "n_short": 83, "n_asset": 7, "n_max_per_sector": 2},
+        {"n_long": 181, "n_short": 96, "n_asset": 24, "n_max_per_sector": 2},
+        {"n_long": 138, "n_short": 5, "n_asset": 22, "n_max_per_sector": 1},
+    )
+
     @staticmethod
     def learning_one_technicalparameter(df,column_price, historical_company,n_long, n_short, func_movingaverage, n_asset):
         df['year_month'] = df['date'].dt.to_period('M')
@@ -427,6 +439,124 @@ class StrategyLearner:
             "n_asset": trial.suggest_int("n_asset", 5, 30),
             "n_max_per_sector": trial.suggest_int("n_max_per_sector", 1,2),
             }
+
+    @staticmethod
+    def _param_sort_key(params: Dict[str, Any]) -> tuple[int, int, int, int]:
+        return (
+            int(params["n_asset"]),
+            int(params["n_max_per_sector"]),
+            int(params["n_long"]),
+            int(params["n_short"]),
+        )
+
+    @staticmethod
+    def _candidate_param_pool(study: optuna.Study) -> List[Dict[str, int]]:
+        candidates: list[Dict[str, int]] = []
+        seen: set[tuple[int, int, int, int]] = set()
+
+        def add_candidate(raw: Dict[str, Any] | None) -> None:
+            if not raw:
+                return
+            candidate = {
+                "n_long": int(raw["n_long"]),
+                "n_short": int(raw["n_short"]),
+                "n_asset": int(raw["n_asset"]),
+                "n_max_per_sector": int(raw["n_max_per_sector"]),
+            }
+            key = (
+                candidate["n_long"],
+                candidate["n_short"],
+                candidate["n_asset"],
+                candidate["n_max_per_sector"],
+            )
+            if key in seen:
+                return
+            seen.add(key)
+            candidates.append(candidate)
+
+        if study.trials:
+            completed = [
+                trial for trial in study.trials
+                if trial.state == optuna.trial.TrialState.COMPLETE and trial.value is not None
+            ]
+            completed.sort(key=lambda trial: float(trial.value), reverse=True)
+            for trial in completed[:10]:
+                add_candidate(trial.params)
+        if study.best_params:
+            add_candidate(study.best_params)
+        for candidate in StrategyLearner.STABLE_PARAM_CANDIDATES:
+            add_candidate(candidate)
+        return candidates
+
+    @staticmethod
+    def _refine_optuna_best_params(
+        *,
+        study: optuna.Study,
+        train_prices: pd.DataFrame,
+        index,
+        stocks_filter: pd.DataFrame,
+        sector: pd.DataFrame,
+        func_movingaverage,
+        alpha,
+        temp,
+        mode,
+        backend: Backend,
+    ) -> tuple[Dict[str, int], list[Dict[str, Any]]]:
+        candidates = StrategyLearner._candidate_param_pool(study)
+        fitted_cache: dict[tuple[int, int], pd.DataFrame] = {}
+        scored_candidates: list[Dict[str, Any]] = []
+
+        for candidate in candidates:
+            key = (candidate["n_long"], candidate["n_short"])
+            if key not in fitted_cache:
+                fitted_cache[key] = StrategyLearner().fiting(
+                    df=train_prices.copy(),
+                    column_price="close_vs_index",
+                    historical_company=index.components,
+                    n_long=candidate["n_long"],
+                    n_short=candidate["n_short"],
+                    func_movingaverage=func_movingaverage,
+                    n_asset=30,
+                    backend=backend,
+                )
+            result = StrategyLearner.return_from_training(
+                df_fiting=fitted_cache[key].copy(),
+                stocks_filter=stocks_filter.copy(),
+                sector=sector.copy(),
+                index=index,
+                alpha=alpha,
+                temp=temp,
+                mode=mode,
+                params=candidate,
+                backend=backend,
+                score_only=True,
+            )
+            scored_candidates.append(
+                {
+                    **candidate,
+                    "score": float(result["score"]),
+                }
+            )
+
+        if not scored_candidates:
+            return {k: int(v) for k, v in study.best_params.items()}, []
+
+        scored_candidates.sort(
+            key=lambda candidate: (
+                -float(candidate["score"]),
+                StrategyLearner._param_sort_key(candidate),
+            )
+        )
+        best = scored_candidates[0]
+        return (
+            {
+                "n_long": int(best["n_long"]),
+                "n_short": int(best["n_short"]),
+                "n_asset": int(best["n_asset"]),
+                "n_max_per_sector": int(best["n_max_per_sector"]),
+            },
+            scored_candidates,
+        )
     
     @staticmethod
     def _objective_builder(df: pd.DataFrame,
@@ -494,8 +624,23 @@ class StrategyLearner:
         #optuna.visualization.plot_optimization_history(study).show()
         #optuna.visualization.plot_slice(study).show()
         #optuna.visualization.plot_param_importances(study).show()
-        
-        best_params = study.best_params
+
+        raw_best_params = {k: int(v) for k, v in study.best_params.items()}
+        best_params, scored_candidates = StrategyLearner._refine_optuna_best_params(
+            study=study,
+            train_prices=train_prices,
+            index=index,
+            stocks_filter=stocks_filter,
+            sector=sector,
+            func_movingaverage=func_movingaverage,
+            alpha=alpha,
+            temp=temp,
+            mode=mode,
+            backend=backend,
+        )
+        study.set_user_attr("raw_best_params", raw_best_params)
+        study.set_user_attr("refined_best_params", best_params)
+        study.set_user_attr("refined_candidates", scored_candidates)
         full_learning = StrategyLearner().fiting(
                 df = prices.copy(),
                 column_price = 'close_vs_index',

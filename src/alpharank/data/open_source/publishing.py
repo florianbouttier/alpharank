@@ -80,7 +80,18 @@ def publish_open_source_output_package(
         "financials_open_source_lineage.parquet": consolidated_lineage,
         "financials_open_source_source_summary.parquet": source_summary,
     }
-    allowed_lineage_files = set(lineage_outputs) | {"manifest.json"}
+    staging_lineage_paths: dict[str, Path] = {}
+    legacy_parent_dirs = {path.parent for path in legacy_paths.values()}
+    if len(legacy_parent_dirs) == 1:
+        staging_lineage_dir = next(iter(legacy_parent_dirs)) / "lineage"
+        if staging_lineage_dir.exists():
+            staging_lineage_paths = {
+                path.name: path
+                for path in staging_lineage_dir.glob("*")
+                if path.is_file()
+            }
+
+    allowed_lineage_files = set(lineage_outputs) | {"manifest.json"} | set(staging_lineage_paths)
     for existing in lineage_dir.iterdir():
         if existing.name in allowed_lineage_files:
             continue
@@ -90,6 +101,10 @@ def publish_open_source_output_package(
         path = lineage_dir / file_name
         frame.write_parquet(path)
         published[f"lineage/{file_name}"] = path
+    for file_name, source_path in staging_lineage_paths.items():
+        destination = lineage_dir / file_name
+        shutil.copy2(source_path, destination)
+        published[f"lineage/{file_name}"] = destination
 
     if manifest is not None:
         manifest_path = lineage_dir / "manifest.json"

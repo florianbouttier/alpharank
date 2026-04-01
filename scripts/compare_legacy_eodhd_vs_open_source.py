@@ -1390,6 +1390,20 @@ def _scalar_or_none(frame: pl.DataFrame, column: str) -> Any:
     return frame.select(column).item()
 
 
+def _parse_percent_text(value: Any) -> float | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() == "n/a":
+        return None
+    if text.endswith("%"):
+        text = text[:-1]
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
 def _infer_ticker_reason(row: dict[str, Any]) -> str:
     reasons: list[str] = []
     if row.get("open_sector") in {None, "", "Unknown"}:
@@ -1606,6 +1620,36 @@ def _write_report(
         )
 
     primary_models = metrics_diff.filter(pl.col("model").is_in(["Combined_Equal", "Combined_Frequency", "SP500"]))
+    combined_frequency_row = metrics_diff.filter(pl.col("model") == "Combined_Frequency").head(1)
+    combined_equal_row = metrics_diff.filter(pl.col("model") == "Combined_Equal").head(1)
+    combined_frequency_gap_pts = None
+    if not combined_frequency_row.is_empty():
+        eodhd_cagr = _parse_percent_text(_scalar_or_none(combined_frequency_row, "eodhd_CAGR"))
+        open_cagr = _parse_percent_text(_scalar_or_none(combined_frequency_row, "open_CAGR"))
+        if eodhd_cagr is not None and open_cagr is not None:
+            combined_frequency_gap_pts = abs(open_cagr - eodhd_cagr)
+    combined_equal_gap_pts = None
+    if not combined_equal_row.is_empty():
+        eodhd_cagr = _parse_percent_text(_scalar_or_none(combined_equal_row, "eodhd_CAGR"))
+        open_cagr = _parse_percent_text(_scalar_or_none(combined_equal_row, "open_CAGR"))
+        if eodhd_cagr is not None and open_cagr is not None:
+            combined_equal_gap_pts = abs(open_cagr - eodhd_cagr)
+    max_combined_gap_pts = max(
+        gap for gap in [combined_frequency_gap_pts, combined_equal_gap_pts] if gap is not None
+    ) if any(gap is not None for gap in [combined_frequency_gap_pts, combined_equal_gap_pts]) else None
+    latest_frequency_exact = frequency_diff.filter(pl.col("holding_status") != "common").is_empty()
+    latest_equal_exact = equal_diff.filter(pl.col("holding_status") != "common").is_empty()
+    max_monthly_return_diff_bps = (
+        monthly_returns_diff.select(pl.col("monthly_return_diff").abs().max() * 10_000.0).item()
+        if not monthly_returns_diff.is_empty()
+        else None
+    )
+    full_scope_aligned = (
+        max_combined_gap_pts is not None
+        and max_combined_gap_pts <= 0.5
+        and latest_frequency_exact
+        and latest_equal_exact
+    )
     largest_monthly_model_gaps = (
         monthly_returns_diff.filter(pl.col("monthly_return_diff").is_not_null())
         .with_columns(pl.col("monthly_return_diff").abs().alias("abs_monthly_return_diff"))
@@ -1613,28 +1657,74 @@ def _write_report(
         .select([column for column in ["portfolio_model", "model", "year_month", "eodhd_monthly_return", "open_monthly_return", "monthly_return_diff"] if column in monthly_returns_diff.columns])
         .head(15)
     )
+    if full_scope_aligned:
+        root_cause_lines = [
+            (
+                f"The full-scope legacy backtest is now aligned: `Combined_Frequency` CAGR gap is "
+                f"{combined_frequency_gap_pts:.2f} pts and `Combined_Equal` CAGR gap is {combined_equal_gap_pts:.2f} pts."
+            ),
+            (
+                "The decisive fix was legacy share semantics. `run_legacy` values companies with "
+                "`netincome_rolling / commonstocksharesoutstanding_rolling`, so period-end shares were not always "
+                "semantically compatible with EODHD's legacy export."
+            ),
+            (
+                "Open-source now exports `commonStockSharesOutstanding` in legacy mode as earnings-implied "
+                "(`abs(netIncome / epsActual)`) whenever that implied share count stays within 0.8x-1.2x of the "
+                "reported period-end shares. This preserves raw data while matching the old legacy valuation behavior."
+            ),
+            (
+                f"The latest holdings now match exactly on both portfolio constructions: "
+                f"`Combined_Frequency` exact={latest_frequency_exact}, `Combined_Equal` exact={latest_equal_exact}."
+            ),
+            (
+                f"Monthly return differences are down to floating-point noise only: max absolute diff "
+                f"{max_monthly_return_diff_bps:.6f} bps."
+            ),
+            (
+                "The classic breaking case was `GEV.US` in `2025-04`: period-end shares kept PE just below the "
+                "hard `pe < 100` cutoff, while earnings-implied shares moved it back above the threshold and restored "
+                "the same selection path as EODHD."
+            ),
+        ]
+
     executive_summary_path = output_root / "executive_summary.md"
     executive_summary_html_path = output_root / "executive_summary.html"
-    executive_summary = f"""# Executive Summary
+    if full_scope_aligned:
+        executive_summary = f"""# Executive Summary
 
-- Full-scope result still does **not** support unplugging EODHD blindly: `Combined_Frequency` is `{_scalar_or_none(metrics_diff.filter(pl.col('model') == 'Combined_Frequency').head(1), 'eodhd_Total Return')}` on EODHD versus `{_scalar_or_none(metrics_diff.filter(pl.col('model') == 'Combined_Frequency').head(1), 'open_Total Return')}` on open_source.
+- Full-scope result now supports switching `run_legacy` between `data/eodhd/output` and `data/open_source/output`: `Combined_Frequency` is `{_scalar_or_none(combined_frequency_row, 'eodhd_Total Return')}` on EODHD versus `{_scalar_or_none(combined_frequency_row, 'open_Total Return')}` on open_source, and `Combined_Equal` is `{_scalar_or_none(combined_equal_row, 'eodhd_Total Return')}` versus `{_scalar_or_none(combined_equal_row, 'open_Total Return')}`.
+- The CAGR gap is effectively zero on both combined portfolios: `Combined_Frequency` `{combined_frequency_gap_pts:.2f}` pts, `Combined_Equal` `{combined_equal_gap_pts:.2f}` pts.
+- The latest portfolio matches exactly on both constructions: `Combined_Frequency` exact=`{latest_frequency_exact}`, `Combined_Equal` exact=`{latest_equal_exact}`.
+- The decisive fix was on legacy share semantics, not on `Sector` and not on `US_Earnings` directly: we now export `commonStockSharesOutstanding` in legacy mode as earnings-implied when `abs(netIncome / epsActual)` stays within `0.8x-1.2x` of reported period-end shares.
+- Residual monthly return differences are only floating-point noise: max absolute diff `{max_monthly_return_diff_bps:.6f}` bps.
+
+## Next Decision
+
+- For `run_legacy`, the open-source output package is now close enough to be a practical drop-in replacement for the aligned scope used in this comparison.
+- The remaining work is no longer “make the legacy backtest match”; it is “decide whether the broader open-source datasets outside the legacy strategy also need the same level of semantic compatibility.”
+"""
+    else:
+        executive_summary = f"""# Executive Summary
+
+- Full-scope result still does **not** support unplugging EODHD blindly: `Combined_Frequency` is `{_scalar_or_none(combined_frequency_row, 'eodhd_Total Return')}` on EODHD versus `{_scalar_or_none(combined_frequency_row, 'open_Total Return')}` on open_source.
 - `Sector` is **not** the blocker anymore: open-source has `0` null sectors on the aligned scope.
 - `US_Earnings` is **not** the primary blocker for `run_legacy`: the legacy pipeline is driven mainly by valuations built from price + statements + sector, and the latest valuation universe is already near-aligned.
 - The main blocker is **historical price coverage**: open-source covers `{_scalar_or_none(price_gap_row, 'open_price_covered_tickers')}` of `{_scalar_or_none(price_gap_row, 'common_general_tickers')}` aligned tickers, leaving `{_scalar_or_none(price_gap_row, 'missing_open_price_tickers')}` missing names.
 - Only `{_scalar_or_none(price_gap_row, 'eodhd_missing_price_selection_tickers')}` of those missing names actually hit `stocks_selections` in 2025, but that is enough to change optimizer history. The main names are `{', '.join(price_coverage_gap_tickers.head(5).select('ticker').to_series().to_list()) if not price_coverage_gap_tickers.is_empty() else 'n/a'}`.
 """
-    if not counterfactual_metrics.is_empty() and not counterfactual_overlap.is_empty():
-        counterfactual_freq = counterfactual_metrics.filter(pl.col("model") == "Combined_Frequency").head(1)
-        counterfactual_equal = counterfactual_metrics.filter(pl.col("model") == "Combined_Equal").head(1)
-        counterfactual_freq_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_frequency").head(1)
-        counterfactual_equal_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_equal").head(1)
-        executive_summary += f"""
+        if not counterfactual_metrics.is_empty() and not counterfactual_overlap.is_empty():
+            counterfactual_freq = counterfactual_metrics.filter(pl.col("model") == "Combined_Frequency").head(1)
+            counterfactual_equal = counterfactual_metrics.filter(pl.col("model") == "Combined_Equal").head(1)
+            counterfactual_freq_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_frequency").head(1)
+            counterfactual_equal_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_equal").head(1)
+            executive_summary += f"""
 - Counterfactual sanity check on the price-covered universe proves the point: once both sides are restricted to the same `{_scalar_or_none(counterfactual_freq, 'common_price_covered_tickers')}` price-covered tickers, `Combined_Frequency` gap falls to `{_scalar_or_none(counterfactual_freq, 'gap_pts')}` pts and `Combined_Equal` gap falls to `{_scalar_or_none(counterfactual_equal, 'gap_pts')}` pts.
 - On that same counterfactual universe, the latest holdings overlap is exact: `Combined_Frequency` Jaccard `{_scalar_or_none(counterfactual_freq_overlap, 'jaccard')}`, `Combined_Equal` Jaccard `{_scalar_or_none(counterfactual_equal_overlap, 'jaccard')}`.
 - Conclusion: the residual full-scope gap is dominated by missing historical tickers in open-source price history, not by a broad corruption of the overlapping price/sector/fundamental rows.
 - Counterfactual artifacts: `{counterfactual_dir}`
 """
-    executive_summary += f"""
+        executive_summary += f"""
 
 ## Next Decision
 

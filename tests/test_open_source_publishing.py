@@ -10,12 +10,16 @@ from alpharank.data.open_source.publishing import publish_open_source_output_pac
 def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp_path: Path) -> None:
     legacy_source = tmp_path / "legacy_source"
     legacy_source.mkdir(parents=True)
+    (legacy_source / "lineage").mkdir(parents=True)
     legacy_paths = {
         "US_Finalprice.parquet": legacy_source / "US_Finalprice.parquet",
         "SP500Price.parquet": legacy_source / "SP500Price.parquet",
     }
     for path in legacy_paths.values():
         pl.DataFrame({"ticker": ["AAPL.US"], "date": ["2025-01-01"]}).write_parquet(path)
+    pl.DataFrame({"ticker": ["AAPL.US"], "date": ["2025-01-01"], "selected_method": ["reported_period_end"]}).write_parquet(
+        legacy_source / "lineage" / "legacy_share_semantics.parquet"
+    )
 
     output_dir = tmp_path / "output"
     history_root = tmp_path / "history"
@@ -47,8 +51,10 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
     assert (output_dir / "lineage" / "financials_open_source_lineage.parquet").exists()
     assert (output_dir / "lineage" / "earnings_open_source_consolidated.parquet").exists()
     assert (output_dir / "lineage" / "general_reference_lineage.parquet").exists()
+    assert (output_dir / "lineage" / "legacy_share_semantics.parquet").exists()
     assert (output_dir / "lineage" / "manifest.json").exists()
     assert "lineage/financials_open_source_lineage.parquet" in published.published_paths
+    assert "lineage/legacy_share_semantics.parquet" in published.published_paths
     assert published.snapshot_dir is None
 
     second = publish_open_source_output_package(
