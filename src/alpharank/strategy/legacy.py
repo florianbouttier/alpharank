@@ -218,18 +218,33 @@ class StrategyLearner:
             .filter(pl.col('_rk_asset') <= int(params['n_asset']))
             .drop(['_rk_sector', '_rk_asset'])
             .with_columns(
-                (
-                    pl.col('n_long').cast(pl.Float64).cast(pl.Utf8)
-                    + pl.lit('-')
-                    + pl.col('n_short').cast(pl.Float64).cast(pl.Utf8)
-                    + pl.lit('-')
-                    + pl.col('n_asset').cast(pl.Utf8)
-                ).alias('model')
+                [
+                    (
+                        pl.col('n_long').cast(pl.Float64).cast(pl.Utf8)
+                        + pl.lit('-')
+                        + pl.col('n_short').cast(pl.Float64).cast(pl.Utf8)
+                        + pl.lit('-')
+                        + pl.col('n_asset').cast(pl.Utf8)
+                    ).alias('model'),
+                    pl.lit(int(params['n_asset'])).alias('selected_n_asset'),
+                    pl.lit(int(params['n_max_per_sector'])).alias('selected_n_max_per_sector'),
+                    (
+                        pl.col('n_long').cast(pl.Float64).cast(pl.Utf8)
+                        + pl.lit('-')
+                        + pl.col('n_short').cast(pl.Float64).cast(pl.Utf8)
+                        + pl.lit('-')
+                        + pl.col('n_asset').cast(pl.Utf8)
+                        + pl.lit('|asset=')
+                        + pl.lit(str(int(params['n_asset'])))
+                        + pl.lit('|sector=')
+                        + pl.lit(str(int(params['n_max_per_sector'])))
+                    ).alias('selected_model')
+                ]
             )
         )
         summary = (
             selected
-            .group_by(['year_month', 'model'])
+            .group_by(['year_month', 'model', 'selected_model', 'selected_n_asset', 'selected_n_max_per_sector'])
             .agg(
                 pl.col('dr').mean().alias('dr'),
                 pl.col('dr').len().alias('n'),
@@ -244,6 +259,9 @@ class StrategyLearner:
         summary = summary.select(
             'year_month',
             'model',
+            'selected_model',
+            'selected_n_asset',
+            'selected_n_max_per_sector',
             'monthly_return',
             'n',
             'monthly_return_index',

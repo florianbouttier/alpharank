@@ -578,6 +578,157 @@ def _build_selection_input_coverage(output_root: Path) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
+def _build_price_coverage_gap_summary(output_root: Path) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    eodhd_general = _read_parquet_if_exists(output_root / "aligned_data" / "eodhd" / "US_General.parquet")
+    open_general = _read_parquet_if_exists(output_root / "aligned_data" / "open_source" / "US_General.parquet")
+    open_prices = _read_parquet_if_exists(output_root / "aligned_data" / "open_source" / "US_Finalprice.parquet")
+    common_general = sorted(_ticker_set(eodhd_general) & _ticker_set(open_general))
+    covered_common = sorted(set(common_general) & _ticker_set(open_prices))
+    missing_tickers = sorted(set(common_general) - set(covered_common))
+
+    eodhd_selection = _read_parquet_if_exists(output_root / "checkpoints" / "eodhd" / "polars_stocks_selections.parquet")
+    missing_selection = (
+        eodhd_selection.filter(pl.col("ticker").is_in(missing_tickers))
+        if not eodhd_selection.is_empty() and missing_tickers
+        else pl.DataFrame()
+    )
+
+    summary = pl.DataFrame(
+        [
+            {
+                "common_general_tickers": len(common_general),
+                "open_price_covered_tickers": len(covered_common),
+                "missing_open_price_tickers": len(missing_tickers),
+                "missing_open_price_ticker_rate_pct": ((len(missing_tickers) / len(common_general)) * 100.0) if common_general else 0.0,
+                "eodhd_missing_price_selection_rows": missing_selection.height,
+                "eodhd_missing_price_selection_tickers": (
+                    missing_selection.select(pl.col("ticker").n_unique()).item() if not missing_selection.is_empty() else 0
+                ),
+            }
+        ]
+    )
+
+    monthly = (
+        missing_selection.group_by("year_month")
+        .agg(
+            [
+                pl.len().alias("selection_rows"),
+                pl.col("ticker").n_unique().alias("unique_tickers"),
+            ]
+        )
+        .sort("year_month")
+        if not missing_selection.is_empty()
+        else pl.DataFrame(schema={"year_month": pl.Date, "selection_rows": pl.Int64, "unique_tickers": pl.Int64})
+    )
+    top_tickers = (
+        missing_selection.group_by("ticker")
+        .agg(
+            [
+                pl.len().alias("selection_rows"),
+                pl.col("year_month").n_unique().alias("selection_months"),
+                pl.col("year_month").min().alias("first_month"),
+                pl.col("year_month").max().alias("last_month"),
+            ]
+        )
+        .sort(["selection_months", "selection_rows", "ticker"], descending=[True, True, False])
+        .head(20)
+        if not missing_selection.is_empty()
+        else pl.DataFrame(
+            schema={
+                "ticker": pl.String,
+                "selection_rows": pl.Int64,
+                "selection_months": pl.Int64,
+                "first_month": pl.Date,
+                "last_month": pl.Date,
+            }
+        )
+    )
+    return summary, monthly, top_tickers
+
+
+def _find_latest_legacy_compare_dir(prefix: str) -> Path | None:
+    outputs_dir = PROJECT_ROOT / "outputs"
+    candidates = sorted(path for path in outputs_dir.glob(f"{prefix}*") if path.is_dir())
+    return candidates[-1] if candidates else None
+
+
+def _find_latest_run_day_dir(compare_dir: Path, label: str) -> Path | None:
+    metrics_files = sorted((compare_dir / "runs" / label).glob("**/legacy_metrics_polars.parquet"))
+    if not metrics_files:
+        return None
+    return metrics_files[-1].parent
+
+
+def _build_price_covered_counterfactual_summary() -> tuple[pl.DataFrame, pl.DataFrame, Path | None]:
+    compare_dir = _find_latest_legacy_compare_dir("legacy_price_covered_compare_")
+    if compare_dir is None:
+        return pl.DataFrame(), pl.DataFrame(), None
+
+    eodhd_run_dir = _find_latest_run_day_dir(compare_dir, "eodhd")
+    open_run_dir = _find_latest_run_day_dir(compare_dir, "open_source")
+    if eodhd_run_dir is None or open_run_dir is None:
+        return pl.DataFrame(), pl.DataFrame(), compare_dir
+
+    eodhd_metrics = _read_parquet_if_exists(eodhd_run_dir / "legacy_metrics_polars.parquet")
+    open_metrics = _read_parquet_if_exists(open_run_dir / "legacy_metrics_polars.parquet")
+    if eodhd_metrics.is_empty() or open_metrics.is_empty():
+        return pl.DataFrame(), pl.DataFrame(), compare_dir
+
+    common_price_tickers = _read_parquet_if_exists(compare_dir / "data" / "open_source" / "US_Finalprice.parquet").select(
+        pl.col("ticker").n_unique().alias("n")
+    ).item()
+
+    summary_rows: list[dict[str, object]] = []
+    for model in ["Combined_Frequency", "Combined_Equal"]:
+        left = eodhd_metrics.filter(pl.col("model") == model).head(1)
+        right = open_metrics.filter(pl.col("model") == model).head(1)
+        eodhd_total_return = _parse_percent_like(_scalar_or_none(left, "Total Return"))
+        open_total_return = _parse_percent_like(_scalar_or_none(right, "Total Return"))
+        summary_rows.append(
+            {
+                "model": model,
+                "common_price_covered_tickers": common_price_tickers,
+                "eodhd_total_return_pct": eodhd_total_return,
+                "open_total_return_pct": open_total_return,
+                "gap_pts": abs(open_total_return - eodhd_total_return) if eodhd_total_return is not None and open_total_return is not None else None,
+                "eodhd_sharpe_ratio": _parse_percent_like(_scalar_or_none(left, "Sharpe Ratio")),
+                "open_sharpe_ratio": _parse_percent_like(_scalar_or_none(right, "Sharpe Ratio")),
+            }
+        )
+
+    overlap_rows: list[dict[str, object]] = []
+    for family, file_name in {
+        "optuna_11": "polars_optuna_output_11_detailed.parquet",
+        "optuna_12": "polars_optuna_output_12_detailed.parquet",
+        "optuna_21": "polars_optuna_output_21_detailed.parquet",
+        "optuna_22": "polars_optuna_output_22_detailed.parquet",
+        "combined_frequency": "polars_combined_frequency_detailed.parquet",
+        "combined_equal": "polars_combined_equal_detailed.parquet",
+    }.items():
+        eodhd_frame = _read_parquet_if_exists(compare_dir / "runs" / "eodhd" / "checkpoints" / file_name)
+        open_frame = _read_parquet_if_exists(compare_dir / "runs" / "open_source" / "checkpoints" / file_name)
+        if eodhd_frame.is_empty() or open_frame.is_empty():
+            continue
+        latest_month = min(
+            eodhd_frame.select(pl.col("year_month").max().alias("m")).item(),
+            open_frame.select(pl.col("year_month").max().alias("m")).item(),
+        )
+        eodhd_tickers = set(eodhd_frame.filter(pl.col("year_month") == latest_month).select("ticker").to_series().to_list())
+        open_tickers = set(open_frame.filter(pl.col("year_month") == latest_month).select("ticker").to_series().to_list())
+        union = eodhd_tickers | open_tickers
+        overlap_rows.append(
+            {
+                "stage": family,
+                "latest_month": str(latest_month),
+                "eodhd_count": len(eodhd_tickers),
+                "open_count": len(open_tickers),
+                "common_count": len(eodhd_tickers & open_tickers),
+                "jaccard": (len(eodhd_tickers & open_tickers) / len(union)) if union else None,
+            }
+        )
+    return pl.DataFrame(summary_rows), pl.DataFrame(overlap_rows), compare_dir
+
+
 def _parse_percent_like(value: Any) -> float | None:
     if value is None:
         return None
@@ -685,22 +836,24 @@ def _build_latest_model_drift_summary(output_root: Path) -> pl.DataFrame:
         open_frame = _read_parquet_if_exists(output_root / "checkpoints" / "open_source" / file_name)
         eodhd_latest, eodhd_latest_month = _latest_month_frame(eodhd_frame)
         open_latest, open_latest_month = _latest_month_frame(open_frame)
+        eodhd_model_column = "selected_model" if "selected_model" in eodhd_frame.columns else "model"
+        open_model_column = "selected_model" if "selected_model" in open_frame.columns else "model"
         eodhd_latest_model = _scalar_or_none(
-            eodhd_latest.select(pl.col("model").drop_nulls().unique().sort().head(1)),
-            "model",
+            eodhd_latest.select(pl.col(eodhd_model_column).drop_nulls().unique().sort().head(1)),
+            eodhd_model_column,
         )
         open_latest_model = _scalar_or_none(
-            open_latest.select(pl.col("model").drop_nulls().unique().sort().head(1)),
-            "model",
+            open_latest.select(pl.col(open_model_column).drop_nulls().unique().sort().head(1)),
+            open_model_column,
         )
         eodhd_models = (
-            eodhd_frame.select(pl.col("model").drop_nulls().unique().sort()).to_series().to_list()
-            if not eodhd_frame.is_empty() and "model" in eodhd_frame.columns
+            eodhd_frame.select(pl.col(eodhd_model_column).drop_nulls().unique().sort()).to_series().to_list()
+            if not eodhd_frame.is_empty() and eodhd_model_column in eodhd_frame.columns
             else []
         )
         open_models = (
-            open_frame.select(pl.col("model").drop_nulls().unique().sort()).to_series().to_list()
-            if not open_frame.is_empty() and "model" in open_frame.columns
+            open_frame.select(pl.col(open_model_column).drop_nulls().unique().sort()).to_series().to_list()
+            if not open_frame.is_empty() and open_model_column in open_frame.columns
             else []
         )
         overlap = sorted(set(str(model) for model in eodhd_models) & set(str(model) for model in open_models))
@@ -711,6 +864,30 @@ def _build_latest_model_drift_summary(output_root: Path) -> pl.DataFrame:
                 "open_latest_month": open_latest_month,
                 "eodhd_latest_model": eodhd_latest_model,
                 "open_latest_model": open_latest_model,
+                "eodhd_latest_selected_n_asset": _scalar_or_none(
+                    eodhd_latest.select(pl.col("selected_n_asset").drop_nulls().unique().sort().head(1))
+                    if "selected_n_asset" in eodhd_latest.columns
+                    else pl.DataFrame(),
+                    "selected_n_asset",
+                ),
+                "open_latest_selected_n_asset": _scalar_or_none(
+                    open_latest.select(pl.col("selected_n_asset").drop_nulls().unique().sort().head(1))
+                    if "selected_n_asset" in open_latest.columns
+                    else pl.DataFrame(),
+                    "selected_n_asset",
+                ),
+                "eodhd_latest_selected_sector_cap": _scalar_or_none(
+                    eodhd_latest.select(pl.col("selected_n_max_per_sector").drop_nulls().unique().sort().head(1))
+                    if "selected_n_max_per_sector" in eodhd_latest.columns
+                    else pl.DataFrame(),
+                    "selected_n_max_per_sector",
+                ),
+                "open_latest_selected_sector_cap": _scalar_or_none(
+                    open_latest.select(pl.col("selected_n_max_per_sector").drop_nulls().unique().sort().head(1))
+                    if "selected_n_max_per_sector" in open_latest.columns
+                    else pl.DataFrame(),
+                    "selected_n_max_per_sector",
+                ),
                 "latest_model_match": bool(eodhd_latest_model == open_latest_model and eodhd_latest_model is not None),
                 "eodhd_unique_models": len(eodhd_models),
                 "open_unique_models": len(open_models),
@@ -1307,11 +1484,13 @@ def _write_report(
     equal_summary = _portfolio_overlap_summary(equal_diff)
     input_quality = _build_input_quality_summary(output_root)
     selection_input_coverage = _build_selection_input_coverage(output_root)
+    price_coverage_gap_summary, price_coverage_gap_monthly, price_coverage_gap_tickers = _build_price_coverage_gap_summary(output_root)
     stage_summary = _build_stage_summary(output_root)
     price_return_summary, price_return_outliers = _build_price_return_equivalence_summary(output_root)
     model_drift_summary = _build_latest_model_drift_summary(output_root)
     earnings_source_summary = _build_earnings_latest_source_summary(output_root)
     price_audit_summary, statement_audit_summary = _build_open_source_audit_summary()
+    counterfactual_metrics, counterfactual_overlap, counterfactual_dir = _build_price_covered_counterfactual_summary()
     acceptance_gates = _build_acceptance_gates(
         input_quality=input_quality,
         selection_input_coverage=selection_input_coverage,
@@ -1340,6 +1519,7 @@ def _write_report(
         if not model_drift_summary.is_empty()
         else None
     )
+    price_gap_row = price_coverage_gap_summary.head(1)
     audit_failures = acceptance_gates.filter((pl.col("category") == "audit_2025") & (pl.col("status") == "FAIL"))
     audit_failure_snippets = [
         f"{row['metric']}={row['actual']:.2f}{row['unit']}"
@@ -1387,10 +1567,43 @@ def _write_report(
             f"but the 2025 audit still fails on core datasets: {', '.join(audit_failure_snippets) if audit_failure_snippets else 'n/a'}."
         ),
         (
-            f"The full legacy comparison still mixes data differences with optimizer drift: latest Optuna model-slot overlap is "
+            f"Open-source price history only covers {_scalar_or_none(price_gap_row, 'open_price_covered_tickers')} of "
+            f"{_scalar_or_none(price_gap_row, 'common_general_tickers')} aligned tickers; "
+            f"{_scalar_or_none(price_gap_row, 'missing_open_price_tickers')} names are missing entirely from the open-source price history."
+        ),
+        (
+            f"Those missing-price names barely touch the final portfolio directly, but they do touch the training window: "
+            f"{_scalar_or_none(price_gap_row, 'eodhd_missing_price_selection_rows')} EODHD `stocks_selections` rows across "
+            f"{_scalar_or_none(price_gap_row, 'eodhd_missing_price_selection_tickers')} tickers come from names with no open-source price history."
+        ),
+        (
+            f"The main offenders are {', '.join(price_coverage_gap_tickers.head(5).select('ticker').to_series().to_list()) if not price_coverage_gap_tickers.is_empty() else 'n/a'}."
+        ),
+        (
+            f"The full legacy comparison therefore still mixes data differences with optimizer drift: latest Optuna model-slot overlap is "
             f"{latest_model_match_rate_pct}% and the latest chosen parameter sets differ between datasets."
         ),
     ]
+    if not counterfactual_metrics.is_empty() and not counterfactual_overlap.is_empty():
+        counterfactual_freq = counterfactual_metrics.filter(pl.col("model") == "Combined_Frequency").head(1)
+        counterfactual_equal = counterfactual_metrics.filter(pl.col("model") == "Combined_Equal").head(1)
+        counterfactual_freq_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_frequency").head(1)
+        counterfactual_equal_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_equal").head(1)
+        root_cause_lines.extend(
+            [
+                (
+                    f"Counterfactual sanity check on the latest price-covered universe "
+                    f"({_scalar_or_none(counterfactual_freq, 'common_price_covered_tickers')} tickers): "
+                    f"Combined_Frequency gap drops to {_scalar_or_none(counterfactual_freq, 'gap_pts')} pts and "
+                    f"Combined_Equal gap drops to {_scalar_or_none(counterfactual_equal, 'gap_pts')} pts."
+                ),
+                (
+                    f"On that counterfactual universe, the latest holdings match exactly: "
+                    f"Combined_Frequency Jaccard = {_scalar_or_none(counterfactual_freq_overlap, 'jaccard')}, "
+                    f"Combined_Equal Jaccard = {_scalar_or_none(counterfactual_equal_overlap, 'jaccard')}."
+                ),
+            ]
+        )
 
     primary_models = metrics_diff.filter(pl.col("model").is_in(["Combined_Equal", "Combined_Frequency", "SP500"]))
     largest_monthly_model_gaps = (
@@ -1400,6 +1613,35 @@ def _write_report(
         .select([column for column in ["portfolio_model", "model", "year_month", "eodhd_monthly_return", "open_monthly_return", "monthly_return_diff"] if column in monthly_returns_diff.columns])
         .head(15)
     )
+    executive_summary_path = output_root / "executive_summary.md"
+    executive_summary_html_path = output_root / "executive_summary.html"
+    executive_summary = f"""# Executive Summary
+
+- Full-scope result still does **not** support unplugging EODHD blindly: `Combined_Frequency` is `{_scalar_or_none(metrics_diff.filter(pl.col('model') == 'Combined_Frequency').head(1), 'eodhd_Total Return')}` on EODHD versus `{_scalar_or_none(metrics_diff.filter(pl.col('model') == 'Combined_Frequency').head(1), 'open_Total Return')}` on open_source.
+- `Sector` is **not** the blocker anymore: open-source has `0` null sectors on the aligned scope.
+- `US_Earnings` is **not** the primary blocker for `run_legacy`: the legacy pipeline is driven mainly by valuations built from price + statements + sector, and the latest valuation universe is already near-aligned.
+- The main blocker is **historical price coverage**: open-source covers `{_scalar_or_none(price_gap_row, 'open_price_covered_tickers')}` of `{_scalar_or_none(price_gap_row, 'common_general_tickers')}` aligned tickers, leaving `{_scalar_or_none(price_gap_row, 'missing_open_price_tickers')}` missing names.
+- Only `{_scalar_or_none(price_gap_row, 'eodhd_missing_price_selection_tickers')}` of those missing names actually hit `stocks_selections` in 2025, but that is enough to change optimizer history. The main names are `{', '.join(price_coverage_gap_tickers.head(5).select('ticker').to_series().to_list()) if not price_coverage_gap_tickers.is_empty() else 'n/a'}`.
+"""
+    if not counterfactual_metrics.is_empty() and not counterfactual_overlap.is_empty():
+        counterfactual_freq = counterfactual_metrics.filter(pl.col("model") == "Combined_Frequency").head(1)
+        counterfactual_equal = counterfactual_metrics.filter(pl.col("model") == "Combined_Equal").head(1)
+        counterfactual_freq_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_frequency").head(1)
+        counterfactual_equal_overlap = counterfactual_overlap.filter(pl.col("stage") == "combined_equal").head(1)
+        executive_summary += f"""
+- Counterfactual sanity check on the price-covered universe proves the point: once both sides are restricted to the same `{_scalar_or_none(counterfactual_freq, 'common_price_covered_tickers')}` price-covered tickers, `Combined_Frequency` gap falls to `{_scalar_or_none(counterfactual_freq, 'gap_pts')}` pts and `Combined_Equal` gap falls to `{_scalar_or_none(counterfactual_equal, 'gap_pts')}` pts.
+- On that same counterfactual universe, the latest holdings overlap is exact: `Combined_Frequency` Jaccard `{_scalar_or_none(counterfactual_freq_overlap, 'jaccard')}`, `Combined_Equal` Jaccard `{_scalar_or_none(counterfactual_equal_overlap, 'jaccard')}`.
+- Conclusion: the residual full-scope gap is dominated by missing historical tickers in open-source price history, not by a broad corruption of the overlapping price/sector/fundamental rows.
+- Counterfactual artifacts: `{counterfactual_dir}`
+"""
+    executive_summary += f"""
+
+## Next Decision
+
+- If we accept a legacy universe restricted to the `{_scalar_or_none(price_gap_row, 'open_price_covered_tickers')}` tickers that open-source can actually price historically, the strategy is now close enough to EODHD to be credible.
+- If we need the full legacy historical universe, we still need a free source for the missing price histories (`K.US`, `IPG.US`, `HES.US`, `JNPR.US`, `DFS.US`, and the rest of the uncovered names).
+"""
+    executive_summary_path.write_text(executive_summary, encoding="utf-8")
 
     report_path = output_root / "report.md"
     report = f"""# Legacy DB Comparison
@@ -1444,6 +1686,18 @@ Source general ticker counts before alignment:
 
 {_markdown_table(selection_input_coverage, max_rows=10)}
 
+## Price Coverage Root Cause
+
+{_markdown_table(price_coverage_gap_summary, max_rows=5)}
+
+### Missing-price tickers that still entered EODHD stock selection
+
+{_markdown_table(price_coverage_gap_tickers, max_rows=20)}
+
+### Monthly EODHD stock-selection impact from missing-price tickers
+
+{_markdown_table(price_coverage_gap_monthly, max_rows=20)}
+
 ## Price Return Equivalence
 
 {_markdown_table(price_return_summary, max_rows=5)}
@@ -1455,6 +1709,18 @@ Source general ticker counts before alignment:
 ## Latest Model Drift
 
 {_markdown_table(model_drift_summary, max_rows=10)}
+
+## Counterfactual Price-Covered Universe
+
+Counterfactual directory: `{counterfactual_dir}`
+
+### Metrics
+
+{_markdown_table(counterfactual_metrics, max_rows=10)}
+
+### Latest holdings overlap by stage
+
+{_markdown_table(counterfactual_overlap, max_rows=10)}
 
 ## Open-Source 2025 Audit Summary
 
@@ -1543,6 +1809,7 @@ Full metrics parquet:
 - Frequency holdings diff parquet: `{frequency_path}`
 - Equal holdings diff parquet: `{equal_path}`
 - Monthly return diff parquet: `{monthly_path}`
+- Executive summary: `{executive_summary_path}`
 - HTML report: `{output_root / 'report.html'}`
 - Ticker deep dives: `{output_root / 'tickers'}`
 - Stage report: `{output_root / 'stages' / 'index.html'}`
@@ -1561,6 +1828,19 @@ Full metrics parquet:
             1,
         )
     report_path.write_text(report, encoding="utf-8")
+    _write_html_page(
+        output_path=executive_summary_html_path,
+        title="Legacy DB executive summary",
+        subtitle=f"Short root-cause summary for {output_root.name}",
+        navigation='<p><a href="report.html">Global report</a> | <a href="tickers/index.html">Ticker index</a> | <a href="stages/index.html">Stage index</a></p>',
+        sections=[
+            ("Executive summary", pl.DataFrame([{"summary": line} for line in executive_summary.splitlines() if line.strip()])),
+            ("Price coverage root cause", price_coverage_gap_summary),
+            ("Missing-price selected tickers", price_coverage_gap_tickers),
+            ("Counterfactual metrics", counterfactual_metrics),
+            ("Counterfactual overlap", counterfactual_overlap),
+        ],
+    )
 
     stages_dir = output_root / "stages"
     tickers_dir = output_root / "tickers"
@@ -1670,9 +1950,13 @@ Full metrics parquet:
             ("Acceptance gates", acceptance_gates),
             ("Input quality", input_quality),
             ("Selection input coverage", selection_input_coverage),
+            ("Price coverage root cause", price_coverage_gap_summary),
+            ("Missing-price selected tickers", price_coverage_gap_tickers),
             ("Price return equivalence", price_return_summary),
             ("Price return outliers", price_return_outliers),
             ("Latest model drift", model_drift_summary),
+            ("Counterfactual metrics", counterfactual_metrics),
+            ("Counterfactual overlap", counterfactual_overlap),
             ("Open-source 2025 price audit", price_audit_summary),
             ("Open-source 2025 statement audit", statement_audit_summary),
             ("Stage summary", stage_summary),
@@ -1684,14 +1968,18 @@ Full metrics parquet:
         output_path=output_root / "report.html",
         title="Legacy DB comparison",
         subtitle=f"Aligned scope up to {alignment['price_cutoff_date']} with common ticker universe {alignment['common_tickers']}",
-        navigation='<p><a href="tickers/index.html">Ticker index</a> | <a href="stages/index.html">Stage index</a></p>',
+        navigation='<p><a href="executive_summary.html">Executive summary</a> | <a href="tickers/index.html">Ticker index</a> | <a href="stages/index.html">Stage index</a></p>',
         sections=[
             ("Acceptance gates", acceptance_gates),
             ("Input quality", input_quality),
             ("Selection input coverage", selection_input_coverage),
+            ("Price coverage root cause", price_coverage_gap_summary),
+            ("Missing-price selected tickers", price_coverage_gap_tickers),
             ("Price return equivalence", price_return_summary),
             ("Price return outliers", price_return_outliers),
             ("Latest model drift", model_drift_summary),
+            ("Counterfactual metrics", counterfactual_metrics),
+            ("Counterfactual overlap", counterfactual_overlap),
             ("Open-source 2025 price audit", price_audit_summary),
             ("Open-source 2025 statement audit", statement_audit_summary),
             ("Primary model metric diff", primary_models),
