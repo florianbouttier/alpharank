@@ -22,6 +22,7 @@ def publish_open_source_output_package(
     legacy_paths: dict[str, Path],
     constituents_source_path: Path,
     prices_frame: pl.DataFrame,
+    prices_lineage: pl.DataFrame | None = None,
     benchmark_prices: pl.DataFrame,
     general_reference: pl.DataFrame,
     general_reference_lineage: pl.DataFrame,
@@ -68,6 +69,7 @@ def publish_open_source_output_package(
 
     lineage_outputs = {
         "prices_open_source.parquet": prices_frame,
+        "prices_open_source_lineage.parquet": prices_lineage if prices_lineage is not None else prices_frame,
         "benchmark_prices_open_source.parquet": benchmark_prices,
         "general_reference.parquet": general_reference,
         "general_reference_lineage.parquet": general_reference_lineage,

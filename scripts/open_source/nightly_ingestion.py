@@ -28,7 +28,7 @@ USER_AGENT = "Florian Bouttier florianbouttier@example.com"
 TICKERS: tuple[str, ...] | None = None
 
 
-RAW_TICKER_FILES = ("prices_yfinance.parquet",)
+RAW_TICKER_FILES = ("prices_yfinance.parquet", "prices_simfin.parquet", "prices_stockanalysis.parquet")
 
 LOCK_PATH = LIVE_DIR / "manifests" / "nightly.lock.json"
 STATUS_PATH = LIVE_DIR / "manifests" / "nightly_status.json"

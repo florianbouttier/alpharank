@@ -17,6 +17,16 @@ def _read_first_existing(paths: list[Path]) -> pl.DataFrame:
     raise FileNotFoundError(f"None of the expected parquet files exist: {paths}")
 
 
+def _read_price_frame(base_dir: Path, *, legacy_name: str, clean_name: str) -> pl.DataFrame:
+    return _read_first_existing(
+        [
+            base_dir / clean_name,
+            base_dir / "legacy_compatible" / legacy_name,
+            base_dir / legacy_name,
+        ]
+    )
+
+
 def main(
     *,
     price_source_dir: str | Path | None = None,
@@ -29,12 +39,12 @@ def main(
     resolved_price_source_dir = (
         Path(price_source_dir).expanduser().resolve()
         if price_source_dir
-        else project_root / "data" / "open_source" / "audit" / "price_transition_20050101"
+        else project_root / "data" / "open_source" / "official" / "target"
     )
     resolved_financial_source_dir = (
         Path(financial_source_dir).expanduser().resolve()
         if financial_source_dir
-        else project_root / "data" / "open_source" / "audit" / "sp500_2025"
+        else project_root / "data" / "open_source" / "official" / "target"
     )
     resolved_output_dir = (
         Path(output_dir).expanduser().resolve()
@@ -42,8 +52,24 @@ def main(
         else project_root / "data" / "open_source" / "output"
     )
 
-    clean_prices = pl.read_parquet(resolved_price_source_dir / "US_Finalprice.parquet")
-    benchmark_prices = pl.read_parquet(resolved_price_source_dir / "SP500Price.parquet")
+    clean_prices = _read_price_frame(
+        resolved_price_source_dir,
+        legacy_name="US_Finalprice.parquet",
+        clean_name="prices_open_source.parquet",
+    )
+    benchmark_prices = _read_price_frame(
+        resolved_price_source_dir,
+        legacy_name="SP500Price.parquet",
+        clean_name="benchmark_prices_open_source.parquet",
+    )
+    prices_lineage = _read_first_existing(
+        [
+            resolved_price_source_dir / "prices_open_source_lineage.parquet",
+            resolved_price_source_dir / "prices_open_source.parquet",
+            resolved_price_source_dir / "legacy_compatible" / "US_Finalprice.parquet",
+            resolved_price_source_dir / "US_Finalprice.parquet",
+        ]
+    )
     general_reference = pl.read_parquet(resolved_financial_source_dir / "general_reference.parquet")
     general_reference_lineage = _read_first_existing(
         [
@@ -80,6 +106,7 @@ def main(
         benchmark_prices=benchmark_prices,
         general_reference=general_reference,
         consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
         earnings_frame=earnings_consolidated,
         reference_data_dir=resolved_reference_data_dir,
         output_dir=staging_dir,
@@ -89,6 +116,7 @@ def main(
         legacy_paths=legacy_paths,
         constituents_source_path=resolved_reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
+        prices_lineage=prices_lineage,
         benchmark_prices=benchmark_prices,
         general_reference=general_reference,
         general_reference_lineage=general_reference_lineage,

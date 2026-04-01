@@ -26,7 +26,7 @@ from alpharank.data.open_source.benchmark import (
     write_html_report,
 )
 from alpharank.data.open_source.consolidation import FinancialSourceInput, consolidate_financial_sources
-from alpharank.data.open_source.config import GENERAL_COLUMNS, METRIC_SPECS
+from alpharank.data.open_source.config import GENERAL_COLUMNS, METRIC_SPECS, PRICE_COLUMNS
 from alpharank.data.open_source.earnings import (
     build_sec_companyfacts_earnings_actuals,
     consolidate_earnings,
@@ -46,6 +46,7 @@ from alpharank.data.open_source.publishing import publish_open_source_output_pac
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.simfin import SimFinClient
+from alpharank.data.open_source.stockanalysis import StockAnalysisClient
 from alpharank.data.open_source.storage import (
     OpenSourceLivePaths,
     append_run_delta,
@@ -200,14 +201,12 @@ def repair_open_source_price_history(
         ticker_list = tuple(tickers)
 
     yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
-    existing_raw_prices = (
-        pl.read_parquet(paths.raw_dir / "prices_yfinance.parquet")
-        if (paths.raw_dir / "prices_yfinance.parquet").exists()
-        else _empty_raw_price_frame()
-    )
+    simfin_client = SimFinClient(data_dir=project_root / "data" / "open_source" / "_cache" / "simfin")
+    stockanalysis_client = StockAnalysisClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis")
+    existing_price_history = _load_existing_price_history_frame(paths)
     backfill_tickers = _identify_price_history_backfill_tickers(
         requested_tickers=ticker_list,
-        existing_prices=existing_raw_prices,
+        existing_prices=existing_price_history,
         explicit_start_date=start_date,
         mode="daily",
     )
@@ -222,6 +221,37 @@ def repair_open_source_price_history(
                 ingested_at=ingested_at,
             )
         )
+    simfin_price_tickers = _identify_simfin_price_fallback_tickers(
+        requested_tickers=ticker_list,
+        yahoo_prices_delta=_concat_or_empty(price_deltas, empty=_empty_raw_price_frame()),
+        backfill_tickers=backfill_tickers,
+    )
+    simfin_prices_delta = _with_price_ingestion_metadata(
+        simfin_client.fetch_daily_prices(simfin_price_tickers, start_date, end_date)
+        if simfin_client.enabled and simfin_price_tickers
+        else _empty_raw_price_frame(),
+        dataset="prices_simfin_repair",
+        source="simfin",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
+    stockanalysis_price_tickers = _identify_stockanalysis_price_fallback_tickers(
+        requested_tickers=ticker_list,
+        covered_prices_delta=_concat_or_empty(
+            [_concat_or_empty(price_deltas, empty=_empty_raw_price_frame()), simfin_prices_delta],
+            empty=_empty_raw_price_frame(),
+        ),
+        backfill_tickers=backfill_tickers,
+    )
+    stockanalysis_prices_delta = _with_price_ingestion_metadata(
+        stockanalysis_client.fetch_daily_prices(stockanalysis_price_tickers, start_date, end_date)
+        if stockanalysis_price_tickers
+        else _empty_raw_price_frame(),
+        dataset="prices_stockanalysis_repair",
+        source="stockanalysis",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
     prices_delta = _concat_or_empty(price_deltas, empty=_empty_raw_price_frame())
     if not prices_delta.is_empty():
         prices_delta = (
@@ -238,15 +268,33 @@ def repair_open_source_price_history(
     )
 
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", prices_delta)
+    append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
+    append_run_delta(paths.run_dir(run_id) / "raw" / "prices_stockanalysis.parquet", stockanalysis_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_spy_yfinance.parquet", benchmark_delta)
-    raw_prices = upsert_parquet(
+    raw_yahoo_prices = upsert_parquet(
         paths.raw_dir / "prices_yfinance.parquet",
         prices_delta,
         key_cols=["ticker", "date", "source"],
         order_cols=["ingested_at"],
     )
-    raw_prices = _canonicalize_price_tickers(raw_prices, ticker_list=ticker_list)
-    raw_prices.write_parquet(paths.raw_dir / "prices_yfinance.parquet")
+    raw_yahoo_prices = _canonicalize_price_tickers(raw_yahoo_prices, ticker_list=ticker_list)
+    raw_yahoo_prices.write_parquet(paths.raw_dir / "prices_yfinance.parquet")
+    raw_simfin_prices = upsert_parquet(
+        paths.raw_dir / "prices_simfin.parquet",
+        simfin_prices_delta,
+        key_cols=["ticker", "date", "source"],
+        order_cols=["ingested_at"],
+    )
+    raw_simfin_prices = _canonicalize_price_tickers(raw_simfin_prices, ticker_list=ticker_list)
+    raw_simfin_prices.write_parquet(paths.raw_dir / "prices_simfin.parquet")
+    raw_stockanalysis_prices = upsert_parquet(
+        paths.raw_dir / "prices_stockanalysis.parquet",
+        stockanalysis_prices_delta,
+        key_cols=["ticker", "date", "source"],
+        order_cols=["ingested_at"],
+    )
+    raw_stockanalysis_prices = _canonicalize_price_tickers(raw_stockanalysis_prices, ticker_list=ticker_list)
+    raw_stockanalysis_prices.write_parquet(paths.raw_dir / "prices_stockanalysis.parquet")
     raw_benchmark_prices = upsert_parquet(
         paths.raw_dir / "prices_spy_yfinance.parquet",
         benchmark_delta,
@@ -254,13 +302,15 @@ def repair_open_source_price_history(
         order_cols=["ingested_at"],
     )
 
-    clean_prices = raw_prices.select(["date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"]).sort(
-        ["ticker", "date"]
+    clean_prices, clean_price_lineage = _consolidate_price_sources(
+        [raw_yahoo_prices, raw_simfin_prices, raw_stockanalysis_prices],
+        ticker_list=ticker_list,
     )
     clean_benchmark_prices = raw_benchmark_prices.select(
         ["date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"]
     ).sort(["ticker", "date"])
     clean_prices.write_parquet(paths.clean_dir / "prices_open_source.parquet")
+    clean_price_lineage.write_parquet(paths.clean_dir / "prices_open_source_lineage.parquet")
     clean_benchmark_prices.write_parquet(paths.clean_dir / "benchmark_prices_open_source.parquet")
 
     general_reference = pl.read_parquet(paths.clean_dir / "general_reference.parquet")
@@ -277,6 +327,7 @@ def repair_open_source_price_history(
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference,
         consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
         earnings_frame=clean_earnings,
         reference_data_dir=reference_data_dir,
         output_dir=paths.legacy_dir,
@@ -286,6 +337,7 @@ def repair_open_source_price_history(
         legacy_paths=legacy_paths,
         constituents_source_path=reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
+        prices_lineage=clean_price_lineage,
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference,
         general_reference_lineage=general_reference_lineage,
@@ -304,6 +356,10 @@ def repair_open_source_price_history(
             "repair_type": "price_history",
             "price_backfill_ticker_count": len(backfill_tickers),
             "price_backfill_ticker_examples": list(backfill_tickers[:20]),
+            "simfin_price_fallback_ticker_count": len(simfin_price_tickers),
+            "simfin_price_fallback_ticker_examples": list(simfin_price_tickers[:20]),
+            "stockanalysis_price_fallback_ticker_count": len(stockanalysis_price_tickers),
+            "stockanalysis_price_fallback_ticker_examples": list(stockanalysis_price_tickers[:20]),
         },
         history_root=paths.root_dir / "history" / "output",
     )
@@ -327,6 +383,10 @@ def repair_open_source_price_history(
         "ticker_count": len(ticker_list),
         "price_backfill_ticker_count": len(backfill_tickers),
         "price_backfill_ticker_examples": list(backfill_tickers[:20]),
+        "simfin_price_fallback_ticker_count": len(simfin_price_tickers),
+        "simfin_price_fallback_ticker_examples": list(simfin_price_tickers[:20]),
+        "stockanalysis_price_fallback_ticker_count": len(stockanalysis_price_tickers),
+        "stockanalysis_price_fallback_ticker_examples": list(stockanalysis_price_tickers[:20]),
         "price_window": {"start_date": start_date, "end_date": end_date},
         "official_dir": str(paths.base_dir),
         "target_dir": str(paths.target_dir),
@@ -516,6 +576,11 @@ def refresh_open_source_reference_layers(
     )
 
     clean_prices = pl.read_parquet(paths.clean_dir / "prices_open_source.parquet")
+    clean_price_lineage = (
+        pl.read_parquet(paths.clean_dir / "prices_open_source_lineage.parquet")
+        if (paths.clean_dir / "prices_open_source_lineage.parquet").exists()
+        else clean_prices
+    )
     clean_benchmark_prices = pl.read_parquet(paths.clean_dir / "benchmark_prices_open_source.parquet")
     consolidated_financials = pl.read_parquet(paths.clean_dir / "financials_open_source_consolidated.parquet")
     consolidated_lineage = pl.read_parquet(paths.clean_dir / "financials_open_source_lineage.parquet")
@@ -532,6 +597,7 @@ def refresh_open_source_reference_layers(
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference,
         consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
         earnings_frame=clean_earnings,
         reference_data_dir=reference_data_dir,
         output_dir=paths.legacy_dir,
@@ -541,6 +607,7 @@ def refresh_open_source_reference_layers(
         legacy_paths=legacy_paths,
         constituents_source_path=reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
+        prices_lineage=clean_price_lineage,
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference,
         general_reference_lineage=general_reference_lineage,
@@ -644,20 +711,17 @@ def run_open_source_ingestion(
     ingested_at = utc_now_iso()
     end_date = end_date or date.today().strftime("%Y-%m-%d")
     ticker_list = tuple(tickers) if tickers is not None else _load_reference_tickers(reference_data_dir, start_date=start_date)
+    existing_price_history = _load_existing_price_history_frame(paths)
     price_start = _resolve_price_start(
         mode=mode,
         explicit_start_date=start_date,
         raw_price_path=paths.raw_dir / "prices_yfinance.parquet",
         lookback_days=price_lookback_days,
-    )
-    existing_raw_prices = (
-        pl.read_parquet(paths.raw_dir / "prices_yfinance.parquet")
-        if (paths.raw_dir / "prices_yfinance.parquet").exists()
-        else _empty_raw_price_frame()
+        existing_prices=existing_price_history,
     )
     price_backfill_tickers = _identify_price_history_backfill_tickers(
         requested_tickers=ticker_list,
-        existing_prices=existing_raw_prices,
+        existing_prices=existing_price_history,
         explicit_start_date=start_date,
         mode=mode,
     )
@@ -672,6 +736,14 @@ def run_open_source_ingestion(
     sec_client = SecCompanyFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts")
     sec_filing_client = SecFilingFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing")
     simfin_client = SimFinClient(api_key=simfin_api_key, data_dir=project_root / "data" / "open_source" / "_cache" / "simfin")
+    stockanalysis_client = StockAnalysisClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis")
+    run_failures: dict[str, list[dict[str, str]]] = {
+        "sec_companyfacts": [],
+        "sec_filing": [],
+        "simfin": [],
+        "stockanalysis": [],
+        "yfinance_earnings": [],
+    }
 
     sec_mapping_all = sec_client.fetch_company_mapping()
     sec_mapping = sec_mapping_all.filter(pl.col("ticker").is_in(list(ticker_list)))
@@ -758,6 +830,38 @@ def run_open_source_ingestion(
             .unique(subset=["ticker", "date", "source"], keep="last", maintain_order=True)
             .sort(["ticker", "date"])
         )
+    simfin_price_tickers = _identify_simfin_price_fallback_tickers(
+        requested_tickers=ticker_list,
+        yahoo_prices_delta=yahoo_prices_delta,
+        backfill_tickers=price_backfill_tickers,
+    )
+    simfin_prices_delta = _with_price_ingestion_metadata(
+        simfin_client.fetch_daily_prices(simfin_price_tickers, start_date, end_date)
+        if simfin_client.enabled and simfin_price_tickers
+        else _empty_raw_price_frame(),
+        dataset="prices_simfin",
+        source="simfin",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
+    if simfin_client.last_fetch_failures:
+        run_failures["simfin"].extend(simfin_client.last_fetch_failures)
+    stockanalysis_price_tickers = _identify_stockanalysis_price_fallback_tickers(
+        requested_tickers=ticker_list,
+        covered_prices_delta=_concat_or_empty([yahoo_prices_delta, simfin_prices_delta], empty=_empty_raw_price_frame()),
+        backfill_tickers=price_backfill_tickers,
+    )
+    stockanalysis_prices_delta = _with_price_ingestion_metadata(
+        stockanalysis_client.fetch_daily_prices(stockanalysis_price_tickers, start_date, end_date)
+        if stockanalysis_price_tickers
+        else _empty_raw_price_frame(),
+        dataset="prices_stockanalysis",
+        source="stockanalysis",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
+    if stockanalysis_client.last_fetch_failures:
+        run_failures["stockanalysis"].extend(stockanalysis_client.last_fetch_failures)
     benchmark_prices_delta = _with_price_ingestion_metadata(
         yahoo_client.download_prices(["SPY"], price_start, end_date),
         dataset="prices_spy_yfinance",
@@ -765,20 +869,42 @@ def run_open_source_ingestion(
         ingested_at=ingested_at,
     )
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", yahoo_prices_delta)
+    append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
+    append_run_delta(paths.run_dir(run_id) / "raw" / "prices_stockanalysis.parquet", stockanalysis_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_spy_yfinance.parquet", benchmark_prices_delta)
-    raw_prices = upsert_parquet(
+    raw_yahoo_prices = upsert_parquet(
         paths.raw_dir / "prices_yfinance.parquet",
         yahoo_prices_delta,
         key_cols=["ticker", "date", "source"],
         order_cols=["ingested_at"],
     )
-    raw_prices = _canonicalize_price_tickers(raw_prices, ticker_list=ticker_list)
-    raw_prices.write_parquet(paths.raw_dir / "prices_yfinance.parquet")
+    raw_yahoo_prices = _canonicalize_price_tickers(raw_yahoo_prices, ticker_list=ticker_list)
+    raw_yahoo_prices.write_parquet(paths.raw_dir / "prices_yfinance.parquet")
+    raw_simfin_prices = upsert_parquet(
+        paths.raw_dir / "prices_simfin.parquet",
+        simfin_prices_delta,
+        key_cols=["ticker", "date", "source"],
+        order_cols=["ingested_at"],
+    )
+    raw_simfin_prices = _canonicalize_price_tickers(raw_simfin_prices, ticker_list=ticker_list)
+    raw_simfin_prices.write_parquet(paths.raw_dir / "prices_simfin.parquet")
+    raw_stockanalysis_prices = upsert_parquet(
+        paths.raw_dir / "prices_stockanalysis.parquet",
+        stockanalysis_prices_delta,
+        key_cols=["ticker", "date", "source"],
+        order_cols=["ingested_at"],
+    )
+    raw_stockanalysis_prices = _canonicalize_price_tickers(raw_stockanalysis_prices, ticker_list=ticker_list)
+    raw_stockanalysis_prices.write_parquet(paths.raw_dir / "prices_stockanalysis.parquet")
     raw_benchmark_prices = upsert_parquet(
         paths.raw_dir / "prices_spy_yfinance.parquet",
         benchmark_prices_delta,
         key_cols=["ticker", "date", "source"],
         order_cols=["ingested_at"],
+    )
+    clean_prices, clean_price_lineage = _consolidate_price_sources(
+        [raw_yahoo_prices, raw_simfin_prices, raw_stockanalysis_prices],
+        ticker_list=ticker_list,
     )
 
     earnings_delta = _empty_raw_earnings_frame()
@@ -788,13 +914,6 @@ def run_open_source_ingestion(
     sec_filing_deltas: list[pl.DataFrame] = []
     simfin_deltas: list[pl.DataFrame] = []
     yahoo_financial_deltas: list[pl.DataFrame] = []
-    run_failures: dict[str, list[dict[str, str]]] = {
-        "sec_companyfacts": [],
-        "sec_filing": [],
-        "simfin": [],
-        "yfinance_earnings": [],
-    }
-
     if refreshed_years:
         try:
             earnings_fetched = yahoo_client.fetch_earnings_dates(ticker_list, limit=100)
@@ -915,9 +1034,6 @@ def run_open_source_ingestion(
         deltas=yahoo_financial_deltas,
     )
 
-    clean_prices = raw_prices.select(["date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"]).sort(
-        ["ticker", "date"]
-    )
     clean_benchmark_prices = raw_benchmark_prices.select(
         ["date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"]
     ).sort(["ticker", "date"])
@@ -959,6 +1075,7 @@ def run_open_source_ingestion(
     )
 
     clean_prices.write_parquet(paths.clean_dir / "prices_open_source.parquet")
+    clean_price_lineage.write_parquet(paths.clean_dir / "prices_open_source_lineage.parquet")
     clean_benchmark_prices.write_parquet(paths.clean_dir / "benchmark_prices_open_source.parquet")
     clean_earnings.write_parquet(paths.clean_dir / "earnings_open_source_consolidated.parquet")
     clean_earnings_lineage.write_parquet(paths.clean_dir / "earnings_open_source_lineage.parquet")
@@ -974,6 +1091,7 @@ def run_open_source_ingestion(
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference,
         consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
         earnings_frame=clean_earnings,
         reference_data_dir=reference_data_dir,
         output_dir=paths.legacy_dir,
@@ -983,6 +1101,7 @@ def run_open_source_ingestion(
         legacy_paths=legacy_paths,
         constituents_source_path=reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
+        prices_lineage=clean_price_lineage,
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference,
         general_reference_lineage=general_reference_lineage,
@@ -1021,6 +1140,10 @@ def run_open_source_ingestion(
         "price_window": {"start_date": price_start, "end_date": end_date},
         "price_backfill_ticker_count": len(price_backfill_tickers),
         "price_backfill_ticker_examples": list(price_backfill_tickers[:20]),
+        "simfin_price_fallback_ticker_count": len(simfin_price_tickers),
+        "simfin_price_fallback_ticker_examples": list(simfin_price_tickers[:20]),
+        "stockanalysis_price_fallback_ticker_count": len(stockanalysis_price_tickers),
+        "stockanalysis_price_fallback_ticker_examples": list(stockanalysis_price_tickers[:20]),
         "financial_years_refreshed": list(refreshed_years),
         "ticker_count": len(ticker_list),
         "earnings_repair_ticker_count": len(earnings_repair_tickers),
@@ -1032,6 +1155,8 @@ def run_open_source_ingestion(
             "general_reference": "raw/general_reference.parquet",
             "general_reference_lineage": "raw/general_reference_lineage.parquet",
             "prices_yfinance": "raw/prices_yfinance.parquet",
+            "prices_simfin": "raw/prices_simfin.parquet",
+            "prices_stockanalysis": "raw/prices_stockanalysis.parquet",
             "prices_spy_yfinance": "raw/prices_spy_yfinance.parquet",
             "earnings_yfinance": "raw/earnings_yfinance.parquet",
             "earnings_sec_calendar": "raw/earnings_sec_calendar.parquet",
@@ -1043,6 +1168,7 @@ def run_open_source_ingestion(
         },
         "clean_outputs": {
             "prices_open_source": "target/prices_open_source.parquet",
+            "prices_open_source_lineage": "target/prices_open_source_lineage.parquet",
             "benchmark_prices_open_source": "target/benchmark_prices_open_source.parquet",
             "general_reference": "target/general_reference.parquet",
             "general_reference_lineage": "target/general_reference_lineage.parquet",
@@ -1242,12 +1368,19 @@ def _write_live_audit(
     return output_dir
 
 
-def _with_price_ingestion_metadata(frame: pl.DataFrame, *, dataset: str, run_id: str, ingested_at: str) -> pl.DataFrame:
+def _with_price_ingestion_metadata(
+    frame: pl.DataFrame,
+    *,
+    dataset: str,
+    run_id: str,
+    ingested_at: str,
+    source: str = "yfinance",
+) -> pl.DataFrame:
     if frame.is_empty():
         return _empty_raw_price_frame()
     return frame.with_columns(
         [
-            pl.lit("yfinance").alias("source"),
+            pl.lit(source).alias("source"),
             pl.lit(dataset).alias("dataset"),
             pl.lit(run_id).alias("ingestion_run_id"),
             pl.lit(ingested_at).alias("ingested_at"),
@@ -1314,10 +1447,22 @@ def _with_general_lineage_ingestion_metadata(frame: pl.DataFrame, *, run_id: str
     ).select(list(schema))
 
 
-def _resolve_price_start(*, mode: str, explicit_start_date: str, raw_price_path: Path, lookback_days: int) -> str:
-    if mode == "bootstrap" or not raw_price_path.exists():
+def _resolve_price_start(
+    *,
+    mode: str,
+    explicit_start_date: str,
+    raw_price_path: Path,
+    lookback_days: int,
+    existing_prices: pl.DataFrame | None = None,
+) -> str:
+    if mode == "bootstrap":
         return explicit_start_date
-    existing = pl.read_parquet(raw_price_path)
+    if existing_prices is not None:
+        existing = existing_prices
+    elif raw_price_path.exists():
+        existing = pl.read_parquet(raw_price_path)
+    else:
+        return explicit_start_date
     if existing.is_empty():
         return explicit_start_date
     max_date = existing.select(pl.col("date").max()).item()
@@ -1412,6 +1557,44 @@ def _identify_general_reference_refresh_tickers(
     return tuple(sorted(set(missing)))
 
 
+def _identify_simfin_price_fallback_tickers(
+    *,
+    requested_tickers: Sequence[str],
+    yahoo_prices_delta: pl.DataFrame,
+    backfill_tickers: Sequence[str],
+) -> tuple[str, ...]:
+    if yahoo_prices_delta.is_empty():
+        return tuple(sorted(set(requested_tickers)))
+    yahoo_covered = set(
+        yahoo_prices_delta.select(pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"))
+        .unique()
+        .to_series()
+        .to_list()
+    )
+    fallback = set(backfill_tickers)
+    fallback.update(ticker for ticker in requested_tickers if ticker not in yahoo_covered)
+    return tuple(sorted(fallback))
+
+
+def _identify_stockanalysis_price_fallback_tickers(
+    *,
+    requested_tickers: Sequence[str],
+    covered_prices_delta: pl.DataFrame,
+    backfill_tickers: Sequence[str],
+) -> tuple[str, ...]:
+    if covered_prices_delta.is_empty():
+        return tuple(sorted(set(requested_tickers)))
+    covered = set(
+        covered_prices_delta.select(pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"))
+        .unique()
+        .to_series()
+        .to_list()
+    )
+    fallback = set(backfill_tickers)
+    fallback.update(ticker for ticker in requested_tickers if ticker not in covered)
+    return tuple(sorted(fallback))
+
+
 def _resolve_refreshed_years(*, mode: str, start_date: str, end_date: str, lookback_years: int) -> tuple[int, ...]:
     start_year = int(start_date[:4])
     end_year = int(end_date[:4])
@@ -1438,6 +1621,8 @@ def _load_existing_open_source_tickers(paths: OpenSourceLivePaths, reference_dat
         paths.output_dir / "US_Finalprice.parquet",
         paths.clean_dir / "prices_open_source.parquet",
         paths.raw_dir / "prices_yfinance.parquet",
+        paths.raw_dir / "prices_simfin.parquet",
+        paths.raw_dir / "prices_stockanalysis.parquet",
         reference_data_dir / "US_Finalprice.parquet",
     )
     for path in candidate_paths:
@@ -1456,11 +1641,40 @@ def _load_existing_open_source_tickers(paths: OpenSourceLivePaths, reference_dat
     return ()
 
 
+def _load_existing_price_history_frame(paths: OpenSourceLivePaths) -> pl.DataFrame:
+    clean_candidates = (
+        paths.clean_dir / "prices_open_source.parquet",
+        paths.output_dir / "US_Finalprice.parquet",
+    )
+    for path in clean_candidates:
+        if path.exists():
+            frame = pl.read_parquet(path)
+            if not frame.is_empty():
+                return frame.select(list(PRICE_COLUMNS))
+
+    raw_frames: list[pl.DataFrame] = []
+    for path in (
+        paths.raw_dir / "prices_yfinance.parquet",
+        paths.raw_dir / "prices_simfin.parquet",
+        paths.raw_dir / "prices_stockanalysis.parquet",
+    ):
+        if path.exists():
+            frame = pl.read_parquet(path)
+            if not frame.is_empty():
+                raw_frames.append(frame)
+    if not raw_frames:
+        return _empty_raw_price_frame().select(list(PRICE_COLUMNS))
+    clean_prices, _ = _consolidate_price_sources(raw_frames, ticker_list=())
+    return clean_prices
+
+
 def _load_existing_price_tickers(paths: OpenSourceLivePaths) -> tuple[str, ...]:
     candidate_paths = (
         paths.output_dir / "US_Finalprice.parquet",
         paths.clean_dir / "prices_open_source.parquet",
         paths.raw_dir / "prices_yfinance.parquet",
+        paths.raw_dir / "prices_simfin.parquet",
+        paths.raw_dir / "prices_stockanalysis.parquet",
     )
     for path in candidate_paths:
         if not path.exists():
@@ -1478,6 +1692,30 @@ def _load_existing_price_tickers(paths: OpenSourceLivePaths) -> tuple[str, ...]:
     return ()
 
 
+def _consolidate_price_sources(
+    frames: Sequence[pl.DataFrame],
+    *,
+    ticker_list: Sequence[str],
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    combined = _concat_or_empty(list(frames), empty=_empty_raw_price_frame())
+    if combined.is_empty():
+        empty = _empty_raw_price_frame()
+        return empty.select(list(PRICE_COLUMNS)), empty
+    combined = _canonicalize_price_tickers(combined, ticker_list=ticker_list)
+    prioritized = combined.with_columns(_price_source_priority_expr().alias("source_priority"))
+    lineage = (
+        prioritized.sort(
+            ["ticker", "date", "source_priority", "ingested_at"],
+            descending=[False, False, False, True],
+        )
+        .unique(subset=["ticker", "date"], keep="first", maintain_order=True)
+        .drop("source_priority")
+        .sort(["ticker", "date"])
+    )
+    clean = lineage.select(list(PRICE_COLUMNS)).sort(["ticker", "date"])
+    return clean, lineage
+
+
 def _canonicalize_price_tickers(frame: pl.DataFrame, *, ticker_list: Sequence[str]) -> pl.DataFrame:
     alias_map = {
         f"{ticker.replace('.', '-')}.US": f"{ticker}.US"
@@ -1491,6 +1729,18 @@ def _canonicalize_price_tickers(frame: pl.DataFrame, *, ticker_list: Sequence[st
         .sort(["ticker", "date", "source", "dataset", "ingested_at"])
         .unique(subset=["ticker", "date", "source"], keep="last", maintain_order=True)
         .sort(["ticker", "date"])
+    )
+
+
+def _price_source_priority_expr() -> pl.Expr:
+    return (
+        pl.when(pl.col("source") == "yfinance")
+        .then(pl.lit(1))
+        .when(pl.col("source") == "simfin")
+        .then(pl.lit(2))
+        .when(pl.col("source") == "stockanalysis")
+        .then(pl.lit(3))
+        .otherwise(pl.lit(99))
     )
 
 

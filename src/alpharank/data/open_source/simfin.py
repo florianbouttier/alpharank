@@ -67,6 +67,23 @@ class SimFinClient:
         combined = pl.concat(frames, how="vertical").sort(["ticker", "statement", "metric", "date"]) if frames else _empty_financials()
         return _derive_missing_metrics(_standardize_financials(combined))
 
+    def fetch_daily_prices(self, tickers: Iterable[str], start_date: str, end_date: str) -> pl.DataFrame:
+        if not self.enabled:
+            return _empty_prices()
+
+        self.configure()
+        self.last_fetch_failures = []
+        try:
+            return _load_shareprices_frame(
+                tickers=tuple(tickers),
+                start_date=start_date,
+                end_date=end_date,
+                refresh_days=self.refresh_days,
+            )
+        except Exception as exc:
+            self.last_fetch_failures.append({"dataset": "shareprices_daily", "error": str(exc)})
+            return _empty_prices()
+
     def _load_dataset_frame_safe(self, dataset: str, ticker_set: set[str], year: int) -> pl.DataFrame:
         try:
             return _load_dataset_frame(dataset, ticker_set, year, self.refresh_days)
@@ -98,6 +115,60 @@ def _load_dataset_frame(dataset: str, ticker_set: set[str], year: int, refresh_d
         .filter(pl.col("_report_date_str").str.starts_with(str(year)))
         .drop("_report_date_str")
     )
+
+
+def _load_shareprices_frame(
+    *,
+    tickers: tuple[str, ...],
+    start_date: str,
+    end_date: str,
+    refresh_days: int,
+) -> pl.DataFrame:
+    _maybe_download_dataset(refresh_days=refresh_days, dataset="shareprices", market="us", variant="daily")
+    path = Path(_path_dataset(dataset="shareprices", market="us", variant="daily"))
+    if not path.exists() or not tickers:
+        return _empty_prices()
+
+    alias_lookup: dict[str, str] = {}
+    for ticker in tickers:
+        alias_lookup[ticker] = ticker
+        dashed = ticker.replace(".", "-")
+        alias_lookup[dashed] = ticker
+
+    frame = (
+        pl.scan_csv(
+            path,
+            separator=";",
+            try_parse_dates=True,
+            null_values=["", "null", "None", "N/A"],
+            infer_schema_length=10000,
+        )
+        .filter(pl.col("Ticker").is_in(list(alias_lookup)))
+        .with_columns(
+            [
+                pl.col("Ticker").replace(alias_lookup, default=None).alias("_ticker_root"),
+                pl.col("Date").cast(pl.Utf8, strict=False).alias("_date"),
+            ]
+        )
+        .filter(pl.col("_ticker_root").is_not_null())
+        .filter(pl.col("_date").is_between(pl.lit(start_date), pl.lit(end_date)))
+        .select(
+            [
+                (pl.col("_ticker_root") + pl.lit(".US")).alias("ticker"),
+                pl.col("_date").alias("date"),
+                pl.col("Open").cast(pl.Float64, strict=False).alias("open"),
+                pl.col("High").cast(pl.Float64, strict=False).alias("high"),
+                pl.col("Low").cast(pl.Float64, strict=False).alias("low"),
+                pl.col("Close").cast(pl.Float64, strict=False).alias("close"),
+                pl.col("Adj. Close").cast(pl.Float64, strict=False).alias("adjusted_close"),
+                pl.col("Volume").cast(pl.Float64, strict=False).alias("volume"),
+            ]
+        )
+        .collect()
+    )
+    if frame.is_empty():
+        return _empty_prices()
+    return frame.sort(["ticker", "date"])
 
 
 def _extract_metric_frames(*, spec: MetricSpec, dataset_frames: dict[str, pl.DataFrame], year: int) -> pl.DataFrame:
@@ -202,6 +273,21 @@ def _empty_financials() -> pl.DataFrame:
             "form": pl.String,
             "fiscal_period": pl.String,
             "fiscal_year": pl.Int64,
+        }
+    )
+
+
+def _empty_prices() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "date": pl.String,
+            "open": pl.Float64,
+            "high": pl.Float64,
+            "low": pl.Float64,
+            "close": pl.Float64,
+            "volume": pl.Float64,
+            "adjusted_close": pl.Float64,
+            "ticker": pl.String,
         }
     )
 
