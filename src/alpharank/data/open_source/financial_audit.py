@@ -20,6 +20,13 @@ AUDITED_FINANCIAL_STATEMENTS: tuple[str, ...] = (
 )
 
 HISTOGRAM_BINS: tuple[float, ...] = (0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 25.0, 50.0, 100.0)
+SEC_SELECTED_SOURCES: tuple[str, ...] = ("sec_companyfacts", "sec_filing")
+SOURCE_GROUP_LABELS: dict[str, str] = {
+    "sec": "SEC filed",
+    "non_sec": "Vendor / non-SEC",
+    "missing_open": "Missing in open-source",
+    "unknown": "Unknown",
+}
 
 
 @dataclass(frozen=True)
@@ -102,6 +109,11 @@ def build_financial_statement_audit_dashboard_from_frames(
             _abs_diff_expr().alias("abs_diff_pct"),
             _quarter_label_expr("date").alias("quarter_label"),
             _quarter_label_expr("open_date").alias("open_quarter_label"),
+            _selected_source_group_expr().alias("selected_source_group"),
+        ]
+    ).with_columns(
+        [
+            _selected_source_group_label_expr().alias("selected_source_group_label"),
             pl.concat_str(
                 [
                     pl.col("ticker").fill_null(""),
@@ -584,6 +596,26 @@ def _build_summary_payload(
         ["missing_open_rate_pct", "error_rate_pct", "worst_abs_diff_pct", "ticker", "date"],
         descending=[True, True, True, False, False],
     ).head(20)
+    source_mix = (
+        alignment.group_by(["selected_source_group", "selected_source_group_label"])
+        .agg(
+            [
+                _count_expr(pl.col("match_status") == "matched").alias("matched_rows"),
+                _count_expr(
+                    (pl.col("match_status") == "matched") & (pl.col("diff_pct").abs() > threshold_pct)
+                ).alias("error_rows"),
+                _count_expr(pl.col("match_status") == "missing_in_open_source").alias("missing_open_rows"),
+                _count_expr(pl.col("match_status") == "extra_in_open_source").alias("extra_open_rows"),
+            ]
+        )
+        .with_columns(
+            [
+                (pl.col("matched_rows") + pl.col("missing_open_rows")).alias("reference_rows"),
+                _safe_pct_expr("matched_rows", "error_rows").alias("error_rate_pct"),
+            ]
+        )
+        .sort(["selected_source_group"])
+    )
     return {
         "scope": {
             "start_date": start_date,
@@ -610,6 +642,7 @@ def _build_summary_payload(
                 else 0
             ),
         },
+        "source_mix": source_mix.to_dicts(),
         "top_metrics": top_metrics.to_dicts(),
         "top_tickers": top_tickers.to_dicts(),
         "top_ticker_quarters": top_ticker_quarters.to_dicts(),
@@ -621,6 +654,7 @@ def _render_summary_markdown(summary: dict[str, object]) -> str:
     global_row = summary["global"]
     top_metrics = summary["top_metrics"]
     top_tickers = summary["top_tickers"]
+    source_mix = summary.get("source_mix", [])
     lines = [
         "# Financial Statement Audit Since 2020",
         "",
@@ -637,11 +671,28 @@ def _render_summary_markdown(summary: dict[str, object]) -> str:
         f"- Ticker-quarter combos with any > threshold KPI: `{global_row['error_ticker_quarters']}` / `{global_row['reference_ticker_quarters']}`",
         f"- Ticker-quarter combos with at least one missing KPI in open-source: `{global_row['missing_open_ticker_quarters']}` / `{global_row['reference_ticker_quarters']}`",
         "",
+        "## Source Mode",
+        "",
+        "- `SEC filed` means the selected open-source row came from `sec_companyfacts` or `sec_filing`.",
+        "- `Vendor / non-SEC` means the selected row came from a non-SEC source like `simfin` or `yfinance`.",
+        "- `Vendor / non-SEC` does not automatically mean `non-GAAP`; it means the number was not taken directly from SEC-filed XBRL facts.",
+        "",
+        "| Source mode | Matched rows | Error rows | Error rate % | Missing rows |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for row in source_mix:
+        lines.append(
+            f"| {row['selected_source_group_label']} | {int(row['matched_rows'])} | {int(row['error_rows'])} | {float(row['error_rate_pct']):.2f} | {int(row['missing_open_rows'])} |"
+        )
+    lines.extend(
+        [
+            "",
         "## Worst KPIs",
         "",
         "| Statement | KPI | Error rows | Error rate % | Missing rows | Missing rate % |",
         "|---|---|---:|---:|---:|---:|",
-    ]
+        ]
+    )
     for row in top_metrics[:10]:
         lines.append(
             f"| {row['statement']} | {row['metric']} | {int(row['error_rows'])} | {float(row['error_rate_pct']):.2f} | {int(row['missing_open_rows'])} | {float(row['missing_open_rate_pct']):.2f} |"
@@ -692,6 +743,8 @@ def _render_dashboard_html(
         "eodhd_filing_date",
         "open_filing_date",
         "date_diff_days",
+        "selected_source_group",
+        "selected_source_group_label",
         "selected_source",
         "selected_source_label",
         "candidate_sources",
@@ -703,6 +756,12 @@ def _render_dashboard_html(
         "metrics": sorted(alignment.select("metric").unique().to_series().to_list()),
         "tickers": sorted(alignment.select("ticker").unique().to_series().to_list()),
         "quarters": sorted(alignment.select("quarter_label").drop_nulls().unique().to_series().to_list()),
+        "source_groups": [
+            {"value": "sec", "label": SOURCE_GROUP_LABELS["sec"]},
+            {"value": "non_sec", "label": SOURCE_GROUP_LABELS["non_sec"]},
+            {"value": "missing_open", "label": SOURCE_GROUP_LABELS["missing_open"]},
+            {"value": "unknown", "label": SOURCE_GROUP_LABELS["unknown"]},
+        ],
     }
     statement_rows = statement_summary.to_dicts()
     metric_rows = metric_summary.to_dicts()
@@ -775,6 +834,7 @@ def _render_dashboard_html(
     <div class="hero">
       <h1>Financial Statement Audit Since 2020</h1>
       <p class="meta">Scope: <strong>{escape(start_date)}</strong> to <strong>{escape(end_date)}</strong> | Threshold: <strong>{threshold_pct:.2f}%</strong> | KPI set: <strong>income, balance, cash flow, shares</strong></p>
+      <p class="meta"><strong>SEC filed</strong> means the selected value came from SEC XBRL facts (`sec_companyfacts` / `sec_filing`). <strong>Vendor / non-SEC</strong> means the selected value came from a non-SEC source (`simfin`, `yfinance`, etc.). Vendor data is not automatically the same thing as non-GAAP.</p>
     </div>
 
     <div id="cards" class="grid cards"></div>
@@ -807,6 +867,10 @@ def _render_dashboard_html(
           <option value="extra_in_open_source">Extra in open-source</option>
           <option value="within_threshold">Within threshold</option>
         </select>
+      </div>
+      <div class="control">
+        <label for="sourceGroupFilter">Source Mode</label>
+        <select id="sourceGroupFilter"></select>
       </div>
     </div>
 
@@ -902,11 +966,13 @@ def _render_dashboard_html(
       const metric = qs('metricFilter').value;
       const quarter = qs('quarterFilter').value;
       const issue = qs('issueFilter').value;
+      const sourceGroup = qs('sourceGroupFilter').value;
       const ticker = qs('tickerFilter').value.trim().toUpperCase();
       return DETAIL_ROWS.filter((row) => {{
         if (statement !== 'all' && row.statement !== statement) return false;
         if (metric !== 'all' && row.metric !== metric) return false;
         if (quarter !== 'all' && row.quarter_label !== quarter) return false;
+        if (sourceGroup !== 'all' && row.selected_source_group !== sourceGroup) return false;
         if (ticker && !row.ticker.toUpperCase().includes(ticker)) return false;
         if (issue === 'all') return true;
         if (issue === 'any_issue') return row.issue_kind !== 'within_threshold';
@@ -919,6 +985,8 @@ def _render_dashboard_html(
       const errors = rows.filter((row) => row.issue_kind === 'error_gt_threshold');
       const missingOpen = rows.filter((row) => row.issue_kind === 'missing_in_open_source');
       const extraOpen = rows.filter((row) => row.issue_kind === 'extra_in_open_source');
+      const secBacked = matched.filter((row) => row.selected_source_group === 'sec').length;
+      const vendorBacked = matched.filter((row) => row.selected_source_group === 'non_sec').length;
       const referenceRows = rows.filter((row) => row.match_status !== 'extra_in_open_source').length;
       const tqMap = new Map();
       rows.forEach((row) => {{
@@ -938,6 +1006,8 @@ def _render_dashboard_html(
         ['Rows > Threshold', errors.length, fmtPct(matched.length ? (errors.length / matched.length) * 100 : 0)],
         ['Missing In Open', missingOpen.length, fmtPct(referenceRows ? (missingOpen.length / referenceRows) * 100 : 0)],
         ['Extra In Open', extraOpen.length, fmtPct(rows.length ? (extraOpen.length / rows.length) * 100 : 0)],
+        ['SEC-Backed Matched', secBacked, fmtPct(matched.length ? (secBacked / matched.length) * 100 : 0)],
+        ['Vendor-Backed Matched', vendorBacked, fmtPct(matched.length ? (vendorBacked / matched.length) * 100 : 0)],
         ['Ticker-Quarter With Error', errorTickerQuarters, `${{referenceTickerQuarters ? fmtPct((errorTickerQuarters / referenceTickerQuarters) * 100) : '0.00%'}}`],
         ['Ticker-Quarter Missing', missingTickerQuarters, `${{referenceTickerQuarters ? fmtPct((missingTickerQuarters / referenceTickerQuarters) * 100) : '0.00%'}}`],
       ];
@@ -1133,6 +1203,7 @@ def _render_dashboard_html(
         {{ key: 'eodhd_value', label: 'EODHD', render: (v) => fmtNumber(v, 2) }},
         {{ key: 'open_value', label: 'Open', render: (v) => fmtNumber(v, 2) }},
         {{ key: 'date_diff_days', label: 'Date Δ days', render: (v) => fmtNumber(v) }},
+        {{ key: 'selected_source_group_label', label: 'Source Mode' }},
         {{ key: 'selected_source', label: 'Selected Source' }},
         {{ key: 'selected_source_label', label: 'Source Label' }},
       ], 250);
@@ -1149,8 +1220,9 @@ def _render_dashboard_html(
     setOptions(qs('statementFilter'), FILTERS.statements, 'All statements');
     setOptions(qs('metricFilter'), FILTERS.metrics, 'All KPIs');
     setOptions(qs('quarterFilter'), FILTERS.quarters, 'All quarters');
+    qs('sourceGroupFilter').innerHTML = `<option value="all">All source modes</option>${{FILTERS.source_groups.map((item) => `<option value="${{item.value}}">${{item.label}}</option>`).join('')}}`;
     qs('tickerOptions').innerHTML = FILTERS.tickers.map((ticker) => `<option value="${{ticker}}"></option>`).join('');
-    ['statementFilter', 'metricFilter', 'quarterFilter', 'issueFilter', 'tickerFilter'].forEach((id) => {{
+    ['statementFilter', 'metricFilter', 'quarterFilter', 'issueFilter', 'sourceGroupFilter', 'tickerFilter'].forEach((id) => {{
       qs(id).addEventListener('input', refresh);
       qs(id).addEventListener('change', refresh);
     }});
@@ -1183,6 +1255,30 @@ def _issue_kind_expr(threshold_pct: float) -> pl.Expr:
         .when(pl.col("diff_pct").abs() > threshold_pct)
         .then(pl.lit("error_gt_threshold"))
         .otherwise(pl.lit("within_threshold"))
+    )
+
+
+def _selected_source_group_expr() -> pl.Expr:
+    return (
+        pl.when(pl.col("match_status") == "missing_in_open_source")
+        .then(pl.lit("missing_open"))
+        .when(pl.col("selected_source").is_null() | (pl.col("selected_source") == ""))
+        .then(pl.lit("unknown"))
+        .when(pl.col("selected_source").is_in(SEC_SELECTED_SOURCES))
+        .then(pl.lit("sec"))
+        .otherwise(pl.lit("non_sec"))
+    )
+
+
+def _selected_source_group_label_expr() -> pl.Expr:
+    return (
+        pl.when(pl.col("selected_source_group") == "sec")
+        .then(pl.lit(SOURCE_GROUP_LABELS["sec"]))
+        .when(pl.col("selected_source_group") == "non_sec")
+        .then(pl.lit(SOURCE_GROUP_LABELS["non_sec"]))
+        .when(pl.col("selected_source_group") == "missing_open")
+        .then(pl.lit(SOURCE_GROUP_LABELS["missing_open"]))
+        .otherwise(pl.lit(SOURCE_GROUP_LABELS["unknown"]))
     )
 
 

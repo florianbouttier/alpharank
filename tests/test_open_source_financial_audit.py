@@ -92,6 +92,12 @@ def test_build_financial_statement_audit_dashboard_writes_expected_outputs(tmp_p
     summary = result.summary_md_path.read_text()
     assert "Rows above threshold: `1`" in summary
     assert "Missing in open-source: `1`" in summary
+    assert "SEC filed" in summary
+    assert "Vendor / non-SEC" in summary
+
+    dashboard_html = result.dashboard_path.read_text()
+    assert "Source Mode" in dashboard_html
+    assert "Vendor / non-SEC" in dashboard_html
 
     alignment = pl.read_parquet(result.alignment_path)
     aaa_revenue = alignment.filter(
@@ -101,4 +107,6 @@ def test_build_financial_statement_audit_dashboard_writes_expected_outputs(tmp_p
         & (pl.col("date") == "2020-03-31")
     ).row(0, named=True)
     assert aaa_revenue["selected_source"] == "sec_companyfacts"
+    assert aaa_revenue["selected_source_group"] == "sec"
+    assert aaa_revenue["selected_source_group_label"] == "SEC filed"
     assert aaa_revenue["issue_kind"] == "error_gt_threshold"
