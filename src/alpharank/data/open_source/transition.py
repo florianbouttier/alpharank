@@ -179,9 +179,10 @@ def run_open_source_price_transition(
 
 
 def _load_reference_tickers(reference_data_dir: Path, *, start_date: str) -> tuple[str, ...]:
+    start_date_value = date.fromisoformat(start_date)
     return tuple(
         pl.read_parquet(reference_data_dir / "US_Finalprice.parquet")
-        .filter(pl.col("date") >= pl.lit(start_date))
+        .filter(pl.col("date").cast(pl.Date, strict=False) >= pl.lit(start_date_value))
         .select(pl.col("ticker").str.replace(r"\.US$", "").alias("ticker"))
         .unique()
         .sort("ticker")

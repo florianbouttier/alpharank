@@ -75,6 +75,11 @@ def _write_csv(path: Path, frame: pl.DataFrame) -> None:
     frame.write_csv(path)
 
 
+def _coerce_iso_date(value: Any) -> str:
+    text = str(value)
+    return text.split(" ")[0]
+
+
 def _ticker_set(frame: pl.DataFrame) -> set[str]:
     if "ticker" not in frame.columns:
         return set()
@@ -186,20 +191,20 @@ def _prepare_aligned_datasets(output_root: Path) -> tuple[Path, Path, dict[str, 
     eodhd_prices = _filter_by_tickers(_read_parquet(EODHD_DIR / "US_Finalprice.parquet"), common_tickers)
     open_prices = _filter_by_tickers(_read_parquet(OPEN_SOURCE_DIR / "US_Finalprice.parquet"), common_tickers)
     price_cutoff_date = min(
-        str(eodhd_prices.select(pl.col("date").max()).item()),
-        str(open_prices.select(pl.col("date").max()).item()),
+        _coerce_iso_date(eodhd_prices.select(pl.col("date").max()).item()),
+        _coerce_iso_date(open_prices.select(pl.col("date").max()).item()),
     )
     price_start_date = max(
         PRICE_HISTORY_START,
-        str(open_prices.select(pl.col("date").min()).item()),
+        _coerce_iso_date(open_prices.select(pl.col("date").min()).item()),
     )
 
     def min_statement_max(name: str) -> str:
         left = _read_parquet(EODHD_DIR / name)
         right = _read_parquet(OPEN_SOURCE_DIR / name)
         return min(
-            str(left.select(pl.col("date").max()).item()),
-            str(right.select(pl.col("date").max()).item()),
+            _coerce_iso_date(left.select(pl.col("date").max()).item()),
+            _coerce_iso_date(right.select(pl.col("date").max()).item()),
         )
 
     financial_cutoff_date = min(
@@ -209,15 +214,15 @@ def _prepare_aligned_datasets(output_root: Path) -> tuple[Path, Path, dict[str, 
         price_cutoff_date,
     )
     financial_start_date = max(
-        str(_read_parquet(OPEN_SOURCE_DIR / "US_Income_statement.parquet").select(pl.col("date").min()).item()),
+        _coerce_iso_date(_read_parquet(OPEN_SOURCE_DIR / "US_Income_statement.parquet").select(pl.col("date").min()).item()),
         DEFAULT_FIRST_DATE + "-01",
     )
 
     eodhd_earnings = _read_parquet(EODHD_DIR / "US_Earnings.parquet")
     open_earnings = _read_parquet(OPEN_SOURCE_DIR / "US_Earnings.parquet")
     earnings_cutoff_date = min(
-        str(eodhd_earnings.select(pl.col("reportDate").max()).item()),
-        str(open_earnings.select(pl.col("reportDate").max()).item()),
+        _coerce_iso_date(eodhd_earnings.select(pl.col("reportDate").max()).item()),
+        _coerce_iso_date(open_earnings.select(pl.col("reportDate").max()).item()),
         price_cutoff_date,
     )
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import date
 from html import escape
 from pathlib import Path
 from typing import Iterable
@@ -33,10 +34,15 @@ def load_eodhd_prices_between(
 ) -> pl.DataFrame:
     resolved_dir = resolve_eodhd_output_dir(data_dir)
     ticker_set = [f"{ticker}.US" for ticker in tickers]
+    start_date_value = date.fromisoformat(start_date)
+    end_date_value = date.fromisoformat(end_date)
     return (
         pl.read_parquet(resolved_dir / "US_Finalprice.parquet")
         .filter(pl.col("ticker").is_in(ticker_set))
-        .filter((pl.col("date") >= pl.lit(start_date)) & (pl.col("date") <= pl.lit(end_date)))
+        .filter(
+            (pl.col("date").cast(pl.Date, strict=False) >= pl.lit(start_date_value))
+            & (pl.col("date").cast(pl.Date, strict=False) <= pl.lit(end_date_value))
+        )
         .select(["ticker", "date", "adjusted_close", "close", "open", "high", "low", "volume"])
         .sort(["ticker", "date"])
     )
