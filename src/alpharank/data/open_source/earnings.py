@@ -13,6 +13,11 @@ SEC_EPS_TAGS: tuple[str, ...] = (
     "EarningsPerShareBasic",
     "IncomeLossFromContinuingOperationsPerDilutedShare",
     "IncomeLossFromContinuingOperationsPerBasicShare",
+    "IncomeLossFromContinuingOperationsPerBasicAndDilutedShare",
+    "IncomeLossFromContinuingOperationsBasicAndDilutedNetOfTaxPerShare",
+    "NetIncomeLossAvailableToCommonStockholdersBasicAndDilutedPerShare",
+    "NetIncomeLossAvailableToCommonStockholdersPerShareDiluted",
+    "NetIncomeLossAvailableToCommonStockholdersPerShareBasicAndDiluted",
 )
 
 
@@ -109,6 +114,28 @@ def empty_earnings_lineage_frame() -> pl.DataFrame:
 
 def build_sec_companyfacts_earnings_actuals(*, ticker: str, facts_payload: dict[str, object]) -> pl.DataFrame:
     selected = _select_best_facts("income_statement", ("us-gaap",), SEC_EPS_TAGS, facts_payload.get("facts", {}))  # type: ignore[arg-type]
+    return _build_sec_earnings_actuals_frame(
+        ticker=ticker,
+        selected=selected,
+        source="sec_companyfacts",
+    )
+
+
+def build_sec_filing_earnings_actuals(*, ticker: str, facts_payload: dict[str, object]) -> pl.DataFrame:
+    selected = _select_best_facts("income_statement", ("us-gaap", "ifrs-full"), SEC_EPS_TAGS, facts_payload)
+    return _build_sec_earnings_actuals_frame(
+        ticker=ticker,
+        selected=selected,
+        source="sec_filing",
+    )
+
+
+def _build_sec_earnings_actuals_frame(
+    *,
+    ticker: str,
+    selected: list[dict[str, object]],
+    source: str,
+) -> pl.DataFrame:
     rows: list[dict[str, object]] = []
     for fact in selected:
         value = fact.get("val")
@@ -122,7 +149,7 @@ def build_sec_companyfacts_earnings_actuals(*, ticker: str, facts_payload: dict[
                 "period_end": str(end),
                 "reportDate": str(filed),
                 "epsActual": float(value),
-                "source": "sec_companyfacts",
+                "source": source,
                 "source_label": str(fact.get("tag") or "sec_eps_actual"),
                 "form": str(fact.get("form") or ""),
                 "fiscal_period": str(fact.get("fp") or ""),
@@ -169,7 +196,15 @@ def consolidate_earnings(
                 "fiscal_year": "sec_fiscal_year",
             }
         )
-        .sort(["ticker", "period_end", "sec_reportDate"])
+        .with_columns(
+            pl.when(pl.col("sec_source") == "sec_companyfacts")
+            .then(pl.lit(0))
+            .when(pl.col("sec_source") == "sec_filing")
+            .then(pl.lit(1))
+            .otherwise(pl.lit(9))
+            .alias("sec_source_priority")
+        )
+        .sort(["ticker", "period_end", "sec_source_priority", "sec_reportDate"])
         .unique(subset=["ticker", "period_end"], keep="last", maintain_order=True)
         .sort(["ticker", "period_end"])
     )
@@ -189,7 +224,7 @@ def consolidate_earnings(
                 pl.when(pl.col("yahoo_epsActual").is_not_null())
                 .then(pl.lit("yfinance"))
                 .when(pl.col("sec_epsActual").is_not_null())
-                .then(pl.lit("sec_companyfacts"))
+                .then(pl.col("sec_source"))
                 .otherwise(pl.lit(None).cast(pl.Utf8))
                 .alias("actual_source"),
                 pl.when(pl.col("yahoo_epsEstimate").is_not_null())
@@ -208,7 +243,7 @@ def consolidate_earnings(
                     [
                         pl.lit("sec_submissions"),
                         pl.when(pl.col("yahoo_reportDate").is_not_null()).then(pl.lit("yfinance")).otherwise(pl.lit(None).cast(pl.Utf8)),
-                        pl.when(pl.col("sec_epsActual").is_not_null()).then(pl.lit("sec_companyfacts")).otherwise(pl.lit(None).cast(pl.Utf8)),
+                        pl.when(pl.col("sec_epsActual").is_not_null()).then(pl.col("sec_source")).otherwise(pl.lit(None).cast(pl.Utf8)),
                     ],
                     separator=" | ",
                     ignore_nulls=True,
@@ -216,7 +251,7 @@ def consolidate_earnings(
                 pl.when(pl.col("yahoo_reportDate").is_not_null())
                 .then(pl.lit("sec_submissions+yfinance"))
                 .when(pl.col("sec_epsActual").is_not_null())
-                .then(pl.lit("sec_submissions+sec_companyfacts"))
+                .then(pl.concat_str([pl.lit("sec_submissions+"), pl.col("sec_source")], separator=""))
                 .otherwise(pl.lit("sec_submissions"))
                 .alias("selected_source"),
                 pl.concat_str(
@@ -250,7 +285,7 @@ def consolidate_earnings(
                 pl.when(pl.col("yahoo_epsActual").is_not_null())
                 .then(pl.lit("yfinance"))
                 .when(pl.col("sec_epsActual").is_not_null())
-                .then(pl.lit("sec_companyfacts"))
+                .then(pl.col("sec_source"))
                 .otherwise(pl.lit(None).cast(pl.Utf8))
                 .alias("actual_source"),
                 pl.when(pl.col("yahoo_epsEstimate").is_not_null())
@@ -265,7 +300,7 @@ def consolidate_earnings(
                     [
                         pl.lit("sec_submissions"),
                         pl.when(pl.col("yahoo_reportDate").is_not_null()).then(pl.lit("yfinance")).otherwise(pl.lit(None).cast(pl.Utf8)),
-                        pl.when(pl.col("sec_epsActual").is_not_null()).then(pl.lit("sec_companyfacts")).otherwise(pl.lit(None).cast(pl.Utf8)),
+                        pl.when(pl.col("sec_epsActual").is_not_null()).then(pl.col("sec_source")).otherwise(pl.lit(None).cast(pl.Utf8)),
                     ],
                     separator=" | ",
                     ignore_nulls=True,
@@ -273,7 +308,7 @@ def consolidate_earnings(
                 pl.when(pl.col("yahoo_reportDate").is_not_null())
                 .then(pl.lit("sec_submissions+yfinance"))
                 .when(pl.col("sec_epsActual").is_not_null())
-                .then(pl.lit("sec_submissions+sec_companyfacts"))
+                .then(pl.concat_str([pl.lit("sec_submissions+"), pl.col("sec_source")], separator=""))
                 .otherwise(pl.lit("sec_submissions"))
                 .alias("selected_source"),
             ]

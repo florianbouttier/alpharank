@@ -5,13 +5,18 @@ from pathlib import Path
 import polars as pl
 
 from alpharank.data.open_source.benchmark import normalize_eodhd_earnings
-from alpharank.data.open_source.earnings import consolidate_earnings
+from alpharank.data.open_source.earnings import (
+    build_sec_companyfacts_earnings_actuals,
+    consolidate_earnings,
+    empty_earnings_calendar_frame,
+)
 from alpharank.data.open_source.ingestion import (
     _canonicalize_price_tickers,
     _filter_earnings_years,
     _identify_price_history_backfill_tickers,
 )
 from alpharank.data.open_source.general_reference import build_general_reference
+from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
 from alpharank.data.open_source.sec import _select_share_facts
 
 
@@ -341,3 +346,115 @@ def test_select_share_facts_prefers_dimensionless_total_when_available() -> None
     assert len(selected) == 1
     assert selected[0]["val"] == 615_355_540.0
     assert selected[0]["tag"] == "EntityCommonStockSharesOutstanding"
+
+
+def test_sec_companyfacts_earnings_prefers_usd_per_share_unit() -> None:
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "EarningsPerShareDiluted": {
+                    "units": {
+                        "segment": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-03-31",
+                                "val": 999.0,
+                                "fy": 2025,
+                                "fp": "Q1",
+                                "form": "10-Q",
+                                "filed": "2025-05-01",
+                            }
+                        ],
+                        "USD/shares": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-03-31",
+                                "val": 1.41,
+                                "fy": 2025,
+                                "fp": "Q1",
+                                "form": "10-Q",
+                                "filed": "2025-05-01",
+                            }
+                        ],
+                    }
+                }
+            }
+        }
+    }
+
+    actuals = build_sec_companyfacts_earnings_actuals(ticker="CVS", facts_payload=payload)
+
+    assert actuals.height == 1
+    assert actuals["epsActual"].to_list() == [1.41]
+    assert actuals["source"].to_list() == ["sec_companyfacts"]
+
+
+def test_combine_sec_earnings_actuals_keeps_filing_fallback_and_lineage() -> None:
+    sec_companyfacts = pl.DataFrame(
+        schema={
+            "ticker": pl.String,
+            "period_end": pl.String,
+            "reportDate": pl.String,
+            "epsActual": pl.Float64,
+            "source": pl.String,
+            "source_label": pl.String,
+            "form": pl.String,
+            "fiscal_period": pl.String,
+            "fiscal_year": pl.Int64,
+        }
+    )
+    sec_filing = pl.DataFrame(
+        {
+            "ticker": ["ADT.US"],
+            "period_end": ["2025-03-31"],
+            "reportDate": ["2025-04-24"],
+            "epsActual": [0.15],
+            "source": ["sec_filing"],
+            "source_label": ["EarningsPerShareDiluted"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2025],
+        }
+    )
+    combined = _combine_sec_earnings_actuals(sec_companyfacts=sec_companyfacts, sec_filing=sec_filing)
+
+    assert combined.height == 1
+    assert combined["source"].to_list() == ["sec_filing"]
+
+    sec_calendar = pl.DataFrame(
+        {
+            "ticker": ["ADT.US"],
+            "period_end": ["2025-03-31"],
+            "reportDate": ["2025-04-24"],
+            "earningsDatetime": ["2025-04-24 00:00:00"],
+            "accession_number": ["0001703056-25-000069"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2025],
+            "source": ["sec_submissions"],
+            "source_label": ["reportDate"],
+        }
+    )
+
+    yahoo_earnings = pl.DataFrame(
+        schema={
+            "ticker": pl.String,
+            "reportDate": pl.String,
+            "earningsDatetime": pl.String,
+            "period_end": pl.String,
+            "epsEstimate": pl.Float64,
+            "epsActual": pl.Float64,
+            "surprisePercent": pl.Float64,
+            "source": pl.String,
+        }
+    )
+
+    consolidated, lineage, _ = consolidate_earnings(
+        sec_calendar=sec_calendar,
+        yahoo_earnings=yahoo_earnings,
+        sec_actuals=combined,
+    )
+
+    assert consolidated["epsActual"].to_list() == [0.15]
+    assert consolidated["actual_source"].to_list() == ["sec_filing"]
+    assert lineage["actual_source"].to_list() == ["sec_filing"]

@@ -159,16 +159,37 @@ def run_open_source_cadrage(
     sec_financials = pl.concat(sec_frames, how="vertical") if sec_frames else _empty_financials()
     sec_financials = sec_financials.filter(pl.col("date").str.starts_with(f"{year}"))
     sec_actual_frames, sec_earnings_failures = _fetch_sec_earnings_actuals(sec_client, sec_mapping)
-    sec_earnings_actuals = _concat_or_empty(sec_actual_frames, empty=empty_earnings_actuals_frame()).filter(
+    sec_companyfacts_earnings_actuals = _concat_or_empty(sec_actual_frames, empty=empty_earnings_actuals_frame()).filter(
         pl.col("period_end").str.starts_with(f"{year}")
     )
     sec_calendar_frames, sec_calendar_failures = _fetch_sec_earnings_calendar(sec_filing_client, sec_mapping, year=year)
     sec_earnings_calendar = _concat_or_empty(sec_calendar_frames, empty=empty_earnings_calendar_frame())
+    sec_earnings_filing_tickers = _identify_sec_earnings_filing_fallback_tickers(
+        tickers=ticker_list,
+        sec_calendar=sec_earnings_calendar,
+        sec_companyfacts_actuals=sec_companyfacts_earnings_actuals,
+    )
+    sec_filing_earnings_actuals = empty_earnings_actuals_frame()
+    sec_filing_earnings_failures: list[dict[str, str]] = []
+    if sec_earnings_filing_tickers:
+        sec_earnings_filing_mapping = sec_mapping.filter(pl.col("ticker").is_in(_ticker_roots(sec_earnings_filing_tickers)))
+        sec_filing_actual_frames, sec_filing_earnings_failures = _fetch_sec_filing_earnings_actuals(
+            sec_filing_client,
+            sec_earnings_filing_mapping,
+            year=year,
+        )
+        sec_filing_earnings_actuals = _concat_or_empty(sec_filing_actual_frames, empty=empty_earnings_actuals_frame()).filter(
+            pl.col("period_end").str.starts_with(f"{year}")
+        )
+    sec_earnings_actuals = _combine_sec_earnings_actuals(
+        sec_companyfacts=sec_companyfacts_earnings_actuals,
+        sec_filing=sec_filing_earnings_actuals,
+    )
     sec_filing_tickers = _identify_sec_filing_fallback_tickers(ticker_list, sec_financials)
     sec_filing_financials = _empty_financials()
     sec_filing_fetch_failures: list[dict[str, str]] = []
     if sec_filing_tickers:
-        sec_filing_mapping = sec_mapping.filter(pl.col("ticker").is_in(sec_filing_tickers))
+        sec_filing_mapping = sec_mapping.filter(pl.col("ticker").is_in(_ticker_roots(sec_filing_tickers)))
         sec_filing_frames, sec_filing_fetch_failures = _fetch_sec_filing_financials(
             sec_filing_client,
             sec_filing_mapping,
@@ -183,7 +204,7 @@ def run_open_source_cadrage(
             sec_filing=sec_filing_financials,
         )
         yahoo_financials = (
-            yahoo_client.fetch_quarterly_financials(yfinance_financial_tickers).filter(pl.col("date").str.starts_with(f"{year}"))
+            yahoo_client.fetch_quarterly_financials(_ticker_roots(yfinance_financial_tickers)).filter(pl.col("date").str.starts_with(f"{year}"))
             if yfinance_financial_tickers
             else _empty_financials().select(["ticker", "statement", "metric", "date", "filing_date", "value", "source", "source_label"])
         )
@@ -268,7 +289,7 @@ def run_open_source_cadrage(
         coverage=coverage,
         audited_metric_catalog=audited_metric_catalog,
         sec_fetch_failures=[*sec_fetch_failures, *sec_earnings_failures, *sec_profile_failures],
-        sec_filing_fetch_failures=[*sec_filing_fetch_failures, *sec_calendar_failures],
+        sec_filing_fetch_failures=[*sec_filing_fetch_failures, *sec_calendar_failures, *sec_filing_earnings_failures],
         simfin_fetch_failures=simfin_fetch_failures,
         consolidation_source_summary=consolidation_source_summary,
         general_reference=general_reference,
@@ -544,6 +565,10 @@ def _concat_or_empty(frames: list[pl.DataFrame], *, empty: pl.DataFrame) -> pl.D
     return pl.concat(frames, how="vertical") if frames else empty
 
 
+def _ticker_roots(tickers: tuple[str, ...] | list[str]) -> list[str]:
+    return [ticker[:-3] if ticker.endswith(".US") else ticker for ticker in tickers]
+
+
 def _fetch_sec_financials(
     sec_client: SecCompanyFactsClient,
     sec_mapping: pl.DataFrame,
@@ -612,6 +637,31 @@ def _fetch_sec_earnings_calendar(
             except Exception as exc:
                 print(f"SEC earnings calendar fetch failed for {ticker}: {exc}")
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
+    return frames, failures
+
+
+def _fetch_sec_filing_earnings_actuals(
+    sec_client: SecFilingFactsClient,
+    sec_mapping: pl.DataFrame,
+    *,
+    year: int,
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_earnings_actuals, str(row["ticker"]), str(row["cik"]), [year]): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                print(f"SEC filing earnings actual fetch failed for {ticker}: {exc}")
+                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
     return frames, failures
 
 
@@ -703,6 +753,57 @@ def _identify_yfinance_financial_fallback_tickers(
             if spec.statement != "earnings" and spec.yfinance_rows
         },
     )
+
+
+def _identify_sec_earnings_filing_fallback_tickers(
+    *,
+    tickers: tuple[str, ...],
+    sec_calendar: pl.DataFrame,
+    sec_companyfacts_actuals: pl.DataFrame,
+) -> tuple[str, ...]:
+    if sec_calendar.is_empty():
+        return ()
+    expected = sec_calendar.group_by("ticker").agg(pl.len().alias("calendar_rows"))
+    actual = sec_companyfacts_actuals.group_by("ticker").agg(pl.len().alias("actual_rows"))
+    coverage = (
+        pl.DataFrame({"ticker": [f"{ticker}.US" for ticker in tickers]})
+        .join(expected, on="ticker", how="left")
+        .join(actual, on="ticker", how="left")
+        .with_columns(
+            [
+                pl.col("calendar_rows").fill_null(0),
+                pl.col("actual_rows").fill_null(0),
+            ]
+        )
+        .filter(pl.col("calendar_rows") > pl.col("actual_rows"))
+        .sort("ticker")
+    )
+    return tuple(coverage.get_column("ticker").to_list())
+
+
+def _combine_sec_earnings_actuals(
+    *,
+    sec_companyfacts: pl.DataFrame,
+    sec_filing: pl.DataFrame,
+) -> pl.DataFrame:
+    if sec_companyfacts.is_empty() and sec_filing.is_empty():
+        return empty_earnings_actuals_frame()
+    combined = (
+        pl.concat([frame for frame in (sec_companyfacts, sec_filing) if not frame.is_empty()], how="vertical")
+        .with_columns(
+            pl.when(pl.col("source") == "sec_companyfacts")
+            .then(pl.lit(0))
+            .when(pl.col("source") == "sec_filing")
+            .then(pl.lit(1))
+            .otherwise(pl.lit(9))
+            .alias("source_priority")
+        )
+        .sort(["ticker", "period_end", "source_priority", "reportDate"])
+        .unique(subset=["ticker", "period_end"], keep="first", maintain_order=True)
+        .drop("source_priority")
+        .sort(["ticker", "period_end"])
+    )
+    return combined
 
 
 def _identify_metric_gap_tickers(

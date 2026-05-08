@@ -130,10 +130,17 @@ def _select_best_facts(
     facts_payload: dict[str, Any],
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
-    for tag_priority, tag in enumerate(tags):
+    tag_list = tuple(tags)
+    preferred_units: tuple[str, ...] = ()
+    if statement == "shares":
+        preferred_units = ("shares",)
+    elif any("PerShare" in tag or "EarningsPerShare" in tag for tag in tag_list):
+        preferred_units = ("USD/shares", "pure")
+
+    for tag_priority, tag in enumerate(tag_list):
         for fact_root in fact_roots:
             unit_payload = facts_payload.get(fact_root, {}).get(tag, {}).get("units", {})
-            records = _extract_unit_records(unit_payload)
+            records = _extract_unit_records(unit_payload, preferred_units=preferred_units)
             cleaned = [_clean_fact(statement, tag, record, tag_priority=tag_priority) for record in records]
             candidates.extend(record for record in cleaned if record is not None)
 
@@ -186,7 +193,15 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
     }
 
 
-def _extract_unit_records(unit_payload: dict[str, Any]) -> list[dict[str, Any]]:
+def _extract_unit_records(
+    unit_payload: dict[str, Any],
+    *,
+    preferred_units: Iterable[str] = (),
+) -> list[dict[str, Any]]:
+    for unit in preferred_units:
+        records = unit_payload.get(unit, [])
+        if records:
+            return records
     for unit in ("USD", "shares", "pure"):
         records = unit_payload.get(unit, [])
         if records:

@@ -12,6 +12,7 @@ import polars as pl
 import requests
 
 from alpharank.data.open_source.config import METRIC_SPECS
+from alpharank.data.open_source.earnings import SEC_EPS_TAGS, build_sec_filing_earnings_actuals, empty_earnings_actuals_frame
 from alpharank.data.open_source.sec import (
     _derive_free_cash_flow,
     _empty_sec_frame,
@@ -159,6 +160,17 @@ class SecFilingFactsClient:
             )
         return pl.DataFrame(rows).sort(["ticker", "period_end", "reportDate", "accession_number"])
 
+    def extract_earnings_actuals(self, ticker: str, cik: str | int, years: list[int] | tuple[int, ...]) -> pl.DataFrame:
+        filings = self.list_filings(cik, years)
+        if not filings:
+            return empty_earnings_actuals_frame()
+
+        facts_payload = self._build_facts_payload(cik, filings)
+        return build_sec_filing_earnings_actuals(
+            ticker=ticker,
+            facts_payload=facts_payload,
+        )
+
     def _list_filings_for_year(self, cik: str | int, year: int) -> list[FilingMetadata]:
         payload = self.fetch_company_submissions(cik)
         recent = payload.get("filings", {}).get("recent", {})
@@ -209,6 +221,7 @@ class SecFilingFactsClient:
         units = _parse_units(root)
         filing_fy, filing_fp = _parse_document_focus(root)
         allowed_tags = {tag for spec in METRIC_SPECS for tag in spec.sec_tags}
+        allowed_tags.update(SEC_EPS_TAGS)
         share_tags = {tag for spec in METRIC_SPECS if spec.statement == "shares" for tag in spec.sec_tags}
         records: list[tuple[str, str, str, dict[str, object]]] = []
         for element in root.iter():
