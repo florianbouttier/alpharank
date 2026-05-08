@@ -173,44 +173,67 @@ class SecFilingFactsClient:
 
     def _list_filings_for_year(self, cik: str | int, year: int) -> list[FilingMetadata]:
         payload = self.fetch_company_submissions(cik)
-        recent = payload.get("filings", {}).get("recent", {})
-        forms = recent.get("form", [])
-        accession_numbers = recent.get("accessionNumber", [])
-        filing_dates = recent.get("filingDate", [])
-        report_dates = recent.get("reportDate", [])
-        primary_documents = recent.get("primaryDocument", [])
-        acceptance_datetimes = recent.get("acceptanceDateTime", [])
-
         filings: list[FilingMetadata] = []
-        for form, accession_number, filing_date, report_date, primary_document, acceptance_datetime in zip(
-            forms,
-            accession_numbers,
-            filing_dates,
-            report_dates,
-            primary_documents,
-            acceptance_datetimes,
-            strict=False,
-        ):
-            if form not in {"10-Q", "10-K", "10-Q/A", "10-K/A"}:
-                continue
-            if not str(report_date).startswith(str(year)):
-                continue
-            filings.append(
-                FilingMetadata(
-                    accession_number=str(accession_number),
-                    filing_date=str(filing_date),
-                    report_date=str(report_date),
-                    form=str(form),
-                    primary_document=str(primary_document),
-                    acceptance_datetime=str(acceptance_datetime) if acceptance_datetime is not None else None,
+        for block in self._submission_blocks(cik, payload):
+            forms = block.get("form", [])
+            accession_numbers = block.get("accessionNumber", [])
+            filing_dates = block.get("filingDate", [])
+            report_dates = block.get("reportDate", [])
+            primary_documents = block.get("primaryDocument", [])
+            acceptance_datetimes = block.get("acceptanceDateTime", [])
+
+            for form, accession_number, filing_date, report_date, primary_document, acceptance_datetime in zip(
+                forms,
+                accession_numbers,
+                filing_dates,
+                report_dates,
+                primary_documents,
+                acceptance_datetimes,
+                strict=False,
+            ):
+                if form not in {"10-Q", "10-K", "10-Q/A", "10-K/A"}:
+                    continue
+                if not str(report_date).startswith(str(year)):
+                    continue
+                filings.append(
+                    FilingMetadata(
+                        accession_number=str(accession_number),
+                        filing_date=str(filing_date),
+                        report_date=str(report_date),
+                        form=str(form),
+                        primary_document=str(primary_document),
+                        acceptance_datetime=str(acceptance_datetime) if acceptance_datetime is not None else None,
+                    )
                 )
-            )
         return sorted(filings, key=lambda filing: (filing.report_date, filing.filing_date, filing.accession_number))
+
+    def _submission_blocks(self, cik: str | int, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        blocks: list[dict[str, Any]] = []
+        recent = payload.get("filings", {}).get("recent", {})
+        if recent:
+            blocks.append(recent)
+        for older in payload.get("filings", {}).get("files", []):
+            name = older.get("name")
+            if not name:
+                continue
+            older_payload = self._get_json(
+                f"https://data.sec.gov/submissions/{name}",
+                cache_name=str(name),
+            )
+            if older_payload:
+                blocks.append(older_payload)
+        return blocks
 
     def _build_facts_payload(self, cik: str | int, filings: list[FilingMetadata]) -> dict[str, Any]:
         payload: dict[str, dict[str, dict[str, list[dict[str, object]]]]] = {}
         for filing in filings:
-            for root_name, tag_name, unit_name, record in self._extract_filing_records(cik, filing):
+            try:
+                records = self._extract_filing_records(cik, filing)
+            except RuntimeError as exc:
+                if "No SEC XBRL instance found" in str(exc):
+                    continue
+                raise
+            for root_name, tag_name, unit_name, record in records:
                 payload.setdefault(root_name, {}).setdefault(tag_name, {}).setdefault("units", {}).setdefault(unit_name, []).append(record)
         return payload
 
@@ -250,6 +273,12 @@ class SecFilingFactsClient:
                 continue
             if local_name in share_tags:
                 end = _normalize_share_end_date(end, filing.report_date)
+            inferred_fiscal_period = _infer_fiscal_period(
+                filing_fp=filing_fp,
+                report_date=filing.report_date,
+                start=start,
+                end=end,
+            )
             records.append(
                 (
                     fact_root,
@@ -262,7 +291,7 @@ class SecFilingFactsClient:
                         "filed": filing.filing_date,
                         "form": filing.form,
                         "fy": filing_fy,
-                        "fp": filing_fp,
+                        "fp": inferred_fiscal_period or filing_fp,
                         "has_dimensions": context["has_dimensions"],
                         "dimensions": context.get("dimensions", ()),
                         "statement_class_member": context.get("statement_class_member"),
@@ -473,6 +502,35 @@ def _namespace_uri(tag: str) -> str | None:
 
 def _local_name(tag: str) -> str:
     return tag.split("}", maxsplit=1)[-1]
+
+
+def _infer_fiscal_period(
+    *,
+    filing_fp: str | None,
+    report_date: str,
+    start: str | None,
+    end: str | None,
+) -> str | None:
+    if filing_fp != "FY" or start is None or end is None:
+        return filing_fp
+    try:
+        start_value = dt_date.fromisoformat(start)
+        end_value = dt_date.fromisoformat(end)
+        report_value = dt_date.fromisoformat(report_date)
+    except ValueError:
+        return filing_fp
+    duration_days = (end_value - start_value).days
+    if not 70 <= duration_days <= 110:
+        return filing_fp
+
+    month_delta = (report_value.year - end_value.year) * 12 + (report_value.month - end_value.month)
+    quarter_map = {
+        9: "Q1",
+        6: "Q2",
+        3: "Q3",
+        0: "Q4",
+    }
+    return quarter_map.get(month_delta, filing_fp)
 
 
 def _statement_class_member(dimensions: list[tuple[str, str]] | tuple[tuple[str, str], ...]) -> str | None:

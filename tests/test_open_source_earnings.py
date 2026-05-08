@@ -18,6 +18,7 @@ from alpharank.data.open_source.ingestion import (
 from alpharank.data.open_source.general_reference import build_general_reference
 from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
 from alpharank.data.open_source.sec import _select_share_facts
+from alpharank.data.open_source.sec_filing import _infer_fiscal_period
 
 
 def test_consolidate_earnings_prefers_sec_calendar_and_yahoo_market_fields() -> None:
@@ -458,3 +459,30 @@ def test_combine_sec_earnings_actuals_keeps_filing_fallback_and_lineage() -> Non
     assert consolidated["epsActual"].to_list() == [0.15]
     assert consolidated["actual_source"].to_list() == ["sec_filing"]
     assert lineage["actual_source"].to_list() == ["sec_filing"]
+
+
+def test_infer_fiscal_period_maps_quarter_subperiods_inside_fy_filings() -> None:
+    assert _infer_fiscal_period(
+        filing_fp="FY",
+        report_date="2025-09-30",
+        start="2024-10-01",
+        end="2024-12-31",
+    ) == "Q1"
+    assert _infer_fiscal_period(
+        filing_fp="FY",
+        report_date="2025-09-30",
+        start="2025-01-01",
+        end="2025-03-31",
+    ) == "Q2"
+    assert _infer_fiscal_period(
+        filing_fp="FY",
+        report_date="2025-09-30",
+        start="2025-04-01",
+        end="2025-06-30",
+    ) == "Q3"
+    assert _infer_fiscal_period(
+        filing_fp="FY",
+        report_date="2025-09-30",
+        start="2025-07-01",
+        end="2025-09-30",
+    ) == "Q4"
