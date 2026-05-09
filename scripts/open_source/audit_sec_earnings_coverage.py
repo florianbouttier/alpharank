@@ -31,10 +31,17 @@ def main() -> None:
     sec_client = SecCompanyFactsClient(
         user_agent=args.user_agent,
         cache_dir=cache_dir / "sec_companyfacts",
+        max_retries=8,
+        request_pause_seconds=0.5,
     )
     sec_filing_client = SecFilingFactsClient(
         user_agent=args.user_agent,
-        cache_dir=cache_dir / "sec_filing",
+        # Historical audits are read-heavy and can otherwise create a massive
+        # on-disk filing cache. Keep the long-lived app cache for companyfacts,
+        # but disable filing cache materialization for this coverage script.
+        cache_dir=None,
+        max_retries=8,
+        request_pause_seconds=0.5,
     )
     sec_mapping_all = sec_client.fetch_company_mapping()
     universe = _load_universe(project_root=project_root, limit=args.limit)
