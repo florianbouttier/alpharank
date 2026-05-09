@@ -70,6 +70,10 @@ def main() -> None:
         "output_dir": str(output_dir),
         "max_quarters": args.max_quarters,
         "max_price_years": args.max_price_years,
+        "ui_policy": {
+            "default_view": "all_available_history",
+            "chart_stack": "echarts",
+        },
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     (output_dir / "index.html").write_text(
@@ -88,8 +92,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--share-ratio-threshold", type=float, default=1.5)
     parser.add_argument("--price-factor-ratio-threshold", type=float, default=1.2)
-    parser.add_argument("--max-price-years", type=int, default=10)
-    parser.add_argument("--max-quarters", type=int, default=24)
+    parser.add_argument("--max-price-years", type=int, default=50)
+    parser.add_argument("--max-quarters", type=int, default=200)
     return parser.parse_args()
 
 
@@ -360,10 +364,6 @@ def _render_ticker_page(
     max_price_years: int,
     max_quarters: int,
 ) -> str:
-    import plotly.graph_objects as go
-    import plotly.io as pio
-    from plotly.subplots import make_subplots
-
     info = general.row(0, named=True) if not general.is_empty() else {}
     income_clean = (
         income.select(
@@ -375,7 +375,6 @@ def _render_ticker_page(
             ]
         )
         .sort("date")
-        .tail(max_quarters)
     )
     shares_clean = (
         shares.select(
@@ -385,7 +384,6 @@ def _render_ticker_page(
             ]
         )
         .sort("date")
-        .tail(max_quarters)
     )
     earnings_clean = (
         earnings.select(
@@ -396,16 +394,9 @@ def _render_ticker_page(
             ]
         )
         .sort("date")
-        .tail(max_quarters)
-    )
-    price_cutoff = prices.get_column("date").max() if not prices.is_empty() else None
-    prices_clean = (
-        prices.filter(pl.col("date") >= (price_cutoff.replace(year=price_cutoff.year - max_price_years) if price_cutoff is not None else pl.datetime(2000, 1, 1)))
-        if not prices.is_empty() and price_cutoff is not None
-        else prices
     )
     price_table = (
-        prices_clean.select(
+        prices.select(
             [
                 pl.col("date").cast(pl.Utf8).str.slice(0, 10).alias("date"),
                 pl.col("close").cast(pl.Float64, strict=False).alias("close"),
@@ -421,46 +412,6 @@ def _render_ticker_page(
         earnings=earnings_clean,
     )
 
-    plots: list[str] = []
-    if not price_table.is_empty():
-        price_fig = go.Figure()
-        price_fig.add_trace(go.Scatter(x=price_table["date"], y=price_table["close"], mode="lines", name="Close", line=dict(color="#2c5f8a", width=2)))
-        price_fig.add_trace(go.Scatter(x=price_table["date"], y=price_table["adjusted_close"], mode="lines", name="Adjusted", line=dict(color="#bb6b34", width=2)))
-        price_fig.update_layout(template="plotly_white", height=420, title="Price history", legend=dict(orientation="h"))
-        plots.append(pio.to_html(price_fig, full_html=False, include_plotlyjs="cdn"))
-
-    if not income_clean.is_empty():
-        fundamental_fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fundamental_fig.add_trace(
-            go.Bar(x=income_clean["date"], y=income_clean["revenue"], name="Revenue", marker_color="#c9a45c"),
-            secondary_y=False,
-        )
-        fundamental_fig.add_trace(
-            go.Scatter(x=income_clean["date"], y=income_clean["net_income"], name="Net income", mode="lines+markers", line=dict(color="#214761", width=3)),
-            secondary_y=True,
-        )
-        fundamental_fig.update_layout(template="plotly_white", height=440, title="Quarterly revenue and net income")
-        fundamental_fig.update_yaxes(title_text="Revenue", secondary_y=False)
-        fundamental_fig.update_yaxes(title_text="Net income", secondary_y=True)
-        plots.append(pio.to_html(fundamental_fig, full_html=False, include_plotlyjs=False))
-
-    if not earnings_clean.is_empty() or not shares_clean.is_empty():
-        combo_fig = make_subplots(specs=[[{"secondary_y": True}]])
-        if not earnings_clean.is_empty():
-            combo_fig.add_trace(
-                go.Bar(x=earnings_clean["date"], y=earnings_clean["eps_actual"], name="EPS actual", marker_color="#8a3d3a"),
-                secondary_y=False,
-            )
-        if not shares_clean.is_empty():
-            combo_fig.add_trace(
-                go.Scatter(x=shares_clean["date"], y=shares_clean["shares"], name="Shares", mode="lines+markers", line=dict(color="#357266", width=3)),
-                secondary_y=True,
-            )
-        combo_fig.update_layout(template="plotly_white", height=440, title="Quarterly EPS and shares outstanding")
-        combo_fig.update_yaxes(title_text="EPS actual", secondary_y=False)
-        combo_fig.update_yaxes(title_text="Shares outstanding", secondary_y=True)
-        plots.append(pio.to_html(combo_fig, full_html=False, include_plotlyjs=False))
-
     latest = _latest_snapshot(
         info=info,
         income=income_clean,
@@ -470,12 +421,21 @@ def _render_ticker_page(
         share_anomalies=share_anomalies,
         price_anomalies=price_anomalies,
     )
+    chart_payload = json.dumps(
+        {
+            "price": price_table.to_dicts(),
+            "income": income_clean.to_dicts(),
+            "shares": shares_clean.to_dicts(),
+            "earnings": earnings_clean.to_dicts(),
+        }
+    )
     return f"""
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>{escape(str(info.get('Code') or ticker))} Fundamental Explorer</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <style>
     body {{ margin: 0; font-family: Georgia, 'Times New Roman', serif; color: #1c1e21; background: #fbfaf6; }}
     .wrap {{ padding: 28px 34px 40px 34px; }}
@@ -488,6 +448,11 @@ def _render_ticker_page(
     .card .value {{ margin-top: 10px; font-size: 28px; font-weight: 700; }}
     .section {{ background: white; border-radius: 18px; padding: 18px 20px; box-shadow: 0 12px 34px rgba(0,0,0,0.06); margin: 18px 0; }}
     h2 {{ margin: 0 0 14px 0; }}
+    .chart-grid {{ display: grid; grid-template-columns: 1fr; gap: 18px; }}
+    .chart-toolbar {{ display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px 0; }}
+    .chart-toolbar button {{ border: 1px solid #dccfb8; background: #faf7f1; border-radius: 999px; padding: 7px 11px; cursor: pointer; font-size: 12px; }}
+    .chart-toolbar button.active {{ background: #7b4f24; border-color: #7b4f24; color: white; }}
+    .chart-box {{ width: 100%; height: 420px; }}
     table {{ width: 100%; border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; }}
     th, td {{ padding: 9px 8px; border-bottom: 1px solid #efede7; text-align: left; }}
     th {{ background: #faf7f1; color: #6e6558; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }}
@@ -510,7 +475,23 @@ def _render_ticker_page(
     </div>
     <div class="section">
       <h2>Charts</h2>
-      {''.join(plots) if plots else '<p class="muted">No charts available.</p>'}
+      <div class="chart-toolbar" id="price-range">
+        <button data-range="5y">5Y</button>
+        <button data-range="10y">10Y</button>
+        <button data-range="20y">20Y</button>
+        <button data-range="max" class="active">Max</button>
+      </div>
+      <div class="chart-grid">
+        <div id="price-chart" class="chart-box"></div>
+        <div class="chart-toolbar" id="quarter-range">
+          <button data-range="8q">8Q</button>
+          <button data-range="16q">16Q</button>
+          <button data-range="24q">24Q</button>
+          <button data-range="max" class="active">Max</button>
+        </div>
+        <div id="fundamentals-chart" class="chart-box"></div>
+        <div id="eps-shares-chart" class="chart-box"></div>
+      </div>
     </div>
     <div class="section">
       <h2>Quarter table</h2>
@@ -525,6 +506,105 @@ def _render_ticker_page(
       {_table_html(price_anomalies)}
     </div>
   </div>
+  <script>
+    const payload = {chart_payload};
+    const priceChart = echarts.init(document.getElementById('price-chart'));
+    const fundamentalsChart = echarts.init(document.getElementById('fundamentals-chart'));
+    const epsSharesChart = echarts.init(document.getElementById('eps-shares-chart'));
+
+    function sliceByYears(rows, years) {{
+      if (!rows.length || years === 'max') return rows;
+      const last = new Date(rows[rows.length - 1].date);
+      const cutoff = new Date(last);
+      cutoff.setFullYear(last.getFullYear() - years);
+      return rows.filter((row) => new Date(row.date) >= cutoff);
+    }}
+
+    function sliceByQuarters(rows, quarters) {{
+      if (!rows.length || quarters === 'max') return rows;
+      return rows.slice(Math.max(0, rows.length - quarters));
+    }}
+
+    function renderPrice(rangeKey = 'max') {{
+      const years = rangeKey === 'max' ? 'max' : parseInt(rangeKey, 10);
+      const rows = sliceByYears(payload.price, years);
+      priceChart.setOption({{
+        animation: false,
+        tooltip: {{ trigger: 'axis' }},
+        legend: {{ top: 0 }},
+        grid: {{ left: 60, right: 30, top: 45, bottom: 50 }},
+        xAxis: {{ type: 'category', data: rows.map((row) => row.date) }},
+        yAxis: {{ type: 'value', scale: true }},
+        dataZoom: [{{ type: 'inside' }}, {{ type: 'slider', height: 18, bottom: 10 }}],
+        series: [
+          {{ name: 'Close', type: 'line', smooth: true, showSymbol: false, data: rows.map((row) => row.close), lineStyle: {{ width: 2, color: '#305f86' }} }},
+          {{ name: 'Adjusted', type: 'line', smooth: true, showSymbol: false, data: rows.map((row) => row.adjusted_close), lineStyle: {{ width: 2, color: '#b86a35' }} }},
+        ],
+      }});
+    }}
+
+    function renderQuarterly(rangeKey = 'max') {{
+      const quarters = rangeKey === 'max' ? 'max' : parseInt(rangeKey, 10);
+      const incomeRows = sliceByQuarters(payload.income, quarters);
+      const earningsRows = sliceByQuarters(payload.earnings, quarters);
+      const sharesRows = sliceByQuarters(payload.shares, quarters);
+      fundamentalsChart.setOption({{
+        animation: false,
+        tooltip: {{ trigger: 'axis' }},
+        legend: {{ top: 0 }},
+        grid: {{ left: 70, right: 70, top: 45, bottom: 50 }},
+        xAxis: {{ type: 'category', data: incomeRows.map((row) => row.date) }},
+        yAxis: [
+          {{ type: 'value', name: 'Revenue', scale: true }},
+          {{ type: 'value', name: 'Net income', scale: true }},
+        ],
+        dataZoom: [{{ type: 'inside' }}, {{ type: 'slider', height: 18, bottom: 10 }}],
+        series: [
+          {{ name: 'Revenue', type: 'bar', data: incomeRows.map((row) => row.revenue), itemStyle: {{ color: '#c8a05e' }} }},
+          {{ name: 'Net income', type: 'line', yAxisIndex: 1, smooth: true, data: incomeRows.map((row) => row.net_income), lineStyle: {{ width: 3, color: '#1f4762' }} }},
+        ],
+      }});
+
+      epsSharesChart.setOption({{
+        animation: false,
+        tooltip: {{ trigger: 'axis' }},
+        legend: {{ top: 0 }},
+        grid: {{ left: 70, right: 90, top: 45, bottom: 50 }},
+        xAxis: {{ type: 'category', data: sharesRows.length ? sharesRows.map((row) => row.date) : earningsRows.map((row) => row.date) }},
+        yAxis: [
+          {{ type: 'value', name: 'EPS', scale: true }},
+          {{ type: 'value', name: 'Shares', scale: true }},
+        ],
+        dataZoom: [{{ type: 'inside' }}, {{ type: 'slider', height: 18, bottom: 10 }}],
+        series: [
+          {{ name: 'EPS actual', type: 'bar', data: earningsRows.map((row) => row.eps_actual), itemStyle: {{ color: '#8c403d' }} }},
+          {{ name: 'Shares', type: 'line', yAxisIndex: 1, smooth: true, data: sharesRows.map((row) => row.shares), lineStyle: {{ width: 3, color: '#356e63' }} }},
+        ],
+      }});
+    }}
+
+    function bindToolbar(containerId, callback) {{
+      const container = document.getElementById(containerId);
+      const buttons = Array.from(container.querySelectorAll('button'));
+      buttons.forEach((button) => {{
+        button.addEventListener('click', () => {{
+          buttons.forEach((item) => item.classList.remove('active'));
+          button.classList.add('active');
+          callback(button.dataset.range);
+        }});
+      }});
+    }}
+
+    bindToolbar('price-range', renderPrice);
+    bindToolbar('quarter-range', renderQuarterly);
+    renderPrice('max');
+    renderQuarterly('max');
+    window.addEventListener('resize', () => {{
+      priceChart.resize();
+      fundamentalsChart.resize();
+      epsSharesChart.resize();
+    }});
+  </script>
 </body>
 </html>
 """
