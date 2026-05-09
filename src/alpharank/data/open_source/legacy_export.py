@@ -46,6 +46,31 @@ def export_legacy_compatible_outputs(
     ).write_parquet(benchmark_path)
     exported["SP500Price.parquet"] = benchmark_path
 
+    exported.update(
+        export_legacy_compatible_fundamental_outputs(
+            general_reference=general_reference,
+            consolidated_financials=consolidated_financials,
+            consolidated_lineage=consolidated_lineage,
+            earnings_frame=earnings_frame,
+            reference_data_dir=reference_data_dir,
+            output_dir=output_dir,
+        )
+    )
+    return exported
+
+
+def export_legacy_compatible_fundamental_outputs(
+    *,
+    general_reference: pl.DataFrame,
+    consolidated_financials: pl.DataFrame,
+    consolidated_lineage: pl.DataFrame | None = None,
+    earnings_frame: pl.DataFrame,
+    reference_data_dir: Path,
+    output_dir: Path,
+) -> dict[str, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    exported: dict[str, Path] = {}
+
     general_path = output_dir / "US_General.parquet"
     _build_general_legacy_frame(general_reference, reference_data_dir).write_parquet(general_path)
     exported["US_General.parquet"] = general_path
