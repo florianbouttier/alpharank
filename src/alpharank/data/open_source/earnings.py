@@ -132,6 +132,73 @@ def build_sec_filing_earnings_actuals(*, ticker: str, facts_payload: dict[str, o
     )
 
 
+def align_sec_actuals_to_calendar(*, sec_calendar: pl.DataFrame, sec_actuals: pl.DataFrame) -> pl.DataFrame:
+    if sec_calendar.is_empty() or sec_actuals.is_empty():
+        return sec_actuals
+
+    exact = sec_actuals.select(["ticker", "period_end"]).with_columns(pl.lit(True).alias("has_exact"))
+    missing_calendar = (
+        sec_calendar.select(["ticker", "period_end", "reportDate"])
+        .join(exact, on=["ticker", "period_end"], how="left")
+        .filter(pl.col("has_exact").fill_null(False).not_())
+    )
+    if missing_calendar.is_empty():
+        return sec_actuals
+
+    candidates = (
+        missing_calendar.rename({"period_end": "calendar_period_end", "reportDate": "calendar_reportDate"})
+        .join(
+            sec_actuals.rename({"period_end": "actual_period_end", "reportDate": "actual_reportDate"}),
+            left_on=["ticker", "calendar_reportDate"],
+            right_on=["ticker", "actual_reportDate"],
+            how="inner",
+        )
+        .with_columns(
+            [
+                pl.col("calendar_period_end").str.strptime(pl.Date, strict=False).alias("calendar_period_end_dt"),
+                pl.col("actual_period_end").str.strptime(pl.Date, strict=False).alias("actual_period_end_dt"),
+            ]
+        )
+        .with_columns(
+            [
+                (pl.col("calendar_period_end_dt") - pl.col("actual_period_end_dt")).dt.total_days().abs().alias("period_gap_days"),
+                pl.when(pl.col("actual_period_end_dt") <= pl.col("calendar_period_end_dt"))
+                .then(pl.lit(0))
+                .otherwise(pl.lit(1))
+                .alias("after_calendar_penalty"),
+            ]
+        )
+        .sort(["ticker", "calendar_period_end", "after_calendar_penalty", "period_gap_days", "actual_period_end"])
+        .unique(subset=["ticker", "calendar_period_end"], keep="first", maintain_order=True)
+    )
+    if candidates.is_empty():
+        return sec_actuals
+
+    aligned = (
+        candidates.select(
+            [
+                "ticker",
+                pl.col("calendar_period_end").alias("period_end"),
+                pl.col("calendar_reportDate").alias("reportDate"),
+                "epsActual",
+                "source",
+                pl.concat_str([pl.col("source_label"), pl.lit("aligned_reportDate")], separator=" | ").alias("source_label"),
+                "form",
+                "fiscal_period",
+                "fiscal_year",
+            ]
+        )
+        .sort(["ticker", "period_end", "reportDate"])
+    )
+
+    return (
+        pl.concat([sec_actuals, aligned], how="vertical")
+        .sort(["ticker", "period_end", "reportDate", "source_label"])
+        .unique(subset=["ticker", "period_end"], keep="first", maintain_order=True)
+        .sort(["ticker", "period_end"])
+    )
+
+
 def _build_sec_earnings_actuals_frame(
     *,
     ticker: str,

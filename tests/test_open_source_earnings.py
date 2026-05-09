@@ -6,6 +6,7 @@ import polars as pl
 
 from alpharank.data.open_source.benchmark import normalize_eodhd_earnings
 from alpharank.data.open_source.earnings import (
+    align_sec_actuals_to_calendar,
     build_sec_companyfacts_earnings_actuals,
     consolidate_earnings,
     empty_earnings_calendar_frame,
@@ -459,6 +460,34 @@ def test_combine_sec_earnings_actuals_keeps_filing_fallback_and_lineage() -> Non
     assert consolidated["epsActual"].to_list() == [0.15]
     assert consolidated["actual_source"].to_list() == ["sec_filing"]
     assert lineage["actual_source"].to_list() == ["sec_filing"]
+
+
+def test_align_sec_actuals_to_calendar_uses_report_date_and_nearest_period() -> None:
+    sec_calendar = pl.DataFrame(
+        {
+            "ticker": ["V.US"],
+            "period_end": ["2025-09-30"],
+            "reportDate": ["2025-11-06"],
+        }
+    )
+    sec_actuals = pl.DataFrame(
+        {
+            "ticker": ["V.US", "V.US"],
+            "period_end": ["2024-09-30", "2025-06-30"],
+            "reportDate": ["2025-11-06", "2025-11-06"],
+            "epsActual": [2.98, 2.69],
+            "source": ["sec_filing", "sec_filing"],
+            "source_label": ["EarningsPerShareDiluted", "EarningsPerShareDiluted"],
+            "form": ["10-K", "10-K"],
+            "fiscal_period": ["Q4", "Q3"],
+            "fiscal_year": [2025, 2025],
+        }
+    )
+
+    aligned = align_sec_actuals_to_calendar(sec_calendar=sec_calendar, sec_actuals=sec_actuals)
+
+    assert aligned.filter(pl.col("period_end") == "2025-09-30")["epsActual"].to_list() == [2.69]
+    assert "aligned_reportDate" in aligned.filter(pl.col("period_end") == "2025-09-30")["source_label"].to_list()[0]
 
 
 def test_infer_fiscal_period_maps_quarter_subperiods_inside_fy_filings() -> None:

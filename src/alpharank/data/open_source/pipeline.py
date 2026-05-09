@@ -31,6 +31,7 @@ from alpharank.data.open_source.consolidation import (
 )
 from alpharank.data.open_source.config import METRIC_SPECS, PILOT_TICKERS
 from alpharank.data.open_source.earnings import (
+    align_sec_actuals_to_calendar,
     build_sec_companyfacts_earnings_actuals,
     consolidate_earnings,
     empty_earnings_actuals_frame,
@@ -184,6 +185,10 @@ def run_open_source_cadrage(
     sec_earnings_actuals = _combine_sec_earnings_actuals(
         sec_companyfacts=sec_companyfacts_earnings_actuals,
         sec_filing=sec_filing_earnings_actuals,
+    )
+    sec_earnings_actuals = align_sec_actuals_to_calendar(
+        sec_calendar=sec_earnings_calendar,
+        sec_actuals=sec_earnings_actuals,
     )
     sec_filing_tickers = _identify_sec_filing_fallback_tickers(ticker_list, sec_financials)
     sec_filing_financials = _empty_financials()

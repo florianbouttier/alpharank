@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
 import polars as pl
 
 from alpharank.data.open_source.earnings import empty_earnings_actuals_frame, empty_earnings_calendar_frame
+from alpharank.data.open_source.earnings import align_sec_actuals_to_calendar
 from alpharank.data.open_source.pipeline import (
     _combine_sec_earnings_actuals,
     _concat_or_empty,
@@ -37,20 +39,25 @@ def main() -> None:
     sec_mapping_all = sec_client.fetch_company_mapping()
     universe = _load_universe(project_root=project_root, limit=args.limit)
     sec_mapping = sec_mapping_all.join(universe, on="ticker", how="inner")
+    print(f"Universe tickers: {sec_mapping.height}")
 
     companyfacts_frames, companyfacts_failures = _fetch_sec_earnings_actuals(sec_client, sec_mapping)
     companyfacts = _concat_or_empty(companyfacts_frames, empty=empty_earnings_actuals_frame())
     companyfacts = _filter_period_range(companyfacts, args.start_year, args.end_year)
+    print(f"Companyfacts actual rows: {companyfacts.height}")
 
     calendar_frames, calendar_failures = _fetch_sec_earnings_calendar_range(
         sec_client=sec_filing_client,
         sec_mapping=sec_mapping,
         years=years,
+        max_workers=args.max_workers,
     )
     calendar = _concat_or_empty(calendar_frames, empty=empty_earnings_calendar_frame())
     calendar = _filter_period_range(calendar, args.start_year, args.end_year, date_column="period_end")
+    print(f"Calendar rows: {calendar.height}")
 
     fallback_tickers = _identify_filing_gap_tickers(calendar=calendar, sec_companyfacts_actuals=companyfacts)
+    print(f"Fallback tickers: {len(fallback_tickers)}")
     filing = empty_earnings_actuals_frame()
     filing_failures: list[dict[str, str]] = []
     if fallback_tickers:
@@ -59,11 +66,14 @@ def main() -> None:
             sec_client=sec_filing_client,
             sec_mapping=filing_mapping,
             years=years,
+            max_workers=args.max_workers,
         )
         filing = _concat_or_empty(filing_frames, empty=empty_earnings_actuals_frame())
         filing = _filter_period_range(filing, args.start_year, args.end_year)
+    print(f"Filing actual rows: {filing.height}")
 
     combined = _combine_sec_earnings_actuals(sec_companyfacts=companyfacts, sec_filing=filing)
+    combined = align_sec_actuals_to_calendar(sec_calendar=calendar, sec_actuals=combined)
 
     expected = calendar.select(["ticker", "period_end"]).with_columns(pl.lit(True).alias("has_calendar"))
     actual = combined.select(["ticker", "period_end"]).with_columns(pl.lit(True).alias("has_sec_actual"))
@@ -148,6 +158,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--start-year", type=int, default=2010)
     parser.add_argument("--end-year", type=int, default=2025)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--max-workers", type=int, default=4)
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument(
         "--user-agent",
@@ -178,16 +189,28 @@ def _fetch_sec_earnings_calendar_range(
     sec_client: SecFilingFactsClient,
     sec_mapping: pl.DataFrame,
     years: list[int],
+    max_workers: int,
 ) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = list(sec_mapping.select(["ticker", "cik"]).iter_rows(named=True))
     frames: list[pl.DataFrame] = []
     failures: list[dict[str, str]] = []
-    for row in sec_mapping.select(["ticker", "cik"]).iter_rows(named=True):
-        ticker = str(row["ticker"])
-        try:
-            frames.append(sec_client.extract_earnings_calendar(ticker, str(row["cik"]), years))
-        except Exception as exc:
-            print(f"SEC earnings calendar fetch failed for {ticker}: {exc}")
-            failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
+    print(f"Fetching SEC earnings calendar for {len(rows)} tickers with {max_workers} workers")
+    completed = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_earnings_calendar, str(row["ticker"]), str(row["cik"]), years): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                print(f"SEC earnings calendar fetch failed for {ticker}: {exc}")
+                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
+            completed += 1
+            if completed % 50 == 0 or completed == len(rows):
+                print(f"Calendar progress: {completed}/{len(rows)}")
     return frames, failures
 
 
@@ -196,16 +219,28 @@ def _fetch_sec_filing_earnings_actuals_range(
     sec_client: SecFilingFactsClient,
     sec_mapping: pl.DataFrame,
     years: list[int],
+    max_workers: int,
 ) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = list(sec_mapping.select(["ticker", "cik"]).iter_rows(named=True))
     frames: list[pl.DataFrame] = []
     failures: list[dict[str, str]] = []
-    for row in sec_mapping.select(["ticker", "cik"]).iter_rows(named=True):
-        ticker = str(row["ticker"])
-        try:
-            frames.append(sec_client.extract_earnings_actuals(ticker, str(row["cik"]), years))
-        except Exception as exc:
-            print(f"SEC filing earnings actual fetch failed for {ticker}: {exc}")
-            failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
+    print(f"Fetching SEC filing earnings actuals for {len(rows)} tickers with {max_workers} workers")
+    completed = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_earnings_actuals, str(row["ticker"]), str(row["cik"]), years): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                print(f"SEC filing earnings actual fetch failed for {ticker}: {exc}")
+                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
+            completed += 1
+            if completed % 25 == 0 or completed == len(rows):
+                print(f"Filing progress: {completed}/{len(rows)}")
     return frames, failures
 
 
