@@ -18,7 +18,9 @@ SEC_EPS_TAGS: tuple[str, ...] = (
     "NetIncomeLossAvailableToCommonStockholdersBasicAndDilutedPerShare",
     "NetIncomeLossAvailableToCommonStockholdersPerShareDiluted",
     "NetIncomeLossAvailableToCommonStockholdersPerShareBasicAndDiluted",
+    "NetIncomeLossPerOutstandingLimitedPartnershipUnit",
     "NetIncomeLossPerOutstandingLimitedPartnershipUnitBasicNetOfTax",
+    "NetIncomeLossPerOutstandingLimitedPartnershipUnitDiluted",
     "NetIncomeLossNetOfTaxPerOutstandingLimitedPartnershipUnitDiluted",
 )
 
