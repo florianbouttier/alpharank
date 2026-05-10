@@ -390,7 +390,10 @@ def _build_ticker_gap_summary(*, ticker_metric_holes: pl.DataFrame) -> pl.DataFr
                 "ticker_code": pl.String,
                 "sector": pl.String,
                 "industry": pl.String,
+                "total_expected_quarters": pl.Int64,
+                "total_present_quarters": pl.Int64,
                 "total_holes": pl.Int64,
+                "total_hole_pct": pl.Float64,
                 "worst_metric": pl.String,
                 "worst_metric_label": pl.String,
                 "worst_metric_holes": pl.Int64,
@@ -409,10 +412,29 @@ def _build_ticker_gap_summary(*, ticker_metric_holes: pl.DataFrame) -> pl.DataFr
         if metric not in pivot.columns:
             pivot = pivot.with_columns(pl.lit(0).cast(pl.Int64).alias(metric))
     pivot = pivot.with_columns([pl.col(metric).fill_null(0).cast(pl.Int64).alias(metric) for metric in AUDIT_METRICS])
+    totals = (
+        ticker_metric_holes.group_by(["ticker", "ticker_code", "sector", "industry"])
+        .agg(
+            [
+                pl.col("expected_quarters").sum().alias("total_expected_quarters"),
+                pl.col("present_quarters").sum().alias("total_present_quarters"),
+            ]
+        )
+    )
+    pivot = pivot.join(totals, on=["ticker", "ticker_code", "sector", "industry"], how="left")
     pivot = pivot.with_columns(
-        (
-            pl.col("revenue") + pl.col("net_income") + pl.col("outstanding_shares") + pl.col("epsActual")
-        ).alias("total_holes")
+        [
+            (
+                pl.col("revenue") + pl.col("net_income") + pl.col("outstanding_shares") + pl.col("epsActual")
+            ).alias("total_holes"),
+            (
+                (
+                    pl.col("revenue") + pl.col("net_income") + pl.col("outstanding_shares") + pl.col("epsActual")
+                )
+                * 100.0
+                / pl.col("total_expected_quarters").clip(lower_bound=1)
+            ).alias("total_hole_pct"),
+        ]
     )
 
     rows: list[dict[str, object]] = []
@@ -425,7 +447,10 @@ def _build_ticker_gap_summary(*, ticker_metric_holes: pl.DataFrame) -> pl.DataFr
                 "ticker_code": row["ticker_code"],
                 "sector": row["sector"],
                 "industry": row["industry"],
+                "total_expected_quarters": int(row.get("total_expected_quarters") or 0),
+                "total_present_quarters": int(row.get("total_present_quarters") or 0),
                 "total_holes": int(row["total_holes"] or 0),
+                "total_hole_pct": float(row.get("total_hole_pct") or 0.0),
                 "worst_metric": worst_metric,
                 "worst_metric_label": METRIC_LABELS[worst_metric],
                 "worst_metric_holes": worst_value,
@@ -772,6 +797,13 @@ def _render_dashboard_html(
       tooltip: {{
         trigger: 'axis',
         axisPointer: {{ type: 'shadow' }},
+        formatter: (params) => {{
+          const row = payload.ticker_gaps[params[0].dataIndex];
+          const parts = params
+            .filter((item) => Number(item.value || 0) > 0)
+            .map((item) => `${{item.seriesName}}: ${{item.value}}`);
+          return `${{row.ticker}}<br>${{row.total_holes}} trous au total<br>${{Number(row.total_hole_pct || 0).toFixed(1)}} % des trimestres attendus manquent<br>${{parts.join('<br>')}}`;
+        }},
       }},
       legend: {{ top: 0 }},
       grid: {{ left: 90, right: 20, top: 40, bottom: 40 }},
@@ -838,11 +870,14 @@ def _render_dashboard_html(
         const metricOk = !metricFilter || row.metric === metricFilter;
         return metricOk && Number(row.hole_count || 0) >= holeFilter && haystack.includes(tickerFilter);
       }});
+      const tickerTotals = new Map(payload.ticker_gaps.map((row) => [row.ticker, row]));
       renderTable(
         'ticker-hole-table',
         tickerRows.slice(0, 400).map((row) => ({{
           ticker: row.ticker,
           kpi: row.metric_label,
+          trous_globaux: tickerTotals.get(row.ticker)?.total_holes ?? '',
+          pct_global: `${{Number(tickerTotals.get(row.ticker)?.total_hole_pct || 0).toFixed(1)}}%`,
           trous: row.hole_count,
           pct_trous: `${{Number(row.hole_pct || 0).toFixed(1)}}%`,
           trimestres_attendus: row.expected_quarters,
@@ -851,10 +886,12 @@ def _render_dashboard_html(
           dernier_trimestre: row.last_quarter,
           dates_manquantes: row.sample_missing_dates,
         }})),
-        ['ticker', 'kpi', 'trous', 'pct_trous', 'trimestres_attendus', 'trimestres_presents', 'premier_trimestre', 'dernier_trimestre', 'dates_manquantes'],
+        ['ticker', 'kpi', 'trous_globaux', 'pct_global', 'trous', 'pct_trous', 'trimestres_attendus', 'trimestres_presents', 'premier_trimestre', 'dernier_trimestre', 'dates_manquantes'],
         {{
           ticker: 'Ticker',
           kpi: 'KPI',
+          trous_globaux: 'Trous globaux ticker',
+          pct_global: '% global ticker',
           trous: 'Trous',
           pct_trous: '% de trous',
           trimestres_attendus: 'Trimestres attendus',
@@ -913,6 +950,7 @@ def _metric_cards_html(overview: pl.DataFrame) -> str:
     for row in overview.sort("metric").to_dicts():
         headline = _format_int(int(row["hole_count"] or 0))
         headline_label = "trimestres manquants"
+        hole_pct_phrase = f"{_format_pct(float(row['hole_pct'] or 0.0))} des trimestres attendus manquent sur l'univers."
         touched_phrase = (
             f"{_format_int(int(row['tickers_with_holes'] or 0))} tickers sur "
             f"{_format_int(int(row['total_tickers'] or 0))} ont au moins un trou sur ce KPI."
@@ -927,6 +965,7 @@ def _metric_cards_html(overview: pl.DataFrame) -> str:
             f"<div class='metric-title'>{escape(str(row['metric_label']))}</div>"
             f"<div class='big'>{headline}</div>"
             f"<div class='line'><strong>{headline_label}</strong></div>"
+            f"<div class='line'>{escape(hole_pct_phrase)}</div>"
             f"<div class='line'>{escape(touched_phrase)}</div>"
             f"<div class='line'>{escape(zero_phrase)}</div>"
             f"<div class='line muted'>{escape(period_phrase)}</div>"
@@ -1091,6 +1130,7 @@ def _render_dashboard_markdown(
     for row in overview.sort("metric").to_dicts():
         lines.append(
             f"- **{row['metric_label']}**: {row['hole_count']} trimestres manquants au total. "
+            f"{_format_pct(float(row['hole_pct'] or 0.0))} des trimestres attendus manquent. "
             f"{row['tickers_with_holes']} tickers sur {row['total_tickers']} ont au moins un trou. "
             f"{row['zero_coverage_tickers']} tickers sont totalement vides."
         )
@@ -1137,6 +1177,10 @@ def _pct(numerator: int, denominator: int) -> float:
 
 def _format_int(value: int) -> str:
     return f"{value:,}".replace(",", " ")
+
+
+def _format_pct(value: float) -> str:
+    return f"{value:.1f} %".replace(".", ",")
 
 
 def _utc_now_iso() -> str:
