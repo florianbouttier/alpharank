@@ -176,7 +176,6 @@ def _build_financial_legacy_frame(
     if keyed.is_empty():
         return pl.DataFrame(schema=reference_schema)
 
-    keyed = _collapse_duplicate_filing_dates(keyed)
     chosen_rows = _select_financial_legacy_candidates(keyed, statement=statement)
     values = (
         chosen_rows.pivot(index=["ticker", "date"], on="legacy_metric", values="value", aggregate_function="first")

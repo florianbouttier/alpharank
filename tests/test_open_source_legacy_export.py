@@ -709,7 +709,7 @@ def test_export_legacy_compatible_outputs_prefers_vendor_revenue_for_reits_and_f
     assert income.filter(pl.col("ticker") == "BG.US")["totalRevenue"].to_list() == [11_643_000_000.0]
 
 
-def test_export_legacy_compatible_outputs_collapses_duplicate_dates_with_same_filing(tmp_path: Path) -> None:
+def test_export_legacy_compatible_outputs_keeps_distinct_dates_even_when_filing_date_matches(tmp_path: Path) -> None:
     reference_dir = tmp_path / "reference"
     output_dir = tmp_path / "live" / "legacy"
     reference_dir.mkdir(parents=True)
@@ -792,9 +792,9 @@ def test_export_legacy_compatible_outputs_collapses_duplicate_dates_with_same_fi
     )
 
     balance = pl.read_parquet(output_dir / "US_Balance_sheet.parquet").sort("date")
-    assert balance["date"].to_list() == ["2025-05-31"]
-    assert balance["totalLiab"].to_list() == [56_902_764_000.0]
-    assert balance["totalStockholderEquity"].to_list() == [10_305_025_000.0]
+    assert balance["date"].to_list() == ["2025-03-31", "2025-05-31"]
+    assert balance["totalLiab"].to_list() == [100_000.0, 56_902_764_000.0]
+    assert balance["totalStockholderEquity"].to_list() == [447_800_000.0, 10_305_025_000.0]
 
 
 def test_export_legacy_compatible_outputs_fills_or_drops_null_filing_dates(tmp_path: Path) -> None:
@@ -873,3 +873,84 @@ def test_export_legacy_compatible_outputs_fills_or_drops_null_filing_dates(tmp_p
     assert cash["date"].to_list() == ["2025-02-28"]
     assert cash["filing_date"].to_list() == ["2025-03-20"]
     assert cash["freeCashFlow"].to_list() == [2_682_588_000.0]
+
+
+def test_export_legacy_compatible_outputs_keeps_distinct_quarters_from_same_filing_date(tmp_path: Path) -> None:
+    reference_dir = tmp_path / "reference"
+    output_dir = tmp_path / "live" / "legacy"
+    reference_dir.mkdir(parents=True)
+    _write_minimal_legacy_reference(reference_dir, ticker="AAPL.US", code="AAPL", name="Apple")
+
+    clean_prices = pl.read_parquet(reference_dir / "US_Finalprice.parquet")
+    benchmark_prices = pl.read_parquet(reference_dir / "SP500Price.parquet")
+    general_reference = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "name": ["Apple"],
+            "exchange": ["NASDAQ"],
+            "cik": ["0000320193"],
+            "source": ["sec_mapping"],
+            "Sector": ["Technology"],
+            "industry": ["Consumer Electronics"],
+            "sector_source": ["sec_sic"],
+            "sector_raw_value": ["Technology"],
+            "sic": [None],
+            "sic_description": [None],
+            "mapping_rule": ["sec"],
+        }
+    )
+    empty_consolidated = pl.DataFrame(
+        schema={
+            "ticker": pl.String,
+            "statement": pl.String,
+            "metric": pl.String,
+            "date": pl.String,
+            "filing_date": pl.String,
+            "value": pl.Float64,
+            "source": pl.String,
+            "source_label": pl.String,
+            "selected_source": pl.String,
+            "selected_source_label": pl.String,
+            "selected_form": pl.String,
+            "selected_fiscal_period": pl.String,
+            "selected_fiscal_year": pl.Int64,
+            "source_priority": pl.Int64,
+        }
+    )
+    consolidated_lineage = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"] * 4,
+            "statement": ["income_statement", "income_statement", "shares", "shares"],
+            "metric": ["revenue", "revenue", "outstanding_shares", "outstanding_shares"],
+            "date": ["2019-09-28", "2020-06-27", "2019-09-28", "2020-06-27"],
+            "filing_date": ["2020-07-31", "2020-07-31", "2020-07-31", "2020-07-31"],
+            "value": [64_040_000_000.0, 59_685_000_000.0, 4_443_236_000.0, 4_275_634_000.0],
+            "source": ["sec_companyfacts"] * 4,
+            "source_label": ["value"] * 4,
+            "selected_source": ["sec_companyfacts"] * 4,
+            "selected_source_label": ["EntityCommonStockSharesOutstanding"] * 4,
+            "selected_form": ["10-Q"] * 4,
+            "selected_fiscal_period": ["Q4", "Q3", "Q4", "Q3"],
+            "selected_fiscal_year": [2019, 2020, 2019, 2020],
+            "source_priority": [1] * 4,
+        }
+    )
+
+    export_legacy_compatible_outputs(
+        clean_prices=clean_prices,
+        benchmark_prices=benchmark_prices,
+        general_reference=general_reference,
+        consolidated_financials=empty_consolidated,
+        consolidated_lineage=consolidated_lineage,
+        earnings_frame=pl.DataFrame(),
+        reference_data_dir=reference_dir,
+        output_dir=output_dir,
+    )
+
+    income = pl.read_parquet(output_dir / "US_Income_statement.parquet").sort("date")
+    shares = pl.read_parquet(output_dir / "US_share.parquet").sort("dateFormatted")
+
+    assert income["date"].to_list() == ["2019-09-30", "2020-06-30"]
+    assert income["totalRevenue"].to_list() == [64_040_000_000.0, 59_685_000_000.0]
+    assert shares["dateFormatted"].to_list() == ["2019-09-30", "2020-06-30"]
+    assert shares["shares"].to_list() == [4_443_236_000.0, 4_275_634_000.0]
