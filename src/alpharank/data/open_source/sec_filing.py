@@ -229,8 +229,8 @@ class SecFilingFactsClient:
         for filing in filings:
             try:
                 records = self._extract_filing_records(cik, filing)
-            except RuntimeError as exc:
-                if "No SEC XBRL instance found" in str(exc):
+            except (RuntimeError, ET.ParseError) as exc:
+                if isinstance(exc, ET.ParseError) or "No SEC XBRL instance found" in str(exc):
                     continue
                 raise
             for root_name, tag_name, unit_name, record in records:

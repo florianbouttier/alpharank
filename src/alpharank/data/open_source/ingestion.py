@@ -946,10 +946,14 @@ def run_open_source_ingestion(
         )
         append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_actuals.parquet", earnings_sec_actuals_delta)
 
-    for year in refreshed_years:
+    sec_financials_all = _empty_raw_financial_base()
+    if refreshed_years:
         sec_frames, sec_failures = _fetch_sec_financials(sec_client, sec_mapping)
         run_failures["sec_companyfacts"].extend(sec_failures)
-        sec_year = _filter_financial_year(_concat_or_empty(sec_frames), year=year)
+        sec_financials_all = _concat_or_empty(sec_frames)
+
+    for year in refreshed_years:
+        sec_year = _filter_financial_year(sec_financials_all, year=year)
         sec_filing_tickers = _identify_sec_filing_fallback_tickers(tickers=ticker_list, sec_companyfacts=sec_year)
         sec_filing_year = _empty_raw_financial_base()
         if sec_filing_tickers:
@@ -2052,6 +2056,30 @@ def _fetch_sec_earnings_actuals(
                 frames.append(future.result())
             except Exception as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
+    return frames, failures
+
+
+def _fetch_sec_filing_earnings_actuals(
+    sec_client: SecFilingFactsClient,
+    sec_mapping: pl.DataFrame,
+    *,
+    years: Sequence[int],
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(sec_client.extract_earnings_actuals, str(row["ticker"]), str(row["cik"]), list(years)): str(row["ticker"])
+            for row in rows
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                frames.append(future.result())
+            except Exception as exc:
+                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals_filing"})
     return frames, failures
 
 

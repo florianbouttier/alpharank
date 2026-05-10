@@ -15,6 +15,7 @@ from alpharank.data.open_source.ingestion import (
     _fetch_sec_company_profiles,
     _fetch_sec_earnings_actuals,
     _fetch_sec_earnings_calendar,
+    _fetch_sec_filing_earnings_actuals,
     _fetch_sec_filing_financials,
     _fetch_sec_financials,
     _filter_financial_year,
@@ -57,6 +58,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--actual-workers", type=int, default=2)
     parser.add_argument("--companyfacts-workers", type=int, default=2)
     parser.add_argument("--filing-workers", type=int, default=2)
+    parser.add_argument("--filing-earnings-workers", type=int, default=2)
+    parser.add_argument("--skip-run-deltas", action="store_true")
     return parser.parse_args()
 
 
@@ -146,7 +149,7 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         run_id=run_id,
         ingested_at=ingested_at,
     )
-    append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference.parquet", general_reference_delta)
+    _maybe_append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference.parquet", general_reference_delta, skip_run_deltas=args.skip_run_deltas)
     general_reference = upsert_parquet(
         paths.raw_dir / "general_reference.parquet",
         general_reference_delta,
@@ -158,7 +161,7 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         run_id=run_id,
         ingested_at=ingested_at,
     )
-    append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference_lineage.parquet", general_reference_lineage_delta)
+    _maybe_append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference_lineage.parquet", general_reference_lineage_delta, skip_run_deltas=args.skip_run_deltas)
     general_reference_lineage = upsert_parquet(
         paths.raw_dir / "general_reference_lineage.parquet",
         general_reference_lineage_delta,
@@ -179,7 +182,7 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         run_id=run_id,
         ingested_at=ingested_at,
     )
-    append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_calendar.parquet", sec_calendar_delta)
+    _maybe_append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_calendar.parquet", sec_calendar_delta, skip_run_deltas=args.skip_run_deltas)
     raw_earnings_sec_calendar = upsert_parquet(
         paths.raw_dir / "earnings_sec_calendar.parquet",
         sec_calendar_delta,
@@ -194,13 +197,26 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         sec_mapping,
         max_workers=args.actual_workers,
     )
+    print("Fetching SEC filing earnings actuals...")
+    sec_filing_actual_frames, sec_filing_actual_failures = _fetch_sec_filing_earnings_actuals(
+        sec_filing_client,
+        sec_mapping,
+        years=years,
+        max_workers=args.filing_earnings_workers,
+    )
     sec_actual_delta = _with_earnings_ingestion_metadata(
-        _concat_or_empty(sec_actual_frames, empty=_empty_raw_earnings_frame()),
+        _concat_or_empty(
+            [
+                _concat_or_empty(sec_actual_frames, empty=_empty_raw_earnings_frame()),
+                _concat_or_empty(sec_filing_actual_frames, empty=_empty_raw_earnings_frame()),
+            ],
+            empty=_empty_raw_earnings_frame(),
+        ),
         dataset="earnings_sec_actuals",
         run_id=run_id,
         ingested_at=ingested_at,
     )
-    append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_actuals.parquet", sec_actual_delta)
+    _maybe_append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_actuals.parquet", sec_actual_delta, skip_run_deltas=args.skip_run_deltas)
     raw_earnings_sec_actuals = upsert_parquet(
         paths.raw_dir / "earnings_sec_actuals.parquet",
         sec_actual_delta,
@@ -222,11 +238,12 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         run_id=run_id,
         ingested_at=ingested_at,
     )
-    raw_sec_financials = _upsert_financial_dataset(
+    raw_sec_financials = _upsert_financial_dataset_local(
         paths=paths,
         run_id=run_id,
         file_name="financials_sec_companyfacts.parquet",
         deltas=[sec_companyfacts_delta],
+        skip_run_deltas=args.skip_run_deltas,
     )
     print(
         "SEC companyfacts financial rows: "
@@ -274,11 +291,12 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
             }
         )
 
-    raw_sec_filing = _upsert_financial_dataset(
+    raw_sec_filing = _upsert_financial_dataset_local(
         paths=paths,
         run_id=run_id,
         file_name="financials_sec_filing.parquet",
         deltas=filing_deltas,
+        skip_run_deltas=args.skip_run_deltas,
     )
     print(
         "SEC filing financial rows: "
@@ -290,6 +308,7 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         "profile_failures": profile_failures,
         "earnings_calendar_failures": sec_calendar_failures,
         "earnings_actual_failures": sec_actual_failures,
+        "earnings_filing_actual_failures": sec_filing_actual_failures,
         "companyfacts_failures": sec_failures,
         "missing_sec_mapping": missing_mapping,
     }
@@ -316,6 +335,7 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         "filing_year_summary": filing_year_summary,
         "failures": failures,
         "generated_at": utc_now_iso(),
+        "skip_run_deltas": args.skip_run_deltas,
     }
     write_run_manifest(paths, run_id, manifest)
     (paths.run_dir(run_id) / "summary.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -330,6 +350,29 @@ def _empty_sec_profile_frame() -> pl.DataFrame:
             "sic": pl.String,
             "sic_description": pl.String,
         }
+    )
+
+
+def _maybe_append_run_delta(path: Path, frame: pl.DataFrame, *, skip_run_deltas: bool) -> None:
+    if not skip_run_deltas:
+        append_run_delta(path, frame)
+
+
+def _upsert_financial_dataset_local(
+    *,
+    paths: OpenSourceLivePaths,
+    run_id: str,
+    file_name: str,
+    deltas: list[pl.DataFrame],
+    skip_run_deltas: bool,
+) -> pl.DataFrame:
+    delta = _concat_or_empty(deltas)
+    _maybe_append_run_delta(paths.run_dir(run_id) / "raw" / file_name, delta, skip_run_deltas=skip_run_deltas)
+    return upsert_parquet(
+        paths.raw_dir / file_name,
+        delta,
+        key_cols=["ticker", "statement", "metric", "date", "source"],
+        order_cols=["filing_date", "ingested_at"],
     )
 
 
