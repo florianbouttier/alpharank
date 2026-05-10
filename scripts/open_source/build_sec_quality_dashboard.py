@@ -550,7 +550,7 @@ def _render_dashboard_html(
         "overview": overview.to_dicts(),
         "kpi_holes": kpi_hole_summary.to_dicts(),
         "sector_holes": sector_gap_summary.to_dicts(),
-        "ticker_gaps": ticker_gap_summary.head(24).to_dicts(),
+        "ticker_gaps": ticker_gap_summary.head(12).to_dicts(),
         "ticker_metric_holes": ticker_metric_holes.to_dicts(),
         "quarterly_holes": quarterly_holes.head(6000).to_dicts(),
         "share_anomalies": share_anomaly_summary.head(30).to_dicts(),
@@ -607,22 +607,27 @@ def _render_dashboard_html(
       </div>
     </div>
 
+    <div class="section">
+      <h2>Lecture directe</h2>
+      <p class="muted">Les grands nombres ci-dessous comptent les trous. Un trou = un trimestre manquant pour un KPI donne. Le but du rapport est de montrer ou ca manque, pas de t'afficher un taux de couverture abstrait.</p>
+    </div>
+
     <div class="metric-grid">
       {_metric_cards_html(overview)}
     </div>
 
     <div class="section">
-      <h2>Vue d'ensemble</h2>
-      <p class="muted">Lecture simple: a gauche, combien de tickers ont au moins une valeur SEC pour chaque KPI. A droite, combien de trimestres manquent au total sur l'univers.</p>
+      <h2>Ce qui manque vraiment</h2>
+      <p class="muted">A gauche: combien de tickers sont touches par au moins un trou. A droite: combien de trimestres manquent au total. C'est la vue la plus importante du rapport.</p>
       <div class="chart-grid">
-        <div id="coverage-chart" class="chart-box"></div>
+        <div id="hole-ticker-chart" class="chart-box"></div>
         <div id="kpi-holes-chart" class="chart-box"></div>
       </div>
     </div>
 
     <div class="section">
-      <h2>Ou sont les vrais problemes ?</h2>
-      <p class="muted">A gauche: les tickers qui concentrent le plus de trous. A droite: les secteurs qui concentrent le plus de trous.</p>
+      <h2>Les pires zones du package</h2>
+      <p class="muted">A gauche: les 12 tickers qui concentrent le plus de trous. A droite: les secteurs les plus touches. Ici, on regarde ou il faut enqueter en premier.</p>
       <div class="chart-grid">
         <div id="ticker-chart" class="chart-box"></div>
         <div id="sector-chart" class="chart-box"></div>
@@ -715,24 +720,24 @@ def _render_dashboard_html(
       target.innerHTML = `<table>${{header}}<tbody>${{body}}</tbody></table>`;
     }}
 
-    const coverageChart = echarts.init(document.getElementById('coverage-chart'));
-    coverageChart.setOption({{
+    const holeTickerChart = echarts.init(document.getElementById('hole-ticker-chart'));
+    holeTickerChart.setOption({{
       animation: false,
       tooltip: {{
         trigger: 'axis',
         formatter: (params) => {{
           const row = payload.overview[params[0].dataIndex];
-          return `${{row.metric_label}}<br>${{row.tickers_with_data}} tickers avec au moins une valeur SEC<br>${{row.zero_coverage_tickers}} tickers sans aucune valeur SEC`;
+          return `${{row.metric_label}}<br>${{row.tickers_with_holes}} tickers sur ${{row.total_tickers}} ont au moins un trou<br>${{row.zero_coverage_tickers}} tickers sont totalement vides`;
         }}
       }},
       grid: {{ left: 70, right: 20, top: 40, bottom: 40 }},
-      xAxis: {{ type: 'value', name: 'Nombre de tickers' }},
+      xAxis: {{ type: 'value', name: 'Tickers touches' }},
       yAxis: {{ type: 'category', data: payload.overview.map((row) => row.metric_label) }},
       series: [
         {{
           type: 'bar',
-          data: payload.overview.map((row) => row.tickers_with_data),
-          itemStyle: {{ color: '#315c9c' }},
+          data: payload.overview.map((row) => row.tickers_with_holes),
+          itemStyle: {{ color: '#8c4a2f' }},
           label: {{ show: true, position: 'right' }}
         }}
       ]
@@ -745,7 +750,7 @@ def _render_dashboard_html(
         trigger: 'axis',
         formatter: (params) => {{
           const row = payload.kpi_holes[params[0].dataIndex];
-          return `${{row.metric_label}}<br>${{row.hole_count}} trimestres manquants<br>${{row.tickers_with_holes}} tickers touches`;
+          return `${{row.metric_label}}<br>${{row.hole_count}} trimestres manquants au total<br>${{row.tickers_with_holes}} tickers touches`;
         }}
       }},
       grid: {{ left: 90, right: 20, top: 40, bottom: 40 }},
@@ -891,7 +896,7 @@ def _render_dashboard_html(
     updateHoleTables();
 
     window.addEventListener('resize', () => {{
-      coverageChart.resize();
+      holeTickerChart.resize();
       kpiHolesChart.resize();
       tickerChart.resize();
       sectorChart.resize();
@@ -906,20 +911,24 @@ def _render_dashboard_html(
 def _metric_cards_html(overview: pl.DataFrame) -> str:
     cards: list[str] = []
     for row in overview.sort("metric").to_dicts():
-        coverage_phrase = (
-            f"{row['tickers_with_data']} tickers sur {row['total_tickers']} ont au moins une valeur SEC "
-            f"({row['coverage_pct']:.1f} % de l'univers)."
+        headline = _format_int(int(row["hole_count"] or 0))
+        headline_label = "trimestres manquants"
+        touched_phrase = (
+            f"{_format_int(int(row['tickers_with_holes'] or 0))} tickers sur "
+            f"{_format_int(int(row['total_tickers'] or 0))} ont au moins un trou sur ce KPI."
         )
-        zero_phrase = f"{row['zero_coverage_tickers']} tickers n'ont aucune valeur SEC pour ce KPI."
-        holes_phrase = f"{row['tickers_with_holes']} tickers ont au moins un trou, soit {row['hole_count']} trimestres manquants."
+        zero_phrase = (
+            f"{_format_int(int(row['zero_coverage_tickers'] or 0))} tickers sont totalement vides "
+            "pour ce KPI."
+        )
         period_phrase = f"Periode observee: {row['first_date']} -> {row['last_date']}."
         cards.append(
             "<div class='metric-card'>"
             f"<div class='metric-title'>{escape(str(row['metric_label']))}</div>"
-            f"<div class='big'>{row['tickers_with_data']}/{row['total_tickers']}</div>"
-            f"<div class='line'>{escape(coverage_phrase)}</div>"
+            f"<div class='big'>{headline}</div>"
+            f"<div class='line'><strong>{headline_label}</strong></div>"
+            f"<div class='line'>{escape(touched_phrase)}</div>"
             f"<div class='line'>{escape(zero_phrase)}</div>"
-            f"<div class='line'>{escape(holes_phrase)}</div>"
             f"<div class='line muted'>{escape(period_phrase)}</div>"
             "</div>"
         )
@@ -1081,10 +1090,9 @@ def _render_dashboard_markdown(
     ]
     for row in overview.sort("metric").to_dicts():
         lines.append(
-            f"- **{row['metric_label']}**: {row['tickers_with_data']} tickers sur {row['total_tickers']} "
-            f"ont au moins une valeur SEC ({row['coverage_pct']:.1f} % de l'univers). "
-            f"{row['zero_coverage_tickers']} tickers sont totalement vides. "
-            f"{row['tickers_with_holes']} tickers ont au moins un trou, soit {row['hole_count']} trimestres manquants."
+            f"- **{row['metric_label']}**: {row['hole_count']} trimestres manquants au total. "
+            f"{row['tickers_with_holes']} tickers sur {row['total_tickers']} ont au moins un trou. "
+            f"{row['zero_coverage_tickers']} tickers sont totalement vides."
         )
     lines.extend(["", "## Tickers les plus problematiques", ""])
     for row in ticker_gap_summary.head(20).to_dicts():
@@ -1125,6 +1133,10 @@ def _pct(numerator: int, denominator: int) -> float:
     if denominator <= 0:
         return 0.0
     return (numerator / denominator) * 100.0
+
+
+def _format_int(value: int) -> str:
+    return f"{value:,}".replace(",", " ")
 
 
 def _utc_now_iso() -> str:
