@@ -167,6 +167,7 @@ Legacy reference datasets are mirrored in:
 For the full ingestion contract, lineage rules, natural keys, and the "never delete raw data" policy, see:
 
 - `docs/open_source_ingestion_architecture.md`
+- `docs/sec_fundamentals_contract.md`
 
 If you want the exact legacy filenames in one user-facing folder, open:
 
@@ -187,6 +188,32 @@ The user-facing lineage folder now contains the official exported lineage of the
 - `earnings_open_source_lineage.parquet`
 - `earnings_open_source_long.parquet`
 - `manifest.json`
+
+## Official Data Packages
+
+There are now three package roles to keep distinct:
+
+1. `data/eodhd/output/`
+   - legacy mirror and historical reference package
+2. `data/open_source/output/`
+   - multi-source open-source package
+   - source priority can mix SEC / filing / SimFin / Yahoo depending on dataset
+3. `data/sec/output/`
+   - fundamentals-only SEC package
+   - one source of truth for fundamentals: SEC
+   - no Yahoo, no SimFin, no EODHD fallback inside this package
+
+Use these docs when touching the model:
+
+- `docs/open_source_ingestion_architecture.md`
+- `docs/sec_fundamentals_contract.md`
+
+The SEC package exists to keep the fundamental lineage simple and explicit:
+
+- source canonique: SEC
+- access path 1: `companyfacts`
+- access path 2: `filing-level XBRL`
+- no external vendor fallback
 
 ## Nightly Ingestion
 

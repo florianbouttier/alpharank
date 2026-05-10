@@ -4,6 +4,11 @@ This document describes the open-source ingestion contract for AlphaRank.
 
 The goal is not just to fetch data. The goal is to make the data store auditable, correctable, and safe for historical research.
 
+Important scope note:
+
+- this document describes the multi-source open-source store under `data/open_source/`
+- the SEC-only fundamentals package has its own contract in `docs/sec_fundamentals_contract.md`
+
 ## Core Rules
 
 1. Raw source tables are the canonical store.
@@ -127,6 +132,14 @@ data/open_source/
     ...
 ```
 
+Related package outside this tree:
+
+- `data/sec/output/`
+  - SEC-only fundamentals package
+  - user-facing package
+  - no price data
+  - official lineage exported under `data/sec/output/lineage/`
+
 ## Layer Contract
 
 ### `raw/`
@@ -189,6 +202,19 @@ Status:
 
 - derived export
 - not the authoritative storage layer
+
+### `data/sec/output/`
+
+Purpose:
+
+- expose a separate fundamentals package with a single source of truth: SEC
+- keep a simpler lineage contract when we want GAAP-first fundamentals without vendor mixing
+
+Status:
+
+- user-facing published package
+- separate from `data/open_source/output/`
+- documented by `docs/sec_fundamentals_contract.md`
 
 ### `audits/`
 
@@ -501,6 +527,7 @@ What the pipeline should not do:
 4. `runs/<run_id>/` is the best place to debug a suspicious nightly run.
 5. `manifests/latest_run.json` should be treated as the pointer to the latest successful run, not just the latest attempted run.
 6. If you ever want an actual purge workflow, it should be implemented as an explicit maintenance tool with its own manifest and review step. It should not be implicit in the ingestion runner.
+7. If a task changes data-model semantics, the code change is not complete until the relevant architecture or package contract docs are updated in the same patch.
 
 ## Current Gaps
 

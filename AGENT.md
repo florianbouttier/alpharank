@@ -130,3 +130,5 @@ Rules:
 - The legacy reference mirror must live under `data/eodhd/output/` with the same exact filenames as `data/open_source/output/`.
 - If exploratory outputs must be kept, move them under `data/open_source/archive/` instead of leaving them at the root.
 - When documentation mentions the open-source store, prefer the words `official`, `target`, `output`, `audit`, and `archive` over ambiguous names like `live` or `clean`.
+- When changing ingestion semantics, consolidation priority, natural keys, quarter normalization, or lineage schema, update the corresponding docs in the same task. At minimum keep `README.md`, `docs/open_source_ingestion_architecture.md`, and any package-specific contract document current.
+- `data/sec/output/` is the official SEC-only fundamentals package. Keep its source policy simple: SEC only, with `companyfacts` then `filing-level` extraction, and document any exception explicitly before shipping it.
