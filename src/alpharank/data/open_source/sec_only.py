@@ -87,11 +87,16 @@ def build_sec_only_financials(
     sec_companyfacts: pl.DataFrame,
     sec_filing: pl.DataFrame,
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    return consolidate_financial_sources(
+    consolidated, lineage, source_summary = consolidate_financial_sources(
         [
             FinancialSourceInput(source_name="sec_companyfacts", frame=sec_companyfacts, priority=1),
             FinancialSourceInput(source_name="sec_filing", frame=sec_filing, priority=2),
         ]
+    )
+    return (
+        _canonicalize_financial_quarter_fields(consolidated),
+        _canonicalize_financial_quarter_fields(lineage),
+        source_summary,
     )
 
 
@@ -125,7 +130,11 @@ def build_sec_only_earnings(
             pl.lit(None).cast(pl.Float64).alias("selected_surprisePercent"),
         ]
     )
-    return consolidated, lineage, long_frame
+    return (
+        _canonicalize_earnings_quarter_fields(consolidated),
+        _canonicalize_earnings_quarter_fields(lineage),
+        _canonicalize_earnings_quarter_fields(long_frame),
+    )
 
 
 def _empty_yahoo_metadata_frame() -> pl.DataFrame:
@@ -215,3 +224,81 @@ def _canonicalize_general_outputs(
     sort_cols = _general_lineage_sort_columns(general)
     general = general.sort(sort_cols).unique(subset=["ticker"], keep="last", maintain_order=True).sort("ticker")
     return general, lineage
+
+
+def _canonicalize_financial_quarter_fields(frame: pl.DataFrame) -> pl.DataFrame:
+    return _canonicalize_quarter_fields(
+        frame,
+        ticker_col="ticker",
+        date_col="date",
+        year_col="selected_fiscal_year",
+        period_col="selected_fiscal_period",
+    )
+
+
+def _canonicalize_earnings_quarter_fields(frame: pl.DataFrame) -> pl.DataFrame:
+    return _canonicalize_quarter_fields(
+        frame,
+        ticker_col="ticker",
+        date_col="period_end",
+        year_col="fiscal_year",
+        period_col="fiscal_period",
+    )
+
+
+def _canonicalize_quarter_fields(
+    frame: pl.DataFrame,
+    *,
+    ticker_col: str,
+    date_col: str,
+    year_col: str,
+    period_col: str,
+) -> pl.DataFrame:
+    if frame.is_empty() or date_col not in frame.columns or year_col not in frame.columns or period_col not in frame.columns:
+        return frame
+
+    quarterly_dates = (
+        frame.filter(
+            pl.col(date_col).is_not_null()
+            & pl.col(year_col).is_not_null()
+            & pl.col(period_col).cast(pl.Utf8, strict=False).fill_null("").str.strip_chars().ne("FY")
+        )
+        .select(
+            [
+                pl.col(ticker_col),
+                pl.col(date_col),
+                pl.col(year_col).cast(pl.Int64, strict=False).alias(year_col),
+            ]
+        )
+        .unique()
+        .with_columns(pl.col(date_col).str.strptime(pl.Date, strict=False).alias("_quarter_dt"))
+        .filter(pl.col("_quarter_dt").is_not_null())
+        .sort([ticker_col, year_col, "_quarter_dt"])
+        .with_columns(
+            [
+                pl.col("_quarter_dt").rank("ordinal").over([ticker_col, year_col]).cast(pl.Int64).alias("_quarter_rank"),
+                pl.len().over([ticker_col, year_col]).cast(pl.Int64).alias("_quarter_count"),
+            ]
+        )
+        .with_columns(
+            pl.when((pl.col("_quarter_count") >= 1) & (pl.col("_quarter_count") <= 4))
+            .then(pl.concat_str([pl.lit("Q"), pl.col("_quarter_rank").cast(pl.Utf8)]))
+            .otherwise(pl.lit(None).cast(pl.Utf8))
+            .alias("_canonical_fiscal_period")
+        )
+        .select([ticker_col, date_col, year_col, "_canonical_fiscal_period"])
+    )
+    if quarterly_dates.is_empty():
+        return frame
+
+    return (
+        frame.join(
+            quarterly_dates,
+            on=[ticker_col, date_col, year_col],
+            how="left",
+        )
+        .with_columns(
+            pl.coalesce([pl.col("_canonical_fiscal_period"), pl.col(period_col).cast(pl.Utf8, strict=False)]).alias(period_col)
+        )
+        .drop("_canonical_fiscal_period")
+    )
