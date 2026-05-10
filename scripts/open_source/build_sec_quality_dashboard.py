@@ -18,6 +18,7 @@ METRIC_LABELS: dict[str, str] = {
     "outstanding_shares": "Actions en circulation",
     "epsActual": "EPS publie",
 }
+PERIOD_ORDER: dict[str, int] = {"Q1": 1, "Q2": 2, "Q3": 3, "Q4": 4}
 
 
 def main() -> None:
@@ -41,7 +42,7 @@ def main() -> None:
     zero_coverage = _build_zero_coverage_summary(missing=missing)
     quarterly_presence = _build_quarterly_presence(financials=financials, earnings=earnings, general=general)
     ticker_metric_holes = _build_ticker_metric_holes(quarterly_presence=quarterly_presence)
-    quarterly_holes = quarterly_presence.filter(~pl.col("present")).sort(["metric", "ticker", "date"])
+    quarterly_holes = quarterly_presence.filter(~pl.col("present")).sort(["metric", "ticker", "fiscal_year", "quarter_sort"])
     kpi_hole_summary = _build_kpi_hole_summary(quarterly_presence=quarterly_presence)
     sector_gap_summary = _build_sector_gap_summary(ticker_metric_holes=ticker_metric_holes)
     ticker_gap_summary = _build_ticker_gap_summary(ticker_metric_holes=ticker_metric_holes)
@@ -247,12 +248,27 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
 
     financial_presence = (
         financials.filter(pl.col("metric").is_in(list(CORE_METRICS)))
-        .select(["ticker", "date", "metric"])
+        .with_columns(
+            [
+                _normalize_period_expr(pl.col("selected_fiscal_period")).alias("fiscal_period"),
+                pl.col("selected_fiscal_year").cast(pl.Int64, strict=False).alias("fiscal_year"),
+            ]
+        )
+        .filter(pl.col("fiscal_period").is_not_null() & pl.col("fiscal_year").is_not_null())
+        .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
         .unique()
     )
     earnings_presence = (
         earnings.filter(pl.col("epsActual").is_not_null())
-        .select(["ticker", pl.col("period_end").alias("date"), pl.lit("epsActual").alias("metric")])
+        .with_columns(
+            [
+                _normalize_period_expr(pl.col("fiscal_period")).alias("fiscal_period"),
+                pl.col("fiscal_year").cast(pl.Int64, strict=False).alias("fiscal_year"),
+                pl.lit("epsActual").alias("metric"),
+            ]
+        )
+        .filter(pl.col("fiscal_period").is_not_null() & pl.col("fiscal_year").is_not_null())
+        .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
         .unique()
     )
     observed = pl.concat([financial_presence, earnings_presence], how="diagonal_relaxed").unique()
@@ -263,29 +279,52 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
                 "ticker_code": pl.String,
                 "sector": pl.String,
                 "industry": pl.String,
-                "date": pl.String,
+                "fiscal_year": pl.Int64,
+                "fiscal_period": pl.String,
+                "quarter_label": pl.String,
+                "quarter_sort": pl.Int64,
                 "metric": pl.String,
                 "metric_label": pl.String,
                 "present": pl.Boolean,
             }
         )
 
-    expected = observed.select(["ticker", "date"]).unique().join(pl.DataFrame({"metric": list(AUDIT_METRICS)}), how="cross")
+    expected = observed.select(["ticker", "fiscal_year", "fiscal_period"]).unique().join(
+        pl.DataFrame({"metric": list(AUDIT_METRICS)}), how="cross"
+    )
     return (
         expected.join(
             observed.with_columns(pl.lit(True).alias("present")),
-            on=["ticker", "date", "metric"],
+            on=["ticker", "fiscal_year", "fiscal_period", "metric"],
             how="left",
         )
         .with_columns(
             [
                 pl.col("present").fill_null(False),
                 pl.col("metric").replace_strict(METRIC_LABELS, default=pl.col("metric")).alias("metric_label"),
+                (pl.col("fiscal_year").cast(pl.Utf8) + pl.lit(" ") + pl.col("fiscal_period")).alias("quarter_label"),
+                _period_order_expr(pl.col("fiscal_period")).alias("quarter_sort"),
+                (pl.col("fiscal_year") * pl.lit(10) + _period_order_expr(pl.col("fiscal_period"))).alias("quarter_index"),
             ]
         )
         .join(ticker_info, on="ticker", how="left")
-        .select(["ticker", "ticker_code", "sector", "industry", "date", "metric", "metric_label", "present"])
-        .sort(["ticker", "date", "metric"])
+        .select(
+            [
+                "ticker",
+                "ticker_code",
+                "sector",
+                "industry",
+                "fiscal_year",
+                "fiscal_period",
+                "quarter_label",
+                "quarter_sort",
+                "quarter_index",
+                "metric",
+                "metric_label",
+                "present",
+            ]
+        )
+        .sort(["ticker", "fiscal_year", "quarter_sort", "metric"])
     )
 
 
@@ -315,9 +354,13 @@ def _build_ticker_metric_holes(*, quarterly_presence: pl.DataFrame) -> pl.DataFr
             [
                 pl.len().alias("expected_quarters"),
                 pl.col("present").cast(pl.Int64).sum().alias("present_quarters"),
-                pl.col("date").min().alias("first_quarter"),
-                pl.col("date").max().alias("last_quarter"),
-                pl.col("date").filter(~pl.col("present")).sort().head(8).alias("missing_dates"),
+                pl.col("quarter_label").sort_by("quarter_index").first().alias("first_quarter"),
+                pl.col("quarter_label").sort_by("quarter_index").last().alias("last_quarter"),
+                pl.col("quarter_label")
+                .filter(~pl.col("present"))
+                .sort_by(pl.col("quarter_index").filter(~pl.col("present")))
+                .head(8)
+                .alias("missing_dates"),
             ]
         )
         .with_columns(
@@ -912,7 +955,7 @@ def _render_dashboard_html(
         quarterRows.slice(0, 1200).map((row) => ({{
           ticker: row.ticker,
           kpi: row.metric_label,
-          trimestre: row.date,
+          trimestre: row.quarter_label,
           secteur: row.sector,
           industrie: row.industry,
         }})),
@@ -920,7 +963,7 @@ def _render_dashboard_html(
         {{
           ticker: 'Ticker',
           kpi: 'KPI',
-          trimestre: 'Trimestre manquant',
+          trimestre: 'Trimestre fiscal manquant',
           secteur: 'Secteur',
           industrie: 'Industrie',
         }},
@@ -1063,7 +1106,7 @@ def _render_ticker_page(
 
     <div class="section">
       <h2>Trimestres manquants</h2>
-      <div class="table-wrap">{_table_html(_rename_columns(quarterly_holes, {'metric_label': 'kpi', 'date': 'trimestre'}).head(200))}</div>
+      <div class="table-wrap">{_table_html(_rename_columns(quarterly_holes, {'metric_label': 'kpi', 'quarter_label': 'trimestre'}).head(200))}</div>
     </div>
 
     <div class="section">
@@ -1181,6 +1224,30 @@ def _format_int(value: int) -> str:
 
 def _format_pct(value: float) -> str:
     return f"{value:.1f} %".replace(".", ",")
+
+
+def _normalize_period_expr(expr: pl.Expr) -> pl.Expr:
+    return (
+        pl.when(expr == "FY")
+        .then(pl.lit("Q4"))
+        .when(expr.is_in(["Q1", "Q2", "Q3", "Q4"]))
+        .then(expr)
+        .otherwise(pl.lit(None).cast(pl.Utf8))
+    )
+
+
+def _period_order_expr(expr: pl.Expr) -> pl.Expr:
+    return (
+        pl.when(expr == "Q1")
+        .then(pl.lit(1))
+        .when(expr == "Q2")
+        .then(pl.lit(2))
+        .when(expr == "Q3")
+        .then(pl.lit(3))
+        .when(expr == "Q4")
+        .then(pl.lit(4))
+        .otherwise(pl.lit(99))
+    )
 
 
 def _utc_now_iso() -> str:
