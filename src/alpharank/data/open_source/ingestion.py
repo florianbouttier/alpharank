@@ -44,6 +44,7 @@ from alpharank.data.open_source.general_reference import (
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
 from alpharank.data.open_source.publishing import publish_open_source_output_package
 from alpharank.data.open_source.sec import SecCompanyFactsClient
+from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.simfin import SimFinClient
 from alpharank.data.open_source.stockanalysis import StockAnalysisClient
@@ -82,6 +83,7 @@ RAW_FINANCIAL_SCHEMA = {
     "value": pl.Float64,
     "source": pl.String,
     "source_label": pl.String,
+    "accession_number": pl.String,
     "form": pl.String,
     "fiscal_period": pl.String,
     "fiscal_year": pl.Int64,
@@ -451,9 +453,6 @@ def refresh_open_source_reference_layers(
     sec_client = SecCompanyFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts")
     sec_filing_client = SecFilingFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing")
 
-    sec_mapping_all = sec_client.fetch_company_mapping()
-    sec_mapping = sec_mapping_all.filter(pl.col("ticker").is_in(list(ticker_list)))
-
     existing_general_reference = (
         pl.read_parquet(paths.raw_dir / "general_reference.parquet")
         if (paths.raw_dir / "general_reference.parquet").exists()
@@ -463,6 +462,13 @@ def refresh_open_source_reference_layers(
         pl.read_parquet(paths.raw_dir / "general_reference_lineage.parquet")
         if (paths.raw_dir / "general_reference_lineage.parquet").exists()
         else empty_general_reference_lineage_frame()
+    )
+    sec_mapping_all = sec_client.fetch_company_mapping()
+    sec_mapping = resolve_sec_company_mapping(
+        requested_tickers=ticker_list,
+        sec_mapping_all=sec_mapping_all,
+        reference_data_dir=reference_data_dir,
+        existing_general_reference_lineage=existing_general_reference_lineage,
     )
     general_refresh_tickers = _identify_general_reference_refresh_tickers(
         requested_tickers=ticker_list,
@@ -745,8 +751,6 @@ def run_open_source_ingestion(
         "yfinance_earnings": [],
     }
 
-    sec_mapping_all = sec_client.fetch_company_mapping()
-    sec_mapping = sec_mapping_all.filter(pl.col("ticker").is_in(list(ticker_list)))
     existing_general_reference = (
         pl.read_parquet(paths.raw_dir / "general_reference.parquet")
         if (paths.raw_dir / "general_reference.parquet").exists()
@@ -756,6 +760,13 @@ def run_open_source_ingestion(
         pl.read_parquet(paths.raw_dir / "general_reference_lineage.parquet")
         if (paths.raw_dir / "general_reference_lineage.parquet").exists()
         else empty_general_reference_lineage_frame()
+    )
+    sec_mapping_all = sec_client.fetch_company_mapping()
+    sec_mapping = resolve_sec_company_mapping(
+        requested_tickers=ticker_list,
+        sec_mapping_all=sec_mapping_all,
+        reference_data_dir=reference_data_dir,
+        existing_general_reference_lineage=existing_general_reference_lineage,
     )
     general_refresh_tickers = _identify_general_reference_refresh_tickers(
         requested_tickers=ticker_list,

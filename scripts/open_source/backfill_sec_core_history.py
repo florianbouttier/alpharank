@@ -29,6 +29,7 @@ from alpharank.data.open_source.ingestion import (
     _with_general_lineage_ingestion_metadata,
 )
 from alpharank.data.open_source.sec import SecCompanyFactsClient
+from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.sec_only import build_sec_only_general_reference
 from alpharank.data.open_source.storage import (
@@ -109,14 +110,6 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
     print(f"Tickers requested: {len(ticker_list)}")
     print(f"Years: {args.start_year} -> {args.end_year}")
 
-    sec_mapping_all = sec_client.fetch_company_mapping()
-    sec_mapping = sec_mapping_all.filter(pl.col("ticker").is_in(list(ticker_list))).sort("ticker")
-    mapped_tickers = set(sec_mapping.get_column("ticker").cast(pl.Utf8).to_list())
-    missing_mapping = sorted(ticker for ticker in ticker_list if ticker not in mapped_tickers)
-    print(f"SEC mapping coverage: {sec_mapping.height}/{len(ticker_list)}")
-    if missing_mapping:
-        print(f"Missing SEC mapping tickers: {len(missing_mapping)}")
-
     existing_general_reference = (
         pl.read_parquet(paths.raw_dir / "general_reference.parquet")
         if (paths.raw_dir / "general_reference.parquet").exists()
@@ -127,6 +120,19 @@ def _run_backfill(*, args: argparse.Namespace, paths: OpenSourceLivePaths, run_i
         if (paths.raw_dir / "general_reference_lineage.parquet").exists()
         else pl.DataFrame()
     )
+
+    sec_mapping_all = sec_client.fetch_company_mapping()
+    sec_mapping = resolve_sec_company_mapping(
+        requested_tickers=ticker_list,
+        sec_mapping_all=sec_mapping_all,
+        reference_data_dir=args.reference_data_dir.resolve(),
+        existing_general_reference_lineage=existing_general_lineage,
+    ).sort("ticker")
+    mapped_tickers = set(sec_mapping.get_column("ticker").cast(pl.Utf8).to_list())
+    missing_mapping = sorted(ticker for ticker in ticker_list if ticker not in mapped_tickers)
+    print(f"SEC mapping coverage: {sec_mapping.height}/{len(ticker_list)}")
+    if missing_mapping:
+        print(f"Missing SEC mapping tickers: {len(missing_mapping)}")
 
     general_refresh_tickers = _identify_general_reference_refresh_tickers(
         requested_tickers=ticker_list,

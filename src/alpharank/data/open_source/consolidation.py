@@ -87,6 +87,7 @@ def _build_candidate_frame(sources: list[FinancialSourceInput]) -> pl.DataFrame:
                     pl.lit(source.priority).alias("source_priority"),
                     pl.col("source").alias("selected_source"),
                     pl.col("source_label").alias("selected_source_label"),
+                    pl.col("accession_number").alias("selected_accession_number"),
                     pl.col("form").alias("selected_form"),
                     pl.col("fiscal_period").alias("selected_fiscal_period"),
                     pl.col("fiscal_year").alias("selected_fiscal_year"),
@@ -159,6 +160,7 @@ def _consolidated_columns() -> list[str]:
         "source_label",
         "selected_source",
         "selected_source_label",
+        "selected_accession_number",
         "selected_form",
         "selected_fiscal_period",
         "selected_fiscal_year",
@@ -182,6 +184,7 @@ def _lineage_columns() -> list[str]:
         "source_label",
         "selected_source",
         "selected_source_label",
+        "selected_accession_number",
         "selected_form",
         "selected_fiscal_period",
         "selected_fiscal_year",
@@ -202,6 +205,7 @@ def _empty_consolidated_frame() -> pl.DataFrame:
             "source_label": pl.String,
             "selected_source": pl.String,
             "selected_source_label": pl.String,
+            "selected_accession_number": pl.String,
             "selected_form": pl.String,
             "selected_fiscal_period": pl.String,
             "selected_fiscal_year": pl.Int64,
@@ -227,6 +231,7 @@ def _empty_lineage_frame() -> pl.DataFrame:
             "source_label": pl.String,
             "selected_source": pl.String,
             "selected_source_label": pl.String,
+            "selected_accession_number": pl.String,
             "selected_form": pl.String,
             "selected_fiscal_period": pl.String,
             "selected_fiscal_year": pl.Int64,
@@ -251,10 +256,15 @@ def _empty_source_summary() -> pl.DataFrame:
 
 def _ensure_lineage_columns(frame: pl.DataFrame) -> pl.DataFrame:
     expressions: list[pl.Expr] = []
-    if "form" not in frame.columns:
-        expressions.append(pl.lit(None).cast(pl.Utf8).alias("form"))
-    if "fiscal_period" not in frame.columns:
-        expressions.append(pl.lit(None).cast(pl.Utf8).alias("fiscal_period"))
-    if "fiscal_year" not in frame.columns:
-        expressions.append(pl.lit(None).cast(pl.Int64).alias("fiscal_year"))
+    desired_types: dict[str, pl.DataType] = {
+        "form": pl.Utf8,
+        "fiscal_period": pl.Utf8,
+        "fiscal_year": pl.Int64,
+        "accession_number": pl.Utf8,
+    }
+    for column, dtype in desired_types.items():
+        if column in frame.columns:
+            expressions.append(pl.col(column).cast(dtype, strict=False).alias(column))
+        else:
+            expressions.append(pl.lit(None).cast(dtype).alias(column))
     return frame.with_columns(expressions) if expressions else frame

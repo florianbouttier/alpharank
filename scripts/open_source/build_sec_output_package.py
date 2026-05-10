@@ -68,6 +68,7 @@ def main(
         earnings_frame=earnings_consolidated,
         reference_data_dir=resolved_reference_data_dir,
         output_dir=staging_dir,
+        align_shares_with_earnings_semantics=False,
     )
 
     manifest = {

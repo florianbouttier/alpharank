@@ -954,3 +954,87 @@ def test_export_legacy_compatible_outputs_keeps_distinct_quarters_from_same_fili
     assert income["totalRevenue"].to_list() == [64_040_000_000.0, 59_685_000_000.0]
     assert shares["dateFormatted"].to_list() == ["2019-09-30", "2020-06-30"]
     assert shares["shares"].to_list() == [4_443_236_000.0, 4_275_634_000.0]
+
+
+def test_export_legacy_compatible_outputs_can_skip_earnings_implied_share_alignment(tmp_path: Path) -> None:
+    reference_dir = tmp_path / "reference"
+    output_dir = tmp_path / "live" / "legacy"
+    reference_dir.mkdir(parents=True)
+    _write_minimal_legacy_reference(reference_dir, ticker="ABC.US", code="ABC", name="ABC Corp")
+    pl.DataFrame(
+        {
+            "ticker": ["ABC.US"],
+            "date": ["2025-03-31"],
+            "filing_date": ["2025-05-01"],
+            "totalRevenue": [100.0],
+            "netIncome": [20_000_000.0],
+        }
+    ).write_parquet(reference_dir / "US_Income_statement.parquet")
+
+    clean_prices = pl.read_parquet(reference_dir / "US_Finalprice.parquet")
+    benchmark_prices = pl.read_parquet(reference_dir / "SP500Price.parquet")
+    general_reference = pl.DataFrame(
+        {
+            "ticker": ["ABC.US"],
+            "name": ["ABC Corp"],
+            "exchange": ["NYSE"],
+            "cik": ["0000000001"],
+            "source": ["sec_mapping"],
+            "Sector": ["Industrials"],
+            "industry": ["Industrial Machinery"],
+            "sector_source": ["sec_sic"],
+            "sector_raw_value": ["Industrials"],
+            "sic": [None],
+            "sic_description": [None],
+            "mapping_rule": ["sec"],
+        }
+    )
+    consolidated_financials = pl.DataFrame(
+        {
+            "ticker": ["ABC.US", "ABC.US", "ABC.US"],
+            "statement": ["income_statement", "balance_sheet", "shares"],
+            "metric": ["net_income", "total_assets", "outstanding_shares"],
+            "date": ["2025-03-31", "2025-03-31", "2025-03-31"],
+            "filing_date": ["2025-05-01", "2025-05-01", "2025-05-01"],
+            "value": [20_000_000.0, 500.0, 10_000_000.0],
+            "source": ["open_source_consolidated"] * 3,
+            "source_label": ["value"] * 3,
+            "selected_source": ["sec_companyfacts"] * 3,
+            "selected_source_label": ["tag"] * 3,
+            "selected_accession_number": [None, None, None],
+            "selected_form": ["10-Q"] * 3,
+            "selected_fiscal_period": ["Q1"] * 3,
+            "selected_fiscal_year": [2025] * 3,
+            "source_priority": [1] * 3,
+            "fallback_used": [False] * 3,
+            "candidate_source_count": [1] * 3,
+            "candidate_sources": ["sec_companyfacts"] * 3,
+            "candidate_source_labels": ["tag"] * 3,
+        }
+    )
+    earnings = pl.DataFrame(
+        {
+            "ticker": ["ABC.US"],
+            "reportDate": ["2025-05-01"],
+            "earningsDatetime": ["2025-05-01 20:00:00"],
+            "period_end": ["2025-03-31"],
+            "epsEstimate": [1.4],
+            "epsActual": [2.0],
+            "surprisePercent": [7.0],
+            "source": ["sec_companyfacts"],
+        }
+    )
+
+    export_legacy_compatible_outputs(
+        clean_prices=clean_prices,
+        benchmark_prices=benchmark_prices,
+        general_reference=general_reference,
+        consolidated_financials=consolidated_financials,
+        earnings_frame=earnings,
+        reference_data_dir=reference_dir,
+        output_dir=output_dir,
+        align_shares_with_earnings_semantics=False,
+    )
+
+    balance = pl.read_parquet(output_dir / "US_Balance_sheet.parquet")
+    assert balance["commonStockSharesOutstanding"].to_list() == [10_000_000.0]

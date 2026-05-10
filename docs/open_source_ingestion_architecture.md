@@ -215,6 +215,7 @@ Status:
 - user-facing published package
 - separate from `data/open_source/output/`
 - documented by `docs/sec_fundamentals_contract.md`
+- historical ticker recovery may use a local `ticker -> CIK` bridge to reach the SEC, but not to source final fundamental values
 
 ### `audits/`
 

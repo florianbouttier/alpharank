@@ -28,6 +28,13 @@ Il ne contient pas:
 - de fallback SimFin
 - de fallback EODHD
 
+Nuance importante:
+
+- un bridge d'identifiant historique peut etre utilise pour retrouver un `CIK` SEC ancien ou delisted
+- ce bridge peut venir d'un referentiel local comme `data/eodhd/output/US_General.parquet`
+- ce bridge ne fournit jamais une valeur fondamentale finale
+- la valeur fondamentale finale doit toujours venir de la SEC
+
 Les prix doivent venir d'un package separe:
 
 - aujourd'hui: un package prix dedie ou un mirror existant
@@ -43,6 +50,9 @@ Pour ce package, la regle est volontairement stricte:
 
 Donc `companyfacts` et `filing-level` ne sont pas deux vendors differents.
 Ce sont deux facons d'extraire la meme source officielle.
+
+Pour les tickers anciens, renommes ou delisted, l'acces a la SEC peut necessiter un bridge `ticker -> CIK`.
+Ce bridge fait partie de la plomberie d'acces, pas de la source fondamentale.
 
 Si la SEC ne permet pas de reconstruire proprement une valeur:
 
@@ -108,6 +118,15 @@ Quand plusieurs candidats SEC existent pour le meme quarter logique:
 - on privilegie `companyfacts`
 - sinon `filing-level`
 - le fichier de lineage doit garder les candidats vus et la source retenue
+
+Derivations acceptees dans ce package:
+
+- `free_cash_flow = operating_cash_flow - capital_expenditures`
+- `total_liabilities = total_assets - stockholders_equity` uniquement quand le filing SEC ne fournit pas directement la ligne et que les deux composantes existent
+
+Derivation non acceptee dans ce package:
+
+- recalculer les `outstanding_shares` a partir de `net_income / epsActual`
 
 ### Earnings
 
@@ -186,7 +205,7 @@ Champs minimaux attendus dans les exports de lineage:
 - `selected_fiscal_year`
 - `selected_fiscal_period`
 - `selected_form`
-- `accession_number` quand disponible
+- `selected_accession_number` quand disponible
 - `is_derived` pour les KPI derives, si on en ajoute plus tard
 
 ## Limitations Acceptees

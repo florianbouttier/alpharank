@@ -214,6 +214,7 @@ The SEC package exists to keep the fundamental lineage simple and explicit:
 - access path 1: `companyfacts`
 - access path 2: `filing-level XBRL`
 - no external vendor fallback
+- historical/delisted ticker recovery can use a local `ticker -> CIK` bridge, but final fundamental values still come from SEC only
 
 ## Nightly Ingestion
 

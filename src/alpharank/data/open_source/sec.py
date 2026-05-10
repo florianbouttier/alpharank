@@ -12,6 +12,16 @@ import requests
 
 from alpharank.data.open_source.config import METRIC_SPECS
 
+REVENUE_COMPONENT_INTEREST_TAGS: tuple[str, ...] = (
+    "InterestAndDividendIncomeOperating",
+    "InterestIncomeOperating",
+    "InterestAndFeeIncomeLoansAndLeases",
+)
+REVENUE_COMPONENT_NONINTEREST_TAGS: tuple[str, ...] = (
+    "NoninterestIncome",
+    "NoninterestIncomeOtherOperatingIncome",
+)
+
 
 class SecCompanyFactsClient:
     def __init__(
@@ -61,7 +71,10 @@ class SecCompanyFactsClient:
         rows: list[dict[str, object]] = []
 
         for spec in METRIC_SPECS:
-            selected = _select_best_facts(spec.statement, spec.sec_fact_roots, spec.sec_tags, facts_payload)
+            if spec.metric == "revenue":
+                selected = _select_revenue_facts(spec.statement, spec.sec_fact_roots, spec.sec_tags, facts_payload)
+            else:
+                selected = _select_best_facts(spec.statement, spec.sec_fact_roots, spec.sec_tags, facts_payload)
             if spec.metric == "free_cash_flow":
                 continue
             for fact in selected:
@@ -78,6 +91,7 @@ class SecCompanyFactsClient:
                         "value": numeric_value,
                         "source": "sec_companyfacts",
                         "source_label": fact["tag"],
+                        "accession_number": fact.get("accession_number"),
                         "form": fact.get("form"),
                         "fiscal_period": fact.get("fp"),
                         "fiscal_year": fact.get("fy"),
@@ -151,6 +165,51 @@ def _select_best_facts(
     return _select_instant_facts(candidates)
 
 
+def _select_revenue_facts(
+    statement: str,
+    fact_roots: Iterable[str],
+    tags: Iterable[str],
+    facts_payload: dict[str, Any],
+) -> list[dict[str, Any]]:
+    direct = _select_best_facts(statement, fact_roots, tags, facts_payload)
+    interest_component = _select_best_facts(
+        statement,
+        ("us-gaap",),
+        REVENUE_COMPONENT_INTEREST_TAGS,
+        facts_payload,
+    )
+    noninterest_component = _select_best_facts(
+        statement,
+        ("us-gaap",),
+        REVENUE_COMPONENT_NONINTEREST_TAGS,
+        facts_payload,
+    )
+    if not interest_component or not noninterest_component:
+        return direct
+
+    direct_by_end = {str(record["end"]): record for record in direct}
+    interest_by_end = {str(record["end"]): record for record in interest_component}
+    noninterest_by_end = {str(record["end"]): record for record in noninterest_component}
+    derived: list[dict[str, Any]] = []
+    for end, interest_record in interest_by_end.items():
+        if end in direct_by_end:
+            continue
+        noninterest_record = noninterest_by_end.get(end)
+        if noninterest_record is None:
+            continue
+        representative = interest_record
+        derived.append(
+            {
+                **representative,
+                "tag": f"{interest_record['tag']}_plus_{noninterest_record['tag']}_derived_revenue",
+                "val": float(interest_record["val"]) + float(noninterest_record["val"]),
+                "tag_priority": -2,
+                "has_dimensions": bool(interest_record.get("has_dimensions")) or bool(noninterest_record.get("has_dimensions")),
+            }
+        )
+    return sorted([*direct, *derived], key=lambda record: (str(record["end"]), int(record.get("tag_priority", 0))))
+
+
 def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority: int) -> dict[str, Any] | None:
     end = fact.get("end")
     filed = fact.get("filed")
@@ -165,6 +224,7 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
     start = fact.get("start")
     frame = fact.get("frame")
     calendarized_end = _calendarized_date_from_frame(frame) if statement == "shares" else None
+    frame_period = _quarter_from_frame(frame)
     duration_days = None
     if statement in {"income_statement", "cash_flow"}:
         if start is None:
@@ -181,9 +241,10 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
         "end": calendarized_end or end,
         "raw_end": end,
         "filed": filed,
+        "accession_number": fact.get("accession_number"),
         "val": value,
         "fy": fact.get("fy"),
-        "fp": fact.get("fp"),
+        "fp": frame_period or fact.get("fp"),
         "form": form,
         "duration_days": duration_days,
         "frame": frame,
@@ -227,6 +288,15 @@ def _calendarized_date_from_frame(frame: object) -> str | None:
         4: f"{year}-12-31",
     }
     return quarter_end[quarter]
+
+
+def _quarter_from_frame(frame: object) -> str | None:
+    if frame is None:
+        return None
+    match = re.fullmatch(r"CY(\d{4})Q([1-4])I?", str(frame))
+    if not match:
+        return None
+    return f"Q{int(match.group(2))}"
 
 
 def _select_share_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -349,7 +419,7 @@ def _select_duration_facts(candidates: list[dict[str, Any]]) -> list[dict[str, A
     quarterlies = [
         record
         for record in candidates
-        if record.get("duration_days") is not None and 70 <= int(record["duration_days"]) <= 110 and record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
+        if record.get("duration_days") is not None and 70 <= int(record["duration_days"]) <= 130 and record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
     ]
     annuals = [
         record
@@ -450,6 +520,7 @@ def _derive_free_cash_flow(frame: pl.DataFrame) -> pl.DataFrame:
             (pl.col("operating_cash_flow") - pl.col("capital_expenditures")).alias("value"),
             pl.lit("sec_companyfacts").alias("source"),
             pl.lit("derived_from_operating_cash_flow_minus_capex").alias("source_label"),
+            pl.col("accession_number"),
             pl.col("form"),
             pl.col("fiscal_period"),
             pl.col("fiscal_year"),
@@ -468,6 +539,7 @@ def _empty_sec_frame() -> pl.DataFrame:
             "value": pl.Float64,
             "source": pl.String,
             "source_label": pl.String,
+            "accession_number": pl.String,
             "form": pl.String,
             "fiscal_period": pl.String,
             "fiscal_year": pl.Int64,

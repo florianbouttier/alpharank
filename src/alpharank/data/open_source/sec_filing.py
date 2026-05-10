@@ -17,6 +17,7 @@ from alpharank.data.open_source.sec import (
     _derive_free_cash_flow,
     _empty_sec_frame,
     _select_best_facts,
+    _select_revenue_facts,
 )
 
 
@@ -63,7 +64,10 @@ class SecFilingFactsClient:
         for spec in METRIC_SPECS:
             if spec.metric == "free_cash_flow":
                 continue
-            selected = _select_best_facts(spec.statement, spec.sec_fact_roots, spec.sec_tags, facts_payload)
+            if spec.metric == "revenue":
+                selected = _select_revenue_facts(spec.statement, spec.sec_fact_roots, spec.sec_tags, facts_payload)
+            else:
+                selected = _select_best_facts(spec.statement, spec.sec_fact_roots, spec.sec_tags, facts_payload)
             if not selected:
                 continue
             for fact in selected:
@@ -80,6 +84,7 @@ class SecFilingFactsClient:
                         "value": numeric_value,
                         "source": "sec_filing",
                         "source_label": fact["tag"],
+                        "accession_number": fact.get("accession_number"),
                         "form": fact.get("form"),
                         "fiscal_period": fact.get("fp"),
                         "fiscal_year": fact.get("fy"),
@@ -289,6 +294,7 @@ class SecFilingFactsClient:
                         "end": end,
                         "val": value,
                         "filed": filing.filing_date,
+                        "accession_number": filing.accession_number,
                         "form": filing.form,
                         "fy": filing_fy,
                         "fp": inferred_fiscal_period or filing_fp,
@@ -520,7 +526,7 @@ def _infer_fiscal_period(
     except ValueError:
         return filing_fp
     duration_days = (end_value - start_value).days
-    if not 70 <= duration_days <= 110:
+    if not 70 <= duration_days <= 130:
         return filing_fp
 
     month_delta = (report_value.year - end_value.year) * 12 + (report_value.month - end_value.month)

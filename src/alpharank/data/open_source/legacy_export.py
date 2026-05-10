@@ -30,6 +30,7 @@ def export_legacy_compatible_outputs(
     earnings_frame: pl.DataFrame,
     reference_data_dir: Path,
     output_dir: Path,
+    align_shares_with_earnings_semantics: bool = True,
 ) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     exported: dict[str, Path] = {}
@@ -48,13 +49,14 @@ def export_legacy_compatible_outputs(
 
     exported.update(
         export_legacy_compatible_fundamental_outputs(
-            general_reference=general_reference,
-            consolidated_financials=consolidated_financials,
-            consolidated_lineage=consolidated_lineage,
-            earnings_frame=earnings_frame,
-            reference_data_dir=reference_data_dir,
-            output_dir=output_dir,
-        )
+        general_reference=general_reference,
+        consolidated_financials=consolidated_financials,
+        consolidated_lineage=consolidated_lineage,
+        earnings_frame=earnings_frame,
+        reference_data_dir=reference_data_dir,
+        output_dir=output_dir,
+        align_shares_with_earnings_semantics=align_shares_with_earnings_semantics,
+    )
     )
     return exported
 
@@ -67,6 +69,7 @@ def export_legacy_compatible_fundamental_outputs(
     earnings_frame: pl.DataFrame,
     reference_data_dir: Path,
     output_dir: Path,
+    align_shares_with_earnings_semantics: bool = True,
 ) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     exported: dict[str, Path] = {}
@@ -90,12 +93,15 @@ def export_legacy_compatible_fundamental_outputs(
         shares_frame=financial_frames["shares"],
     )
     earnings_legacy = _build_earnings_legacy_frame(earnings_frame, reference_data_dir)
-    financial_frames["balance_sheet"], legacy_share_semantics = _align_balance_shares_with_earnings_semantics(
-        balance_frame=financial_frames["balance_sheet"],
-        income_frame=financial_frames["income_statement"],
-        earnings_legacy_frame=earnings_legacy,
-        earnings_consolidated_frame=earnings_frame,
-    )
+    if align_shares_with_earnings_semantics:
+        financial_frames["balance_sheet"], legacy_share_semantics = _align_balance_shares_with_earnings_semantics(
+            balance_frame=financial_frames["balance_sheet"],
+            income_frame=financial_frames["income_statement"],
+            earnings_legacy_frame=earnings_legacy,
+            earnings_consolidated_frame=earnings_frame,
+        )
+    else:
+        legacy_share_semantics = _empty_legacy_share_semantics_frame()
 
     for statement, file_name in LEGACY_STATEMENT_FILES.items():
         frame = financial_frames[statement]

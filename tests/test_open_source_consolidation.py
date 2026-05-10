@@ -68,3 +68,28 @@ def test_consolidate_financial_sources_overrides_share_outlier_with_yahoo() -> N
     assert consolidated["selected_source"].to_list() == ["yfinance"]
     assert consolidated["value"].to_list() == [621_855_922.0]
     assert lineage["source"].to_list() == ["sec_filing", "yfinance"]
+
+
+def test_consolidate_financial_sources_preserves_accession_number_in_selected_lineage() -> None:
+    filing = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2025-03-31"],
+            "filing_date": ["2025-05-01"],
+            "value": [95.0],
+            "source": ["sec_filing"],
+            "source_label": ["Revenues"],
+            "accession_number": ["0000320193-25-000073"],
+        }
+    )
+
+    consolidated, lineage, _ = consolidate_financial_sources(
+        [
+            FinancialSourceInput("sec_filing", filing, 2),
+        ]
+    )
+
+    assert consolidated["selected_accession_number"].to_list() == ["0000320193-25-000073"]
+    assert lineage["selected_accession_number"].to_list() == ["0000320193-25-000073"]
