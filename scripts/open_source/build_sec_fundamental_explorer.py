@@ -50,25 +50,19 @@ def main() -> None:
     share_anomalies = _build_share_anomalies(shares=shares, ratio_threshold=args.share_ratio_threshold)
     price_anomalies = _build_price_anomalies(prices=prices, ratio_threshold=args.price_factor_ratio_threshold)
 
-    ticker_rows = _build_ticker_summary(
-        general=general,
-        income=income,
-        shares=shares,
-        earnings=earnings,
-        prices=prices,
-        share_anomalies=share_anomalies,
-        price_anomalies=price_anomalies,
-    )
-    ticker_rows.write_parquet(output_dir / "ticker_summary.parquet")
-    ticker_rows.write_csv(output_dir / "ticker_summary.csv")
-    share_anomalies.write_parquet(output_dir / "share_anomalies.parquet")
-    price_anomalies.write_parquet(output_dir / "price_anomalies.parquet")
-
     plot_payload = _build_index_plot_payload(
         income=income,
         shares=shares,
         earnings=earnings,
     )
+    ticker_rows = _build_ticker_summary(
+        general=general,
+        plot_payload=plot_payload,
+    )
+    ticker_rows.write_parquet(output_dir / "ticker_summary.parquet")
+    ticker_rows.write_csv(output_dir / "ticker_summary.csv")
+    share_anomalies.write_parquet(output_dir / "share_anomalies.parquet")
+    price_anomalies.write_parquet(output_dir / "price_anomalies.parquet")
     (output_dir / "plot_payload.json").write_text(
         json.dumps(plot_payload, separators=(",", ":")),
         encoding="utf-8",
@@ -129,93 +123,34 @@ def _parse_args() -> argparse.Namespace:
 def _build_ticker_summary(
     *,
     general: pl.DataFrame,
-    income: pl.DataFrame,
-    shares: pl.DataFrame,
-    earnings: pl.DataFrame,
-    prices: pl.DataFrame,
-    share_anomalies: pl.DataFrame,
-    price_anomalies: pl.DataFrame,
+    plot_payload: dict[str, object],
 ) -> pl.DataFrame:
-    income_latest = (
-        income.select(
-            [
-                "ticker",
-                pl.col("date").alias("fundamental_date"),
-                pl.col("totalRevenue").cast(pl.Float64, strict=False).alias("latest_revenue"),
-                pl.col("netIncome").cast(pl.Float64, strict=False).alias("latest_net_income"),
-            ]
-        )
-        .sort(["ticker", "fundamental_date"])
-        .unique(subset=["ticker"], keep="last", maintain_order=True)
-    )
-    shares_latest = (
-        shares.select(
-            [
-                "ticker",
-                pl.col("dateFormatted").alias("shares_date"),
-                pl.col("shares").cast(pl.Float64, strict=False).alias("latest_shares"),
-            ]
-        )
-        .sort(["ticker", "shares_date"])
-        .unique(subset=["ticker"], keep="last", maintain_order=True)
-    )
-    earnings_latest = (
-        earnings.select(
-            [
-                "ticker",
-                pl.col("reportDate").alias("earnings_report_date"),
-                pl.col("date").alias("earnings_period_end"),
-                pl.col("epsActual").cast(pl.Float64, strict=False).alias("latest_eps_actual"),
-            ]
-        )
-        .sort(["ticker", "earnings_report_date"])
-        .unique(subset=["ticker"], keep="last", maintain_order=True)
-    )
-    prices_latest = (
-        prices.select(
-            [
-                "ticker",
-                pl.col("date").cast(pl.Utf8).str.slice(0, 10).alias("price_date"),
-                pl.col("close").cast(pl.Float64, strict=False).alias("latest_close"),
-                pl.col("adjusted_close").cast(pl.Float64, strict=False).alias("latest_adjusted_close"),
-            ]
-        )
-        .sort(["ticker", "price_date"])
-        .unique(subset=["ticker"], keep="last", maintain_order=True)
-    )
-    share_flags = (
-        share_anomalies.group_by("ticker").agg(pl.len().alias("share_anomaly_count"))
-        if not share_anomalies.is_empty()
-        else pl.DataFrame(schema={"ticker": pl.String, "share_anomaly_count": pl.Int64})
-    )
-    price_flags = (
-        price_anomalies.group_by("ticker").agg(pl.len().alias("price_anomaly_count"))
-        if not price_anomalies.is_empty()
-        else pl.DataFrame(schema={"ticker": pl.String, "price_anomaly_count": pl.Int64})
-    )
+    metric_keys = [metric for metric, _label in plot_payload["metric_options"]]
+    coverage_rows: list[dict[str, object]] = []
+    for ticker, series_rows in plot_payload["ticker_series"].items():
+        total_quarters = len(series_rows)
+        coverage_row: dict[str, object] = {"ticker": ticker, "observed_quarters": total_quarters}
+        for metric in metric_keys:
+            present = sum(1 for row in series_rows if row.get(metric) is not None)
+            missing = max(total_quarters - present, 0)
+            pct = (present / total_quarters * 100.0) if total_quarters else None
+            coverage_row[f"{metric}_present"] = present
+            coverage_row[f"{metric}_missing"] = missing
+            coverage_row[f"{metric}_fill_pct"] = pct
+        available_pcts = [coverage_row[f"{metric}_fill_pct"] for metric in metric_keys if coverage_row[f"{metric}_fill_pct"] is not None]
+        coverage_row["global_fill_pct"] = sum(available_pcts) / len(available_pcts) if available_pcts else None
+        coverage_rows.append(coverage_row)
+
+    coverage = pl.DataFrame(coverage_rows) if coverage_rows else pl.DataFrame(schema={"ticker": pl.String})
     return (
         general.select(
             [
                 "ticker",
                 "Code",
                 "Name",
-                "Sector",
-                "Industry",
-                "Exchange",
             ]
         )
-        .join(income_latest, on="ticker", how="left")
-        .join(shares_latest, on="ticker", how="left")
-        .join(earnings_latest, on="ticker", how="left")
-        .join(prices_latest, on="ticker", how="left")
-        .join(share_flags, on="ticker", how="left")
-        .join(price_flags, on="ticker", how="left")
-        .with_columns(
-            [
-                pl.col("share_anomaly_count").fill_null(0),
-                pl.col("price_anomaly_count").fill_null(0),
-            ]
-        )
+        .join(coverage, on="ticker", how="left")
         .sort("Code")
     )
 
@@ -279,6 +214,7 @@ def _render_index_page(
     manifest: dict[str, object],
     plot_payload: dict[str, object],
 ) -> str:
+    metric_keys = [metric for metric, _label in plot_payload["metric_options"]]
     ticker_options = "".join(
         (
             f"<option value='{escape(str(row['ticker']))}'>"
@@ -291,22 +227,13 @@ def _render_index_page(
         f"<option value='{escape(metric_key)}'>{escape(metric_label)}</option>"
         for metric_key, metric_label in plot_payload["metric_options"]
     )
+    heatmap_headers = "".join(
+        f"<th>{escape(METRIC_LABELS.get(metric, metric))}</th>"
+        for metric in metric_keys
+    )
     rows_html = "".join(
-        _ticker_row_html(row)
-        for row in ticker_rows.select(
-            [
-                "ticker",
-                "Code",
-                "Name",
-                "Sector",
-                "latest_close",
-                "latest_revenue",
-                "latest_net_income",
-                "latest_eps_actual",
-                "share_anomaly_count",
-                "price_anomaly_count",
-            ]
-        ).to_dicts()
+        _ticker_row_html(row, metric_keys=metric_keys)
+        for row in ticker_rows.to_dicts()
     )
     plot_payload_json = json.dumps(plot_payload, separators=(",", ":"))
     return f"""
@@ -339,6 +266,9 @@ def _render_index_page(
     .toggle {{ display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #faf7f1; border: 1px solid #e3d7c5; }}
     .chart-box {{ width: 100%; height: 470px; }}
     .table-wrap {{ padding: 20px 44px 40px 44px; }}
+    .table-head {{ display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 14px; }}
+    .table-head h2 {{ margin: 0; font-size: 28px; letter-spacing: -0.03em; }}
+    .table-head p {{ margin: 6px 0 0 0; color: #666a70; font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 860px; }}
     table {{ width: 100%; border-collapse: collapse; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 34px rgba(0,0,0,0.06); }}
     th, td {{ padding: 14px 12px; border-bottom: 1px solid #efede7; text-align: left; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; }}
     th {{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #6e6558; background: #faf7f1; }}
@@ -346,6 +276,11 @@ def _render_index_page(
     a {{ color: #7b4f24; text-decoration: none; font-weight: 600; }}
     .pill {{ display: inline-block; padding: 3px 8px; border-radius: 999px; background: #f0e2c7; color: #7b4f24; font-size: 11px; font-weight: 700; }}
     .muted {{ color: #8a8d93; }}
+    .heat-cell {{ min-width: 118px; }}
+    .overall-col {{ min-width: 108px; }}
+    .heat-box {{ border-radius: 12px; padding: 10px 10px 9px 10px; }}
+    .heat-main {{ font-size: 18px; font-weight: 700; line-height: 1; }}
+    .heat-sub {{ margin-top: 6px; font-size: 11px; color: #655c53; }}
     @media (max-width: 1100px) {{
       .plotter-controls {{ grid-template-columns: 1fr 1fr; }}
     }}
@@ -406,17 +341,20 @@ def _render_index_page(
     </div>
   </div>
   <div class="table-wrap">
+    <div class="table-head">
+      <div>
+        <h2>Couverture par ticker</h2>
+        <p>Chaque case montre le pourcentage de trimestres observés qui ont une vraie valeur SEC pour le KPI. Le sous-texte indique le nombre de trimestres manquants. Donc si Alcoa a des trous sur le chiffre d'affaires, le résultat net, les actions en circulation ou l'EPS, tu le vois immédiatement ici.</p>
+      </div>
+    </div>
     <table id="ticker-table">
       <thead>
         <tr>
           <th>Ticker</th>
           <th>Name</th>
-          <th>Sector</th>
-          <th>Last Price</th>
-          <th>Revenue</th>
-          <th>Net Income</th>
-          <th>EPS</th>
-          <th>Flags</th>
+          <th>Quarters</th>
+          <th class="overall-col">Global</th>
+          {heatmap_headers}
         </tr>
       </thead>
       <tbody>
@@ -622,23 +560,61 @@ def _build_index_plot_payload(*, income: pl.DataFrame, shares: pl.DataFrame, ear
     }
 
 
-def _ticker_row_html(row: dict[str, object]) -> str:
+def _heatmap_cell_html(
+    *,
+    fill_pct: object,
+    missing: object,
+    observed_quarters: object,
+    overall: bool,
+) -> str:
+    numeric_pct = float(fill_pct) if fill_pct is not None else None
+    if numeric_pct is None:
+        background = "linear-gradient(135deg, #f2f2f2, #ececec)"
+        main_text = "NA"
+        sub_text = "pas de base"
+    else:
+        alpha = max(0.12, min(numeric_pct / 100.0, 1.0))
+        background = (
+            f"linear-gradient(135deg, rgba(40, 147, 90, {alpha:.3f}), "
+            f"rgba(201, 93, 56, {max(0.08, 1.0 - numeric_pct / 100.0):.3f}))"
+        )
+        main_text = f"{numeric_pct:.0f}%"
+        if overall:
+            sub_text = f"{int(observed_quarters or 0)} trimestres"
+        else:
+            sub_text = f"{int(missing or 0)} trou{'s' if int(missing or 0) != 1 else ''}"
+    cell_class = "overall-col" if overall else "heat-cell"
+    return (
+        f"<td class='{cell_class}'>"
+        f"<div class='heat-box' style='background:{background}'>"
+        f"<div class='heat-main'>{escape(main_text)}</div>"
+        f"<div class='heat-sub'>{escape(sub_text)}</div>"
+        f"</div>"
+        f"</td>"
+    )
+
+
+def _ticker_row_html(row: dict[str, object], *, metric_keys: list[str]) -> str:
     search = " ".join(
         str(row.get(key) or "").lower()
-        for key in ("Code", "ticker", "Name", "Sector")
+        for key in ("Code", "ticker", "Name")
     )
-    flags = int(row.get("share_anomaly_count") or 0) + int(row.get("price_anomaly_count") or 0)
-    flag_html = f"<span class='pill'>{flags} flags</span>" if flags else "<span class='muted'>clean</span>"
+    heat_cells = "".join(
+        _heatmap_cell_html(
+            fill_pct=row.get(f"{metric}_fill_pct"),
+            missing=row.get(f"{metric}_missing"),
+            observed_quarters=row.get("observed_quarters"),
+            overall=False,
+        )
+        for metric in metric_keys
+    )
     return (
         f"<tr data-search='{escape(search)}'>"
         f"<td><a href='tickers/{escape(str(row['ticker']))}.html'>{escape(str(row['Code']))}</a></td>"
         f"<td>{escape(str(row.get('Name') or ''))}</td>"
-        f"<td>{escape(str(row.get('Sector') or ''))}</td>"
-        f"<td>{_fmt_number(row.get('latest_close'))}</td>"
-        f"<td>{_fmt_large_number(row.get('latest_revenue'))}</td>"
-        f"<td>{_fmt_large_number(row.get('latest_net_income'))}</td>"
-        f"<td>{_fmt_number(row.get('latest_eps_actual'))}</td>"
-        f"<td>{flag_html}</td>"
+        f"<td>{escape(str(row.get('observed_quarters') or 0))}</td>"
+        f"{_heatmap_cell_html(fill_pct=row.get('global_fill_pct'), missing=None, observed_quarters=row.get('observed_quarters'), overall=True)}"
+        f"{heat_cells}"
         f"</tr>"
     )
 
