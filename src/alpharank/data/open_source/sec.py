@@ -58,6 +58,27 @@ class SecCompanyFactsClient:
             ]
         )
 
+    def lookup_cik(self, ticker_root: str) -> int | None:
+        """Look up CIK for a ticker, applying normalization if needed.
+
+        The SEC ``company_tickers_exchange.json`` uses hyphens for share
+        classes (e.g. ``BRK-B``) while many data vendors use dots
+        (``BRK.B``). This method first tries the raw ticker, then
+        applies known normalization overrides.
+        """
+        mapping = self.fetch_company_mapping()
+        row = mapping.filter(pl.col("ticker") == ticker_root)
+        if not row.is_empty():
+            return row.select(pl.col("cik").cast(pl.Int64)).item()
+        # Apply normalization overrides
+        from alpharank.data.open_source.backfill import normalize_sec_ticker
+        normalized = normalize_sec_ticker(ticker_root)
+        if normalized != ticker_root:
+            row = mapping.filter(pl.col("ticker") == normalized)
+            if not row.is_empty():
+                return row.select(pl.col("cik").cast(pl.Int64)).item()
+        return None
+
     def fetch_company_facts(self, cik: str | int) -> dict[str, Any]:
         cik_str = str(cik).zfill(10)
         return self._get_json(
@@ -306,7 +327,10 @@ def _select_share_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]
         for record in candidates
         if record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
         or _calendarized_date_from_frame(record.get("frame")) is not None
-        or (record.get("fp") == "FY" and str(record.get("tag")) == "CommonStockSharesOutstanding")
+        or (
+            str(record.get("tag")) in {"EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding"}
+            and record.get("end") is not None
+        )
     ]
     for record in share_candidates:
         key = (str(record.get("filed") or ""), str(record["end"]))

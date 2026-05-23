@@ -105,6 +105,11 @@ Ordre de selection:
 1. `sec_companyfacts`
 2. `sec_filing`
 
+Exception importante:
+
+- pour `outstanding_shares`, on privilegie `sec_filing` avant `sec_companyfacts`
+- raison: la cover page DEI et les facts filing-level sont plus auditables et evitent une partie des ambiguities de `companyfacts`
+
 Cle logique d'un fait financier:
 
 - `ticker`
@@ -119,6 +124,12 @@ Quand plusieurs candidats SEC existent pour le meme quarter logique:
 - sinon `filing-level`
 - le fichier de lineage doit garder les candidats vus et la source retenue
 
+Quand plusieurs lignes `outstanding_shares` SEC existent pour le meme quarter fiscal:
+
+- on ne garde qu'une seule ligne finale par `(ticker, fiscal_year, fiscal_period)`
+- on choisit la ligne la plus canonique pour le quarter, avec une preference pour la date de fin de quarter plutot qu'une date de filing intermediaire
+- les doublons de type cover page / reprise du meme quarter dans un autre filing ne doivent pas apparaitre comme plusieurs rows finales
+
 Derivations acceptees dans ce package:
 
 - `free_cash_flow = operating_cash_flow - capital_expenditures`
@@ -127,6 +138,12 @@ Derivations acceptees dans ce package:
 Derivation non acceptee dans ce package:
 
 - recalculer les `outstanding_shares` a partir de `net_income / epsActual`
+
+Filtres qualite acceptes dans ce package:
+
+- supprimer les `outstanding_shares <= 0`
+- supprimer les `outstanding_shares` manifestement absurdes a plusieurs ordres de grandeur du voisinage
+- ce filtrage est un filtre qualite SEC-only, pas un fallback vendor
 
 ### Earnings
 
@@ -181,6 +198,11 @@ La normalisation officielle actuelle repose sur:
 - `fiscal_year`
 - `fiscal_period`
 - la date de quarter retenue apres normalisation canonique
+
+Pour `outstanding_shares`, la normalisation inclut aussi:
+
+- une selection d'une seule ligne canonique par quarter fiscal
+- une preference pour la date la plus representative du quarter plutot qu'une date de filing plus tardive
 
 Si cette logique change:
 

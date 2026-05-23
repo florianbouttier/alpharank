@@ -10,6 +10,7 @@ from pathlib import Path
 import polars as pl
 
 
+MIN_REASONABLE_FISCAL_YEAR = 1990
 CORE_METRICS: tuple[str, ...] = ("revenue", "net_income", "outstanding_shares")
 AUDIT_METRICS: tuple[str, ...] = CORE_METRICS + ("epsActual",)
 METRIC_LABELS: dict[str, str] = {
@@ -246,6 +247,8 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
         ]
     ).unique(subset=["ticker"])
 
+    current_year = datetime.now().year + 1
+
     financial_presence = (
         financials.filter(pl.col("metric").is_in(list(CORE_METRICS)))
         .with_columns(
@@ -254,7 +257,11 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
                 pl.col("selected_fiscal_year").cast(pl.Int64, strict=False).alias("fiscal_year"),
             ]
         )
-        .filter(pl.col("fiscal_period").is_not_null() & pl.col("fiscal_year").is_not_null())
+        .filter(
+            pl.col("fiscal_period").is_not_null()
+            & pl.col("fiscal_year").is_not_null()
+            & pl.col("fiscal_year").is_between(MIN_REASONABLE_FISCAL_YEAR, current_year)
+        )
         .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
         .unique()
     )
@@ -267,12 +274,15 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
                 pl.lit("epsActual").alias("metric"),
             ]
         )
-        .filter(pl.col("fiscal_period").is_not_null() & pl.col("fiscal_year").is_not_null())
+        .filter(
+            pl.col("fiscal_period").is_not_null()
+            & pl.col("fiscal_year").is_not_null()
+            & pl.col("fiscal_year").is_between(MIN_REASONABLE_FISCAL_YEAR, current_year)
+        )
         .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
         .unique()
     )
-    observed = pl.concat([financial_presence, earnings_presence], how="diagonal_relaxed").unique()
-    if observed.is_empty():
+    if financial_presence.is_empty() and earnings_presence.is_empty():
         return pl.DataFrame(
             schema={
                 "ticker": pl.String,
@@ -289,9 +299,16 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
             }
         )
 
-    expected = observed.select(["ticker", "fiscal_year", "fiscal_period"]).unique().join(
-        pl.DataFrame({"metric": list(AUDIT_METRICS)}), how="cross"
+    observed = pl.concat([financial_presence, earnings_presence], how="diagonal_relaxed").unique()
+    financial_grid = _build_continuous_quarter_grid(
+        observed=financial_presence.select(["ticker", "fiscal_year", "fiscal_period"]).unique(),
+        metrics=CORE_METRICS,
     )
+    earnings_grid = _build_continuous_quarter_grid(
+        observed=earnings_presence.select(["ticker", "fiscal_year", "fiscal_period"]).unique(),
+        metrics=("epsActual",),
+    )
+    expected = pl.concat([financial_grid, earnings_grid], how="diagonal_relaxed").unique()
     return (
         expected.join(
             observed.with_columns(pl.lit(True).alias("present")),
@@ -326,6 +343,52 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
         )
         .sort(["ticker", "fiscal_year", "quarter_sort", "metric"])
     )
+
+
+def _build_continuous_quarter_grid(*, observed: pl.DataFrame, metrics: tuple[str, ...]) -> pl.DataFrame:
+    if observed.is_empty():
+        return pl.DataFrame(
+            schema={
+                "ticker": pl.String,
+                "fiscal_year": pl.Int64,
+                "fiscal_period": pl.String,
+                "metric": pl.String,
+            }
+        )
+
+    rows: list[dict[str, object]] = []
+    quarter_map = {1: "Q1", 2: "Q2", 3: "Q3", 4: "Q4"}
+    indexed = (
+        observed.with_columns(
+            (pl.col("fiscal_year") * pl.lit(10) + _period_order_expr(pl.col("fiscal_period"))).alias("quarter_index")
+        )
+        .select(["ticker", "quarter_index"])
+        .unique()
+        .sort(["ticker", "quarter_index"])
+    )
+    for ticker_key, group in indexed.group_by("ticker", maintain_order=True):
+        ticker = ticker_key[0] if isinstance(ticker_key, tuple) else ticker_key
+        quarter_indexes = [int(value) for value in group["quarter_index"].to_list() if value is not None]
+        if not quarter_indexes:
+            continue
+        start = min(quarter_indexes)
+        end = max(quarter_indexes)
+        for quarter_index in range(start, end + 1):
+            quarter_number = quarter_index % 10
+            if quarter_number not in quarter_map:
+                continue
+            fiscal_year = quarter_index // 10
+            fiscal_period = quarter_map[quarter_number]
+            for metric in metrics:
+                rows.append(
+                    {
+                        "ticker": ticker,
+                        "fiscal_year": fiscal_year,
+                        "fiscal_period": fiscal_period,
+                        "metric": metric,
+                    }
+                )
+    return pl.DataFrame(rows)
 
 
 def _build_ticker_metric_holes(*, quarterly_presence: pl.DataFrame) -> pl.DataFrame:

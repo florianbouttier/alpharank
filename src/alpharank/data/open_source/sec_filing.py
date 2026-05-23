@@ -568,10 +568,20 @@ def _derive_missing_total_liabilities(frame: pl.DataFrame) -> pl.DataFrame:
 
     liabilities = base.filter(pl.col("metric") == "total_liabilities")
     assets = base.filter(pl.col("metric") == "total_assets").rename(
-        {"value": "total_assets", "source_label": "assets_source_label", "filing_date": "assets_filing_date"}
+        {
+            "value": "total_assets",
+            "source_label": "assets_source_label",
+            "filing_date": "assets_filing_date",
+            "accession_number": "assets_accession_number",
+        }
     )
     equity = base.filter(pl.col("metric") == "stockholders_equity").rename(
-        {"value": "stockholders_equity", "source_label": "equity_source_label", "filing_date": "equity_filing_date"}
+        {
+            "value": "stockholders_equity",
+            "source_label": "equity_source_label",
+            "filing_date": "equity_filing_date",
+            "accession_number": "equity_accession_number",
+        }
     )
     derived = (
         assets.join(
@@ -583,6 +593,7 @@ def _derive_missing_total_liabilities(frame: pl.DataFrame) -> pl.DataFrame:
                     "stockholders_equity",
                     "equity_source_label",
                     "equity_filing_date",
+                    "equity_accession_number",
                     "form",
                     "fiscal_period",
                     "fiscal_year",
@@ -608,6 +619,7 @@ def _derive_missing_total_liabilities(frame: pl.DataFrame) -> pl.DataFrame:
             (pl.col("total_assets") - pl.col("stockholders_equity")).alias("value"),
             pl.lit("sec_filing").alias("source"),
             pl.lit("derived_from_assets_minus_stockholders_equity").alias("source_label"),
+            pl.coalesce(["assets_accession_number", "equity_accession_number"]).alias("accession_number"),
             pl.col("form"),
             pl.col("fiscal_period"),
             pl.col("fiscal_year"),

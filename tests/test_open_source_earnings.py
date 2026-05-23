@@ -19,7 +19,7 @@ from alpharank.data.open_source.ingestion import (
 from alpharank.data.open_source.general_reference import build_general_reference
 from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
 from alpharank.data.open_source.sec import _select_share_facts
-from alpharank.data.open_source.sec_filing import _infer_fiscal_period
+from alpharank.data.open_source.sec_filing import _derive_missing_total_liabilities, _infer_fiscal_period
 
 
 def test_consolidate_earnings_prefers_sec_calendar_and_yahoo_market_fields() -> None:
@@ -258,8 +258,32 @@ def test_canonicalize_price_tickers_merges_share_class_aliases() -> None:
     )
 
     result = _canonicalize_price_tickers(frame, ticker_list=["BRK.B", "AAPL"])
-
     assert result["ticker"].to_list() == ["AAPL.US", "BRK.B.US"]
+
+
+def test_derive_missing_total_liabilities_preserves_accession_number() -> None:
+    frame = pl.DataFrame(
+        {
+            "ticker": ["AAA.US", "AAA.US"],
+            "statement": ["balance_sheet", "balance_sheet"],
+            "metric": ["total_assets", "stockholders_equity"],
+            "date": ["2025-03-31", "2025-03-31"],
+            "filing_date": ["2025-05-01", "2025-05-01"],
+            "value": [100.0, 40.0],
+            "source": ["sec_filing", "sec_filing"],
+            "source_label": ["Assets", "StockholdersEquity"],
+            "accession_number": ["0001", "0001"],
+            "form": ["10-Q", "10-Q"],
+            "fiscal_period": ["Q1", "Q1"],
+            "fiscal_year": [2025, 2025],
+        }
+    )
+
+    derived = _derive_missing_total_liabilities(frame)
+    row = derived.filter(pl.col("metric") == "total_liabilities").row(0, named=True)
+
+    assert row["value"] == 60.0
+    assert row["accession_number"] == "0001"
 
 
 def test_select_share_facts_sums_share_classes_for_same_filing() -> None:

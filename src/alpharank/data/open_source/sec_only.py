@@ -87,17 +87,49 @@ def build_sec_only_financials(
     sec_companyfacts: pl.DataFrame,
     sec_filing: pl.DataFrame,
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    consolidated, lineage, source_summary = consolidate_financial_sources(
+    non_share_companyfacts = sec_companyfacts.filter(pl.col("metric") != "outstanding_shares")
+    non_share_filing = sec_filing.filter(pl.col("metric") != "outstanding_shares")
+    share_companyfacts = _sanitize_share_quality(sec_companyfacts.filter(pl.col("metric") == "outstanding_shares"))
+    share_filing = _sanitize_share_quality(sec_filing.filter(pl.col("metric") == "outstanding_shares"))
+
+    consolidated_parts: list[pl.DataFrame] = []
+    lineage_parts: list[pl.DataFrame] = []
+
+    non_share_consolidated, non_share_lineage, _ = consolidate_financial_sources(
         [
-            FinancialSourceInput(source_name="sec_companyfacts", frame=sec_companyfacts, priority=1),
-            FinancialSourceInput(source_name="sec_filing", frame=sec_filing, priority=2),
+            FinancialSourceInput(source_name="sec_companyfacts", frame=non_share_companyfacts, priority=1),
+            FinancialSourceInput(source_name="sec_filing", frame=non_share_filing, priority=2),
         ]
     )
-    return (
-        _canonicalize_financial_quarter_fields(consolidated),
-        _canonicalize_financial_quarter_fields(lineage),
-        source_summary,
+    if not non_share_consolidated.is_empty():
+        consolidated_parts.append(non_share_consolidated)
+        lineage_parts.append(non_share_lineage)
+
+    share_consolidated, share_lineage, _ = consolidate_financial_sources(
+        [
+            FinancialSourceInput(source_name="sec_filing", frame=share_filing, priority=1),
+            FinancialSourceInput(source_name="sec_companyfacts", frame=share_companyfacts, priority=2),
+        ]
     )
+    if not share_consolidated.is_empty():
+        consolidated_parts.append(share_consolidated)
+        lineage_parts.append(share_lineage)
+
+    consolidated = (
+        pl.concat(consolidated_parts, how="diagonal_relaxed").sort(["ticker", "statement", "metric", "date"])
+        if consolidated_parts
+        else pl.DataFrame(schema={"ticker": pl.String})
+    )
+    lineage = (
+        pl.concat(lineage_parts, how="diagonal_relaxed").sort(["ticker", "statement", "metric", "date"])
+        if lineage_parts
+        else pl.DataFrame(schema={"ticker": pl.String})
+    )
+    consolidated = _canonicalize_financial_quarter_fields(consolidated)
+    lineage = _canonicalize_financial_quarter_fields(lineage)
+    consolidated, lineage = _finalize_share_quarters(consolidated, lineage)
+    source_summary = _summarize_financial_sources(consolidated)
+    return consolidated, lineage, source_summary
 
 
 def build_sec_only_earnings(
@@ -301,4 +333,144 @@ def _canonicalize_quarter_fields(
             pl.coalesce([pl.col("_canonical_fiscal_period"), pl.col(period_col).cast(pl.Utf8, strict=False)]).alias(period_col)
         )
         .drop("_canonical_fiscal_period")
+    )
+
+
+def _finalize_share_quarters(
+    consolidated: pl.DataFrame,
+    lineage: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    if consolidated.is_empty():
+        return consolidated, lineage
+
+    share_period_keys = ["ticker", "selected_fiscal_year", "selected_fiscal_period"]
+    consolidated_shares = consolidated.filter(pl.col("metric") == "outstanding_shares")
+    if consolidated_shares.is_empty():
+        return consolidated, lineage
+
+    selected_share_rows = (
+        consolidated_shares.filter(
+            pl.col("selected_fiscal_year").is_not_null()
+            & pl.col("selected_fiscal_period").is_not_null()
+            & pl.col("value").is_not_null()
+        )
+        .with_columns(pl.col("date").str.strptime(pl.Date, strict=False).alias("_date_dt"))
+        .sort(
+            [
+                "ticker",
+                "selected_fiscal_year",
+                "selected_fiscal_period",
+                "_date_dt",
+                "source_priority",
+                "filing_date",
+            ],
+            descending=[False, False, False, False, False, True],
+        )
+        .unique(subset=share_period_keys, keep="first", maintain_order=True)
+        .select(share_period_keys + ["date"])
+    )
+    if selected_share_rows.is_empty():
+        return consolidated, lineage
+
+    filtered_shares = consolidated_shares.join(
+        selected_share_rows,
+        on=share_period_keys + ["date"],
+        how="inner",
+    )
+    filtered_lineage_shares = lineage.filter(pl.col("metric") == "outstanding_shares").join(
+        selected_share_rows,
+        on=share_period_keys + ["date"],
+        how="inner",
+    )
+
+    consolidated_out = pl.concat(
+        [consolidated.filter(pl.col("metric") != "outstanding_shares"), filtered_shares],
+        how="diagonal_relaxed",
+    ).sort(["ticker", "statement", "metric", "date"])
+    lineage_out = pl.concat(
+        [lineage.filter(pl.col("metric") != "outstanding_shares"), filtered_lineage_shares],
+        how="diagonal_relaxed",
+    ).sort(["ticker", "statement", "metric", "date"])
+    return consolidated_out, lineage_out
+
+
+def _sanitize_share_quality(frame: pl.DataFrame) -> pl.DataFrame:
+    if frame.is_empty():
+        return frame
+
+    rows = frame.sort(["ticker", "date", "filing_date"]).to_dicts()
+    by_ticker: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        by_ticker.setdefault(str(row["ticker"]), []).append(row)
+
+    cleaned_rows: list[dict[str, object]] = []
+    for ticker_rows in by_ticker.values():
+        values = [_safe_float(row.get("value")) for row in ticker_rows]
+        for idx, row in enumerate(ticker_rows):
+            value = values[idx]
+            if value is None or value <= 0 or value > 1.0e11:
+                continue
+            anchor = _neighbor_share_anchor(values, idx)
+            if anchor is not None:
+                ratio = max(value, anchor) / min(value, anchor)
+                if ratio >= 20.0:
+                    continue
+            cleaned_rows.append(row)
+
+    if not cleaned_rows:
+        return frame.head(0)
+    return pl.DataFrame(cleaned_rows, schema=frame.schema).sort(["ticker", "date", "filing_date"])
+
+
+def _neighbor_share_anchor(values: list[float | None], index: int) -> float | None:
+    neighbors: list[float] = []
+    if index > 0 and values[index - 1] is not None and values[index - 1] > 0:
+        neighbors.append(values[index - 1])
+    if index + 1 < len(values) and values[index + 1] is not None and values[index + 1] > 0:
+        neighbors.append(values[index + 1])
+    if len(neighbors) < 2:
+        return None
+    return sorted(neighbors)[len(neighbors) // 2]
+
+
+def _safe_float(value: object) -> float | None:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric <= 0:
+        return None
+    return numeric
+
+
+def _summarize_financial_sources(consolidated: pl.DataFrame) -> pl.DataFrame:
+    if consolidated.is_empty():
+        return pl.DataFrame(
+            schema={
+                "statement": pl.String,
+                "selected_source": pl.String,
+                "selected_rows": pl.Int64,
+                "fallback_rows": pl.Int64,
+                "ticker_count": pl.Int64,
+                "metric_count": pl.Int64,
+                "fallback_rate_pct": pl.Float64,
+            }
+        )
+    return (
+        consolidated.group_by(["statement", "selected_source"])
+        .agg(
+            [
+                pl.len().alias("selected_rows"),
+                pl.col("fallback_used").sum().cast(pl.Int64).alias("fallback_rows"),
+                pl.col("ticker").n_unique().alias("ticker_count"),
+                pl.col("metric").n_unique().alias("metric_count"),
+            ]
+        )
+        .with_columns(
+            pl.when(pl.col("selected_rows") > 0)
+            .then((pl.col("fallback_rows") / pl.col("selected_rows")) * 100.0)
+            .otherwise(0.0)
+            .alias("fallback_rate_pct")
+        )
+        .sort(["statement", "selected_rows", "selected_source"], descending=[False, True, False])
     )
