@@ -9,6 +9,25 @@ from pathlib import Path
 
 import polars as pl
 
+ONE_METRIC_KEY = "__one__"
+INDEX_METRIC_ORDER = [
+    "totalRevenue",
+    "grossProfit",
+    "operatingIncome",
+    "netIncome",
+    "shares",
+    "epsActual",
+]
+METRIC_LABELS = {
+    "totalRevenue": "Chiffre d'affaires",
+    "grossProfit": "Marge brute",
+    "operatingIncome": "Résultat opérationnel",
+    "netIncome": "Résultat net",
+    "shares": "Actions en circulation",
+    "epsActual": "EPS publié",
+    ONE_METRIC_KEY: "1 (valeur brute)",
+}
+
 
 def main() -> None:
     args = _parse_args()
@@ -45,6 +64,16 @@ def main() -> None:
     share_anomalies.write_parquet(output_dir / "share_anomalies.parquet")
     price_anomalies.write_parquet(output_dir / "price_anomalies.parquet")
 
+    plot_payload = _build_index_plot_payload(
+        income=income,
+        shares=shares,
+        earnings=earnings,
+    )
+    (output_dir / "plot_payload.json").write_text(
+        json.dumps(plot_payload, separators=(",", ":")),
+        encoding="utf-8",
+    )
+
     tickers = ticker_rows.get_column("ticker").to_list()
     for ticker in tickers:
         (ticker_dir / f"{ticker}.html").write_text(
@@ -77,7 +106,7 @@ def main() -> None:
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     (output_dir / "index.html").write_text(
-        _render_index_page(ticker_rows=ticker_rows, manifest=manifest),
+        _render_index_page(ticker_rows=ticker_rows, manifest=manifest, plot_payload=plot_payload),
         encoding="utf-8",
     )
     print(output_dir)
@@ -244,7 +273,24 @@ def _build_price_anomalies(*, prices: pl.DataFrame, ratio_threshold: float) -> p
     )
 
 
-def _render_index_page(*, ticker_rows: pl.DataFrame, manifest: dict[str, object]) -> str:
+def _render_index_page(
+    *,
+    ticker_rows: pl.DataFrame,
+    manifest: dict[str, object],
+    plot_payload: dict[str, object],
+) -> str:
+    ticker_options = "".join(
+        (
+            f"<option value='{escape(str(row['ticker']))}'>"
+            f"{escape(str(row.get('Code') or row['ticker']))} · {escape(str(row.get('Name') or ''))}"
+            f"</option>"
+        )
+        for row in ticker_rows.select(["ticker", "Code", "Name"]).to_dicts()
+    )
+    metric_options = "".join(
+        f"<option value='{escape(metric_key)}'>{escape(metric_label)}</option>"
+        for metric_key, metric_label in plot_payload["metric_options"]
+    )
     rows_html = "".join(
         _ticker_row_html(row)
         for row in ticker_rows.select(
@@ -262,12 +308,14 @@ def _render_index_page(*, ticker_rows: pl.DataFrame, manifest: dict[str, object]
             ]
         ).to_dicts()
     )
+    plot_payload_json = json.dumps(plot_payload, separators=(",", ":"))
     return f"""
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="utf-8">
   <title>SEC Fundamental Explorer</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <style>
     body {{ font-family: Georgia, 'Times New Roman', serif; margin: 0; color: #1c1e21; background: linear-gradient(180deg, #f1efe8 0%, #fcfbf8 40%, #ffffff 100%); }}
     .hero {{ padding: 36px 44px 24px 44px; border-bottom: 1px solid rgba(0,0,0,0.08); background: radial-gradient(circle at top right, rgba(182,145,89,0.18), transparent 32%), linear-gradient(135deg, #f8f3e8, #ffffff); }}
@@ -276,6 +324,20 @@ def _render_index_page(*, ticker_rows: pl.DataFrame, manifest: dict[str, object]
     .toolbar {{ display: flex; gap: 12px; padding: 18px 44px; align-items: center; position: sticky; top: 0; background: rgba(252,251,248,0.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,0,0,0.06); z-index: 5; }}
     .toolbar input {{ width: 320px; padding: 11px 14px; border: 1px solid #d9d3c5; border-radius: 12px; font-size: 14px; }}
     .toolbar .meta {{ color: #6b6e73; font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
+    .plotter-wrap {{ padding: 28px 44px 8px 44px; }}
+    .plotter {{ background: white; border-radius: 20px; padding: 22px 22px 18px 22px; box-shadow: 0 14px 36px rgba(0,0,0,0.06); }}
+    .plotter-head {{ display: flex; gap: 18px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }}
+    .plotter-head h2 {{ margin: 0; font-size: 28px; letter-spacing: -0.03em; }}
+    .plotter-head p {{ margin: 6px 0 0 0; color: #666a70; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
+    .plotter-controls {{ display: grid; grid-template-columns: 1.4fr 1fr 1fr 0.9fr; gap: 12px; margin: 18px 0 10px 0; }}
+    .field {{ display: flex; flex-direction: column; gap: 6px; }}
+    .field label {{ font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: #7a6e61; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
+    .field select {{ padding: 11px 12px; border: 1px solid #d9d3c5; border-radius: 12px; background: #fff; font-size: 14px; }}
+    .plotter-meta {{ display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
+    .formula {{ display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #f6efe3; color: #7b4f24; font-size: 13px; font-weight: 600; }}
+    .hint {{ color: #71757b; font-size: 13px; }}
+    .toggle {{ display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #faf7f1; border: 1px solid #e3d7c5; }}
+    .chart-box {{ width: 100%; height: 470px; }}
     .table-wrap {{ padding: 20px 44px 40px 44px; }}
     table {{ width: 100%; border-collapse: collapse; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 34px rgba(0,0,0,0.06); }}
     th, td {{ padding: 14px 12px; border-bottom: 1px solid #efede7; text-align: left; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; }}
@@ -284,16 +346,64 @@ def _render_index_page(*, ticker_rows: pl.DataFrame, manifest: dict[str, object]
     a {{ color: #7b4f24; text-decoration: none; font-weight: 600; }}
     .pill {{ display: inline-block; padding: 3px 8px; border-radius: 999px; background: #f0e2c7; color: #7b4f24; font-size: 11px; font-weight: 700; }}
     .muted {{ color: #8a8d93; }}
+    @media (max-width: 1100px) {{
+      .plotter-controls {{ grid-template-columns: 1fr 1fr; }}
+    }}
+    @media (max-width: 760px) {{
+      .plotter-wrap, .table-wrap, .toolbar, .hero {{ padding-left: 20px; padding-right: 20px; }}
+      .toolbar {{ flex-direction: column; align-items: stretch; }}
+      .toolbar input {{ width: auto; }}
+      .plotter-controls {{ grid-template-columns: 1fr; }}
+      .chart-box {{ height: 420px; }}
+    }}
   </style>
 </head>
 <body>
   <div class="hero">
     <h1>SEC Fundamental Explorer</h1>
-    <p>Explorer par ticker, quarter par quarter, les fondamentaux SEC utiles: <strong>revenue</strong>, <strong>net income</strong>, <strong>EPS actual</strong>, <strong>shares outstanding</strong>, avec les prix en ligne et des drapeaux split/share pour repérer les incohérences rapidement.</p>
+    <p>Explorer par ticker, quarter par quarter, les fondamentaux SEC utiles. Tu peux maintenant choisir un indicateur brut ou construire une formule <strong>numérateur / dénominateur</strong> pour visualiser une marge, un rendement, un indicateur par action ou n'importe quel ratio simple.</p>
   </div>
   <div class="toolbar">
-    <input id="search" type="search" placeholder="Search ticker, company or sector">
+    <input id="search" type="search" placeholder="Rechercher ticker, société ou secteur">
     <div class="meta">Prix source: <code>{escape(str(manifest['price_source_dir']))}</code></div>
+  </div>
+  <div class="plotter-wrap">
+    <div class="plotter">
+      <div class="plotter-head">
+        <div>
+          <h2>Ploteur d'indicateurs</h2>
+          <p>Choisis un ticker, un numérateur et un dénominateur. Si tu mets <strong>1</strong> au dénominateur, tu affiches simplement la série brute. Si tu coches <strong>%</strong>, le ratio est multiplié par 100 pour lire directement une marge.</p>
+        </div>
+      </div>
+      <div class="plotter-controls">
+        <div class="field">
+          <label for="ticker-select">Ticker</label>
+          <select id="ticker-select">{ticker_options}</select>
+        </div>
+        <div class="field">
+          <label for="numerator-select">Numérateur</label>
+          <select id="numerator-select">{metric_options}</select>
+        </div>
+        <div class="field">
+          <label for="denominator-select">Dénominateur</label>
+          <select id="denominator-select"><option value="{ONE_METRIC_KEY}">1 (valeur brute)</option>{metric_options}</select>
+        </div>
+        <div class="field">
+          <label for="value-mode">Lecture</label>
+          <select id="value-mode">
+            <option value="auto">Auto</option>
+            <option value="percent">En %</option>
+            <option value="multiple">Ratio simple</option>
+          </select>
+        </div>
+      </div>
+      <div class="plotter-meta">
+        <div class="formula" id="formula-chip">Chiffre d'affaires / 1</div>
+        <label class="toggle"><input type="checkbox" id="show-points"> Afficher les points</label>
+        <div class="hint" id="plot-hint">Série trimestrielle SEC.</div>
+      </div>
+      <div id="index-plot-chart" class="chart-box"></div>
+    </div>
   </div>
   <div class="table-wrap">
     <table id="ticker-table">
@@ -315,8 +425,20 @@ def _render_index_page(*, ticker_rows: pl.DataFrame, manifest: dict[str, object]
     </table>
   </div>
   <script>
+    const plotPayload = {plot_payload_json};
     const search = document.getElementById('search');
     const rows = Array.from(document.querySelectorAll('#ticker-table tbody tr'));
+    const tickerSelect = document.getElementById('ticker-select');
+    const numeratorSelect = document.getElementById('numerator-select');
+    const denominatorSelect = document.getElementById('denominator-select');
+    const valueModeSelect = document.getElementById('value-mode');
+    const showPointsCheckbox = document.getElementById('show-points');
+    const formulaChip = document.getElementById('formula-chip');
+    const plotHint = document.getElementById('plot-hint');
+    const chart = echarts.init(document.getElementById('index-plot-chart'));
+
+    const metricLabels = Object.fromEntries(plotPayload.metric_options);
+
     search.addEventListener('input', () => {{
       const q = search.value.toLowerCase().trim();
       rows.forEach((row) => {{
@@ -324,10 +446,180 @@ def _render_index_page(*, ticker_rows: pl.DataFrame, manifest: dict[str, object]
         row.style.display = hay.includes(q) ? '' : 'none';
       }});
     }});
+
+    function getSeriesRows(ticker) {{
+      return plotPayload.ticker_series[ticker] || [];
+    }}
+
+    function resolveMode(denominatorKey, modeKey) {{
+      if (modeKey !== 'auto') return modeKey;
+      return denominatorKey === '{ONE_METRIC_KEY}' ? 'raw' : 'percent';
+    }}
+
+    function buildComputedSeries(rows, numeratorKey, denominatorKey, modeKey) {{
+      const resolvedMode = resolveMode(denominatorKey, modeKey);
+      return rows.map((row) => {{
+        const numerator = row[numeratorKey];
+        const denominator = denominatorKey === '{ONE_METRIC_KEY}' ? 1 : row[denominatorKey];
+        if (numerator == null || denominator == null || denominator === 0) {{
+          return null;
+        }}
+        const raw = numerator / denominator;
+        return resolvedMode === 'percent' ? raw * 100 : raw;
+      }});
+    }}
+
+    function formatValue(value, denominatorKey, modeKey) {{
+      if (value == null || Number.isNaN(value)) return 'NA';
+      const resolvedMode = resolveMode(denominatorKey, modeKey);
+      if (resolvedMode === 'percent') return value.toFixed(2) + ' %';
+      if (denominatorKey === '{ONE_METRIC_KEY}') {{
+        const absValue = Math.abs(value);
+        if (absValue >= 1_000_000_000) return (value / 1_000_000_000).toFixed(2) + 'B';
+        if (absValue >= 1_000_000) return (value / 1_000_000).toFixed(2) + 'M';
+        return value.toLocaleString('en-US', {{ maximumFractionDigits: 2 }});
+      }}
+      return value.toFixed(4);
+    }}
+
+    function renderIndexPlot() {{
+      const ticker = tickerSelect.value;
+      const numeratorKey = numeratorSelect.value;
+      const denominatorKey = denominatorSelect.value;
+      const modeKey = valueModeSelect.value;
+      const rows = getSeriesRows(ticker);
+      const values = buildComputedSeries(rows, numeratorKey, denominatorKey, modeKey);
+      const numeratorLabel = metricLabels[numeratorKey] || numeratorKey;
+      const denominatorLabel = denominatorKey === '{ONE_METRIC_KEY}' ? '1' : (metricLabels[denominatorKey] || denominatorKey);
+      const resolvedMode = resolveMode(denominatorKey, modeKey);
+      const seriesName = denominatorKey === '{ONE_METRIC_KEY}'
+        ? numeratorLabel
+        : `${{numeratorLabel}} / ${{denominatorLabel}}`;
+
+      formulaChip.textContent = `${{numeratorLabel}} / ${{denominatorLabel}}`;
+      plotHint.textContent = denominatorKey === '{ONE_METRIC_KEY}'
+        ? `Affichage brut de ${{numeratorLabel.toLowerCase()}} sur toute l'historique disponible.`
+        : `Ratio trimestriel calculé sur la base SEC. Lecture: ${{resolvedMode === 'percent' ? 'pourcentage' : 'ratio simple'}}.`;
+
+      chart.setOption({{
+        animation: false,
+        tooltip: {{
+          trigger: 'axis',
+          valueFormatter: (value) => formatValue(value, denominatorKey, modeKey),
+        }},
+        legend: {{
+          top: 0,
+          data: [seriesName],
+        }},
+        grid: {{ left: 70, right: 30, top: 50, bottom: 56 }},
+        xAxis: {{
+          type: 'category',
+          data: rows.map((row) => row.date),
+        }},
+        yAxis: {{
+          type: 'value',
+          scale: true,
+          axisLabel: {{
+            formatter: (value) => formatValue(value, denominatorKey, modeKey),
+          }},
+        }},
+        dataZoom: [{{ type: 'inside' }}, {{ type: 'slider', height: 18, bottom: 10 }}],
+        series: [
+          {{
+            name: seriesName,
+            type: 'line',
+            smooth: true,
+            showSymbol: showPointsCheckbox.checked,
+            symbolSize: 7,
+            connectNulls: false,
+            data: values,
+            lineStyle: {{ width: 3, color: '#1f4762' }},
+            itemStyle: {{ color: '#b86a35' }},
+            areaStyle: denominatorKey === '{ONE_METRIC_KEY}'
+              ? {{ color: 'rgba(184,106,53,0.10)' }}
+              : {{ color: 'rgba(31,71,98,0.08)' }},
+          }},
+        ],
+      }});
+    }}
+
+    [tickerSelect, numeratorSelect, denominatorSelect, valueModeSelect, showPointsCheckbox].forEach((node) => {{
+      node.addEventListener('change', renderIndexPlot);
+    }});
+
+    numeratorSelect.value = plotPayload.default_numerator;
+    denominatorSelect.value = '{ONE_METRIC_KEY}';
+    renderIndexPlot();
+    window.addEventListener('resize', () => chart.resize());
   </script>
 </body>
 </html>
 """
+
+
+def _build_index_plot_payload(*, income: pl.DataFrame, shares: pl.DataFrame, earnings: pl.DataFrame) -> dict[str, object]:
+    income_metrics = [
+        metric
+        for metric in INDEX_METRIC_ORDER
+        if metric in income.columns and metric not in {"shares", "epsActual"}
+    ]
+    income_selected = (
+        income.select(
+            [
+                "ticker",
+                "date",
+                *[
+                    pl.col(metric).cast(pl.Float64, strict=False).alias(metric)
+                    for metric in income_metrics
+                ],
+            ]
+        )
+        .sort(["ticker", "date"])
+    )
+    shares_selected = (
+        shares.select(
+            [
+                "ticker",
+                pl.col("dateFormatted").alias("date"),
+                pl.col("shares").cast(pl.Float64, strict=False).alias("shares"),
+            ]
+        )
+        .sort(["ticker", "date"])
+    )
+    earnings_selected = (
+        earnings.select(
+            [
+                "ticker",
+                "date",
+                pl.col("epsActual").cast(pl.Float64, strict=False).alias("epsActual"),
+            ]
+        )
+        .sort(["ticker", "date"])
+    )
+    merged = income_selected.join(shares_selected, on=["ticker", "date"], how="full", coalesce=True)
+    merged = merged.join(earnings_selected, on=["ticker", "date"], how="full", coalesce=True)
+    available_metrics = [
+        metric
+        for metric in INDEX_METRIC_ORDER
+        if metric in merged.columns and merged.select(pl.col(metric).is_not_null().any()).item()
+    ]
+    ticker_series: dict[str, list[dict[str, object]]] = {}
+    for ticker, frame in merged.group_by("ticker", maintain_order=True):
+        ticker_key = str(ticker[0] if isinstance(ticker, tuple) else ticker)
+        ticker_series[ticker_key] = (
+            frame.sort("date")
+            .filter(pl.any_horizontal([pl.col(metric).is_not_null() for metric in available_metrics]))
+            .select(["date", *available_metrics])
+            .to_dicts()
+        )
+    return {
+        "metric_options": [
+            [metric, METRIC_LABELS.get(metric, metric)]
+            for metric in available_metrics
+        ],
+        "default_numerator": "totalRevenue" if "totalRevenue" in available_metrics else available_metrics[0],
+        "ticker_series": ticker_series,
+    }
 
 
 def _ticker_row_html(row: dict[str, object]) -> str:
