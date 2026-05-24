@@ -440,10 +440,19 @@ def _share_record_priority(record: dict[str, Any]) -> tuple[int, int, float, int
 
 
 def _select_duration_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    quarterlies = [
+    quarterly_direct = [
         record
         for record in candidates
         if record.get("duration_days") is not None and 70 <= int(record["duration_days"]) <= 130 and record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
+    ]
+    cumulative_q2_q3 = [
+        record
+        for record in candidates
+        if record.get("duration_days") is not None
+        and (
+            (record.get("fp") == "Q2" and 140 <= int(record["duration_days"]) <= 220)
+            or (record.get("fp") == "Q3" and 230 <= int(record["duration_days"]) <= 320)
+        )
     ]
     annuals = [
         record
@@ -451,11 +460,25 @@ def _select_duration_facts(candidates: list[dict[str, Any]]) -> list[dict[str, A
         if record.get("duration_days") is not None and int(record["duration_days"]) >= 300 and record.get("fp") == "FY"
     ]
 
-    chosen_by_end = _dedupe_by_end(quarterlies)
-    derived_q4 = _derive_q4_facts(chosen_by_end.values(), annuals)
+    direct_by_end = _dedupe_by_end(quarterly_direct)
+    chosen_by_end: dict[str, dict[str, Any]] = dict(direct_by_end)
+
+    direct_by_fy_fp = _dedupe_by_fy_fp(direct_by_end.values())
+    cumulative_by_fy_fp = _dedupe_by_fy_fp(cumulative_q2_q3)
+    annual_by_fy = _dedupe_annuals_by_fy(annuals)
+
+    derived_from_cumulative = _derive_missing_quarters_from_cumulative(
+        direct_by_fy_fp=direct_by_fy_fp,
+        cumulative_by_fy_fp=cumulative_by_fy_fp,
+    )
+    for record in derived_from_cumulative:
+        chosen_by_end.setdefault(str(record["end"]), record)
+
+    q4_basis = {**direct_by_fy_fp, **_dedupe_by_fy_fp(derived_from_cumulative)}
+    derived_q4 = _derive_q4_facts(q4_basis.values(), annual_by_fy.values())
     for record in derived_q4:
-        if record["end"] not in chosen_by_end:
-            chosen_by_end[record["end"]] = record
+        chosen_by_end.setdefault(str(record["end"]), record)
+
     return list(chosen_by_end.values())
 
 
@@ -480,8 +503,234 @@ def _dedupe_by_end(candidates: Iterable[dict[str, Any]]) -> dict[str, dict[str, 
     return chosen
 
 
+def _dedupe_by_fy_fp(candidates: Iterable[dict[str, Any]]) -> dict[tuple[int, str], dict[str, Any]]:
+    chosen: dict[tuple[int, str], dict[str, Any]] = {}
+    for record in sorted(
+        candidates,
+        key=lambda item: (
+            int(item.get("fy") or -1),
+            str(item.get("fp") or ""),
+            _duration_bucket_priority(item),
+            item.get("end") or "",
+            item.get("filed") or "",
+        ),
+    ):
+        fy = record.get("fy")
+        fp = record.get("fp")
+        if fy is None or fp not in {"Q1", "Q2", "Q3", "Q4"}:
+            continue
+        key = (int(fy), str(fp))
+        current = chosen.get(key)
+        if current is None or _fy_fp_record_sort_key(record) < _fy_fp_record_sort_key(current):
+            chosen[key] = record
+    return chosen
+
+
+def _dedupe_annuals_by_fy(candidates: Iterable[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    chosen: dict[int, dict[str, Any]] = {}
+    for record in sorted(
+        candidates,
+        key=lambda item: (
+            int(item.get("fy") or -1),
+            _duration_bucket_priority(item),
+            item.get("end") or "",
+            item.get("filed") or "",
+        ),
+    ):
+        fy = record.get("fy")
+        if fy is None:
+            continue
+        key = int(fy)
+        current = chosen.get(key)
+        if current is None or _annual_record_sort_key(record) < _annual_record_sort_key(current):
+            chosen[key] = record
+    return chosen
+
+
 def _record_sort_key(record: dict[str, Any]) -> tuple[int, int, str]:
     return (int(bool(record.get("has_dimensions"))), int(record["tag_priority"]), str(record.get("filed") or ""))
+
+
+def _duration_bucket_priority(record: dict[str, Any]) -> tuple[int, int]:
+    duration = int(record.get("duration_days") or 0)
+    fp = str(record.get("fp") or "")
+    if fp == "Q1":
+        return (0, abs(duration - 90))
+    if fp == "Q2":
+        if duration <= 130:
+            return (0, abs(duration - 91))
+        return (1, abs(duration - 181))
+    if fp == "Q3":
+        if duration <= 130:
+            return (0, abs(duration - 92))
+        return (1, abs(duration - 273))
+    if fp == "Q4":
+        return (0, abs(duration - 91))
+    return (9, duration)
+
+
+def _fy_fp_record_sort_key(record: dict[str, Any]) -> tuple[int, int, int, str]:
+    bucket_rank, bucket_distance = _duration_bucket_priority(record)
+    return (
+        bucket_rank,
+        bucket_distance,
+        int(bool(record.get("has_dimensions"))),
+        str(record.get("filed") or ""),
+    )
+
+
+def _annual_record_sort_key(record: dict[str, Any]) -> tuple[int, int, str]:
+    duration = int(record.get("duration_days") or 0)
+    return (abs(duration - 365), int(bool(record.get("has_dimensions"))), str(record.get("filed") or ""))
+
+
+def _derive_missing_quarters_from_cumulative(
+    *,
+    direct_by_fy_fp: dict[tuple[int, str], dict[str, Any]],
+    cumulative_by_fy_fp: dict[tuple[int, str], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    fiscal_years = sorted({fy for fy, _ in direct_by_fy_fp} | {fy for fy, _ in cumulative_by_fy_fp})
+    derived: list[dict[str, Any]] = []
+    for fy in fiscal_years:
+        quarter_records: dict[str, dict[str, Any] | None] = {
+            "Q1": direct_by_fy_fp.get((fy, "Q1")),
+            "Q2": direct_by_fy_fp.get((fy, "Q2")),
+            "Q3": direct_by_fy_fp.get((fy, "Q3")),
+        }
+        q2_cumulative = cumulative_by_fy_fp.get((fy, "Q2"))
+        q3_cumulative = cumulative_by_fy_fp.get((fy, "Q3"))
+        changed = True
+        while changed:
+            changed = False
+
+            if quarter_records["Q1"] is None:
+                derived_q1 = _derive_q1_from_cumulative(
+                    q2=quarter_records["Q2"],
+                    q3=quarter_records["Q3"],
+                    q2_cumulative=q2_cumulative,
+                    q3_cumulative=q3_cumulative,
+                )
+                if derived_q1 is not None:
+                    quarter_records["Q1"] = derived_q1
+                    derived.append(derived_q1)
+                    changed = True
+
+            if quarter_records["Q2"] is None and quarter_records["Q1"] is not None and q2_cumulative is not None:
+                derived_q2 = _derive_cumulative_quarter(
+                    cumulative=q2_cumulative,
+                    prior_quarters=[quarter_records["Q1"]],
+                    quarter_label="Q2",
+                )
+                if derived_q2 is not None:
+                    quarter_records["Q2"] = derived_q2
+                    derived.append(derived_q2)
+                    changed = True
+
+            if (
+                quarter_records["Q3"] is None
+                and quarter_records["Q1"] is not None
+                and quarter_records["Q2"] is not None
+                and q3_cumulative is not None
+            ):
+                derived_q3 = _derive_cumulative_quarter(
+                    cumulative=q3_cumulative,
+                    prior_quarters=[quarter_records["Q1"], quarter_records["Q2"]],
+                    quarter_label="Q3",
+                )
+                if derived_q3 is not None:
+                    quarter_records["Q3"] = derived_q3
+                    derived.append(derived_q3)
+                    changed = True
+    return derived
+
+
+def _derive_q1_from_cumulative(
+    *,
+    q2: dict[str, Any] | None,
+    q3: dict[str, Any] | None,
+    q2_cumulative: dict[str, Any] | None,
+    q3_cumulative: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    inferred_q1_end = _infer_prior_quarter_end(q2)
+    if inferred_q1_end is None:
+        return None
+    if q2_cumulative is not None and q2 is not None and q2.get("val") is not None:
+        return {
+            **q2_cumulative,
+            "fp": "Q1",
+            "end": inferred_q1_end,
+            "val": float(q2_cumulative["val"]) - float(q2["val"]),
+            "tag": f"{q2_cumulative['tag']}_derived_q1",
+            "tag_priority": -1,
+            "duration_days": 90,
+        }
+    if q3_cumulative is not None and q2 is not None and q3 is not None:
+        if q2.get("val") is None or q3.get("val") is None:
+            return None
+        return {
+            **q3_cumulative,
+            "fp": "Q1",
+            "end": inferred_q1_end,
+            "val": float(q3_cumulative["val"]) - float(q2["val"]) - float(q3["val"]),
+            "tag": f"{q3_cumulative['tag']}_derived_q1",
+            "tag_priority": -1,
+            "duration_days": 90,
+        }
+    return None
+
+
+def _infer_prior_quarter_end(record: dict[str, Any] | None) -> str | None:
+    if record is None:
+        return None
+    start = record.get("start")
+    if isinstance(start, str):
+        try:
+            start_dt = datetime.strptime(start, "%Y-%m-%d").date()
+            return str(start_dt.fromordinal(start_dt.toordinal() - 1))
+        except ValueError:
+            pass
+    end = record.get("end")
+    if not isinstance(end, str):
+        return None
+    try:
+        end_dt = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    month = end_dt.month - 3
+    year = end_dt.year
+    while month <= 0:
+        month += 12
+        year -= 1
+    day = min(end_dt.day, _days_in_month(year, month))
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def _days_in_month(year: int, month: int) -> int:
+    if month == 12:
+        next_month = datetime(year + 1, 1, 1).date()
+    else:
+        next_month = datetime(year, month + 1, 1).date()
+    this_month = datetime(year, month, 1).date()
+    return (next_month - this_month).days
+
+
+def _derive_cumulative_quarter(
+    *,
+    cumulative: dict[str, Any],
+    prior_quarters: list[dict[str, Any]],
+    quarter_label: str,
+) -> dict[str, Any] | None:
+    if any(record.get("val") is None for record in prior_quarters):
+        return None
+    derived_value = float(cumulative["val"]) - sum(float(record["val"]) for record in prior_quarters)
+    return {
+        **cumulative,
+        "fp": quarter_label,
+        "val": derived_value,
+        "tag": f"{cumulative['tag']}_derived_{quarter_label.lower()}",
+        "tag_priority": -1,
+        "duration_days": 90,
+    }
 
 
 def _derive_q4_facts(quarterlies: Iterable[dict[str, Any]], annuals: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+from datetime import date as dt_date
 from typing import Iterable
 
 import polars as pl
@@ -127,6 +129,8 @@ def build_sec_only_financials(
     )
     consolidated = _canonicalize_financial_quarter_fields(consolidated)
     lineage = _canonicalize_financial_quarter_fields(lineage)
+    for metric_name in ("revenue", "net_income"):
+        consolidated, lineage = _finalize_metric_quarters(consolidated, lineage, metric=metric_name)
     consolidated, lineage = _finalize_share_quarters(consolidated, lineage)
     source_summary = _summarize_financial_sources(consolidated)
     return consolidated, lineage, source_summary
@@ -136,9 +140,18 @@ def build_sec_only_earnings(
     *,
     sec_calendar: pl.DataFrame,
     sec_actuals: pl.DataFrame,
+    sec_financials: pl.DataFrame | None = None,
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    consolidated, lineage, long_frame = consolidate_earnings(
+    if sec_financials is not None and not sec_financials.is_empty():
+        derived_actuals = _build_sec_derived_eps_actuals(sec_financials)
+        if not derived_actuals.is_empty():
+            sec_actuals = pl.concat([sec_actuals, derived_actuals], how="diagonal_relaxed")
+    sec_calendar = _augment_sec_calendar_with_actuals(
         sec_calendar=_select_sec_calendar_columns(sec_calendar),
+        sec_actuals=_select_sec_actual_columns(sec_actuals),
+    )
+    consolidated, lineage, long_frame = consolidate_earnings(
+        sec_calendar=sec_calendar,
         yahoo_earnings=_empty_yahoo_earnings_frame(),
         sec_actuals=_select_sec_actual_columns(sec_actuals),
     )
@@ -169,6 +182,123 @@ def build_sec_only_earnings(
     )
 
 
+def _build_sec_derived_eps_actuals(sec_financials: pl.DataFrame) -> pl.DataFrame:
+    if sec_financials.is_empty():
+        return pl.DataFrame(schema=_select_sec_actual_columns(empty_earnings_actuals_frame()).schema)
+
+    quarterly_financials = sec_financials.filter(
+        pl.col("selected_fiscal_year").is_not_null()
+        & pl.col("selected_fiscal_period").is_in(["Q1", "Q2", "Q3", "Q4"])
+    )
+    if quarterly_financials.is_empty():
+        return pl.DataFrame(schema=_select_sec_actual_columns(empty_earnings_actuals_frame()).schema)
+
+    net_income = quarterly_financials.filter(pl.col("metric") == "net_income").select(
+        [
+            "ticker",
+            pl.col("date").alias("period_end"),
+            pl.col("filing_date").alias("net_income_reportDate"),
+            pl.col("value").alias("net_income_value"),
+            pl.col("selected_fiscal_year").alias("fiscal_year"),
+            pl.col("selected_fiscal_period").alias("fiscal_period"),
+            pl.col("selected_source").alias("net_income_source"),
+            pl.col("selected_source_label").alias("net_income_source_label"),
+            pl.col("selected_form").alias("form"),
+        ]
+    )
+    shares = quarterly_financials.filter(pl.col("metric") == "outstanding_shares").select(
+        [
+            "ticker",
+            pl.col("date").alias("share_period_end"),
+            pl.col("filing_date").alias("share_reportDate"),
+            pl.col("value").alias("share_value"),
+            pl.col("selected_fiscal_year").alias("fiscal_year"),
+            pl.col("selected_fiscal_period").alias("fiscal_period"),
+            pl.col("selected_source").alias("share_source"),
+            pl.col("selected_source_label").alias("share_source_label"),
+        ]
+    )
+    weighted_shares = quarterly_financials.filter(pl.col("metric") == "weighted_average_diluted_shares").select(
+        [
+            "ticker",
+            pl.col("date").alias("share_period_end"),
+            pl.col("filing_date").alias("share_reportDate"),
+            pl.col("value").alias("share_value"),
+            pl.col("selected_fiscal_year").alias("fiscal_year"),
+            pl.col("selected_fiscal_period").alias("fiscal_period"),
+            pl.col("selected_source").alias("share_source"),
+            pl.col("selected_source_label").alias("share_source_label"),
+        ]
+    )
+    share_sources: list[pl.DataFrame] = []
+    if not shares.is_empty():
+        share_sources.append(shares)
+    if not weighted_shares.is_empty():
+        share_sources.append(weighted_shares)
+    if net_income.is_empty() or not share_sources:
+        return pl.DataFrame(schema=_select_sec_actual_columns(empty_earnings_actuals_frame()).schema)
+    shares = (
+        pl.concat(share_sources, how="diagonal_relaxed")
+        .with_columns(
+            pl.when(pl.col("share_source") == "sec_companyfacts")
+            .then(pl.lit(0))
+            .otherwise(pl.lit(1))
+            .alias("_share_priority")
+        )
+        .sort(
+            ["ticker", "fiscal_year", "fiscal_period", "_share_priority", "share_reportDate", "share_period_end"],
+            descending=[False, False, False, False, True, True],
+        )
+        .unique(subset=["ticker", "fiscal_year", "fiscal_period"], keep="first", maintain_order=True)
+        .drop("_share_priority")
+    )
+
+    derived = (
+        net_income.join(shares, on=["ticker", "fiscal_year", "fiscal_period"], how="inner")
+        .with_columns(
+            [
+                pl.when(pl.col("share_value") > 0)
+                .then(pl.col("net_income_value") / pl.col("share_value"))
+                .otherwise(pl.lit(None).cast(pl.Float64))
+                .alias("epsActual"),
+                pl.coalesce([pl.col("net_income_reportDate"), pl.col("share_reportDate")]).alias("reportDate"),
+                pl.coalesce([pl.col("period_end"), pl.col("share_period_end")]).alias("period_end"),
+            ]
+        )
+        .filter(
+            pl.col("epsActual").is_not_null()
+            & pl.col("epsActual").is_finite()
+            & (pl.col("epsActual").abs() <= 1_000.0)
+            & pl.col("reportDate").is_not_null()
+            & pl.col("period_end").is_not_null()
+        )
+        .select(
+            [
+                "ticker",
+                "period_end",
+                "reportDate",
+                "epsActual",
+                pl.lit("sec_derived_eps").alias("source"),
+                pl.concat_str(
+                    [
+                        pl.lit("derived_from_net_income_and_shares"),
+                        pl.col("net_income_source"),
+                        pl.col("share_source"),
+                    ],
+                    separator=" | ",
+                    ignore_nulls=True,
+                ).alias("source_label"),
+                "form",
+                "fiscal_period",
+                "fiscal_year",
+            ]
+        )
+        .sort(["ticker", "period_end", "reportDate"])
+        .unique(subset=["ticker", "period_end"], keep="first", maintain_order=True)
+    )
+    return _select_sec_actual_columns(derived)
+
+
 def _empty_yahoo_metadata_frame() -> pl.DataFrame:
     return pl.DataFrame(
         schema={
@@ -193,6 +323,33 @@ def _empty_yahoo_earnings_frame() -> pl.DataFrame:
             "surprisePercent": pl.Float64,
             "source": pl.String,
         }
+    )
+
+
+def _augment_sec_calendar_with_actuals(*, sec_calendar: pl.DataFrame, sec_actuals: pl.DataFrame) -> pl.DataFrame:
+    if sec_calendar.is_empty() or sec_actuals.is_empty():
+        return sec_calendar
+
+    missing_periods = (
+        sec_actuals.select(["ticker", "period_end", "reportDate", "form", "fiscal_period", "fiscal_year"])
+        .join(sec_calendar.select(["ticker", "period_end"]).unique(), on=["ticker", "period_end"], how="anti")
+        .with_columns(
+            [
+                pl.lit(None).cast(pl.Utf8).alias("earningsDatetime"),
+                pl.lit(None).cast(pl.Utf8).alias("accession_number"),
+                pl.lit("sec_actuals_backfill").alias("source"),
+                pl.lit("period_from_sec_actuals").alias("source_label"),
+            ]
+        )
+        .select(sec_calendar.columns)
+    )
+    if missing_periods.is_empty():
+        return sec_calendar
+
+    return (
+        pl.concat([sec_calendar, missing_periods], how="diagonal_relaxed")
+        .sort(["ticker", "period_end", "reportDate", "source"])
+        .unique(subset=["ticker", "period_end"], keep="first", maintain_order=True)
     )
 
 
@@ -292,7 +449,6 @@ def _canonicalize_quarter_fields(
     quarterly_dates = (
         frame.filter(
             pl.col(date_col).is_not_null()
-            & pl.col(year_col).is_not_null()
             & pl.col(period_col).cast(pl.Utf8, strict=False).fill_null("").str.strip_chars().ne("FY")
         )
         .select(
@@ -300,40 +456,315 @@ def _canonicalize_quarter_fields(
                 pl.col(ticker_col),
                 pl.col(date_col),
                 pl.col(year_col).cast(pl.Int64, strict=False).alias(year_col),
+                pl.col(period_col).cast(pl.Utf8, strict=False).alias(period_col),
             ]
         )
         .unique()
         .with_columns(pl.col(date_col).str.strptime(pl.Date, strict=False).alias("_quarter_dt"))
         .filter(pl.col("_quarter_dt").is_not_null())
-        .sort([ticker_col, year_col, "_quarter_dt"])
-        .with_columns(
-            [
-                pl.col("_quarter_dt").rank("ordinal").over([ticker_col, year_col]).cast(pl.Int64).alias("_quarter_rank"),
-                pl.len().over([ticker_col, year_col]).cast(pl.Int64).alias("_quarter_count"),
-            ]
-        )
-        .with_columns(
-            pl.when((pl.col("_quarter_count") >= 1) & (pl.col("_quarter_count") <= 4))
-            .then(pl.concat_str([pl.lit("Q"), pl.col("_quarter_rank").cast(pl.Utf8)]))
-            .otherwise(pl.lit(None).cast(pl.Utf8))
-            .alias("_canonical_fiscal_period")
-        )
-        .select([ticker_col, date_col, year_col, "_canonical_fiscal_period"])
+        .sort([ticker_col, "_quarter_dt"])
     )
     if quarterly_dates.is_empty():
         return frame
 
+    canonical_rows = _build_canonical_quarter_rows(
+        quarterly_dates=quarterly_dates,
+        ticker_col=ticker_col,
+        date_col=date_col,
+        year_col=year_col,
+        period_col=period_col,
+    )
+    if canonical_rows.is_empty():
+        return frame
+
     return (
         frame.join(
-            quarterly_dates,
-            on=[ticker_col, date_col, year_col],
+            canonical_rows,
+            on=[ticker_col, date_col],
             how="left",
         )
         .with_columns(
-            pl.coalesce([pl.col("_canonical_fiscal_period"), pl.col(period_col).cast(pl.Utf8, strict=False)]).alias(period_col)
+            [
+                pl.coalesce([pl.col("_canonical_fiscal_period"), pl.col(period_col).cast(pl.Utf8, strict=False)]).alias(period_col),
+                pl.coalesce([pl.col("_canonical_fiscal_year"), pl.col(year_col).cast(pl.Int64, strict=False)]).alias(year_col),
+            ]
         )
-        .drop("_canonical_fiscal_period")
+        .drop(["_canonical_fiscal_period", "_canonical_fiscal_year"])
     )
+
+
+def _build_canonical_quarter_rows(
+    *,
+    quarterly_dates: pl.DataFrame,
+    ticker_col: str,
+    date_col: str,
+    year_col: str,
+    period_col: str,
+) -> pl.DataFrame:
+    rows = quarterly_dates.select([ticker_col, date_col, "_quarter_dt", year_col, period_col]).to_dicts()
+    grouped: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        grouped.setdefault(str(row[ticker_col]), []).append(row)
+
+    canonical_rows: list[dict[str, object]] = []
+    for ticker, ticker_rows in grouped.items():
+        ordered = sorted(ticker_rows, key=lambda row: row["_quarter_dt"])
+        canonical_rows.extend(
+            _canonicalize_ticker_quarters(
+                ticker=ticker,
+                ticker_rows=ordered,
+                ticker_col=ticker_col,
+                date_col=date_col,
+                year_col=year_col,
+                period_col=period_col,
+            )
+        )
+    return pl.DataFrame(canonical_rows)
+
+
+def _canonicalize_ticker_quarters(
+    *,
+    ticker: str,
+    ticker_rows: list[dict[str, object]],
+    ticker_col: str,
+    date_col: str,
+    year_col: str,
+    period_col: str,
+) -> list[dict[str, object]]:
+    if not ticker_rows:
+        return []
+
+    anchor_index = None
+    anchor_year = None
+    anchor_quarter = None
+    for index in range(len(ticker_rows) - 1, -1, -1):
+        row = ticker_rows[index]
+        source_period = _quarter_number(row.get(period_col))
+        source_year = _safe_int(row.get(year_col))
+        if source_period is not None and source_year is not None:
+            anchor_index = index
+            anchor_year = source_year
+            anchor_quarter = source_period
+            break
+
+    if anchor_index is None:
+        anchor_index = len(ticker_rows) - 1
+        anchor_date = ticker_rows[anchor_index]["_quarter_dt"]
+        assert isinstance(anchor_date, dt_date)
+        anchor_year = anchor_date.year
+        anchor_quarter = ((anchor_date.month - 1) // 3) + 1
+
+    canonical: list[tuple[int, int] | None] = [None] * len(ticker_rows)
+    canonical[anchor_index] = (anchor_year, anchor_quarter)
+
+    for index in range(anchor_index + 1, len(ticker_rows)):
+        prev = canonical[index - 1]
+        prev_date = ticker_rows[index - 1]["_quarter_dt"]
+        current_date = ticker_rows[index]["_quarter_dt"]
+        if prev is None or not isinstance(prev_date, dt_date) or not isinstance(current_date, dt_date):
+            continue
+        steps = _quarter_step_count(prev_date, current_date)
+        canonical[index] = _shift_quarter(prev[0], prev[1], steps)
+
+    for index in range(anchor_index - 1, -1, -1):
+        nxt = canonical[index + 1]
+        next_date = ticker_rows[index + 1]["_quarter_dt"]
+        current_date = ticker_rows[index]["_quarter_dt"]
+        if nxt is None or not isinstance(next_date, dt_date) or not isinstance(current_date, dt_date):
+            continue
+        steps = _quarter_step_count(current_date, next_date)
+        canonical[index] = _shift_quarter(nxt[0], nxt[1], -steps)
+
+    result: list[dict[str, object]] = []
+    q4_month = _preferred_q4_month(ticker_rows=ticker_rows, canonical=canonical, period_col=period_col)
+    fiscal_year_mode = _infer_fiscal_year_mode(
+        ticker_rows=ticker_rows,
+        canonical=canonical,
+        year_col=year_col,
+        q4_month=q4_month,
+    )
+    for row, canonical_value in zip(ticker_rows, canonical, strict=True):
+        fallback_year, canonical_quarter = canonical_value if canonical_value is not None else (None, None)
+        source_quarter = _quarter_number(row.get(period_col))
+        effective_quarter = source_quarter or canonical_quarter
+        quarter_dt = row["_quarter_dt"]
+        canonical_year = fallback_year
+        if effective_quarter is not None and q4_month is not None and isinstance(quarter_dt, dt_date):
+            canonical_year = _infer_fiscal_year_from_date(
+                quarter_dt=quarter_dt,
+                q4_month=q4_month,
+                mode=fiscal_year_mode,
+            )
+        result.append(
+            {
+                ticker_col: ticker,
+                date_col: row[date_col],
+                "_canonical_fiscal_year": canonical_year,
+                "_canonical_fiscal_period": f"Q{effective_quarter}" if effective_quarter is not None else None,
+            }
+        )
+    return result
+
+
+def _quarter_number(value: object) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip().upper()
+    if text in {"Q1", "Q2", "Q3", "Q4"}:
+        return int(text[1])
+    return None
+
+
+def _safe_int(value: object) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _quarter_step_count(start: dt_date, end: dt_date) -> int:
+    days = max((end - start).days, 0)
+    if days < 45:
+        return 0
+    return min(8, int((days + 45) // 91))
+
+
+def _shift_quarter(year: int, quarter: int, step_count: int) -> tuple[int, int]:
+    absolute = (year * 4) + (quarter - 1) + step_count
+    shifted_year, shifted_zero_based_quarter = divmod(absolute, 4)
+    return shifted_year, shifted_zero_based_quarter + 1
+
+
+def _modal_q4_month(*, ticker_rows: list[dict[str, object]], canonical: list[tuple[int, int] | None]) -> int | None:
+    months = [
+        row["_quarter_dt"].month
+        for row, canonical_value in zip(ticker_rows, canonical, strict=True)
+        if canonical_value is not None
+        and canonical_value[1] == 4
+        and isinstance(row["_quarter_dt"], dt_date)
+    ]
+    if not months:
+        return None
+    return Counter(months).most_common(1)[0][0]
+
+
+def _preferred_q4_month(
+    *,
+    ticker_rows: list[dict[str, object]],
+    canonical: list[tuple[int, int] | None],
+    period_col: str,
+) -> int | None:
+    source_months = [
+        row["_quarter_dt"].month
+        for row in ticker_rows
+        if _quarter_number(row.get(period_col)) == 4 and isinstance(row.get("_quarter_dt"), dt_date)
+    ]
+    if source_months:
+        return Counter(source_months).most_common(1)[0][0]
+    return _modal_q4_month(ticker_rows=ticker_rows, canonical=canonical)
+
+
+def _infer_fiscal_year_mode(
+    *,
+    ticker_rows: list[dict[str, object]],
+    canonical: list[tuple[int, int] | None],
+    year_col: str,
+    q4_month: int | None,
+) -> str:
+    if q4_month is None or q4_month not in {1, 2}:
+        return "end_year"
+
+    candidate_modes = ("end_year", "bridge_year")
+    best_mode = "end_year"
+    best_score: tuple[int, int] | None = None
+    for mode in candidate_modes:
+        mismatches = 0
+        comparisons = 0
+        for row, canonical_value in zip(ticker_rows, canonical, strict=True):
+            source_year = _safe_int(row.get(year_col))
+            quarter_dt = row.get("_quarter_dt")
+            if source_year is None or not isinstance(quarter_dt, dt_date) or canonical_value is None:
+                continue
+            inferred_year = _infer_fiscal_year_from_date(quarter_dt=quarter_dt, q4_month=q4_month, mode=mode)
+            comparisons += 1
+            if inferred_year != source_year:
+                mismatches += 1
+        score = (mismatches, -comparisons)
+        if best_score is None or score < best_score:
+            best_mode = mode
+            best_score = score
+    return best_mode
+
+
+def _infer_fiscal_year_from_date(*, quarter_dt: dt_date, q4_month: int, mode: str) -> int:
+    if q4_month == 12:
+        return quarter_dt.year
+    if mode == "bridge_year" and q4_month in {1, 2}:
+        return quarter_dt.year if quarter_dt.month > q4_month else quarter_dt.year - 1
+    return quarter_dt.year + 1 if quarter_dt.month > q4_month else quarter_dt.year
+
+
+def _finalize_metric_quarters(
+    consolidated: pl.DataFrame,
+    lineage: pl.DataFrame,
+    *,
+    metric: str,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    if consolidated.is_empty():
+        return consolidated, lineage
+
+    period_keys = ["ticker", "selected_fiscal_year", "selected_fiscal_period", "metric"]
+    metric_rows = consolidated.filter(pl.col("metric") == metric)
+    if metric_rows.is_empty():
+        return consolidated, lineage
+
+    selected_rows = (
+        metric_rows.filter(
+            pl.col("selected_fiscal_year").is_not_null()
+            & pl.col("selected_fiscal_period").is_not_null()
+            & pl.col("value").is_not_null()
+        )
+        .with_columns(pl.col("date").str.strptime(pl.Date, strict=False).alias("_date_dt"))
+        .sort(
+            [
+                "ticker",
+                "metric",
+                "selected_fiscal_year",
+                "selected_fiscal_period",
+                "source_priority",
+                "filing_date",
+                "_date_dt",
+            ],
+            descending=[False, False, False, False, False, True, True],
+        )
+        .unique(subset=period_keys, keep="first", maintain_order=True)
+        .select(period_keys + ["date"])
+    )
+    if selected_rows.is_empty():
+        return consolidated, lineage
+
+    filtered_metric = metric_rows.join(selected_rows, on=period_keys + ["date"], how="inner")
+    filtered_lineage_metric = lineage.filter(pl.col("metric") == metric).join(
+        selected_rows,
+        on=period_keys + ["date"],
+        how="inner",
+    )
+    filtered_metric = filtered_metric.unique(subset=period_keys + ["date"], keep="first", maintain_order=True)
+    filtered_lineage_metric = filtered_lineage_metric.unique(
+        subset=period_keys + ["date"],
+        keep="first",
+        maintain_order=True,
+    )
+
+    consolidated_out = pl.concat(
+        [consolidated.filter(pl.col("metric") != metric), filtered_metric],
+        how="diagonal_relaxed",
+    ).sort(["ticker", "statement", "metric", "date"])
+    lineage_out = pl.concat(
+        [lineage.filter(pl.col("metric") != metric), filtered_lineage_metric],
+        how="diagonal_relaxed",
+    ).sort(["ticker", "statement", "metric", "date"])
+    return consolidated_out, lineage_out
 
 
 def _finalize_share_quarters(
@@ -381,6 +812,16 @@ def _finalize_share_quarters(
         selected_share_rows,
         on=share_period_keys + ["date"],
         how="inner",
+    )
+    filtered_shares = filtered_shares.unique(
+        subset=share_period_keys + ["date"],
+        keep="first",
+        maintain_order=True,
+    )
+    filtered_lineage_shares = filtered_lineage_shares.unique(
+        subset=share_period_keys + ["date"],
+        keep="first",
+        maintain_order=True,
     )
 
     consolidated_out = pl.concat(

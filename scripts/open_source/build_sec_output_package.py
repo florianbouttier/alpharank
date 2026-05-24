@@ -7,6 +7,7 @@ import shutil
 import polars as pl
 
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_fundamental_outputs
+from alpharank.data.open_source.sec_mapping import load_sec_historical_ticker_bridge
 from alpharank.data.open_source.sec_only import (
     build_sec_only_earnings,
     build_sec_only_financials,
@@ -45,6 +46,60 @@ def main(
     sec_calendar = pl.read_parquet(resolved_raw_source_dir / "earnings_sec_calendar.parquet")
     sec_actuals = pl.read_parquet(resolved_raw_source_dir / "earnings_sec_actuals.parquet")
     general_reference_lineage_raw = pl.read_parquet(resolved_raw_source_dir / "general_reference_lineage.parquet")
+    historical_bridge = load_sec_historical_ticker_bridge(resolved_reference_data_dir)
+
+    sec_companyfacts = _filter_frame_by_historical_windows(
+        sec_companyfacts,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        date_col="date",
+    )
+    sec_companyfacts = _filter_frame_by_bridge_cik(
+        sec_companyfacts,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        accession_col="accession_number",
+    )
+    sec_filing = _filter_frame_by_historical_windows(
+        sec_filing,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        date_col="date",
+    )
+    sec_filing = _filter_frame_by_bridge_cik(
+        sec_filing,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        accession_col="accession_number",
+    )
+    sec_calendar = _filter_frame_by_historical_windows(
+        sec_calendar,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        date_col="period_end",
+    )
+    sec_calendar = _filter_frame_by_bridge_cik(
+        sec_calendar,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        accession_col="accession_number",
+    )
+    sec_actuals = _filter_frame_by_historical_windows(
+        sec_actuals,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        date_col="period_end",
+    )
+    sec_actuals = _filter_frame_by_bridge_cik(
+        sec_actuals,
+        bridge=historical_bridge,
+        ticker_col="ticker",
+        accession_col="accession_number",
+    )
+    general_reference_lineage_raw = _override_general_reference_lineage_from_bridge(
+        general_reference_lineage_raw,
+        bridge=historical_bridge,
+    )
 
     consolidated_financials, consolidated_lineage, source_summary = build_sec_only_financials(
         sec_companyfacts=sec_companyfacts,
@@ -53,6 +108,7 @@ def main(
     earnings_consolidated, earnings_lineage, earnings_long = build_sec_only_earnings(
         sec_calendar=sec_calendar,
         sec_actuals=sec_actuals,
+        sec_financials=consolidated_financials,
     )
     general_reference, general_reference_lineage = build_sec_only_general_reference_from_raw_lineage(
         general_reference_lineage_raw
@@ -80,7 +136,7 @@ def main(
         "dataset_policy": {
             "financials": "sec_companyfacts -> sec_filing",
             "earnings_calendar": "sec_submissions",
-            "earnings_actual": "sec_companyfacts -> sec_filing",
+            "earnings_actual": "sec_companyfacts -> sec_filing -> sec_derived_eps(net_income / outstanding_shares)",
             "earnings_estimate": None,
             "earnings_surprise_percent": None,
             "general_reference": "sec_mapping + sec_sic",
@@ -101,7 +157,7 @@ def main(
                 "outstanding_shares",
                 "epsActual",
             ],
-            "derived_from_sec": ["free_cash_flow"],
+            "derived_from_sec": ["free_cash_flow", "epsActual (fallback only when SEC published EPS is missing)"],
             "missing_by_design": ["epsEstimate", "surprisePercent", "US_Finalprice.parquet", "SP500Price.parquet"],
         },
         "summary": {
@@ -201,6 +257,106 @@ def publish_sec_output_package(
         frame.write_parquet(lineage_dir / file_name)
     write_json(lineage_dir / "manifest.json", manifest)
     return snapshot_dir
+
+
+def _filter_frame_by_historical_windows(
+    frame: pl.DataFrame,
+    *,
+    bridge: pl.DataFrame,
+    ticker_col: str,
+    date_col: str,
+) -> pl.DataFrame:
+    if frame.is_empty() or bridge.is_empty() or ticker_col not in frame.columns or date_col not in frame.columns:
+        return frame
+    windows = (
+        bridge.select(
+            [
+                (pl.col("ticker") + pl.lit(".US")).alias(ticker_col),
+                pl.col("start_date").cast(pl.Utf8),
+                pl.col("end_date").cast(pl.Utf8),
+            ]
+        )
+        .with_columns(
+            [
+                pl.col("start_date").str.strptime(pl.Date, strict=False).alias("_start_dt"),
+                pl.col("end_date").str.strptime(pl.Date, strict=False).alias("_end_dt"),
+            ]
+        )
+        .drop(["start_date", "end_date"])
+    )
+    return (
+        frame.with_columns(pl.col(date_col).str.strptime(pl.Date, strict=False).alias("_row_dt"))
+        .join(windows, on=ticker_col, how="left")
+        .filter(
+            pl.col("_row_dt").is_null()
+            | (
+                (pl.col("_start_dt").is_null() | (pl.col("_row_dt") >= pl.col("_start_dt")))
+                & (pl.col("_end_dt").is_null() | (pl.col("_row_dt") <= pl.col("_end_dt")))
+            )
+        )
+        .drop(["_row_dt", "_start_dt", "_end_dt"])
+    )
+
+
+def _override_general_reference_lineage_from_bridge(
+    raw_lineage: pl.DataFrame,
+    *,
+    bridge: pl.DataFrame,
+) -> pl.DataFrame:
+    if raw_lineage.is_empty() or bridge.is_empty() or "ticker" not in raw_lineage.columns:
+        return raw_lineage
+    overrides = bridge.select(
+        [
+            (pl.col("ticker") + pl.lit(".US")).alias("ticker"),
+            pl.col("name").alias("_bridge_name"),
+            pl.col("exchange").alias("_bridge_exchange"),
+            pl.col("cik").alias("_bridge_cik"),
+        ]
+    )
+    result = raw_lineage.join(overrides, on="ticker", how="left")
+    updates: list[pl.Expr] = []
+    if "name" in result.columns:
+        updates.append(pl.coalesce([pl.col("_bridge_name"), pl.col("name")]).alias("name"))
+    if "exchange" in result.columns:
+        updates.append(pl.coalesce([pl.col("_bridge_exchange"), pl.col("exchange")]).alias("exchange"))
+    if "cik" in result.columns:
+        updates.append(pl.coalesce([pl.col("_bridge_cik"), pl.col("cik")]).alias("cik"))
+    if "sec_name" in result.columns:
+        updates.append(pl.coalesce([pl.col("_bridge_name"), pl.col("sec_name")]).alias("sec_name"))
+    if "sec_exchange" in result.columns:
+        updates.append(pl.coalesce([pl.col("_bridge_exchange"), pl.col("sec_exchange")]).alias("sec_exchange"))
+    if "sec_cik" in result.columns:
+        updates.append(pl.coalesce([pl.col("_bridge_cik"), pl.col("sec_cik")]).alias("sec_cik"))
+    if updates:
+        result = result.with_columns(updates)
+    return result.drop([column for column in ["_bridge_name", "_bridge_exchange", "_bridge_cik"] if column in result.columns])
+
+
+def _filter_frame_by_bridge_cik(
+    frame: pl.DataFrame,
+    *,
+    bridge: pl.DataFrame,
+    ticker_col: str,
+    accession_col: str,
+) -> pl.DataFrame:
+    if frame.is_empty() or bridge.is_empty() or ticker_col not in frame.columns or accession_col not in frame.columns:
+        return frame
+    expected = bridge.select(
+        [
+            (pl.col("ticker") + pl.lit(".US")).alias(ticker_col),
+            pl.col("cik").cast(pl.Utf8).str.extract(r"(\d+)").str.zfill(10).alias("_bridge_cik"),
+        ]
+    ).unique(subset=[ticker_col], keep="first")
+    return (
+        frame.join(expected, on=ticker_col, how="left")
+        .with_columns(pl.col(accession_col).cast(pl.Utf8).str.extract(r"(\d{10})").alias("_accession_cik"))
+        .filter(
+            pl.col("_bridge_cik").is_null()
+            | pl.col("_accession_cik").is_null()
+            | (pl.col("_bridge_cik") == pl.col("_accession_cik"))
+        )
+        .drop(["_bridge_cik", "_accession_cik"])
+    )
 
 
 def _write_readme(path: Path) -> None:

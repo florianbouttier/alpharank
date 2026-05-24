@@ -18,8 +18,12 @@ from alpharank.data.open_source.ingestion import (
 )
 from alpharank.data.open_source.general_reference import build_general_reference
 from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
-from alpharank.data.open_source.sec import _select_share_facts
-from alpharank.data.open_source.sec_filing import _derive_missing_total_liabilities, _infer_fiscal_period
+from alpharank.data.open_source.sec import _select_best_facts, _select_share_facts
+from alpharank.data.open_source.sec_filing import (
+    _derive_missing_total_liabilities,
+    _infer_fiscal_period,
+    _parse_atom_filings,
+)
 
 
 def test_consolidate_earnings_prefers_sec_calendar_and_yahoo_market_fields() -> None:
@@ -81,6 +85,175 @@ def test_consolidate_earnings_prefers_sec_calendar_and_yahoo_market_fields() -> 
     assert long_frame.filter(pl.col("metric") == "eps_actual")["filing_date"].to_list() == ["2025-04-30"]
 
 
+def test_build_sec_companyfacts_earnings_actuals_keeps_earliest_period_report() -> None:
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "EarningsPerShareDiluted": {
+                    "units": {
+                        "USD/shares": [
+                            {
+                                "start": "2009-01-01",
+                                "end": "2009-03-31",
+                                "val": 1.0,
+                                "fy": 2009,
+                                "fp": "Q1",
+                                "form": "10-Q",
+                                "filed": "2010-02-20",
+                            },
+                            {
+                                "start": "2009-01-01",
+                                "end": "2009-03-31",
+                                "val": 9.0,
+                                "fy": 2010,
+                                "fp": "Q1",
+                                "form": "10-Q",
+                                "filed": "2011-02-20",
+                            },
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    actuals = build_sec_companyfacts_earnings_actuals(ticker="TEST", facts_payload=payload)
+
+    assert actuals.height == 1
+    assert actuals["reportDate"].to_list() == ["2010-02-20"]
+    assert actuals["epsActual"].to_list() == [1.0]
+
+
+def test_parse_atom_filings_extracts_accession_and_dates() -> None:
+    feed = """<?xml version="1.0" encoding="ISO-8859-1"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+      <entry>
+        <content type="text/xml">
+          <accession-number>0001047469-09-009634</accession-number>
+          <filing-date>2009-11-06</filing-date>
+          <filing-href>https://www.sec.gov/Archives/edgar/data/944868/000104746909009634/0001047469-09-009634-index.htm</filing-href>
+          <filing-type>10-Q</filing-type>
+        </content>
+        <updated>2009-11-05T19:11:47-05:00</updated>
+      </entry>
+    </feed>
+    """
+
+    filings = _parse_atom_filings(feed, filing_type="10-Q")
+
+    assert len(filings) == 1
+    filing = filings[0]
+    assert filing.accession_number == "0001047469-09-009634"
+    assert filing.filing_date == "2009-11-06"
+    assert filing.report_date == "2009-11-06"
+    assert filing.form == "10-Q"
+    assert filing.primary_document == "0001047469-09-009634-index.htm"
+
+
+def test_select_best_facts_derives_quarters_from_cumulative_duration_facts() -> None:
+    facts_payload = {
+        "us-gaap": {
+            "Revenues": {
+                "units": {
+                    "USD": [
+                        {
+                            "start": "2010-01-01",
+                            "end": "2010-03-31",
+                            "val": 100.0,
+                            "fy": 2010,
+                            "fp": "Q1",
+                            "form": "10-Q",
+                            "filed": "2010-05-01",
+                        },
+                        {
+                            "start": "2010-01-01",
+                            "end": "2010-06-30",
+                            "val": 250.0,
+                            "fy": 2010,
+                            "fp": "Q2",
+                            "form": "10-Q",
+                            "filed": "2010-08-01",
+                        },
+                        {
+                            "start": "2010-01-01",
+                            "end": "2010-09-30",
+                            "val": 390.0,
+                            "fy": 2010,
+                            "fp": "Q3",
+                            "form": "10-Q",
+                            "filed": "2010-11-01",
+                        },
+                        {
+                            "start": "2010-01-01",
+                            "end": "2010-12-31",
+                            "val": 520.0,
+                            "fy": 2010,
+                            "fp": "FY",
+                            "form": "10-K",
+                            "filed": "2011-02-20",
+                        },
+                    ]
+                }
+            }
+        }
+    }
+
+    selected = _select_best_facts("income_statement", ("us-gaap",), ("Revenues",), facts_payload)
+    by_end = {row["end"]: row for row in selected}
+
+    assert by_end["2010-03-31"]["val"] == 100.0
+    assert by_end["2010-06-30"]["val"] == 150.0
+    assert by_end["2010-09-30"]["val"] == 140.0
+    assert by_end["2010-12-31"]["val"] == 130.0
+
+
+def test_select_best_facts_derives_missing_q1_from_q2_cumulative_and_q2_direct() -> None:
+    facts_payload = {
+        "us-gaap": {
+            "Revenues": {
+                "units": {
+                    "USD": [
+                        {
+                            "start": "2010-04-01",
+                            "end": "2010-06-30",
+                            "val": 150.0,
+                            "fy": 2010,
+                            "fp": "Q2",
+                            "form": "10-Q",
+                            "filed": "2010-08-01",
+                        },
+                        {
+                            "start": "2010-01-01",
+                            "end": "2010-06-30",
+                            "val": 250.0,
+                            "fy": 2010,
+                            "fp": "Q2",
+                            "form": "10-Q",
+                            "filed": "2010-08-01",
+                        },
+                        {
+                            "start": "2010-01-01",
+                            "end": "2010-09-30",
+                            "val": 390.0,
+                            "fy": 2010,
+                            "fp": "Q3",
+                            "form": "10-Q",
+                            "filed": "2010-11-01",
+                        },
+                    ]
+                }
+            }
+        }
+    }
+
+    selected = _select_best_facts("income_statement", ("us-gaap",), ("Revenues",), facts_payload)
+    by_end = {row["end"]: row for row in selected}
+
+    assert by_end["2010-03-31"]["val"] == 100.0
+    assert by_end["2010-03-31"]["fp"] == "Q1"
+    assert by_end["2010-06-30"]["val"] == 150.0
+
+
 def test_consolidate_earnings_matches_yahoo_release_before_sec_filing_when_period_end_matches() -> None:
     sec_calendar = pl.DataFrame(
         {
@@ -133,6 +306,46 @@ def test_consolidate_earnings_matches_yahoo_release_before_sec_filing_when_perio
     assert consolidated["epsActual"].to_list() == [1.91]
     assert lineage["sec_reportDate"].to_list() == ["2025-12-17"]
     assert lineage["yahoo_reportDate"].to_list() == ["2025-11-25"]
+
+
+def test_consolidate_earnings_prefers_non_null_sec_actual_reported_after_period_end() -> None:
+    sec_calendar = pl.DataFrame(
+        {
+            "ticker": ["TSCO.US"],
+            "period_end": ["2011-03-31"],
+            "reportDate": ["2011-05-04"],
+            "earningsDatetime": ["2011-05-04 20:00:00"],
+            "accession_number": ["0003"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2011],
+            "source": ["sec_submissions"],
+            "source_label": ["reportDate"],
+        }
+    )
+    sec_actuals = pl.DataFrame(
+        {
+            "ticker": ["TSCO.US", "TSCO.US"],
+            "period_end": ["2011-03-31", "2011-03-31"],
+            "reportDate": ["2011-02-23", "2011-05-04"],
+            "epsActual": [None, 0.91],
+            "source": ["sec_companyfacts", "sec_companyfacts"],
+            "source_label": ["EarningsPerShareDiluted", "EarningsPerShareDiluted"],
+            "form": ["10-Q", "10-Q"],
+            "fiscal_period": ["Q1", "Q1"],
+            "fiscal_year": [2011, 2011],
+        }
+    )
+
+    consolidated, lineage, _ = consolidate_earnings(
+        sec_calendar=sec_calendar,
+        yahoo_earnings=pl.DataFrame(schema={"ticker": pl.String}),
+        sec_actuals=sec_actuals,
+    )
+
+    assert consolidated["epsActual"].to_list() == [0.91]
+    assert consolidated["reportDate"].to_list() == ["2011-05-04"]
+    assert lineage["sec_epsActual"].to_list() == [0.91]
 
 
 def test_build_general_reference_falls_back_to_sec_sic_mapping() -> None:

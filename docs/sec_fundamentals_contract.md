@@ -32,6 +32,7 @@ Nuance importante:
 
 - un bridge d'identifiant historique peut etre utilise pour retrouver un `CIK` SEC ancien ou delisted
 - ce bridge peut venir d'un referentiel local comme `data/eodhd/output/US_General.parquet`
+- un bridge manuel versionne peut aussi etre maintenu dans `src/alpharank/data/open_source/reference/sec_historical_ticker_bridge.csv`
 - ce bridge ne fournit jamais une valeur fondamentale finale
 - la valeur fondamentale finale doit toujours venir de la SEC
 
@@ -54,6 +55,12 @@ Ce sont deux facons d'extraire la meme source officielle.
 Pour les tickers anciens, renommes ou delisted, l'acces a la SEC peut necessiter un bridge `ticker -> CIK`.
 Ce bridge fait partie de la plomberie d'acces, pas de la source fondamentale.
 
+Quand un ticker a ete recycle par une autre societe plus recente:
+
+- le bridge historique doit porter une fenetre de validite (`start_date`, `end_date`)
+- le package SEC final doit exclure les rows SEC hors de cette fenetre pour ce ticker
+- cela evite de melanger deux societes differentes sous un meme symbole historique
+
 Si la SEC ne permet pas de reconstruire proprement une valeur:
 
 - on laisse `null`
@@ -71,6 +78,7 @@ Les KPI cibles aujourd'hui sont:
 Autres points:
 
 - `free_cash_flow` n'est pas un KPI SEC natif. Si on l'ajoute un jour, il devra etre marque `derived_from_sec`.
+- `epsActual` est prioritairement le `EPS` SEC publie. Si ce tag SEC manque mais que `net_income` et une base d'actions SEC existent pour le meme quarter fiscal, un fallback `sec_derived_eps` peut etre publie. La base d'actions est prise en priorite sur `outstanding_shares`, puis sur `weighted_average_diluted_shares` si la serie diluee existe mais pas les actions en circulation. Ce fallback doit rester explicitement trace dans le lineage.
 - `epsEstimate` et `surprisePercent` ne font pas partie du package SEC-only. La SEC n'est pas la bonne source pour ces champs.
 
 ## Fichiers Officiels
@@ -152,7 +160,7 @@ Pour `US_Earnings.parquet`:
 - calendrier canonique: SEC
 - `period_end`: SEC
 - `reportDate`: SEC
-- `epsActual`: SEC
+- `epsActual`: SEC publie si disponible, sinon `sec_derived_eps = net_income / share_base` en fallback explicite
 - `epsEstimate`: `null`
 - `surprisePercent`: `null`
 
@@ -199,6 +207,13 @@ La normalisation officielle actuelle repose sur:
 - `fiscal_period`
 - la date de quarter retenue apres normalisation canonique
 
+Regles complementaires importantes:
+
+- quand `fiscal_period` source est deja valide (`Q1..Q4`), on le preserve en priorite
+- le mois de cloture modal du `Q4` sert a recanoniser l'annee fiscale
+- pour les clotures janvier/fevrier, la convention d'annee fiscale est detectee par ticker, car certaines societes nomment l'exercice sur l'annee de cloture et d'autres sur l'annee precedente
+- apres canonicalisation, on ne garde qu'une seule ligne finale par `ticker x metric x fiscal_year x fiscal_period`
+
 Pour `outstanding_shares`, la normalisation inclut aussi:
 
 - une selection d'une seule ligne canonique par quarter fiscal
@@ -229,6 +244,27 @@ Champs minimaux attendus dans les exports de lineage:
 - `selected_form`
 - `selected_accession_number` quand disponible
 - `is_derived` pour les KPI derives, si on en ajoute plus tard
+
+## Regle De Regeneration Du Raw SEC
+
+Changer le parseur SEC ou la liste de tags SEC ne suffit pas a ameliorer le package publie.
+
+Si on modifie:
+
+- la logique de parsing `companyfacts`
+- la logique de derivation trimestrielle
+- la liste de tags SEC supportes
+
+alors il faut aussi regenerer les raw SEC correspondants avant de rebuild `data/sec/output`, au minimum:
+
+- `data/open_source/official/raw/financials_sec_companyfacts.parquet`
+- `data/open_source/official/raw/earnings_sec_actuals.parquet`
+
+Sinon:
+
+- le code source parait corrige
+- mais le package publie et les dashboards continuent a lire un raw stale
+- et les gains de couverture n'apparaissent pas
 
 ## Limitations Acceptees
 

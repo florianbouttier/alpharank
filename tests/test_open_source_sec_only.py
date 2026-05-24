@@ -94,6 +94,155 @@ def test_build_sec_only_earnings_keeps_sec_actuals_and_nulls_market_fields() -> 
     assert long_frame["source"].to_list() == ["open_source_earnings"]
 
 
+def test_build_sec_only_earnings_derives_eps_from_sec_financials_when_missing() -> None:
+    sec_calendar = pl.DataFrame(
+        {
+            "ticker": ["AAA.US"],
+            "period_end": ["2025-03-31"],
+            "reportDate": ["2025-05-01"],
+            "earningsDatetime": [None],
+            "accession_number": ["0000001"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2025],
+            "source": ["sec_submissions"],
+            "source_label": ["reportDate"],
+        }
+    )
+    sec_actuals = pl.DataFrame(
+        {
+            "ticker": [],
+            "period_end": [],
+            "reportDate": [],
+            "epsActual": [],
+            "source": [],
+            "source_label": [],
+            "form": [],
+            "fiscal_period": [],
+            "fiscal_year": [],
+        },
+        schema={
+            "ticker": pl.String,
+            "period_end": pl.String,
+            "reportDate": pl.String,
+            "epsActual": pl.Float64,
+            "source": pl.String,
+            "source_label": pl.String,
+            "form": pl.String,
+            "fiscal_period": pl.String,
+            "fiscal_year": pl.Int64,
+        },
+    )
+    sec_financials = pl.DataFrame(
+        {
+            "ticker": ["AAA.US", "AAA.US"],
+            "statement": ["income_statement", "shares"],
+            "metric": ["net_income", "outstanding_shares"],
+            "date": ["2025-03-31", "2025-03-31"],
+            "filing_date": ["2025-05-01", "2025-05-01"],
+            "value": [200.0, 100.0],
+            "source": ["sec_companyfacts", "sec_filing"],
+            "source_label": ["NetIncomeLoss", "EntityCommonStockSharesOutstanding"],
+            "selected_source": ["sec_companyfacts", "sec_filing"],
+            "selected_source_label": ["NetIncomeLoss", "EntityCommonStockSharesOutstanding"],
+            "selected_accession_number": [None, "0001"],
+            "selected_form": ["10-Q", "10-Q"],
+            "selected_fiscal_period": ["Q1", "Q1"],
+            "selected_fiscal_year": [2025, 2025],
+            "source_priority": [1, 1],
+            "fallback_used": [False, False],
+            "candidate_source_count": [1, 1],
+            "candidate_sources": ["sec_companyfacts", "sec_filing"],
+            "candidate_source_labels": ["NetIncomeLoss", "EntityCommonStockSharesOutstanding"],
+        }
+    )
+
+    consolidated, lineage, _ = build_sec_only_earnings(
+        sec_calendar=sec_calendar,
+        sec_actuals=sec_actuals,
+        sec_financials=sec_financials,
+    )
+
+    assert consolidated["epsActual"].to_list() == [2.0]
+    assert consolidated["actual_source"].to_list() == ["sec_derived_eps"]
+    assert consolidated["selected_source"].to_list() == ["sec_submissions+sec_derived_eps"]
+    assert lineage["sec_epsActual"].to_list() == [2.0]
+
+
+def test_build_sec_only_earnings_uses_weighted_average_diluted_shares_when_outstanding_missing() -> None:
+    sec_calendar = pl.DataFrame(
+        {
+            "ticker": ["AAA.US"],
+            "period_end": ["2025-03-31"],
+            "reportDate": ["2025-05-01"],
+            "earningsDatetime": [None],
+            "accession_number": ["0000001"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q1"],
+            "fiscal_year": [2025],
+            "source": ["sec_submissions"],
+            "source_label": ["reportDate"],
+        }
+    )
+    sec_actuals = pl.DataFrame(
+        {
+            "ticker": [],
+            "period_end": [],
+            "reportDate": [],
+            "epsActual": [],
+            "source": [],
+            "source_label": [],
+            "form": [],
+            "fiscal_period": [],
+            "fiscal_year": [],
+        },
+        schema={
+            "ticker": pl.String,
+            "period_end": pl.String,
+            "reportDate": pl.String,
+            "epsActual": pl.Float64,
+            "source": pl.String,
+            "source_label": pl.String,
+            "form": pl.String,
+            "fiscal_period": pl.String,
+            "fiscal_year": pl.Int64,
+        },
+    )
+    sec_financials = pl.DataFrame(
+        {
+            "ticker": ["AAA.US", "AAA.US"],
+            "statement": ["income_statement", "shares"],
+            "metric": ["net_income", "weighted_average_diluted_shares"],
+            "date": ["2025-03-31", "2025-03-31"],
+            "filing_date": ["2025-05-01", "2025-05-01"],
+            "value": [300.0, 150.0],
+            "source": ["sec_companyfacts", "sec_companyfacts"],
+            "source_label": ["NetIncomeLoss", "WeightedAverageNumberOfDilutedSharesOutstanding"],
+            "selected_source": ["sec_companyfacts", "sec_companyfacts"],
+            "selected_source_label": ["NetIncomeLoss", "WeightedAverageNumberOfDilutedSharesOutstanding"],
+            "selected_accession_number": [None, None],
+            "selected_form": ["10-Q", "10-Q"],
+            "selected_fiscal_period": ["Q1", "Q1"],
+            "selected_fiscal_year": [2025, 2025],
+            "source_priority": [1, 1],
+            "fallback_used": [False, False],
+            "candidate_source_count": [1, 1],
+            "candidate_sources": ["sec_companyfacts", "sec_companyfacts"],
+            "candidate_source_labels": ["NetIncomeLoss", "WeightedAverageNumberOfDilutedSharesOutstanding"],
+        }
+    )
+
+    consolidated, lineage, _ = build_sec_only_earnings(
+        sec_calendar=sec_calendar,
+        sec_actuals=sec_actuals,
+        sec_financials=sec_financials,
+    )
+
+    assert consolidated["epsActual"].to_list() == [2.0]
+    assert consolidated["actual_source"].to_list() == ["sec_derived_eps"]
+    assert "weighted_average_diluted_shares" not in lineage.columns or lineage["sec_epsActual"].to_list() == [2.0]
+
+
 def test_build_sec_only_financials_prefers_filing_for_shares_and_drops_absurd_companyfacts_values() -> None:
     sec_companyfacts = pl.DataFrame(
         {
@@ -155,6 +304,68 @@ def test_build_sec_only_financials_prefers_filing_for_shares_and_drops_absurd_co
         ).height
         == 1
     )
+
+
+def test_build_sec_only_financials_preserves_valid_off_calendar_fiscal_years() -> None:
+    sec_companyfacts = pl.DataFrame(
+        {
+            "ticker": ["SWY.US", "SWY.US", "SWY.US", "SWY.US", "SWY.US", "SWY.US"],
+            "statement": ["income_statement"] * 6,
+            "metric": ["revenue", "revenue", "revenue", "net_income", "net_income", "net_income"],
+            "date": ["2014-03-22", "2014-06-14", "2015-01-03", "2014-03-22", "2014-06-14", "2015-01-03"],
+            "filing_date": ["2014-05-06", "2014-07-27", "2015-03-04", "2014-05-06", "2014-07-27", "2015-03-04"],
+            "value": [8260.0, 8307.0, 11677.0, 193.0, 234.0, 106.0],
+            "source": ["sec_companyfacts"] * 6,
+            "source_label": ["SalesRevenueNet", "SalesRevenueNet", "SalesRevenueNet", "NetIncomeLoss", "NetIncomeLoss", "NetIncomeLoss"],
+            "accession_number": [None] * 6,
+            "form": ["10-Q", "10-Q", "10-K", "10-Q", "10-Q", "10-K"],
+            "fiscal_period": ["Q1", "Q2", "Q4", "Q1", "Q2", "Q4"],
+            "fiscal_year": [2014, 2014, 2014, 2014, 2014, 2014],
+        }
+    )
+    sec_filing = sec_companyfacts.head(0)
+
+    consolidated, _, _ = build_sec_only_financials(
+        sec_companyfacts=sec_companyfacts,
+        sec_filing=sec_filing,
+    )
+
+    swy_q4 = consolidated.filter(
+        (pl.col("ticker") == "SWY.US")
+        & (pl.col("date") == "2015-01-03")
+        & (pl.col("metric") == "revenue")
+    )
+    assert swy_q4["selected_fiscal_year"].to_list() == [2014]
+    assert swy_q4["selected_fiscal_period"].to_list() == ["Q4"]
+
+
+def test_build_sec_only_financials_uses_august_year_end_for_costco_style_fiscal_years() -> None:
+    sec_companyfacts = pl.DataFrame(
+        {
+            "ticker": ["COST.US"] * 4,
+            "statement": ["income_statement"] * 4,
+            "metric": ["revenue"] * 4,
+            "date": ["2021-11-21", "2022-02-13", "2022-05-08", "2022-08-28"],
+            "filing_date": ["2021-12-09", "2022-03-10", "2022-05-26", "2022-09-22"],
+            "value": [50.0, 51.0, 52.0, 53.0],
+            "source": ["sec_companyfacts"] * 4,
+            "source_label": ["RevenueFromContractWithCustomerExcludingAssessedTax"] * 4,
+            "accession_number": [None] * 4,
+            "form": ["10-Q", "10-Q", "10-Q", "10-K"],
+            "fiscal_period": ["Q1", "Q2", "Q3", "Q4"],
+            "fiscal_year": [2022, 2022, 2022, 2024],
+        }
+    )
+    sec_filing = sec_companyfacts.head(0)
+
+    consolidated, _, _ = build_sec_only_financials(
+        sec_companyfacts=sec_companyfacts,
+        sec_filing=sec_filing,
+    )
+
+    rows = consolidated.filter(pl.col("ticker") == "COST.US").sort("date")
+    assert rows["selected_fiscal_year"].to_list() == [2022, 2022, 2022, 2022]
+    assert rows["selected_fiscal_period"].to_list() == ["Q1", "Q2", "Q3", "Q4"]
 
 
 def test_build_quarterly_presence_uses_separate_financial_and_eps_grids() -> None:
