@@ -1,5 +1,8 @@
 # Open-Source Cadrage Status 2025
 
+> Historique: ce document decrit le cadrage du package multi-source `data/open_source/output/`.
+> Pour l'etat courant des fondamentaux SEC, le package recommande aujourd'hui et la cible `<1 %` sur `EPS`, `revenue` et `net_income`, lire d'abord `docs/sec_open_source_status.md`.
+
 ## Scope
 
 Reference EODHD-style datasets:

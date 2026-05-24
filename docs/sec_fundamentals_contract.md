@@ -1,5 +1,7 @@
 # SEC Fundamentals Contract
 
+Pour le statut courant du package, le package recommande a date et les derniers resultats de couverture, lire aussi `docs/sec_open_source_status.md`.
+
 Ce document fixe le contrat officiel du package `data/sec/output`.
 
 Le but est d'avoir un package fondamental simple a comprendre:

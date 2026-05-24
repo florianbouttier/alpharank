@@ -203,10 +203,25 @@ There are now three package roles to keep distinct:
    - one source of truth for fundamentals: SEC
    - no Yahoo, no SimFin, no EODHD fallback inside this package
 
+Current operating status for fundamentals:
+
+- default reference package: `data/sec/output/`
+- current KPI objective: close the gaps on `epsActual`, `revenue`, and `net_income`
+- quality target: less than `1 %` missing on the worst audited year
+- best experimental overlay at the moment: `outputs/sec_overlay_fix2_output/`
+- latest external-facing status note: `docs/sec_open_source_status.md`
+
+Important:
+
+- `data/open_source/output/` remains useful for the broader multi-source ingestion track
+- it is **not** the package currently used to pilot the `<1 %` KPI-gap objective
+- that objective is tracked on the SEC-only branch and its overlay experiments
+
 Use these docs when touching the model:
 
 - `docs/open_source_ingestion_architecture.md`
 - `docs/sec_fundamentals_contract.md`
+- `docs/sec_open_source_status.md`
 
 The SEC package exists to keep the fundamental lineage simple and explicit:
 
