@@ -207,6 +207,62 @@ def test_select_best_facts_derives_quarters_from_cumulative_duration_facts() -> 
     assert by_end["2010-12-31"]["val"] == 130.0
 
 
+def test_select_best_facts_derives_q4_using_next_quarter_end_not_annual_end() -> None:
+    facts_payload = {
+        "us-gaap": {
+            "Revenues": {
+                "units": {
+                    "USD": [
+                        {
+                            "start": "2022-12-01",
+                            "end": "2023-02-28",
+                            "val": 100.0,
+                            "fy": 2023,
+                            "fp": "Q1",
+                            "form": "10-Q",
+                            "filed": "2023-04-01",
+                        },
+                        {
+                            "start": "2023-03-01",
+                            "end": "2023-05-31",
+                            "val": 150.0,
+                            "fy": 2023,
+                            "fp": "Q2",
+                            "form": "10-Q",
+                            "filed": "2023-07-01",
+                        },
+                        {
+                            "start": "2023-06-01",
+                            "end": "2023-08-31",
+                            "val": 140.0,
+                            "fy": 2023,
+                            "fp": "Q3",
+                            "form": "10-Q",
+                            "filed": "2023-10-01",
+                        },
+                        {
+                            "start": "2022-12-01",
+                            "end": "2024-01-31",
+                            "val": 520.0,
+                            "fy": 2023,
+                            "fp": "FY",
+                            "form": "10-K",
+                            "filed": "2024-02-20",
+                        },
+                    ]
+                }
+            }
+        }
+    }
+
+    selected = _select_best_facts("income_statement", ("us-gaap",), ("Revenues",), facts_payload)
+    q4 = [row for row in selected if row["fp"] == "Q4"][0]
+
+    assert q4["end"] == "2023-11-30"
+    assert q4["start"] == "2023-09-01"
+    assert q4["val"] == 130.0
+
+
 def test_select_best_facts_derives_missing_q1_from_q2_cumulative_and_q2_direct() -> None:
     facts_payload = {
         "us-gaap": {

@@ -751,9 +751,13 @@ def _derive_q4_facts(quarterlies: Iterable[dict[str, Any]], annuals: Iterable[di
         q4 = quarterly_by_fy_fp.get((fy, "Q4"))
         if q4 is not None or q1 is None or q2 is None or q3 is None:
             continue
+        inferred_end = _infer_next_quarter_end(q3)
+        inferred_start = _infer_next_quarter_start(q3)
         derived.append(
             {
                 **annual,
+                "start": inferred_start or annual.get("start"),
+                "end": inferred_end or annual.get("end"),
                 "fp": "Q4",
                 "val": float(annual["val"]) - float(q1["val"]) - float(q2["val"]) - float(q3["val"]),
                 "tag": f"{annual['tag']}_derived_q4",
@@ -799,6 +803,44 @@ def _derive_free_cash_flow(frame: pl.DataFrame) -> pl.DataFrame:
             pl.col("fiscal_year"),
         ]
     )
+
+
+def _infer_next_quarter_end(record: dict[str, Any] | None) -> str | None:
+    if record is None:
+        return None
+    end = record.get("end")
+    if not isinstance(end, str):
+        return None
+    try:
+        end_dt = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    month = end_dt.month + 3
+    year = end_dt.year
+    while month > 12:
+        month -= 12
+        year += 1
+    source_month_end_day = _days_in_month(end_dt.year, end_dt.month)
+    target_month_end_day = _days_in_month(year, month)
+    if end_dt.day == source_month_end_day:
+        day = target_month_end_day
+    else:
+        day = min(end_dt.day, target_month_end_day)
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def _infer_next_quarter_start(record: dict[str, Any] | None) -> str | None:
+    if record is None:
+        return None
+    end = record.get("end")
+    if not isinstance(end, str):
+        return None
+    try:
+        end_dt = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    next_day = end_dt.fromordinal(end_dt.toordinal() + 1)
+    return next_day.isoformat()
 
 
 def _empty_sec_frame() -> pl.DataFrame:

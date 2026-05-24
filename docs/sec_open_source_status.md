@@ -78,6 +78,35 @@ Interpretation:
 - il reste le meilleur compromis global sur les trois KPI coeur, car son pire cas global (`3.40 %`) est legerement meilleur que celui de la baseline (`3.50 %`)
 - il ne permet pas encore d'atteindre la cible `<1 %`
 
+### Probe parser Q4: `outputs/sec_q4_probe_output/`
+
+Cette experience correspond a:
+
+- un correctif de derive `Q4` dans le parseur `companyfacts`
+- un refresh cible de `20` tickers tres presents dans les trous `2023`
+- un rebuild SEC-only de staging sur la fenetre `2010 -> 2025`
+
+Rapports associes:
+
+- `outputs/sec_q4_probe_quality/`
+- `outputs/sec_q4_probe_yearly/`
+- `outputs/sec_q4_probe_yearly/worst_year_brief.md`
+
+Pire annee par KPI:
+
+| KPI | Pire annee | Trous | Taux de manque |
+| --- | --- | ---: | ---: |
+| `epsActual` | `2022` | 64 | `2.50 %` |
+| `net_income` | `2023` | 74 | `2.87 %` |
+| `revenue` | `2023` | 76 | `2.95 %` |
+
+Interpretation:
+
+- le correctif parser apporte un **gain reel** par rapport a la baseline SEC actuelle sur les trois KPI coeur
+- c'est le meilleur resultat observe a date sur `EPS`
+- il reste moins bon que `fix2` sur `revenue` et `net_income`
+- la prochaine experience logique est donc la combinaison `q4_probe + fix2`
+
 ### Experience non promue: `outputs/sec_overlay_multi_history_output/`
 
 Rapports associes:
