@@ -79,6 +79,7 @@ Autres points:
 
 - `free_cash_flow` n'est pas un KPI SEC natif. Si on l'ajoute un jour, il devra etre marque `derived_from_sec`.
 - `epsActual` est prioritairement le `EPS` SEC publie. Si ce tag SEC manque mais que `net_income` et une base d'actions SEC existent pour le meme quarter fiscal, un fallback `sec_derived_eps` peut etre publie. La base d'actions est prise en priorite sur `outstanding_shares`, puis sur `weighted_average_diluted_shares` si la serie diluee existe mais pas les actions en circulation. Ce fallback doit rester explicitement trace dans le lineage.
+- pour l'EPS SEC publie, on privilegie les facts trimestriels directs `Q1..Q4`. On n'utilise pas de `Q4` synthetique derive d'un `FY` annuel dans la couche `earnings_sec_actuals`, car cela cree trop de mismatches historiques.
 - `epsEstimate` et `surprisePercent` ne font pas partie du package SEC-only. La SEC n'est pas la bonne source pour ces champs.
 
 ## Fichiers Officiels
@@ -174,6 +175,7 @@ Si plusieurs filings SEC concernent le meme quarter:
 
 - la version la plus recente et la plus exploitable est retenue
 - le lineage doit permettre de remonter au filing retenu
+- au moment de publier le package SEC-only, les `sec_actuals` sont realignes une premiere fois sur le calendrier SEC par `reportDate`, puis une seconde fois par `ticker + fiscal_year + fiscal_period` si la date de publication seule ne suffit pas
 
 ### General
 
@@ -212,6 +214,8 @@ Regles complementaires importantes:
 - quand `fiscal_period` source est deja valide (`Q1..Q4`), on le preserve en priorite
 - le mois de cloture modal du `Q4` sert a recanoniser l'annee fiscale
 - pour les clotures janvier/fevrier, la convention d'annee fiscale est detectee par ticker, car certaines societes nomment l'exercice sur l'annee de cloture et d'autres sur l'annee precedente
+- si une sous-sequence source recente est localement coherente (`Q1 -> Q2 -> Q3 -> Q1` apres un quarter manquant, par exemple), on preserve ces labels source meme si l'historique ancien du ticker est bruité
+- l'annee fiscale source n'est conservee que si elle reste compatible avec le mois reel de cloture observe; sinon, l'annee est recalculee a partir du calendrier fiscal detecte
 - apres canonicalisation, on ne garde qu'une seule ligne finale par `ticker x metric x fiscal_year x fiscal_period`
 
 Pour `outstanding_shares`, la normalisation inclut aussi:
