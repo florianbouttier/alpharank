@@ -20,7 +20,7 @@ Pour les fondamentaux, il faut raisonner sur trois packages differents:
 | Package | Role | Statut au `2026-05-24` |
 | --- | --- | --- |
 | `data/sec/output/` | package SEC-only canonique | **base officielle actuelle** |
-| `outputs/sec_q4_fix2_combo_output/` | combinaison parser Q4 + overlay historique | **meilleur candidat global observe a date** |
+| `outputs/sec_q4_fix2_candidate_combo_output_latest/` | workflow autonome parser Q4 + refresh cible + overlay historique | **meilleur candidat global observe a date** |
 | `outputs/sec_overlay_fix2_output/` | meilleur overlay historique teste seul | **meilleur overlay pur a date** |
 | `outputs/sec_overlay_multi_history_output/` | overlay multi-snapshots large | **experience utile, non promue** |
 
@@ -28,7 +28,7 @@ Ce qu'il faut retenir:
 
 - `data/open_source/output/` n'est **pas** le bon package pour piloter l'objectif `<1 %` sur `EPS`, `revenue` et `net_income`
 - le travail KPI coeur se fait aujourd'hui sur la branche `SEC-only`
-- `outputs/sec_q4_fix2_combo_output/` est le meilleur resultat global concret observe jusqu'ici
+- `outputs/sec_q4_fix2_candidate_combo_output_latest/` est le meilleur resultat global concret observe jusqu'ici
 - l'overlay multi-history a enrichi la couverture brute, mais il a aussi rouvert des annees anciennes plus trouees et a donc degrade le pire cas
 
 ## Score actuel
@@ -135,34 +135,34 @@ Conclusion:
 - garder cette experience comme outillage de diagnostic
 - ne pas la presenter comme le nouveau package de reference
 
-### Meilleur candidat global actuel: `outputs/sec_q4_fix2_combo_output/`
+### Meilleur candidat global actuel: `outputs/sec_q4_fix2_candidate_combo_output_latest/`
 
 Cette experience combine:
 
 - le parseur `Q4` corrige cote `companyfacts`
-- le refresh cible de la cohorte 2023 la plus trouee
+- un refresh cible automatique de la cohorte KPI la plus trouee
 - l'overlay `fix2` comme couche de comblement des trous residuels
 
 Rapports associes:
 
-- `outputs/sec_q4_fix2_combo_quality/`
-- `outputs/sec_q4_fix2_combo_yearly/`
-- `outputs/sec_q4_fix2_combo_yearly/worst_year_brief.md`
+- `outputs/sec_q4_fix2_candidate_combo_quality_latest/`
+- `outputs/sec_q4_fix2_candidate_combo_yearly_latest/`
+- `outputs/sec_q4_fix2_candidate_combo_yearly_latest/worst_year_brief.md`
 
 Pire annee par KPI:
 
 | KPI | Pire annee | Trous | Taux de manque |
 | --- | --- | ---: | ---: |
-| `epsActual` | `2022` | 64 | `2.50 %` |
-| `net_income` | `2023` | 70 | `2.72 %` |
-| `revenue` | `2023` | 72 | `2.80 %` |
+| `epsActual` | `2022` | 53 | `2.07 %` |
+| `net_income` | `2023` | 67 | `2.60 %` |
+| `revenue` | `2023` | 68 | `2.64 %` |
 
 Interpretation:
 
 - c'est le meilleur **pire cas global** observe jusqu'ici sur les trois KPI coeur
 - il garde le gain `EPS` du probe parser Q4
 - il recupere une partie du gain `revenue` / `net_income` de `fix2`
-- la cible `<1 %` reste loin, mais le frontiere actuelle descend de `3.50 %` pour la baseline a `2.80 %` sur ce combo
+- la cible `<1 %` reste loin, mais la frontiere actuelle descend de `3.50 %` pour la baseline a `2.64 %` sur ce candidat
 
 ## Ce qui est deja solide
 
@@ -232,6 +232,45 @@ Pour rejouer l'overlay candidat le plus utile:
 ### 4. Overlay multi-history
 
 Le script accepte aussi plusieurs `--secondary-sec-dir`, mais cette voie doit etre traitee comme une experience de recherche tant qu'elle degrade le pire cas annuel.
+
+### 5. Workflow autonome recommande
+
+Pour rejouer sans bricolage manuel le pipeline qui:
+
+- selectionne automatiquement les tickers les plus troues sur les KPI coeur
+- refresh les `companyfacts` SEC de cette cohorte
+- rebuild un package probe
+- applique `fix2` par-dessus
+- republie les rapports annuels et le brief KPI
+
+utiliser:
+
+```bash
+./.venv/bin/python scripts/open_source/run_sec_q4_fix2_candidate.py
+```
+
+Le script ecrit un manifest horodate et publie les chemins exacts du candidat combine en sortie.
+
+### 6. Comparaison lisible des scenarios
+
+Pour publier une vue non ambigue de type:
+
+- scenario par scenario
+- par KPI
+- pire annee
+- nombre de trous
+- `%` de missing
+- classement global
+
+utiliser:
+
+```bash
+./.venv/bin/python scripts/open_source/build_sec_kpi_scenario_comparison.py
+```
+
+Sortie principale:
+
+- `outputs/sec_kpi_scenario_comparison_latest/summary.md`
 
 ## Documents a lire ensuite
 

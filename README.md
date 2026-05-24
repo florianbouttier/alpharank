@@ -208,14 +208,20 @@ Current operating status for fundamentals:
 - default reference package: `data/sec/output/`
 - current KPI objective: close the gaps on `epsActual`, `revenue`, and `net_income`
 - quality target: less than `1 %` missing on the worst audited year
-- best experimental overlay at the moment: `outputs/sec_overlay_fix2_output/`
+- best current candidate: `outputs/sec_q4_fix2_candidate_combo_output_latest/`
 - latest external-facing status note: `docs/sec_open_source_status.md`
+- scenario comparison report: `outputs/sec_kpi_scenario_comparison_latest/summary.md`
 
 Important:
 
 - `data/open_source/output/` remains useful for the broader multi-source ingestion track
 - it is **not** the package currently used to pilot the `<1 %` KPI-gap objective
 - that objective is tracked on the SEC-only branch and its overlay experiments
+
+Useful SEC-only candidate workflows:
+
+- automated candidate rebuild: `scripts/open_source/run_sec_q4_fix2_candidate.py`
+- scenario comparison builder: `scripts/open_source/build_sec_kpi_scenario_comparison.py`
 
 Use these docs when touching the model:
 
