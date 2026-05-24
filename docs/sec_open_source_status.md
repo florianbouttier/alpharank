@@ -20,14 +20,15 @@ Pour les fondamentaux, il faut raisonner sur trois packages differents:
 | Package | Role | Statut au `2026-05-24` |
 | --- | --- | --- |
 | `data/sec/output/` | package SEC-only canonique | **base officielle actuelle** |
-| `outputs/sec_overlay_fix2_output/` | meilleur overlay historique teste | **meilleur candidat d'amelioration a date** |
+| `outputs/sec_q4_fix2_combo_output/` | combinaison parser Q4 + overlay historique | **meilleur candidat global observe a date** |
+| `outputs/sec_overlay_fix2_output/` | meilleur overlay historique teste seul | **meilleur overlay pur a date** |
 | `outputs/sec_overlay_multi_history_output/` | overlay multi-snapshots large | **experience utile, non promue** |
 
 Ce qu'il faut retenir:
 
 - `data/open_source/output/` n'est **pas** le bon package pour piloter l'objectif `<1 %` sur `EPS`, `revenue` et `net_income`
 - le travail KPI coeur se fait aujourd'hui sur la branche `SEC-only`
-- `outputs/sec_overlay_fix2_output/` est le meilleur resultat concret observe jusqu'ici
+- `outputs/sec_q4_fix2_combo_output/` est le meilleur resultat global concret observe jusqu'ici
 - l'overlay multi-history a enrichi la couverture brute, mais il a aussi rouvert des annees anciennes plus trouees et a donc degrade le pire cas
 
 ## Score actuel
@@ -133,6 +134,35 @@ Conclusion:
 
 - garder cette experience comme outillage de diagnostic
 - ne pas la presenter comme le nouveau package de reference
+
+### Meilleur candidat global actuel: `outputs/sec_q4_fix2_combo_output/`
+
+Cette experience combine:
+
+- le parseur `Q4` corrige cote `companyfacts`
+- le refresh cible de la cohorte 2023 la plus trouee
+- l'overlay `fix2` comme couche de comblement des trous residuels
+
+Rapports associes:
+
+- `outputs/sec_q4_fix2_combo_quality/`
+- `outputs/sec_q4_fix2_combo_yearly/`
+- `outputs/sec_q4_fix2_combo_yearly/worst_year_brief.md`
+
+Pire annee par KPI:
+
+| KPI | Pire annee | Trous | Taux de manque |
+| --- | --- | ---: | ---: |
+| `epsActual` | `2022` | 64 | `2.50 %` |
+| `net_income` | `2023` | 70 | `2.72 %` |
+| `revenue` | `2023` | 72 | `2.80 %` |
+
+Interpretation:
+
+- c'est le meilleur **pire cas global** observe jusqu'ici sur les trois KPI coeur
+- il garde le gain `EPS` du probe parser Q4
+- il recupere une partie du gain `revenue` / `net_income` de `fix2`
+- la cible `<1 %` reste loin, mais le frontiere actuelle descend de `3.50 %` pour la baseline a `2.80 %` sur ce combo
 
 ## Ce qui est deja solide
 
