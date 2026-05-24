@@ -32,28 +32,27 @@ Ce qu'il faut retenir:
 
 ## Score actuel
 
+Fenetre de lecture standardisee pour ce document:
+
+- `2010` -> `2025`
+- meme fenetre pour la baseline SEC et pour les overlays compares
+- le fichier le plus court a publier apres chaque run est `worst_year_brief.md`
+
 ### Baseline officielle: `data/sec/output/`
 
 Rapports de reference:
 
 - `outputs/sec_quality_dashboard_latest/`
 - `outputs/sec_core_kpi_yearly_report_latest/`
+- `outputs/sec_core_kpi_yearly_report_latest/worst_year_brief.md`
 
 Pire annee par KPI:
 
 | KPI | Pire annee | Trous | Taux de manque |
 | --- | --- | ---: | ---: |
-| `epsActual` | `2022` | 117 | `4.57 %` |
-| `net_income` | `2023` | 57 | `2.21 %` |
-| `revenue` | `2023` | 63 | `2.44 %` |
-
-Resume global:
-
-| KPI | Trous totaux | Taux global |
-| --- | ---: | ---: |
-| `epsActual` | 779 | `1.83 %` |
-| `net_income` | 914 | `2.14 %` |
-| `revenue` | 943 | `2.21 %` |
+| `epsActual` | `2022` | 70 | `2.73 %` |
+| `net_income` | `2023` | 88 | `3.42 %` |
+| `revenue` | `2023` | 90 | `3.50 %` |
 
 ### Meilleur overlay a date: `outputs/sec_overlay_fix2_output/`
 
@@ -61,6 +60,7 @@ Rapports associes:
 
 - `outputs/sec_overlay_fix2_quality/`
 - `outputs/sec_overlay_fix2_yearly/`
+- `outputs/sec_overlay_fix2_yearly/worst_year_brief.md`
 
 Pire annee par KPI:
 
@@ -70,19 +70,12 @@ Pire annee par KPI:
 | `net_income` | `2023` | 56 | `2.17 %` |
 | `revenue` | `2023` | 62 | `2.40 %` |
 
-Resume global:
-
-| KPI | Trous totaux | Taux global |
-| --- | ---: | ---: |
-| `epsActual` | 815 | `1.91 %` |
-| `net_income` | 714 | `1.65 %` |
-| `revenue` | 849 | `1.96 %` |
-
 Interpretation:
 
 - l'overlay `fix2` est le **meilleur compromis** observe
-- il ameliore nettement `EPS` sur la pire annee
-- il ameliore aussi `net_income` et `revenue`, mais plus modestement
+- il n'est **pas** le meilleur sur `EPS`: la baseline SEC actuelle fait mieux sur ce KPI
+- il ameliore nettement `revenue` et `net_income`
+- il reste le meilleur compromis global sur les trois KPI coeur, car son pire cas global (`3.40 %`) est legerement meilleur que celui de la baseline (`3.50 %`)
 - il ne permet pas encore d'atteindre la cible `<1 %`
 
 ### Experience non promue: `outputs/sec_overlay_multi_history_output/`
@@ -172,6 +165,8 @@ Pour rejouer l'overlay candidat le plus utile:
 ./.venv/bin/python scripts/open_source/build_sec_core_kpi_yearly_report.py \
   --sec-output-dir outputs/sec_overlay_fix2_output \
   --quality-dir outputs/sec_overlay_fix2_quality \
+  --start-year 2010 \
+  --end-year 2025 \
   --output-dir outputs/sec_overlay_fix2_yearly
 ```
 

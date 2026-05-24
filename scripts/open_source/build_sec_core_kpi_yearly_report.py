@@ -67,6 +67,7 @@ def main() -> None:
     )
 
     top_tickers = _build_top_tickers_by_worst_year(filtered=filtered, yearly_summary=yearly_summary)
+    worst_year_brief = _build_worst_year_brief(yearly_summary=yearly_summary, top_tickers=top_tickers)
     recommendation_rows = _build_recommendations(top_tickers=top_tickers, yearly_summary=yearly_summary)
 
     payload = {
@@ -80,6 +81,7 @@ def main() -> None:
         "metric_colors": METRIC_COLORS,
         "yearly_summary": yearly_summary.to_dicts(),
         "worst_years": worst_years.to_dicts(),
+        "worst_year_brief": worst_year_brief.to_dicts(),
         "top_tickers": top_tickers.to_dicts(),
         "recommendations": recommendation_rows,
     }
@@ -87,8 +89,10 @@ def main() -> None:
     yearly_summary.write_csv(output_dir / "yearly_summary.csv")
     yearly_summary.write_parquet(output_dir / "yearly_summary.parquet")
     worst_years.write_csv(output_dir / "worst_years.csv")
+    worst_year_brief.write_csv(output_dir / "worst_year_brief.csv")
     top_tickers.write_csv(output_dir / "top_tickers_by_worst_year.csv")
     (output_dir / "payload.json").write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+    (output_dir / "worst_year_brief.md").write_text(_render_worst_year_brief_markdown(worst_year_brief), encoding="utf-8")
     (output_dir / "report.md").write_text(_render_markdown(payload), encoding="utf-8")
     (output_dir / "report.html").write_text(_render_html(payload), encoding="utf-8")
     print(output_dir)
@@ -137,6 +141,47 @@ def _build_top_tickers_by_worst_year(*, filtered: pl.DataFrame, yearly_summary: 
     )
 
 
+def _build_worst_year_brief(*, yearly_summary: pl.DataFrame, top_tickers: pl.DataFrame) -> pl.DataFrame:
+    rows: list[dict[str, object]] = []
+    for metric in CORE_METRICS:
+        metric_years = yearly_summary.filter(pl.col("metric") == metric).sort(
+            ["missing_quarters", "missing_pct"],
+            descending=[True, True],
+        )
+        if metric_years.is_empty():
+            continue
+        worst = metric_years.row(0, named=True)
+        fiscal_year = int(worst["fiscal_year"])
+        top_codes = (
+            top_tickers.filter((pl.col("metric") == metric) & (pl.col("fiscal_year") == fiscal_year))
+            .get_column("ticker_code")
+            .head(6)
+            .to_list()
+        )
+        rows.append(
+            {
+                "metric": metric,
+                "metric_label": METRIC_LABELS[metric],
+                "fiscal_year": fiscal_year,
+                "missing_quarters": int(worst["missing_quarters"]),
+                "missing_pct": float(worst["missing_pct"]),
+                "fill_pct": float(worst["fill_pct"]),
+                "top_tickers": ", ".join(top_codes),
+            }
+        )
+    return pl.DataFrame(rows) if rows else pl.DataFrame(
+        schema={
+            "metric": pl.String,
+            "metric_label": pl.String,
+            "fiscal_year": pl.Int64,
+            "missing_quarters": pl.Int64,
+            "missing_pct": pl.Float64,
+            "fill_pct": pl.Float64,
+            "top_tickers": pl.String,
+        }
+    )
+
+
 def _build_recommendations(*, top_tickers: pl.DataFrame, yearly_summary: pl.DataFrame) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for metric in CORE_METRICS:
@@ -181,6 +226,27 @@ def _build_recommendations(*, top_tickers: pl.DataFrame, yearly_summary: pl.Data
     return rows
 
 
+def _render_worst_year_brief_markdown(worst_year_brief: pl.DataFrame) -> str:
+    lines = [
+        "# Brief KPI trous SEC",
+        "",
+        "Ce fichier donne la synthese la plus courte a publier apres un run:",
+        "- par KPI",
+        "- pire annee observee",
+        "- nombre de trimestres manquants",
+        "- pourcentage de trous",
+        "- principaux tickers contributeurs",
+        "",
+    ]
+    for row in worst_year_brief.to_dicts():
+        lines.append(
+            f"- {row['metric_label']}: pire année = {row['fiscal_year']}, "
+            f"{row['missing_quarters']} trous, {row['missing_pct']:.2f}% manquants. "
+            f"Tickers principaux: {row['top_tickers'] or 'aucun'}."
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _render_markdown(payload: dict[str, object]) -> str:
     lines = [
         "# Rapport annuel des trous SEC",
@@ -194,8 +260,18 @@ def _render_markdown(payload: dict[str, object]) -> str:
         "",
         "Les années incomplètes après la fin de période choisie sont exclues pour éviter de mélanger les vrais trous avec des quarters encore en cours de publication.",
         "",
-        "## Pires années",
+        "## Brief KPI",
     ]
+    for row in payload["worst_year_brief"]:
+        lines.append(
+            f"- {row['metric_label']}: pire année = {row['fiscal_year']}, "
+            f"{row['missing_quarters']} trous, {row['missing_pct']:.2f}% manquants. "
+            f"Tickers principaux: {row['top_tickers'] or 'aucun'}."
+        )
+    lines.extend([
+        "",
+        "## Pires années",
+    ])
     for row in payload["worst_years"]:
         lines.append(
             f"- {row['metric_label']} {row['fiscal_year']}: {row['missing_quarters']} trous, {row['missing_pct']:.1f}% manquants"
