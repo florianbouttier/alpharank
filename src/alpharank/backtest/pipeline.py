@@ -44,7 +44,7 @@ from alpharank.backtest.reporting import (
     write_backtest_audit_report,
     write_html_report,
 )
-from alpharank.backtest.time_folds import filter_by_months, rolling_fold_windows
+from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 
 
@@ -226,6 +226,8 @@ def _empty_fold_index() -> pl.DataFrame:
     return pl.DataFrame(
         schema={
             "fold": pl.Int64,
+            "split_strategy": pl.Utf8,
+            "test_group_indexes": pl.Utf8,
             "status": pl.Utf8,
             "skip_reason": pl.Utf8,
             "train_month_start": pl.Utf8,
@@ -446,6 +448,8 @@ def _prepare_modeling_frame(config: BacktestConfig, *, run_dir: Path) -> tuple[p
 def _build_fold_index_row(
     *,
     fold: int,
+    split_strategy: str = "unknown",
+    test_group_indexes: tuple[int, ...] = (),
     status: str,
     skip_reason: str | None,
     train_months: List[Any],
@@ -460,6 +464,8 @@ def _build_fold_index_row(
 ) -> Dict[str, Any]:
     return {
         "fold": int(fold),
+        "split_strategy": split_strategy,
+        "test_group_indexes": ",".join(str(index) for index in test_group_indexes) if test_group_indexes else None,
         "status": status,
         "skip_reason": skip_reason,
         "train_month_start": str(train_months[0]) if train_months else None,
@@ -486,6 +492,8 @@ def _build_prediction_debug_frames(
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     fold_meta_cols = [
         "fold",
+        "split_strategy",
+        "test_group_indexes",
         "status",
         "skip_reason",
         "train_month_start",
@@ -544,6 +552,8 @@ def _build_prediction_debug_frames(
         "objective_score",
         "objective_score_val",
         "status",
+        "split_strategy",
+        "test_group_indexes",
         "skip_reason",
         "train_month_start",
         "train_month_end",
@@ -569,6 +579,8 @@ def _build_prediction_debug_frames(
             "objective_score": pl.Float64,
             "objective_score_val": pl.Float64,
             "status": pl.Utf8,
+            "split_strategy": pl.Utf8,
+            "test_group_indexes": pl.Utf8,
             "skip_reason": pl.Utf8,
             "train_month_start": pl.Utf8,
             "train_month_end": pl.Utf8,
@@ -597,6 +609,8 @@ def _build_prediction_debug_frames(
                     "objective_score",
                     "objective_score_val",
                     "status",
+                    "split_strategy",
+                    "test_group_indexes",
                     "skip_reason",
                     "train_month_start",
                     "train_month_end",
@@ -623,6 +637,39 @@ def _build_prediction_debug_frames(
     return debug_long.sort(["year_month", "prediction_rank_in_month", "ticker"]), debug_full
 
 
+def _deduplicate_predictions_for_backtest(predictions: pl.DataFrame) -> pl.DataFrame:
+    if predictions.is_empty():
+        return predictions
+
+    key_cols = [
+        "ticker",
+        "year_month",
+        "decision_month",
+        "holding_month",
+        "decision_asof_date",
+        "holding_asof_date",
+        "benchmark_holding_asof_date",
+        "holding_period_complete",
+        "monthly_return",
+        "future_return",
+        "benchmark_future_return",
+        "future_excess_return",
+        "future_relative_return",
+        "target_label",
+    ]
+    return (
+        predictions.group_by(key_cols)
+        .agg(
+            pl.mean("prediction").alias("prediction"),
+            pl.min("fold").alias("fold"),
+            pl.mean("objective_score").alias("objective_score"),
+            pl.mean("objective_score_val").alias("objective_score_val"),
+            pl.len().alias("prediction_count"),
+        )
+        .sort(["year_month", "ticker"])
+    )
+
+
 def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     from alpharank.backtest.tuning import tune_and_fit_fold
 
@@ -640,7 +687,15 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         .to_list()
     )
 
-    windows = rolling_fold_windows(months, n_folds=config.n_folds)
+    if config.fold_strategy == "cpcv":
+        windows = cpcv_fold_windows(
+            months,
+            n_groups=config.n_folds,
+            test_group_count=config.cpcv_test_groups,
+            embargo_groups=config.cpcv_embargo_groups,
+        )
+    else:
+        windows = rolling_fold_windows(months, n_folds=config.n_folds)
     total_windows = len(windows)
     fold_durations: List[float] = []
 
@@ -685,6 +740,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             fold_index_rows.append(
                 _build_fold_index_row(
                     fold=window.fold_index,
+                    split_strategy=window.split_strategy,
+                    test_group_indexes=window.test_group_indexes,
                     status="skipped",
                     skip_reason="min_train_months",
                     train_months=window.train_months,
@@ -704,6 +761,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             fold_index_rows.append(
                 _build_fold_index_row(
                     fold=window.fold_index,
+                    split_strategy=window.split_strategy,
+                    test_group_indexes=window.test_group_indexes,
                     status="skipped",
                     skip_reason="fold_min_train_rows",
                     train_months=window.train_months,
@@ -723,6 +782,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             fold_index_rows.append(
                 _build_fold_index_row(
                     fold=window.fold_index,
+                    split_strategy=window.split_strategy,
+                    test_group_indexes=window.test_group_indexes,
                     status="skipped",
                     skip_reason="fold_min_val_rows",
                     train_months=window.train_months,
@@ -742,6 +803,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             fold_index_rows.append(
                 _build_fold_index_row(
                     fold=window.fold_index,
+                    split_strategy=window.split_strategy,
+                    test_group_indexes=window.test_group_indexes,
                     status="skipped",
                     skip_reason="fold_min_test_rows",
                     train_months=window.train_months,
@@ -781,6 +844,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         fold_index_rows.append(
             _build_fold_index_row(
                 fold=window.fold_index,
+                split_strategy=window.split_strategy,
+                test_group_indexes=window.test_group_indexes,
                 status="completed",
                 skip_reason=None,
                 train_months=window.train_months,
@@ -811,6 +876,10 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             progress_label=fold_prefix,
             show_progress=config.show_optuna_progress and config.verbose,
             progress_every=config.optuna_progress_every,
+            train_groups=train_df.get_column("year_month").to_list(),
+            cpcv_inner_groups=config.cpcv_inner_groups,
+            cpcv_inner_test_groups=config.cpcv_inner_test_groups,
+            cpcv_embargo_groups=config.cpcv_embargo_groups,
         )
 
         fold_score_train_test = float(
@@ -988,7 +1057,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 f"finish_at~{_format_eta(eta_pipeline_seconds)}"
             )
 
-    predictions = pl.concat(all_predictions, how="vertical") if all_predictions else _empty_predictions()
+    raw_predictions = pl.concat(all_predictions, how="vertical") if all_predictions else _empty_predictions()
+    predictions = _deduplicate_predictions_for_backtest(raw_predictions)
     fold_metrics = pl.DataFrame(fold_rows) if fold_rows else _empty_fold_metrics()
     fold_index = pl.DataFrame(fold_index_rows) if fold_index_rows else _empty_fold_index()
     best_params = pl.DataFrame(best_param_rows) if best_param_rows else pl.DataFrame(schema={"fold": pl.Int64})
@@ -1255,6 +1325,11 @@ def _finalize_backtest_run(
             "output_dir": str(config.output_dir),
             "start_month": config.start_month,
             "n_folds": config.n_folds,
+            "fold_strategy": config.fold_strategy,
+            "cpcv_test_groups": config.cpcv_test_groups,
+            "cpcv_embargo_groups": config.cpcv_embargo_groups,
+            "cpcv_inner_groups": config.cpcv_inner_groups,
+            "cpcv_inner_test_groups": config.cpcv_inner_test_groups,
             "top_n": config.top_n,
             "outperformance_threshold": config.outperformance_threshold,
             "min_train_months": config.min_train_months,

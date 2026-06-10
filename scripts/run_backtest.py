@@ -21,7 +21,7 @@ from alpharank.backtest import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-LEGACY_DATA_QUALITY_EXCLUDED_TICKERS = ("SII.US", "CBE.US", "TIE.US")
+LEGACY_DATA_QUALITY_EXCLUDED_TICKERS = ("SII.US", "CBE.US", "TIE.US","CPWR.US")
 
 DEFAULT_LEARNING_KPI_COLUMNS = (
     "fold",
@@ -56,12 +56,17 @@ def default_config(**overrides: Any) -> BacktestConfig:
         "output_dir": PROJECT_ROOT / "outputs",
         "excluded_tickers": LEGACY_DATA_QUALITY_EXCLUDED_TICKERS,
         "start_month": "2000-01",
-        "n_folds": 5,
+        "n_folds": 7,
+        "fold_strategy": "cpcv",
+        "cpcv_test_groups": 2,
+        "cpcv_embargo_groups": 0,
+        "cpcv_inner_groups": 5,
+        "cpcv_inner_test_groups": 1,
         "top_n": 10,
         "outperformance_threshold": 0.15,
         "min_train_months": 24,
         "missing_feature_threshold": 0.05,
-        "n_optuna_trials":100,
+        "n_optuna_trials":200,
         "optuna_lambda_gap": 5,
         "optuna_startup_trials": 20,
         "risk_free_rate": 0.02,
@@ -71,14 +76,15 @@ def default_config(**overrides: Any) -> BacktestConfig:
         "optuna_progress_every": 1,
         "technical_feature_config": TechnicalFeatureConfig(
             roc_windows=(1, 3, 6, 12,15, 24),
-            ema_pairs=((2, 6), (3, 6), (3, 12), (6, 12), (6, 18), (12, 24)),
+            ema_pairs=((2, 6), (3, 6), (3, 12), (6, 12), (6, 18), (12, 24),
+                       (18, 24),(6, 24),(3, 24),(3, 18),(2, 12),(2, 3)),
             price_to_ema_spans=(3, 6, 12, 24),
             rsi_windows=(3, 6, 12, 24),
             rsi_ratio_pairs=((3, 12), (6, 24)),
-            bollinger_windows=(6, 12),
+            bollinger_windows=(3,6, 12,24,36),
             stochastic_windows=((6, 3), (12, 3)),
             range_windows=(6, 12,21),
-            volatility_windows=(2,3, 6, 12,24),
+            volatility_windows=(2,6, 12,24,36,48),
             volatility_ratio_pairs=((3, 12), (6, 12)),
         ),
         "fundamental_feature_config": FundamentalFeatureConfig(
@@ -98,6 +104,11 @@ def _config_to_metadata(config: BacktestConfig) -> dict[str, Any]:
         "excluded_tickers": list(config.excluded_tickers),
         "start_month": config.start_month,
         "n_folds": config.n_folds,
+        "fold_strategy": config.fold_strategy,
+        "cpcv_test_groups": config.cpcv_test_groups,
+        "cpcv_embargo_groups": config.cpcv_embargo_groups,
+        "cpcv_inner_groups": config.cpcv_inner_groups,
+        "cpcv_inner_test_groups": config.cpcv_inner_test_groups,
         "top_n": config.top_n,
         "outperformance_threshold": config.outperformance_threshold,
         "prediction_threshold": config.prediction_threshold,

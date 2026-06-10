@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
-import optuna
-from optuna.pruners import MedianPruner
-from optuna.samplers import TPESampler
 
-from alpharank.utils.xgboost_runtime import load_xgboost
-
-xgb = load_xgboost()
+from alpharank.backtest.mlcraft_adapter import (
+    ensure_mlcraft_importable,
+    to_mlcraft_model_and_fit_params,
+    to_mlcraft_search_space,
+)
+from alpharank.backtest.time_folds import CombinatorialPurgedGroupTimeSeriesSplit
 
 
 @dataclass
@@ -32,8 +32,8 @@ class TunedModelResult:
     train_metrics: Dict[str, float]
     val_metrics: Dict[str, float]
     test_metrics: Dict[str, float]
-    model: xgb.XGBClassifier
-    study: optuna.Study | None
+    model: Any
+    study: Any | None
 
 
 def safe_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
@@ -170,6 +170,10 @@ def tune_and_fit_fold(
     progress_label: str = "",
     show_progress: bool = True,
     progress_every: int = 1,
+    train_groups: Sequence | None = None,
+    cpcv_inner_groups: int = 5,
+    cpcv_inner_test_groups: int = 1,
+    cpcv_embargo_groups: int = 0,
 ) -> TunedModelResult:
     if np.unique(y_train).size < 2:
         fallback = np.full_like(y_train, fill_value=float(np.mean(y_train)), dtype=float)
@@ -178,7 +182,6 @@ def tune_and_fit_fold(
         if show_progress:
             print(f"{progress_label} skipped tuning (single-class train target).")
 
-        fake_model = xgb.XGBClassifier(**base_params)
         return TunedModelResult(
             best_params=base_params.copy(),
             train_auc=safe_auc(y_train, fallback),
@@ -196,93 +199,50 @@ def tune_and_fit_fold(
             train_metrics=compute_classification_metrics(y_train, fallback),
             val_metrics=compute_classification_metrics(y_val, fallback_val),
             test_metrics=compute_classification_metrics(y_test, fallback_test),
-            model=fake_model,
+            model=None,
             study=None,
         )
 
-    def objective(trial: optuna.Trial) -> float:
-        sampled = _sample_params(trial, search_space=search_space)
-        params = {**base_params, **sampled}
-
-        model = xgb.XGBClassifier(**params)
-        model.fit(
-            X_train,
-            y_train,
-            eval_set=[(X_train, y_train), (X_val, y_val)],
-            verbose=False,
-        )
-
-        p_train = model.predict_proba(X_train)[:, 1]
-        p_val = model.predict_proba(X_val)[:, 1]
-
-        train_auc = safe_auc(y_train, p_train)
-        val_auc = safe_auc(y_val, p_val)
-
-        score = val_auc - lambda_gap * abs(train_auc - val_auc)
-
-        trial.set_user_attr("train_auc", train_auc)
-        trial.set_user_attr("val_auc", val_auc)
-        trial.set_user_attr("score", score)
-
-        return float(score)
-
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-
     optimize_start = time.perf_counter()
-    safe_every = max(1, int(progress_every))
 
     if show_progress:
         print(
-            f"{progress_label} tuning started: {n_trials} trials "
-            f"(objective = AUC_val - {lambda_gap:.3f} * |AUC_train - AUC_val|)"
+            f"{progress_label} mlcraft tuning started: {n_trials} trials "
+            f"(inner CV=CPCV, objective=roc_auc, penalty alpha={lambda_gap:.3f})"
         )
 
-    def _progress_callback(study: optuna.Study, trial: optuna.trial.FrozenTrial) -> None:
-        if not show_progress:
-            return
+    ensure_mlcraft_importable()
+    from mlcraft.core.task import TaskSpec
+    from mlcraft.tuning.optuna_search import OptunaSearch
 
-        done = trial.number + 1
-        if done % safe_every != 0 and done != n_trials:
-            return
+    model_params, fit_params = to_mlcraft_model_and_fit_params(base_params)
+    mlcraft_space = to_mlcraft_search_space(search_space)
+    if "num_boost_round" not in fit_params and "num_boost_round" not in mlcraft_space:
+        fit_params["num_boost_round"] = int(base_params.get("n_estimators", 500))
 
-        elapsed = time.perf_counter() - optimize_start
-        avg_per_trial = elapsed / max(done, 1)
-        eta = avg_per_trial * max(n_trials - done, 0)
-
-        train_auc = trial.user_attrs.get("train_auc")
-        val_auc = trial.user_attrs.get("val_auc")
-        score = trial.user_attrs.get("score", trial.value)
-
-        gap_text = "nan"
-        try:
-            gap = abs(float(train_auc) - float(val_auc))
-            gap_text = _fmt_metric(gap)
-        except Exception:
-            pass
-
-        print(
-            f"{progress_label} trial {done}/{n_trials} "
-            f"score={_fmt_metric(score)} best={_fmt_metric(study.best_value)} "
-            f"train_auc={_fmt_metric(train_auc)} val_auc={_fmt_metric(val_auc)} gap={gap_text} "
-            f"elapsed={_format_seconds(elapsed)} eta={_format_seconds(eta)}"
-        )
-
-    study = optuna.create_study(
-        direction="maximize",
-        sampler=TPESampler(seed=seed, n_startup_trials=startup_trials),
-        pruner=MedianPruner(n_startup_trials=startup_trials),
+    if train_groups is None:
+        train_groups = np.arange(y_train.size)
+    cv_splitter = CombinatorialPurgedGroupTimeSeriesSplit(
+        train_groups,
+        n_groups=min(int(cpcv_inner_groups), len(set(train_groups))),
+        test_group_count=int(cpcv_inner_test_groups),
+        embargo_groups=int(cpcv_embargo_groups),
     )
-    study.optimize(objective, n_trials=n_trials, callbacks=[_progress_callback])
 
-    best_params = {**base_params, **study.best_trial.params}
-
-    final_model = xgb.XGBClassifier(**best_params)
-    final_model.fit(
-        X_train,
-        y_train,
-        eval_set=[(X_train, y_train), (X_val, y_val)],
-        verbose=False,
+    search = OptunaSearch(
+        task_spec=TaskSpec(task_type="classification"),
+        model_type="xgboost",
+        n_trials=n_trials,
+        cv=cpcv_inner_groups,
+        cv_splitter=cv_splitter,
+        alpha=lambda_gap,
+        random_state=seed,
+        model_params=model_params,
+        fit_params=fit_params,
+        search_space=mlcraft_space,
     )
+    result = search.run(X_train, y_train, X_test=X_val, y_test=y_val)
+    final_model = result.final_model
 
     p_train = final_model.predict_proba(X_train)[:, 1]
     p_val = final_model.predict_proba(X_val)[:, 1]
@@ -300,24 +260,31 @@ def tune_and_fit_fold(
     if show_progress:
         total_elapsed = time.perf_counter() - optimize_start
         print(
-            f"{progress_label} tuning done: best_score={_fmt_metric(study.best_value)} "
+            f"{progress_label} mlcraft tuning done: best_score={_fmt_metric(result.best_score)} "
             f"train_auc={train_auc:.4f} val_auc={val_auc:.4f} test_auc={test_auc:.4f} "
             f"elapsed={_format_seconds(total_elapsed)}"
         )
 
     trials_df: List[Dict[str, Any]] = []
-    for tr in study.trials:
+    for tr in result.history:
         row: Dict[str, Any] = {
-            "trial_number": tr.number,
-            "objective": tr.value,
-            "train_auc": tr.user_attrs.get("train_auc"),
-            "val_auc": tr.user_attrs.get("val_auc"),
-            "score": tr.user_attrs.get("score"),
-            "state": str(tr.state),
+            "trial_number": tr.trial_number,
+            "objective": tr.penalized_score,
+            "train_auc": tr.train_metrics.get("roc_auc"),
+            "val_auc": tr.val_metrics.get("roc_auc"),
+            "score": tr.penalized_score,
+            "state": "COMPLETE",
         }
         for k, v in tr.params.items():
             row[f"param_{k}"] = v
         trials_df.append(row)
+
+    best_params = {
+        **base_params,
+        **result.best_params,
+        "mlcraft_model_type": result.metadata.get("model_type", "xgboost"),
+    }
+    raw_model = getattr(final_model, "model_", final_model)
 
     return TunedModelResult(
         best_params=best_params,
@@ -331,11 +298,11 @@ def tune_and_fit_fold(
         y_train_proba=p_train,
         y_val_proba=p_val,
         y_test_proba=p_test,
-        evals_result=final_model.evals_result(),
+        evals_result={},
         trials_df=trials_df,
         train_metrics=train_metrics,
         val_metrics=val_metrics,
         test_metrics=test_metrics,
-        model=final_model,
-        study=study,
+        model=raw_model,
+        study=result.study,
     )

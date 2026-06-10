@@ -100,6 +100,11 @@ class BacktestConfig:
     excluded_tickers: Tuple[str, ...] = ()
     start_month: str = "2006-01"
     n_folds: int = 10
+    fold_strategy: str = "cpcv"
+    cpcv_test_groups: int = 2
+    cpcv_embargo_groups: int = 0
+    cpcv_inner_groups: int = 5
+    cpcv_inner_test_groups: int = 1
     top_n: int = 20
     outperformance_threshold: float = 0.0
     prediction_threshold: float | None = None
@@ -129,5 +134,14 @@ class BacktestConfig:
 
     def __post_init__(self) -> None:
         self.excluded_tickers = tuple(str(ticker).upper() for ticker in self.excluded_tickers)
+        self.fold_strategy = str(self.fold_strategy).lower()
+        if self.fold_strategy not in {"rolling", "cpcv"}:
+            raise ValueError("fold_strategy must be either 'rolling' or 'cpcv'.")
+        if self.cpcv_test_groups < 1:
+            raise ValueError("cpcv_test_groups must be >= 1.")
+        if self.cpcv_inner_groups < 2:
+            raise ValueError("cpcv_inner_groups must be >= 2.")
+        if self.cpcv_inner_test_groups < 1:
+            raise ValueError("cpcv_inner_test_groups must be >= 1.")
         if self.prediction_threshold is not None:
             self.outperformance_threshold = float(self.prediction_threshold)
