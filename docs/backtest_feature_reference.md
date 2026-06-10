@@ -124,7 +124,7 @@ Model prediction semantics:
 
 Current entrypoint preset in `scripts/run_backtest.py`:
 
-- `outperformance_threshold = 0.15`
+- `outperformance_threshold = 0.05`
 
 ## CPCV Learning Split
 

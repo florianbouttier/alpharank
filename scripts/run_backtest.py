@@ -63,7 +63,7 @@ def default_config(**overrides: Any) -> BacktestConfig:
         "cpcv_inner_groups": 5,
         "cpcv_inner_test_groups": 1,
         "top_n": 10,
-        "outperformance_threshold": 0.15,
+        "outperformance_threshold": 0.05,
         "min_train_months": 24,
         "missing_feature_threshold": 0.05,
         "n_optuna_trials":200,
