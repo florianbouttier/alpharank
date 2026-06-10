@@ -116,9 +116,33 @@ Binary classification label used by the model:
 
 - `target_label_{i,t} = 1[ future_excess_return_{i,t} > outperformance_threshold ]`
 
+Model prediction semantics:
+
+- `prediction_{i,t}` is the learned probability that ticker `i` beats the benchmark by more than `outperformance_threshold` over the next complete month
+- the target is relative to the index, not an absolute stock return
+- the learning phase must use `mlcraft` for the gradient boosting backend and tuning contract
+
 Current entrypoint preset in `scripts/run_backtest.py`:
 
 - `outperformance_threshold = 0.15`
+
+## CPCV Learning Split
+
+The boosting workflow supports two fold strategies:
+
+- `fold_strategy = "cpcv"`: default for R&D boosting runs
+- `fold_strategy = "rolling"`: legacy walk-forward diagnostic mode
+
+With CPCV, decision months are split into chronological groups. Each learning window:
+
+- chooses a combinatorial set of test groups
+- removes optional adjacent embargo groups from training
+- reserves one remaining group as the fold validation diagnostic
+- trains/tunes the boosting model only through the `mlcraft` XGBoost wrapper
+
+Inside each outer fold, hyperparameter tuning also uses a `mlcraft`-compatible CPCV splitter over the training months. The optimized metric is classification ROC AUC, penalized by the train/validation overfitting gap through `optuna_lambda_gap`.
+
+Because CPCV can score the same ticker/month in several test-group combinations, the persisted `predictions.parquet` stores one prediction per ticker/month by averaging those CPCV probabilities before portfolio selection. Fold-level diagnostics still retain the fold index used for reporting.
 
 ## Feature Configuration
 
@@ -486,7 +510,7 @@ The model predicts a score `prediction` for each scored row.
 
 Monthly selection:
 
-- rank by `prediction` descending within `decision_month`
+- rank by aggregated `prediction` descending within `decision_month`
 - keep top `N = top_n`
 
 Portfolio return aggregation:
