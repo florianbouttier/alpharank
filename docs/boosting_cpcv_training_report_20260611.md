@@ -132,6 +132,69 @@ Recommandation : pour un run plus sérieux, resserrer l'espace de recherche auto
 - `num_boost_round = 150..900`
 - conserver une régularisation significative
 
+### Warm Start Optuna
+
+Le run sauvegarde les meilleurs hyperparamètres par fold dans :
+
+```text
+outputs/xgboost_timefold_backtest_20260611_013248/best_params.parquet
+```
+
+En revanche, ces paramètres ne sont pas encore réinjectés automatiquement dans les prochains studies Optuna via un vrai warm start. Chaque fold crée actuellement une nouvelle study indépendante.
+
+Conclusion : les données nécessaires au warm start existent, mais la boucle de tuning ne fait pas encore de `enqueue_trial` des meilleurs paramètres historiques. Avant de lancer un run beaucoup plus long, il vaut mieux :
+
+1. réinjecter les meilleurs paramètres déjà observés comme premiers trials ;
+2. resserrer l'espace autour des zones gagnantes ;
+3. seulement ensuite augmenter `n_optuna_trials`.
+
+Lancer beaucoup plus de trials dans l'espace actuel peut améliorer un peu les résultats, mais une part importante des essais restera gaspillée sur des configurations trop profondes ou trop agressives.
+
+## SHAP Exploratoire
+
+Une analyse SHAP séparée a été lancée après le run, avec :
+
+- modèle `mlcraft` entraîné sur le frame du run ;
+- hyperparamètres du meilleur fold (`fold=3`) ;
+- `num_boost_round=509` ;
+- échantillon SHAP de `5 000` lignes ;
+- sortie CSV : `outputs/xgboost_timefold_backtest_20260611_013248/shap_feature_importance_exploratory.csv`.
+
+Cette analyse est exploratoire et in-sample. Elle sert à comprendre le signal feature, pas à valider une performance out-of-sample.
+
+Importance SHAP par famille :
+
+| Famille | Somme mean abs SHAP | Mean abs SHAP moyen | Nb features |
+| --- | ---: | ---: | ---: |
+| technique | `0.604` | `0.0110` | `55` |
+| fondamentale | `0.125` | `0.0208` | `6` |
+| autre | `0.007` | `0.0037` | `2` |
+
+Lecture :
+
+- le signal total est majoritairement technique, parce que le run contient beaucoup plus de variables techniques ;
+- en moyenne par feature, les variables fondamentales retenues sont fortes ;
+- le top absolu est dominé par volatilité, distance aux plus hauts, bandes de Bollinger, et quelques ratios/growth fondamentaux.
+
+Top features SHAP :
+
+| Rang | Feature | Famille | Mean abs SHAP |
+| ---: | --- | --- | ---: |
+| 1 | `volatility_12m` | technique | `0.0964` |
+| 2 | `volatility_24m` | technique | `0.0907` |
+| 3 | `volatility_36m` | technique | `0.0551` |
+| 4 | `asset_turnover_ttm` | fondamentale | `0.0404` |
+| 5 | `volatility_48m` | technique | `0.0343` |
+| 6 | `total_revenue_ttm_growth_4q` | fondamentale | `0.0289` |
+| 7 | `dist_to_21m_high` | technique | `0.0269` |
+| 8 | `bollinger_percent_b_6m` | technique | `0.0263` |
+| 9 | `dist_to_12m_high` | technique | `0.0246` |
+| 10 | `net_margin_ttm` | fondamentale | `0.0237` |
+| 11 | `bollinger_bandwidth_12m` | technique | `0.0223` |
+| 12 | `total_revenue_ttm_growth_1q` | fondamentale | `0.0173` |
+
+Conclusion SHAP : le modèle semble surtout capter un mélange risque/momentum/position dans le range, avec un complément fondamental de qualité/croissance (`asset_turnover`, croissance du revenu, marge nette).
+
 ## Backtest Top 10
 
 Le backtest prend les probabilités agrégées par action/mois, classe les actions par `prediction`, puis conserve le top 10 mensuel.
