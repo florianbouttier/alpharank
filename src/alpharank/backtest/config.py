@@ -80,8 +80,8 @@ def default_xgb_params() -> Dict[str, Any]:
 def default_optuna_space() -> Dict[str, Tuple[str, float, float]]:
     return {
         "n_estimators": ("int", 150, 900),
-        "max_depth": ("int", 3, 10),
-        "learning_rate": ("loguniform", 0.005, 0.25),
+        "max_depth": ("int", 2, 5),
+        "learning_rate": ("loguniform", 0.005, 0.05),
         "subsample": ("float", 0.5, 1.0),
         "colsample_bytree": ("float", 0.5, 1.0),
         "min_child_weight": ("float", 0.1, 10.0),
@@ -105,15 +105,25 @@ class BacktestConfig:
     cpcv_embargo_groups: int = 0
     cpcv_inner_groups: int = 5
     cpcv_inner_test_groups: int = 1
+    walk_forward_val_months: int = 12
+    walk_forward_test_months: int = 1
+    walk_forward_step_months: int = 1
+    max_walk_forward_windows: int | None = None
     top_n: int = 20
+    selection_score: str = "prediction"
+    risk_penalty: float = 0.0
+    risk_feature: str = "volatility_12m"
     outperformance_threshold: float = 0.0
     prediction_threshold: float | None = None
     min_train_months: int = 24
     missing_feature_threshold: float = 0.35
     risk_free_rate: float = 0.02
     n_optuna_trials: int = 40
+    optuna_objective: str = "top_n_precision"
     optuna_lambda_gap: float = 0.2
     optuna_startup_trials: int = 12
+    warm_start_params_path: Path | None = None
+    warm_start_top_k: int = 5
     random_seed: int = 42
     shap_sample_size: int = 1000
     shap_top_features: int = 20
@@ -135,13 +145,27 @@ class BacktestConfig:
     def __post_init__(self) -> None:
         self.excluded_tickers = tuple(str(ticker).upper() for ticker in self.excluded_tickers)
         self.fold_strategy = str(self.fold_strategy).lower()
-        if self.fold_strategy not in {"rolling", "cpcv"}:
-            raise ValueError("fold_strategy must be either 'rolling' or 'cpcv'.")
+        if self.fold_strategy not in {"rolling", "cpcv", "walk_forward"}:
+            raise ValueError("fold_strategy must be 'rolling', 'cpcv', or 'walk_forward'.")
+        self.selection_score = str(self.selection_score).lower()
+        if self.selection_score not in {"prediction", "risk_adjusted"}:
+            raise ValueError("selection_score must be either 'prediction' or 'risk_adjusted'.")
+        self.optuna_objective = str(self.optuna_objective).lower()
+        if self.optuna_objective not in {"auc", "top_n_precision"}:
+            raise ValueError("optuna_objective must be either 'auc' or 'top_n_precision'.")
         if self.cpcv_test_groups < 1:
             raise ValueError("cpcv_test_groups must be >= 1.")
         if self.cpcv_inner_groups < 2:
             raise ValueError("cpcv_inner_groups must be >= 2.")
         if self.cpcv_inner_test_groups < 1:
             raise ValueError("cpcv_inner_test_groups must be >= 1.")
+        if self.walk_forward_val_months < 1:
+            raise ValueError("walk_forward_val_months must be >= 1.")
+        if self.walk_forward_test_months < 1:
+            raise ValueError("walk_forward_test_months must be >= 1.")
+        if self.walk_forward_step_months < 1:
+            raise ValueError("walk_forward_step_months must be >= 1.")
+        if self.warm_start_top_k < 0:
+            raise ValueError("warm_start_top_k must be >= 0.")
         if self.prediction_threshold is not None:
             self.outperformance_threshold = float(self.prediction_threshold)

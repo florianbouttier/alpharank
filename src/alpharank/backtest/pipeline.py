@@ -44,7 +44,7 @@ from alpharank.backtest.reporting import (
     write_backtest_audit_report,
     write_html_report,
 )
-from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows
+from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows, walk_forward_windows
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 
 
@@ -657,17 +657,66 @@ def _deduplicate_predictions_for_backtest(predictions: pl.DataFrame) -> pl.DataF
         "future_relative_return",
         "target_label",
     ]
-    return (
-        predictions.group_by(key_cols)
-        .agg(
-            pl.mean("prediction").alias("prediction"),
-            pl.min("fold").alias("fold"),
-            pl.mean("objective_score").alias("objective_score"),
-            pl.mean("objective_score_val").alias("objective_score_val"),
-            pl.len().alias("prediction_count"),
+    aggregated = [
+        pl.mean("prediction").alias("prediction"),
+        pl.min("fold").alias("fold"),
+        pl.mean("objective_score").alias("objective_score"),
+        pl.mean("objective_score_val").alias("objective_score_val"),
+        pl.len().alias("prediction_count"),
+    ]
+    passthrough = set(key_cols) | {"prediction", "fold", "objective_score", "objective_score_val"}
+    for col in predictions.columns:
+        if col in passthrough:
+            continue
+        if predictions.schema.get(col) in {pl.Float32, pl.Float64, pl.Int32, pl.Int64}:
+            aggregated.append(pl.mean(col).alias(col))
+
+    return predictions.group_by(key_cols).agg(aggregated).sort(["year_month", "ticker"])
+
+
+def _load_warm_start_params(config: BacktestConfig) -> List[Dict[str, Any]]:
+    if config.warm_start_params_path is None or config.warm_start_top_k <= 0:
+        return []
+
+    path = Path(config.warm_start_params_path).expanduser()
+    if path.is_dir():
+        metrics_path = path / "fold_metrics.parquet"
+        params_path = path / "best_params.parquet"
+    else:
+        metrics_path = path.parent / "fold_metrics.parquet"
+        params_path = path
+    if not params_path.exists():
+        raise FileNotFoundError(f"Warm-start params not found: {params_path}")
+
+    params = pl.read_parquet(params_path)
+    if metrics_path.exists() and "fold" in params.columns:
+        metrics = pl.read_parquet(metrics_path)
+        order_cols = [col for col in ["fold", "objective_score"] if col in metrics.columns]
+        if order_cols == ["fold", "objective_score"]:
+            params = params.join(metrics.select(order_cols), on="fold", how="left").sort(
+                "objective_score",
+                descending=True,
+                nulls_last=True,
+            )
+
+    ignored = {"fold", "objective_score", "mlcraft_model_type"}
+    rows: List[Dict[str, Any]] = []
+    for row in params.head(config.warm_start_top_k).to_dicts():
+        cleaned = {key: value for key, value in row.items() if key not in ignored and value is not None}
+        rows.append(cleaned)
+    return rows
+
+
+def _add_selection_columns(predictions: pl.DataFrame, config: BacktestConfig) -> pl.DataFrame:
+    if predictions.is_empty():
+        return predictions.with_columns(pl.lit(None).cast(pl.Float64).alias("selection_score"))
+    if config.selection_score == "risk_adjusted" and config.risk_feature in predictions.columns:
+        return predictions.with_columns(
+            (pl.col("prediction") - pl.lit(config.risk_penalty) * pl.col(config.risk_feature).fill_null(0.0))
+            .cast(pl.Float64)
+            .alias("selection_score")
         )
-        .sort(["year_month", "ticker"])
-    )
+    return predictions.with_columns(pl.col("prediction").cast(pl.Float64).alias("selection_score"))
 
 
 def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
@@ -694,6 +743,15 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             test_group_count=config.cpcv_test_groups,
             embargo_groups=config.cpcv_embargo_groups,
         )
+    elif config.fold_strategy == "walk_forward":
+        windows = walk_forward_windows(
+            months,
+            min_train_months=config.min_train_months,
+            val_months=config.walk_forward_val_months,
+            test_months=config.walk_forward_test_months,
+            step_months=config.walk_forward_step_months,
+            max_windows=config.max_walk_forward_windows,
+        )
     else:
         windows = rolling_fold_windows(months, n_folds=config.n_folds)
     total_windows = len(windows)
@@ -712,6 +770,9 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     best_param_rows: List[Dict[str, Any]] = []
     fold_assets: List[Dict[str, Any]] = []
     shap_explanations: List[ShapFoldExplanation] = []
+    warm_start_params = _load_warm_start_params(config)
+    if config.verbose and warm_start_params:
+        print(f"[Learning] loaded {len(warm_start_params)} warm-start parameter sets")
 
     for window_position, window in enumerate(windows, start=1):
         fold_start = time.perf_counter()
@@ -880,14 +941,16 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             cpcv_inner_groups=config.cpcv_inner_groups,
             cpcv_inner_test_groups=config.cpcv_inner_test_groups,
             cpcv_embargo_groups=config.cpcv_embargo_groups,
+            top_n=config.top_n,
+            objective_name=config.optuna_objective,
+            warm_start_params=warm_start_params,
         )
 
         fold_score_train_test = float(
             tuned.test_auc - config.optuna_lambda_gap * abs(tuned.train_auc - tuned.test_auc)
         )
 
-        fold_predictions = test_df.select(
-            [
+        prediction_cols = [
                 "ticker",
                 "year_month",
                 "decision_month",
@@ -901,8 +964,10 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 "benchmark_future_return",
                 "future_excess_return",
                 "future_relative_return",
-            ]
-        ).with_columns(
+        ]
+        if config.risk_feature in test_df.columns:
+            prediction_cols.append(config.risk_feature)
+        fold_predictions = test_df.select(prediction_cols).with_columns(
             pl.Series("prediction", tuned.y_test_proba, dtype=pl.Float64),
             pl.Series("target_label", y_test, dtype=pl.Int8),
             pl.lit(window.fold_index).cast(pl.Int64).alias("fold"),
@@ -1058,7 +1123,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             )
 
     raw_predictions = pl.concat(all_predictions, how="vertical") if all_predictions else _empty_predictions()
-    predictions = _deduplicate_predictions_for_backtest(raw_predictions)
+    predictions = _add_selection_columns(_deduplicate_predictions_for_backtest(raw_predictions), config)
     fold_metrics = pl.DataFrame(fold_rows) if fold_rows else _empty_fold_metrics()
     fold_index = pl.DataFrame(fold_index_rows) if fold_index_rows else _empty_fold_index()
     best_params = pl.DataFrame(best_param_rows) if best_param_rows else pl.DataFrame(schema={"fold": pl.Int64})
@@ -1082,7 +1147,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
 def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> BacktestPhaseArtifacts:
     predictions = learning.predictions
 
-    selections = select_top_n(predictions, top_n=config.top_n)
+    selections = select_top_n(predictions, top_n=config.top_n, score_col="selection_score")
 
     monthly_returns = compute_monthly_portfolio_returns(
         selections.select(
@@ -1330,13 +1395,23 @@ def _finalize_backtest_run(
             "cpcv_embargo_groups": config.cpcv_embargo_groups,
             "cpcv_inner_groups": config.cpcv_inner_groups,
             "cpcv_inner_test_groups": config.cpcv_inner_test_groups,
+            "walk_forward_val_months": config.walk_forward_val_months,
+            "walk_forward_test_months": config.walk_forward_test_months,
+            "walk_forward_step_months": config.walk_forward_step_months,
+            "max_walk_forward_windows": config.max_walk_forward_windows,
             "top_n": config.top_n,
+            "selection_score": config.selection_score,
+            "risk_penalty": config.risk_penalty,
+            "risk_feature": config.risk_feature,
             "outperformance_threshold": config.outperformance_threshold,
             "min_train_months": config.min_train_months,
             "missing_feature_threshold": config.missing_feature_threshold,
             "n_optuna_trials": config.n_optuna_trials,
+            "optuna_objective": config.optuna_objective,
             "optuna_lambda_gap": config.optuna_lambda_gap,
             "optuna_startup_trials": config.optuna_startup_trials,
+            "warm_start_params_path": str(config.warm_start_params_path) if config.warm_start_params_path else None,
+            "warm_start_top_k": config.warm_start_top_k,
             "shap_sample_size": config.shap_sample_size,
             "shap_top_features": config.shap_top_features,
             "shap_top_interactions": config.shap_top_interactions,

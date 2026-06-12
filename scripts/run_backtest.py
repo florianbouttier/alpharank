@@ -62,11 +62,19 @@ def default_config(**overrides: Any) -> BacktestConfig:
         "cpcv_embargo_groups": 0,
         "cpcv_inner_groups": 5,
         "cpcv_inner_test_groups": 1,
+        "walk_forward_val_months": 12,
+        "walk_forward_test_months": 1,
+        "walk_forward_step_months": 1,
+        "max_walk_forward_windows": None,
         "top_n": 10,
+        "selection_score": "prediction",
+        "risk_penalty": 0.0,
+        "risk_feature": "volatility_12m",
         "outperformance_threshold": 0.05,
         "min_train_months": 24,
         "missing_feature_threshold": 0.05,
         "n_optuna_trials":200,
+        "optuna_objective": "top_n_precision",
         "optuna_lambda_gap": 5,
         "optuna_startup_trials": 20,
         "risk_free_rate": 0.02,
@@ -109,15 +117,25 @@ def _config_to_metadata(config: BacktestConfig) -> dict[str, Any]:
         "cpcv_embargo_groups": config.cpcv_embargo_groups,
         "cpcv_inner_groups": config.cpcv_inner_groups,
         "cpcv_inner_test_groups": config.cpcv_inner_test_groups,
+        "walk_forward_val_months": config.walk_forward_val_months,
+        "walk_forward_test_months": config.walk_forward_test_months,
+        "walk_forward_step_months": config.walk_forward_step_months,
+        "max_walk_forward_windows": config.max_walk_forward_windows,
         "top_n": config.top_n,
+        "selection_score": config.selection_score,
+        "risk_penalty": config.risk_penalty,
+        "risk_feature": config.risk_feature,
         "outperformance_threshold": config.outperformance_threshold,
         "prediction_threshold": config.prediction_threshold,
         "min_train_months": config.min_train_months,
         "missing_feature_threshold": config.missing_feature_threshold,
         "risk_free_rate": config.risk_free_rate,
         "n_optuna_trials": config.n_optuna_trials,
+        "optuna_objective": config.optuna_objective,
         "optuna_lambda_gap": config.optuna_lambda_gap,
         "optuna_startup_trials": config.optuna_startup_trials,
+        "warm_start_params_path": str(config.warm_start_params_path) if config.warm_start_params_path else None,
+        "warm_start_top_k": config.warm_start_top_k,
         "random_seed": config.random_seed,
         "shap_sample_size": config.shap_sample_size,
         "shap_top_features": config.shap_top_features,
@@ -144,6 +162,7 @@ def _config_from_metadata(config_data: dict[str, Any]) -> BacktestConfig:
     params["output_dir"] = Path(params["output_dir"])
     params["final_price_path"] = Path(params["final_price_path"]) if params.get("final_price_path") else None
     params["sp500_price_path"] = Path(params["sp500_price_path"]) if params.get("sp500_price_path") else None
+    params["warm_start_params_path"] = Path(params["warm_start_params_path"]) if params.get("warm_start_params_path") else None
     params["excluded_tickers"] = tuple(params.get("excluded_tickers", []))
     params["technical_feature_config"] = TechnicalFeatureConfig(**params["technical_feature_config"])
     params["fundamental_feature_config"] = FundamentalFeatureConfig(**params["fundamental_feature_config"])

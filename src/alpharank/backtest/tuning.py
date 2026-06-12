@@ -5,6 +5,8 @@ import time
 from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
+import optuna
+from optuna.samplers import TPESampler
 
 from alpharank.backtest.mlcraft_adapter import (
     ensure_mlcraft_importable,
@@ -122,17 +124,101 @@ def compute_classification_metrics(
 
 def _sample_params(
     trial: optuna.Trial,
-    search_space: Dict[str, Tuple[str, float, float]],
+    search_space: Dict[str, Dict[str, Any]],
 ) -> Dict[str, Any]:
     params: Dict[str, Any] = {}
-    for name, (ptype, low, high) in search_space.items():
+    for name, spec in search_space.items():
+        ptype = spec["type"]
         if ptype == "int":
-            params[name] = trial.suggest_int(name, int(low), int(high))
-        elif ptype == "loguniform":
-            params[name] = trial.suggest_float(name, float(low), float(high), log=True)
+            params[name] = trial.suggest_int(
+                name,
+                int(spec["low"]),
+                int(spec["high"]),
+                step=int(spec.get("step", 1)),
+                log=bool(spec.get("log", False)),
+            )
+        elif ptype == "categorical":
+            params[name] = trial.suggest_categorical(name, spec["choices"])
         else:
-            params[name] = trial.suggest_float(name, float(low), float(high))
+            params[name] = trial.suggest_float(
+                name,
+                float(spec["low"]),
+                float(spec["high"]),
+                log=bool(spec.get("log", False)),
+                step=spec.get("step"),
+            )
     return params
+
+
+def _split_mlcraft_params(
+    params: Dict[str, Any],
+    search_space: Dict[str, Dict[str, Any]],
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    model_params: Dict[str, Any] = {}
+    fit_params: Dict[str, Any] = {}
+    for name, value in params.items():
+        target = str(search_space.get(name, {}).get("target", "model"))
+        if target == "fit":
+            fit_params[name] = value
+        else:
+            model_params[name] = value
+    return model_params, fit_params
+
+
+def _top_n_precision_by_group(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    groups: Sequence,
+    *,
+    top_n: int,
+) -> float:
+    y_true = np.asarray(y_true).astype(float)
+    y_score = np.asarray(y_score).astype(float)
+    group_array = np.asarray(groups)
+    if y_true.size == 0:
+        return 0.0
+
+    values: list[float] = []
+    for group in np.unique(group_array):
+        idx = np.flatnonzero(group_array == group)
+        if idx.size == 0:
+            continue
+        order = idx[np.argsort(y_score[idx])[::-1]]
+        selected = order[: max(1, min(int(top_n), order.size))]
+        values.append(float(np.mean(y_true[selected])))
+    return float(np.mean(values)) if values else 0.0
+
+
+def _objective_metric(
+    *,
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    groups: Sequence | None,
+    objective_name: str,
+    top_n: int,
+) -> float:
+    if objective_name == "top_n_precision":
+        if groups is None:
+            return float(np.mean(y_true[np.argsort(y_score)[::-1][: max(1, min(int(top_n), y_true.size))]]))
+        return _top_n_precision_by_group(y_true, y_score, groups, top_n=top_n)
+    return safe_auc(y_true, y_score)
+
+
+def _filter_enqueued_params(
+    params: Dict[str, Any],
+    search_space: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    filtered: Dict[str, Any] = {}
+    for name, spec in search_space.items():
+        if name not in params:
+            continue
+        value = params[name]
+        if spec["type"] == "int":
+            value = int(round(float(value)))
+        elif spec["type"] == "float":
+            value = float(value)
+        filtered[name] = value
+    return filtered
 
 
 def _format_seconds(seconds: float) -> str:
@@ -174,6 +260,9 @@ def tune_and_fit_fold(
     cpcv_inner_groups: int = 5,
     cpcv_inner_test_groups: int = 1,
     cpcv_embargo_groups: int = 0,
+    top_n: int = 10,
+    objective_name: str = "top_n_precision",
+    warm_start_params: Sequence[Dict[str, Any]] | None = None,
 ) -> TunedModelResult:
     if np.unique(y_train).size < 2:
         fallback = np.full_like(y_train, fill_value=float(np.mean(y_train)), dtype=float)
@@ -213,7 +302,7 @@ def tune_and_fit_fold(
 
     ensure_mlcraft_importable()
     from mlcraft.core.task import TaskSpec
-    from mlcraft.tuning.optuna_search import OptunaSearch
+    from mlcraft.models.factory import ModelFactory
 
     model_params, fit_params = to_mlcraft_model_and_fit_params(base_params)
     mlcraft_space = to_mlcraft_search_space(search_space)
@@ -228,21 +317,77 @@ def tune_and_fit_fold(
         test_group_count=int(cpcv_inner_test_groups),
         embargo_groups=int(cpcv_embargo_groups),
     )
+    train_groups_array = np.asarray(train_groups)
 
-    search = OptunaSearch(
-        task_spec=TaskSpec(task_type="classification"),
-        model_type="xgboost",
-        n_trials=n_trials,
-        cv=cpcv_inner_groups,
-        cv_splitter=cv_splitter,
-        alpha=lambda_gap,
-        random_state=seed,
-        model_params=model_params,
-        fit_params=fit_params,
-        search_space=mlcraft_space,
-    )
-    result = search.run(X_train, y_train, X_test=X_val, y_test=y_val)
-    final_model = result.final_model
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed))
+    for params in warm_start_params or []:
+        enqueued = _filter_enqueued_params(params, mlcraft_space)
+        if enqueued:
+            study.enqueue_trial(enqueued)
+
+    trial_rows: List[Dict[str, Any]] = []
+
+    def _fit_model(params: Dict[str, Any], X_fit: np.ndarray, y_fit: np.ndarray):
+        trial_model_params, trial_fit_params = _split_mlcraft_params(params, mlcraft_space)
+        model = ModelFactory.create(
+            "xgboost",
+            task_spec=TaskSpec(task_type="classification"),
+            model_params={**model_params, **trial_model_params},
+            fit_params={**fit_params, **trial_fit_params},
+            random_state=seed,
+        )
+        model.fit(X_fit, y_fit)
+        return model
+
+    def objective(trial: optuna.Trial) -> float:
+        sampled = _sample_params(trial, mlcraft_space)
+        train_scores: list[float] = []
+        val_scores: list[float] = []
+        auc_train_scores: list[float] = []
+        auc_val_scores: list[float] = []
+        for inner_train_idx, inner_val_idx in cv_splitter.split(X_train, y_train):
+            if np.unique(y_train[inner_train_idx]).size < 2:
+                continue
+            model = _fit_model(sampled, X_train[inner_train_idx], y_train[inner_train_idx])
+            p_inner_train = model.predict_proba(X_train[inner_train_idx])[:, 1]
+            p_inner_val = model.predict_proba(X_train[inner_val_idx])[:, 1]
+            train_score = _objective_metric(
+                y_true=y_train[inner_train_idx],
+                y_score=p_inner_train,
+                groups=train_groups_array[inner_train_idx],
+                objective_name=objective_name,
+                top_n=top_n,
+            )
+            val_score = _objective_metric(
+                y_true=y_train[inner_val_idx],
+                y_score=p_inner_val,
+                groups=train_groups_array[inner_val_idx],
+                objective_name=objective_name,
+                top_n=top_n,
+            )
+            train_scores.append(train_score)
+            val_scores.append(val_score)
+            auc_train_scores.append(safe_auc(y_train[inner_train_idx], p_inner_train))
+            auc_val_scores.append(safe_auc(y_train[inner_val_idx], p_inner_val))
+
+        if not val_scores:
+            return -1.0
+
+        train_score_mean = float(np.mean(train_scores))
+        val_score_mean = float(np.mean(val_scores))
+        penalized = val_score_mean - lambda_gap * abs(train_score_mean - val_score_mean)
+        trial.set_user_attr("train_objective", train_score_mean)
+        trial.set_user_attr("val_objective", val_score_mean)
+        trial.set_user_attr("train_auc", float(np.mean(auc_train_scores)))
+        trial.set_user_attr("val_auc", float(np.mean(auc_val_scores)))
+        trial.set_user_attr("score", penalized)
+        return float(penalized)
+
+    study.optimize(objective, n_trials=n_trials)
+
+    best_params = dict(study.best_params)
+    final_model = _fit_model(best_params, X_train, y_train)
 
     p_train = final_model.predict_proba(X_train)[:, 1]
     p_val = final_model.predict_proba(X_val)[:, 1]
@@ -255,39 +400,55 @@ def tune_and_fit_fold(
     train_auc = train_metrics["auc"]
     val_auc = val_metrics["auc"]
     test_auc = test_metrics["auc"]
-    objective_score = float(val_auc - lambda_gap * abs(train_auc - val_auc))
+    train_objective = _objective_metric(
+        y_true=y_train,
+        y_score=p_train,
+        groups=train_groups_array,
+        objective_name=objective_name,
+        top_n=top_n,
+    )
+    val_objective = _objective_metric(
+        y_true=y_val,
+        y_score=p_val,
+        groups=None,
+        objective_name=objective_name,
+        top_n=top_n,
+    )
+    objective_score = float(val_objective - lambda_gap * abs(train_objective - val_objective))
 
     if show_progress:
         total_elapsed = time.perf_counter() - optimize_start
         print(
-            f"{progress_label} mlcraft tuning done: best_score={_fmt_metric(result.best_score)} "
+            f"{progress_label} mlcraft tuning done: best_score={_fmt_metric(study.best_value)} "
             f"train_auc={train_auc:.4f} val_auc={val_auc:.4f} test_auc={test_auc:.4f} "
             f"elapsed={_format_seconds(total_elapsed)}"
         )
 
-    trials_df: List[Dict[str, Any]] = []
-    for tr in result.history:
+    for tr in study.trials:
         row: Dict[str, Any] = {
-            "trial_number": tr.trial_number,
-            "objective": tr.penalized_score,
-            "train_auc": tr.train_metrics.get("roc_auc"),
-            "val_auc": tr.val_metrics.get("roc_auc"),
-            "score": tr.penalized_score,
+            "trial_number": tr.number,
+            "objective": tr.value,
+            "train_auc": tr.user_attrs.get("train_auc"),
+            "val_auc": tr.user_attrs.get("val_auc"),
+            "train_objective": tr.user_attrs.get("train_objective"),
+            "val_objective": tr.user_attrs.get("val_objective"),
+            "score": tr.user_attrs.get("score", tr.value),
             "state": "COMPLETE",
         }
         for k, v in tr.params.items():
             row[f"param_{k}"] = v
-        trials_df.append(row)
+        trial_rows.append(row)
 
-    best_params = {
+    output_best_params = {
         **base_params,
-        **result.best_params,
-        "mlcraft_model_type": result.metadata.get("model_type", "xgboost"),
+        **best_params,
+        "mlcraft_model_type": "xgboost",
+        "optuna_objective": objective_name,
     }
     raw_model = getattr(final_model, "model_", final_model)
 
     return TunedModelResult(
-        best_params=best_params,
+        best_params=output_best_params,
         train_auc=train_auc,
         val_auc=val_auc,
         test_auc=test_auc,
@@ -299,10 +460,10 @@ def tune_and_fit_fold(
         y_val_proba=p_val,
         y_test_proba=p_test,
         evals_result={},
-        trials_df=trials_df,
+        trials_df=trial_rows,
         train_metrics=train_metrics,
         val_metrics=val_metrics,
         test_metrics=test_metrics,
         model=raw_model,
-        study=result.study,
+        study=study,
     )

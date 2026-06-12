@@ -3,12 +3,14 @@ from __future__ import annotations
 import polars as pl
 
 
-def select_top_n(predictions: pl.DataFrame, top_n: int) -> pl.DataFrame:
+def select_top_n(predictions: pl.DataFrame, top_n: int, score_col: str = "prediction") -> pl.DataFrame:
     if predictions.is_empty():
         return predictions.with_columns(pl.lit(None).alias("rank")).head(0)
+    if score_col not in predictions.columns:
+        raise ValueError(f"Missing score column for selection: {score_col}")
 
     ranked = predictions.with_columns(
-        pl.col("prediction").rank(method="ordinal", descending=True).over("year_month").alias("rank")
+        pl.col(score_col).rank(method="ordinal", descending=True).over("year_month").alias("rank")
     )
     return ranked.filter(pl.col("rank") <= pl.lit(top_n)).sort(["year_month", "rank"])
 

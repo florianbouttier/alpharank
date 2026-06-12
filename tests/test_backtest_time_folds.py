@@ -7,6 +7,7 @@ import numpy as np
 from alpharank.backtest.time_folds import (
     CombinatorialPurgedGroupTimeSeriesSplit,
     cpcv_fold_windows,
+    walk_forward_windows,
 )
 
 
@@ -45,3 +46,19 @@ def test_cpcv_splitter_removes_validation_groups_from_training() -> None:
         assert train_groups
         assert val_groups
         assert train_groups.isdisjoint(val_groups)
+
+
+def test_walk_forward_windows_use_only_past_train_months() -> None:
+    windows = walk_forward_windows(
+        _months(18),
+        min_train_months=6,
+        val_months=3,
+        test_months=1,
+        max_windows=4,
+    )
+
+    assert len(windows) == 4
+    for window in windows:
+        assert window.split_strategy == "walk_forward"
+        assert max(window.train_months) < min(window.val_months)
+        assert max(window.val_months) < min(window.test_months)

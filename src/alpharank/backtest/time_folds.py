@@ -64,6 +64,55 @@ def rolling_fold_windows(months: Sequence, n_folds: int) -> List[FoldWindow]:
     return windows
 
 
+def walk_forward_windows(
+    months: Sequence,
+    *,
+    min_train_months: int,
+    val_months: int = 12,
+    test_months: int = 1,
+    step_months: int = 1,
+    max_windows: int | None = None,
+) -> List[FoldWindow]:
+    months_list = list(months)
+    if min_train_months < 1:
+        raise ValueError("min_train_months must be >= 1.")
+    if val_months < 1 or test_months < 1 or step_months < 1:
+        raise ValueError("val_months, test_months, and step_months must be >= 1.")
+
+    windows: List[FoldWindow] = []
+    first_test_start = min_train_months + val_months
+    cursor = first_test_start
+    fold_index = 1
+    while cursor + test_months <= len(months_list):
+        train_end = cursor - val_months
+        train_months = months_list[:train_end]
+        validation_months = months_list[train_end:cursor]
+        holdout_months = months_list[cursor : cursor + test_months]
+        windows.append(
+            FoldWindow(
+                fold_index=fold_index,
+                train_months=list(train_months),
+                val_months=list(validation_months),
+                test_months=list(holdout_months),
+                split_strategy="walk_forward",
+            )
+        )
+        fold_index += 1
+        cursor += step_months
+
+    if max_windows is not None and max_windows > 0 and len(windows) > max_windows:
+        windows = windows[-int(max_windows) :]
+        for idx, window in enumerate(windows, start=1):
+            window.fold_index = idx
+
+    if not windows:
+        raise ValueError(
+            "Walk-forward configuration produced no windows. "
+            "Reduce min_train_months/validation/test windows or extend history."
+        )
+    return windows
+
+
 def _group_index_map(groups: Sequence[Sequence]) -> dict:
     return {month: group_idx for group_idx, group in enumerate(groups) for month in group}
 
