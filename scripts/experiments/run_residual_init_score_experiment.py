@@ -45,6 +45,7 @@ class ExperimentConfig:
     shap_path: Path
     output_dir: Path
     top_features: int = 12
+    feature_mode: str = "shap"
     max_windows: int = 12
     min_train_months: int = 24
     val_months: int = 12
@@ -75,6 +76,16 @@ def _matrix(frame: pl.DataFrame, features: Sequence[str]) -> np.ndarray:
 
 
 def _load_features(config: ExperimentConfig, model_frame: pl.DataFrame) -> list[str]:
+    if config.feature_mode == "ema":
+        features = [
+            column
+            for column in model_frame.columns
+            if column.startswith("ema_ratio_") or column.startswith("price_to_ema_")
+        ]
+        if not features:
+            raise ValueError("No EMA feature is available in the model frame.")
+        return features
+
     if config.shap_path.exists():
         shap = pl.read_csv(config.shap_path)
         features = [
@@ -359,6 +370,7 @@ def run_experiment(config: ExperimentConfig) -> Path:
                 "source_run": str(config.source_run),
                 "shap_path": str(config.shap_path),
                 "features": features,
+                "feature_mode": config.feature_mode,
                 "config": config.__dict__ | {
                     "source_run": str(config.source_run),
                     "shap_path": str(config.shap_path),
@@ -380,6 +392,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--shap-path", type=Path, default=DEFAULT_SHAP_PATH)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--top-features", type=int, default=12)
+    parser.add_argument("--feature-mode", choices=["shap", "ema"], default="shap")
     parser.add_argument("--max-windows", type=int, default=12)
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument("--threshold", type=float, default=0.05)
@@ -394,6 +407,7 @@ def main() -> None:
             shap_path=args.shap_path,
             output_dir=args.output_dir,
             top_features=args.top_features,
+            feature_mode=args.feature_mode,
             max_windows=args.max_windows,
             top_n=args.top_n,
             threshold=args.threshold,
