@@ -12,6 +12,11 @@ Le constat principal est maintenant clair : chercher directement a battre
 legacy avec un classifieur `future_excess_return > 5%` n'est pas le bon premier
 objectif.
 
+Correction importante ajoutee le 2026-06-14 soir : `distill_legacy` est un
+modele teacher/oracle. Il est utile pour mesurer le plafond de verre et
+comprendre ce que Legacy encode, mais il ne doit pas etre considere comme un
+algo final parce qu'il apprend directement la decision Legacy.
+
 Avant de generaliser, on veut prouver que le boosting sait reproduire les
 signaux et les trades legacy. Le probleme prioritaire est donc :
 
@@ -38,6 +43,7 @@ meilleurs scores du modele et on mesure combien de trades legacy sont retrouves.
 | 2026-06-13 | `7bb6f65` | experience residual `base_margin/init_score` sur features selectionnees |
 | 2026-06-14 | `780af35` | EMA-only residual et diagnostic probabilites des actions legacy |
 | 2026-06-14 | `f7d1b29` | construction des 7 variantes signal-copy et diagnostic clone legacy |
+| 2026-06-14 | run `outputs/ema_rich_future_target_20260614_222201` | test EMA enrichies, target futur rendement relatif uniquement |
 
 Runs principaux :
 
@@ -46,6 +52,7 @@ Runs principaux :
 - `outputs/legacy_probability_diagnostics_20260614`
 - `outputs/signal_copy_models_20260614_214711`
 - `outputs/legacy_clone_diagnostics_20260614`
+- `outputs/ema_rich_future_target_20260614_222201`
 
 ## Donnees communes
 
@@ -121,7 +128,8 @@ la decision legacy.
 Statut :
 
 - meilleur modele de clonage ;
-- meilleur modele des 7 en top 10 allocation.
+- meilleur modele des 7 en top 10 allocation ;
+- statut corrige : teacher/oracle de diagnostic, pas candidat final.
 
 ### 2. `rank_pairwise`
 
@@ -265,6 +273,67 @@ Statut :
 - a eviter dans cette forme.
 
 ## Benchmarks et controles non comptes dans les 7
+
+### `ema_rich_*` future-target
+
+Construit le 2026-06-14 dans :
+
+- script : `scripts/experiments/run_ema_rich_future_target_models.py`
+- run verifie : `outputs/ema_rich_future_target_20260614_222201`
+
+But :
+
+Tester l'hypothese suivante sans tricher avec la target Legacy :
+
+```text
+plus de transformations EMA + apprentissage du futur excess return
+-> meilleur signal de selection
+-> recouvrement partiel des trades Legacy
+```
+
+Construction commune :
+
+- features de base : les 16 features EMA existantes ;
+- features ajoutees :
+  - rang mensuel de chaque EMA ;
+  - z-score mensuel de chaque EMA ;
+  - flag top quartile mensuel de chaque EMA ;
+  - agregats horizontaux `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`,
+    `ema_z_max`, `ema_top25_vote_count` ;
+- aucune target Legacy dans l'entrainement ;
+- Legacy est utilise uniquement apres coup pour mesurer le recouvrement.
+
+Modeles testes :
+
+- `ema_rich_classifier` : target `future_excess_return > 5%` ;
+- `ema_rich_regression` : regression de `future_excess_return` clippe entre
+  `-30%` et `+30%` ;
+- `ema_rich_rank_pairwise` : ranking mensuel du futur excess return.
+
+Resultats top 10 allocation :
+
+| modele | total return | actif compose | hit-rate +5% | excess moyen top10 | overlap legacy moyen |
+|---|---:|---:|---:|---:|---:|
+| ema_rich_rank_pairwise | +85.3% | +53.5% | 42.7% | +4.0% | 23.6% |
+| ema_rich_classifier | +52.7% | +25.6% | 35.5% | +2.3% | 21.8% |
+| ema_rich_regression | +28.0% | +3.9% | 31.8% | +0.5% | 0.0% |
+
+Resultats clone strict :
+
+| modele | recall@legacy_k | trades retrouves |
+|---|---:|---:|
+| ema_rich_rank_pairwise | 22.5% | 16 / 71 |
+| ema_rich_classifier | 11.3% | 8 / 71 |
+| ema_rich_regression | 0.0% | 0 / 71 |
+
+Lecture :
+
+- l'hypothese "on n'a pas assez d'EMA" est probablement vraie ;
+- le ranking futur excess return marche mieux que la classification binaire ;
+- en revanche, ce n'est pas encore un clone Legacy : 22.5% de recall strict
+  reste loin du seuil exploitable ;
+- la performance allocation est encourageante, mais elle doit etre traitee
+  comme fragile vu la petite fenetre de 11 mois.
 
 ### `ema_residual_benchmark`
 
@@ -415,15 +484,38 @@ Garder comme benchmarks :
 
 - `ema_residual_benchmark`
 - full model proba brute
+- `distill_legacy` comme teacher/oracle de diagnostic uniquement
+- `blend_ema_distill` comme controle de plafond, pas comme algo final
 
 Pousser en priorite :
 
-- `distill_legacy`
-- `blend_ema_distill`
+- `ema_rich_rank_pairwise`
+- un generateur de features EMA plus proche de Legacy
+- des objectifs de ranking mensuel du futur excess return
 
 ## Prochaine construction recommandee
 
-Construire un vrai dataset teacher :
+Construire d'abord un vrai frame de signaux EMA compatible Legacy :
+
+```text
+outputs/legacy_ema_signal_frame.parquet
+```
+
+Colonnes a produire :
+
+- ratios court / long pour beaucoup plus de couples EMA ;
+- `mtr` Legacy exact quand les prix bruts le permettent ;
+- rang mensuel, quantile normalise mensuel et top-N flags ;
+- nombre de votes EMA par ticker ;
+- membership universe/stocks_filter au mois de decision.
+
+Puis entrainer en priorite :
+
+1. ranker mensuel sur `future_excess_return` ;
+2. classifier `future_excess_return > 5%` seulement comme benchmark ;
+3. regression du futur excess return seulement comme benchmark.
+
+Le dataset teacher reste utile pour comprendre le plafond :
 
 ```text
 outputs/legacy_teacher_frame.parquet
@@ -449,4 +541,7 @@ Objectif :
 recall@legacy_k > 70%
 ```
 
-Seulement apres ca, on cherchera a generaliser au-dela de legacy.
+Mais l'objectif final ne doit pas etre d'apprendre `legacy_selected`. L'objectif
+final est d'apprendre le futur excess return et de verifier que le signal appris
+retrouve suffisamment les trades Legacy pour prouver que la famille de signaux
+est correcte.
