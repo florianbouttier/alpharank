@@ -21,11 +21,9 @@ from run_signal_copy_models import (  # noqa: E402
     _binary_target,
     _classifier_params,
     _group_sizes,
-    _kpis,
     _load_legacy_labels,
     _matrix,
     _month_rank_target,
-    _monthly_returns,
     _rank_params,
     _regression_params,
     _top_n,
@@ -46,7 +44,6 @@ class EmaRichFutureConfig:
     val_months: int = 12
     test_months: int = 1
     step_months: int = 1
-    top_n: int = 10
     threshold: float = 0.05
     seed: int = 42
 
@@ -98,27 +95,53 @@ def _add_ema_rich_features(frame: pl.DataFrame, ema_features: Sequence[str]) -> 
     return enriched, rich_features
 
 
-def _clone_rows(predictions: pl.DataFrame, model_cols: Sequence[str]) -> list[dict]:
+def _ticker_list(values: Sequence[str]) -> str:
+    return ",".join(sorted(str(value) for value in values))
+
+
+def _recomposition_by_month(predictions: pl.DataFrame, model_cols: Sequence[str]) -> pl.DataFrame:
     rows: list[dict] = []
-    for model_name in model_cols:
-        total_overlap = 0
-        total_legacy = 0
-        for month_df in predictions.partition_by("holding_month", maintain_order=True):
-            legacy_count = int(month_df.get_column("legacy_selected").sum())
-            if legacy_count <= 0:
-                continue
-            top = _top_n(month_df, model_name, legacy_count)
-            total_overlap += int(top.get_column("legacy_selected").sum())
-            total_legacy += legacy_count
-        rows.append(
-            {
-                "model": model_name,
-                "recall_at_legacy_k": total_overlap / total_legacy if total_legacy else 0.0,
-                "total_overlap": total_overlap,
-                "total_legacy": total_legacy,
-            }
+    for month_df in predictions.partition_by("holding_month", maintain_order=True):
+        month = month_df.get_column("holding_month")[0]
+        legacy_tickers = set(
+            month_df.filter(pl.col("legacy_selected") == 1).get_column("ticker").cast(pl.Utf8).to_list()
         )
-    return rows
+        legacy_count = len(legacy_tickers)
+        if legacy_count <= 0:
+            continue
+        for model_name in model_cols:
+            selected_tickers = set(_top_n(month_df, model_name, legacy_count).get_column("ticker").cast(pl.Utf8).to_list())
+            common_tickers = selected_tickers & legacy_tickers
+            rows.append(
+                {
+                    "model": model_name,
+                    "holding_month": month,
+                    "common_count": len(common_tickers),
+                    "legacy_count": legacy_count,
+                    "recomposition_pct": len(common_tickers) / legacy_count,
+                    "legacy_tickers": _ticker_list(legacy_tickers),
+                    "model_tickers": _ticker_list(selected_tickers),
+                    "common_tickers": _ticker_list(common_tickers),
+                    "missed_legacy_tickers": _ticker_list(legacy_tickers - selected_tickers),
+                    "added_model_tickers": _ticker_list(selected_tickers - legacy_tickers),
+                }
+            )
+    return pl.DataFrame(rows).sort(["model", "holding_month"])
+
+
+def _recomposition_summary(recomposition: pl.DataFrame) -> pl.DataFrame:
+    return (
+        recomposition.group_by("model")
+        .agg(
+            pl.sum("common_count").alias("common_count"),
+            pl.sum("legacy_count").alias("legacy_count"),
+            (pl.sum("common_count") / pl.sum("legacy_count")).alias("recomposition_pct"),
+            pl.mean("recomposition_pct").alias("mean_monthly_recomposition_pct"),
+            pl.median("recomposition_pct").alias("median_monthly_recomposition_pct"),
+            pl.len().alias("months"),
+        )
+        .sort("recomposition_pct", descending=True)
+    )
 
 
 def run_experiment(config: EmaRichFutureConfig) -> Path:
@@ -158,22 +181,32 @@ def run_experiment(config: EmaRichFutureConfig) -> Path:
             continue
 
         seed = config.seed + int(window.fold_index)
-        y_train = _binary_target(train_df, config.threshold)
-        y_test = _binary_target(test_df, config.threshold)
-        if np.unique(y_train).size < 2:
+        y_train_gt5 = _binary_target(train_df, config.threshold)
+        y_test_gt5 = _binary_target(test_df, config.threshold)
+        y_train_gt0 = _binary_target(train_df, 0.0)
+        if np.unique(y_train_gt5).size < 2 or np.unique(y_train_gt0).size < 2:
             continue
 
         X_train = _matrix(train_df, rich_features)
         X_test = _matrix(test_df, rich_features)
 
-        classifier = _train_xgb(
+        classifier_gt5 = _train_xgb(
             xgb,
             X_train,
-            y_train,
+            y_train_gt5,
             params=_classifier_params(seed),
             rounds=250,
         )
-        classifier_score = _predict_xgb(xgb, classifier, X_test)
+        classifier_gt5_score = _predict_xgb(xgb, classifier_gt5, X_test)
+
+        classifier_gt0 = _train_xgb(
+            xgb,
+            X_train,
+            y_train_gt0,
+            params=_classifier_params(seed),
+            rounds=250,
+        )
+        classifier_gt0_score = _predict_xgb(xgb, classifier_gt0, X_test)
 
         y_reg = np.clip(train_df.get_column("future_excess_return").to_numpy(), -0.30, 0.30).astype(np.float32)
         regression = _train_xgb(
@@ -197,34 +230,33 @@ def run_experiment(config: EmaRichFutureConfig) -> Path:
         rank_score = _predict_xgb(xgb, ranker, X_test)
 
         prediction_frames.append(
-            test_df.select(IDENTITY_COLS + ["legacy_selected"]).with_columns(
-                pl.Series("target_label", y_test, dtype=pl.Int8),
-                pl.Series("ema_rich_classifier", classifier_score, dtype=pl.Float64),
-                pl.Series("ema_rich_regression", regression_score, dtype=pl.Float64),
-                pl.Series("ema_rich_rank_pairwise", rank_score, dtype=pl.Float64),
+            test_df.select(IDENTITY_COLS + ["legacy_selected", "ema_top25_vote_count"]).with_columns(
+                pl.Series("target_gt5", y_test_gt5, dtype=pl.Int8),
+                pl.col("ema_top25_vote_count").cast(pl.Float64).alias("ema_signal_count"),
+                pl.Series("future_excess_classifier_gt5", classifier_gt5_score, dtype=pl.Float64),
+                pl.Series("future_excess_classifier_gt0", classifier_gt0_score, dtype=pl.Float64),
+                pl.Series("future_excess_regression", regression_score, dtype=pl.Float64),
+                pl.Series("future_excess_rank_pairwise", rank_score, dtype=pl.Float64),
                 pl.lit(window.fold_index).cast(pl.Int64).alias("fold"),
-            )
+            ).drop("ema_top25_vote_count")
         )
         print(f"[{position}/{len(windows)}] {window.test_months[0]} rows={test_df.height}")
 
     predictions = pl.concat(prediction_frames, how="vertical")
-    model_cols = ["ema_rich_classifier", "ema_rich_regression", "ema_rich_rank_pairwise"]
+    model_cols = [
+        "ema_signal_count",
+        "future_excess_regression",
+        "future_excess_classifier_gt0",
+        "future_excess_classifier_gt5",
+        "future_excess_rank_pairwise",
+    ]
 
-    monthly_frames: list[pl.DataFrame] = []
-    kpi_rows: list[dict] = []
-    for model_name in model_cols:
-        selections = _top_n(predictions, model_name, config.top_n)
-        monthly = _monthly_returns(selections).with_columns(pl.lit(model_name).alias("model"))
-        monthly_frames.append(monthly)
-        kpi_rows.append(_kpis(monthly, model_name))
-
-    kpis = pl.DataFrame(kpi_rows).sort("active_compounded", descending=True)
-    clone = pl.DataFrame(_clone_rows(predictions, model_cols)).sort("recall_at_legacy_k", descending=True)
+    recomposition = _recomposition_by_month(predictions, model_cols)
+    summary = _recomposition_summary(recomposition)
 
     predictions.write_parquet(run_dir / "predictions.parquet")
-    pl.concat(monthly_frames, how="vertical").write_parquet(run_dir / "monthly_returns.parquet")
-    kpis.write_csv(run_dir / "kpis.csv")
-    clone.write_csv(run_dir / "clone.csv")
+    recomposition.write_csv(run_dir / "recomposition_by_month.csv")
+    summary.write_csv(run_dir / "recomposition_summary.csv")
     (run_dir / "metadata.json").write_text(
         json.dumps(
             {
@@ -236,15 +268,17 @@ def run_experiment(config: EmaRichFutureConfig) -> Path:
                 "ema_base_features": ema_base_features,
                 "features": rich_features,
                 "models": model_cols,
-                "target_note": "All models train on future_excess_return labels only; legacy labels are used only for diagnostics.",
+                "primary_metric": "recomposition_pct",
+                "primary_metric_formula": "nombre d'actions communes entre modele et Legacy / nombre d'actions choisies par Legacy",
+                "selection_note": "Chaque mois, le modele choisit exactement le meme nombre de tickers que Legacy.",
+                "target_note": "Les modeles apprennent seulement des labels future_excess_return ; Legacy sert uniquement au diagnostic de recomposition.",
             },
             indent=2,
             default=str,
         )
     )
     print(f"RUN_DIR={run_dir}")
-    print(kpis)
-    print(clone)
+    print(summary)
     return run_dir
 
 
@@ -253,8 +287,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-run", type=Path, default=DEFAULT_SOURCE_RUN)
     parser.add_argument("--legacy-path", type=Path, default=DEFAULT_LEGACY_PATH)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
-    parser.add_argument("--max-windows", type=int, default=12)
-    parser.add_argument("--top-n", type=int, default=10)
+    parser.add_argument("--max-windows", type=int, default=999)
     parser.add_argument("--threshold", type=float, default=0.05)
     return parser.parse_args()
 
@@ -267,7 +300,6 @@ def main() -> None:
             legacy_path=args.legacy_path,
             output_dir=args.output_dir,
             max_windows=args.max_windows,
-            top_n=args.top_n,
             threshold=args.threshold,
         )
     )

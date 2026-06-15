@@ -24,14 +24,19 @@ signaux et les trades legacy. Le probleme prioritaire est donc :
 features decision-month -> score qui retrouve les trades legacy du mois suivant
 ```
 
-La metrique centrale n'est pas l'AUC. La metrique centrale est :
+La metrique centrale n'est ni le rendement, ni l'AUC, ni la precision globale.
+La metrique centrale est le pourcentage de recomposition du panier Legacy :
 
 ```text
-recall@legacy_k
+nombre d'actions communes entre modele et Legacy
+/
+nombre d'actions choisies par Legacy ce mois-la
 ```
 
-Pour chaque mois, `K` est le nombre exact de trades legacy. On prend les `K`
-meilleurs scores du modele et on mesure combien de trades legacy sont retrouves.
+Pour chaque mois, le modele choisit exactement le meme nombre de tickers que
+Legacy. Si Legacy choisit 4 tickers, le modele en choisit 4. Si Legacy en
+choisit 7, le modele en choisit 7. Si Legacy en choisit 10, le modele en choisit
+10. Le score du mois est seulement la part de tickers communs.
 
 ## Timeline
 
@@ -43,7 +48,8 @@ meilleurs scores du modele et on mesure combien de trades legacy sont retrouves.
 | 2026-06-13 | `7bb6f65` | experience residual `base_margin/init_score` sur features selectionnees |
 | 2026-06-14 | `780af35` | EMA-only residual et diagnostic probabilites des actions legacy |
 | 2026-06-14 | `f7d1b29` | construction des 7 variantes signal-copy et diagnostic clone legacy |
-| 2026-06-14 | run `outputs/ema_rich_future_target_20260614_222201` | test EMA enrichies, target futur rendement relatif uniquement |
+| 2026-06-14 | run `outputs/ema_rich_future_target_20260614_222201` | premier test EMA enrichies, target futur rendement relatif uniquement |
+| 2026-06-15 | run `outputs/ema_rich_future_target_20260615_201243` | test long 2010-2026, KPI unique de recomposition |
 
 Runs principaux :
 
@@ -53,6 +59,7 @@ Runs principaux :
 - `outputs/signal_copy_models_20260614_214711`
 - `outputs/legacy_clone_diagnostics_20260614`
 - `outputs/ema_rich_future_target_20260614_222201`
+- `outputs/ema_rich_future_target_20260615_201243`
 
 ## Donnees communes
 
@@ -70,7 +77,7 @@ Fenetre de test commune :
 - 11 mois exploitables
 - walk-forward strict
 - top 10 fixe pour les tests allocation
-- `legacy_k` variable pour les tests clone stricts
+- nombre de tickers Legacy variable pour les tests de recomposition
 
 Features :
 
@@ -274,12 +281,12 @@ Statut :
 
 ## Benchmarks et controles non comptes dans les 7
 
-### `ema_rich_*` future-target
+### `ema_rich_*` future-target, run long
 
-Construit le 2026-06-14 dans :
+Construit le 2026-06-15 dans :
 
 - script : `scripts/experiments/run_ema_rich_future_target_models.py`
-- run verifie : `outputs/ema_rich_future_target_20260614_222201`
+- run verifie : `outputs/ema_rich_future_target_20260615_201243`
 
 But :
 
@@ -291,7 +298,27 @@ plus de transformations EMA + apprentissage du futur excess return
 -> recouvrement partiel des trades Legacy
 ```
 
-Construction commune :
+KPI unique :
+
+```text
+nombre d'actions communes entre modele et Legacy
+/
+nombre d'actions choisies par Legacy ce mois-la
+```
+
+Selection :
+
+- pour chaque mois, le modele choisit le meme nombre de tickers que Legacy ;
+- Legacy sert uniquement au calcul de recomposition ;
+- aucun modele n'apprend la target `legacy_selected`.
+
+Periode mesuree :
+
+- holdings Legacy de `2010-02` a `2026-04` ;
+- 195 mois avec panier Legacy disponible ;
+- 2 070 lignes Legacy a recomposer.
+
+Construction commune des features :
 
 - features de base : les 16 features EMA existantes ;
 - features ajoutees :
@@ -305,35 +332,33 @@ Construction commune :
 
 Modeles testes :
 
-- `ema_rich_classifier` : target `future_excess_return > 5%` ;
-- `ema_rich_regression` : regression de `future_excess_return` clippe entre
+- `ema_signal_count` : score deterministe = nombre de signaux EMA dans le top
+  quartile mensuel ;
+- `future_excess_regression` : regression de `future_excess_return` clippe entre
   `-30%` et `+30%` ;
-- `ema_rich_rank_pairwise` : ranking mensuel du futur excess return.
+- `future_excess_classifier_gt0` : classification `future_excess_return > 0%` ;
+- `future_excess_classifier_gt5` : classification `future_excess_return > 5%` ;
+- `future_excess_rank_pairwise` : ranking mensuel du futur excess return.
 
-Resultats top 10 allocation :
+Resultats recomposition :
 
-| modele | total return | actif compose | hit-rate +5% | excess moyen top10 | overlap legacy moyen |
-|---|---:|---:|---:|---:|---:|
-| ema_rich_rank_pairwise | +85.3% | +53.5% | 42.7% | +4.0% | 23.6% |
-| ema_rich_classifier | +52.7% | +25.6% | 35.5% | +2.3% | 21.8% |
-| ema_rich_regression | +28.0% | +3.9% | 31.8% | +0.5% | 0.0% |
-
-Resultats clone strict :
-
-| modele | recall@legacy_k | trades retrouves |
-|---|---:|---:|
-| ema_rich_rank_pairwise | 22.5% | 16 / 71 |
-| ema_rich_classifier | 11.3% | 8 / 71 |
-| ema_rich_regression | 0.0% | 0 / 71 |
+| modele | actions communes | actions Legacy | recomposition |
+|---|---:|---:|---:|
+| future_excess_rank_pairwise | 492 | 2 070 | 23.8% |
+| future_excess_classifier_gt5 | 297 | 2 070 | 14.3% |
+| ema_signal_count | 240 | 2 070 | 11.6% |
+| future_excess_classifier_gt0 | 105 | 2 070 | 5.1% |
+| future_excess_regression | 73 | 2 070 | 3.5% |
 
 Lecture :
 
 - l'hypothese "on n'a pas assez d'EMA" est probablement vraie ;
-- le ranking futur excess return marche mieux que la classification binaire ;
-- en revanche, ce n'est pas encore un clone Legacy : 22.5% de recall strict
-  reste loin du seuil exploitable ;
-- la performance allocation est encourageante, mais elle doit etre traitee
-  comme fragile vu la petite fenetre de 11 mois.
+- le nombre de signaux EMA seul aide, mais ne suffit pas ;
+- apprendre `future_excess_return > 5%` fait mieux que `future_excess_return > 0%` ;
+- la regression directe du rendement relatif futur est mauvaise pour retrouver
+  les paniers Legacy ;
+- le ranking mensuel du futur rendement relatif est la meilleure methode testee,
+  mais 23.8% de recomposition reste insuffisant.
 
 ### `ema_residual_benchmark`
 
@@ -370,9 +395,12 @@ Pourquoi ce controle est important :
 - il est presque aussi performant que `distill_legacy` ;
 - il a le meilleur overlap legacy moyen en top 10 fixe.
 
-## Resultats top 10 allocation
+## Ancien controle top 10 allocation
 
 Run : `outputs/signal_copy_models_20260614_214711`.
+
+Cette section est conservee comme historique. Elle ne doit pas etre utilisee
+comme juge principal du travail actuel.
 
 | modele | total return | actif compose | overlap legacy moyen | hit-rate +5% |
 |---|---:|---:|---:|---:|
@@ -393,7 +421,7 @@ Lecture :
 - `ema_residual_benchmark` reste un bon benchmark ML.
 - les autres modeles apprennent parfois du rendement, mais ne copient pas legacy.
 
-## Resultats clone strict
+## Ancien controle de recomposition
 
 Run : `outputs/legacy_clone_diagnostics_20260614`.
 
@@ -405,7 +433,7 @@ Pour chaque mois :
   selection modele = top K du score modele
 ```
 
-| modele | recall@legacy_k | jaccard | trades retrouves | clone return | actif compose |
+| modele | recomposition | jaccard | trades retrouves | clone return | actif compose |
 |---|---:|---:|---:|---:|---:|
 | distill_legacy | 53.5% | 37.2% | 38 / 71 | +143.8% | +104.4% |
 | blend_ema_distill | 50.7% | 34.8% | 36 / 71 | +142.2% | +103.1% |
@@ -421,14 +449,17 @@ Lecture :
 
 - `distill_legacy` est la seule vraie piste de clonage.
 - `blend_ema_distill` est presque au meme niveau.
-- objectif court terme : passer de 53.5% a plus de 70% de `recall@legacy_k`.
+- objectif court terme historique : passer de 53.5% a plus de 70% de
+  recomposition.
 
 ## Quelle metrique dit qu'on est bon ?
 
 ### Metrique primaire pour le projet actuel
 
 ```text
-recall@legacy_k
+nombre d'actions communes entre modele et Legacy
+/
+nombre d'actions choisies par Legacy ce mois-la
 ```
 
 Pourquoi :
@@ -437,7 +468,7 @@ Pourquoi :
 - le rendement peut mentir sur une petite fenetre ;
 - l'AUC mesure le classement global, pas la reproduction du panier.
 
-Interpretation :
+Interpretation actuelle :
 
 - `< 50%` : pas un clone.
 - `50%-70%` : piste serieuse.
@@ -449,7 +480,7 @@ Interpretation :
 - `jaccard@legacy_k`
 - `rank moyen des noms legacy`
 - `precision@legacy_k`
-- stabilite mensuelle du recall
+- stabilite mensuelle de la recomposition
 - erreur de poids si on apprend `legacy_weight_normalized`
 
 ### Metriques allocation
@@ -538,7 +569,7 @@ Modeles teacher a entrainer :
 Objectif :
 
 ```text
-recall@legacy_k > 70%
+recomposition > 70%
 ```
 
 Mais l'objectif final ne doit pas etre d'apprendre `legacy_selected`. L'objectif
