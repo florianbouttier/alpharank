@@ -33,6 +33,9 @@ class GeneralizedEmaExpertConfig:
     min_trailing_months: int = 6
     top_experts: int = 10
     max_candidates: int | None = None
+    candidate_mode: str = "observed"
+    short_deltas: tuple[int, ...] = (-10, 0, 10)
+    long_deltas: tuple[int, ...] = (-40, 0, 40)
 
 
 def _ticker_list(values: Iterable[str]) -> str:
@@ -63,11 +66,9 @@ def _legacy_labels(legacy: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _observed_candidates(legacy: pl.DataFrame, max_candidates: int | None) -> pl.DataFrame:
-    candidates = (
-        legacy.filter(pl.col("portfolio_model").str.starts_with("Legacy_Optuna"))
-        .select(["n_short", "n_long", "selected_n_asset", "selected_n_max_per_sector"])
-        .unique()
+def _with_candidate_ids(candidates: pl.DataFrame) -> pl.DataFrame:
+    return (
+        candidates.unique()
         .sort(["n_long", "n_short", "selected_n_asset", "selected_n_max_per_sector"])
         .with_row_index("candidate_id")
         .with_columns(
@@ -85,9 +86,63 @@ def _observed_candidates(legacy: pl.DataFrame, max_candidates: int | None) -> pl
             ).alias("expert_id")
         )
     )
+
+
+def _observed_candidate_base(legacy: pl.DataFrame) -> pl.DataFrame:
+    return (
+        legacy.filter(pl.col("portfolio_model").str.starts_with("Legacy_Optuna"))
+        .select(["n_short", "n_long", "selected_n_asset", "selected_n_max_per_sector"])
+        .unique()
+    )
+
+
+def _observed_candidates(legacy: pl.DataFrame, max_candidates: int | None) -> pl.DataFrame:
+    candidates = _with_candidate_ids(_observed_candidate_base(legacy))
     if max_candidates is not None:
         candidates = candidates.head(max_candidates)
     return candidates
+
+
+def _neighbor_candidates(
+    legacy: pl.DataFrame,
+    *,
+    short_deltas: tuple[int, ...],
+    long_deltas: tuple[int, ...],
+    max_candidates: int | None,
+) -> pl.DataFrame:
+    rows: list[dict[str, int]] = []
+    for candidate in _observed_candidate_base(legacy).iter_rows(named=True):
+        for short_delta in short_deltas:
+            for long_delta in long_deltas:
+                n_short = int(candidate["n_short"]) + int(short_delta)
+                n_long = int(candidate["n_long"]) + int(long_delta)
+                if n_short < 1 or n_short > 100 or n_long < 50 or n_long > 400:
+                    continue
+                rows.append(
+                    {
+                        "n_short": n_short,
+                        "n_long": n_long,
+                        "selected_n_asset": int(candidate["selected_n_asset"]),
+                        "selected_n_max_per_sector": int(candidate["selected_n_max_per_sector"]),
+                    }
+                )
+    candidates = _with_candidate_ids(pl.DataFrame(rows))
+    if max_candidates is not None:
+        candidates = candidates.head(max_candidates)
+    return candidates
+
+
+def _candidate_frame(config: GeneralizedEmaExpertConfig, legacy: pl.DataFrame) -> pl.DataFrame:
+    if config.candidate_mode == "observed":
+        return _observed_candidates(legacy, config.max_candidates)
+    if config.candidate_mode == "neighbors":
+        return _neighbor_candidates(
+            legacy,
+            short_deltas=config.short_deltas,
+            long_deltas=config.long_deltas,
+            max_candidates=config.max_candidates,
+        )
+    raise ValueError(f"Unsupported candidate mode: {config.candidate_mode}")
 
 
 def _load_sector(path: Path) -> pl.DataFrame:
@@ -170,7 +225,7 @@ def _build_expert_selections(config: GeneralizedEmaExpertConfig, legacy: pl.Data
     )
     stock_filter = _load_stock_filter(config.stock_filter_path)
     sectors = _load_sector(config.general_path)
-    candidates = _observed_candidates(legacy, config.max_candidates)
+    candidates = _candidate_frame(config, legacy)
 
     frames: list[pl.DataFrame] = []
     for position, row in enumerate(candidates.iter_rows(named=True), start=1):
@@ -271,6 +326,9 @@ def run(config: GeneralizedEmaExpertConfig) -> Path:
                 "stock_filter_path": str(config.stock_filter_path),
                 "general_path": str(config.general_path),
                 "candidate_count": candidates.height,
+                "candidate_mode": config.candidate_mode,
+                "short_deltas": list(config.short_deltas),
+                "long_deltas": list(config.long_deltas),
                 "top_experts": config.top_experts,
                 "trailing_months": config.trailing_months,
                 "min_trailing_months": config.min_trailing_months,
@@ -280,7 +338,7 @@ def run(config: GeneralizedEmaExpertConfig) -> Path:
                 "primary_metric_formula": "nombre d'actions communes entre modele et Legacy / nombre d'actions choisies par Legacy",
                 "notes": [
                     "Les experts EMA sont selectionnes par performance passee, pas par appartenance au panier Legacy.",
-                    "Premier run limite aux parametres observes dans Legacy ; les voisins EMA seront ajoutes si ce controle est prometteur.",
+                    "Le mode observed utilise les parametres vus dans Legacy ; le mode neighbors ajoute des voisins EMA autour de ces parametres.",
                 ],
             },
             indent=2,
@@ -305,6 +363,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-trailing-months", type=int, default=6)
     parser.add_argument("--top-experts", type=int, default=10)
     parser.add_argument("--max-candidates", type=int, default=None)
+    parser.add_argument("--candidate-mode", choices=["observed", "neighbors"], default="observed")
+    parser.add_argument("--short-deltas", default="-10,0,10")
+    parser.add_argument("--long-deltas", default="-40,0,40")
     return parser.parse_args()
 
 
@@ -322,6 +383,9 @@ def main() -> None:
             min_trailing_months=args.min_trailing_months,
             top_experts=args.top_experts,
             max_candidates=args.max_candidates,
+            candidate_mode=args.candidate_mode,
+            short_deltas=tuple(int(value) for value in args.short_deltas.split(",") if value.strip()),
+            long_deltas=tuple(int(value) for value in args.long_deltas.split(",") if value.strip()),
         )
     )
 

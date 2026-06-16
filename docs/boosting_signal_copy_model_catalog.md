@@ -55,6 +55,9 @@ choisit 7, le modele en choisit 7. Si Legacy en choisit 10, le modele en choisit
 | 2026-06-16 | run `outputs/atomic_feature_future_target_20260616_200236` | training futur rendement relatif sur features atomiques |
 | 2026-06-16 | run `outputs/generalized_ema_expert_frame_20260616_231854` | experts EMA selectionnes par performance passee |
 | 2026-06-16 | run `outputs/generalized_ema_expert_models_20260616_232041` | training sur features d'experts EMA generalisables |
+| 2026-06-16 | run `outputs/generalized_ema_expert_sweep_20260616_234440` | sweep memoire/top experts sur candidats EMA observes |
+| 2026-06-16 | run `outputs/generalized_ema_expert_sweep_20260616_234500` | sweep memoire/top experts sur voisins EMA |
+| 2026-06-16 | run `outputs/generalized_ema_expert_models_20260616_234556` | training sur le meilleur cadre EMA generalisable |
 
 Runs principaux :
 
@@ -70,6 +73,10 @@ Runs principaux :
 - `outputs/atomic_feature_future_target_20260616_200236`
 - `outputs/generalized_ema_expert_frame_20260616_231854`
 - `outputs/generalized_ema_expert_models_20260616_232041`
+- `outputs/generalized_ema_expert_sweep_20260616_234440`
+- `outputs/generalized_ema_expert_sweep_20260616_234500`
+- `outputs/generalized_ema_expert_frame_20260616_234521`
+- `outputs/generalized_ema_expert_models_20260616_234556`
 
 ## Donnees communes
 
@@ -479,6 +486,7 @@ Construit le 2026-06-16 dans :
 
 - builder : `scripts/experiments/build_generalized_ema_expert_frame.py`
 - training : `scripts/experiments/run_generalized_ema_expert_models.py`
+- sweep : `scripts/experiments/sweep_generalized_ema_expert_params.py`
 - frame : `outputs/generalized_ema_expert_frame_20260616_231854`
 - run training : `outputs/generalized_ema_expert_models_20260616_232041`
 
@@ -517,6 +525,56 @@ Lecture :
 - le prochain levier n'est pas plus de tuning XGBoost, mais l'elargissement de
   l'univers d'experts : voisins des couples EMA observes, puis echantillonnage
   plus large de l'espace `n_short=1..100`, `n_long=50..400`.
+
+#### Tuning generalisable du 2026-06-16 soir
+
+Deux axes ont ete testes ensuite :
+
+- garder seulement les 44 experts EMA observes dans Legacy, mais faire varier la
+  memoire de performance passee et le nombre d'experts actifs ;
+- generer 356 voisins EMA autour des couples observes avec les deltas
+  `n_short +/- 10` et `n_long +/- 40`.
+
+Runs :
+
+- observes, sweep : `outputs/generalized_ema_expert_sweep_20260616_234440`
+- voisins, sweep : `outputs/generalized_ema_expert_sweep_20260616_234500`
+- meilleur frame observe : `outputs/generalized_ema_expert_frame_20260616_234521`
+- training meilleur frame observe :
+  `outputs/generalized_ema_expert_models_20260616_234556`
+
+Meilleurs resultats deterministes :
+
+| perimetre candidats | memoire | experts actifs | score | actions communes | actions Legacy | recomposition | mediane mensuelle |
+|---|---:|---:|---|---:|---:|---:|---:|
+| observes Legacy | 60 mois | 20 | somme des scores experts | 1 254 | 2 070 | 60.6% | 70.0% |
+| observes Legacy | 60 mois | 10 | vote des experts | 1 199 | 2 070 | 57.9% | 66.7% |
+| voisins EMA | 36 mois | 50 | vote des experts | 1 111 | 2 070 | 53.7% | 63.6% |
+| voisins EMA | 60 mois | 50 | vote des experts | 1 100 | 2 070 | 53.1% | 62.5% |
+
+Training sur le meilleur frame observe (`60 mois`, `20 experts`) :
+
+| modele | actions communes | actions Legacy | recomposition | mediane mensuelle |
+|---|---:|---:|---:|---:|
+| somme des scores experts EMA | 1 254 | 2 070 | 60.6% | 70.0% |
+| vote des experts EMA | 1 231 | 2 070 | 59.5% | 70.0% |
+| classifieur `future_excess_return > 5%` | 872 | 2 070 | 42.1% | 54.5% |
+| classifieur `future_excess_return > 0%` | 790 | 2 070 | 38.2% | 42.9% |
+| ranking mensuel futur rendement relatif | 41 | 2 070 | 2.0% | 0.0% |
+| regression futur rendement relatif | 41 | 2 070 | 2.0% | 0.0% |
+
+Lecture :
+
+- la meilleure piste generalisable actuelle est le score deterministe d'experts
+  EMA observes, selectionnes sur 60 mois de performance passee ;
+- ajouter des voisins EMA de facon brute ne suffit pas : l'univers grossit mais
+  le signal se dilue ;
+- mlcraft/XGBoost n'ameliore pas encore cette representation : le classifieur
+  `>5%` retombe a 42.1%, donc le boosting apprend une partie du futur rendement
+  mais ne choisit pas les memes trades que le score expert ;
+- prochaine piste defendable : ne pas ajouter tous les voisins, mais apprendre
+  ou selectionner des familles de voisins qui ont elles-memes une performance
+  passee stable avant d'entrainer le modele final.
 
 ### `ema_residual_benchmark`
 
