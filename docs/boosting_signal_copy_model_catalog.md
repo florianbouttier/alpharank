@@ -51,6 +51,8 @@ choisit 7, le modele en choisit 7. Si Legacy en choisit 10, le modele en choisit
 | 2026-06-14 | run `outputs/ema_rich_future_target_20260614_222201` | premier test EMA enrichies, target futur rendement relatif uniquement |
 | 2026-06-15 | run `outputs/ema_rich_future_target_20260615_201243` | test long 2010-2026, KPI unique de recomposition |
 | 2026-06-16 | run `outputs/legacy_atomic_recomposition_20260616_122045` | decomposition atomique des blocs Optuna Legacy |
+| 2026-06-16 | run `outputs/legacy_atomic_feature_frame_20260616_195618` | frame ML enrichi par les signaux atomiques Legacy |
+| 2026-06-16 | run `outputs/atomic_feature_future_target_20260616_200236` | training futur rendement relatif sur features atomiques |
 
 Runs principaux :
 
@@ -62,6 +64,8 @@ Runs principaux :
 - `outputs/ema_rich_future_target_20260614_222201`
 - `outputs/ema_rich_future_target_20260615_201243`
 - `outputs/legacy_atomic_recomposition_20260616_122045`
+- `outputs/legacy_atomic_feature_frame_20260616_195618`
+- `outputs/atomic_feature_future_target_20260616_200236`
 
 ## Donnees communes
 
@@ -410,6 +414,60 @@ Lecture :
   a 23.8% ;
 - la prochaine etape n'est pas plus de trials Optuna sur les features actuelles,
   mais la generation des features atomiques Legacy exactes dans le frame ML.
+
+### Frame atomique + apprentissage du futur rendement
+
+Construit le 2026-06-16 dans :
+
+- builder : `scripts/experiments/build_legacy_atomic_feature_frame.py`
+- training : `scripts/experiments/run_atomic_feature_future_target_models.py`
+- frame : `outputs/legacy_atomic_feature_frame_20260616_195618`
+- run training : `outputs/atomic_feature_future_target_20260616_200236`
+
+But :
+
+Tester si un modele qui apprend le futur rendement relatif peut retrouver Legacy
+quand les signaux atomiques exacts sont enfin visibles dans les features.
+
+Features ajoutees au `model_frame` :
+
+- `legacy_atomic_vote_count` : nombre de blocs Optuna Legacy qui selectionnent le
+  ticker ce mois-la ;
+- quantiles et ratios `mtr` atomiques max/moyens ;
+- flags par bloc `Legacy_Optuna_11`, `12`, `21`, `22` ;
+- rangs mensuels des signaux atomiques principaux.
+
+Controle deterministe sur le frame :
+
+| score | actions communes | actions Legacy | recomposition |
+|---|---:|---:|---:|
+| legacy_atomic_vote_count | 2 070 | 2 070 | 100.0% |
+| legacy_atomic_max_quantile_mtr | 2 070 | 2 070 | 100.0% |
+
+Training sur futur rendement relatif :
+
+| modele | target d'entrainement | actions communes | actions Legacy | recomposition |
+|---|---|---:|---:|---:|
+| atomic_regression | `future_excess_return` clippe | 2 070 | 2 070 | 100.0% |
+| atomic_classifier_gt5 | `future_excess_return > 5%` | 2 041 | 2 070 | 98.6% |
+| atomic_classifier_gt0 | `future_excess_return > 0%` | 1 100 | 2 070 | 53.1% |
+| atomic_plus_ema_rank_pairwise | ranking mensuel futur rendement relatif | 409 | 2 070 | 19.8% |
+| atomic_rank_pairwise | ranking mensuel futur rendement relatif | 41 | 2 070 | 2.0% |
+
+Lecture :
+
+- on depasse l'objectif 50% des que les features atomiques exactes sont dans le
+  frame ;
+- la classification `>5%` et la regression recuperent presque exactement Legacy,
+  sans target `legacy_selected`, parce que les features portent le signal Legacy
+  lui-meme ;
+- ce n'est pas encore une preuve de generalisation hors Legacy : c'est un
+  diagnostic de representation ;
+- la prochaine etape doit separer deux usages :
+  1. mode "replication Legacy" : utiliser les features atomiques exactes ;
+  2. mode "generalisation" : generer des couples EMA candidats hors winners
+     Legacy et verifier si le futur rendement relatif choisit les memes familles
+     de signaux.
 
 ### `ema_residual_benchmark`
 
