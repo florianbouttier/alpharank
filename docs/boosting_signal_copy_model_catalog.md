@@ -53,6 +53,8 @@ choisit 7, le modele en choisit 7. Si Legacy en choisit 10, le modele en choisit
 | 2026-06-16 | run `outputs/legacy_atomic_recomposition_20260616_122045` | decomposition atomique des blocs Optuna Legacy |
 | 2026-06-16 | run `outputs/legacy_atomic_feature_frame_20260616_195618` | frame ML enrichi par les signaux atomiques Legacy |
 | 2026-06-16 | run `outputs/atomic_feature_future_target_20260616_200236` | training futur rendement relatif sur features atomiques |
+| 2026-06-16 | run `outputs/generalized_ema_expert_frame_20260616_231854` | experts EMA selectionnes par performance passee |
+| 2026-06-16 | run `outputs/generalized_ema_expert_models_20260616_232041` | training sur features d'experts EMA generalisables |
 
 Runs principaux :
 
@@ -66,6 +68,8 @@ Runs principaux :
 - `outputs/legacy_atomic_recomposition_20260616_122045`
 - `outputs/legacy_atomic_feature_frame_20260616_195618`
 - `outputs/atomic_feature_future_target_20260616_200236`
+- `outputs/generalized_ema_expert_frame_20260616_231854`
+- `outputs/generalized_ema_expert_models_20260616_232041`
 
 ## Donnees communes
 
@@ -468,6 +472,51 @@ Lecture :
   2. mode "generalisation" : generer des couples EMA candidats hors winners
      Legacy et verifier si le futur rendement relatif choisit les memes familles
      de signaux.
+
+### Generalisation par experts EMA
+
+Construit le 2026-06-16 dans :
+
+- builder : `scripts/experiments/build_generalized_ema_expert_frame.py`
+- training : `scripts/experiments/run_generalized_ema_expert_models.py`
+- frame : `outputs/generalized_ema_expert_frame_20260616_231854`
+- run training : `outputs/generalized_ema_expert_models_20260616_232041`
+
+But :
+
+Sortir des features `legacy_atomic_*`, donc ne plus utiliser les selections
+Legacy comme signal direct. Les experts EMA sont des regles parametriques
+`short/long/n_actions/secteur`, puis ils sont selectionnes chaque mois selon
+leur performance passee en futur rendement relatif.
+
+Premier perimetre :
+
+- 44 experts observes dans Legacy ;
+- scoring par performance moyenne passee sur 36 mois ;
+- minimum de 6 mois d'historique ;
+- top 10 experts actifs par mois ;
+- features ticker = votes/scores des experts actifs qui selectionnent le ticker.
+
+Resultats recomposition :
+
+| modele | actions communes | actions Legacy | recomposition |
+|---|---:|---:|---:|
+| vote des experts EMA appris sur passe | 1 134 | 2 070 | 54.8% |
+| somme des scores experts appris sur passe | 1 101 | 2 070 | 53.2% |
+| classifieur `future_excess_return > 5%` | 856 | 2 070 | 41.4% |
+| classifieur `future_excess_return > 0%` | 552 | 2 070 | 26.7% |
+| ranking mensuel futur rendement relatif | 41 | 2 070 | 2.0% |
+| regression futur rendement relatif | 41 | 2 070 | 2.0% |
+
+Lecture :
+
+- l'objectif 50% est atteint sans utiliser les sorties atomiques Legacy comme
+  features ;
+- le score deterministe d'experts appris sur le passe bat les modeles XGBoost
+  supervises dans ce premier run ;
+- le prochain levier n'est pas plus de tuning XGBoost, mais l'elargissement de
+  l'univers d'experts : voisins des couples EMA observes, puis echantillonnage
+  plus large de l'espace `n_short=1..100`, `n_long=50..400`.
 
 ### `ema_residual_benchmark`
 
