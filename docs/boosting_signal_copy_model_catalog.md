@@ -50,6 +50,7 @@ choisit 7, le modele en choisit 7. Si Legacy en choisit 10, le modele en choisit
 | 2026-06-14 | `f7d1b29` | construction des 7 variantes signal-copy et diagnostic clone legacy |
 | 2026-06-14 | run `outputs/ema_rich_future_target_20260614_222201` | premier test EMA enrichies, target futur rendement relatif uniquement |
 | 2026-06-15 | run `outputs/ema_rich_future_target_20260615_201243` | test long 2010-2026, KPI unique de recomposition |
+| 2026-06-16 | run `outputs/legacy_atomic_recomposition_20260616_122045` | decomposition atomique des blocs Optuna Legacy |
 
 Runs principaux :
 
@@ -60,6 +61,7 @@ Runs principaux :
 - `outputs/legacy_clone_diagnostics_20260614`
 - `outputs/ema_rich_future_target_20260614_222201`
 - `outputs/ema_rich_future_target_20260615_201243`
+- `outputs/legacy_atomic_recomposition_20260616_122045`
 
 ## Donnees communes
 
@@ -359,6 +361,55 @@ Lecture :
   les paniers Legacy ;
 - le ranking mensuel du futur rendement relatif est la meilleure methode testee,
   mais 23.8% de recomposition reste insuffisant.
+
+### Decomposition atomique Legacy
+
+Construit le 2026-06-16 dans :
+
+- script : `scripts/experiments/run_legacy_atomic_recomposition.py`
+- run verifie : `outputs/legacy_atomic_recomposition_20260616_122045`
+
+But :
+
+Verifier si le plafond a 23.8% vient du boosting ou du fait que les features ML
+ne contiennent pas les briques Legacy exactes.
+
+Principe :
+
+- cible : union des paniers `Combined_Equal` et `Combined_Frequency` ;
+- candidats : les quatre blocs `Legacy_Optuna_11`, `Legacy_Optuna_12`,
+  `Legacy_Optuna_21`, `Legacy_Optuna_22` ;
+- unite atomique : `portfolio_model + selected_model`, ou `selected_model`
+  contient le couple EMA, le nombre cible d'actions et la limite secteur ;
+- KPI : actions communes / actions Legacy.
+
+Resultats par bloc Optuna :
+
+| bloc | actions communes | actions Legacy | recomposition |
+|---|---:|---:|---:|
+| union des 4 blocs Optuna | 2 088 | 2 088 | 100.0% |
+| Legacy_Optuna_21 | 1 598 | 2 088 | 76.5% |
+| Legacy_Optuna_11 | 1 497 | 2 088 | 71.7% |
+| Legacy_Optuna_12 | 1 416 | 2 088 | 67.8% |
+| Legacy_Optuna_22 | 1 338 | 2 088 | 64.1% |
+
+Meilleurs modeles atomiques observes :
+
+| modele atomique | periode | actions communes | actions Legacy | recomposition |
+|---|---:|---:|---:|---:|
+| Optuna_22, EMA short=95 / long=71, 16 actions, secteur 2 | 2011-02 a 2012-01 | 120 | 120 | 100.0% |
+| Optuna_12, EMA short=95 / long=71, 16 actions, secteur 2 | 2011-02 a 2012-01 | 120 | 120 | 100.0% |
+| Optuna_12, EMA short=54 / long=162, 30 actions, secteur 2 | 2018-02 a 2019-01 | 145 | 145 | 100.0% |
+| Optuna_22, EMA short=54 / long=162, 30 actions, secteur 2 | 2018-02 a 2019-01 | 145 | 145 | 100.0% |
+| Optuna_11, EMA short=95 / long=72, 30 actions, secteur 2 | 2010-02 a 2014-01 | 419 | 424 | 98.8% |
+
+Lecture :
+
+- atteindre 50% est possible quand on redescend au niveau des briques Legacy ;
+- le meilleur modele ML actuel ne voit pas ces briques exactes, donc il plafonne
+  a 23.8% ;
+- la prochaine etape n'est pas plus de trials Optuna sur les features actuelles,
+  mais la generation des features atomiques Legacy exactes dans le frame ML.
 
 ### `ema_residual_benchmark`
 
