@@ -15,6 +15,8 @@ from alpharank.data.open_source.ingestion import (
     _canonicalize_price_tickers,
     _filter_earnings_years,
     _identify_price_history_backfill_tickers,
+    _identify_yfinance_financial_fallback_tickers,
+    _with_financial_ingestion_metadata,
 )
 from alpharank.data.open_source.general_reference import build_general_reference
 from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
@@ -122,6 +124,146 @@ def test_build_sec_companyfacts_earnings_actuals_keeps_earliest_period_report() 
     assert actuals.height == 1
     assert actuals["reportDate"].to_list() == ["2010-02-20"]
     assert actuals["epsActual"].to_list() == [1.0]
+
+
+def test_identify_yfinance_financial_fallback_tickers_ignores_lineage_schema_mismatches() -> None:
+    sec_companyfacts = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2025-03-31"],
+            "source_label": [None],
+        }
+    )
+    sec_filing = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2025-06-30"],
+            "source_label": ["filing"],
+        }
+    )
+
+    fallback_tickers = _identify_yfinance_financial_fallback_tickers(
+        tickers=("AAPL",),
+        sec_companyfacts=sec_companyfacts,
+        sec_filing=sec_filing,
+    )
+
+    assert fallback_tickers == ("AAPL",)
+
+
+def test_with_financial_ingestion_metadata_adds_missing_provider_lineage_columns() -> None:
+    simfin_like = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2025-03-31"],
+            "filing_date": ["2025-05-01"],
+            "value": [100.0],
+            "source": ["simfin"],
+            "source_label": ["Revenue"],
+        }
+    )
+
+    raw = _with_financial_ingestion_metadata(
+        simfin_like,
+        dataset="financials_simfin",
+        run_id="run",
+        ingested_at="2026-05-30T00:00:00Z",
+    )
+
+    assert raw["accession_number"].to_list() == [None]
+    assert raw["form"].to_list() == [None]
+    assert raw["fiscal_period"].to_list() == [None]
+    assert raw["fiscal_year"].to_list() == [None]
+    assert raw["dataset"].to_list() == ["financials_simfin"]
+
+
+def test_build_sec_companyfacts_earnings_actuals_does_not_synthesize_q4_from_annual_eps() -> None:
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "EarningsPerShareDiluted": {
+                    "units": {
+                        "USD/shares": [
+                            {
+                                "start": "2023-01-01",
+                                "end": "2023-12-31",
+                                "val": 8.0,
+                                "fy": 2023,
+                                "fp": "FY",
+                                "form": "10-K",
+                                "filed": "2024-02-20",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    actuals = build_sec_companyfacts_earnings_actuals(ticker="TEST", facts_payload=payload)
+
+    assert actuals.is_empty()
+
+
+def test_build_sec_companyfacts_earnings_actuals_drops_implausible_fiscal_year_gap() -> None:
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "EarningsPerShareDiluted": {
+                    "units": {
+                        "USD/shares": [
+                            {
+                                "start": "2009-10-01",
+                                "end": "2009-12-31",
+                                "val": -4.0,
+                                "fy": 2011,
+                                "fp": "Q4",
+                                "form": "10-K",
+                                "filed": "2012-02-20",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    actuals = build_sec_companyfacts_earnings_actuals(ticker="TEST", facts_payload=payload)
+
+    assert actuals.is_empty()
+
+
+def test_select_best_facts_maps_quarterly_10k_to_q4() -> None:
+    facts_payload = {
+        "us-gaap": {
+            "NetIncomeLoss": {
+                "units": {
+                    "USD": [
+                        {
+                            "start": "2012-12-01",
+                            "end": "2013-02-28",
+                            "val": 103.0,
+                            "fy": 2012,
+                            "fp": "Q1",
+                            "form": "10-K",
+                            "filed": "2013-04-29",
+                        }
+                    ]
+                }
+            }
+        }
+    }
+
+    selected = _select_best_facts("income_statement", ("us-gaap",), ("NetIncomeLoss",), facts_payload)
+
+    assert len(selected) == 1
+    assert selected[0]["fp"] == "Q4"
 
 
 def test_parse_atom_filings_extracts_accession_and_dates() -> None:
@@ -781,6 +923,39 @@ def test_align_sec_actuals_to_calendar_uses_report_date_and_nearest_period() -> 
 
     assert aligned.filter(pl.col("period_end") == "2025-09-30")["epsActual"].to_list() == [2.69]
     assert "aligned_reportDate" in aligned.filter(pl.col("period_end") == "2025-09-30")["source_label"].to_list()[0]
+
+
+def test_align_sec_actuals_to_calendar_can_fall_back_to_fiscal_labels() -> None:
+    sec_calendar = pl.DataFrame(
+        {
+            "ticker": ["STZ.US"],
+            "period_end": ["2023-05-31"],
+            "reportDate": ["2023-06-30"],
+            "fiscal_period": ["Q2"],
+            "fiscal_year": [2023],
+        }
+    )
+    sec_actuals = pl.DataFrame(
+        {
+            "ticker": ["STZ.US"],
+            "period_end": ["2023-08-31"],
+            "reportDate": ["2023-10-05"],
+            "epsActual": [3.76],
+            "source": ["sec_derived_eps"],
+            "source_label": ["derived_from_net_income_and_shares"],
+            "form": ["10-Q"],
+            "fiscal_period": ["Q2"],
+            "fiscal_year": [2023],
+        }
+    )
+
+    aligned = align_sec_actuals_to_calendar(sec_calendar=sec_calendar, sec_actuals=sec_actuals)
+
+    assert aligned.height == 1
+    assert aligned["period_end"].to_list() == ["2023-05-31"]
+    assert aligned["reportDate"].to_list() == ["2023-06-30"]
+    assert aligned["epsActual"].to_list() == [3.76]
+    assert "aligned_fiscal_period" in aligned["source_label"].to_list()[0]
 
 
 def test_infer_fiscal_period_maps_quarter_subperiods_inside_fy_filings() -> None:

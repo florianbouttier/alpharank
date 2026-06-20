@@ -7,6 +7,7 @@ from pathlib import Path
 import time
 from typing import Any
 import xml.etree.ElementTree as ET
+from urllib.parse import urlencode
 
 import polars as pl
 import requests
@@ -210,7 +211,57 @@ class SecFilingFactsClient:
                         acceptance_datetime=str(acceptance_datetime) if acceptance_datetime is not None else None,
                     )
                 )
+        if not filings:
+            filings = self._list_filings_for_year_from_atom(cik, year)
         return sorted(filings, key=lambda filing: (filing.report_date, filing.filing_date, filing.accession_number))
+
+    def _list_filings_for_year_from_atom(self, cik: str | int, year: int) -> list[FilingMetadata]:
+        filings: dict[str, FilingMetadata] = {}
+        for filing_type in ("10-Q", "10-K"):
+            for filing in self._browse_edgar_filings(cik, filing_type):
+                filing_year = _year_for_date(filing.filing_date)
+                if filing_year is None:
+                    continue
+                if filing_year < year:
+                    continue
+                if filing_year > year + 1:
+                    continue
+                if filing_year == year + 1 and filing_type != "10-K":
+                    continue
+                filings.setdefault(filing.accession_number, filing)
+        return sorted(
+            filings.values(),
+            key=lambda filing: (filing.filing_date, filing.accession_number),
+        )
+
+    def _browse_edgar_filings(self, cik: str | int, filing_type: str) -> list[FilingMetadata]:
+        entries: list[FilingMetadata] = []
+        count = 100
+        start = 0
+        while True:
+            query = urlencode(
+                {
+                    "action": "getcompany",
+                    "CIK": str(int(cik)),
+                    "type": filing_type,
+                    "owner": "exclude",
+                    "count": str(count),
+                    "start": str(start),
+                    "output": "atom",
+                }
+            )
+            payload = self._get_text(
+                f"https://www.sec.gov/cgi-bin/browse-edgar?{query}",
+                cache_name=f"atom_{int(cik)}_{filing_type}_{start}.xml".replace("/", "_"),
+            )
+            batch = _parse_atom_filings(payload, filing_type=filing_type)
+            if not batch:
+                break
+            entries.extend(batch)
+            if len(batch) < count:
+                break
+            start += count
+        return entries
 
     def _submission_blocks(self, cik: str | int, payload: dict[str, Any]) -> list[dict[str, Any]]:
         blocks: list[dict[str, Any]] = []
@@ -442,6 +493,38 @@ def _select_instance_name(index_payload: dict[str, Any]) -> str | None:
             continue
         return name
     return None
+
+
+def _parse_atom_filings(feed_xml: str, *, filing_type: str) -> list[FilingMetadata]:
+    try:
+        root = ET.fromstring(feed_xml)
+    except ET.ParseError:
+        return []
+
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    filings: list[FilingMetadata] = []
+    for entry in root.findall("atom:entry", ns):
+        content = entry.find("atom:content", ns)
+        if content is None:
+            continue
+        accession_number = content.findtext("atom:accession-number", default="", namespaces=ns).strip()
+        filing_date = content.findtext("atom:filing-date", default="", namespaces=ns).strip()
+        filing_href = content.findtext("atom:filing-href", default="", namespaces=ns).strip()
+        filing_kind = content.findtext("atom:filing-type", default=filing_type, namespaces=ns).strip() or filing_type
+        updated_at = entry.findtext("atom:updated", default=None, namespaces=ns)
+        if not accession_number or not filing_date:
+            continue
+        filings.append(
+            FilingMetadata(
+                accession_number=accession_number,
+                filing_date=filing_date,
+                report_date=filing_date,
+                form=filing_kind,
+                primary_document=filing_href.rsplit("/", maxsplit=1)[-1] if filing_href else "",
+                acceptance_datetime=updated_at,
+            )
+        )
+    return filings
 
 
 def _fact_root_from_namespace(namespace_uri: str | None) -> str | None:

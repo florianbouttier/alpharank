@@ -1,0 +1,9 @@
+ticker,name,exchange,cik,start_date,end_date,mapping_source,mapping_priority
+DTV,DIRECTV,NYSE,0000944868,1990-01-01,2015-07-31,sec_manual_historical_bridge,0
+DYN,DYNEGY INC,NYSE,0001379895,1990-01-01,2012-12-31,sec_manual_historical_bridge,0
+CPWR,COMPUWARE CORP,NASDAQ,0000859014,1990-01-01,2014-12-31,sec_manual_historical_bridge,0
+TMC,TIMES MIRROR CO,NYSE,0000925260,1990-01-01,2000-06-30,sec_manual_historical_bridge,0
+STI,SUNTRUST BANKS INC,NYSE,0000750556,1990-01-01,2019-12-31,sec_manual_historical_bridge,0
+TE,TECO ENERGY INC,NYSE,0000350563,1990-01-01,2016-07-31,sec_manual_historical_bridge,0
+MON,MONSANTO CO /NEW/,NYSE,0001110783,2000-01-01,2018-06-30,sec_manual_historical_bridge,0
+SNDK,SANDISK CORP,NASDAQ,0001000180,1990-01-01,2016-05-31,sec_manual_historical_bridge,0

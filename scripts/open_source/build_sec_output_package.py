@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import shutil
 
@@ -199,6 +200,27 @@ def main(
         print(f"Previous output snapshot: {published}")
 
 
+def _parse_args() -> argparse.Namespace:
+    project_root = Path(__file__).resolve().parents[2]
+    parser = argparse.ArgumentParser(description="Build and publish the strict SEC-only fundamentals package.")
+    parser.add_argument(
+        "--raw-source-dir",
+        type=Path,
+        default=project_root / "data" / "open_source" / "official" / "raw",
+    )
+    parser.add_argument(
+        "--reference-data-dir",
+        type=Path,
+        default=project_root / "data",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=project_root / "data" / "sec" / "output",
+    )
+    return parser.parse_args()
+
+
 def publish_sec_output_package(
     *,
     output_dir: Path,
@@ -379,4 +401,9 @@ def _write_readme(path: Path) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(
+        raw_source_dir=args.raw_source_dir,
+        reference_data_dir=args.reference_data_dir,
+        output_dir=args.output_dir,
+    )

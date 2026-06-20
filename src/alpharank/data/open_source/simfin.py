@@ -29,6 +29,7 @@ class SimFinClient:
         self.refresh_days = refresh_days
         self.enabled = bool(self.api_key)
         self._configured = False
+        self._quarterly_dataset_cache: dict[str, pl.DataFrame] = {}
         self.last_fetch_failures: list[dict[str, str]] = []
 
     def configure(self) -> None:
@@ -86,13 +87,23 @@ class SimFinClient:
 
     def _load_dataset_frame_safe(self, dataset: str, ticker_set: set[str], year: int) -> pl.DataFrame:
         try:
-            return _load_dataset_frame(dataset, ticker_set, year, self.refresh_days)
+            if dataset not in self._quarterly_dataset_cache:
+                self._quarterly_dataset_cache[dataset] = _load_dataset_frame(dataset, None, None, self.refresh_days)
+            frame = self._quarterly_dataset_cache[dataset]
+            if frame.is_empty():
+                return frame
+            return (
+                frame.filter(pl.col("Ticker").is_in(list(ticker_set)))
+                .with_columns(pl.col("Report Date").cast(pl.Utf8, strict=False).alias("_report_date_str"))
+                .filter(pl.col("_report_date_str").str.starts_with(str(year)))
+                .drop("_report_date_str")
+            )
         except Exception as exc:
             self.last_fetch_failures.append({"dataset": dataset, "error": str(exc)})
             return pl.DataFrame()
 
 
-def _load_dataset_frame(dataset: str, ticker_set: set[str], year: int, refresh_days: int) -> pl.DataFrame:
+def _load_dataset_frame(dataset: str, ticker_set: set[str] | None, year: int | None, refresh_days: int) -> pl.DataFrame:
     _maybe_download_dataset(refresh_days=refresh_days, dataset=dataset, market="us", variant="quarterly")
     path = Path(_path_dataset(dataset=dataset, market="us", variant="quarterly"))
     if not path.exists():
@@ -109,12 +120,18 @@ def _load_dataset_frame(dataset: str, ticker_set: set[str], year: int, refresh_d
         return pl.DataFrame()
     if "Report Date" not in frame.columns:
         return pl.DataFrame()
-    return (
-        frame.filter(pl.col("Ticker").is_in(list(ticker_set)))
-        .with_columns(pl.col("Report Date").cast(pl.Utf8, strict=False).alias("_report_date_str"))
-        .filter(pl.col("_report_date_str").str.starts_with(str(year)))
-        .drop("_report_date_str")
-    )
+    if ticker_set is None and year is None:
+        return frame
+    filtered = frame
+    if ticker_set is not None:
+        filtered = filtered.filter(pl.col("Ticker").is_in(list(ticker_set)))
+    if year is not None:
+        filtered = (
+            filtered.with_columns(pl.col("Report Date").cast(pl.Utf8, strict=False).alias("_report_date_str"))
+            .filter(pl.col("_report_date_str").str.starts_with(str(year)))
+            .drop("_report_date_str")
+        )
+    return filtered
 
 
 def _load_shareprices_frame(

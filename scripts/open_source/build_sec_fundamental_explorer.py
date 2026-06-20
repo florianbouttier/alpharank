@@ -57,7 +57,9 @@ def main() -> None:
     )
     ticker_rows = _build_ticker_summary(
         general=general,
-        plot_payload=plot_payload,
+        income=income,
+        shares=shares,
+        earnings=earnings,
     )
     ticker_rows.write_parquet(output_dir / "ticker_summary.parquet")
     ticker_rows.write_csv(output_dir / "ticker_summary.csv")
@@ -123,13 +125,22 @@ def _parse_args() -> argparse.Namespace:
 def _build_ticker_summary(
     *,
     general: pl.DataFrame,
-    plot_payload: dict[str, object],
+    income: pl.DataFrame,
+    shares: pl.DataFrame,
+    earnings: pl.DataFrame,
 ) -> pl.DataFrame:
-    metric_keys = [metric for metric, _label in plot_payload["metric_options"]]
+    quarter_matrix = _build_quarter_metric_matrix(
+        income=income,
+        shares=shares,
+        earnings=earnings,
+    )
+    metric_keys = [metric for metric in INDEX_METRIC_ORDER if metric in quarter_matrix.columns]
     coverage_rows: list[dict[str, object]] = []
-    for ticker, series_rows in plot_payload["ticker_series"].items():
-        total_quarters = len(series_rows)
-        coverage_row: dict[str, object] = {"ticker": ticker, "observed_quarters": total_quarters}
+    for ticker, frame in quarter_matrix.group_by("ticker", maintain_order=True):
+        ticker_key = str(ticker[0] if isinstance(ticker, tuple) else ticker)
+        series_rows = frame.to_dicts()
+        total_quarters = frame.height
+        coverage_row: dict[str, object] = {"ticker": ticker_key, "observed_quarters": total_quarters}
         for metric in metric_keys:
             present = sum(1 for row in series_rows if row.get(metric) is not None)
             missing = max(total_quarters - present, 0)
@@ -152,6 +163,100 @@ def _build_ticker_summary(
         )
         .join(coverage, on="ticker", how="left")
         .sort("Code")
+    )
+
+
+def _build_quarter_metric_matrix(
+    *,
+    income: pl.DataFrame,
+    shares: pl.DataFrame,
+    earnings: pl.DataFrame,
+) -> pl.DataFrame:
+    income_metrics = [
+        metric
+        for metric in INDEX_METRIC_ORDER
+        if metric in income.columns and metric not in {"shares", "epsActual"}
+    ]
+    income_q = (
+        income.select(
+            [
+                "ticker",
+                pl.col("date").str.strptime(pl.Date, strict=False).alias("_dt"),
+                *[pl.col(metric).cast(pl.Float64, strict=False).alias(metric) for metric in income_metrics],
+            ]
+        )
+        .filter(pl.col("_dt").is_not_null())
+        .with_columns(
+            [
+                pl.col("_dt").dt.year().alias("_year"),
+                _calendar_period_expr(pl.col("_dt")).alias("_period"),
+            ]
+        )
+        .group_by(["ticker", "_year", "_period"])
+        .agg(
+            [
+                pl.col("_dt").max().alias("_quarter_dt"),
+                *[pl.col(metric).drop_nulls().last().alias(metric) for metric in income_metrics],
+            ]
+        )
+    )
+    shares_q = (
+        shares.select(
+            [
+                "ticker",
+                pl.col("dateFormatted").str.strptime(pl.Date, strict=False).alias("_dt"),
+                pl.col("shares").cast(pl.Float64, strict=False).alias("shares"),
+            ]
+        )
+        .filter(pl.col("_dt").is_not_null())
+        .with_columns(
+            [
+                pl.col("_dt").dt.year().alias("_year"),
+                _calendar_period_expr(pl.col("_dt")).alias("_period"),
+            ]
+        )
+        .group_by(["ticker", "_year", "_period"])
+        .agg(
+            [
+                pl.col("_dt").max().alias("_shares_dt"),
+                pl.col("shares").drop_nulls().last().alias("shares"),
+            ]
+        )
+    )
+    earnings_q = (
+        earnings.select(
+            [
+                "ticker",
+                pl.col("date").str.strptime(pl.Date, strict=False).alias("_dt"),
+                pl.col("epsActual").cast(pl.Float64, strict=False).alias("epsActual"),
+            ]
+        )
+        .filter(pl.col("_dt").is_not_null())
+        .with_columns(
+            [
+                pl.col("_dt").dt.year().alias("_year"),
+                _calendar_period_expr(pl.col("_dt")).alias("_period"),
+            ]
+        )
+        .group_by(["ticker", "_year", "_period"])
+        .agg(
+            [
+                pl.col("_dt").max().alias("_earnings_dt"),
+                pl.col("epsActual").drop_nulls().last().alias("epsActual"),
+            ]
+        )
+    )
+
+    merged = income_q.join(shares_q, on=["ticker", "_year", "_period"], how="full", coalesce=True)
+    merged = merged.join(earnings_q, on=["ticker", "_year", "_period"], how="full", coalesce=True)
+    merged = merged.with_columns(
+        pl.coalesce(["_quarter_dt", "_shares_dt", "_earnings_dt"]).alias("_plot_dt")
+    )
+    metric_cols = [metric for metric in INDEX_METRIC_ORDER if metric in merged.columns]
+    return (
+        merged.filter(pl.any_horizontal([pl.col(metric).is_not_null() for metric in metric_cols]))
+        .sort(["ticker", "_year", "_period"])
+        .select(["ticker", "_plot_dt", "_year", "_period", *metric_cols])
     )
 
 
@@ -558,6 +663,18 @@ def _build_index_plot_payload(*, income: pl.DataFrame, shares: pl.DataFrame, ear
         "default_numerator": "totalRevenue" if "totalRevenue" in available_metrics else available_metrics[0],
         "ticker_series": ticker_series,
     }
+
+
+def _calendar_period_expr(expr: pl.Expr) -> pl.Expr:
+    return (
+        pl.when(expr.dt.month().is_in([1, 2, 3]))
+        .then(pl.lit("Q1"))
+        .when(expr.dt.month().is_in([4, 5, 6]))
+        .then(pl.lit("Q2"))
+        .when(expr.dt.month().is_in([7, 8, 9]))
+        .then(pl.lit("Q3"))
+        .otherwise(pl.lit("Q4"))
+    )
 
 
 def _heatmap_cell_html(

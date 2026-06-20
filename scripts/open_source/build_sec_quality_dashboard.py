@@ -10,8 +10,9 @@ from pathlib import Path
 import polars as pl
 
 
-MIN_REASONABLE_FISCAL_YEAR = 1990
-CORE_METRICS: tuple[str, ...] = ("revenue", "net_income", "outstanding_shares")
+INCOME_METRICS: tuple[str, ...] = ("revenue", "net_income")
+SHARE_METRICS: tuple[str, ...] = ("outstanding_shares",)
+CORE_METRICS: tuple[str, ...] = INCOME_METRICS + SHARE_METRICS
 AUDIT_METRICS: tuple[str, ...] = CORE_METRICS + ("epsActual",)
 METRIC_LABELS: dict[str, str] = {
     "revenue": "Chiffre d'affaires",
@@ -246,42 +247,94 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
             pl.col("Industry").alias("industry"),
         ]
     ).unique(subset=["ticker"])
+    financial_fiscal_year_col = "fiscal_year" if "fiscal_year" in financials.columns else "selected_fiscal_year"
+    financial_fiscal_period_col = "fiscal_period" if "fiscal_period" in financials.columns else "selected_fiscal_period"
+    earnings_fiscal_year_col = "fiscal_year" if "fiscal_year" in earnings.columns else None
+    earnings_fiscal_period_col = "fiscal_period" if "fiscal_period" in earnings.columns else None
 
-    current_year = datetime.now().year + 1
+    financial_base = financials.filter(pl.col("metric").is_in(list(CORE_METRICS)))
+    if "date" in financial_base.columns:
+        financial_presence = (
+            financial_base.with_columns(pl.col("date").str.strptime(pl.Date, strict=False).alias("_quarter_dt"))
+            .filter(pl.col("_quarter_dt").is_not_null())
+            .with_columns(
+                [
+                    _coalesce_fiscal_year_expr(
+                        fiscal_year=pl.col(financial_fiscal_year_col).cast(pl.Int64, strict=False),
+                        quarter_dt=pl.col("_quarter_dt"),
+                    ).alias("fiscal_year"),
+                    _coalesce_fiscal_period_expr(
+                        fiscal_period=pl.col(financial_fiscal_period_col).cast(pl.Utf8, strict=False),
+                        quarter_dt=pl.col("_quarter_dt"),
+                    ).alias("fiscal_period"),
+                ]
+            )
+            .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
+            .unique()
+        )
+    else:
+        financial_presence = (
+            financial_base.select(
+                [
+                    "ticker",
+                    "metric",
+                    pl.col(financial_fiscal_year_col).cast(pl.Int64, strict=False).alias("fiscal_year"),
+                    pl.col(financial_fiscal_period_col).cast(pl.Utf8, strict=False).alias("fiscal_period"),
+                ]
+            )
+            .filter(pl.col("fiscal_year").is_not_null() & pl.col("fiscal_period").is_not_null())
+            .unique()
+        )
 
-    financial_presence = (
-        financials.filter(pl.col("metric").is_in(list(CORE_METRICS)))
-        .with_columns(
-            [
-                _normalize_period_expr(pl.col("selected_fiscal_period")).alias("fiscal_period"),
-                pl.col("selected_fiscal_year").cast(pl.Int64, strict=False).alias("fiscal_year"),
-            ]
+    earnings_base = earnings.filter(pl.col("epsActual").is_not_null()).with_columns(pl.lit("epsActual").alias("metric"))
+    if "period_end" in earnings_base.columns:
+        earnings_presence = (
+            earnings_base.with_columns(pl.col("period_end").str.strptime(pl.Date, strict=False).alias("_quarter_dt"))
+            .filter(pl.col("_quarter_dt").is_not_null())
+            .with_columns(
+                [
+                    _coalesce_fiscal_year_expr(
+                        fiscal_year=(
+                            pl.col(earnings_fiscal_year_col).cast(pl.Int64, strict=False)
+                            if earnings_fiscal_year_col is not None
+                            else pl.lit(None).cast(pl.Int64)
+                        ),
+                        quarter_dt=pl.col("_quarter_dt"),
+                    ).alias("fiscal_year"),
+                    _coalesce_fiscal_period_expr(
+                        fiscal_period=(
+                            pl.col(earnings_fiscal_period_col).cast(pl.Utf8, strict=False)
+                            if earnings_fiscal_period_col is not None
+                            else pl.lit(None).cast(pl.Utf8)
+                        ),
+                        quarter_dt=pl.col("_quarter_dt"),
+                    ).alias("fiscal_period"),
+                ]
+            )
+            .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
+            .unique()
         )
-        .filter(
-            pl.col("fiscal_period").is_not_null()
-            & pl.col("fiscal_year").is_not_null()
-            & pl.col("fiscal_year").is_between(MIN_REASONABLE_FISCAL_YEAR, current_year)
+    else:
+        earnings_presence = (
+            earnings_base.select(
+                [
+                    "ticker",
+                    "metric",
+                    (
+                        pl.col(earnings_fiscal_year_col).cast(pl.Int64, strict=False)
+                        if earnings_fiscal_year_col is not None
+                        else pl.lit(None).cast(pl.Int64)
+                    ).alias("fiscal_year"),
+                    (
+                        pl.col(earnings_fiscal_period_col).cast(pl.Utf8, strict=False)
+                        if earnings_fiscal_period_col is not None
+                        else pl.lit(None).cast(pl.Utf8)
+                    ).alias("fiscal_period"),
+                ]
+            )
+            .filter(pl.col("fiscal_year").is_not_null() & pl.col("fiscal_period").is_not_null())
+            .unique()
         )
-        .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
-        .unique()
-    )
-    earnings_presence = (
-        earnings.filter(pl.col("epsActual").is_not_null())
-        .with_columns(
-            [
-                _normalize_period_expr(pl.col("fiscal_period")).alias("fiscal_period"),
-                pl.col("fiscal_year").cast(pl.Int64, strict=False).alias("fiscal_year"),
-                pl.lit("epsActual").alias("metric"),
-            ]
-        )
-        .filter(
-            pl.col("fiscal_period").is_not_null()
-            & pl.col("fiscal_year").is_not_null()
-            & pl.col("fiscal_year").is_between(MIN_REASONABLE_FISCAL_YEAR, current_year)
-        )
-        .select(["ticker", "metric", "fiscal_year", "fiscal_period"])
-        .unique()
-    )
     if financial_presence.is_empty() and earnings_presence.is_empty():
         return pl.DataFrame(
             schema={
@@ -300,15 +353,20 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
         )
 
     observed = pl.concat([financial_presence, earnings_presence], how="diagonal_relaxed").unique()
-    financial_grid = _build_continuous_quarter_grid(
-        observed=financial_presence.select(["ticker", "fiscal_year", "fiscal_period"]).unique(),
-        metrics=CORE_METRICS,
+    expected_parts: list[pl.DataFrame] = []
+    for metric in INCOME_METRICS + SHARE_METRICS:
+        metric_observed = financial_presence.filter(pl.col("metric") == metric).select(
+            ["ticker", "fiscal_year", "fiscal_period", "metric"]
+        )
+        expected_parts.append(_build_continuous_quarter_grid(observed=metric_observed))
+    expected_parts.append(
+        _build_continuous_quarter_grid(
+            observed=earnings_presence.filter(pl.col("metric") == "epsActual").select(
+                ["ticker", "fiscal_year", "fiscal_period", "metric"]
+            )
+        )
     )
-    earnings_grid = _build_continuous_quarter_grid(
-        observed=earnings_presence.select(["ticker", "fiscal_year", "fiscal_period"]).unique(),
-        metrics=("epsActual",),
-    )
-    expected = pl.concat([financial_grid, earnings_grid], how="diagonal_relaxed").unique()
+    expected = pl.concat(expected_parts, how="diagonal_relaxed").unique()
     return (
         expected.join(
             observed.with_columns(pl.lit(True).alias("present")),
@@ -345,7 +403,7 @@ def _build_quarterly_presence(*, financials: pl.DataFrame, earnings: pl.DataFram
     )
 
 
-def _build_continuous_quarter_grid(*, observed: pl.DataFrame, metrics: tuple[str, ...]) -> pl.DataFrame:
+def _build_continuous_quarter_grid(*, observed: pl.DataFrame) -> pl.DataFrame:
     if observed.is_empty():
         return pl.DataFrame(
             schema={
@@ -362,14 +420,17 @@ def _build_continuous_quarter_grid(*, observed: pl.DataFrame, metrics: tuple[str
         observed.with_columns(
             (pl.col("fiscal_year") * pl.lit(10) + _period_order_expr(pl.col("fiscal_period"))).alias("quarter_index")
         )
-        .select(["ticker", "quarter_index"])
+        .select(["ticker", "metric", "quarter_index"])
         .unique()
-        .sort(["ticker", "quarter_index"])
+        .sort(["ticker", "metric", "quarter_index"])
     )
-    for ticker_key, group in indexed.group_by("ticker", maintain_order=True):
-        ticker = ticker_key[0] if isinstance(ticker_key, tuple) else ticker_key
+    for group_key, group in indexed.group_by(["ticker", "metric"], maintain_order=True):
+        if isinstance(group_key, tuple):
+            ticker, metric = group_key
+        else:
+            ticker, metric = group_key, None
         quarter_indexes = [int(value) for value in group["quarter_index"].to_list() if value is not None]
-        if not quarter_indexes:
+        if not quarter_indexes or metric is None:
             continue
         start = min(quarter_indexes)
         end = max(quarter_indexes)
@@ -379,16 +440,28 @@ def _build_continuous_quarter_grid(*, observed: pl.DataFrame, metrics: tuple[str
                 continue
             fiscal_year = quarter_index // 10
             fiscal_period = quarter_map[quarter_number]
-            for metric in metrics:
-                rows.append(
-                    {
-                        "ticker": ticker,
-                        "fiscal_year": fiscal_year,
-                        "fiscal_period": fiscal_period,
-                        "metric": metric,
-                    }
-                )
+            rows.append(
+                {
+                    "ticker": ticker,
+                    "fiscal_year": fiscal_year,
+                    "fiscal_period": fiscal_period,
+                    "metric": metric,
+                }
+            )
     return pl.DataFrame(rows)
+
+
+def _coalesce_fiscal_year_expr(*, fiscal_year: pl.Expr, quarter_dt: pl.Expr) -> pl.Expr:
+    return pl.coalesce([fiscal_year, quarter_dt.dt.year()])
+
+
+def _coalesce_fiscal_period_expr(*, fiscal_period: pl.Expr, quarter_dt: pl.Expr) -> pl.Expr:
+    derived = _calendar_period_expr(quarter_dt)
+    return (
+        pl.when(fiscal_period.cast(pl.Utf8, strict=False).is_in(list(PERIOD_ORDER)))
+        .then(fiscal_period.cast(pl.Utf8, strict=False))
+        .otherwise(derived)
+    )
 
 
 def _build_ticker_metric_holes(*, quarterly_presence: pl.DataFrame) -> pl.DataFrame:
@@ -1296,6 +1369,18 @@ def _normalize_period_expr(expr: pl.Expr) -> pl.Expr:
         .when(expr.is_in(["Q1", "Q2", "Q3", "Q4"]))
         .then(expr)
         .otherwise(pl.lit(None).cast(pl.Utf8))
+    )
+
+
+def _calendar_period_expr(expr: pl.Expr) -> pl.Expr:
+    return (
+        pl.when(expr.dt.month().is_in([1, 2, 3]))
+        .then(pl.lit("Q1"))
+        .when(expr.dt.month().is_in([4, 5, 6]))
+        .then(pl.lit("Q2"))
+        .when(expr.dt.month().is_in([7, 8, 9]))
+        .then(pl.lit("Q3"))
+        .otherwise(pl.lit("Q4"))
     )
 
 

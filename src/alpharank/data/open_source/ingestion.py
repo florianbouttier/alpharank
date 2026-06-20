@@ -1411,12 +1411,10 @@ def _with_financial_ingestion_metadata(frame: pl.DataFrame, *, dataset: str, run
         pl.lit(run_id).alias("ingestion_run_id"),
         pl.lit(ingested_at).alias("ingested_at"),
     ]
-    if "form" not in frame.columns:
-        expressions.append(pl.lit(None).cast(pl.Utf8).alias("form"))
-    if "fiscal_period" not in frame.columns:
-        expressions.append(pl.lit(None).cast(pl.Utf8).alias("fiscal_period"))
-    if "fiscal_year" not in frame.columns:
-        expressions.append(pl.lit(None).cast(pl.Int64).alias("fiscal_year"))
+    for column, dtype in RAW_FINANCIAL_SCHEMA.items():
+        if column in frame.columns or column in {"dataset", "ingestion_run_id", "ingested_at"}:
+            continue
+        expressions.append(pl.lit(None).cast(dtype).alias(column))
     return frame.with_columns(expressions).select(list(RAW_FINANCIAL_SCHEMA))
 
 
@@ -2195,7 +2193,9 @@ def _identify_yfinance_financial_fallback_tickers(
     sec_companyfacts: pl.DataFrame,
     sec_filing: pl.DataFrame,
 ) -> tuple[str, ...]:
-    sec_combined = pl.concat([sec_companyfacts, sec_filing], how="vertical") if not sec_filing.is_empty() else sec_companyfacts
+    required_columns = ["ticker", "statement", "metric", "date"]
+    sec_frames = [frame.select(required_columns) for frame in (sec_companyfacts, sec_filing) if not frame.is_empty()]
+    sec_combined = pl.concat(sec_frames, how="vertical") if sec_frames else pl.DataFrame(schema={column: pl.Utf8 for column in required_columns})
     return _identify_metric_gap_tickers(
         tickers=tickers,
         financials=sec_combined,

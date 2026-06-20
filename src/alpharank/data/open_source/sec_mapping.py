@@ -16,11 +16,16 @@ def resolve_sec_company_mapping(
     if not requested:
         return _empty_mapping_frame()
 
+    manual_bridge = load_sec_historical_ticker_bridge(reference_data_dir).filter(pl.col("ticker").is_in(list(requested)))
     live = _prepare_live_sec_mapping(sec_mapping_all).filter(pl.col("ticker").is_in(list(requested)))
     lineage_bridge = _prepare_raw_lineage_bridge(existing_general_reference_lineage).filter(pl.col("ticker").is_in(list(requested)))
     eodhd_bridge = _prepare_eodhd_cik_bridge(reference_data_dir).filter(pl.col("ticker").is_in(list(requested)))
 
-    combined = pl.concat([live, lineage_bridge, eodhd_bridge], how="vertical") if not live.is_empty() or not lineage_bridge.is_empty() or not eodhd_bridge.is_empty() else _empty_mapping_frame()
+    combined = (
+        pl.concat([manual_bridge, live, lineage_bridge, eodhd_bridge], how="diagonal_relaxed")
+        if not manual_bridge.is_empty() or not live.is_empty() or not lineage_bridge.is_empty() or not eodhd_bridge.is_empty()
+        else _empty_mapping_frame()
+    )
     if combined.is_empty():
         return combined
 
@@ -31,10 +36,59 @@ def resolve_sec_company_mapping(
     )
 
 
+def load_sec_historical_ticker_bridge(reference_data_dir: Path | None = None) -> pl.DataFrame:
+    candidate_paths: list[Path] = []
+    if reference_data_dir is not None:
+        candidate_paths.append(reference_data_dir / "sec" / "manual_historical_ticker_bridge.csv")
+    candidate_paths.append(Path(__file__).with_name("reference") / "sec_historical_ticker_bridge.csv")
+
+    for path in candidate_paths:
+        if not path.exists():
+            continue
+        frame = pl.read_csv(path)
+        required = {"ticker", "name", "exchange", "cik"}
+        if not required.issubset(frame.columns):
+            continue
+        prepared = (
+            frame.select(
+                [
+                    pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"),
+                    pl.col("name").cast(pl.Utf8).alias("name"),
+                    pl.col("exchange").cast(pl.Utf8).alias("exchange"),
+                    pl.col("cik").cast(pl.Utf8).str.extract(r"(\d+)").str.zfill(10).alias("cik"),
+                    *(
+                        [pl.col("start_date").cast(pl.Utf8)]
+                        if "start_date" in frame.columns
+                        else [pl.lit(None).cast(pl.Utf8).alias("start_date")]
+                    ),
+                    *(
+                        [pl.col("end_date").cast(pl.Utf8)]
+                        if "end_date" in frame.columns
+                        else [pl.lit(None).cast(pl.Utf8).alias("end_date")]
+                    ),
+                    *(
+                        [pl.col("mapping_source").cast(pl.Utf8)]
+                        if "mapping_source" in frame.columns
+                        else [pl.lit("sec_manual_historical_bridge").alias("mapping_source")]
+                    ),
+                    *(
+                        [pl.col("mapping_priority").cast(pl.Int64, strict=False)]
+                        if "mapping_priority" in frame.columns
+                        else [pl.lit(0).cast(pl.Int64).alias("mapping_priority")]
+                    ),
+                ]
+            )
+            .filter(pl.col("ticker").is_not_null() & pl.col("cik").is_not_null())
+            .unique(subset=["ticker"], keep="first", maintain_order=True)
+        )
+        return _ensure_mapping_columns(prepared)
+    return _empty_mapping_frame()
+
+
 def _prepare_live_sec_mapping(sec_mapping_all: pl.DataFrame) -> pl.DataFrame:
     if sec_mapping_all.is_empty():
         return _empty_mapping_frame()
-    return (
+    return _ensure_mapping_columns(
         sec_mapping_all.select(
             [
                 pl.col("ticker").cast(pl.Utf8).alias("ticker"),
@@ -60,7 +114,7 @@ def _prepare_raw_lineage_bridge(existing_general_reference_lineage: pl.DataFrame
     required = {"ticker", "sec_name", "sec_exchange", "sec_cik"}
     if not required.issubset(existing_general_reference_lineage.columns):
         return _empty_mapping_frame()
-    return (
+    return _ensure_mapping_columns(
         existing_general_reference_lineage.select(
             [
                 pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"),
@@ -94,7 +148,7 @@ def _prepare_eodhd_cik_bridge(reference_data_dir: Path | None) -> pl.DataFrame:
         required = {"Code", "Name", "Exchange", "CIK"}
         if not required.issubset(frame.columns):
             continue
-        return (
+        return _ensure_mapping_columns(
             frame.select(
                 [
                     pl.col("Code").cast(pl.Utf8).alias("ticker"),
@@ -115,6 +169,27 @@ def _prepare_eodhd_cik_bridge(reference_data_dir: Path | None) -> pl.DataFrame:
     return _empty_mapping_frame()
 
 
+def _ensure_mapping_columns(frame: pl.DataFrame) -> pl.DataFrame:
+    columns = frame.columns
+    result = frame
+    if "start_date" not in columns:
+        result = result.with_columns(pl.lit(None).cast(pl.Utf8).alias("start_date"))
+    if "end_date" not in columns:
+        result = result.with_columns(pl.lit(None).cast(pl.Utf8).alias("end_date"))
+    return result.select(
+        [
+            "ticker",
+            "name",
+            "exchange",
+            "cik",
+            "start_date",
+            "end_date",
+            "mapping_source",
+            "mapping_priority",
+        ]
+    )
+
+
 def _empty_mapping_frame() -> pl.DataFrame:
     return pl.DataFrame(
         schema={
@@ -122,6 +197,8 @@ def _empty_mapping_frame() -> pl.DataFrame:
             "name": pl.String,
             "exchange": pl.String,
             "cik": pl.String,
+            "start_date": pl.String,
+            "end_date": pl.String,
             "mapping_source": pl.String,
             "mapping_priority": pl.Int64,
         }

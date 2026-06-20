@@ -242,6 +242,15 @@ def _build_earnings_legacy_frame(earnings_frame: pl.DataFrame, reference_data_di
                 pl.lit(None).cast(pl.Utf8).alias("currency"),
             ]
         )
+        .filter(
+            pl.any_horizontal(
+                [
+                    pl.col("epsActual").is_not_null(),
+                    pl.col("epsEstimate").is_not_null(),
+                    pl.col("surprisePercent").is_not_null(),
+                ]
+            )
+        )
         .sort(["ticker", "reportDate"])
         .unique(subset=["ticker", "reportDate"], keep="last", maintain_order=True)
     )
@@ -886,30 +895,11 @@ def _classify_before_after_market(column: pl.Expr) -> pl.Expr:
 
 def _normalize_statement_date_for_legacy(column: pl.Expr) -> pl.Expr:
     date = column.cast(pl.Date, strict=False)
-    month_end = date.dt.month_end()
-    previous_month_end = (date.dt.truncate("1mo") - pl.duration(days=1)).cast(pl.Date)
-    days_from_previous = date.dt.day().cast(pl.Int64)
-    days_to_current = (month_end.dt.day() - date.dt.day()).cast(pl.Int64)
-    normalized = (
-        pl.when(date.is_null())
-        .then(pl.lit(None).cast(pl.Date))
-        .when(days_from_previous <= days_to_current)
-        .then(previous_month_end)
-        .otherwise(month_end)
-    )
-    return normalized.dt.strftime("%Y-%m-%d")
+    quarter_end = date.dt.truncate("1q").dt.offset_by("3mo") - pl.duration(days=1)
+    return quarter_end.dt.strftime("%Y-%m-%d")
 
 
 def _normalize_earnings_period_end_for_legacy(*, period_end: pl.Expr, report_date: pl.Expr) -> pl.Expr:
     period_date = period_end.cast(pl.Date, strict=False)
     report_date_date = report_date.cast(pl.Date, strict=False)
-    same_month_end = period_date.dt.month_end()
-    previous_month_end = (period_date.dt.truncate("1mo") - pl.duration(days=1)).cast(pl.Date)
-    normalized_period_end = (
-        pl.when(period_date.is_null())
-        .then(pl.lit(None).cast(pl.Date))
-        .when(period_date.dt.day() <= 7)
-        .then(previous_month_end)
-        .otherwise(same_month_end)
-    )
-    return pl.coalesce([normalized_period_end, report_date_date]).dt.strftime("%Y-%m-%d")
+    return pl.coalesce([period_date, report_date_date]).dt.strftime("%Y-%m-%d")

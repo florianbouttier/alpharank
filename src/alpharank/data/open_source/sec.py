@@ -255,6 +255,18 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
         except ValueError:
             return None
 
+    normalized_period = _normalize_fact_period(
+        statement=statement,
+        end=str(calendarized_end or end),
+        form=form,
+        frame_period=frame_period,
+        fact_period=fact.get("fp"),
+        duration_days=duration_days,
+    )
+    fiscal_year = fact.get("fy")
+    if _has_implausible_fiscal_year_gap(end=str(calendarized_end or end), fiscal_year=fiscal_year, fiscal_period=normalized_period):
+        return None
+
     return {
         "tag": tag,
         "tag_priority": tag_priority,
@@ -264,8 +276,8 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
         "filed": filed,
         "accession_number": fact.get("accession_number"),
         "val": value,
-        "fy": fact.get("fy"),
-        "fp": frame_period or fact.get("fp"),
+        "fy": fiscal_year,
+        "fp": normalized_period,
         "form": form,
         "duration_days": duration_days,
         "frame": frame,
@@ -273,6 +285,41 @@ def _clean_fact(statement: str, tag: str, fact: dict[str, Any], *, tag_priority:
         "dimensions": tuple(fact.get("dimensions", ())),
         "statement_class_member": fact.get("statement_class_member"),
     }
+
+
+def _normalize_fact_period(
+    *,
+    statement: str,
+    end: str,
+    form: str,
+    frame_period: str | None,
+    fact_period: object,
+    duration_days: int | None,
+) -> str | None:
+    period = frame_period or (str(fact_period) if fact_period is not None else None)
+    if statement not in {"income_statement", "cash_flow"}:
+        return period
+    if period == "FY":
+        return period
+    if form in {"10-K", "10-K/A"} and duration_days is not None and 60 <= duration_days <= 130:
+        return "Q4"
+    return period
+
+
+def _has_implausible_fiscal_year_gap(*, end: str, fiscal_year: object, fiscal_period: str | None) -> bool:
+    if fiscal_period not in {"Q1", "Q2", "Q3", "Q4", "FY"}:
+        return False
+    try:
+        end_year = datetime.strptime(end, "%Y-%m-%d").year
+    except ValueError:
+        return False
+    try:
+        fy = int(fiscal_year) if fiscal_year is not None else None
+    except (TypeError, ValueError):
+        return False
+    if fy is None:
+        return False
+    return abs(end_year - fy) > 1
 
 
 def _extract_unit_records(

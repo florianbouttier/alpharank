@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import pandas as pd
 import configparser
@@ -21,6 +22,9 @@ class APIClient:
         self.api_key = api_key if api_key else self.get_api_key()
         self.base_url = "https://eodhd.com/api"
         self.fmt = "json"
+        self.timeout = (10, 120)
+        self.max_retries = 3
+        self.retry_backoff_seconds = 2.0
 
     def get_api_key(self) -> str:
         """
@@ -62,12 +66,26 @@ class APIClient:
         if params:
             request_params.update(params)
             
-        response = requests.get(url, params=request_params)
-        
-        if response.status_code != 200:
-            raise Exception(f"API Error: {response.status_code} - {response.text}")
-            
-        return response.json()
+        last_error: Exception | None = None
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = requests.get(url, params=request_params, timeout=self.timeout)
+                if response.status_code == 200:
+                    return response.json()
+
+                error = Exception(f"API Error on {endpoint}: {response.status_code} - {response.text}")
+                if response.status_code not in {408, 429, 500, 502, 503, 504} or attempt == self.max_retries:
+                    raise error
+                last_error = error
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt == self.max_retries:
+                    break
+
+            time.sleep(self.retry_backoff_seconds * attempt)
+
+        raise Exception(f"API request failed for {endpoint} after {self.max_retries} attempts: {last_error}")
 
 
 class ExchangeData:
@@ -141,7 +159,7 @@ class IndexData:
         # This method uses Wikipedia data
         url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
         headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=(10, 30))
         soup = BeautifulSoup(response.text, 'html.parser')
 
         # Extract current constituents
@@ -232,7 +250,12 @@ class PriceData:
         """
         self.client = client if client else APIClient()
     
-    def get_raw_price_data(self, symbol: str) -> pd.DataFrame:
+    def get_raw_price_data(
+        self,
+        symbol: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> pd.DataFrame:
         """
         Download raw price data for a symbol
         
@@ -243,10 +266,20 @@ class PriceData:
             DataFrame containing price data
         """
         endpoint = f"eod/{symbol}"
-        data = self.client.get(endpoint)
+        params: Dict[str, str] = {}
+        if start_date:
+            params["from"] = start_date
+        if end_date:
+            params["to"] = end_date
+        data = self.client.get(endpoint, params or None)
         return pd.DataFrame(data)
-    
-    def get_technical_data(self, symbol: str) -> pd.DataFrame:
+
+    def get_technical_data(
+        self,
+        symbol: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> pd.DataFrame:
         """
         Download split-adjusted technical data for a symbol
         
@@ -258,6 +291,10 @@ class PriceData:
         """
         endpoint = f"technical/{symbol}"
         params = {"function": "splitadjusted"}
+        if start_date:
+            params["from"] = start_date
+        if end_date:
+            params["to"] = end_date
         data = self.client.get(endpoint, params)
         return pd.DataFrame(data)
         
@@ -305,7 +342,12 @@ class PriceData:
             return pd.concat(final_price_list, ignore_index=True)
         return pd.DataFrame()
     
-    def get_price_data_for_tickers(self, tickers: List[str]) -> pd.DataFrame:
+    def get_price_data_for_tickers(
+        self,
+        tickers: List[str],
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> pd.DataFrame:
         """
         Retrieve and combine price data for a list of symbols
         
@@ -319,8 +361,8 @@ class PriceData:
         technical_data = []
         
         for ticker in tickers:
-            raw_data.append(self.get_raw_price_data(ticker))
-            technical_data.append(self.get_technical_data(ticker))
+            raw_data.append(self.get_raw_price_data(ticker, start_date=start_date, end_date=end_date))
+            technical_data.append(self.get_technical_data(ticker, start_date=start_date, end_date=end_date))
         
         return self.process_price_data(raw_data, technical_data, tickers)
 
@@ -471,7 +513,12 @@ class EODHDDataService:
         """
         return self.exchange_data.get_tickers_from_exchange(exchange_code)
     
-    def get_price_data_for_tickers(self, tickers: List[str]) -> pd.DataFrame:
+    def get_price_data_for_tickers(
+        self,
+        tickers: List[str],
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> pd.DataFrame:
         """
         Retrieve and combine price data for a list of symbols
         
@@ -481,7 +528,11 @@ class EODHDDataService:
         Returns:
             Combined price data DataFrame
         """
-        return self.price_data.get_price_data_for_tickers(tickers)
+        return self.price_data.get_price_data_for_tickers(
+            tickers,
+            start_date=start_date,
+            end_date=end_date,
+        )
     
     def get_fundamental_data(self, tickers: List[str]) -> List:
         """

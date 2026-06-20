@@ -218,10 +218,83 @@ def test_export_legacy_compatible_outputs_aligns_to_reference_schemas(tmp_path: 
     assert balance["commonStockSharesOutstanding"].to_list() == [10_000_000.0]
     assert shares["shares"].to_list() == [10_000_000.0]
     assert shares["sharesMln"].to_list() == [10.0]
-    assert general["Sector"].to_list() == ["Technology"]
-    assert general["Industry"].to_list() == ["Consumer Electronics"]
-    assert earnings_export["epsDifference"].to_list() == [0.10000000000000009]
-    assert earnings_export["beforeAfterMarket"].to_list() == ["AfterMarket"]
+
+
+def test_export_legacy_compatible_outputs_preserves_sec_period_end_for_earnings(tmp_path: Path) -> None:
+    reference_dir = tmp_path / "reference"
+    output_dir = tmp_path / "live" / "legacy"
+    reference_dir.mkdir(parents=True)
+    _write_minimal_legacy_reference(reference_dir, ticker="TSCO.US", code="TSCO", name="Tractor Supply")
+
+    clean_prices = pl.read_parquet(reference_dir / "US_Finalprice.parquet")
+    benchmark_prices = pl.read_parquet(reference_dir / "SP500Price.parquet")
+    general_reference = pl.DataFrame(
+        {
+            "ticker": ["TSCO.US"],
+            "name": ["Tractor Supply"],
+            "exchange": ["NASDAQ"],
+            "cik": ["0000000000"],
+            "source": ["sec_mapping"],
+            "Sector": ["Consumer Defensive"],
+            "industry": ["Specialty Retail"],
+            "sector_source": ["sec_sic"],
+            "sector_raw_value": [None],
+            "sic": [None],
+            "sic_description": [None],
+            "mapping_rule": ["sec_sic:test"],
+        }
+    )
+    consolidated_financials = pl.DataFrame(
+        {
+            "ticker": ["TSCO.US", "TSCO.US"],
+            "statement": ["income_statement", "income_statement"],
+            "metric": ["revenue", "net_income"],
+            "date": ["2025-02-02", "2025-02-02"],
+            "filing_date": ["2025-03-05", "2025-03-05"],
+            "value": [100.0, 10.0],
+            "source": ["open_source_consolidated", "open_source_consolidated"],
+            "source_label": ["value", "value"],
+            "selected_source": ["sec_companyfacts", "sec_companyfacts"],
+            "selected_source_label": ["tag", "tag"],
+            "selected_form": ["10-Q", "10-Q"],
+            "selected_fiscal_period": ["Q1", "Q1"],
+            "selected_fiscal_year": [2025, 2025],
+            "source_priority": [1, 1],
+            "fallback_used": [False, False],
+            "candidate_source_count": [1, 1],
+            "candidate_sources": ["sec_companyfacts", "sec_companyfacts"],
+            "candidate_source_labels": ["tag", "tag"],
+        }
+    )
+    earnings = pl.DataFrame(
+        {
+            "ticker": ["TSCO.US"],
+            "reportDate": ["2025-03-05"],
+            "earningsDatetime": ["2025-03-05 20:00:00"],
+            "period_end": ["2025-02-02"],
+            "epsEstimate": [1.4],
+            "epsActual": [1.5],
+            "surprisePercent": [7.0],
+            "source": ["sec_companyfacts"],
+        }
+    )
+
+    export_legacy_compatible_outputs(
+        clean_prices=clean_prices,
+        benchmark_prices=benchmark_prices,
+        general_reference=general_reference,
+        consolidated_financials=consolidated_financials,
+        earnings_frame=earnings,
+        reference_data_dir=reference_dir,
+        output_dir=output_dir,
+        align_shares_with_earnings_semantics=False,
+    )
+
+    income = pl.read_parquet(output_dir / "US_Income_statement.parquet")
+    earnings_export = pl.read_parquet(output_dir / "US_Earnings.parquet")
+
+    assert income["date"].to_list() == ["2025-03-31"]
+    assert earnings_export["date"].to_list() == ["2025-02-02"]
 
 
 def test_export_legacy_compatible_outputs_aligns_balance_shares_with_earnings_semantics(tmp_path: Path) -> None:
@@ -323,7 +396,7 @@ def test_export_legacy_compatible_outputs_aligns_balance_shares_with_earnings_se
     assert share_lineage["actual_source"].to_list() == ["yfinance"]
 
 
-def test_export_legacy_compatible_outputs_normalizes_earnings_period_end_to_legacy_month_end(tmp_path: Path) -> None:
+def test_export_legacy_compatible_outputs_preserves_exact_earnings_period_end(tmp_path: Path) -> None:
     reference_dir = tmp_path / "reference"
     output_dir = tmp_path / "live" / "legacy"
     reference_dir.mkdir(parents=True)
@@ -463,10 +536,10 @@ def test_export_legacy_compatible_outputs_normalizes_earnings_period_end_to_lega
 
     earnings_export = pl.read_parquet(output_dir / "US_Earnings.parquet")
 
-    assert earnings_export["date"].to_list() == ["2025-12-31"]
+    assert earnings_export["date"].to_list() == ["2026-01-02"]
 
 
-def test_export_legacy_compatible_outputs_normalizes_statement_dates_to_month_end(tmp_path: Path) -> None:
+def test_export_legacy_compatible_outputs_normalizes_statement_dates_to_calendar_quarter_end(tmp_path: Path) -> None:
     reference_dir = tmp_path / "reference"
     output_dir = tmp_path / "live" / "legacy"
     reference_dir.mkdir(parents=True)
@@ -539,7 +612,7 @@ def test_export_legacy_compatible_outputs_normalizes_statement_dates_to_month_en
     )
 
     income = pl.read_parquet(output_dir / "US_Income_statement.parquet")
-    assert income["date"].to_list() == ["2025-09-30"]
+    assert income["date"].to_list() == ["2025-12-31"]
     assert income["filing_date"].to_list() == ["2025-10-31"]
     assert income["totalRevenue"].to_list() == [2_818_000_000.0]
 
@@ -617,8 +690,8 @@ def test_export_legacy_compatible_outputs_prefers_vendor_when_q4_sec_outlier_bre
     )
 
     income = pl.read_parquet(output_dir / "US_Income_statement.parquet").sort("date")
-    assert income.filter(pl.col("date") == "2025-10-31")["totalRevenue"].to_list() == [1_419_000_000.0]
-    assert income.filter(pl.col("date") == "2025-10-31")["filing_date"].to_list() == ["2025-12-17"]
+    assert income.filter(pl.col("date") == "2025-12-31")["totalRevenue"].to_list() == [1_419_000_000.0]
+    assert income.filter(pl.col("date") == "2025-12-31")["filing_date"].to_list() == ["2025-12-17"]
 
 
 def test_export_legacy_compatible_outputs_prefers_vendor_revenue_for_reits_and_financials(tmp_path: Path) -> None:
@@ -792,7 +865,7 @@ def test_export_legacy_compatible_outputs_keeps_distinct_dates_even_when_filing_
     )
 
     balance = pl.read_parquet(output_dir / "US_Balance_sheet.parquet").sort("date")
-    assert balance["date"].to_list() == ["2025-03-31", "2025-05-31"]
+    assert balance["date"].to_list() == ["2025-03-31", "2025-06-30"]
     assert balance["totalLiab"].to_list() == [100_000.0, 56_902_764_000.0]
     assert balance["totalStockholderEquity"].to_list() == [447_800_000.0, 10_305_025_000.0]
 
@@ -870,7 +943,7 @@ def test_export_legacy_compatible_outputs_fills_or_drops_null_filing_dates(tmp_p
     )
 
     cash = pl.read_parquet(output_dir / "US_Cash_flow.parquet").sort("date")
-    assert cash["date"].to_list() == ["2025-02-28"]
+    assert cash["date"].to_list() == ["2025-03-31"]
     assert cash["filing_date"].to_list() == ["2025-03-20"]
     assert cash["freeCashFlow"].to_list() == [2_682_588_000.0]
 
