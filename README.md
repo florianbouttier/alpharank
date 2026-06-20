@@ -208,7 +208,7 @@ Current operating status for fundamentals:
 - default reference package: `data/sec/output/`
 - current KPI objective: close the gaps on `epsActual`, `revenue`, and `net_income`
 - quality target: less than `1 %` missing on the worst audited year
-- best current candidate: `outputs/sec_q4_fix2_candidate_combo_output_latest/`
+- best current candidate: `outputs/sec_kpi_hybrid_output_latest/`
 - latest external-facing status note: `docs/sec_open_source_status.md`
 - scenario comparison report: `outputs/sec_kpi_scenario_comparison_latest/summary.md`
 

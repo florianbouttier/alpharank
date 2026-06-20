@@ -1,6 +1,6 @@
 # SEC Open-Source Status
 
-Derniere mise a jour: `2026-05-24`
+Derniere mise a jour: `2026-05-25`
 
 Ce document est le point d'entree a lire en premier pour comprendre l'etat reel des fondamentaux open source dans AlphaRank.
 
@@ -15,12 +15,13 @@ La cible active est plus etroite et plus mesurable:
 
 ## Decision actuelle
 
-Pour les fondamentaux, il faut raisonner sur trois packages differents:
+Pour les fondamentaux, il faut raisonner sur quatre packages differents:
 
-| Package | Role | Statut au `2026-05-24` |
+| Package | Role | Statut au `2026-05-25` |
 | --- | --- | --- |
 | `data/sec/output/` | package SEC-only canonique | **base officielle actuelle** |
-| `outputs/sec_q4_fix2_candidate_combo_output_latest/` | workflow autonome parser Q4 + refresh cible + overlay historique | **meilleur candidat global observe a date** |
+| `outputs/sec_kpi_hybrid_output_latest/` | fusion selective KPI entre le meilleur chemin `EPS` et le meilleur chemin `revenue` / `net_income` | **meilleur candidat global observe a date** |
+| `outputs/sec_q4_fix2_candidate_combo_output_latest/` | workflow autonome parser Q4 + refresh cible + overlay historique | **meilleur candidat package-entier avant fusion selective** |
 | `outputs/sec_overlay_fix2_output/` | meilleur overlay historique teste seul | **meilleur overlay pur a date** |
 | `outputs/sec_overlay_multi_history_output/` | overlay multi-snapshots large | **experience utile, non promue** |
 
@@ -28,7 +29,7 @@ Ce qu'il faut retenir:
 
 - `data/open_source/output/` n'est **pas** le bon package pour piloter l'objectif `<1 %` sur `EPS`, `revenue` et `net_income`
 - le travail KPI coeur se fait aujourd'hui sur la branche `SEC-only`
-- `outputs/sec_q4_fix2_candidate_combo_output_latest/` est le meilleur resultat global concret observe jusqu'ici
+- `outputs/sec_kpi_hybrid_output_latest/` est le meilleur resultat global concret observe jusqu'ici
 - l'overlay multi-history a enrichi la couverture brute, mais il a aussi rouvert des annees anciennes plus trouees et a donc degrade le pire cas
 
 ## Score actuel
@@ -73,11 +74,10 @@ Pire annee par KPI:
 
 Interpretation:
 
-- l'overlay `fix2` est le **meilleur compromis** observe
-- il n'est **pas** le meilleur sur `EPS`: la baseline SEC actuelle fait mieux sur ce KPI
-- il ameliore nettement `revenue` et `net_income`
-- il reste le meilleur compromis global sur les trois KPI coeur, car son pire cas global (`3.40 %`) est legerement meilleur que celui de la baseline (`3.50 %`)
-- il ne permet pas encore d'atteindre la cible `<1 %`
+- `fix2` reste la meilleure brique historique pure pour `revenue` et `net_income`
+- il n'est **pas** le meilleur sur `EPS`
+- il sert maintenant de composant du package hybride, pas de candidat final recommande
+- seul, il ne permet pas d'atteindre la cible `<1 %`
 
 ### Probe parser Q4: `outputs/sec_q4_probe_output/`
 
@@ -104,9 +104,8 @@ Pire annee par KPI:
 Interpretation:
 
 - le correctif parser apporte un **gain reel** par rapport a la baseline SEC actuelle sur les trois KPI coeur
-- c'est le meilleur resultat observe a date sur `EPS`
-- il reste moins bon que `fix2` sur `revenue` et `net_income`
-- la prochaine experience logique est donc la combinaison `q4_probe + fix2`
+- il a servi de base au chemin `q4_fix2_candidate`, puis au package hybride final
+- seul, il reste moins bon que `fix2` sur `revenue` et `net_income`
 
 ### Experience non promue: `outputs/sec_overlay_multi_history_output/`
 
@@ -135,7 +134,36 @@ Conclusion:
 - garder cette experience comme outillage de diagnostic
 - ne pas la presenter comme le nouveau package de reference
 
-### Meilleur candidat global actuel: `outputs/sec_q4_fix2_candidate_combo_output_latest/`
+### Meilleur candidat global actuel: `outputs/sec_kpi_hybrid_output_latest`
+
+Cette experience combine vraiment les deux methodes qui avaient des avantages differents:
+
+- base `q4_fix2_candidate` pour garder le gain de refresh cible et le correctif `Q4`
+- `revenue` et `net_income` repris depuis `fix2`, puis backfilles avec la base si besoin
+- `epsActual` garde la base `q4_fix2_candidate`, puis recupere les quarts ou `fix2` publie un `EPS` non nul alors que la base ne l'a pas
+
+Rapports associes:
+
+- `outputs/sec_kpi_hybrid_quality_latest/`
+- `outputs/sec_kpi_hybrid_yearly_latest/`
+- `outputs/sec_kpi_hybrid_yearly_latest/worst_year_brief.md`
+
+Pire annee par KPI:
+
+| KPI | Pire annee | Trous | Taux de manque |
+| --- | --- | ---: | ---: |
+| `epsActual` | `2022` | 22 | `0.86 %` |
+| `net_income` | `2023` | 49 | `1.90 %` |
+| `revenue` | `2023` | 49 | `1.90 %` |
+
+Interpretation:
+
+- oui, les deux methodes peuvent etre combinees proprement
+- la fusion selective domine maintenant tous les autres scenarios testes
+- `EPS` passe sous `1 %`
+- `revenue` et `net_income` n'y sont pas encore, mais on descend de `3.50 %` sur la baseline a `1.90 %`
+
+### Meilleur candidat package-entier avant fusion selective: `outputs/sec_q4_fix2_candidate_combo_output_latest`
 
 Cette experience combine:
 
@@ -159,10 +187,10 @@ Pire annee par KPI:
 
 Interpretation:
 
-- c'est le meilleur **pire cas global** observe jusqu'ici sur les trois KPI coeur
+- c'etait le meilleur **package entier** avant de passer a une fusion selective par KPI
 - il garde le gain `EPS` du probe parser Q4
 - il recupere une partie du gain `revenue` / `net_income` de `fix2`
-- la cible `<1 %` reste loin, mais la frontiere actuelle descend de `3.50 %` pour la baseline a `2.64 %` sur ce candidat
+- il reste utile comme base de travail pour le workflow autonome
 
 ## Ce qui est deja solide
 
@@ -171,6 +199,7 @@ Interpretation:
 - les snapshots historiques existent sous `data/sec/history/output/`
 - un script d'overlay reproductible existe maintenant: `scripts/open_source/build_sec_overlay_package.py`
 - ce script sait merger plusieurs snapshots et conserver la provenance via `overlay_origin`
+- un script de fusion selective KPI existe maintenant: `scripts/open_source/build_sec_metric_hybrid_package.py`
 
 ## Ce qui bloque encore la cible `<1 %`
 
@@ -241,6 +270,7 @@ Pour rejouer sans bricolage manuel le pipeline qui:
 - refresh les `companyfacts` SEC de cette cohorte
 - rebuild un package probe
 - applique `fix2` par-dessus
+- construit ensuite le package hybride KPI
 - republie les rapports annuels et le brief KPI
 
 utiliser:
@@ -249,7 +279,11 @@ utiliser:
 ./.venv/bin/python scripts/open_source/run_sec_q4_fix2_candidate.py
 ```
 
-Le script ecrit un manifest horodate et publie les chemins exacts du candidat combine en sortie.
+Le script ecrit un manifest horodate et republie aussi:
+
+- `outputs/sec_kpi_hybrid_output_latest/`
+- `outputs/sec_kpi_hybrid_quality_latest/`
+- `outputs/sec_kpi_hybrid_yearly_latest/`
 
 ### 6. Comparaison lisible des scenarios
 

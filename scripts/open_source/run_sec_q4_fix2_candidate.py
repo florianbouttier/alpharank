@@ -98,6 +98,9 @@ def main() -> None:
     combo_output_dir = output_prefix.parent / f"{output_prefix.name}_combo_output_{timestamp}"
     combo_quality_dir = output_prefix.parent / f"{output_prefix.name}_combo_quality_{timestamp}"
     combo_yearly_dir = output_prefix.parent / f"{output_prefix.name}_combo_yearly_{timestamp}"
+    hybrid_output_dir = output_prefix.parent / f"sec_kpi_hybrid_output_{timestamp}"
+    hybrid_quality_dir = output_prefix.parent / f"sec_kpi_hybrid_quality_{timestamp}"
+    hybrid_yearly_dir = output_prefix.parent / f"sec_kpi_hybrid_yearly_{timestamp}"
     manifest_path = output_prefix.parent / f"{output_prefix.name}_manifest_{timestamp}.json"
 
     target_tickers = _load_target_tickers(
@@ -194,6 +197,44 @@ def main() -> None:
             str(args.end_year),
         ],
     )
+    _run_python(
+        project_root=project_root,
+        args=[
+            "scripts/open_source/build_sec_metric_hybrid_package.py",
+            "--base-sec-dir",
+            str(combo_output_dir),
+            "--eps-fallback-sec-dir",
+            str(args.fix2_sec_dir.resolve()),
+            "--output-dir",
+            str(hybrid_output_dir),
+        ],
+    )
+    _run_python(
+        project_root=project_root,
+        args=[
+            "scripts/open_source/build_sec_quality_dashboard.py",
+            "--sec-output-dir",
+            str(hybrid_output_dir),
+            "--output-dir",
+            str(hybrid_quality_dir),
+        ],
+    )
+    _run_python(
+        project_root=project_root,
+        args=[
+            "scripts/open_source/build_sec_core_kpi_yearly_report.py",
+            "--sec-output-dir",
+            str(hybrid_output_dir),
+            "--quality-dir",
+            str(hybrid_quality_dir),
+            "--output-dir",
+            str(hybrid_yearly_dir),
+            "--start-year",
+            str(args.start_year),
+            "--end-year",
+            str(args.end_year),
+        ],
+    )
 
     manifest = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -207,6 +248,9 @@ def main() -> None:
         "combo_output_dir": str(combo_output_dir),
         "combo_quality_dir": str(combo_quality_dir),
         "combo_yearly_dir": str(combo_yearly_dir),
+        "hybrid_output_dir": str(hybrid_output_dir),
+        "hybrid_quality_dir": str(hybrid_quality_dir),
+        "hybrid_yearly_dir": str(hybrid_yearly_dir),
         "kpi_year_pairs": [{"metric": metric, "fiscal_year": fiscal_year} for metric, fiscal_year in DEFAULT_KPI_YEAR_PAIRS],
         "target_tickers": target_tickers,
         "start_year": args.start_year,
@@ -222,6 +266,9 @@ def main() -> None:
         combo_output_dir: output_prefix.parent / f"{output_prefix.name}_combo_output_latest",
         combo_quality_dir: output_prefix.parent / f"{output_prefix.name}_combo_quality_latest",
         combo_yearly_dir: output_prefix.parent / f"{output_prefix.name}_combo_yearly_latest",
+        hybrid_output_dir: output_prefix.parent / "sec_kpi_hybrid_output_latest",
+        hybrid_quality_dir: output_prefix.parent / "sec_kpi_hybrid_quality_latest",
+        hybrid_yearly_dir: output_prefix.parent / "sec_kpi_hybrid_yearly_latest",
         manifest_path: output_prefix.parent / f"{output_prefix.name}_manifest_latest.json",
     }
     for source, destination in latest_map.items():

@@ -15,6 +15,7 @@ DEFAULT_SCENARIOS: tuple[tuple[str, str], ...] = (
     ("q4_probe", "outputs/sec_q4_probe_yearly"),
     ("q4_fix2_combo", "outputs/sec_q4_fix2_combo_yearly"),
     ("q4_fix2_candidate", "outputs/sec_q4_fix2_candidate_combo_yearly_latest"),
+    ("metric_hybrid", "outputs/sec_kpi_hybrid_yearly_latest"),
 )
 
 
