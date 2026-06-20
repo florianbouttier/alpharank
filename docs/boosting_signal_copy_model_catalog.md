@@ -38,6 +38,64 @@ Legacy. Si Legacy choisit 4 tickers, le modele en choisit 4. Si Legacy en
 choisit 7, le modele en choisit 7. Si Legacy en choisit 10, le modele en choisit
 10. Le score du mois est seulement la part de tickers communs.
 
+### Definition concrete du score de recomposition
+
+Quand cette doc dit `2 070 / 2 070 = 100%`, cela veut dire uniquement :
+
+```text
+Sur l'ensemble des mois testes, Legacy a choisi 2 070 lignes ticker/mois.
+Pour chaque mois, le modele a choisi le meme nombre de tickers que Legacy.
+Les tickers choisis par le modele sont tombes 2 070 fois sur un ticker choisi
+par Legacy.
+```
+
+Exemple simple :
+
+```text
+Mois M:
+Legacy choisit 7 actions.
+Le modele score tout l'univers.
+On prend les 7 meilleurs scores du modele.
+Si 5 de ces 7 actions sont aussi dans Legacy, le mois vaut 5 / 7 = 71.4%.
+```
+
+Donc `100%` ne veut pas dire que le rendement futur est predit parfaitement. Ca
+veut dire que la selection top-K du modele recompose exactement les paniers
+Legacy sur le test mesure. C'est une metrique de recouvrement des trades, pas
+une metrique de performance boursiere.
+
+### Fiche de lecture obligatoire par methode
+
+Pour chaque methode, il faut garder quatre questions separees :
+
+1. **Ce qui est appris** : regression, classification, ranking, ou score
+   deterministe.
+2. **Les variables disponibles** : features prix/EMA/fondamentales, features
+   atomiques Legacy, ou features d'experts EMA generalisables.
+3. **L'ensemble de test** : periode et nombre de lignes Legacy a recomposer.
+4. **Ce qu'on retrouve** : nombre de tickers communs avec Legacy, pas rendement.
+
+Table de synthese des runs longs importants :
+
+| methode | ce qui est appris ou score | variables utilisees | ensemble de test | ce qu'on retrouve |
+|---|---|---|---|---|
+| `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
+| `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
+| `atomic_feature_future_target` | futur rendement relatif : regression de `future_excess_return` clippe, classification `>0%` / `>5%`, ranking mensuel | features atomiques derivees des blocs Legacy : votes par bloc, flags `Legacy_Optuna_*`, quantiles/ratios `mtr`, rangs mensuels atomiques; certaines variantes ajoutent aussi EMA | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | regression = `2 070 / 2 070 = 100%`; classifieur `>5%` = `2 041 / 2 070 = 98.6%` |
+| `generalized_ema_expert` | score deterministe et modeles ML sur futur rendement relatif | experts EMA parametriques `short/long/n_actions/secteur`, selectionnes chaque mois par performance passee; features ticker = votes/scores/mtr/rangs des experts actifs | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur vrai candidat generalisable = somme des scores experts EMA, `1 254 / 2 070 = 60.6%`; XGBoost `>5%` = 42.1% |
+
+Lecture importante :
+
+- `atomic_feature_future_target` est le meilleur pour **recomposer Legacy**, mais
+  il utilise des variables qui viennent des briques Legacy exactes. C'est une
+  preuve que la representation contient le signal.
+- `generalized_ema_expert` est le meilleur pour **generaliser sans utiliser la
+  selection Legacy comme feature directe**. C'est le candidat le plus sain pour
+  continuer.
+- Les modeles `future_excess_return` purs sur EMA enrichies ne suffisent pas :
+  ils apprennent un peu de signal boursier, mais pas assez la logique de
+  selection Legacy.
+
 ## Timeline
 
 | date | commit / run | objet |
