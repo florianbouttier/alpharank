@@ -525,13 +525,16 @@ Training sur futur rendement relatif :
 
 Lecture :
 
+- oui, `atomic_regression` retrouve toutes les actions Legacy sur tous les mois
+  testes : minimum mensuel = 100%, mediane mensuelle = 100%, 0 mois sous 100% ;
 - on depasse l'objectif 50% des que les features atomiques exactes sont dans le
   frame ;
 - la classification `>5%` et la regression recuperent presque exactement Legacy,
   sans target `legacy_selected`, parce que les features portent le signal Legacy
   lui-meme ;
-- ce n'est pas encore une preuve de generalisation hors Legacy : c'est un
-  diagnostic de representation ;
+- ce n'est pas un candidat final sain : les variables atomiques viennent des
+  briques Legacy exactes, donc ce run doit etre lu comme un plafond de
+  replication / diagnostic de representation, pas comme une generalisation ;
 - la prochaine etape doit separer deux usages :
   1. mode "replication Legacy" : utiliser les features atomiques exactes ;
   2. mode "generalisation" : generer des couples EMA candidats hors winners
