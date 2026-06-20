@@ -16,6 +16,7 @@ venv/
 
 # Runtime outputs
 outputs/
+logs/
 *.html
 debug/
 
@@ -34,6 +35,7 @@ debug/
 *.pkl
 
 # Dataset snapshots
+data/sec/
 data/**/*.parquet
 data/**/*.csv
 data/**/*.feather

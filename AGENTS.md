@@ -37,7 +37,12 @@ procedure changes.
 - Run the narrowest relevant tests after changes.
 - Summarize what changed, what was run, and remaining risks.
 - When a task exposes stale or ambiguous process documentation, update the relevant docs in the same task.
-- For delegated research work, maintain a central markdown note or report that records the hypothesis, data used, command/run id, primary metric, result, and next decision.
+- Keep documentation centralized. Do not create scattered one-off notes when a canonical note exists.
+- `docs/CODEX_HANDOFF.md` is the central cross-track handoff and must point to the specialized docs that matter.
+- For boosting/Legacy-copy R&D, update `docs/boosting_signal_copy_model_catalog.md`; do not create parallel experiment notes unless they are linked from the handoff and intentionally promoted.
+- For SEC/open-source data status, update `docs/sec_open_source_status.md` and `docs/sec_data_robustness_plan.md` as applicable.
+- For monthly portfolio production, update `docs/monthly_portfolio_runbook.md`.
+- Every delegated research update should record, in the relevant central doc, the hypothesis, data used, command/run id, primary metric, result, and next decision.
 - Prefer project-visible memory in `AGENTS.md`, `AGENT.md`, and relevant docs over relying on chat history.
 
 ## Monthly Portfolio Workflow

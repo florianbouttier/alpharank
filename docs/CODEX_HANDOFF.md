@@ -1,9 +1,122 @@
 # Codex Handoff
 
-Last updated: 2026-03-15
-Branch at write time: `update_probalisor`
+Last updated: 2026-06-20
+Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
+
+## 0. Documentation Map
+
+This file is the central cross-track note. Do not create scattered experiment
+notes when one of these canonical documents already fits:
+
+- Boosting / Legacy-copy R&D:
+  [`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md)
+- Monthly portfolio production:
+  [`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md)
+- SEC/open-source data status:
+  [`docs/sec_open_source_status.md`](./sec_open_source_status.md)
+- SEC data robustness and replay incident:
+  [`docs/sec_data_robustness_plan.md`](./sec_data_robustness_plan.md)
+- SEC/open-source audit appendices:
+  [`docs/audit_donnees_financieres_2025.md`](./audit_donnees_financieres_2025.md),
+  [`docs/rapport_couverture_sp500_revenue_netincome.md`](./rapport_couverture_sp500_revenue_netincome.md),
+  [`docs/rapport_trous_ticker_par_ticker.md`](./rapport_trous_ticker_par_ticker.md)
+- Backtest feature formulas:
+  [`docs/backtest_feature_reference.md`](./backtest_feature_reference.md)
+- Open-source ingestion architecture:
+  [`docs/open_source_ingestion_architecture.md`](./open_source_ingestion_architecture.md)
+
+When work changes a method, run procedure, data lineage rule, or R&D conclusion,
+update the relevant canonical doc in the same commit. New notes should be rare
+and linked here if they become durable references.
+
+## 0.1 June 2026 Summary
+
+### Boosting / Legacy-copy R&D
+
+Goal clarified with the user:
+
+```text
+Find model selections that recover Legacy trades, while learning from future
+excess return where possible.
+```
+
+The primary metric is now:
+
+```text
+number of stocks common between model and Legacy for the month
+/
+number of stocks chosen by Legacy for that month
+```
+
+Important methods tested:
+
+- CPCV / walk-forward XGBoost via the local `mlcraft` library.
+- Direct classifiers on `future_excess_return > 0%` and `> 5%`.
+- Direct regression on clipped future excess return.
+- Ranking objectives.
+- Residual/init-score models using a base model then residual boosting.
+- EMA-rich feature sets.
+- Seven signal-copy variants, including `distill_legacy`, pairwise ranking,
+  regression, monotone EMA constraints, two-stage EMA/full model, EMA-gated full
+  model, and weighted classifiers.
+- Atomic Legacy decomposition of the Optuna/EMA blocks.
+- Generalized EMA experts: parametric EMA rules selected by trailing future
+  excess return, without using the final Legacy selection as a feature.
+
+Current conclusion:
+
+- Direct future-return models with the original feature set did not recover
+  Legacy well enough.
+- Atomic Legacy features prove the representation problem: once the exact
+  atomic Legacy signals are visible, recovery can exceed 98%, but that is not a
+  generalizable final model.
+- Best generalizable result so far is the deterministic EMA expert score:
+  `1,254 / 2,070 = 60.6%` recomposition over 195 Legacy months, with 70% median
+  monthly recomposition.
+- XGBoost/mlcraft trained on that best generalized EMA-expert frame did not beat
+  the deterministic expert score: the `future_excess_return > 5%` classifier
+  reached 42.1% recomposition.
+
+Detailed source of truth:
+[`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md).
+
+### Monthly Portfolio / Replayability
+
+The monthly `ptf du mois` remains the Legacy workflow, not the boosting R&D
+workflow.
+
+Current production rule:
+
+- run through `scripts/run_legacy.py`;
+- compute from a timestamped `input_snapshot/`, not from a mutable data folder;
+- keep `data_input_manifest.json`, file hashes, source run ids, code hashes, and
+  legacy parquet outputs;
+- prefer `--open-source-run-id` for point-in-time replays.
+
+Detailed source of truth:
+[`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md).
+
+### SEC / Open-Source Data
+
+The SEC-only fundamentals track was separated from the broader mixed
+open-source package. The active SEC-quality work focuses on reducing missing
+coverage for `epsActual`, `revenue`, and `net_income`, while keeping lineage
+visible.
+
+Current notable result:
+
+- the metric-level hybrid package combines the best observed EPS path with the
+  better `revenue` / `net_income` path;
+- latest documented candidate: `outputs/sec_kpi_hybrid_output_latest/`;
+- worst-year missingness documented at: `epsActual 0.86%`, `revenue 1.90%`,
+  `net_income 1.90%`.
+
+Detailed sources of truth:
+
+- [`docs/sec_open_source_status.md`](./sec_open_source_status.md)
+- [`docs/sec_data_robustness_plan.md`](./sec_data_robustness_plan.md)
 
 ## 1. Current priorities
 
