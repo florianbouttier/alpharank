@@ -8,6 +8,7 @@ Important scope note:
 
 - this document describes the multi-source open-source store under `data/open_source/`
 - the SEC-only fundamentals package has its own contract in `docs/sec_fundamentals_contract.md`
+- the June 2026 replayability and data-drift incident is tracked in `docs/sec_data_robustness_plan.md`
 
 ## Core Rules
 
@@ -17,7 +18,7 @@ Important scope note:
 4. Clean tables are rebuilt from the full raw store on every successful run.
 5. Legacy-compatible exact-name outputs are published under `data/open_source/output/`.
 6. The published lineage package lives under `data/open_source/output/lineage/`.
-7. Published outputs are historized under `data/open_source/history/output/` before overwrite.
+7. Published outputs are historized under `data/open_source/history/output/` after the final package is written.
 8. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
 9. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
 10. Nightly automation keeps a lock and status file under `data/open_source/official/manifests/` to avoid overlapping writers.
@@ -26,6 +27,7 @@ Important consequence:
 
 - If a delisted ticker has already been ingested into `raw/`, a nightly rerun does not remove it from the official store.
 - The current pipeline has no built-in delete or purge path for open-source data.
+- A retained `history/output/open_source_output_*` snapshot must be the final published package for its run. Its `snapshot_manifest.json`, `lineage/manifest.json`, and `official/runs/<run_id>/manifest.json` must agree on the same `run_id`; otherwise the snapshot is not a clean replay source.
 
 I verified this in code:
 

@@ -36,16 +36,6 @@ def publish_open_source_output_package(
     history_root: Path | None = None,
     snapshot_prefix: str = "open_source_output",
 ) -> PublishedOutputResult:
-    snapshot_dir = (
-        snapshot_output_directory(
-            output_dir,
-            history_root=history_root,
-            snapshot_prefix=snapshot_prefix,
-            metadata=manifest,
-        )
-        if history_root is not None
-        else None
-    )
     output_dir.mkdir(parents=True, exist_ok=True)
     lineage_dir = output_dir / "lineage"
     lineage_dir.mkdir(parents=True, exist_ok=True)
@@ -110,5 +100,16 @@ def publish_open_source_output_package(
         manifest_path = lineage_dir / "manifest.json"
         write_json(manifest_path, manifest)
         published["lineage/manifest.json"] = manifest_path
+
+    snapshot_dir = (
+        snapshot_output_directory(
+            output_dir,
+            history_root=history_root,
+            snapshot_prefix=snapshot_prefix,
+            metadata=manifest,
+        )
+        if history_root is not None
+        else None
+    )
 
     return PublishedOutputResult(published_paths=published, snapshot_dir=snapshot_dir)

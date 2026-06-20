@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import polars as pl
@@ -55,7 +56,10 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
     assert (output_dir / "lineage" / "manifest.json").exists()
     assert "lineage/financials_open_source_lineage.parquet" in published.published_paths
     assert "lineage/legacy_share_semantics.parquet" in published.published_paths
-    assert published.snapshot_dir is None
+    assert published.snapshot_dir is not None
+    assert published.snapshot_dir.exists()
+    assert json.loads((published.snapshot_dir / "snapshot_manifest.json").read_text(encoding="utf-8")) == {"run_id": "abc"}
+    assert json.loads((published.snapshot_dir / "lineage" / "manifest.json").read_text(encoding="utf-8")) == {"run_id": "abc"}
 
     second = publish_open_source_output_package(
         output_dir=output_dir,
@@ -76,3 +80,5 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
     )
     assert second.snapshot_dir is not None
     assert second.snapshot_dir.exists()
+    assert json.loads((second.snapshot_dir / "snapshot_manifest.json").read_text(encoding="utf-8")) == {"run_id": "def"}
+    assert json.loads((second.snapshot_dir / "lineage" / "manifest.json").read_text(encoding="utf-8")) == {"run_id": "def"}

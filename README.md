@@ -306,6 +306,9 @@ Each legacy run also writes its own input manifest to:
 outputs/YYYY-MM-DD/data_input_manifest.json
 ```
 
+Monthly portfolio production is documented in
+[`docs/monthly_portfolio_runbook.md`](docs/monthly_portfolio_runbook.md).
+
 This makes it possible to distinguish:
 
 - source files changed

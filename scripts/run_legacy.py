@@ -1,5 +1,15 @@
 # %%
+import argparse
+import contextlib
+import hashlib
+import importlib.metadata
+import json
 import os
+import platform
+import re
+import shutil
+import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from calendar import monthrange
@@ -15,6 +25,18 @@ from alpharank.features.indicators import TechnicalIndicators
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.utils.frame_backend import normalize_year_month_to_period, to_pandas, to_polars
 from alpharank.visualization.plotting import PortfolioVisualizer
+
+
+INPUT_PACKAGE_FILENAMES: Dict[str, str] = {
+    "final_price": "US_Finalprice.parquet",
+    "general": "US_General.parquet",
+    "income_statement": "US_Income_statement.parquet",
+    "balance_sheet": "US_Balance_sheet.parquet",
+    "cash_flow": "US_Cash_flow.parquet",
+    "earnings": "US_Earnings.parquet",
+    "sp500_constituents": "SP500_Constituents.csv",
+    "sp500_price": "SP500Price.parquet",
+}
 
 
 @dataclass
@@ -61,6 +83,251 @@ def _input_files(data_dir: Path, *, final_price_path: Path | None = None, sp500_
     }
 
 
+def _sha256_path(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _copy_if_exists(source: Path, destination: Path) -> None:
+    if source.exists():
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+
+def _snapshot_input_package(*, source_data_dir: Path, input_files: Dict[str, Path], run_day_dir: Path) -> Path:
+    snapshot_dir = run_day_dir / "input_snapshot"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    for name, source_path in input_files.items():
+        target_name = INPUT_PACKAGE_FILENAMES[name]
+        shutil.copy2(source_path, snapshot_dir / target_name)
+
+    lineage_dir = source_data_dir / "lineage"
+    if lineage_dir.exists():
+        shutil.copytree(lineage_dir, snapshot_dir / "lineage", dirs_exist_ok=True)
+    for metadata_name in ("snapshot_manifest.json", "latest_snapshot.json", "README.md"):
+        _copy_if_exists(source_data_dir / metadata_name, snapshot_dir / metadata_name)
+    return snapshot_dir
+
+
+def _read_json_if_exists(path: Path) -> Dict[str, Any] | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _resolve_published_output_snapshot(official_dir: str | None, published_snapshot: str | None) -> Path | None:
+    if not official_dir or not published_snapshot:
+        return None
+    snapshot_path = Path(published_snapshot)
+    if snapshot_path.is_absolute():
+        return snapshot_path
+    official_path = Path(official_dir)
+    return official_path.parent / snapshot_path
+
+
+def _package_file_hashes(data_dir: Path) -> Dict[str, str]:
+    hashes: Dict[str, str] = {}
+    for file_name in INPUT_PACKAGE_FILENAMES.values():
+        path = data_dir / file_name
+        if path.exists():
+            hashes[file_name] = _sha256_path(path)
+    return hashes
+
+
+def _open_source_lineage_context(data_dir: Path) -> Dict[str, Any]:
+    output_manifest_path = data_dir / "lineage" / "manifest.json"
+    output_manifest = _read_json_if_exists(output_manifest_path)
+    if output_manifest is None:
+        return {}
+    snapshot_manifest_path = data_dir / "snapshot_manifest.json"
+    snapshot_manifest = _read_json_if_exists(snapshot_manifest_path)
+
+    lineage_run_id = output_manifest.get("run_id")
+    snapshot_run_id = snapshot_manifest.get("run_id") if snapshot_manifest else None
+    output_run_id = snapshot_run_id or lineage_run_id
+
+    context: Dict[str, Any] = {
+        "open_source_output_manifest_path": str(output_manifest_path.resolve()),
+        "open_source_output_run_id": output_run_id,
+        "open_source_output_lineage_run_id": lineage_run_id,
+        "open_source_official_dir": output_manifest.get("official_dir"),
+        "open_source_target_dir": output_manifest.get("target_dir"),
+        "open_source_output_dir": output_manifest.get("output_dir"),
+        "open_source_legacy_dir": output_manifest.get("legacy_dir"),
+    }
+    if snapshot_manifest is not None:
+        context["open_source_output_snapshot_manifest_path"] = str(snapshot_manifest_path.resolve())
+        context["open_source_output_snapshot_run_id"] = snapshot_run_id
+    if snapshot_run_id and lineage_run_id:
+        context["open_source_output_manifest_run_id_match"] = snapshot_run_id == lineage_run_id
+
+    official_dir = output_manifest.get("official_dir")
+    run_manifest_path = Path(official_dir) / "runs" / str(output_run_id) / "manifest.json" if official_dir and output_run_id else None
+    run_manifest = _read_json_if_exists(run_manifest_path) if run_manifest_path else None
+    latest_run_manifest_path = Path(official_dir) / "manifests" / "latest_run.json" if official_dir and run_manifest is None else None
+    latest_run = _read_json_if_exists(latest_run_manifest_path) if latest_run_manifest_path else None
+    ingestion_manifest = run_manifest or latest_run
+    ingestion_manifest_path = run_manifest_path if run_manifest is not None else latest_run_manifest_path
+    if ingestion_manifest is not None and ingestion_manifest_path is not None:
+        context.update(
+            {
+                "open_source_ingestion_manifest_path": str(ingestion_manifest_path.resolve()),
+                "open_source_ingestion_run_id": ingestion_manifest.get("run_id"),
+                "open_source_ingested_at": ingestion_manifest.get("ingested_at"),
+                "open_source_mode": ingestion_manifest.get("mode"),
+                "open_source_price_window": ingestion_manifest.get("price_window"),
+                "open_source_financial_years_refreshed": ingestion_manifest.get("financial_years_refreshed"),
+                "open_source_ticker_count": ingestion_manifest.get("ticker_count"),
+            }
+        )
+        published_snapshot = ingestion_manifest.get("published_output_snapshot")
+        published_snapshot_dir = _resolve_published_output_snapshot(official_dir, published_snapshot)
+        if published_snapshot_dir is not None:
+            context["open_source_ingestion_published_output_snapshot"] = str(published_snapshot_dir.resolve())
+            if published_snapshot_dir.exists():
+                current_hashes = _package_file_hashes(data_dir)
+                published_hashes = _package_file_hashes(published_snapshot_dir)
+                compared_files = sorted(set(current_hashes) | set(published_hashes))
+                differing_files = [
+                    file_name
+                    for file_name in compared_files
+                    if current_hashes.get(file_name) != published_hashes.get(file_name)
+                ]
+                context["open_source_output_matches_published_snapshot"] = not differing_files
+                context["open_source_output_published_snapshot_differing_files"] = differing_files
+            else:
+                context["open_source_output_matches_published_snapshot"] = False
+                context["open_source_output_published_snapshot_differing_files"] = ["<missing snapshot directory>"]
+
+    output_run_id = context.get("open_source_output_run_id")
+    ingestion_run_id = context.get("open_source_ingestion_run_id")
+    if output_run_id and ingestion_run_id:
+        context["open_source_run_id_match"] = output_run_id == ingestion_run_id
+
+    return {key: value for key, value in context.items() if value is not None}
+
+
+def _manifest_extra_context(
+    *,
+    data_dir: Path,
+    latest_snapshot: Dict[str, Any] | None,
+    source_data_dir: Path | None = None,
+    input_snapshot_dir: Path | None = None,
+    run_config: Dict[str, Any] | None = None,
+    code_context: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    extra: Dict[str, Any] = {
+        "data_dir": str(data_dir.resolve()),
+        "consumer": "scripts.run_legacy",
+    }
+    if source_data_dir is not None:
+        extra["source_data_dir"] = str(source_data_dir.resolve())
+    if input_snapshot_dir is not None:
+        extra["input_snapshot_dir"] = str(input_snapshot_dir.resolve())
+    if run_config is not None:
+        extra["run_config"] = run_config
+    if code_context is not None:
+        extra["code_context"] = code_context
+    if latest_snapshot is not None:
+        extra.update(
+            {
+                "source_snapshot_id": latest_snapshot.get("snapshot_id"),
+                "source_snapshot_generated_at": latest_snapshot.get("generated_at"),
+                "source_snapshot_dir": latest_snapshot.get("snapshot_dir"),
+                "source_snapshot_manifest_path": latest_snapshot.get("manifest_path"),
+            }
+        )
+    extra.update(_open_source_lineage_context(data_dir))
+    return {key: value for key, value in extra.items() if value is not None}
+
+
+def _git_output(project_root: Path, *args: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=project_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def _package_version(name: str) -> str | None:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def _code_context(project_root: Path) -> Dict[str, Any]:
+    critical_files = [
+        "scripts/run_legacy.py",
+        "src/alpharank/data/processing.py",
+        "src/alpharank/strategy/legacy.py",
+        "src/alpharank/data/open_source/legacy_export.py",
+        "src/alpharank/data/open_source/pipeline.py",
+        "src/alpharank/data/open_source/publishing.py",
+    ]
+    file_hashes = {
+        path: _sha256_path(project_root / path)
+        for path in critical_files
+        if (project_root / path).exists()
+    }
+    git_status = _git_output(project_root, "status", "--short")
+    return {
+        "git_head": _git_output(project_root, "rev-parse", "HEAD"),
+        "git_dirty": bool(git_status),
+        "git_status_short": git_status,
+        "critical_file_sha256": file_hashes,
+        "python_executable": sys.executable,
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "package_versions": {
+            "polars": _package_version("polars"),
+            "pandas": _package_version("pandas"),
+            "numpy": _package_version("numpy"),
+            "optuna": _package_version("optuna"),
+        },
+    }
+
+
+def _open_source_output_run_id(data_dir: Path) -> str | None:
+    try:
+        snapshot_manifest = _read_json_if_exists(data_dir / "snapshot_manifest.json")
+        if snapshot_manifest and snapshot_manifest.get("run_id"):
+            return snapshot_manifest.get("run_id")
+        manifest = _read_json_if_exists(data_dir / "lineage" / "manifest.json")
+    except json.JSONDecodeError:
+        return None
+    return None if manifest is None else manifest.get("run_id")
+
+
+def _resolve_open_source_output_by_run_id(project_root: Path, run_id: str) -> Path:
+    current_output_dir = project_root / "data" / "open_source" / "output"
+
+    history_root = project_root / "data" / "open_source" / "history" / "output"
+    for output_dir in sorted(history_root.glob("open_source_output_*"), reverse=True):
+        if _open_source_output_run_id(output_dir) == run_id:
+            return output_dir
+
+    if _open_source_output_run_id(current_output_dir) == run_id:
+        return current_output_dir
+
+    raise FileNotFoundError(
+        f"Open-source output package for run_id={run_id!r} was not found under "
+        f"{current_output_dir} or {history_root}."
+    )
+
+
 def _write_checkpoint(df: Any, checkpoints_dir: Optional[Path], name: str) -> None:
     if checkpoints_dir is None:
         return
@@ -84,22 +351,25 @@ def _sort_monthly_frame(df: Any) -> pl.DataFrame:
 
 
 def _named_frames_to_long(named_frames: Dict[str, Any], *, label_col: str = "model") -> pl.DataFrame:
+    has_label_collision = any(label_col in _sort_monthly_frame(frame).columns for frame in named_frames.values())
+    effective_label_col = f"portfolio_{label_col}" if has_label_collision else label_col
+
     frames: list[pl.DataFrame] = []
     for label, frame in named_frames.items():
         sorted_frame = _sort_monthly_frame(frame)
         if sorted_frame.is_empty():
             continue
         frames.append(
-            sorted_frame.with_columns(pl.lit(label).alias(label_col)).select(
-                [label_col, *sorted_frame.columns]
+            sorted_frame.with_columns(pl.lit(label).alias(effective_label_col)).select(
+                [effective_label_col, *sorted_frame.columns]
             )
         )
 
     if not frames:
-        return pl.DataFrame(schema={label_col: pl.Utf8})
+        return pl.DataFrame(schema={effective_label_col: pl.Utf8})
 
-    combined = pl.concat(frames, how="vertical_relaxed")
-    sort_cols = [c for c in [label_col, "year_month", "ticker"] if c in combined.columns]
+    combined = pl.concat(frames, how="diagonal_relaxed")
+    sort_cols = [c for c in [effective_label_col, "year_month", "ticker"] if c in combined.columns]
     if sort_cols:
         combined = combined.sort(sort_cols)
     return combined
@@ -195,6 +465,26 @@ def _build_report_context(
         source_generated_at = run_manifest.get("source_snapshot_generated_at")
         if source_generated_at:
             context["source_snapshot_generated_at"] = str(source_generated_at)
+        for key in (
+            "open_source_output_run_id",
+            "open_source_ingestion_run_id",
+            "open_source_ingested_at",
+            "open_source_mode",
+            "open_source_ticker_count",
+            "open_source_run_id_match",
+        ):
+            value = run_manifest.get(key)
+            if value is not None:
+                context[key] = str(value)
+        price_window = run_manifest.get("open_source_price_window")
+        if isinstance(price_window, dict):
+            start_date = price_window.get("start_date")
+            end_date = price_window.get("end_date")
+            if start_date or end_date:
+                context["open_source_price_window"] = f"{start_date or 'n/a'} -> {end_date or 'n/a'}"
+        financial_years = run_manifest.get("open_source_financial_years_refreshed")
+        if financial_years:
+            context["open_source_financial_years_refreshed"] = ", ".join(str(year) for year in financial_years)
     return context
 
 
@@ -204,6 +494,7 @@ def run_pipeline(
     n_jobs: int,
     first_date: str,
     data_dir: Optional[Path] = None,
+    open_source_run_id: Optional[str] = None,
     output_dir: Optional[Path] = None,
     checkpoints_dir: Optional[Path] = None,
     final_price_path: Optional[Path] = None,
@@ -211,14 +502,55 @@ def run_pipeline(
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).parent.parent
-    data_dir = data_dir if data_dir is not None else project_root / "data"
+    if data_dir is not None and open_source_run_id is not None:
+        raise ValueError("Use either data_dir or open_source_run_id, not both.")
+    if open_source_run_id is not None:
+        data_dir = _resolve_open_source_output_by_run_id(project_root, open_source_run_id)
+    else:
+        data_dir = data_dir if data_dir is not None else project_root / "data"
     output_dir = output_dir if output_dir is not None else project_root / "outputs"
-    run_day_dir = output_dir / datetime.now().strftime("%Y-%m-%d")
-    os.chdir(data_dir)  # Keep legacy behaviour.
+    run_started_at = datetime.now()
+    run_instance_id = run_started_at.strftime("%Y%m%d_%H%M%S")
+    run_date_dir = output_dir / run_started_at.strftime("%Y-%m-%d")
+    run_day_dir = run_date_dir / "runs" / run_instance_id
+    run_day_dir.mkdir(parents=True, exist_ok=True)
 
-    input_files = _input_files(data_dir, final_price_path=final_price_path, sp500_price_path=sp500_price_path)
-    payload = _load_data(data_dir, final_price_path=final_price_path, sp500_price_path=sp500_price_path)
+    source_data_dir = data_dir.resolve()
+    source_input_files = _input_files(
+        source_data_dir,
+        final_price_path=final_price_path,
+        sp500_price_path=sp500_price_path,
+    )
+    input_snapshot_dir = _snapshot_input_package(
+        source_data_dir=source_data_dir,
+        input_files=source_input_files,
+        run_day_dir=run_day_dir,
+    )
+    data_dir = input_snapshot_dir.resolve()
+    os.chdir(data_dir)  # Keep legacy behaviour while making the working package immutable for this run.
+
+    input_files = _input_files(data_dir)
+    payload = _load_data(data_dir)
     latest_snapshot = load_latest_manifest(data_dir)
+    run_config = {
+        "backend": backend,
+        "n_trials": n_trials,
+        "n_jobs": n_jobs,
+        "first_date": first_date,
+        "open_source_run_id": open_source_run_id,
+        "run_instance_id": run_instance_id,
+        "run_output_dir": str(run_day_dir.resolve()),
+        "source_input_files": {name: str(path.resolve()) for name, path in source_input_files.items()},
+        "source_input_sha256": {name: _sha256_path(path) for name, path in source_input_files.items()},
+    }
+    manifest_extra = _manifest_extra_context(
+        data_dir=data_dir,
+        latest_snapshot=latest_snapshot,
+        source_data_dir=source_data_dir,
+        input_snapshot_dir=input_snapshot_dir,
+        run_config=run_config,
+        code_context=_code_context(project_root),
+    )
     run_manifest = write_manifest(
         manifest_path=run_day_dir / "data_input_manifest.json",
         files=input_files,
@@ -232,11 +564,8 @@ def run_pipeline(
             "sp500_constituents": payload["us_historical_company"],
             "sp500_price": payload["sp500_price"],
         },
-        snapshot_id=(latest_snapshot or {}).get("snapshot_id"),
-        extra={
-            "source_snapshot_generated_at": (latest_snapshot or {}).get("generated_at"),
-            "source_snapshot_dir": (latest_snapshot or {}).get("snapshot_dir"),
-        },
+        snapshot_id=(latest_snapshot or {}).get("snapshot_id") or manifest_extra.get("open_source_output_run_id"),
+        extra=manifest_extra,
     )
     final_price = payload["final_price"]
     general = payload["general"]
@@ -651,6 +980,15 @@ def run_pipeline(
         _save_html(equal_month_html, equal_month_file)
         monthly_snapshot_files[f"portfolio_equal_{month_label}"] = equal_month_file
 
+    latest_pointer = {
+        "run_instance_id": run_instance_id,
+        "run_output_dir": str(run_day_dir.resolve()),
+        "data_input_manifest": str((run_day_dir / "data_input_manifest.json").resolve()),
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    latest_pointer_file = run_date_dir / "latest_legacy_run.json"
+    latest_pointer_file.write_text(json.dumps(latest_pointer, indent=2), encoding="utf-8")
+
     return PipelineOutput(
         monthly_return=monthly_return,
         final_price_vs_index=final_price_vs_index,
@@ -672,6 +1010,8 @@ def run_pipeline(
             "portfolio_frequency_html": freq_file,
             "portfolio_equal_html": equal_file,
             "data_input_manifest": run_day_dir / "data_input_manifest.json",
+            "input_snapshot_dir": input_snapshot_dir,
+            "latest_run_pointer": latest_pointer_file,
             **monthly_snapshot_files,
         },
     )
@@ -683,6 +1023,7 @@ def main(
     n_jobs: int = 1,
     first_date: str = "2010-01",
     data_dir: str | Path | None = None,
+    open_source_run_id: str | None = None,
     output_dir: str | Path | None = None,
     checkpoints_dir: str | Path = "outputs/checkpoints",
     final_price_path: str | Path | None = None,
@@ -699,6 +1040,7 @@ def main(
         n_jobs=n_jobs,
         first_date=first_date,
         data_dir=data_dir,
+        open_source_run_id=open_source_run_id,
         output_dir=output_dir,
         checkpoints_dir=checkpoints_dir,
         final_price_path=final_price_path,
@@ -709,5 +1051,85 @@ def main(
         print(f"  {k}: {v}")
 
 
+class _Tee:
+    def __init__(self, *streams: Any) -> None:
+        self._streams = streams
+
+    def write(self, data: str) -> int:
+        for stream in self._streams:
+            stream.write(data)
+        return len(data)
+
+    def flush(self) -> None:
+        for stream in self._streams:
+            stream.flush()
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_")
+    return slug or "default"
+
+
+def _default_log_stem(*, data_dir: str | None, open_source_run_id: str | None) -> str:
+    if open_source_run_id:
+        return f"run_legacy_open_source_{_slug(open_source_run_id)}"
+    if data_dir and "open_source" in data_dir:
+        return "run_legacy_open_source"
+    return "run_legacy"
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the legacy monthly portfolio pipeline.")
+    parser.add_argument("--n-trials", type=int, default=30)
+    parser.add_argument("--n-jobs", type=int, default=1)
+    parser.add_argument("--first-date", default="2010-01")
+    parser.add_argument("--data-dir")
+    parser.add_argument("--open-source-run-id")
+    parser.add_argument("--output-dir")
+    parser.add_argument("--checkpoints-dir", default="outputs/checkpoints")
+    parser.add_argument("--final-price-path")
+    parser.add_argument("--sp500-price-path")
+    parser.add_argument("--log-dir", default="logs/legacy_runs")
+    parser.add_argument("--no-log", action="store_true", help="Disable automatic CLI log capture.")
+    return parser.parse_args()
+
+
+def _run_cli() -> None:
+    args = _parse_args()
+    kwargs = {
+        "n_trials": args.n_trials,
+        "n_jobs": args.n_jobs,
+        "first_date": args.first_date,
+        "data_dir": args.data_dir,
+        "open_source_run_id": args.open_source_run_id,
+        "output_dir": args.output_dir,
+        "checkpoints_dir": args.checkpoints_dir,
+        "final_price_path": args.final_price_path,
+        "sp500_price_path": args.sp500_price_path,
+    }
+    if args.no_log:
+        main(**kwargs)
+        return
+
+    project_root = Path(__file__).parent.parent
+    log_dir = Path(args.log_dir)
+    if not log_dir.is_absolute():
+        log_dir = project_root / log_dir
+    log_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stem = _default_log_stem(data_dir=args.data_dir, open_source_run_id=args.open_source_run_id)
+    log_path = log_dir / f"{stem}_{timestamp}.log"
+
+    with log_path.open("w", encoding="utf-8") as log_file:
+        stdout = _Tee(sys.stdout, log_file)
+        stderr = _Tee(sys.stderr, log_file)
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            print(f"Log file: {log_path}")
+            print(f"Started at: {datetime.now().isoformat(timespec='seconds')}")
+            print(f"Arguments: {kwargs}")
+            main(**kwargs)
+            print(f"Finished at: {datetime.now().isoformat(timespec='seconds')}")
+
+
 if __name__ == "__main__":
-    main()
+    _run_cli()
