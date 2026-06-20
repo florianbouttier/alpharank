@@ -88,13 +88,24 @@ Lecture importante :
 
 - `atomic_feature_future_target` est le meilleur pour **recomposer Legacy**, mais
   il utilise des variables qui viennent des briques Legacy exactes. C'est une
-  preuve que la representation contient le signal.
+  preuve que la representation contient le signal, pas une methode tradable a
+  poursuivre.
 - `generalized_ema_expert` est le meilleur pour **generaliser sans utiliser la
   selection Legacy comme feature directe**. C'est le candidat le plus sain pour
   continuer.
 - Les modeles `future_excess_return` purs sur EMA enrichies ne suffisent pas :
   ils apprennent un peu de signal boursier, mais pas assez la logique de
   selection Legacy.
+
+Regle de suite ajoutee apres clarification utilisateur :
+
+- ne plus developper de candidat final avec des variables `legacy_atomic_*` ou
+  `legacy_optuna_*` ;
+- utiliser seulement des variables calculables en live pour trader : prix
+  relatifs a l'indice, EMA relatives, filtres d'univers, secteur, et scores
+  d'experts calcules sur rendement passe ;
+- garder les runs atomiques uniquement comme diagnostic historique de plafond de
+  replication.
 
 ## Timeline
 
@@ -535,6 +546,7 @@ Lecture :
 - ce n'est pas un candidat final sain : les variables atomiques viennent des
   briques Legacy exactes, donc ce run doit etre lu comme un plafond de
   replication / diagnostic de representation, pas comme une generalisation ;
+- ne pas utiliser cette famille pour produire un portefeuille tradable ;
 - la prochaine etape doit separer deux usages :
   1. mode "replication Legacy" : utiliser les features atomiques exactes ;
   2. mode "generalisation" : generer des couples EMA candidats hors winners
