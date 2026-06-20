@@ -709,15 +709,10 @@ def _plot_metric_heatmap(metric: str, cumulative_grid: pl.DataFrame, annual_grid
     if not models:
         return "<div class='text-muted'>No KPI data available.</div>"
 
-    cumulative_years = cumulative_grid.get_column("year").to_list()
-    annual_years = annual_grid.get_column("year").to_list()
+    cumulative_years = [str(year) for year in cumulative_grid.get_column("year").to_list()]
+    annual_years = [str(year) for year in annual_grid.get_column("year").to_list()]
     cumulative_matrix = np.asarray([cumulative_grid.get_column(model).to_list() for model in models], dtype=float)
     annual_matrix = np.asarray([annual_grid.get_column(model).to_list() for model in models], dtype=float)
-
-    combined = np.concatenate([cumulative_matrix.flatten(), annual_matrix.flatten()])
-    finite_values = combined[np.isfinite(combined)]
-    zmin = float(finite_values.min()) if finite_values.size else None
-    zmax = float(finite_values.max()) if finite_values.size else None
 
     fig = make_subplots(
         rows=2,
@@ -730,39 +725,99 @@ def _plot_metric_heatmap(metric: str, cumulative_grid: pl.DataFrame, annual_grid
     )
 
     is_percent = metric not in {"Sharpe Ratio", "Sortino Ratio", "Calmar Ratio"}
-    texttemplate = "%{z:.1%}" if is_percent else "%{z:.2f}"
     colorscale = "Viridis" if metric == "Annualized Volatility" else "RdYlGn"
+
+    def _finite_bounds(matrix: np.ndarray) -> tuple[float | None, float | None]:
+        finite_values = matrix[np.isfinite(matrix)]
+        if finite_values.size == 0:
+            return None, None
+        return float(finite_values.min()), float(finite_values.max())
+
+    def _text_matrix(matrix: np.ndarray) -> list[list[str]]:
+        text_rows: list[list[str]] = []
+        for row in matrix:
+            text_rows.append(
+                [
+                    (f"{value:.1%}" if is_percent else f"{value:.2f}")
+                    if np.isfinite(value)
+                    else ""
+                    for value in row
+                ]
+            )
+        return text_rows
+
+    def _add_text_overlay(
+        *,
+        x_values: list[Any],
+        y_values: list[str],
+        text_rows: list[list[str]],
+        row: int,
+    ) -> None:
+        xs: list[Any] = []
+        ys: list[str] = []
+        texts: list[str] = []
+        for y_index, y_value in enumerate(y_values):
+            for x_index, x_value in enumerate(x_values):
+                text_value = text_rows[y_index][x_index]
+                if not text_value:
+                    continue
+                xs.append(x_value)
+                ys.append(y_value)
+                texts.append(text_value)
+        if not texts:
+            return
+        fig.add_trace(
+            go.Scatter(
+                x=xs,
+                y=ys,
+                mode="text",
+                text=texts,
+                textposition="middle center",
+                textfont={"size": 9, "color": "#111827"},
+                hoverinfo="skip",
+                showlegend=False,
+            ),
+            row=row,
+            col=1,
+        )
+
+    cumulative_zmin, cumulative_zmax = _finite_bounds(cumulative_matrix)
+    annual_zmin, annual_zmax = _finite_bounds(annual_matrix)
+    cumulative_text = _text_matrix(cumulative_matrix)
+    annual_text = _text_matrix(annual_matrix)
 
     fig.add_trace(
         go.Heatmap(
-            z=cumulative_matrix,
-            x=cumulative_years,
-            y=models,
-            texttemplate=texttemplate,
-            textfont={"size": 11},
+            z=cumulative_matrix.tolist(),
+            x=list(cumulative_years),
+            y=list(models),
             colorscale=colorscale,
-            zmin=zmin,
-            zmax=zmax,
+            zmin=cumulative_zmin,
+            zmax=cumulative_zmax,
             showscale=True,
+            colorbar={"title": "Cumulative", "x": 1.03, "y": 0.78, "len": 0.34, "thickness": 18},
+            hovertemplate="%{y}<br>%{x}: %{z:.2%}<extra></extra>" if is_percent else "%{y}<br>%{x}: %{z:.2f}<extra></extra>",
         ),
         row=1,
         col=1,
     )
     fig.add_trace(
         go.Heatmap(
-            z=annual_matrix,
-            x=annual_years,
-            y=models,
-            texttemplate=texttemplate,
-            textfont={"size": 11},
+            z=annual_matrix.tolist(),
+            x=list(annual_years),
+            y=list(models),
             colorscale=colorscale,
-            zmin=zmin,
-            zmax=zmax,
-            showscale=False,
+            zmin=annual_zmin,
+            zmax=annual_zmax,
+            showscale=True,
+            colorbar={"title": "Annual", "x": 1.03, "y": 0.22, "len": 0.34, "thickness": 18},
+            hovertemplate="%{y}<br>%{x}: %{z:.2%}<extra></extra>" if is_percent else "%{y}<br>%{x}: %{z:.2f}<extra></extra>",
         ),
         row=2,
         col=1,
     )
+    _add_text_overlay(x_values=list(cumulative_years), y_values=list(models), text_rows=cumulative_text, row=1)
+    _add_text_overlay(x_values=list(annual_years), y_values=list(models), text_rows=annual_text, row=2)
     fig.update_xaxes(type="category", row=1, col=1)
     fig.update_xaxes(type="category", row=2, col=1)
     fig.update_layout(height=1050, title_text=f"Deep Dive: {metric}", template="plotly_white")
@@ -782,9 +837,9 @@ def _plot_monthly_returns_heatmap(model_name: str, monthly_returns: pl.DataFrame
 
     fig = go.Figure(
         data=go.Heatmap(
-            z=matrix,
+            z=matrix.tolist(),
             x=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-            y=years,
+            y=list(years),
             texttemplate="%{z:.1%}",
             textfont={"size": 10},
             colorscale="RdYlGn",
@@ -841,9 +896,9 @@ def _plot_correlation_matrix(correlation_matrix: pl.DataFrame, date_range_str: s
     z = correlation_matrix.drop("model").to_numpy().astype(float)
     fig = go.Figure(
         data=go.Heatmap(
-            z=z,
-            x=models,
-            y=models,
+            z=z.tolist(),
+            x=list(models),
+            y=list(models),
             texttemplate="%{z:.2f}",
             colorscale="RdBu",
             zmin=-1,

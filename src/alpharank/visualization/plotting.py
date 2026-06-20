@@ -115,6 +115,14 @@ class PortfolioVisualizer:
                 "data_snapshot_id": "Data Snapshot ID",
                 "data_snapshot_at": "Data Snapshot At",
                 "source_snapshot_generated_at": "Source Snapshot Generated At",
+                "open_source_output_run_id": "Open Source Output Run ID",
+                "open_source_ingestion_run_id": "Open Source Ingestion Run ID",
+                "open_source_run_id_match": "Open Source Run ID Match",
+                "open_source_ingested_at": "Open Source Ingested At",
+                "open_source_mode": "Open Source Mode",
+                "open_source_price_window": "Open Source Price Window",
+                "open_source_financial_years_refreshed": "Open Source Financial Years",
+                "open_source_ticker_count": "Open Source Ticker Count",
                 "price_data_max_date": "Price Data Max Date",
                 "sp500_price_max_date": "SP500 Price Max Date",
                 "sp500_constituents_max_month": "SP500 Constituents Max Month",
@@ -226,7 +234,7 @@ class PortfolioVisualizer:
                         yaxis_title="Price ($)",
                         hovermode="x unified"
                     )
-                    charts_html += f'<div class="chart-box">{pio.to_html(fig_price, full_html=True, include_plotlyjs=True)}</div>'
+                    charts_html += f'<div class="chart-box">{pio.to_html(fig_price, full_html=False, include_plotlyjs=False)}</div>'
 
                 # B. Financial Growth (Revenue, Net Income)
                 if not f_data.empty:
@@ -250,7 +258,7 @@ class PortfolioVisualizer:
                         barmode='group',
                         legend=dict(orientation="h", y=1.1)
                     )
-                    charts_html += f'<div class="chart-box">{pio.to_html(fig_fund, full_html=   True, include_plotlyjs=True)}</div>'
+                    charts_html += f'<div class="chart-box">{pio.to_html(fig_fund, full_html=False, include_plotlyjs=False)}</div>'
 
                 # C. Key Ratios (Latest)
                 ratios_html = ""
@@ -429,7 +437,7 @@ class PortfolioVisualizer:
                 height=500, 
                 hovermode="x unified"
             )
-            html_cum = pio.to_html(fig_cum, full_html=True, include_plotlyjs=True)
+            html_cum = pio.to_html(fig_cum, full_html=False, include_plotlyjs=False)
         except Exception as e:
             html_cum = f"<div class='alert alert-danger'>Error: {e}</div>"
 
@@ -445,7 +453,7 @@ class PortfolioVisualizer:
                 height=400, 
                 hovermode="x unified"
             )
-            html_dd = pio.to_html(fig_dd, full_html=True, include_plotlyjs=True)
+            html_dd = pio.to_html(fig_dd, full_html=False, include_plotlyjs=False)
         except Exception as e:
              html_dd = f"<div class='alert alert-danger'>Error: {e}</div>"
 
@@ -472,7 +480,7 @@ class PortfolioVisualizer:
                     height=400,
                     hovermode="x unified",
                 )
-                html_positions = pio.to_html(fig_positions, full_html=True, include_plotlyjs=True)
+                html_positions = pio.to_html(fig_positions, full_html=False, include_plotlyjs=False)
             except Exception as e:
                 html_positions = f"<div class='alert alert-danger'>Error: {e}</div>"
 
@@ -498,14 +506,17 @@ class PortfolioVisualizer:
                     vertical_spacing=0.16,
                 )
 
-                combined_values = pd.concat(
+                cum_numeric = df_cum.apply(pd.to_numeric, errors='coerce')
+                ann_numeric = df_ann.apply(pd.to_numeric, errors='coerce')
+                combined_values = np.concatenate(
                     [
-                        df_cum.apply(pd.to_numeric, errors='coerce').stack(dropna=False),
-                        df_ann.apply(pd.to_numeric, errors='coerce').stack(dropna=False),
+                        cum_numeric.to_numpy(dtype=float, copy=False).ravel(),
+                        ann_numeric.to_numpy(dtype=float, copy=False).ravel(),
                     ]
-                ).dropna()
-                zmin = float(combined_values.min()) if not combined_values.empty else None
-                zmax = float(combined_values.max()) if not combined_values.empty else None
+                )
+                finite_values = combined_values[np.isfinite(combined_values)]
+                zmin = float(finite_values.min()) if finite_values.size else None
+                zmax = float(finite_values.max()) if finite_values.size else None
                 
                 def _add_heatmap(df, row, col, colorscale='RdYlGn', showscale=False):
                     # Force numeric
@@ -547,7 +558,7 @@ class PortfolioVisualizer:
                 )
                 
                 fig.update_layout(height=1050, title_text=f"Deep Dive: {metric}", template="plotly_white")
-                kpi_htmls[metric] = pio.to_html(fig, full_html=False, include_plotlyjs=True)
+                kpi_htmls[metric] = pio.to_html(fig, full_html=False, include_plotlyjs=False)
             except Exception as e:
                 kpi_htmls[metric] = f"<div class='alert alert-danger'>Error: {e}</div>"
 
@@ -579,8 +590,9 @@ class PortfolioVisualizer:
                     template="plotly_white",
                     yaxis=dict(dtick=1, type='category') # Ensure years are distinct
                 )
-                monthly_htmls[model_name] = pio.to_html(fig, full_html=False, include_plotlyjs=true)
-            except Exception as e: pass
+                monthly_htmls[model_name] = pio.to_html(fig, full_html=False, include_plotlyjs=False)
+            except Exception as e:
+                monthly_htmls[model_name] = f"<div class='alert alert-danger'>Error: {e}</div>"
 
         # --- G. Risk-Reward Scatter ---
         html_rr = ""
@@ -604,7 +616,7 @@ class PortfolioVisualizer:
                      template="plotly_white", 
                      height=400
                   )
-                 html_rr = pio.to_html(fig_rr, full_html=True, include_plotlyjs=True)
+                 html_rr = pio.to_html(fig_rr, full_html=False, include_plotlyjs=False)
         except Exception: pass
         
         # --- Correlation Matrix ---
@@ -623,7 +635,7 @@ class PortfolioVisualizer:
                 template="plotly_white", 
                 height=500
             )
-            html_corr = pio.to_html(fig_corr, full_html=True, include_plotlyjs=True)
+            html_corr = pio.to_html(fig_corr, full_html=False, include_plotlyjs=False)
         except Exception: pass
 
         # --- Assemble HTML ---

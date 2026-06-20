@@ -42,9 +42,10 @@ LEGACY_CURVE_SPECS: list[dict[str, str]] = [
 
 SCENARIO_SPECS: list[dict[str, Any]] = [
     {"name": "top_n_5", "selection_mode": "top_n", "top_n": 5},
-    {"name": "top_n_10", "selection_mode": "top_n", "top_n": 10},
-    {"name": "top_n_20", "selection_mode": "top_n", "top_n": 20},
-    {"name": "prediction_gt_0_40", "selection_mode": "prediction_threshold", "prediction_threshold": 0.40},
+    {"name": "top_n_25", "selection_mode": "top_n", "top_n": 25},
+    {"name": "top_n_30", "selection_mode": "top_n", "top_n": 30},
+    {"name": "prediction_gt_0_25", "selection_mode": "prediction_threshold", "prediction_threshold": 0.25},
+    {"name": "prediction_gt_0_30", "selection_mode": "prediction_threshold", "prediction_threshold": 0.30},
     # Example:
     # {"name": "prediction_gt_0_35_stale_1m", "selection_mode": "prediction_threshold", "prediction_threshold": 0.35, "max_price_staleness_months": 1},
 ]
@@ -211,6 +212,7 @@ def default_report_path(run_dir: str | Path, report_name: str = "application_bac
 
 def main() -> BacktestComparisonResult:
     resolved_run_dir = Path(RUN_DIR).expanduser().resolve() if RUN_DIR else latest_run_dir(OUTPUT_DIR)
+    print(f"Using run dir: {resolved_run_dir}")
     report_path = (
         Path(REPORT_PATH).expanduser().resolve()
         if REPORT_PATH is not None

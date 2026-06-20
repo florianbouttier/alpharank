@@ -286,12 +286,12 @@ class XGBoostModel(BaseStrategy):
 
     def _default_hparam_space(self) -> Dict[str, Tuple[str, float, float]]:
         return {
-            "n_estimators": ("int", 200, 800),
-            "max_depth": ("int", 3, 10),
-            "learning_rate": ("loguniform", 0.01, 0.3),
+            "n_estimators": ("int", 100, 2000),
+            "max_depth": ("int", 1, 10),
+            "learning_rate": ("loguniform", 0.0001, 0.01),
             "subsample": ("float", 0.5, 1.0),
             "colsample_bytree": ("float", 0.5, 1.0),
-            "min_child_weight": ("float", 1.0, 10.0),
+            "min_child_weight": ("float", 5.0, 20.0),
             "gamma": ("float", 0.0, 5.0),
             "reg_alpha": ("float", 0.0, 5.0),
             "reg_lambda": ("float", 0.0, 5.0),
