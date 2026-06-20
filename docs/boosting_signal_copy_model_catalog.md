@@ -79,6 +79,7 @@ Table de synthese des runs longs importants :
 
 | methode | ce qui est appris ou score | variables utilisees | ensemble de test | ce qu'on retrouve |
 |---|---|---|---|---|
+| `tradable_ema_regression_optuna` | futur rendement relatif : regression de `future_excess_return` clippe, tuning Optuna avec warm starts JSON | 88 variables EMA calculables au mois de decision : 16 EMA de base, rangs mensuels, z-scores mensuels, flags top/bottom quartile, agregats horizontaux | run large corrige `2021-06` a `2026-04`, 59 mois, 457 lignes Legacy | `159 / 457 = 34.8%`, mediane mensuelle 33.3%; meilleur run court recent = `68 / 169 = 40.2%` |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
 | `atomic_feature_future_target` | futur rendement relatif : regression de `future_excess_return` clippe, classification `>0%` / `>5%`, ranking mensuel | features atomiques derivees des blocs Legacy : votes par bloc, flags `Legacy_Optuna_*`, quantiles/ratios `mtr`, rangs mensuels atomiques; certaines variantes ajoutent aussi EMA | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | regression = `2 070 / 2 070 = 100%`; classifieur `>5%` = `2 041 / 2 070 = 98.6%` |
@@ -90,12 +91,15 @@ Lecture importante :
   il utilise des variables qui viennent des briques Legacy exactes. C'est une
   preuve que la representation contient le signal, pas une methode tradable a
   poursuivre.
-- `generalized_ema_expert` est le meilleur pour **generaliser sans utiliser la
-  selection Legacy comme feature directe**. C'est le candidat le plus sain pour
-  continuer.
-- Les modeles `future_excess_return` purs sur EMA enrichies ne suffisent pas :
-  ils apprennent un peu de signal boursier, mais pas assez la logique de
-  selection Legacy.
+- `generalized_ema_expert` reste un diagnostic utile, mais ce n'est pas la voie
+  active demandee : le score deterministe bat le ML, alors que la consigne
+  actuelle impose de travailler les regressions.
+- La voie active au 2026-06-21 est donc `tradable_ema_regression_optuna` :
+  apprendre le futur rendement relatif avec des variables EMA tradables, puis
+  mesurer seulement combien d'actions Legacy sont retrouvees.
+- Les modeles `future_excess_return` purs sur EMA enrichies progressent avec
+  warm starts Optuna, mais ne suffisent pas encore : le test large corrige est a
+  34.8%, sous l'objectif de 50%.
 
 Regle de suite ajoutee apres clarification utilisateur :
 
@@ -127,6 +131,11 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-16 | run `outputs/generalized_ema_expert_sweep_20260616_234440` | sweep memoire/top experts sur candidats EMA observes |
 | 2026-06-16 | run `outputs/generalized_ema_expert_sweep_20260616_234500` | sweep memoire/top experts sur voisins EMA |
 | 2026-06-16 | run `outputs/generalized_ema_expert_models_20260616_234556` | training sur le meilleur cadre EMA generalisable |
+| 2026-06-20 | script `scripts/experiments/run_tradable_ema_regression_optuna.py` | nouvelle regression EMA tradable avec Optuna random startup puis TPE et warm starts JSON |
+| 2026-06-20 | run `outputs/tradable_ema_regression_optuna_20260620_231702` | baseline sans warm-start, 23 mois test |
+| 2026-06-20 | run `outputs/tradable_ema_regression_optuna_20260620_232506` | regression warm-startee, 23 mois test |
+| 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_001753` | regression warm-startee corrigee mlcraft, 23 mois test |
+| 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_003954` | regression warm-startee corrigee mlcraft, test large 59 mois |
 
 Runs principaux :
 
@@ -146,6 +155,10 @@ Runs principaux :
 - `outputs/generalized_ema_expert_sweep_20260616_234500`
 - `outputs/generalized_ema_expert_frame_20260616_234521`
 - `outputs/generalized_ema_expert_models_20260616_234556`
+- `outputs/tradable_ema_regression_optuna_20260620_231702`
+- `outputs/tradable_ema_regression_optuna_20260620_232506`
+- `outputs/tradable_ema_regression_optuna_20260621_001753`
+- `outputs/tradable_ema_regression_optuna_20260621_003954`
 
 ## Donnees communes
 
@@ -366,6 +379,127 @@ Statut :
 - a eviter dans cette forme.
 
 ## Benchmarks et controles non comptes dans les 7
+
+### `tradable_ema_regression_optuna`
+
+Construit le 2026-06-20 / 2026-06-21 dans :
+
+- script : `scripts/experiments/run_tradable_ema_regression_optuna.py`
+- run court corrige : `outputs/tradable_ema_regression_optuna_20260621_001753`
+- run large corrige : `outputs/tradable_ema_regression_optuna_20260621_003954`
+- warm-start actuel a reutiliser :
+  `outputs/tradable_ema_regression_optuna_20260621_003954/warm_start_candidates.json`
+
+But :
+
+Revenir exactement a la demande corrigee : ne pas apprendre Legacy directement,
+ne pas utiliser de score deterministe d'experts, mais entrainer une regression
+boosting sur le futur rendement relatif, puis regarder si le classement obtenu
+retrouve les actions Legacy.
+
+Ce qui est regresse :
+
+```text
+future_excess_return clippe a +/-30%
+```
+
+Lecture metier :
+
+```text
+future_excess_return = rendement futur de l'action sur le mois suivant
+                       relatif au rendement de l'indice
+```
+
+Donc le modele essaie d'apprendre : "quelle action devrait faire mieux que
+l'indice le mois prochain", pas "quelle action Legacy a choisi".
+
+Variables utilisees :
+
+- 16 variables EMA de base deja presentes dans le frame :
+  `ema_ratio_*` et `price_to_ema_*` ;
+- pour chaque variable EMA :
+  - rang mensuel du ticker dans l'univers du mois ;
+  - z-score mensuel ;
+  - flag top quartile ;
+  - flag bottom quartile ;
+- agregats horizontaux sur les EMA :
+  - `ema_rank_mean`, `ema_rank_max`, `ema_rank_min` ;
+  - `ema_z_mean`, `ema_z_max`, `ema_z_min` ;
+  - `ema_top25_vote_count`, `ema_bottom25_vote_count`.
+
+Total : 88 variables. Toutes sont calculables au mois de decision a partir des
+prix/EMA disponibles. Les variables interdites ne sont pas utilisees :
+`legacy_selected`, `legacy_atomic_*`, `legacy_optuna_*`, sorties directes des
+blocs Legacy.
+
+Modele et tuning :
+
+- librairie boosting : `mlcraft`, via `ModelFactory.create("xgboost")` ;
+- type : regression ;
+- Optuna : `TPESampler` ;
+- demarrage : essais aleatoires controles par `startup_trials` ;
+- suite : recherche TPE / bayesienne ;
+- warm starts : les meilleurs trials sont sauves en JSON, puis reenqueues au
+  debut des runs suivants ;
+- objectif de tuning par fold :
+
+```text
+overlap validation avec Legacy
+- 0.25 * abs(overlap train - overlap validation)
+```
+
+Le terme de penalite evite de choisir un trial qui colle beaucoup mieux le train
+que la validation.
+
+Selection et KPI :
+
+Pour chaque mois de test :
+
+```text
+K = nombre d'actions choisies par Legacy ce mois-la
+modele = top K actions par rendement relatif futur predit
+score du mois = actions communes entre modele et Legacy / K
+```
+
+Le KPI communique pour ce travail est seulement :
+
+```text
+nombre d'actions communes entre modele et Legacy
+/
+nombre d'actions choisies par Legacy ce mois-la
+```
+
+Runs :
+
+| run | protocole | actions communes | actions Legacy | recomposition | mediane mensuelle |
+|---|---|---:|---:|---:|---:|
+| `outputs/tradable_ema_regression_optuna_20260620_231702` | 23 mois, 8 trials/fold, 3 random startup, sans warm-start | 21 | 169 | 12.4% | 0.0% |
+| `outputs/tradable_ema_regression_optuna_20260620_232506` | 23 mois, 16 trials/fold, 4 random startup, warm-start depuis le run precedent | 67 | 169 | 39.6% | 40.0% |
+| `outputs/tradable_ema_regression_optuna_20260621_001753` | 23 mois, 16 trials/fold, 4 random startup, warm-start, contrat mlcraft corrige | 68 | 169 | 40.2% | 33.3% |
+| `outputs/tradable_ema_regression_optuna_20260621_003954` | 59 mois, 16 trials/fold, 4 random startup, warm-start depuis le run corrige court | 159 | 457 | 34.8% | 33.3% |
+
+Details du run large corrige :
+
+- periode test : `2021-06` a `2026-04` ;
+- mois testes : 59 ;
+- mois avec recomposition >= 50% : 15 / 59 ;
+- meilleur mois : 71.4% ;
+- pire mois : 0.0% ;
+- quartiles mensuels : 25% = 22.2%, mediane = 33.3%, 75% = 50.0%.
+
+Lecture :
+
+- le warm-start Optuna aide vraiment : sur le test court, la recomposition passe
+  de 12.4% sans warm-start a environ 40% avec warm-start ;
+- la regression EMA tradable est maintenant une baseline propre, non trichee,
+  mais elle ne retrouve pas encore 50% de Legacy sur test large ;
+- le meilleur point de depart actuel pour le prochain run est le JSON du run
+  large corrige :
+  `outputs/tradable_ema_regression_optuna_20260621_003954/warm_start_candidates.json` ;
+- la suite logique n'est pas seulement "plus de trials" : il faut aussi enrichir
+  les EMA tradables, par exemple avec plus de spans EMA, des pentes EMA, des
+  croisements court/long plus nombreux, et des features de stabilite de signal
+  calculees uniquement avec le passe.
 
 ### `ema_rich_*` future-target, run long
 
