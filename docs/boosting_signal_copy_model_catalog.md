@@ -54,15 +54,15 @@ Exemple simple :
 ```text
 Mois M:
 Legacy choisit 7 actions.
-Le modele score tout l'univers.
-On prend les 7 meilleurs scores du modele.
-Si 5 de ces 7 actions sont aussi dans Legacy, le mois vaut 5 / 7 = 71.4%.
+Le modele choisit aussi 7 actions.
+Si 5 actions sont communes entre les deux paniers, le mois vaut 5 / 7 = 71.4%.
+Si les 7 actions sont communes, le mois vaut 7 / 7 = 100%.
 ```
 
 Donc `100%` ne veut pas dire que le rendement futur est predit parfaitement. Ca
-veut dire que la selection top-K du modele recompose exactement les paniers
-Legacy sur le test mesure. C'est une metrique de recouvrement des trades, pas
-une metrique de performance boursiere.
+veut dire que les paniers mensuels du modele ont exactement les memes actions
+que les paniers mensuels Legacy sur le test mesure. C'est une metrique de
+recouvrement des trades, pas une metrique de performance boursiere.
 
 ### Fiche de lecture obligatoire par methode
 
