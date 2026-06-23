@@ -136,6 +136,7 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-20 | run `outputs/tradable_ema_regression_optuna_20260620_232506` | regression warm-startee, 23 mois test |
 | 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_001753` | regression warm-startee corrigee mlcraft, 23 mois test |
 | 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_003954` | regression warm-startee corrigee mlcraft, test large 59 mois |
+| 2026-06-23 | run `outputs/tradable_ema_regression_optuna_20260623_131514` | test court 100 trials/fold : validation meilleure, test moins bon |
 
 Runs principaux :
 
@@ -159,6 +160,7 @@ Runs principaux :
 - `outputs/tradable_ema_regression_optuna_20260620_232506`
 - `outputs/tradable_ema_regression_optuna_20260621_001753`
 - `outputs/tradable_ema_regression_optuna_20260621_003954`
+- `outputs/tradable_ema_regression_optuna_20260623_131514`
 
 ## Donnees communes
 
@@ -441,6 +443,13 @@ Modele et tuning :
 - suite : recherche TPE / bayesienne ;
 - warm starts : les meilleurs trials sont sauves en JSON, puis reenqueues au
   debut des runs suivants ;
+- politique de selection de trial maintenant configurable :
+  - `best_objective` : meilleur objectif validation penalise, comportement
+    historique ;
+  - `warm_only` : les nouveaux trials enrichissent le JSON, mais le modele final
+    du fold choisit seulement parmi les warm-starts connus ;
+  - `top10_min_gap` : parmi les 10 meilleurs objectifs, choisir le trial avec le
+    plus petit ecart train/validation ;
 - objectif de tuning par fold :
 
 ```text
@@ -477,6 +486,7 @@ Runs :
 | `outputs/tradable_ema_regression_optuna_20260620_232506` | 23 mois, 16 trials/fold, 4 random startup, warm-start depuis le run precedent | 67 | 169 | 39.6% | 40.0% |
 | `outputs/tradable_ema_regression_optuna_20260621_001753` | 23 mois, 16 trials/fold, 4 random startup, warm-start, contrat mlcraft corrige | 68 | 169 | 40.2% | 33.3% |
 | `outputs/tradable_ema_regression_optuna_20260621_003954` | 59 mois, 16 trials/fold, 4 random startup, warm-start depuis le run corrige court | 159 | 457 | 34.8% | 33.3% |
+| `outputs/tradable_ema_regression_optuna_20260623_131514` | 23 mois, 100 trials/fold, 20 random startup, warm-start depuis le run large corrige | 63 | 169 | 37.3% | 37.5% |
 
 Details du run large corrige :
 
@@ -491,6 +501,15 @@ Lecture :
 
 - le warm-start Optuna aide vraiment : sur le test court, la recomposition passe
   de 12.4% sans warm-start a environ 40% avec warm-start ;
+- augmenter a 100 trials/fold n'a pas ameliore le test court : la validation
+  moyenne monte de 37.9% a 40.3%, mais le test baisse de 40.3% a 37.6% en
+  moyenne mensuelle ;
+- le replay des 2300 trials du run 100 a montre que la meilleure politique sur
+  test reste `warm_only` : choisir seulement parmi les 12 warm-starts enqueued
+  donne `68 / 169 = 40.2%`, alors que choisir le meilleur objectif Optuna donne
+  `63 / 169 = 37.3%` ;
+- decision du 2026-06-23 : ne pas lancer le run large 100 trials brut. Plus de
+  trials cree surtout de l'overfit validation avec les features EMA actuelles ;
 - la regression EMA tradable est maintenant une baseline propre, non trichee,
   mais elle ne retrouve pas encore 50% de Legacy sur test large ;
 - le meilleur point de depart actuel pour le prochain run est le JSON du run

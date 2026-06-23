@@ -42,6 +42,7 @@ class TradableEmaRegressionConfig:
     step_months: int = 1
     target_clip: float = 0.30
     lambda_gap: float = 0.25
+    trial_selection_policy: str = "best_objective"
     seed: int = 42
 
 
@@ -263,6 +264,40 @@ def _enqueue_warm_starts(study: optuna.Study, warm_starts: Sequence[dict[str, An
             study.enqueue_trial(filtered)
 
 
+def _select_trial_params(
+    trials: Sequence[optuna.trial.FrozenTrial],
+    *,
+    policy: str,
+    warm_start_count: int,
+) -> dict[str, Any]:
+    complete_trials = [trial for trial in trials if trial.value is not None]
+    if not complete_trials:
+        raise ValueError("No completed Optuna trials available for selection.")
+
+    if policy == "best_objective":
+        selected = max(complete_trials, key=lambda trial: float(trial.value))
+        return dict(selected.params)
+
+    if policy == "warm_only":
+        warm_trials = [trial for trial in complete_trials if trial.number < warm_start_count]
+        candidates = warm_trials or complete_trials
+        selected = max(candidates, key=lambda trial: float(trial.value))
+        return dict(selected.params)
+
+    if policy == "top10_min_gap":
+        top_trials = sorted(complete_trials, key=lambda trial: float(trial.value), reverse=True)[:10]
+
+        def gap(trial: optuna.trial.FrozenTrial) -> tuple[float, float]:
+            train_overlap = float(trial.user_attrs.get("train_overlap", 0.0))
+            val_overlap = float(trial.user_attrs.get("val_overlap", 0.0))
+            return (abs(train_overlap - val_overlap), -float(trial.value))
+
+        selected = min(top_trials, key=gap)
+        return dict(selected.params)
+
+    raise ValueError(f"Unknown trial selection policy: {policy}")
+
+
 def _score_predictions(frame: pl.DataFrame, scores: np.ndarray, score_col: str) -> pl.DataFrame:
     return frame.select(["ticker", "year_month", "holding_month", "future_excess_return", "legacy_selected"]).with_columns(
         pl.Series(score_col, scores, dtype=pl.Float64)
@@ -315,7 +350,12 @@ def _tune_fold(
         }
         row.update({f"param_{key}": value for key, value in trial.params.items()})
         rows.append(row)
-    return dict(study.best_params), rows
+    best_params = _select_trial_params(
+        study.trials,
+        policy=config.trial_selection_policy,
+        warm_start_count=len(warm_starts),
+    )
+    return best_params, rows
 
 
 def _warm_start_payload(trials: pl.DataFrame, top_k: int = 50) -> dict[str, Any]:
@@ -439,6 +479,7 @@ def run(config: TradableEmaRegressionConfig) -> Path:
                 "test_months": config.test_months,
                 "step_months": config.step_months,
                 "lambda_gap": config.lambda_gap,
+                "trial_selection_policy": config.trial_selection_policy,
                 "sampler": "TPESampler with random startup trials, warm starts enqueued first",
                 "target": f"future_excess_return clipped to +/-{config.target_clip}",
                 "features": features,
@@ -472,6 +513,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--step-months", type=int, default=1)
     parser.add_argument("--target-clip", type=float, default=0.30)
     parser.add_argument("--lambda-gap", type=float, default=0.25)
+    parser.add_argument(
+        "--trial-selection-policy",
+        choices=["best_objective", "warm_only", "top10_min_gap"],
+        default="best_objective",
+    )
     return parser.parse_args()
 
 
@@ -493,6 +539,7 @@ def main() -> None:
             step_months=args.step_months,
             target_clip=args.target_clip,
             lambda_gap=args.lambda_gap,
+            trial_selection_policy=args.trial_selection_policy,
         )
     )
 
