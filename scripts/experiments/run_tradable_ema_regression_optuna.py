@@ -43,6 +43,7 @@ class TradableEmaRegressionConfig:
     target_clip: float = 0.30
     lambda_gap: float = 0.25
     trial_selection_policy: str = "best_objective"
+    feature_set: str = "ema"
     seed: int = 42
 
 
@@ -82,16 +83,54 @@ def _ema_base_features(columns: Iterable[str]) -> list[str]:
     ]
 
 
-def _add_tradable_ema_features(frame: pl.DataFrame, ema_features: Sequence[str]) -> tuple[pl.DataFrame, list[str]]:
-    rank_cols = [f"{feature}_rank_month" for feature in ema_features]
-    z_cols = [f"{feature}_z_month" for feature in ema_features]
-    top_cols = [f"{feature}_top25_flag" for feature in ema_features]
-    bottom_cols = [f"{feature}_bottom25_flag" for feature in ema_features]
+def _technical_base_features(columns: Iterable[str]) -> list[str]:
+    technical_prefixes = (
+        "price_roc_",
+        "ema_ratio_",
+        "price_to_ema_",
+        "rsi_",
+        "rsi_ratio_",
+        "bollinger_",
+        "stoch_",
+        "dist_to_",
+        "range_position_",
+        "volatility_",
+        "volatility_ratio_",
+    )
+    return [column for column in columns if column.startswith(technical_prefixes)]
+
+
+def _base_features_for_set(columns: Iterable[str], feature_set: str) -> list[str]:
+    if feature_set == "ema":
+        return _ema_base_features(columns)
+    if feature_set == "technical":
+        return _technical_base_features(columns)
+    raise ValueError(f"Unsupported feature set: {feature_set!r}")
+
+
+def _score_col(config: TradableEmaRegressionConfig) -> str:
+    if config.feature_set == "ema":
+        return "tradable_ema_regression"
+    if config.feature_set == "technical":
+        return "tradable_technical_regression"
+    raise ValueError(f"Unsupported feature set: {config.feature_set!r}")
+
+
+def _add_cross_sectional_features(
+    frame: pl.DataFrame,
+    base_features: Sequence[str],
+    *,
+    prefix: str,
+) -> tuple[pl.DataFrame, list[str]]:
+    rank_cols = [f"{feature}_rank_month" for feature in base_features]
+    z_cols = [f"{feature}_z_month" for feature in base_features]
+    top_cols = [f"{feature}_top25_flag" for feature in base_features]
+    bottom_cols = [f"{feature}_bottom25_flag" for feature in base_features]
 
     ranked = frame.with_columns(
         [
             (pl.col(feature).rank(method="average").over("year_month") / pl.len().over("year_month")).alias(rank_col)
-            for feature, rank_col in zip(ema_features, rank_cols, strict=True)
+            for feature, rank_col in zip(base_features, rank_cols, strict=True)
         ]
     )
     zscored = ranked.with_columns(
@@ -100,7 +139,7 @@ def _add_tradable_ema_features(frame: pl.DataFrame, ema_features: Sequence[str])
             .then((pl.col(feature) - pl.col(feature).mean().over("year_month")) / pl.col(feature).std().over("year_month"))
             .otherwise(0.0)
             .alias(z_col)
-            for feature, z_col in zip(ema_features, z_cols, strict=True)
+            for feature, z_col in zip(base_features, z_cols, strict=True)
         ]
     )
     flagged = zscored.with_columns(
@@ -114,30 +153,30 @@ def _add_tradable_ema_features(frame: pl.DataFrame, ema_features: Sequence[str])
         ]
     )
     enriched = flagged.with_columns(
-        pl.mean_horizontal(rank_cols).alias("ema_rank_mean"),
-        pl.max_horizontal(rank_cols).alias("ema_rank_max"),
-        pl.min_horizontal(rank_cols).alias("ema_rank_min"),
-        pl.mean_horizontal(z_cols).alias("ema_z_mean"),
-        pl.max_horizontal(z_cols).alias("ema_z_max"),
-        pl.min_horizontal(z_cols).alias("ema_z_min"),
-        pl.sum_horizontal(top_cols).alias("ema_top25_vote_count"),
-        pl.sum_horizontal(bottom_cols).alias("ema_bottom25_vote_count"),
+        pl.mean_horizontal(rank_cols).alias(f"{prefix}_rank_mean"),
+        pl.max_horizontal(rank_cols).alias(f"{prefix}_rank_max"),
+        pl.min_horizontal(rank_cols).alias(f"{prefix}_rank_min"),
+        pl.mean_horizontal(z_cols).alias(f"{prefix}_z_mean"),
+        pl.max_horizontal(z_cols).alias(f"{prefix}_z_max"),
+        pl.min_horizontal(z_cols).alias(f"{prefix}_z_min"),
+        pl.sum_horizontal(top_cols).alias(f"{prefix}_top25_vote_count"),
+        pl.sum_horizontal(bottom_cols).alias(f"{prefix}_bottom25_vote_count"),
     )
     features = (
-        list(ema_features)
+        list(base_features)
         + rank_cols
         + z_cols
         + top_cols
         + bottom_cols
         + [
-            "ema_rank_mean",
-            "ema_rank_max",
-            "ema_rank_min",
-            "ema_z_mean",
-            "ema_z_max",
-            "ema_z_min",
-            "ema_top25_vote_count",
-            "ema_bottom25_vote_count",
+            f"{prefix}_rank_mean",
+            f"{prefix}_rank_max",
+            f"{prefix}_rank_min",
+            f"{prefix}_z_mean",
+            f"{prefix}_z_max",
+            f"{prefix}_z_min",
+            f"{prefix}_top25_vote_count",
+            f"{prefix}_bottom25_vote_count",
         ]
     )
     return enriched, features
@@ -146,16 +185,16 @@ def _add_tradable_ema_features(frame: pl.DataFrame, ema_features: Sequence[str])
 def _load_frame(config: TradableEmaRegressionConfig) -> tuple[pl.DataFrame, list[str]]:
     meta = json.loads((config.source_run / "metadata.json").read_text(encoding="utf-8"))
     source_features = list(meta["features_used"])
-    ema_features = _ema_base_features(source_features)
-    if not ema_features:
-        raise ValueError("No tradable EMA features found in source run metadata.")
+    base_features = _base_features_for_set(source_features, config.feature_set)
+    if not base_features:
+        raise ValueError(f"No tradable {config.feature_set} features found in source run metadata.")
 
     frame = pl.read_parquet(config.source_run / "model_frame.parquet").with_columns(
         pl.col("year_month").cast(pl.Date),
         pl.col("holding_month").cast(pl.Date),
         pl.col("ticker").cast(pl.Utf8),
     )
-    frame, features = _add_tradable_ema_features(frame, ema_features)
+    frame, features = _add_cross_sectional_features(frame, base_features, prefix=config.feature_set)
     legacy = _load_legacy_labels(config.legacy_path)
     return _append_legacy(frame, legacy), features
 
@@ -379,7 +418,8 @@ def _warm_start_payload(trials: pl.DataFrame, top_k: int = 50) -> dict[str, Any]
 
 
 def run(config: TradableEmaRegressionConfig) -> Path:
-    run_dir = config.output_dir / f"tradable_ema_regression_optuna_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    score_col = _score_col(config)
+    run_dir = config.output_dir / f"{score_col}_optuna_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     frame, features = _load_frame(config)
@@ -425,7 +465,7 @@ def run(config: TradableEmaRegressionConfig) -> Path:
             y=_target(fit_df, config.target_clip),
             seed=seed,
         )
-        test_predictions = _score_predictions(test_df, _predict(model, _matrix(test_df, features)), "tradable_ema_regression")
+        test_predictions = _score_predictions(test_df, _predict(model, _matrix(test_df, features)), score_col)
         prediction_frames.append(test_predictions.with_columns(pl.lit(fold_label).alias("fold")))
 
         val_model = _fit_mlcraft_regressor(
@@ -435,7 +475,7 @@ def run(config: TradableEmaRegressionConfig) -> Path:
             seed=seed,
         )
         val_overlap = _legacy_overlap(_score_predictions(val_df, _predict(val_model, _matrix(val_df, features)), "_score"), "_score")
-        test_overlap = _legacy_overlap(test_predictions, "tradable_ema_regression")
+        test_overlap = _legacy_overlap(test_predictions, score_col)
         fold_rows.append(
             {
                 "fold": fold_label,
@@ -452,7 +492,7 @@ def run(config: TradableEmaRegressionConfig) -> Path:
         )
 
     predictions = pl.concat(prediction_frames, how="vertical") if prediction_frames else pl.DataFrame()
-    recomposition = _recomposition_by_month(predictions, ["tradable_ema_regression"]) if not predictions.is_empty() else pl.DataFrame()
+    recomposition = _recomposition_by_month(predictions, [score_col]) if not predictions.is_empty() else pl.DataFrame()
     summary = _recomposition_summary(recomposition) if not recomposition.is_empty() else pl.DataFrame()
     trials = pl.DataFrame(trial_rows) if trial_rows else pl.DataFrame()
     folds = pl.DataFrame(fold_rows) if fold_rows else pl.DataFrame()
@@ -468,6 +508,8 @@ def run(config: TradableEmaRegressionConfig) -> Path:
             {
                 "source_run": str(config.source_run),
                 "legacy_path": str(config.legacy_path),
+                "score_col": score_col,
+                "feature_set": config.feature_set,
                 "warm_start_json": str(config.warm_start_json) if config.warm_start_json else None,
                 "warm_start_loaded": len(warm_starts),
                 "warm_start_top_k": config.warm_start_top_k,
@@ -483,7 +525,11 @@ def run(config: TradableEmaRegressionConfig) -> Path:
                 "sampler": "TPESampler with random startup trials, warm starts enqueued first",
                 "target": f"future_excess_return clipped to +/-{config.target_clip}",
                 "features": features,
-                "feature_policy": "tradable EMA-only features; no legacy_atomic, no legacy_optuna, no legacy_selected in features",
+                "feature_policy": (
+                    "tradable EMA-only features; no legacy_atomic, no legacy_optuna, no legacy_selected in features"
+                    if config.feature_set == "ema"
+                    else "tradable technical features; no fundamentals, no legacy_atomic, no legacy_optuna, no legacy_selected in features"
+                ),
                 "primary_metric": "nombre d'actions communes entre regression et Legacy / nombre d'actions choisies par Legacy",
                 "base_params": BASE_PARAMS,
                 "search_space": SEARCH_SPACE,
@@ -518,6 +564,7 @@ def parse_args() -> argparse.Namespace:
         choices=["best_objective", "warm_only", "top10_min_gap"],
         default="best_objective",
     )
+    parser.add_argument("--feature-set", choices=["ema", "technical"], default="ema")
     return parser.parse_args()
 
 
@@ -540,6 +587,7 @@ def main() -> None:
             target_clip=args.target_clip,
             lambda_gap=args.lambda_gap,
             trial_selection_policy=args.trial_selection_policy,
+            feature_set=args.feature_set,
         )
     )
 

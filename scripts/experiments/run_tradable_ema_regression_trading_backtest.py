@@ -21,6 +21,14 @@ DEFAULT_TOP_N_VALUES = (5, 7, 10)
 LEGACY_MODELS = ("Combined_Equal", "Combined_Frequency")
 
 
+def _scenario_prefix(score_col: str) -> str:
+    if score_col == "tradable_ema_regression":
+        return "tradable_ema"
+    if score_col == "tradable_technical_regression":
+        return "tradable_technical"
+    return score_col.removesuffix("_regression")
+
+
 @dataclass(frozen=True)
 class TradingBacktestConfig:
     prediction_run: Path = DEFAULT_PREDICTION_RUN
@@ -189,14 +197,15 @@ def _curve_from_monthly(monthly_returns: pl.DataFrame) -> pl.DataFrame:
 
 
 def run(config: TradingBacktestConfig) -> Path:
-    run_dir = config.output_dir / f"tradable_ema_regression_trading_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    scenario_prefix = _scenario_prefix(config.score_col)
+    run_dir = config.output_dir / f"{scenario_prefix}_trading_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     predictions = load_backtest_predictions(config)
     scenarios = [
         run_model_scenario(
             predictions,
-            name=f"tradable_ema_top_{top_n}",
+            name=f"{scenario_prefix}_top_{top_n}",
             top_n=top_n,
             risk_free_rate=config.risk_free_rate,
         )
@@ -206,7 +215,7 @@ def run(config: TradingBacktestConfig) -> Path:
         scenarios.append(
             run_model_scenario(
                 predictions,
-                name="tradable_ema_legacy_k",
+                name=f"{scenario_prefix}_legacy_k",
                 top_n=None,
                 risk_free_rate=config.risk_free_rate,
             )
@@ -227,7 +236,7 @@ def run(config: TradingBacktestConfig) -> Path:
     comparison = compare_backtest_curves(
         comparison_inputs,
         output_path=run_dir / "trading_backtest_comparison.html",
-        title="Tradable EMA Regression Trading Backtest vs Legacy",
+        title=f"{scenario_prefix} Trading Backtest vs Legacy",
         risk_free_rate=config.risk_free_rate,
     )
 

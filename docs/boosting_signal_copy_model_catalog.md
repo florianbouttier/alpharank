@@ -80,6 +80,7 @@ Table de synthese des runs longs importants :
 | methode | ce qui est appris ou score | variables utilisees | ensemble de test | ce qu'on retrouve |
 |---|---|---|---|---|
 | `tradable_ema_regression_optuna` | futur rendement relatif : regression de `future_excess_return` clippe, tuning Optuna avec warm starts JSON | 88 variables EMA calculables au mois de decision : 16 EMA de base, rangs mensuels, z-scores mensuels, flags top/bottom quartile, agregats horizontaux | run large corrige `2021-06` a `2026-04`, 59 mois, 457 lignes Legacy | `159 / 457 = 34.8%`, mediane mensuelle 33.3%; meilleur run court recent = `68 / 169 = 40.2%` |
+| `tradable_technical_regression_optuna` | futur rendement relatif : meme regression, mais avec toutes les familles techniques disponibles | 283 variables techniques : ROC prix, EMA, RSI, Bollinger, stochastique, distance high/low, range position, volatilite, rangs/z-scores/flags/agregats mensuels | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | `55 / 169 = 32.5%`; moins bon que EMA-only sur la meme periode |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
 | `atomic_feature_future_target` | futur rendement relatif : regression de `future_excess_return` clippe, classification `>0%` / `>5%`, ranking mensuel | features atomiques derivees des blocs Legacy : votes par bloc, flags `Legacy_Optuna_*`, quantiles/ratios `mtr`, rangs mensuels atomiques; certaines variantes ajoutent aussi EMA | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | regression = `2 070 / 2 070 = 100%`; classifieur `>5%` = `2 041 / 2 070 = 98.6%` |
@@ -138,6 +139,9 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_003954` | regression warm-startee corrigee mlcraft, test large 59 mois |
 | 2026-06-23 | run `outputs/tradable_ema_regression_optuna_20260623_131514` | test court 100 trials/fold : validation meilleure, test moins bon |
 | 2026-06-26 | run `outputs/tradable_ema_regression_trading_backtest_20260626_110356` | backtest trading de la regression EMA tradable vs Legacy |
+| 2026-06-26 | run `outputs/tradable_technical_regression_optuna_20260626_212142` | regression avec toutes les features techniques disponibles, test court |
+| 2026-06-27 | run `outputs/tradable_technical_trading_backtest_20260627_012929` | backtest trading du score technique complet |
+| 2026-06-27 | run `outputs/tradable_ema_trading_backtest_20260627_012929` | backtest EMA-only sur la meme periode courte que le run technique |
 
 Runs principaux :
 
@@ -163,6 +167,9 @@ Runs principaux :
 - `outputs/tradable_ema_regression_optuna_20260621_003954`
 - `outputs/tradable_ema_regression_optuna_20260623_131514`
 - `outputs/tradable_ema_regression_trading_backtest_20260626_110356`
+- `outputs/tradable_technical_regression_optuna_20260626_212142`
+- `outputs/tradable_technical_trading_backtest_20260627_012929`
+- `outputs/tradable_ema_trading_backtest_20260627_012929`
 
 ## Donnees communes
 
@@ -489,6 +496,7 @@ Runs :
 | `outputs/tradable_ema_regression_optuna_20260621_001753` | 23 mois, 16 trials/fold, 4 random startup, warm-start, contrat mlcraft corrige | 68 | 169 | 40.2% | 33.3% |
 | `outputs/tradable_ema_regression_optuna_20260621_003954` | 59 mois, 16 trials/fold, 4 random startup, warm-start depuis le run corrige court | 159 | 457 | 34.8% | 33.3% |
 | `outputs/tradable_ema_regression_optuna_20260623_131514` | 23 mois, 100 trials/fold, 20 random startup, warm-start depuis le run large corrige | 63 | 169 | 37.3% | 37.5% |
+| `outputs/tradable_technical_regression_optuna_20260626_212142` | 23 mois, 8 trials/fold, 2 random startup, 55 features techniques de base + rangs/z-scores/flags/agregats | 55 | 169 | 32.5% | 33.3% |
 
 Details du run large corrige :
 
@@ -512,15 +520,19 @@ Lecture :
   `63 / 169 = 37.3%` ;
 - decision du 2026-06-23 : ne pas lancer le run large 100 trials brut. Plus de
   trials cree surtout de l'overfit validation avec les features EMA actuelles ;
+- test du 2026-06-26 : ajouter toutes les familles techniques brutes n'a pas
+  ameliore. Le run technique complet baisse a `55 / 169 = 32.5%` sur la meme
+  periode courte ou EMA-only fait `68 / 169 = 40.2%` ;
 - la regression EMA tradable est maintenant une baseline propre, non trichee,
   mais elle ne retrouve pas encore 50% de Legacy sur test large ;
 - le meilleur point de depart actuel pour le prochain run est le JSON du run
   large corrige :
   `outputs/tradable_ema_regression_optuna_20260621_003954/warm_start_candidates.json` ;
 - la suite logique n'est pas seulement "plus de trials" : il faut aussi enrichir
-  les EMA tradables, par exemple avec plus de spans EMA, des pentes EMA, des
-  croisements court/long plus nombreux, et des features de stabilite de signal
-  calculees uniquement avec le passe.
+  les EMA tradables de facon controlee. Ajouter toutes les features techniques
+  d'un coup dilue le signal ; la piste suivante doit etre selection/gating par
+  famille technique ou apprentissage en deux etages, pas "tout mettre dans le
+  meme modele".
 
 #### Backtest trading vs Legacy du 2026-06-26
 
@@ -576,6 +588,68 @@ Lecture :
   devient mauvais ;
 - conclusion actuelle : le signal est tradable, mais il faut travailler la
   construction portefeuille / risque avant de parler d'allocation solide.
+
+#### Test technique complet du 2026-06-26 / 2026-06-27
+
+Construit dans :
+
+- training : `outputs/tradable_technical_regression_optuna_20260626_212142`
+- backtest technique :
+  `outputs/tradable_technical_trading_backtest_20260627_012929`
+- backtest EMA-only comparable :
+  `outputs/tradable_ema_trading_backtest_20260627_012929`
+
+Variables ajoutees :
+
+- `price_roc_*`
+- `ema_ratio_*`
+- `price_to_ema_*`
+- `rsi_*`
+- `rsi_ratio_*`
+- `bollinger_*`
+- `stoch_*`
+- `dist_to_*_high`
+- `dist_to_*_low`
+- `range_position_*`
+- `volatility_*`
+- `volatility_ratio_*`
+
+Pour chaque variable technique, le run ajoute aussi rang mensuel, z-score
+mensuel, flag top quartile et flag bottom quartile. Total final : 283 variables
+techniques. Les fondamentaux et les sorties Legacy restent exclus.
+
+Comparaison recomposition sur la periode courte commune :
+
+| modele | periode | actions communes | actions Legacy | recomposition |
+|---|---|---:|---:|---:|
+| EMA-only `outputs/tradable_ema_regression_optuna_20260621_001753` | `2024-06` a `2026-04` | 68 | 169 | 40.2% |
+| technical full `outputs/tradable_technical_regression_optuna_20260626_212142` | `2024-06` a `2026-04` | 55 | 169 | 32.5% |
+
+Comparaison backtest trading sur la meme periode courte :
+
+| modele | rendement total | CAGR | Sharpe | max drawdown | vol annualisee |
+|---|---:|---:|---:|---:|---:|
+| EMA-only top 10 | 165.1% | 66.3% | 1.67 | -13.5% | 38.4% |
+| EMA-only legacy K | 152.4% | 62.1% | 1.57 | -12.5% | 38.3% |
+| EMA-only top 5 | 137.9% | 57.2% | 1.45 | -11.0% | 38.1% |
+| Combined_Frequency | 136.4% | 56.7% | 1.43 | -19.6% | 38.2% |
+| technical top 5 | 125.8% | 53.0% | 1.07 | -19.9% | 47.7% |
+| Combined_Equal | 117.4% | 50.0% | 1.37 | -17.5% | 35.1% |
+| technical legacy K | 72.0% | 32.7% | 0.67 | -21.1% | 45.7% |
+| technical top 10 | 53.8% | 25.2% | 0.64 | -18.0% | 36.4% |
+| SPY | 38.7% | 18.6% | 1.36 | -7.6% | 12.2% |
+
+Lecture :
+
+- l'intuition "plus de granularite technique va ameliorer" ne se verifie pas
+  dans ce test brut ;
+- EMA-only reste meilleur que technical-full a la fois en recomposition et en
+  backtest trading ;
+- le technical-full apporte surtout du bruit ou de l'instabilite : la volatilite
+  augmente et les meilleurs scenarios restent sous EMA-only ;
+- decision : ne pas lancer le run large technical-full brut. La prochaine piste
+  defendable est de tester les familles techniques separement, puis de faire un
+  gating/stacking seulement sur les familles qui battent EMA-only hors test.
 
 ### `ema_rich_*` future-target, run long
 
