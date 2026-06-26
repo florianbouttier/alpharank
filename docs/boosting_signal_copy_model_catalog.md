@@ -137,6 +137,7 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_001753` | regression warm-startee corrigee mlcraft, 23 mois test |
 | 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_003954` | regression warm-startee corrigee mlcraft, test large 59 mois |
 | 2026-06-23 | run `outputs/tradable_ema_regression_optuna_20260623_131514` | test court 100 trials/fold : validation meilleure, test moins bon |
+| 2026-06-26 | run `outputs/tradable_ema_regression_trading_backtest_20260626_110356` | backtest trading de la regression EMA tradable vs Legacy |
 
 Runs principaux :
 
@@ -161,6 +162,7 @@ Runs principaux :
 - `outputs/tradable_ema_regression_optuna_20260621_001753`
 - `outputs/tradable_ema_regression_optuna_20260621_003954`
 - `outputs/tradable_ema_regression_optuna_20260623_131514`
+- `outputs/tradable_ema_regression_trading_backtest_20260626_110356`
 
 ## Donnees communes
 
@@ -519,6 +521,61 @@ Lecture :
   les EMA tradables, par exemple avec plus de spans EMA, des pentes EMA, des
   croisements court/long plus nombreux, et des features de stabilite de signal
   calculees uniquement avec le passe.
+
+#### Backtest trading vs Legacy du 2026-06-26
+
+Construit dans :
+
+- script : `scripts/experiments/run_tradable_ema_regression_trading_backtest.py`
+- run : `outputs/tradable_ema_regression_trading_backtest_20260626_110356`
+- rapport HTML :
+  `outputs/tradable_ema_regression_trading_backtest_20260626_110356/trading_backtest_comparison.html`
+
+But :
+
+Passer du KPI de recomposition Legacy au resultat trading reel du score
+`tradable_ema_regression`, sur les memes mois que le run large corrige.
+
+Periode :
+
+- debut : `2021-06`
+- fin : `2026-04`
+- mois : 59
+
+Regles testees :
+
+- `tradable_ema_top_5` : top 5 actions par score du modele ;
+- `tradable_ema_top_7` : top 7 actions par score du modele ;
+- `tradable_ema_top_10` : top 10 actions par score du modele ;
+- `tradable_ema_legacy_k` : top K actions par score du modele, ou K est le
+  nombre d'actions Legacy du mois. Ce scenario est un diagnostic comparable a
+  Legacy, pas une regle autonome pure.
+
+Comparaison :
+
+| modele | rendement total | CAGR | Sharpe | max drawdown | vol annualisee | mois positifs | nb actions moyen |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| tradable_ema_legacy_k | 228.3% | 27.4% | 0.70 | -25.1% | 36.1% | 61.0% | 7.7 |
+| Combined_Frequency | 228.2% | 27.3% | 0.83 | -20.4% | 30.6% | 61.0% | n/a |
+| tradable_ema_top_10 | 223.3% | 27.0% | 0.73 | -26.2% | 34.3% | 59.3% | 10.0 |
+| Combined_Equal | 195.1% | 24.6% | 0.76 | -20.2% | 29.6% | 55.9% | n/a |
+| tradable_ema_top_7 | 178.6% | 23.2% | 0.54 | -39.9% | 39.1% | 57.6% | 7.0 |
+| tradable_ema_top_5 | 99.0% | 15.0% | 0.33 | -51.2% | 38.9% | 59.3% | 5.0 |
+| SPY | 82.0% | 13.0% | 0.69 | -23.9% | 15.8% | 64.4% | n/a |
+
+Lecture :
+
+- en rendement brut, la regression EMA est beaucoup meilleure que ce que le KPI
+  de recomposition pouvait laisser penser ;
+- `tradable_ema_legacy_k` fait quasiment jeu egal avec `Combined_Frequency` en
+  rendement total, mais avec un Sharpe plus faible et un drawdown plus profond ;
+- la meilleure regle autonome simple est `tradable_ema_top_10` : elle bat
+  `Combined_Equal` en rendement total et reste proche de `Combined_Frequency`,
+  mais avec plus de risque ;
+- `top_5` est trop concentre : le rendement baisse fortement et le drawdown
+  devient mauvais ;
+- conclusion actuelle : le signal est tradable, mais il faut travailler la
+  construction portefeuille / risque avant de parler d'allocation solide.
 
 ### `ema_rich_*` future-target, run long
 
