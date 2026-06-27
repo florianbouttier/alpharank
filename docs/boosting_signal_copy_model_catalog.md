@@ -83,6 +83,7 @@ Table de synthese des runs longs importants :
 | `tradable_ema_regression_optuna_no_legacy_objective` | futur rendement relatif : meme regression, mais Optuna optimise seulement la validation future, jamais Legacy | memes 88 variables EMA ; pas de warm-start issu de Legacy ; objectifs testes : rendement top 10 validation et precision top K validation `K=10/20/30/50` | sweep court propre `2025-06` a `2026-04`, 11 mois, 71 lignes Legacy | recomposition tres basse (`3/71` a `9/71`) ; meilleur trading court = precision top 30, top 30 `+65.9%`, Sharpe 3.15 |
 | `tradable_technical_regression_optuna` | futur rendement relatif : meme regression, mais avec toutes les familles techniques disponibles | 283 variables techniques : ROC prix, EMA, RSI, Bollinger, stochastique, distance high/low, range position, volatilite, rangs/z-scores/flags/agregats mensuels | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | `55 / 169 = 32.5%`; moins bon que EMA-only sur la meme periode |
 | `tradable_ema_residual_regression` | futur rendement relatif : base EMA-only puis regression du residu `future_excess_return_clippe - prediction_EMA` | base : 88 variables EMA ; residu : variables techniques non-EMA avec rangs mensuels, z-scores, flags top/bottom quartile et agregats ; score final `EMA + shrinkage * residu` | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | meilleur shrinkage recomposition `0.25` : `69 / 169 = 40.8%`; mieux que le meilleur EMA court d'un ticker, mais backtest plus faible que la base EMA fixe |
+| `deterministic_ema_signal_diagnostic` | pas de training : score tradable = rang mensuel d'un signal EMA / momentum observe | signaux calculables au mois de decision : `ema_ratio_2_12_rank_month`, `ema_ratio_3_12_rank_month`, `technical_z_mean`, `technical_rank_mean`; aucun objectif Legacy en training car il n'y a pas de training | diagnostic 2015+ `2015-01` a `2026-04`, 136 mois, 1 258 lignes Legacy | KPI strict `legacy_k`: `ema_ratio_3_12_rank_month` retrouve `655 / 1 258 = 52.1%`; `ema_ratio_2_12_rank_month` retrouve `647 / 1 258 = 51.4%` |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
 | `atomic_feature_future_target` | futur rendement relatif : regression de `future_excess_return` clippe, classification `>0%` / `>5%`, ranking mensuel | features atomiques derivees des blocs Legacy : votes par bloc, flags `Legacy_Optuna_*`, quantiles/ratios `mtr`, rangs mensuels atomiques; certaines variantes ajoutent aussi EMA | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | regression = `2 070 / 2 070 = 100%`; classifieur `>5%` = `2 041 / 2 070 = 98.6%` |
@@ -103,6 +104,10 @@ Lecture importante :
 - Les modeles `future_excess_return` purs sur EMA enrichies progressent avec
   warm starts Optuna, mais ne suffisent pas encore : le test large corrige est a
   34.8%, sous l'objectif de 50%.
+- Diagnostic ajoute le 2026-06-27 : un simple rang EMA tradable retrouve deja
+  plus de 50% de Legacy sur 2015+. Le probleme n'est donc pas "il n'y a pas de
+  signal EMA". Le probleme est que les regressions boosting propres diluent ce
+  signal quand elles optimisent un objectif futur trop global.
 
 Regle de suite ajoutee apres clarification utilisateur :
 
@@ -152,6 +157,9 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-27 | runs `outputs/tradable_ema_trading_backtest_20260627_024211`, `024213`, `024215`, `024216`, `024218` | backtests du sweep sans objectif Legacy |
 | 2026-06-27 | runs `outputs/tradable_ema_regression_optuna_20260627_121144`, `125020`, `133211`, `140859`, `144652` | sweep 2015+ sans objectif Legacy, 136 folds mensuels par objectif |
 | 2026-06-27 | runs `outputs/tradable_ema_trading_backtest_20260627_152139`, `152141`, `152143`, `152145`, `152147` | backtests 2015+ des cinq objectifs Optuna propres |
+| 2026-06-27 | script `scripts/experiments/analyze_legacy_factor_exposures.py`, run `outputs/legacy_factor_exposure_20260627_154437` | diagnostic Legacy 2015+ : exposition features, secteurs, tickers, blocs EMA atomiques |
+| 2026-06-27 | script `scripts/experiments/build_deterministic_signal_predictions.py`, run `outputs/deterministic_signal_predictions_20260627_154617` | generation de predictions deterministes tradables pour tester les scores EMA simples |
+| 2026-06-27 | runs `outputs/ema_ratio_2_12_rank_month_trading_backtest_20260627_154632`, `outputs/ema_ratio_3_12_rank_month_trading_backtest_20260627_154632`, `outputs/technical_z_mean_trading_backtest_20260627_154632`, `outputs/technical_rank_mean_trading_backtest_20260627_154632` | backtests 2015+ des temoins deterministes EMA / technique |
 
 Runs principaux :
 
@@ -204,6 +212,12 @@ Runs principaux :
 - `outputs/tradable_ema_trading_backtest_20260627_152143`
 - `outputs/tradable_ema_trading_backtest_20260627_152145`
 - `outputs/tradable_ema_trading_backtest_20260627_152147`
+- `outputs/legacy_factor_exposure_20260627_154437`
+- `outputs/deterministic_signal_predictions_20260627_154617`
+- `outputs/ema_ratio_2_12_rank_month_trading_backtest_20260627_154632`
+- `outputs/ema_ratio_3_12_rank_month_trading_backtest_20260627_154632`
+- `outputs/technical_z_mean_trading_backtest_20260627_154632`
+- `outputs/technical_rank_mean_trading_backtest_20260627_154632`
 
 ## Donnees communes
 
@@ -1369,6 +1383,137 @@ Une fois le clone correct :
 
 Les probas absolues sont mal calibrees pour ce probleme. Le bon seuil est
 mensuel et relatif : top K ou top N.
+
+## Diagnostic 2026-06-27 : ce que Legacy achete vraiment
+
+Run principal :
+
+```text
+outputs/legacy_factor_exposure_20260627_154437
+```
+
+Script :
+
+```text
+scripts/experiments/analyze_legacy_factor_exposures.py
+```
+
+Fenetre :
+
+- `2015-01` a `2026-04`;
+- `Combined_Frequency`;
+- 136 mois ;
+- 1 258 positions Legacy ;
+- 9.2 positions par mois en moyenne, avec un minimum de 5 et un maximum de 22.
+
+Lecture performance :
+
+| mesure | valeur |
+|---|---:|
+| Rendement mensuel Legacy equal-weight | `1.9%` |
+| Excess return mensuel Legacy equal-weight | `0.7%` |
+| Excess return mensuel univers equal-weight | `-0.2%` |
+| Lift Legacy vs univers en excess return | `0.9%` |
+| Positions Legacy avec excess return positif | `51.9%` |
+| Univers avec excess return positif | `48.2%` |
+
+Lecture signal :
+
+| feature tradable | rang moyen des actions Legacy | lift vs univers | IC futur excess return |
+|---|---:|---:|---:|
+| `ema_ratio_2_12` | `0.970` | `0.469` | `0.013` |
+| `ema_ratio_3_12` | `0.969` | `0.468` | `0.014` |
+| `ema_ratio_3_6` | `0.966` | `0.465` | `0.012` |
+| `technical_z_mean` | `0.965` | `0.464` | `0.014` |
+| `price_to_ema_12` | `0.961` | `0.460` | `0.013` |
+
+Conclusion :
+
+- Legacy achete presque toujours l'extreme haut des rangs EMA / momentum court
+  contre moyen terme.
+- Le signal est tres lisible en cross-section, mais son IC futur mensuel est
+  faible. Ca explique pourquoi une regression globale du futur excess return
+  peut predire un peu mieux en RMSE tout en selectionnant moins bien les tout
+  premiers noms.
+- Le bon modele ne doit pas juste predire la moyenne conditionnelle. Il doit
+  preserver le signal d'extreme ranking, puis apprendre a filtrer ou ponderer
+  ces extremes pour reduire volatilite et drawdown.
+
+Secteurs et concentration :
+
+- secteurs les plus presents : Technology, Consumer Cyclical, Industrials,
+  Healthcare, Financial Services ;
+- Technology est le principal moteur positif visible : 210 positions, excess
+  return moyen `2.4%` ;
+- tickers les plus frequents : `NVDA.US` 61 mois, `NFLX.US` 38 mois,
+  `LRCX.US` 25 mois, `NEM.US` 21 mois, `ALGN.US` 20 mois.
+
+Blocs EMA atomiques les plus presents dans Legacy 2015+ :
+
+- `159.0-54.0-30|asset=18|sector=2`;
+- `162.0-54.0-30|asset=30|sector=2`;
+- `172.0-46.0-30|asset=11|sector=2`;
+- `260.0-71.0-30|asset=5|sector=2`;
+- `112.0-49.0-30|asset=5|sector=2`;
+- `251.0-37.0-30|asset=5|sector=2`.
+
+Ces fenetres doivent inspirer le prochain generateur EMA, mais pas etre
+utilisees comme cible Legacy.
+
+## Temoins deterministes 2015+
+
+Runs :
+
+```text
+outputs/deterministic_signal_predictions_20260627_154617
+outputs/ema_ratio_2_12_rank_month_trading_backtest_20260627_154632
+outputs/ema_ratio_3_12_rank_month_trading_backtest_20260627_154632
+outputs/technical_z_mean_trading_backtest_20260627_154632
+outputs/technical_rank_mean_trading_backtest_20260627_154632
+```
+
+Ces temoins ne sont pas des modeles entraines. Ils servent a verifier si un
+score simple, calculable au mois de decision, retrouve Legacy et tient en
+backtest.
+
+Table performance principale :
+
+| score | selection | recomposition stricte | total return | CAGR | Sharpe | max drawdown |
+|---|---:|---:|---:|---:|---:|---:|
+| `ema_ratio_3_12_rank_month` | top 5 | `404 / 1 258 = 32.1%` | `+1 498.1%` | `27.7%` | `0.75` | `-33.0%` |
+| `ema_ratio_2_12_rank_month` | legacy K | `647 / 1 258 = 51.4%` | `+1 291.0%` | `26.1%` | `0.78` | `-27.2%` |
+| `ema_ratio_3_12_rank_month` | legacy K | `655 / 1 258 = 52.1%` | `+883.7%` | `22.4%` | `0.68` | `-26.8%` |
+| `technical_z_mean` | legacy K | `580 / 1 258 = 46.1%` | `+1 154.1%` | `25.0%` | `0.76` | `-34.7%` |
+| `technical_rank_mean` | legacy K | `528 / 1 258 = 42.0%` | `+1 147.4%` | `24.9%` | `0.92` | `-31.7%` |
+| `Combined_Frequency` | Legacy | reference | `+1 133.7%` | `24.8%` | `0.93` | `-23.5%` |
+| `Combined_Equal` | Legacy | reference | `+847.4%` | `21.9%` | `0.84` | `-23.6%` |
+| `SPY` | benchmark | reference | `+319.4%` | `13.5%` | `0.76` | `-23.9%` |
+
+Lecture :
+
+- Le seuil de 50% de recomposition est atteint sans triche par un score EMA
+  deterministe : `ema_ratio_3_12_rank_month` en K dynamique Legacy.
+- Certains scores simples battent Legacy en rendement total/CAGR, mais pas en
+  controle du risque. Le meilleur rendement est plus volatil et plus profond en
+  drawdown.
+- `technical_rank_mean` est interessant pour le controle : rendement comparable
+  a `Combined_Frequency`, Sharpe proche, mais drawdown encore trop eleve.
+- Les regressions boosting propres testees avant ne doivent pas etre promues :
+  elles apprennent bien une partie du futur excess return, mais perdent le
+  comportement extreme-rank qui fait Legacy.
+
+Decision R&D apres ce diagnostic :
+
+1. Construire une regression/ranking qui part d'un score EMA extreme-rank comme
+   score de base, puis apprend un ajustement sur futur excess return.
+2. Optimiser Optuna sur validation future seulement, avec une metrique de
+   portefeuille, pas sur Legacy : rendement top K, Sharpe mensuel ou penalite
+   drawdown/volatilite.
+3. Ajouter ensuite des contraintes d'allocation pour construire un portefeuille
+   plus controle : max overlap Legacy, max secteur, volatilite realisee, et
+   limite de concentration ticker.
+4. Garder le KPI Legacy comme diagnostic de famille de signal, pas comme
+   objectif d'optimisation.
 
 ## Decision actuelle
 

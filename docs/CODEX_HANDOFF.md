@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-06-20
+Last updated: 2026-06-27
 Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -68,16 +68,21 @@ Important methods tested:
 Current conclusion:
 
 - Direct future-return models with the original feature set did not recover
-  Legacy well enough.
+  Legacy well enough, especially once Optuna stopped optimizing on Legacy.
 - Atomic Legacy features prove the representation problem: once the exact
   atomic Legacy signals are visible, recovery can exceed 98%, but that is not a
   generalizable final model.
-- Best generalizable result so far is the deterministic EMA expert score:
-  `1,254 / 2,070 = 60.6%` recomposition over 195 Legacy months, with 70% median
-  monthly recomposition.
-- XGBoost/mlcraft trained on that best generalized EMA-expert frame did not beat
-  the deterministic expert score: the `future_excess_return > 5%` classifier
-  reached 42.1% recomposition.
+- 2026-06-27 diagnostic changed the priority: simple tradable EMA rank scores
+  already recover more than 50% of Legacy on 2015+. `ema_ratio_3_12_rank_month`
+  with dynamic Legacy K recovers `655 / 1,258 = 52.1%`; `ema_ratio_2_12_rank_month`
+  recovers `647 / 1,258 = 51.4%`.
+- The current issue is not absence of EMA signal. The issue is that clean
+  boosting regressions dilute the extreme-rank momentum signal when optimized on
+  broad future-return objectives.
+- New direction: keep training on future excess return, but use strong EMA
+  rank/momentum as the base signal, then learn a correction/gating layer and
+  evaluate with portfolio-risk metrics. Keep Legacy recomposition as a
+  diagnostic only, not an Optuna objective.
 
 Detailed source of truth:
 [`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md).
