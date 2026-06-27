@@ -150,6 +150,8 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-27 | script `scripts/experiments/run_tradable_ema_regression_optuna.py` | ajout d'objectifs Optuna sans Legacy : rendement top K et precision top K en validation |
 | 2026-06-27 | runs `outputs/tradable_ema_regression_optuna_20260627_021449` a `outputs/tradable_ema_regression_optuna_20260627_023621` | sweep court sans objectif Legacy, sans warm-start, objectifs rendement top 10 et precision top 10/20/30/50 |
 | 2026-06-27 | runs `outputs/tradable_ema_trading_backtest_20260627_024211`, `024213`, `024215`, `024216`, `024218` | backtests du sweep sans objectif Legacy |
+| 2026-06-27 | runs `outputs/tradable_ema_regression_optuna_20260627_121144`, `125020`, `133211`, `140859`, `144652` | sweep 2015+ sans objectif Legacy, 136 folds mensuels par objectif |
+| 2026-06-27 | runs `outputs/tradable_ema_trading_backtest_20260627_152139`, `152141`, `152143`, `152145`, `152147` | backtests 2015+ des cinq objectifs Optuna propres |
 
 Runs principaux :
 
@@ -192,6 +194,16 @@ Runs principaux :
 - `outputs/tradable_ema_trading_backtest_20260627_024215`
 - `outputs/tradable_ema_trading_backtest_20260627_024216`
 - `outputs/tradable_ema_trading_backtest_20260627_024218`
+- `outputs/tradable_ema_regression_optuna_20260627_121144`
+- `outputs/tradable_ema_regression_optuna_20260627_125020`
+- `outputs/tradable_ema_regression_optuna_20260627_133211`
+- `outputs/tradable_ema_regression_optuna_20260627_140859`
+- `outputs/tradable_ema_regression_optuna_20260627_144652`
+- `outputs/tradable_ema_trading_backtest_20260627_152139`
+- `outputs/tradable_ema_trading_backtest_20260627_152141`
+- `outputs/tradable_ema_trading_backtest_20260627_152143`
+- `outputs/tradable_ema_trading_backtest_20260627_152145`
+- `outputs/tradable_ema_trading_backtest_20260627_152147`
 
 ## Donnees communes
 
@@ -628,6 +640,78 @@ Lecture :
 - le meilleur candidat propre a etendre est `precision top 30 validation`, mais
   le test ne couvre que 11 mois. Il faut le rejouer sur une periode plus longue
   et avec plus de trials avant d'en tirer une conclusion robuste.
+
+#### Sweep 2015+ sans objectif Legacy du 2026-06-27
+
+But :
+
+Verifier les objectifs Optuna propres sur une longue periode, avec rotation
+mensuelle et reentrainement complet.
+
+Protocole :
+
+- source : `outputs/xgboost_timefold_backtest_20260612_175250/model_frame.parquet`
+- features : EMA-only, 88 variables ;
+- target modele : `future_excess_return` clippe a `[-30%, +30%]` ;
+- debut test vise : `2015-01` decision month ;
+- premiere performance realisee : `2015-02`, car le rendement porte sur le mois
+  de detention suivant ;
+- split mensuel :
+  - train = tout l'historique avant la validation ;
+  - validation = 12 mois ;
+  - test = 1 mois ;
+  - puis rotation d'un mois ;
+- `min_train_months=168`, `val_months=12`, `test_months=1` ;
+- 136 folds mensuels par objectif ;
+- Optuna : 4 trials/fold, 2 random startup puis TPE ;
+- aucun warm-start Legacy : `--warm-start-top-k 0` ;
+- Legacy utilise seulement pour `recomposition_summary.csv`, pas pour choisir les
+  hyperparametres.
+
+Runs 2015+ :
+
+| objectif Optuna | training | backtest | recomposition Legacy | meilleur scenario ML | rendement total | CAGR | Sharpe | max DD |
+|---|---|---|---:|---|---:|---:|---:|---:|
+| rendement top 10 validation | `outputs/tradable_ema_regression_optuna_20260627_121144` | `outputs/tradable_ema_trading_backtest_20260627_152139` | `80 / 1236 = 6.5%` | `tradable_ema_top_50` | 268.7% | 12.3% | 0.57 | -25.0% |
+| precision top 10 validation | `outputs/tradable_ema_regression_optuna_20260627_125020` | `outputs/tradable_ema_trading_backtest_20260627_152141` | `73 / 1236 = 5.9%` | `tradable_ema_top_50` | 293.9% | 13.0% | 0.62 | -24.4% |
+| precision top 20 validation | `outputs/tradable_ema_regression_optuna_20260627_133211` | `outputs/tradable_ema_trading_backtest_20260627_152143` | `81 / 1236 = 6.6%` | `tradable_ema_top_50` | 269.1% | 12.3% | 0.57 | -24.1% |
+| precision top 30 validation | `outputs/tradable_ema_regression_optuna_20260627_140859` | `outputs/tradable_ema_trading_backtest_20260627_152145` | `71 / 1236 = 5.7%` | `tradable_ema_top_50` | 231.1% | 11.2% | 0.45 | -38.5% |
+| precision top 50 validation | `outputs/tradable_ema_regression_optuna_20260627_144652` | `outputs/tradable_ema_trading_backtest_20260627_152147` | `83 / 1236 = 6.7%` | `tradable_ema_top_30` | 314.5% | 13.5% | 0.62 | -23.3% |
+
+Baselines communes sur la meme periode :
+
+| modele | rendement total | CAGR | Sharpe | max DD | mois positifs |
+|---|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 60.0% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 69.6% |
+
+Tous les top N des objectifs 2015+ :
+
+| objectif Optuna | top 5 | top 7 | top 10 | top 20 | top 30 | top 50 | legacy K |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| rendement top 10 validation | 45.0% | 93.6% | 124.9% | 195.1% | 238.0% | 268.7% | 105.8% |
+| precision top 10 validation | 31.3% | 70.7% | 157.6% | 201.2% | 245.9% | 293.9% | 87.7% |
+| precision top 20 validation | 52.5% | 105.9% | 159.1% | 219.5% | 255.9% | 269.1% | 78.8% |
+| precision top 30 validation | 66.2% | 72.2% | 133.7% | 131.0% | 157.9% | 231.1% | 51.1% |
+| precision top 50 validation | 47.8% | 101.9% | 160.0% | 252.6% | 314.5% | 278.7% | 103.2% |
+
+Lecture :
+
+- le resultat court `2025-06 -> 2026-04` ne generalise pas tel quel : sur
+  `2015-02 -> 2026-04`, aucun objectif EMA-only propre ne bat Legacy ;
+- le meilleur ML propre long est `precision top 50 validation`, applique en
+  top 30 : 314.5% de rendement total, presque au niveau SPY en rendement total
+  mais avec un Sharpe plus faible ;
+- Legacy reste tres au-dessus : `Combined_Frequency` fait 1118.1% de rendement
+  total et 24.9% de CAGR ;
+- la recomposition Legacy reste tres faible (`5.7%` a `6.7%`), ce qui confirme
+  que le signal Legacy n'est pas retrouve naturellement quand Optuna optimise
+  uniquement le rendement/proba future ;
+- decision : ne pas promouvoir ces objectifs EMA-only propres en algo
+  d'allocation. Ils deviennent une baseline longue non contaminee. La prochaine
+  recherche doit ajouter d'autres signaux ou une architecture de ranking/risk,
+  pas seulement augmenter les trials EMA-only.
 
 #### Backtest trading vs Legacy du 2026-06-26
 
