@@ -81,6 +81,7 @@ Table de synthese des runs longs importants :
 |---|---|---|---|---|
 | `tradable_ema_regression_optuna` | futur rendement relatif : regression de `future_excess_return` clippe, tuning Optuna avec warm starts JSON | 88 variables EMA calculables au mois de decision : 16 EMA de base, rangs mensuels, z-scores mensuels, flags top/bottom quartile, agregats horizontaux | run large corrige `2021-06` a `2026-04`, 59 mois, 457 lignes Legacy | `159 / 457 = 34.8%`, mediane mensuelle 33.3%; meilleur run court recent = `68 / 169 = 40.2%` |
 | `tradable_technical_regression_optuna` | futur rendement relatif : meme regression, mais avec toutes les familles techniques disponibles | 283 variables techniques : ROC prix, EMA, RSI, Bollinger, stochastique, distance high/low, range position, volatilite, rangs/z-scores/flags/agregats mensuels | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | `55 / 169 = 32.5%`; moins bon que EMA-only sur la meme periode |
+| `tradable_ema_residual_regression` | futur rendement relatif : base EMA-only puis regression du residu `future_excess_return_clippe - prediction_EMA` | base : 88 variables EMA ; residu : variables techniques non-EMA avec rangs mensuels, z-scores, flags top/bottom quartile et agregats ; score final `EMA + shrinkage * residu` | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | meilleur shrinkage recomposition `0.25` : `69 / 169 = 40.8%`; mieux que le meilleur EMA court d'un ticker, mais backtest plus faible que la base EMA fixe |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
 | `atomic_feature_future_target` | futur rendement relatif : regression de `future_excess_return` clippe, classification `>0%` / `>5%`, ranking mensuel | features atomiques derivees des blocs Legacy : votes par bloc, flags `Legacy_Optuna_*`, quantiles/ratios `mtr`, rangs mensuels atomiques; certaines variantes ajoutent aussi EMA | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | regression = `2 070 / 2 070 = 100%`; classifieur `>5%` = `2 041 / 2 070 = 98.6%` |
@@ -142,6 +143,9 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-26 | run `outputs/tradable_technical_regression_optuna_20260626_212142` | regression avec toutes les features techniques disponibles, test court |
 | 2026-06-27 | run `outputs/tradable_technical_trading_backtest_20260627_012929` | backtest trading du score technique complet |
 | 2026-06-27 | run `outputs/tradable_ema_trading_backtest_20260627_012929` | backtest EMA-only sur la meme periode courte que le run technique |
+| 2026-06-27 | script `scripts/experiments/run_tradable_ema_residual_regression.py` | test residual : base EMA-only puis regression du residu sur technique non-EMA |
+| 2026-06-27 | run `outputs/tradable_ema_residual_regression_20260627_020253` | residual regression, 23 mois test, shrinkages 0.25/0.50/1.00 |
+| 2026-06-27 | runs `outputs/ema_plus_residual_0_25_trading_backtest_20260627_020626`, `outputs/ema_plus_residual_0_50_trading_backtest_20260627_020654`, `outputs/ema_base_trading_backtest_20260627_020633` | backtests residual et base EMA fixe comparable |
 
 Runs principaux :
 
@@ -170,6 +174,10 @@ Runs principaux :
 - `outputs/tradable_technical_regression_optuna_20260626_212142`
 - `outputs/tradable_technical_trading_backtest_20260627_012929`
 - `outputs/tradable_ema_trading_backtest_20260627_012929`
+- `outputs/tradable_ema_residual_regression_20260627_020253`
+- `outputs/ema_plus_residual_0_25_trading_backtest_20260627_020626`
+- `outputs/ema_plus_residual_0_50_trading_backtest_20260627_020654`
+- `outputs/ema_base_trading_backtest_20260627_020633`
 
 ## Donnees communes
 
@@ -650,6 +658,122 @@ Lecture :
 - decision : ne pas lancer le run large technical-full brut. La prochaine piste
   defendable est de tester les familles techniques separement, puis de faire un
   gating/stacking seulement sur les familles qui battent EMA-only hors test.
+
+#### Test residual EMA + technique non-EMA du 2026-06-27
+
+Construit dans :
+
+- script : `scripts/experiments/run_tradable_ema_residual_regression.py`
+- run : `outputs/tradable_ema_residual_regression_20260627_020253`
+- backtest shrinkage `0.25` :
+  `outputs/ema_plus_residual_0_25_trading_backtest_20260627_020626`
+- backtest shrinkage `0.50` :
+  `outputs/ema_plus_residual_0_50_trading_backtest_20260627_020654`
+- backtest base EMA fixe du meme run :
+  `outputs/ema_base_trading_backtest_20260627_020633`
+
+Question testee :
+
+```text
+Est-ce qu'un modele technique peut apprendre seulement ce que le modele EMA-only
+ne predit pas ?
+```
+
+Ce qui est regresse :
+
+1. modele de base :
+   `future_excess_return` clippe a `[-30%, +30%]` ;
+2. modele residual :
+   `future_excess_return_clippe - prediction_EMA_base` ;
+3. score final :
+   `prediction_EMA_base + shrinkage * prediction_residuelle`.
+
+Variables utilisees :
+
+- base EMA : memes 88 variables que `tradable_ema_regression_optuna`
+  (16 EMA de base + rangs mensuels + z-scores mensuels + flags quartile +
+  agregats horizontaux) ;
+- residu : familles techniques hors EMA, donc `price_roc_*`, `rsi_*`,
+  `rsi_ratio_*`, `bollinger_*`, `stoch_*`, `dist_to_*`,
+  `range_position_*`, `volatility_*`, `volatility_ratio_*`, plus rangs
+  mensuels, z-scores mensuels, flags quartile et agregats horizontaux ;
+- pas de target Legacy, pas de features atomiques Legacy, pas de variable
+  future non tradable.
+
+Ensemble de test :
+
+- meme periode courte que le test technical : `2024-06` a `2026-04` ;
+- 23 mois avec panier Legacy ;
+- 169 actions Legacy a recomposer ;
+- 11 513 lignes de predictions.
+
+Recomposition Legacy :
+
+| modele | actions communes | actions Legacy | recomposition | mediane mensuelle |
+|---|---:|---:|---:|---:|
+| EMA base fixe du run residual | 61 | 169 | 36.1% | 33.3% |
+| EMA + 25% residu technique | 69 | 169 | 40.8% | 40.0% |
+| EMA + 50% residu technique | 66 | 169 | 39.1% | 42.9% |
+| EMA + 100% residu technique | 45 | 169 | 26.6% | 25.0% |
+
+Comparaison a l'ancien meilleur court :
+
+| modele | actions communes | actions Legacy | recomposition |
+|---|---:|---:|---:|
+| ancien EMA Optuna par fold `outputs/tradable_ema_regression_optuna_20260621_001753` | 68 | 169 | 40.2% |
+| EMA + 25% residu technique | 69 | 169 | 40.8% |
+
+Lecture recomposition :
+
+- apprendre le residu technique aide legerement le KPI demande : `+1` action
+  commune vs le meilleur run EMA court existant ;
+- le residu doit etre fortement shrinke. A `100%`, il detruit le ranking Legacy ;
+- le gain est trop petit pour appeler ca une rupture. C'est un signal faible,
+  pas une nouvelle base de production.
+
+Metrices de prediction sur le futur rendement relatif :
+
+| modele | RMSE clippee | Pearson clippe | Spearman global | Spearman mensuel moyen | top 10 futur excess moyen |
+|---|---:|---:|---:|---:|---:|
+| EMA base fixe | 8.177% | 3.04% | 0.10% | 1.52% | 3.84% |
+| EMA + 25% residu | 8.172% | 3.80% | 1.64% | 1.30% | 2.20% |
+| EMA + 50% residu | 8.168% | 4.07% | 2.17% | 0.98% | 1.90% |
+| EMA + 100% residu | 8.166% | 4.07% | 2.71% | 0.66% | 1.72% |
+
+Lecture prediction :
+
+- oui, en metrique globale de regression, ajouter le residu technique ameliore
+  legerement la prediction ;
+- non, cette amelioration globale ne se traduit pas automatiquement par une
+  meilleure selection mensuelle ;
+- plus le residu est fort, plus la RMSE globale baisse, mais plus le top 10
+  mensuel se degrade. La metrique globale voit un petit signal diffus, alors que
+  le portefeuille depend de l'extreme top du classement.
+
+Comparaison backtest trading sur la meme periode :
+
+| modele | rendement total | CAGR | Sharpe | max drawdown |
+|---|---:|---:|---:|---:|
+| EMA base fixe top 7 | 232.0% | 87.0% | 1.88 | -8.2% |
+| EMA base fixe legacy K | 219.7% | 83.4% | 1.84 | -7.5% |
+| EMA base fixe top 10 | 206.2% | 79.3% | 2.03 | -7.3% |
+| EMA + 50% residu top 5 | 219.0% | 83.2% | 1.88 | -18.0% |
+| ancien EMA Optuna court top 10 | 165.1% | 66.3% | 1.67 | -13.5% |
+| EMA + 25% residu top 5 | 125.3% | 52.8% | 1.33 | -19.2% |
+| Combined_Frequency | 136.4% | 56.7% | 1.43 | -19.6% |
+| SPY | 38.7% | 18.6% | 1.36 | -7.6% |
+
+Lecture trading :
+
+- la base EMA fixe, issue du meilleur warm-start large, backteste mieux que le
+  run EMA Optuna court qui optimisait la recomposition par fold ;
+- le residu `0.25` est le meilleur pour recomposer Legacy, mais pas pour trader ;
+- le residu `0.50` peut etre interessant sur top 5, mais il augmente fortement
+  le drawdown et degrade top 7/top 10 ;
+- decision : ne pas remplacer la base EMA par le residual. La piste utile est
+  plutot un gating : utiliser le residu technique seulement pour departager les
+  premiers noms EMA ou construire un top 5 satellite, pas pour reranker tout
+  l'univers.
 
 ### `ema_rich_*` future-target, run long
 
