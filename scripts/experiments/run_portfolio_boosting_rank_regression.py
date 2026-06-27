@@ -6,7 +6,7 @@ import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import optuna
@@ -29,49 +29,48 @@ from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN, _app
 from run_tradable_ema_regression_optuna import _add_cross_sectional_features, _base_features_for_set  # noqa: E402
 from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
     DEFAULT_LEGACY_MONTHLY_RETURNS,
-    LEGACY_MODELS,
     build_spy_curve,
     load_legacy_curves,
 )
 
 
 @dataclass(frozen=True)
-class PortfolioBoostingTopReturnConfig:
+class PortfolioBoostingRankRegressionConfig:
     source_run: Path = DEFAULT_SOURCE_RUN
     legacy_path: Path = DEFAULT_LEGACY_PATH
     legacy_monthly_returns: Path = DEFAULT_LEGACY_MONTHLY_RETURNS
     output_dir: Path = Path("outputs")
     feature_set: str = "technical"
-    score_col: str = "portfolio_boosting_top_return_proba"
-    positive_quantile: float = 0.90
-    n_trials: int = 16
-    startup_trials: int = 6
+    score_col: str = "portfolio_boosting_rank_regression"
+    n_trials: int = 2
+    startup_trials: int = 1
     max_windows: int = 999
     min_train_months: int = 168
     val_months: int = 12
     test_months: int = 1
     step_months: int = 1
     objective_top_k: int = 5
-    objective_mode: str = "sharpe_return"
+    objective_mode: str = "mean_return"
     lambda_gap: float = 0.0
     top_n_values: tuple[int, ...] = (5, 7, 10, 20, 30, 50)
+    warm_start_path: Path | None = None
+    warm_start_output_count: int = 20
     risk_free_rate: float = 0.02
     seed: int = 42
 
 
 BASE_PARAMS: dict[str, Any] = {
-    "objective": "binary:logistic",
-    "eval_metric": "logloss",
+    "objective": "reg:squarederror",
+    "eval_metric": "rmse",
     "n_estimators": 180,
-    "learning_rate": 0.025,
+    "learning_rate": 0.03,
     "max_depth": 2,
     "subsample": 0.75,
-    "colsample_bytree": 0.75,
-    "min_child_weight": 8.0,
+    "colsample_bytree": 0.70,
+    "min_child_weight": 10.0,
     "gamma": 1.0,
-    "reg_alpha": 1.0,
-    "reg_lambda": 6.0,
-    "scale_pos_weight": 4.0,
+    "reg_alpha": 2.0,
+    "reg_lambda": 8.0,
     "n_jobs": -1,
 }
 
@@ -83,13 +82,12 @@ SEARCH_SPACE: dict[str, tuple[str, float, float]] = {
     "colsample_bytree": ("float", 0.45, 0.95),
     "min_child_weight": ("float", 3.0, 30.0),
     "gamma": ("float", 0.0, 10.0),
-    "reg_alpha": ("float", 0.0, 10.0),
-    "reg_lambda": ("float", 1.0, 18.0),
-    "scale_pos_weight": ("float", 1.0, 12.0),
+    "reg_alpha": ("float", 0.0, 12.0),
+    "reg_lambda": ("float", 1.0, 20.0),
 }
 
 
-def _load_frame(config: PortfolioBoostingTopReturnConfig) -> tuple[pl.DataFrame, list[str]]:
+def _load_frame(config: PortfolioBoostingRankRegressionConfig) -> tuple[pl.DataFrame, list[str]]:
     metadata = json.loads((config.source_run / "metadata.json").read_text(encoding="utf-8"))
     source_features = list(metadata["features_used"])
     base_features = _base_features_for_set(source_features, config.feature_set)
@@ -102,17 +100,13 @@ def _load_frame(config: PortfolioBoostingTopReturnConfig) -> tuple[pl.DataFrame,
         pl.col("ticker").cast(pl.Utf8),
     )
     frame, features = _add_cross_sectional_features(frame, base_features, prefix=config.feature_set)
-    legacy = _load_legacy_labels(config.legacy_path)
-    frame = _append_legacy(frame, legacy)
+    frame = _append_legacy(frame, _load_legacy_labels(config.legacy_path))
     frame = frame.filter(pl.col("future_return").is_not_null(), pl.col("future_excess_return").is_not_null())
     frame = frame.with_columns(
         (
             pl.col("future_excess_return").rank(method="average").over("year_month")
             / pl.len().over("year_month")
-            >= config.positive_quantile
-        )
-        .cast(pl.Int8)
-        .alias("target_top_future_excess")
+        ).alias("future_excess_rank_target")
     )
     return frame, features
 
@@ -122,7 +116,7 @@ def _matrix(frame: pl.DataFrame, features: Sequence[str]) -> np.ndarray:
 
 
 def _target(frame: pl.DataFrame) -> np.ndarray:
-    return frame.get_column("target_top_future_excess").to_numpy().astype(np.int8)
+    return frame.get_column("future_excess_rank_target").to_numpy().astype(np.float32)
 
 
 def _split_mlcraft_params(
@@ -140,7 +134,7 @@ def _split_mlcraft_params(
     return model_params, fit_params
 
 
-def _fit_mlcraft_classifier(*, params: dict[str, Any], X: np.ndarray, y: np.ndarray, seed: int):
+def _fit_mlcraft_regressor(*, params: dict[str, Any], X: np.ndarray, y: np.ndarray, seed: int):
     ensure_mlcraft_importable()
     from mlcraft.core.task import TaskSpec
     from mlcraft.models.factory import ModelFactory
@@ -152,7 +146,7 @@ def _fit_mlcraft_classifier(*, params: dict[str, Any], X: np.ndarray, y: np.ndar
         fit_params["num_boost_round"] = int(BASE_PARAMS["n_estimators"])
     model = ModelFactory.create(
         "xgboost",
-        task_spec=TaskSpec(task_type="classification"),
+        task_spec=TaskSpec(task_type="regression"),
         model_params={**base_model_params, **trial_model_params},
         fit_params=fit_params,
         random_state=seed,
@@ -165,10 +159,7 @@ def _predict(model: Any, X: np.ndarray) -> np.ndarray:
     pred = model.predict(X)
     if isinstance(pred, tuple):
         pred = pred[0]
-    pred = np.asarray(pred, dtype=float)
-    if pred.ndim == 2 and pred.shape[1] > 1:
-        pred = pred[:, 1]
-    return pred.reshape(-1)
+    return np.asarray(pred, dtype=float).reshape(-1)
 
 
 def _sample_params(trial: optuna.Trial, search_space: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -198,6 +189,75 @@ def _base_trial_params(search_space: dict[str, dict[str, Any]]) -> dict[str, Any
     return trial_params
 
 
+def _load_warm_starts(path: Path | None) -> list[dict[str, Any]]:
+    if path is None or not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, dict):
+        candidates = payload.get("candidates", payload.get("warm_starts", []))
+    else:
+        candidates = payload
+    warm_starts: list[dict[str, Any]] = []
+    for candidate in candidates:
+        params = candidate.get("params", candidate) if isinstance(candidate, dict) else {}
+        if isinstance(params, dict):
+            warm_starts.append(params)
+    return warm_starts
+
+
+def _enqueue_warm_starts(
+    study: optuna.Study,
+    warm_starts: Sequence[dict[str, Any]],
+    search_space: dict[str, dict[str, Any]],
+) -> None:
+    study.enqueue_trial(_base_trial_params(search_space))
+    for params in warm_starts:
+        filtered: dict[str, Any] = {}
+        for name, spec in search_space.items():
+            if name not in params:
+                continue
+            value = params[name]
+            filtered[name] = int(round(float(value))) if spec["type"] == "int" else float(value)
+        if filtered:
+            study.enqueue_trial(filtered)
+
+
+def _write_warm_start_candidates(
+    run_dir: Path,
+    trial_rows: Sequence[dict[str, Any]],
+    *,
+    limit: int,
+) -> None:
+    candidates: list[dict[str, Any]] = []
+    seen: set[tuple[tuple[str, Any], ...]] = set()
+    sorted_rows = sorted(
+        (row for row in trial_rows if row.get("objective") is not None),
+        key=lambda row: float(row["objective"]),
+        reverse=True,
+    )
+    for row in sorted_rows:
+        params = {key.removeprefix("param_"): value for key, value in row.items() if key.startswith("param_")}
+        signature = tuple(sorted(params.items()))
+        if not params or signature in seen:
+            continue
+        seen.add(signature)
+        candidates.append(
+            {
+                "fold": row.get("fold"),
+                "objective": row.get("objective"),
+                "train_metric": row.get("train_metric"),
+                "val_metric": row.get("val_metric"),
+                "params": params,
+            }
+        )
+        if len(candidates) >= limit:
+            break
+    (run_dir / "warm_start_candidates.json").write_text(
+        json.dumps({"candidates": candidates}, indent=2),
+        encoding="utf-8",
+    )
+
+
 def _scored_frame(frame: pl.DataFrame, scores: np.ndarray, score_col: str) -> pl.DataFrame:
     return frame.select(
         [
@@ -209,8 +269,8 @@ def _scored_frame(frame: pl.DataFrame, scores: np.ndarray, score_col: str) -> pl
             "future_return",
             "benchmark_future_return",
             "future_excess_return",
+            "future_excess_rank_target",
             "legacy_selected",
-            "target_top_future_excess",
         ]
     ).with_columns(pl.Series(score_col, scores, dtype=pl.Float64))
 
@@ -242,11 +302,6 @@ def _portfolio_metric(scored: pl.DataFrame, score_col: str, top_k: int, mode: st
         return float(np.nanmean(returns) / (np.nanstd(returns) + 1e-8))
     if mode == "sharpe_active":
         return float(np.nanmean(active) / (np.nanstd(active) + 1e-8))
-    if mode == "return_drawdown":
-        equity = np.cumprod(1.0 + np.nan_to_num(returns, nan=0.0))
-        peak = np.maximum.accumulate(equity)
-        drawdown = np.min(equity / np.maximum(peak, 1e-12) - 1.0)
-        return float(np.nanmean(returns) + 0.25 * drawdown)
     raise ValueError(f"Unsupported objective_mode={mode!r}")
 
 
@@ -255,7 +310,8 @@ def _tune_fold(
     train_df: pl.DataFrame,
     val_df: pl.DataFrame,
     features: Sequence[str],
-    config: PortfolioBoostingTopReturnConfig,
+    config: PortfolioBoostingRankRegressionConfig,
+    warm_starts: Sequence[dict[str, Any]],
     seed: int,
     fold_label: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -266,11 +322,11 @@ def _tune_fold(
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed, n_startup_trials=config.startup_trials))
-    study.enqueue_trial(_base_trial_params(search_space))
+    _enqueue_warm_starts(study, warm_starts, search_space)
 
     def objective(trial: optuna.Trial) -> float:
         params = _sample_params(trial, search_space)
-        model = _fit_mlcraft_classifier(params=params, X=X_train, y=y_train, seed=seed)
+        model = _fit_mlcraft_regressor(params=params, X=X_train, y=y_train, seed=seed)
         train_scores = _predict(model, X_train)
         val_scores = _predict(model, X_val)
         train_scored = _scored_frame(train_df, train_scores, "_score")
@@ -316,47 +372,37 @@ def _run_model_scenario(predictions: pl.DataFrame, score_col: str, name: str, to
     }
 
 
-def _write_report(run_dir: Path, comparison_metrics: pl.DataFrame, config: PortfolioBoostingTopReturnConfig) -> None:
+def _write_report(run_dir: Path, comparison_metrics: pl.DataFrame, config: PortfolioBoostingRankRegressionConfig) -> None:
     rows = comparison_metrics.sort("Total Return", descending=True).to_dicts()
     lines = [
-        "# Portfolio boosting top-return classifier",
+        "# Portfolio boosting rank regression",
         "",
-        "But: entrainer un modele boosting `mlcraft` qui predit la probabilite qu'une action fasse partie du haut du classement de rendement relatif le mois suivant.",
+        "But: faire marcher le boosting seul en apprenant le rang mensuel futur du rendement relatif.",
         "",
-        f"Target: action dans le top `{int((1.0 - config.positive_quantile) * 100)}%` mensuel de `future_excess_return`.",
+        "Target: percentile mensuel de `future_excess_return`.",
         f"Objectif Optuna validation: `{config.objective_mode}` sur top `{config.objective_top_k}`.",
         f"Feature set: `{config.feature_set}`.",
-        f"Folds: min_train_months `{config.min_train_months}`, val `{config.val_months}`, test `{config.test_months}`.",
         "",
         "## Backtest",
         "",
-        "| modele | total return | CAGR | Sharpe | max drawdown | positive months | avg stocks |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| modele | total return | CAGR | Sharpe | max drawdown | vol mensuelle |",
+        "|---|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         lines.append(
             f"| `{row['model']}` | {row['Total Return'] * 100:.1f}% | {row['CAGR'] * 100:.1f}% | "
             f"{row['Sharpe Ratio']:.2f} | {row['Max Drawdown'] * 100:.1f}% | "
-            f"{row['Positive Periods %'] * 100:.1f}% | {row.get('Number of Stocks (Avg)') or ''} |"
+            f"{row['Monthly Volatility'] * 100:.1f}% |"
         )
-    lines.extend(
-        [
-            "",
-            "## Lecture",
-            "",
-            "- Ce run n'optimise pas Legacy.",
-            "- Legacy est present uniquement comme benchmark de backtest.",
-            "- La selection finale prend les meilleures probabilites predites par le modele.",
-        ]
-    )
     (run_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def run(config: PortfolioBoostingTopReturnConfig) -> Path:
-    run_dir = config.output_dir / f"portfolio_boosting_top_return_classifier_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+def run(config: PortfolioBoostingRankRegressionConfig) -> Path:
+    run_dir = config.output_dir / f"portfolio_boosting_rank_regression_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     frame, features = _load_frame(config)
+    warm_starts = _load_warm_starts(config.warm_start_path)
     months = frame.select("year_month").unique().sort("year_month").get_column("year_month").to_list()
     windows = walk_forward_windows(
         months,
@@ -378,20 +424,19 @@ def run(config: PortfolioBoostingTopReturnConfig) -> Path:
         test_df = filter_by_months(frame, window.test_months)
         if train_df.is_empty() or val_df.is_empty() or test_df.is_empty():
             continue
-        if train_df.get_column("target_top_future_excess").n_unique() < 2:
-            continue
         seed = config.seed + position
         best_params, rows = _tune_fold(
             train_df=train_df,
             val_df=val_df,
             features=features,
             config=config,
+            warm_starts=warm_starts,
             seed=seed,
             fold_label=fold_label,
         )
         trial_rows.extend(rows)
         fit_df = pl.concat([train_df, val_df], how="vertical")
-        model = _fit_mlcraft_classifier(params=best_params, X=_matrix(fit_df, features), y=_target(fit_df), seed=seed)
+        model = _fit_mlcraft_regressor(params=best_params, X=_matrix(fit_df, features), y=_target(fit_df), seed=seed)
         test_predictions = _scored_frame(test_df, _predict(model, _matrix(test_df, features)), config.score_col).with_columns(
             pl.lit(fold_label).alias("fold")
         )
@@ -410,18 +455,19 @@ def run(config: PortfolioBoostingTopReturnConfig) -> Path:
                 **{f"param_{key}": value for key, value in best_params.items()},
             }
         )
-        print(f"{fold_label}: test={window.test_months[0]} metric={fold_metric:.4f}")
+        print(f"{fold_label}: test={window.test_months[0]} metric={fold_metric:.4f}", flush=True)
 
     predictions = pl.concat(prediction_frames, how="vertical") if prediction_frames else pl.DataFrame()
     predictions.write_parquet(run_dir / "predictions.parquet")
     pl.DataFrame(trial_rows).write_csv(run_dir / "optuna_trials.csv")
     pl.DataFrame(fold_rows).write_csv(run_dir / "fold_metrics.csv")
+    _write_warm_start_candidates(run_dir, trial_rows, limit=config.warm_start_output_count)
 
     scenarios = [
         _run_model_scenario(
             predictions,
             config.score_col,
-            f"portfolio_boosting_top_return_top_{top_n}",
+            f"portfolio_boosting_rank_regression_top_{top_n}",
             top_n,
             config.risk_free_rate,
         )
@@ -444,8 +490,8 @@ def run(config: PortfolioBoostingTopReturnConfig) -> Path:
     comparison_inputs.update(load_legacy_curves(config.legacy_monthly_returns, months_out))
     comparison = compare_backtest_curves(
         comparison_inputs,
-        output_path=run_dir / "trading_backtest_comparison.html",
-        title="Portfolio boosting top-return classifier vs Legacy",
+        output_path=run_dir / "comparison.html",
+        title="Portfolio boosting rank regression vs Legacy",
         risk_free_rate=config.risk_free_rate,
     )
 
@@ -464,6 +510,8 @@ def run(config: PortfolioBoostingTopReturnConfig) -> Path:
                 "legacy_path": str(config.legacy_path),
                 "features": features,
                 "feature_count": len(features),
+                "warm_start_path": str(config.warm_start_path) if config.warm_start_path else None,
+                "warm_start_count": len(warm_starts),
                 "months": len(months_out),
                 "start_month": str(min(months_out)) if months_out else None,
                 "end_month": str(max(months_out)) if months_out else None,
@@ -478,16 +526,15 @@ def run(config: PortfolioBoostingTopReturnConfig) -> Path:
     return run_dir
 
 
-def _parse_args() -> PortfolioBoostingTopReturnConfig:
-    parser = argparse.ArgumentParser(description="Train a mlcraft boosting classifier for top future excess-return portfolio selection.")
+def _parse_args() -> PortfolioBoostingRankRegressionConfig:
+    parser = argparse.ArgumentParser(description="Train a mlcraft boosting rank-regression portfolio model.")
     parser.add_argument("--source-run", type=Path, default=DEFAULT_SOURCE_RUN)
     parser.add_argument("--legacy-path", type=Path, default=DEFAULT_LEGACY_PATH)
     parser.add_argument("--legacy-monthly-returns", type=Path, default=DEFAULT_LEGACY_MONTHLY_RETURNS)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--feature-set", choices=["ema", "technical"], default="technical")
-    parser.add_argument("--positive-quantile", type=float, default=0.90)
-    parser.add_argument("--n-trials", type=int, default=16)
-    parser.add_argument("--startup-trials", type=int, default=6)
+    parser.add_argument("--n-trials", type=int, default=2)
+    parser.add_argument("--startup-trials", type=int, default=1)
     parser.add_argument("--max-windows", type=int, default=999)
     parser.add_argument("--min-train-months", type=int, default=168)
     parser.add_argument("--val-months", type=int, default=12)
@@ -496,20 +543,21 @@ def _parse_args() -> PortfolioBoostingTopReturnConfig:
     parser.add_argument("--objective-top-k", type=int, default=5)
     parser.add_argument(
         "--objective-mode",
-        choices=["mean_return", "mean_active", "sharpe_return", "sharpe_active", "return_drawdown"],
-        default="sharpe_return",
+        choices=["mean_return", "mean_active", "sharpe_return", "sharpe_active"],
+        default="mean_return",
     )
     parser.add_argument("--lambda-gap", type=float, default=0.0)
     parser.add_argument("--top-n", type=int, nargs="*", default=[5, 7, 10, 20, 30, 50])
+    parser.add_argument("--warm-start-path", type=Path, default=None)
+    parser.add_argument("--warm-start-output-count", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-    return PortfolioBoostingTopReturnConfig(
+    return PortfolioBoostingRankRegressionConfig(
         source_run=args.source_run,
         legacy_path=args.legacy_path,
         legacy_monthly_returns=args.legacy_monthly_returns,
         output_dir=args.output_dir,
         feature_set=args.feature_set,
-        positive_quantile=args.positive_quantile,
         n_trials=args.n_trials,
         startup_trials=args.startup_trials,
         max_windows=args.max_windows,
@@ -521,6 +569,8 @@ def _parse_args() -> PortfolioBoostingTopReturnConfig:
         objective_mode=args.objective_mode,
         lambda_gap=args.lambda_gap,
         top_n_values=tuple(args.top_n),
+        warm_start_path=args.warm_start_path,
+        warm_start_output_count=args.warm_start_output_count,
         seed=args.seed,
     )
 

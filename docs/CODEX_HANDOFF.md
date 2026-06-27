@@ -80,16 +80,25 @@ Current conclusion:
   that the clean EMA boosting regressions still do not quantify average future
   relative return well enough: top deciles are not robustly better than bottom
   deciles and top-K lift vs universe is weak.
-- First allocation candidate that beats Legacy on important metrics:
-  `outputs/portfolio_boosting_blend_backtest_20260627_171645`.
-  It uses an mlcraft XGBoost classifier predicting top-10% future excess return,
-  then a score blend `rank(prediction_boosting) + 0.10 * technical_z_mean`.
-  The `60% hybrid top5 / 40% SPY` curve beats `Combined_Frequency` in total
-  return, CAGR, and Sharpe (`+1,184%`, `25.5%`, `0.95` vs `+1,118%`, `24.9%`,
-  `0.93`) but still has worse max drawdown (`-28.5%` vs `-23.5%`).
-- New direction: reduce drawdown on this boosting-based candidate through a
-  dynamic risk overlay or portfolio constraints. Treat Legacy recomposition as
-  secondary diagnostics only.
+- Hybrid allocation candidate:
+  `outputs/portfolio_boosting_blend_backtest_20260627_171645` combines an
+  mlcraft XGBoost top-return classifier with a small deterministic technical
+  score. It can beat Legacy on total return/CAGR/Sharpe in one overlay, but it
+  is not "boosting seul".
+- Boosting-only allocation tests on 2015+ are now documented separately:
+  `outputs/portfolio_boosting_top_return_classifier_20260627_225903`,
+  `outputs/portfolio_boosting_rank_regression_20260627_230913`, and
+  `outputs/portfolio_boosting_rank_regression_20260627_233738`.
+  Best pure boosting baseline is roughly SPY-plus in raw return
+  (`rank-regression top20`: `+348%`, CAGR `14.3%`, Sharpe `0.54`, max DD
+  `-33.9%`) but still far below Legacy (`+1,118%`, CAGR `24.9%`, Sharpe `0.93`,
+  max DD `-23.5%`). A 3-trial Optuna run degraded the rank-regression result,
+  so "more random trials" is not the immediate fix.
+- New direction: keep Legacy recomposition as a diagnostic only. For allocation,
+  work on pure future-return prediction plus portfolio/risk control: robust
+  warm starts across regimes, drawdown-aware validation objectives, true
+  month-group ranking support, and score/confidence-based exposure instead of a
+  fixed concentrated top 5.
 
 Detailed source of truth:
 [`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md).

@@ -6,6 +6,21 @@ Cette page est le point central pour se rappeler quels modeles ont ete testes,
 comment ils sont construits, quand ils ont ete construits, et quelles metriques
 doivent servir de juge.
 
+Clarification active du 2026-06-27 soir : il faut maintenant separer deux
+questions qui ont ete melangees dans les premiers essais.
+
+```text
+1. Diagnostic Legacy : comprendre quels signaux permettent de retrouver les
+   actions Legacy.
+2. Allocation autonome : predire un rendement relatif futur et construire un
+   portefeuille sans utiliser Legacy dans l'objectif d'entrainement ou de
+   tuning.
+```
+
+Le premier axe explique pourquoi une regle EMA simple peut recomposer Legacy.
+Le second axe est le vrai candidat trading : boosting seul ou boosting avec
+contraintes de portefeuille, mais sans objectif Legacy.
+
 ## Pourquoi cette doc existe
 
 Le constat principal est maintenant clair : chercher directement a battre
@@ -83,6 +98,8 @@ Table de synthese des runs longs importants :
 | `tradable_ema_regression_optuna_no_legacy_objective` | futur rendement relatif : meme regression, mais Optuna optimise seulement la validation future, jamais Legacy | memes 88 variables EMA ; pas de warm-start issu de Legacy ; objectifs testes : rendement top 10 validation et precision top K validation `K=10/20/30/50` | sweep court propre `2025-06` a `2026-04`, 11 mois, 71 lignes Legacy | recomposition tres basse (`3/71` a `9/71`) ; meilleur trading court = precision top 30, top 30 `+65.9%`, Sharpe 3.15 |
 | `tradable_technical_regression_optuna` | futur rendement relatif : meme regression, mais avec toutes les familles techniques disponibles | 283 variables techniques : ROC prix, EMA, RSI, Bollinger, stochastique, distance high/low, range position, volatilite, rangs/z-scores/flags/agregats mensuels | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | `55 / 169 = 32.5%`; moins bon que EMA-only sur la meme periode |
 | `tradable_ema_residual_regression` | futur rendement relatif : base EMA-only puis regression du residu `future_excess_return_clippe - prediction_EMA` | base : 88 variables EMA ; residu : variables techniques non-EMA avec rangs mensuels, z-scores, flags top/bottom quartile et agregats ; score final `EMA + shrinkage * residu` | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | meilleur shrinkage recomposition `0.25` : `69 / 169 = 40.8%`; mieux que le meilleur EMA court d'un ticker, mais backtest plus faible que la base EMA fixe |
+| `portfolio_boosting_top_return_classifier` | allocation autonome : classification `future_excess_return` dans le top 10% du mois suivant | 283 variables techniques calculables au mois de decision : momentum/ROC, EMA, RSI, Bollinger, stochastique, distances high/low, volatilite, rangs/z-scores/flags/agregats mensuels ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | KPI principal trading : meilleur top 7 = +364.3%, CAGR 14.6%, Sharpe 0.37, max DD -47.0%; sous Legacy et trop risque |
+| `portfolio_boosting_rank_regression` | allocation autonome : regression du rang percentile mensuel futur de `future_excess_return` | memes variables techniques calculables que ci-dessus ; target = rang relatif futur dans le mois, pas le rendement brut ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | meilleur baseline top 20 = +348.3%, CAGR 14.3%, Sharpe 0.54, max DD -33.9%; 3 trials/fold degrade a +253.1%, Sharpe 0.43 |
 | `deterministic_ema_signal_diagnostic` | pas de training : score tradable = rang mensuel d'un signal EMA / momentum observe | signaux calculables au mois de decision : `ema_ratio_2_12_rank_month`, `ema_ratio_3_12_rank_month`, `technical_z_mean`, `technical_rank_mean`; aucun objectif Legacy en training car il n'y a pas de training | diagnostic 2015+ `2015-01` a `2026-04`, 136 mois, 1 258 lignes Legacy | KPI strict `legacy_k`: `ema_ratio_3_12_rank_month` retrouve `655 / 1 258 = 52.1%`; `ema_ratio_2_12_rank_month` retrouve `647 / 1 258 = 51.4%` |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
@@ -108,6 +125,12 @@ Lecture importante :
   plus de 50% de Legacy sur 2015+. Le probleme n'est donc pas "il n'y a pas de
   signal EMA". Le probleme est que les regressions boosting propres diluent ce
   signal quand elles optimisent un objectif futur trop global.
+- Diagnostic ajoute le 2026-06-27 soir : le boosting seul n'est pas mort, mais
+  il est insuffisant tel quel. Le meilleur boosting pur long bat legerement SPY
+  en rendement brut, mais avec Sharpe plus faible et drawdown plus profond, et
+  il reste tres loin de Legacy. Ajouter quelques trials Optuna degrade le run
+  rank-regression, ce qui suggere un overfit de validation plutot qu'un manque
+  simple de trials.
 
 Regle de suite ajoutee apres clarification utilisateur :
 
@@ -160,6 +183,8 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-27 | script `scripts/experiments/analyze_legacy_factor_exposures.py`, run `outputs/legacy_factor_exposure_20260627_154437` | diagnostic Legacy 2015+ : exposition features, secteurs, tickers, blocs EMA atomiques |
 | 2026-06-27 | script `scripts/experiments/build_deterministic_signal_predictions.py`, run `outputs/deterministic_signal_predictions_20260627_154617` | generation de predictions deterministes tradables pour tester les scores EMA simples |
 | 2026-06-27 | runs `outputs/ema_ratio_2_12_rank_month_trading_backtest_20260627_154632`, `outputs/ema_ratio_3_12_rank_month_trading_backtest_20260627_154632`, `outputs/technical_z_mean_trading_backtest_20260627_154632`, `outputs/technical_rank_mean_trading_backtest_20260627_154632` | backtests 2015+ des temoins deterministes EMA / technique |
+| 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_top_return_classifier.py`, run `outputs/portfolio_boosting_top_return_classifier_20260627_225903` | boosting seul mlcraft : classifier top 10% futur rendement relatif, baseline Optuna enqueued |
+| 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_rank_regression.py`, runs `outputs/portfolio_boosting_rank_regression_20260627_230913`, `outputs/portfolio_boosting_rank_regression_20260627_233738` | boosting seul mlcraft : regression du rang mensuel futur, test baseline puis 3 trials/fold |
 
 Runs principaux :
 
@@ -218,6 +243,9 @@ Runs principaux :
 - `outputs/ema_ratio_3_12_rank_month_trading_backtest_20260627_154632`
 - `outputs/technical_z_mean_trading_backtest_20260627_154632`
 - `outputs/technical_rank_mean_trading_backtest_20260627_154632`
+- `outputs/portfolio_boosting_top_return_classifier_20260627_225903`
+- `outputs/portfolio_boosting_rank_regression_20260627_230913`
+- `outputs/portfolio_boosting_rank_regression_20260627_233738`
 
 ## Donnees communes
 
@@ -726,6 +754,171 @@ Lecture :
   d'allocation. Ils deviennent une baseline longue non contaminee. La prochaine
   recherche doit ajouter d'autres signaux ou une architecture de ranking/risk,
   pas seulement augmenter les trials EMA-only.
+
+#### Boosting seul portfolio 2015+ du 2026-06-27 soir
+
+But :
+
+Repondre directement a la question : "si on prend seulement le boosting, sans
+recopier Legacy et sans blend deterministe EMA/momentum, est-ce que ca marche en
+allocation ?"
+
+Point methodologique corrige :
+
+Les scripts courts avec `n_trials=1` pouvaient auparavant lancer un seul trial
+aleatoire Optuna. Ce n'etait pas un baseline fiable. Les scripts portfolio
+boosting injectent maintenant toujours un trial de depart conservateur avant les
+trials aleatoires/TPE. Cela rend les runs `n_trials=1` interpretables comme un
+baseline, et pas comme un tirage chanceux.
+
+##### `portfolio_boosting_top_return_classifier`
+
+Ce qui est appris :
+
+```text
+target = 1 si l'action est dans le top 10% mensuel du futur rendement relatif
+target = 0 sinon
+```
+
+Lecture metier :
+
+Le modele essaie d'apprendre la probabilite qu'une action soit parmi les grandes
+surperformances du mois suivant, relativement a l'indice.
+
+Variables :
+
+- toutes les variables techniques calculables au mois de decision ;
+- familles : momentum/prix, EMA, prix vs EMA, RSI, Bollinger, stochastique,
+  distances aux plus hauts/bas, position dans le range, volatilite ;
+- pour chaque variable : valeur brute, rang mensuel, z-score mensuel, flags top
+  quartile / bottom quartile ;
+- agregats transverses par famille ;
+- aucune variable `legacy_selected`, `legacy_atomic_*`, `legacy_optuna_*`, ni
+  decision Legacy dans le training.
+
+Protocole :
+
+- script : `scripts/experiments/run_portfolio_boosting_top_return_classifier.py`
+- run propre baseline : `outputs/portfolio_boosting_top_return_classifier_20260627_225903`
+- librairie : `mlcraft` + backend XGBoost classification ;
+- tuning : baseline Optuna enqueued, `n_trials=1` sur ce run ;
+- split : train passe, validation 12 mois, test 1 mois, rotation mensuelle ;
+- periode de performance : `2015-02` a `2026-04`.
+
+Resultats :
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% | 60.0% |
+| boosting classifier top 7 | 364.3% | 14.6% | 0.37 | -47.0% | 9.8% | 59.3% |
+| boosting classifier top 50 | 361.3% | 14.6% | 0.54 | -35.0% | 6.8% | 63.7% |
+| boosting classifier top 30 | 359.0% | 14.5% | 0.45 | -42.0% | 8.0% | 60.0% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+| boosting classifier top 5 | 223.8% | 11.0% | 0.24 | -48.5% | 10.9% | 54.8% |
+
+Lecture :
+
+- le boosting classifier pur n'est pas nul : plusieurs top N battent SPY en
+  rendement brut ;
+- il ne bat pas Legacy ;
+- le risque est mauvais : Sharpe faible et drawdown beaucoup plus profond que
+  Legacy ;
+- top 5 est trop concentre ; top 30/50 dilue mieux le risque mais ne transforme
+  pas le signal en avantage robuste.
+
+##### `portfolio_boosting_rank_regression`
+
+Ce qui est appris :
+
+```text
+target = rang percentile mensuel du futur rendement relatif
+```
+
+Exemple :
+
+Si un ticker est dans les 10% meilleurs rendements relatifs futurs de son mois,
+sa target est proche de `1.0`. S'il est dans les pires du mois, elle est proche
+de `0.0`.
+
+Important :
+
+Ce n'est pas encore une vraie loss XGBoost `rank:pairwise`, car le contrat
+`mlcraft` disponible expose ici regression/classification mais pas un task type
+ranking avec groupes mensuels. Cette variante utilise donc `mlcraft` en
+regression XGBoost sur une target de rang mensuel. C'est propre vis-a-vis de la
+contrainte "boosting via mlcraft", mais ce n'est pas encore le meilleur objectif
+mathematique possible pour un top mensuel.
+
+Variables :
+
+Memes variables techniques calculables que le classifier ci-dessus. Aucune
+variable Legacy dans le modele.
+
+Protocole baseline :
+
+- script : `scripts/experiments/run_portfolio_boosting_rank_regression.py`
+- run baseline : `outputs/portfolio_boosting_rank_regression_20260627_230913`
+- librairie : `mlcraft` + backend XGBoost regression ;
+- tuning : baseline Optuna enqueued, `n_trials=1` ;
+- objectif validation : rendement moyen du top 20 ;
+- split : train passe, validation 12 mois, test 1 mois, rotation mensuelle ;
+- periode de performance : `2015-02` a `2026-04`.
+
+Resultats baseline :
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% | 60.0% |
+| rank-regression top 20 | 348.3% | 14.3% | 0.54 | -33.9% | 6.5% | 59.3% |
+| rank-regression top 10 | 335.1% | 14.0% | 0.45 | -46.2% | 7.7% | 58.5% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+| rank-regression top 30 | 289.9% | 12.9% | 0.52 | -32.5% | 6.0% | 63.0% |
+| rank-regression top 50 | 276.3% | 12.5% | 0.53 | -28.1% | 5.7% | 64.4% |
+| rank-regression top 5 | 161.0% | 8.9% | 0.21 | -59.2% | 9.4% | 51.9% |
+
+Protocole hyperparametre reel :
+
+- run : `outputs/portfolio_boosting_rank_regression_20260627_233738`
+- `n_trials=3`, `startup_trials=2` ;
+- baseline enqueued puis deux essais supplementaires par fold ;
+- objectif validation : rendement moyen du top 20 ;
+- sortie warm-start :
+  `outputs/portfolio_boosting_rank_regression_20260627_233738/warm_start_candidates.json`.
+
+Resultats 3 trials/fold :
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% | 60.0% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+| rank-regression 3 trials top 20 | 253.1% | 11.9% | 0.43 | -42.0% | 6.7% | 62.2% |
+| rank-regression 3 trials top 30 | 201.0% | 10.3% | 0.38 | -41.6% | 6.3% | 62.2% |
+| rank-regression 3 trials top 50 | 194.7% | 10.1% | 0.39 | -38.5% | 6.0% | 63.7% |
+| rank-regression 3 trials top 5 | 100.1% | 6.4% | 0.13 | -60.4% | 9.5% | 55.6% |
+
+Lecture :
+
+- augmenter legerement Optuna n'ameliore pas ce modele ; cela degrade le
+  rendement et le drawdown ;
+- l'explication probable est l'overfit de validation mensuelle : certains
+  trials gagnent sur 12 mois de validation mais cassent en regime de crise,
+  notamment autour de 2020 ;
+- lancer 50 ou 100 trials/fold sans changer l'objectif risque d'amplifier ce
+  probleme. La prochaine optimisation doit etre contrainte, par exemple :
+  - selectionner seulement des warm starts robustes sur plusieurs regimes ;
+  - penaliser le drawdown ou la volatilite dans l'objectif validation ;
+  - utiliser une vraie loss de ranking mensuel avec groupes par mois ;
+  - construire l'allocation par score/confiance au lieu d'un top N fixe 100%
+    investi.
+
+Decision :
+
+Le meilleur boosting pur actuel est le baseline `rank-regression top 20` ou le
+`classifier top 30/50`, selon le critere. Aucun n'est encore un bon algo final :
+ils ont du signal, mais pas assez de controle du risque pour remplacer Legacy.
 
 #### Backtest trading vs Legacy du 2026-06-26
 
