@@ -72,17 +72,18 @@ Current conclusion:
 - Atomic Legacy features prove the representation problem: once the exact
   atomic Legacy signals are visible, recovery can exceed 98%, but that is not a
   generalizable final model.
-- 2026-06-27 diagnostic changed the priority: simple tradable EMA rank scores
-  already recover more than 50% of Legacy on 2015+. `ema_ratio_3_12_rank_month`
-  with dynamic Legacy K recovers `655 / 1,258 = 52.1%`; `ema_ratio_2_12_rank_month`
-  recovers `647 / 1,258 = 51.4%`.
-- The current issue is not absence of EMA signal. The issue is that clean
-  boosting regressions dilute the extreme-rank momentum signal when optimized on
-  broad future-return objectives.
-- New direction: keep training on future excess return, but use strong EMA
-  rank/momentum as the base signal, then learn a correction/gating layer and
-  evaluate with portfolio-risk metrics. Keep Legacy recomposition as a
-  diagnostic only, not an Optuna objective.
+- 2026-06-27 diagnostic found that simple tradable EMA rank scores recover more
+  than 50% of Legacy on 2015+, but this is only an explanatory baseline, not a
+  solution. The user explicitly corrected the goal: do not copy Legacy; estimate
+  future relative return per stock, then build a controlled portfolio.
+- Calibration run `outputs/return_forecast_calibration_20260627_161954` shows
+  that the clean EMA boosting regressions still do not quantify average future
+  relative return well enough: top deciles are not robustly better than bottom
+  deciles and top-K lift vs universe is weak.
+- New direction: treat Legacy recomposition as secondary diagnostics only.
+  Optimize and evaluate models by forecast calibration and portfolio metrics on
+  temporal validation: mean future excess return, Sharpe, volatility/drawdown
+  penalties, then constrained allocation.
 
 Detailed source of truth:
 [`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md).

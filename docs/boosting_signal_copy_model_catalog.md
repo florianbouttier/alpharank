@@ -1384,6 +1384,31 @@ Une fois le clone correct :
 Les probas absolues sont mal calibrees pour ce probleme. Le bon seuil est
 mensuel et relatif : top K ou top N.
 
+## Correction de cap 2026-06-27
+
+Clarification importante apres retour utilisateur :
+
+Le but final n'est pas de recopier Legacy ni de produire une version simplifiee
+de Legacy. Le but est :
+
+```text
+estimer le rendement relatif futur moyen de chaque action
+-> construire un portefeuille controle a partir de ces estimations
+-> comparer la performance et le risque a Legacy
+```
+
+La recomposition Legacy reste seulement un diagnostic de proximite de famille de
+signal. Elle ne doit pas etre l'objectif final et elle ne doit pas remplacer la
+question centrale :
+
+```text
+quand le modele predit mieux une action, est-ce que cette action rapporte
+effectivement plus en moyenne le mois suivant vs SPY ?
+```
+
+Tout score deterministe EMA documente ci-dessous doit donc etre lu comme un
+temoin explicatif, pas comme une solution d'allocation.
+
 ## Diagnostic 2026-06-27 : ce que Legacy achete vraiment
 
 Run principal :
@@ -1460,7 +1485,7 @@ Blocs EMA atomiques les plus presents dans Legacy 2015+ :
 Ces fenetres doivent inspirer le prochain generateur EMA, mais pas etre
 utilisees comme cible Legacy.
 
-## Temoins deterministes 2015+
+## Temoins deterministes 2015+ non-solutions
 
 Runs :
 
@@ -1472,9 +1497,9 @@ outputs/technical_z_mean_trading_backtest_20260627_154632
 outputs/technical_rank_mean_trading_backtest_20260627_154632
 ```
 
-Ces temoins ne sont pas des modeles entraines. Ils servent a verifier si un
-score simple, calculable au mois de decision, retrouve Legacy et tient en
-backtest.
+Ces temoins ne sont pas des modeles entraines et ne repondent pas au but final.
+Ils servent seulement a verifier si un score simple, calculable au mois de
+decision, explique une partie de Legacy et tient en backtest.
 
 Table performance principale :
 
@@ -1514,6 +1539,66 @@ Decision R&D apres ce diagnostic :
    limite de concentration ticker.
 4. Garder le KPI Legacy comme diagnostic de famille de signal, pas comme
    objectif d'optimisation.
+
+## Calibration des vraies predictions boosting 2015+
+
+Run principal :
+
+```text
+outputs/return_forecast_calibration_20260627_161954
+```
+
+Script :
+
+```text
+scripts/experiments/analyze_return_forecast_calibration.py
+```
+
+Objectif :
+
+- prendre les vrais runs boosting propres qui predisent `future_excess_return`;
+- separer chaque mois les actions en 10 bins selon le score predit ;
+- verifier si le meilleur bin rapporte plus que le pire bin ;
+- mesurer les top K sans utiliser Legacy comme objectif.
+
+Runs analyses :
+
+- `outputs/tradable_ema_regression_optuna_20260627_121144`
+- `outputs/tradable_ema_regression_optuna_20260627_125020`
+- `outputs/tradable_ema_regression_optuna_20260627_133211`
+- `outputs/tradable_ema_regression_optuna_20260627_140859`
+- `outputs/tradable_ema_regression_optuna_20260627_144652`
+
+Synthese :
+
+| run | objectif Optuna | corr decile/rendement | top decile excess | bottom decile excess | top-bottom | meilleur top K | excess top K |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `20260627_121144` | rendement top 10 validation | `-0.0368` | `0.00%` | `0.06%` | `-0.06%` | `50` | `-0.09%` |
+| `20260627_125020` | precision top 10 validation | `-0.0772` | `-0.38%` | `-0.46%` | `0.08%` | `50` | `-0.05%` |
+| `20260627_133211` | precision top 20 validation | `0.1455` | `-0.12%` | `0.47%` | `-0.59%` | `50` | `-0.09%` |
+| `20260627_140859` | precision top 30 validation | `0.2977` | `-0.32%` | `-0.65%` | `0.32%` | `50` | `-0.15%` |
+| `20260627_144652` | precision top 50 validation | `0.0038` | `0.12%` | `-0.12%` | `0.24%` | `30` | `0.00%` |
+
+Conclusion dure :
+
+- Ces regressions boosting propres ne quantifient pas encore assez bien le
+  rendement moyen futur action par action.
+- Il n'y a pas de relation monotone robuste entre le score predit et le
+  rendement relatif realise.
+- Les meilleurs top K ont un lift faible ou nul vs univers.
+- Donc ces runs ne sont pas une base suffisante pour construire le portefeuille
+  controle que l'on cherche.
+
+Decision suivante :
+
+1. arreter de juger principalement par recomposition Legacy ;
+2. garder la recomposition seulement comme diagnostic secondaire ;
+3. travailler le probleme comme un probleme de prevision de rendement relatif
+   calibre ;
+4. la prochaine experience doit optimiser directement une metrique portfolio sur
+   validation temporelle : rendement moyen, Sharpe mensuel, drawdown ou
+   penalite volatilite ;
+5. ensuite seulement construire un portefeuille contraint avec les predictions.
 
 ## Decision actuelle
 
