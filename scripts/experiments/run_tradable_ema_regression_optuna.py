@@ -44,6 +44,9 @@ class TradableEmaRegressionConfig:
     lambda_gap: float = 0.25
     trial_selection_policy: str = "best_objective"
     feature_set: str = "ema"
+    objective_mode: str = "legacy_recomposition"
+    objective_top_k: int = 10
+    objective_return_col: str = "future_excess_return"
     seed: int = 42
 
 
@@ -216,6 +219,70 @@ def _legacy_overlap(frame: pl.DataFrame, score_col: str) -> float:
     return float(total_common / total_legacy) if total_legacy else 0.0
 
 
+def _topk_mean_return(frame: pl.DataFrame, score_col: str, *, top_k: int, return_col: str) -> float:
+    if frame.is_empty():
+        return 0.0
+    ranked = frame.with_columns(
+        pl.col(score_col).rank(method="ordinal", descending=True).over("year_month").alias("_rank")
+    ).filter(pl.col("_rank") <= pl.lit(top_k))
+    if ranked.is_empty():
+        return 0.0
+    monthly = ranked.group_by("year_month").agg(pl.mean(return_col).alias("_metric"))
+    return float(monthly.get_column("_metric").mean())
+
+
+def _topk_precision(frame: pl.DataFrame, score_col: str, *, top_k: int) -> float:
+    if frame.is_empty():
+        return 0.0
+    ranked = frame.with_columns(
+        pl.col(score_col).rank(method="ordinal", descending=True).over("year_month").alias("_rank")
+    ).filter(pl.col("_rank") <= pl.lit(top_k))
+    if ranked.is_empty():
+        return 0.0
+    monthly = ranked.group_by("year_month").agg(
+        (pl.col("future_excess_return") > 0.0).mean().alias("_metric")
+    )
+    return float(monthly.get_column("_metric").mean())
+
+
+def _scored_metric_frame(frame: pl.DataFrame, scores: np.ndarray, score_col: str = "_score") -> pl.DataFrame:
+    return frame.select(
+        [
+            "ticker",
+            "year_month",
+            "holding_month",
+            "future_return",
+            "future_excess_return",
+            "legacy_selected",
+        ]
+    ).with_columns(pl.Series(score_col, scores, dtype=pl.Float64))
+
+
+def _objective_metric(frame: pl.DataFrame, score_col: str, config: TradableEmaRegressionConfig) -> float:
+    if config.objective_mode == "legacy_recomposition":
+        return _legacy_overlap(frame, score_col)
+    if config.objective_mode == "val_topk_mean_return":
+        return _topk_mean_return(
+            frame,
+            score_col,
+            top_k=config.objective_top_k,
+            return_col=config.objective_return_col,
+        )
+    if config.objective_mode == "val_topk_precision":
+        return _topk_precision(frame, score_col, top_k=config.objective_top_k)
+    raise ValueError(f"Unsupported objective mode: {config.objective_mode!r}")
+
+
+def _objective_description(config: TradableEmaRegressionConfig) -> str:
+    if config.objective_mode == "legacy_recomposition":
+        return "Legacy recomposition on validation, with train/validation gap penalty"
+    if config.objective_mode == "val_topk_mean_return":
+        return f"Mean monthly validation top {config.objective_top_k} {config.objective_return_col}"
+    if config.objective_mode == "val_topk_precision":
+        return f"Mean monthly validation top {config.objective_top_k} precision: future_excess_return > 0"
+    raise ValueError(f"Unsupported objective mode: {config.objective_mode!r}")
+
+
 def _load_warm_starts(path: Path | None, top_k: int) -> list[dict[str, Any]]:
     if path is None or top_k <= 0 or not path.exists():
         return []
@@ -327,9 +394,9 @@ def _select_trial_params(
         top_trials = sorted(complete_trials, key=lambda trial: float(trial.value), reverse=True)[:10]
 
         def gap(trial: optuna.trial.FrozenTrial) -> tuple[float, float]:
-            train_overlap = float(trial.user_attrs.get("train_overlap", 0.0))
-            val_overlap = float(trial.user_attrs.get("val_overlap", 0.0))
-            return (abs(train_overlap - val_overlap), -float(trial.value))
+            train_metric = float(trial.user_attrs.get("train_metric", trial.user_attrs.get("train_overlap", 0.0)))
+            val_metric = float(trial.user_attrs.get("val_metric", trial.user_attrs.get("val_overlap", 0.0)))
+            return (abs(train_metric - val_metric), -float(trial.value))
 
         selected = min(top_trials, key=gap)
         return dict(selected.params)
@@ -368,9 +435,15 @@ def _tune_fold(
         model = _fit_mlcraft_regressor(params=params, X=X_train, y=y_train, seed=seed)
         train_scores = _predict(model, X_train)
         val_scores = _predict(model, X_val)
+        train_scored = _scored_metric_frame(train_df, train_scores, "_score")
+        val_scored = _scored_metric_frame(val_df, val_scores, "_score")
+        train_metric = _objective_metric(train_scored, "_score", config)
+        val_metric = _objective_metric(val_scored, "_score", config)
+        objective_score = val_metric - config.lambda_gap * abs(train_metric - val_metric)
         train_overlap = _legacy_overlap(_score_predictions(train_df, train_scores, "_score"), "_score")
         val_overlap = _legacy_overlap(_score_predictions(val_df, val_scores, "_score"), "_score")
-        objective_score = val_overlap - config.lambda_gap * abs(train_overlap - val_overlap)
+        trial.set_user_attr("train_metric", train_metric)
+        trial.set_user_attr("val_metric", val_metric)
         trial.set_user_attr("train_overlap", train_overlap)
         trial.set_user_attr("val_overlap", val_overlap)
         trial.set_user_attr("objective_score", objective_score)
@@ -384,6 +457,8 @@ def _tune_fold(
             "fold": fold_label,
             "trial_number": trial.number,
             "objective": trial.value,
+            "train_metric": trial.user_attrs.get("train_metric"),
+            "val_metric": trial.user_attrs.get("val_metric"),
             "train_overlap": trial.user_attrs.get("train_overlap"),
             "val_overlap": trial.user_attrs.get("val_overlap"),
         }
@@ -409,6 +484,8 @@ def _warm_start_payload(trials: pl.DataFrame, top_k: int = 50) -> dict[str, Any]
                 "fold": row.get("fold"),
                 "trial_number": row.get("trial_number"),
                 "objective": row.get("objective"),
+                "train_metric": row.get("train_metric"),
+                "val_metric": row.get("val_metric"),
                 "train_overlap": row.get("train_overlap"),
                 "val_overlap": row.get("val_overlap"),
                 "params": params,
@@ -474,11 +551,21 @@ def run(config: TradableEmaRegressionConfig) -> Path:
             y=_target(train_df, config.target_clip),
             seed=seed,
         )
-        val_overlap = _legacy_overlap(_score_predictions(val_df, _predict(val_model, _matrix(val_df, features)), "_score"), "_score")
+        val_scores = _predict(val_model, _matrix(val_df, features))
+        val_scored = _scored_metric_frame(val_df, val_scores, "_score")
+        val_objective_metric = _objective_metric(val_scored, "_score", config)
+        val_overlap = _legacy_overlap(_score_predictions(val_df, val_scores, "_score"), "_score")
         test_overlap = _legacy_overlap(test_predictions, score_col)
+        test_objective_metric = _objective_metric(
+            _scored_metric_frame(test_df, test_predictions.get_column(score_col).to_numpy(), score_col),
+            score_col,
+            config,
+        )
         fold_rows.append(
             {
                 "fold": fold_label,
+                "val_objective_metric": val_objective_metric,
+                "test_objective_metric": test_objective_metric,
                 "val_overlap": val_overlap,
                 "test_overlap": test_overlap,
                 "train_month_start": str(window.train_months[0]),
@@ -522,6 +609,10 @@ def run(config: TradableEmaRegressionConfig) -> Path:
                 "step_months": config.step_months,
                 "lambda_gap": config.lambda_gap,
                 "trial_selection_policy": config.trial_selection_policy,
+                "objective_mode": config.objective_mode,
+                "objective_top_k": config.objective_top_k,
+                "objective_return_col": config.objective_return_col,
+                "objective_description": _objective_description(config),
                 "sampler": "TPESampler with random startup trials, warm starts enqueued first",
                 "target": f"future_excess_return clipped to +/-{config.target_clip}",
                 "features": features,
@@ -531,6 +622,9 @@ def run(config: TradableEmaRegressionConfig) -> Path:
                     else "tradable technical features; no fundamentals, no legacy_atomic, no legacy_optuna, no legacy_selected in features"
                 ),
                 "primary_metric": "nombre d'actions communes entre regression et Legacy / nombre d'actions choisies par Legacy",
+                "legacy_policy": (
+                    "Legacy is used only for diagnostics after scoring when objective_mode is not legacy_recomposition."
+                ),
                 "base_params": BASE_PARAMS,
                 "search_space": SEARCH_SPACE,
             },
@@ -544,7 +638,7 @@ def run(config: TradableEmaRegressionConfig) -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Tradable EMA-only future-excess-return regression tuned on Legacy overlap.")
+    parser = argparse.ArgumentParser(description="Tradable future-excess-return regression tuned on validation objectives.")
     parser.add_argument("--source-run", type=Path, default=DEFAULT_SOURCE_RUN)
     parser.add_argument("--legacy-path", type=Path, default=DEFAULT_LEGACY_PATH)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
@@ -565,6 +659,13 @@ def parse_args() -> argparse.Namespace:
         default="best_objective",
     )
     parser.add_argument("--feature-set", choices=["ema", "technical"], default="ema")
+    parser.add_argument(
+        "--objective-mode",
+        choices=["legacy_recomposition", "val_topk_mean_return", "val_topk_precision"],
+        default="legacy_recomposition",
+    )
+    parser.add_argument("--objective-top-k", type=int, default=10)
+    parser.add_argument("--objective-return-col", choices=["future_excess_return", "future_return"], default="future_excess_return")
     return parser.parse_args()
 
 
@@ -588,6 +689,9 @@ def main() -> None:
             lambda_gap=args.lambda_gap,
             trial_selection_policy=args.trial_selection_policy,
             feature_set=args.feature_set,
+            objective_mode=args.objective_mode,
+            objective_top_k=args.objective_top_k,
+            objective_return_col=args.objective_return_col,
         )
     )
 

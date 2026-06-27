@@ -80,6 +80,7 @@ Table de synthese des runs longs importants :
 | methode | ce qui est appris ou score | variables utilisees | ensemble de test | ce qu'on retrouve |
 |---|---|---|---|---|
 | `tradable_ema_regression_optuna` | futur rendement relatif : regression de `future_excess_return` clippe, tuning Optuna avec warm starts JSON | 88 variables EMA calculables au mois de decision : 16 EMA de base, rangs mensuels, z-scores mensuels, flags top/bottom quartile, agregats horizontaux | run large corrige `2021-06` a `2026-04`, 59 mois, 457 lignes Legacy | `159 / 457 = 34.8%`, mediane mensuelle 33.3%; meilleur run court recent = `68 / 169 = 40.2%` |
+| `tradable_ema_regression_optuna_no_legacy_objective` | futur rendement relatif : meme regression, mais Optuna optimise seulement la validation future, jamais Legacy | memes 88 variables EMA ; pas de warm-start issu de Legacy ; objectifs testes : rendement top 10 validation et precision top K validation `K=10/20/30/50` | sweep court propre `2025-06` a `2026-04`, 11 mois, 71 lignes Legacy | recomposition tres basse (`3/71` a `9/71`) ; meilleur trading court = precision top 30, top 30 `+65.9%`, Sharpe 3.15 |
 | `tradable_technical_regression_optuna` | futur rendement relatif : meme regression, mais avec toutes les familles techniques disponibles | 283 variables techniques : ROC prix, EMA, RSI, Bollinger, stochastique, distance high/low, range position, volatilite, rangs/z-scores/flags/agregats mensuels | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | `55 / 169 = 32.5%`; moins bon que EMA-only sur la meme periode |
 | `tradable_ema_residual_regression` | futur rendement relatif : base EMA-only puis regression du residu `future_excess_return_clippe - prediction_EMA` | base : 88 variables EMA ; residu : variables techniques non-EMA avec rangs mensuels, z-scores, flags top/bottom quartile et agregats ; score final `EMA + shrinkage * residu` | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | meilleur shrinkage recomposition `0.25` : `69 / 169 = 40.8%`; mieux que le meilleur EMA court d'un ticker, mais backtest plus faible que la base EMA fixe |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
@@ -146,6 +147,9 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-27 | script `scripts/experiments/run_tradable_ema_residual_regression.py` | test residual : base EMA-only puis regression du residu sur technique non-EMA |
 | 2026-06-27 | run `outputs/tradable_ema_residual_regression_20260627_020253` | residual regression, 23 mois test, shrinkages 0.25/0.50/1.00 |
 | 2026-06-27 | runs `outputs/ema_plus_residual_0_25_trading_backtest_20260627_020626`, `outputs/ema_plus_residual_0_50_trading_backtest_20260627_020654`, `outputs/ema_base_trading_backtest_20260627_020633` | backtests residual et base EMA fixe comparable |
+| 2026-06-27 | script `scripts/experiments/run_tradable_ema_regression_optuna.py` | ajout d'objectifs Optuna sans Legacy : rendement top K et precision top K en validation |
+| 2026-06-27 | runs `outputs/tradable_ema_regression_optuna_20260627_021449` a `outputs/tradable_ema_regression_optuna_20260627_023621` | sweep court sans objectif Legacy, sans warm-start, objectifs rendement top 10 et precision top 10/20/30/50 |
+| 2026-06-27 | runs `outputs/tradable_ema_trading_backtest_20260627_024211`, `024213`, `024215`, `024216`, `024218` | backtests du sweep sans objectif Legacy |
 
 Runs principaux :
 
@@ -178,6 +182,16 @@ Runs principaux :
 - `outputs/ema_plus_residual_0_25_trading_backtest_20260627_020626`
 - `outputs/ema_plus_residual_0_50_trading_backtest_20260627_020654`
 - `outputs/ema_base_trading_backtest_20260627_020633`
+- `outputs/tradable_ema_regression_optuna_20260627_021449`
+- `outputs/tradable_ema_regression_optuna_20260627_022020`
+- `outputs/tradable_ema_regression_optuna_20260627_022531`
+- `outputs/tradable_ema_regression_optuna_20260627_023102`
+- `outputs/tradable_ema_regression_optuna_20260627_023621`
+- `outputs/tradable_ema_trading_backtest_20260627_024211`
+- `outputs/tradable_ema_trading_backtest_20260627_024213`
+- `outputs/tradable_ema_trading_backtest_20260627_024215`
+- `outputs/tradable_ema_trading_backtest_20260627_024216`
+- `outputs/tradable_ema_trading_backtest_20260627_024218`
 
 ## Donnees communes
 
@@ -541,6 +555,79 @@ Lecture :
   d'un coup dilue le signal ; la piste suivante doit etre selection/gating par
   famille technique ou apprentissage en deux etages, pas "tout mettre dans le
   meme modele".
+
+#### Correction methodologique du 2026-06-27 : Optuna sans objectif Legacy
+
+Probleme identifie :
+
+```text
+L'ancien protocole entrainait une regression sur future_excess_return,
+mais choisissait les hyperparametres Optuna avec la recomposition Legacy.
+```
+
+Ce protocole etait utile pour comprendre Legacy, mais il n'est pas propre pour
+construire un algo d'allocation autonome. Legacy influencait les hyperparametres.
+A partir de ce test, Legacy doit etre reserve au diagnostic final, jamais a
+l'objectif Optuna quand on evalue un modele de trading.
+
+Changement code :
+
+- script modifie : `scripts/experiments/run_tradable_ema_regression_optuna.py`
+- nouveaux objectifs :
+  - `val_topk_mean_return` : moyenne mensuelle du rendement relatif futur du
+    top K en validation ;
+  - `val_topk_precision` : precision mensuelle du top K en validation, avec
+    succes defini par `future_excess_return > 0` ;
+- `--objective-top-k` permet de tester `K=10/20/30/50` ;
+- `--objective-return-col` permet de choisir `future_excess_return` ou
+  `future_return` pour l'objectif rendement ;
+- Legacy reste calcule dans `recomposition_summary.csv`, mais seulement comme
+  diagnostic hors objectif.
+
+Premier sweep court propre :
+
+- features : EMA-only, memes 88 variables ;
+- target modele : `future_excess_return` clippe a `[-30%, +30%]` ;
+- aucun warm-start Legacy : `--warm-start-top-k 0` ;
+- Optuna : 8 trials/fold, 3 random startup puis TPE ;
+- penalite train/val gap desactivee : `--lambda-gap 0.0` ;
+- test : `2025-06` a `2026-04`, 11 mois ;
+- Legacy test disponible : 71 actions.
+
+Runs :
+
+| objectif Optuna | training | backtest | recomposition Legacy test | meilleur scenario trading | rendement total | CAGR | Sharpe | max DD |
+|---|---|---|---:|---|---:|---:|---:|---:|
+| rendement top 10 validation | `outputs/tradable_ema_regression_optuna_20260627_021449` | `outputs/tradable_ema_trading_backtest_20260627_024211` | `8 / 71 = 11.3%` | `tradable_ema_top_30` | 29.5% | 32.6% | 1.38 | -5.6% |
+| precision top 10 validation | `outputs/tradable_ema_regression_optuna_20260627_022020` | `outputs/tradable_ema_trading_backtest_20260627_024213` | `9 / 71 = 12.7%` | `tradable_ema_top_20` | 33.5% | 37.0% | 1.38 | -8.2% |
+| precision top 20 validation | `outputs/tradable_ema_regression_optuna_20260627_022531` | `outputs/tradable_ema_trading_backtest_20260627_024215` | `4 / 71 = 5.6%` | `tradable_ema_top_30` | 34.7% | 38.4% | 1.76 | -5.6% |
+| precision top 30 validation | `outputs/tradable_ema_regression_optuna_20260627_023102` | `outputs/tradable_ema_trading_backtest_20260627_024216` | `3 / 71 = 4.2%` | `tradable_ema_top_30` | 65.9% | 73.7% | 3.15 | -5.6% |
+| precision top 50 validation | `outputs/tradable_ema_regression_optuna_20260627_023621` | `outputs/tradable_ema_trading_backtest_20260627_024218` | `7 / 71 = 9.9%` | `tradable_ema_top_30` | 34.4% | 38.1% | 1.57 | -5.6% |
+
+Metrices top K sur le test :
+
+| objectif Optuna | top10 excess | top10 precision | top20 excess | top20 precision | top30 excess | top30 precision | top50 excess | top50 precision |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| rendement top 10 validation | -1.05% | 44.5% | -0.18% | 42.3% | 0.57% | 46.7% | 0.33% | 47.8% |
+| precision top 10 validation | 0.09% | 50.0% | 0.86% | 49.1% | 0.30% | 49.4% | 0.05% | 47.3% |
+| precision top 20 validation | 0.07% | 47.3% | 0.90% | 48.2% | 0.90% | 49.1% | 0.42% | 48.2% |
+| precision top 30 validation | 1.48% | 52.7% | 1.29% | 51.4% | 2.88% | 53.6% | 1.12% | 48.5% |
+| precision top 50 validation | -0.76% | 44.5% | 0.16% | 48.6% | 0.92% | 48.8% | 0.11% | 44.0% |
+
+Lecture :
+
+- le test confirme la fuite methodologique : des qu'Optuna n'utilise plus
+  Legacy, la recomposition Legacy tombe entre 4.2% et 12.7% sur ce sweep court ;
+- cela ne veut pas dire que le modele ne trade pas : `precision top 30` donne le
+  meilleur backtest court, mais sans retrouver Legacy ;
+- il faut separer explicitement deux questions :
+  - **allocation autonome** : optimiser rendement/precision/risk-adjusted return
+    en validation, sans Legacy ;
+  - **comprehension Legacy** : mesurer pourquoi Legacy selectionne d'autres
+    noms, mais ne pas utiliser Legacy pour choisir les hyperparametres ;
+- le meilleur candidat propre a etendre est `precision top 30 validation`, mais
+  le test ne couvre que 11 mois. Il faut le rejouer sur une periode plus longue
+  et avec plus de trials avant d'en tirer une conclusion robuste.
 
 #### Backtest trading vs Legacy du 2026-06-26
 
