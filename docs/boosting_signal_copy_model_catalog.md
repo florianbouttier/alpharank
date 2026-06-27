@@ -1600,6 +1600,85 @@ Decision suivante :
    penalite volatilite ;
 5. ensuite seulement construire un portefeuille contraint avec les predictions.
 
+## Candidat boosting allocation 2026-06-27
+
+Runs principaux :
+
+```text
+outputs/portfolio_boosting_top_return_classifier_20260627_165036
+outputs/portfolio_boosting_blend_backtest_20260627_171645
+```
+
+Scripts :
+
+```text
+scripts/experiments/run_portfolio_boosting_top_return_classifier.py
+scripts/experiments/run_portfolio_boosting_blend_backtest.py
+```
+
+Ce qui est appris :
+
+- modele `mlcraft` XGBoost classification ;
+- target mensuelle : action dans le top 10% des `future_excess_return` du mois
+  suivant ;
+- features : 283 features techniques tradables deja disponibles dans la frame
+  backtest, incluant EMA, prix/EMA, ROC, RSI, Bollinger, stochastic, distances
+  high/low, volatilite, rangs/z-scores/flags mensuels ;
+- Optuna : 1 trial par fold pour ce premier run complet, objectif validation =
+  rendement moyen du top 5 ;
+- walk-forward mensuel 2015-02 a 2026-04, 135 mois testes.
+
+Point dur :
+
+- le boosting pur ne marche pas encore : top 5 = CAGR `5.0%`, sous SPY et tres
+  loin de Legacy ;
+- le score utile est hybride : rang mensuel de la proba boosting + petit prior
+  momentum technique.
+
+Score hybride teste :
+
+```text
+score = (rank_month(prediction_boosting) + 0.10 * technical_z_mean) / 1.10
+selection = top 5 actions par mois
+```
+
+Puis construction portefeuille :
+
+```text
+poids final = x% strategie hybride + (1 - x)% SPY
+```
+
+Comparaison sur la meme fenetre :
+
+| modele | total return | CAGR | Sharpe | max drawdown | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| `boosting_momentum_top5_100pct` | `+2 121.6%` | `31.7%` | `0.86` | `-38.2%` | `10.0%` | `63.7%` |
+| `boosting_momentum_top5_80pct_spy_20pct` | `+1 618.9%` | `28.8%` | `0.90` | `-33.4%` | `8.5%` | `63.7%` |
+| `boosting_momentum_top5_70pct_spy_30pct` | `+1 392.2%` | `27.2%` | `0.93` | `-30.9%` | `7.8%` | `63.7%` |
+| `boosting_momentum_top5_60pct_spy_40pct` | `+1 184.2%` | `25.5%` | `0.95` | `-28.5%` | `7.1%` | `62.2%` |
+| `Combined_Frequency` | `+1 118.1%` | `24.9%` | `0.93` | `-23.5%` | `7.1%` | `63.0%` |
+| `Combined_Equal` | `+851.1%` | `22.2%` | `0.85` | `-23.6%` | `6.9%` | `60.0%` |
+| `SPY` | `+332.2%` | `13.9%` | `0.79` | `-23.9%` | `4.4%` | `69.6%` |
+
+Lecture honnete :
+
+- On a enfin un backtest boosting-based qui bat `Combined_Frequency` en total
+  return, CAGR et Sharpe : le candidat `60% strategie hybride / 40% SPY`.
+- Il ne bat pas Legacy sur le max drawdown : `-28.5%` vs `-23.5%`.
+- Le modele pur ne suffit pas ; le prior momentum reste indispensable.
+- Ce n'est donc pas encore la strategie finale, mais c'est le premier candidat
+  allocation qui passe le seuil "mieux que Legacy" sur plusieurs metriques
+  importantes sans optimiser Legacy.
+
+Prochaine decision technique :
+
+1. reduire le drawdown du candidat `60/40` sans perdre son avantage CAGR/Sharpe ;
+2. tester un overlay de risque dynamique, pas fixe : baisse d'exposition quand
+   les predictions top 5 sont peu separees du reste, quand la volatilite du
+   panier est trop haute, ou quand le regime SPY est defavorable ;
+3. relancer avec plus de trials Optuna et warm starts uniquement si la metrique
+   d'allocation validation inclut le risque, pas seulement le rendement.
+
 ## Decision actuelle
 
 Ne pas industrialiser les modeles suivants :

@@ -80,10 +80,16 @@ Current conclusion:
   that the clean EMA boosting regressions still do not quantify average future
   relative return well enough: top deciles are not robustly better than bottom
   deciles and top-K lift vs universe is weak.
-- New direction: treat Legacy recomposition as secondary diagnostics only.
-  Optimize and evaluate models by forecast calibration and portfolio metrics on
-  temporal validation: mean future excess return, Sharpe, volatility/drawdown
-  penalties, then constrained allocation.
+- First allocation candidate that beats Legacy on important metrics:
+  `outputs/portfolio_boosting_blend_backtest_20260627_171645`.
+  It uses an mlcraft XGBoost classifier predicting top-10% future excess return,
+  then a score blend `rank(prediction_boosting) + 0.10 * technical_z_mean`.
+  The `60% hybrid top5 / 40% SPY` curve beats `Combined_Frequency` in total
+  return, CAGR, and Sharpe (`+1,184%`, `25.5%`, `0.95` vs `+1,118%`, `24.9%`,
+  `0.93`) but still has worse max drawdown (`-28.5%` vs `-23.5%`).
+- New direction: reduce drawdown on this boosting-based candidate through a
+  dynamic risk overlay or portfolio constraints. Treat Legacy recomposition as
+  secondary diagnostics only.
 
 Detailed source of truth:
 [`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md).
