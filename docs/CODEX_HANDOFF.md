@@ -94,6 +94,15 @@ Current conclusion:
   `-33.9%`) but still far below Legacy (`+1,118%`, CAGR `24.9%`, Sharpe `0.93`,
   max DD `-23.5%`). A 3-trial Optuna run degraded the rank-regression result,
   so "more random trials" is not the immediate fix.
+- 2026-06-28 risk-overlay tests on pure boosting predictions improved the
+  sizing story without using Legacy:
+  `outputs/portfolio_boosting_risk_overlay_20260628_013037` is the main run.
+  Best risk-controlled candidate is classifier top50 with dynamic validation
+  quality and cash overlay: `+429.5%`, CAGR `16.0%`, Sharpe `0.80`, max DD
+  `-16.4%`. Best raw-return pure boosting overlay is classifier top7 dynamic
+  validation quality with SPY overlay: `+614.3%`, CAGR `19.1%`, but max DD
+  `-41.3%`, too risky. The overlay confirms that validation quality is useful
+  for exposure, but the model still does not match Legacy returns.
 - New direction: keep Legacy recomposition as a diagnostic only. For allocation,
   work on pure future-return prediction plus portfolio/risk control: robust
   warm starts across regimes, drawdown-aware validation objectives, true

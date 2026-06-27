@@ -100,6 +100,7 @@ Table de synthese des runs longs importants :
 | `tradable_ema_residual_regression` | futur rendement relatif : base EMA-only puis regression du residu `future_excess_return_clippe - prediction_EMA` | base : 88 variables EMA ; residu : variables techniques non-EMA avec rangs mensuels, z-scores, flags top/bottom quartile et agregats ; score final `EMA + shrinkage * residu` | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | meilleur shrinkage recomposition `0.25` : `69 / 169 = 40.8%`; mieux que le meilleur EMA court d'un ticker, mais backtest plus faible que la base EMA fixe |
 | `portfolio_boosting_top_return_classifier` | allocation autonome : classification `future_excess_return` dans le top 10% du mois suivant | 283 variables techniques calculables au mois de decision : momentum/ROC, EMA, RSI, Bollinger, stochastique, distances high/low, volatilite, rangs/z-scores/flags/agregats mensuels ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | KPI principal trading : meilleur top 7 = +364.3%, CAGR 14.6%, Sharpe 0.37, max DD -47.0%; sous Legacy et trop risque |
 | `portfolio_boosting_rank_regression` | allocation autonome : regression du rang percentile mensuel futur de `future_excess_return` | memes variables techniques calculables que ci-dessus ; target = rang relatif futur dans le mois, pas le rendement brut ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | meilleur baseline top 20 = +348.3%, CAGR 14.3%, Sharpe 0.54, max DD -33.9%; 3 trials/fold degrade a +253.1%, Sharpe 0.43 |
+| `portfolio_boosting_risk_overlay` | allocation autonome : pas de nouveau training, sizing de l'exposition sur predictions boosting out-of-sample | score boosting pur + top N ; exposition fixe ou dynamique ; dynamique basee sur dispersion des scores ou qualite validation connue avant le mois de test ; aucune variable Legacy dans le sizing | backtests 2015+ sur les predictions classifier et rank-regression | meilleur compromis risque = classifier top50 validation-quality cash, +429.5%, CAGR 16.0%, Sharpe 0.80, max DD -16.4%; meilleur rendement = classifier top7 validation-quality spy, +614.3%, CAGR 19.1%, mais DD -41.3% |
 | `deterministic_ema_signal_diagnostic` | pas de training : score tradable = rang mensuel d'un signal EMA / momentum observe | signaux calculables au mois de decision : `ema_ratio_2_12_rank_month`, `ema_ratio_3_12_rank_month`, `technical_z_mean`, `technical_rank_mean`; aucun objectif Legacy en training car il n'y a pas de training | diagnostic 2015+ `2015-01` a `2026-04`, 136 mois, 1 258 lignes Legacy | KPI strict `legacy_k`: `ema_ratio_3_12_rank_month` retrouve `655 / 1 258 = 52.1%`; `ema_ratio_2_12_rank_month` retrouve `647 / 1 258 = 51.4%` |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
@@ -185,6 +186,7 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-27 | runs `outputs/ema_ratio_2_12_rank_month_trading_backtest_20260627_154632`, `outputs/ema_ratio_3_12_rank_month_trading_backtest_20260627_154632`, `outputs/technical_z_mean_trading_backtest_20260627_154632`, `outputs/technical_rank_mean_trading_backtest_20260627_154632` | backtests 2015+ des temoins deterministes EMA / technique |
 | 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_top_return_classifier.py`, run `outputs/portfolio_boosting_top_return_classifier_20260627_225903` | boosting seul mlcraft : classifier top 10% futur rendement relatif, baseline Optuna enqueued |
 | 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_rank_regression.py`, runs `outputs/portfolio_boosting_rank_regression_20260627_230913`, `outputs/portfolio_boosting_rank_regression_20260627_233738` | boosting seul mlcraft : regression du rang mensuel futur, test baseline puis 3 trials/fold |
+| 2026-06-28 | script `scripts/experiments/run_portfolio_boosting_risk_overlay.py`, runs `outputs/portfolio_boosting_risk_overlay_20260628_013024`, `013037`, `013107`, `013108` | overlays de risque boosting seul : exposition fixe, confiance score, qualite validation, cash/SPY |
 
 Runs principaux :
 
@@ -246,6 +248,10 @@ Runs principaux :
 - `outputs/portfolio_boosting_top_return_classifier_20260627_225903`
 - `outputs/portfolio_boosting_rank_regression_20260627_230913`
 - `outputs/portfolio_boosting_rank_regression_20260627_233738`
+- `outputs/portfolio_boosting_risk_overlay_20260628_013024`
+- `outputs/portfolio_boosting_risk_overlay_20260628_013037`
+- `outputs/portfolio_boosting_risk_overlay_20260628_013107`
+- `outputs/portfolio_boosting_risk_overlay_20260628_013108`
 
 ## Donnees communes
 
@@ -919,6 +925,137 @@ Decision :
 Le meilleur boosting pur actuel est le baseline `rank-regression top 20` ou le
 `classifier top 30/50`, selon le critere. Aucun n'est encore un bon algo final :
 ils ont du signal, mais pas assez de controle du risque pour remplacer Legacy.
+
+#### Risk overlay boosting seul du 2026-06-28
+
+But :
+
+Tester l'hypothese suivante :
+
+```text
+Le boosting pur contient du signal, mais le portefeuille 100% investi dans un
+top N fixe est trop concentre et trop expose dans les mauvais regimes.
+```
+
+Ce qui est appris :
+
+Rien de nouveau dans ce script. Il reutilise uniquement des predictions
+out-of-sample deja produites par les modeles boosting propres :
+
+- classifier top-return :
+  `outputs/portfolio_boosting_top_return_classifier_20260627_225903`
+- rank-regression :
+  `outputs/portfolio_boosting_rank_regression_20260627_230913`
+
+Le sizing n'utilise pas Legacy.
+
+Variables / informations utilisees pour le sizing :
+
+- score boosting du mois ;
+- rendement futur uniquement pour calculer le backtest apres coup ;
+- qualite validation du fold, connue avant le mois de test, via
+  `optuna_trials.csv` ;
+- dispersion des scores du mois :
+
+```text
+score_confidence =
+  (moyenne des scores du top N - mediane des scores de l'univers)
+  / ecart-type des scores de l'univers
+```
+
+Regles de portefeuille testees :
+
+1. `100pct` : top N boosting, 100% investi.
+2. `Xpct_spy` : X% top N boosting, reste dans SPY.
+3. `Xpct_cash` : X% top N boosting, reste en cash a 0% mensuel.
+4. `dynamic_score_confidence` : exposition calculee avec la dispersion des
+   scores, calibree seulement sur les mois passes.
+5. `dynamic_validation_quality` : exposition calculee avec la meilleure
+   performance validation du fold, calibree seulement sur les mois passes.
+
+Formule de l'exposition dynamique :
+
+```text
+historique = valeurs de confiance observees avant le mois courant
+low = quantile 25% de l'historique
+high = quantile 75% de l'historique
+exposition = min_exposure + ((confiance - low) / (high - low))
+             * (max_exposure - min_exposure)
+exposition clippee entre min_exposure et max_exposure
+```
+
+Pendant les premiers mois sans historique suffisant, le script utilise une
+exposition par defaut.
+
+Runs :
+
+| run | predictions | parametrage exposition | lecture |
+|---|---|---|---|
+| `outputs/portfolio_boosting_risk_overlay_20260628_013024` | rank-regression baseline | prudent : min 30%, defaut 60%, max 100%, historique 24 mois | meilleure amelioration risque, mais rendement encore proche SPY |
+| `outputs/portfolio_boosting_risk_overlay_20260628_013037` | classifier top-return baseline | prudent : min 30%, defaut 60%, max 100%, historique 24 mois | meilleur compromis actuel boosting seul |
+| `outputs/portfolio_boosting_risk_overlay_20260628_013107` | classifier top-return baseline | agressif : min 50%, defaut 80%, max 100%, historique 12 mois | plus de rendement, mais drawdown trop haut |
+| `outputs/portfolio_boosting_risk_overlay_20260628_013108` | rank-regression baseline | agressif : min 50%, defaut 80%, max 100%, historique 12 mois | pas meilleur que le prudent |
+
+Baselines :
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle |
+|---|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% |
+
+Meilleurs resultats rank-regression overlay prudent :
+
+| modele | rendement total | CAGR | Sharpe | max DD | lecture |
+|---|---:|---:|---:|---:|---|
+| top10 dynamic validation-quality SPY | 455.0% | 16.5% | 0.70 | -28.1% | meilleur rendement rank overlay |
+| top20 dynamic validation-quality cash | 327.8% | 13.8% | 0.90 | -10.5% | meilleur controle risque, mais rendement sous SPY |
+| top50 dynamic score-confidence SPY | 362.6% | 14.6% | 0.74 | -23.7% | proche risque SPY/Legacy, rendement modere |
+
+Meilleurs resultats classifier overlay prudent :
+
+| modele | rendement total | CAGR | Sharpe | max DD | lecture |
+|---|---:|---:|---:|---:|---|
+| top7 dynamic validation-quality SPY | 614.3% | 19.1% | 0.59 | -41.3% | meilleur rendement boosting seul, risque trop haut |
+| top7 dynamic validation-quality cash | 592.6% | 18.8% | 0.64 | -31.6% | rendement eleve, risque encore haut |
+| top30 dynamic validation-quality cash | 476.4% | 16.8% | 0.71 | -20.6% | bon compromis drawdown vs rendement |
+| top50 dynamic validation-quality cash | 429.5% | 16.0% | 0.80 | -16.4% | meilleur compromis Sharpe/drawdown |
+
+Meilleurs resultats classifier overlay agressif :
+
+| modele | rendement total | CAGR | Sharpe | max DD | lecture |
+|---|---:|---:|---:|---:|---|
+| top7 dynamic validation-quality cash | 598.1% | 18.9% | 0.58 | -35.6% | rendement proche du prudent, risque degrade |
+| top30 dynamic validation-quality cash | 513.1% | 17.5% | 0.68 | -25.8% | plus de rendement que prudent, drawdown repasse au-dessus de Legacy |
+| top50 dynamic validation-quality cash | 463.3% | 16.6% | 0.76 | -21.6% | compromis acceptable mais moins bon que prudent en Sharpe/drawdown |
+
+Lecture :
+
+- le sizing aide vraiment : on passe d'un classifier top 7 100% investi a
+  `+364.3%`, Sharpe `0.37`, max DD `-47.0%`, a des variantes entre `+429.5%`
+  et `+614.3%` ;
+- le meilleur profil prudent actuel est `classifier top50 dynamic
+  validation-quality cash` : il a moins de rendement que Legacy, mais Sharpe
+  proche de SPY et drawdown meilleur que Legacy/SPY ;
+- le meilleur profil rendement est `classifier top7 dynamic validation-quality
+  SPY`, mais le drawdown `-41.3%` n'est pas acceptable comme algo final ;
+- la qualite validation du fold est plus utile que la simple dispersion des
+  scores pour regler l'exposition ;
+- augmenter l'exposition agressivement recupere un peu de CAGR mais degrade trop
+  le drawdown. La version prudente est la meilleure base de travail.
+
+Decision :
+
+Le probleme n'est plus seulement "le boosting ne predit rien". Le boosting
+produit un signal exploitable, mais pas encore assez fort pour battre Legacy en
+rendement avec un risque equivalent. La prochaine piste doit combiner :
+
+- entrainement meilleur : vraie formulation ranking mensuel ou objectif
+  validation drawdown-aware ;
+- sizing meilleur : exposition par qualite validation, probablement avec cash
+  plutot que SPY quand le modele est peu fiable ;
+- construction portefeuille : top 30/50 ou ponderation par score plutot que top
+  5/7 concentre.
 
 #### Backtest trading vs Legacy du 2026-06-26
 
