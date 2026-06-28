@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-06-27
+Last updated: 2026-06-28
 Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -103,6 +103,19 @@ Current conclusion:
   validation quality with SPY overlay: `+614.3%`, CAGR `19.1%`, but max DD
   `-41.3%`, too risky. The overlay confirms that validation quality is useful
   for exposure, but the model still does not match Legacy returns.
+- 2026-06-28 EMA-anchor residual test:
+  `outputs/ema_anchor_residual_strategy_20260628_031118` tests the user's idea
+  of a first regression on one primary EMA, followed by a second regression on
+  the residual with all other available variables. This run is tradable and
+  does not use Legacy selections as feature/target, but it is a proxy: the
+  current ML frame only contains 16 fixed EMA variables, not the arbitrary
+  Legacy EMA pairs such as `72-95-30`. The primary EMA is selected per fold on
+  past validation top-20 future excess return. Result: residual boosting helps
+  materially versus EMA-only (`top20/top50 +368.9%`, CAGR `14.7%`) and beats SPY
+  slightly in CAGR, but stays far below Legacy and has weaker Sharpe/drawdown.
+  Next highest-signal experiment is to regenerate the exact arbitrary Legacy EMA
+  features from price history, impose the known primary EMA at each decision
+  date, then rerun the same residual protocol and risk overlay.
 - New direction: keep Legacy recomposition as a diagnostic only. For allocation,
   work on pure future-return prediction plus portfolio/risk control: robust
   warm starts across regimes, drawdown-aware validation objectives, true

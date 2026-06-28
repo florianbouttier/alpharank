@@ -101,6 +101,7 @@ Table de synthese des runs longs importants :
 | `portfolio_boosting_top_return_classifier` | allocation autonome : classification `future_excess_return` dans le top 10% du mois suivant | 283 variables techniques calculables au mois de decision : momentum/ROC, EMA, RSI, Bollinger, stochastique, distances high/low, volatilite, rangs/z-scores/flags/agregats mensuels ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | KPI principal trading : meilleur top 7 = +364.3%, CAGR 14.6%, Sharpe 0.37, max DD -47.0%; sous Legacy et trop risque |
 | `portfolio_boosting_rank_regression` | allocation autonome : regression du rang percentile mensuel futur de `future_excess_return` | memes variables techniques calculables que ci-dessus ; target = rang relatif futur dans le mois, pas le rendement brut ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | meilleur baseline top 20 = +348.3%, CAGR 14.3%, Sharpe 0.54, max DD -33.9%; 3 trials/fold degrade a +253.1%, Sharpe 0.43 |
 | `portfolio_boosting_risk_overlay` | allocation autonome : pas de nouveau training, sizing de l'exposition sur predictions boosting out-of-sample | score boosting pur + top N ; exposition fixe ou dynamique ; dynamique basee sur dispersion des scores ou qualite validation connue avant le mois de test ; aucune variable Legacy dans le sizing | backtests 2015+ sur les predictions classifier et rank-regression | meilleur compromis risque = classifier top50 validation-quality cash, +429.5%, CAGR 16.0%, Sharpe 0.80, max DD -16.4%; meilleur rendement = classifier top7 validation-quality spy, +614.3%, CAGR 19.1%, mais DD -41.3% |
+| `ema_anchor_residual_strategy` | allocation autonome : regression boosting sur une EMA primaire, puis regression boosting du residu | EMA primaire selectionnee sur validation passee ; modele base = 5 variables de cette EMA ; modele residu = toutes les autres variables du frame source, techniques + fondamentales disponibles, enrichies en rang/z-score/flags ; aucune decision Legacy en feature | backtest 2015+ `2015-02` a `2026-04`, run `outputs/ema_anchor_residual_strategy_20260628_031118` | residu ameliore nettement l'EMA seule : top20/top50 = +368.9%, CAGR 14.7%; mais Sharpe 0.48/0.55 et DD -29.1%/-26.6%, encore sous Legacy |
 | `deterministic_ema_signal_diagnostic` | pas de training : score tradable = rang mensuel d'un signal EMA / momentum observe | signaux calculables au mois de decision : `ema_ratio_2_12_rank_month`, `ema_ratio_3_12_rank_month`, `technical_z_mean`, `technical_rank_mean`; aucun objectif Legacy en training car il n'y a pas de training | diagnostic 2015+ `2015-01` a `2026-04`, 136 mois, 1 258 lignes Legacy | KPI strict `legacy_k`: `ema_ratio_3_12_rank_month` retrouve `655 / 1 258 = 52.1%`; `ema_ratio_2_12_rank_month` retrouve `647 / 1 258 = 51.4%` |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
@@ -187,6 +188,7 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_top_return_classifier.py`, run `outputs/portfolio_boosting_top_return_classifier_20260627_225903` | boosting seul mlcraft : classifier top 10% futur rendement relatif, baseline Optuna enqueued |
 | 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_rank_regression.py`, runs `outputs/portfolio_boosting_rank_regression_20260627_230913`, `outputs/portfolio_boosting_rank_regression_20260627_233738` | boosting seul mlcraft : regression du rang mensuel futur, test baseline puis 3 trials/fold |
 | 2026-06-28 | script `scripts/experiments/run_portfolio_boosting_risk_overlay.py`, runs `outputs/portfolio_boosting_risk_overlay_20260628_013024`, `013037`, `013107`, `013108` | overlays de risque boosting seul : exposition fixe, confiance score, qualite validation, cash/SPY |
+| 2026-06-28 | script `scripts/experiments/run_ema_anchor_residual_strategy.py`, run `outputs/ema_anchor_residual_strategy_20260628_031118` | test idee EMA primaire puis regression des residus avec toutes les autres variables |
 
 Runs principaux :
 
@@ -252,6 +254,7 @@ Runs principaux :
 - `outputs/portfolio_boosting_risk_overlay_20260628_013037`
 - `outputs/portfolio_boosting_risk_overlay_20260628_013107`
 - `outputs/portfolio_boosting_risk_overlay_20260628_013108`
+- `outputs/ema_anchor_residual_strategy_20260628_031118`
 
 ## Donnees communes
 
@@ -1056,6 +1059,123 @@ rendement avec un risque equivalent. La prochaine piste doit combiner :
   plutot que SPY quand le modele est peu fiable ;
 - construction portefeuille : top 30/50 ou ponderation par score plutot que top
   5/7 concentre.
+
+#### EMA primaire puis regression des residus du 2026-06-28
+
+Hypothese utilisateur :
+
+```text
+Si Legacy ou un diagnostic de regime indique une EMA primaire a suivre, on peut
+forcer le modele 1 a apprendre la direction principale sur cette EMA, puis
+laisser un modele 2 apprendre seulement ce que le modele 1 n'explique pas avec
+toutes les autres variables.
+```
+
+Implementation testee :
+
+- script : `scripts/experiments/run_ema_anchor_residual_strategy.py`
+- run : `outputs/ema_anchor_residual_strategy_20260628_031118`
+- periode test : `2015-02` a `2026-04`
+- protocole : walk-forward mensuel, train passe, validation 12 mois, test 1 mois
+- target : `future_excess_return` clippe a `[-30%, +30%]`
+- modele base : XGBoost mlcraft regression sur 5 variables derivees d'une seule
+  EMA primaire :
+  - valeur EMA brute ;
+  - rang mensuel ;
+  - z-score mensuel ;
+  - flag top quartile ;
+  - flag bottom quartile.
+- modele residu : XGBoost mlcraft regression sur
+  `future_excess_return_clippe - prediction_modele_base`
+- variables residuelles : toutes les autres variables du `model_frame` source,
+  y compris techniques et fondamentales deja disponibles dans ce frame, avec
+  rang mensuel / z-score / flags top-bottom quartile.
+
+Precision importante :
+
+Ce run ne lit pas directement les paires internes exactes de Legacy du type
+`72-95-30` ou `159-54-30`, car ces EMA arbitraires ne sont pas disponibles dans
+`outputs/xgboost_timefold_backtest_20260612_175250/model_frame.parquet`. La
+version testee choisit donc l'EMA primaire de facon tradable sur validation
+passee :
+
+```text
+EMA primaire du fold =
+  EMA dont le top 20 validation a le meilleur futur rendement relatif moyen
+```
+
+Pour tester exactement "Legacy nous dit au 31 janvier 2025 de prendre EMA
+12-7", il faudra regenerer les EMA arbitraires Legacy dans le frame ML a partir
+des prix, puis relancer ce meme protocole avec cette EMA imposee.
+
+Backtest vs Legacy :
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% | 60.0% |
+| EMA + residu top 20 | 368.9% | 14.7% | 0.48 | -29.1% | 7.6% | 60.0% |
+| EMA + residu top 50 | 368.9% | 14.7% | 0.55 | -26.6% | 6.7% | 63.0% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+| EMA + residu top 30 | 313.8% | 13.5% | 0.46 | -28.1% | 7.1% | 59.3% |
+| EMA seule top 50 | 275.1% | 12.5% | 0.54 | -26.3% | 5.6% | 63.0% |
+| EMA seule top 20 | 158.7% | 8.8% | 0.30 | -28.6% | 6.5% | 59.3% |
+
+Lecture backtest :
+
+- le residu aide nettement : top 20 passe de `+158.7%` a `+368.9%` ;
+- top 50 passe de `+275.1%` a `+368.9%` ;
+- le resultat devient legerement superieur a SPY en rendement total/CAGR ;
+- mais le Sharpe reste tres inferieur a SPY et Legacy, et le drawdown reste
+  plus profond que Legacy ;
+- les top 5/top 7 restent inutilisables : trop concentres, drawdowns autour de
+  `-57%` a `-65%`.
+
+Metriques prediction sur test :
+
+| modele | RMSE | MAE | R2 | Pearson | Spearman |
+|---|---:|---:|---:|---:|---:|
+| EMA seule | 0.0778 | 0.0556 | -0.0074 | 0.0164 | 0.0274 |
+| EMA + residu | 0.0778 | 0.0556 | -0.0073 | 0.0170 | 0.0247 |
+
+Metriques top K sur test :
+
+| modele | top 10 excess | top 10 hit-rate | top 20 excess | top 20 hit-rate | top 50 excess | top 50 hit-rate |
+|---|---:|---:|---:|---:|---:|---:|
+| EMA seule | -0.40% | 47.9% | -0.31% | 47.9% | -0.08% | 48.9% |
+| EMA + residu | 0.19% | 50.2% | 0.17% | 50.1% | 0.12% | 49.7% |
+
+EMA primaires les plus souvent selectionnees :
+
+| EMA | folds | validation top20 excess moyen |
+|---|---:|---:|
+| `ema_ratio_12_24` | 24 | 1.24% |
+| `ema_ratio_18_24` | 21 | 0.79% |
+| `price_to_ema_3` | 21 | 0.33% |
+| `ema_ratio_2_3` | 19 | 1.04% |
+| `ema_ratio_3_6` | 11 | 1.03% |
+
+Decision :
+
+L'idee est valide comme architecture : ancrer le premier modele sur une EMA
+primaire empeche une partie de la dilution, et les residus ajoutent bien du
+signal. En revanche, la version actuelle n'est pas encore suffisante pour une
+allocation finale :
+
+- les metriques de prediction globales restent faibles ;
+- le signal utile apparait surtout dans les top K larges ;
+- il faut soit une meilleure EMA primaire, soit un meilleur modele residuel, soit
+  un sizing par confiance.
+
+Prochaine experience logique :
+
+1. Regenerer dans le frame ML les EMA arbitraires utilisees par Legacy
+   (`selected_model` des blocs `Legacy_Optuna_*`) au lieu de mapper sur les 16
+   EMA existantes.
+2. Relancer exactement ce protocole avec l'EMA primaire imposee par la config
+   Legacy connue au mois de decision.
+3. Ajouter ensuite le risk overlay `dynamic_validation_quality_cash` sur le score
+   `EMA + residu`, car top 20/50 sont les seules zones ou le signal est positif.
 
 #### Backtest trading vs Legacy du 2026-06-26
 
