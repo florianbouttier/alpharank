@@ -26,12 +26,18 @@ from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
     load_legacy_curves,
 )
 
+DEFAULT_LEGACY_DETAILED_RETURNS = Path("outputs/2026-06-07/legacy_detailed_returns_polars.parquet")
+DEFAULT_PRICE_VS_INDEX = Path("outputs/checkpoints_open_source_20260607/polars_final_price_vs_index.parquet")
+
 
 @dataclass(frozen=True)
 class EmaAnchorResidualConfig:
     source_run: Path = DEFAULT_SOURCE_RUN
     legacy_monthly_returns: Path = DEFAULT_LEGACY_MONTHLY_RETURNS
+    legacy_detailed_returns: Path = DEFAULT_LEGACY_DETAILED_RETURNS
+    price_vs_index: Path = DEFAULT_PRICE_VS_INDEX
     output_dir: Path = Path("outputs")
+    anchor_mode: str = "legacy_exact_dominant"
     target_clip: float = 0.30
     min_train_months: int = 168
     val_months: int = 12
@@ -85,11 +91,91 @@ def _feature_family(feature: str) -> list[str]:
     ]
 
 
+def _legacy_ema_feature_name(n_short: int, n_long: int) -> str:
+    return f"legacy_ema_ratio_short{int(n_short)}_long{int(n_long)}"
+
+
+def _load_legacy_atomic_configs(path: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
+    legacy = (
+        pl.read_parquet(path)
+        .with_columns(
+            pl.col("year_month").dt.date().alias("holding_month"),
+            pl.col("ticker").cast(pl.Utf8),
+            pl.col("n_short").cast(pl.Int32),
+            pl.col("n_long").cast(pl.Int32),
+        )
+        .filter(pl.col("portfolio_model").str.starts_with("Legacy_Optuna"))
+    )
+    pairs = legacy.select(["n_short", "n_long"]).drop_nulls().unique().sort(["n_long", "n_short"])
+    dominant = (
+        legacy.group_by(["holding_month", "selected_model", "n_short", "n_long"])
+        .agg(pl.len().alias("legacy_atomic_rows"))
+        .sort(["holding_month", "legacy_atomic_rows", "selected_model"], descending=[False, True, False])
+        .group_by("holding_month", maintain_order=True)
+        .head(1)
+        .with_columns(
+            pl.struct(["n_short", "n_long"])
+            .map_elements(
+                lambda row: _legacy_ema_feature_name(int(row["n_short"]), int(row["n_long"])),
+                return_dtype=pl.Utf8,
+            )
+            .alias("legacy_primary_ema_feature")
+        )
+        .select(["holding_month", "selected_model", "n_short", "n_long", "legacy_atomic_rows", "legacy_primary_ema_feature"])
+    )
+    return pairs, dominant
+
+
+def _exact_legacy_ema_features(price_path: Path, keys: pl.DataFrame, pairs: pl.DataFrame) -> tuple[pl.DataFrame, list[str]]:
+    prices = (
+        pl.read_parquet(price_path)
+        .select(["ticker", "date", "close_vs_index"])
+        .with_columns(pl.col("ticker").cast(pl.Utf8), pl.col("date").cast(pl.Datetime))
+        .drop_nulls(["ticker", "date", "close_vs_index"])
+        .sort(["ticker", "date"])
+    )
+    base = keys.select(["holding_month", "ticker"]).unique()
+    feature_names: list[str] = []
+    for pair in pairs.iter_rows(named=True):
+        n_short = int(pair["n_short"])
+        n_long = int(pair["n_long"])
+        feature = _legacy_ema_feature_name(n_short, n_long)
+        feature_names.append(feature)
+        monthly = (
+            prices.with_row_index("_row_idx")
+            .with_columns(
+                pl.col("close_vs_index").ewm_mean(span=n_short, adjust=False).over("ticker").alias("_ema_short"),
+                pl.col("close_vs_index").ewm_mean(span=n_long, adjust=False).over("ticker").alias("_ema_long"),
+                (pl.col("_row_idx").rank(method="ordinal").over("ticker") - 1).alias("_obs_count"),
+                pl.col("date").dt.truncate("1mo").dt.date().alias("_signal_month"),
+            )
+            .filter(pl.col("_obs_count") >= n_long)
+            .with_columns((pl.col("_ema_short") / pl.col("_ema_long")).alias(feature))
+            .drop_nulls(feature)
+            .group_by(["_signal_month", "ticker"])
+            .agg(pl.col("date").last(), pl.col(feature).last())
+            .with_columns(pl.col("_signal_month").dt.offset_by("1mo").alias("holding_month"))
+            .select(["holding_month", "ticker", feature])
+        )
+        base = base.join(monthly, on=["holding_month", "ticker"], how="left")
+    return base, feature_names
+
+
+def _dynamic_primary_expr(candidates: Sequence[str], selector_col: str, output_col: str) -> pl.Expr:
+    expr: pl.Expr | None = None
+    for feature in candidates:
+        branch = pl.when(pl.col(selector_col) == feature).then(pl.col(feature))
+        expr = branch if expr is None else expr.when(pl.col(selector_col) == feature).then(pl.col(feature))
+    if expr is None:
+        raise ValueError("No exact Legacy EMA candidates available.")
+    return expr.otherwise(None).alias(output_col)
+
+
 def _load_frame(config: EmaAnchorResidualConfig) -> tuple[pl.DataFrame, list[str], list[str], list[str]]:
     metadata = json.loads((config.source_run / "metadata.json").read_text(encoding="utf-8"))
     source_features = list(metadata["features_used"])
-    ema_features = _ema_base_features(source_features)
-    if not ema_features:
+    available_ema_features = _ema_base_features(source_features)
+    if not available_ema_features:
         raise ValueError("No EMA features found in source metadata.")
 
     frame = pl.read_parquet(config.source_run / "model_frame.parquet").with_columns(
@@ -97,8 +183,27 @@ def _load_frame(config: EmaAnchorResidualConfig) -> tuple[pl.DataFrame, list[str
         pl.col("year_month").cast(pl.Date),
         pl.col("holding_month").cast(pl.Date),
     )
-    frame, enriched_features = _add_cross_sectional_features(frame, source_features, prefix="anchor_all")
     frame = frame.filter(pl.col("future_return").is_not_null(), pl.col("future_excess_return").is_not_null())
+
+    ema_features = available_ema_features
+    if config.anchor_mode in {"legacy_exact_dominant", "validation_exact"}:
+        pairs, dominant = _load_legacy_atomic_configs(config.legacy_detailed_returns)
+        exact_ema, exact_ema_features = _exact_legacy_ema_features(
+            config.price_vs_index,
+            frame.select(["holding_month", "ticker"]),
+            pairs,
+        )
+        frame = frame.join(exact_ema, on=["holding_month", "ticker"], how="left")
+        source_features = source_features + exact_ema_features
+        ema_features = exact_ema_features
+        if config.anchor_mode == "legacy_exact_dominant":
+            frame = frame.join(dominant, on="holding_month", how="left")
+            primary_col = "legacy_exact_primary_mtr"
+            frame = frame.with_columns(_dynamic_primary_expr(exact_ema_features, "legacy_primary_ema_feature", primary_col))
+            source_features.append(primary_col)
+            ema_features = [primary_col]
+
+    frame, enriched_features = _add_cross_sectional_features(frame, source_features, prefix="anchor_all")
     return frame, source_features, ema_features, enriched_features
 
 
@@ -282,22 +387,38 @@ def _write_report(
         "",
         "But: tester une strategie en deux etages.",
         "",
-        "1. Choisir une EMA primaire sur validation passee.",
+        "1. Construire une EMA primaire point-in-time.",
         "2. Entrainer un boosting mlcraft sur le futur rendement relatif avec seulement cette EMA.",
         "3. Entrainer un deuxieme boosting sur le residu avec toutes les autres variables disponibles.",
         "4. Comparer le top K du modele EMA seul au top K du modele EMA + residu.",
         "",
-        "Aucune decision Legacy n'est utilisee comme feature ou objectif. Legacy sert uniquement de benchmark de performance final.",
+        "Les tickers selectionnes par Legacy ne sont pas utilises comme feature ou objectif.",
+        "En mode `legacy_exact_dominant`, la configuration EMA Legacy dominante du mois sert seulement a construire l'ancre primaire.",
+        "Legacy sert ensuite de benchmark de performance final.",
         "",
         f"Source run: `{config.source_run}`",
+        f"Mode EMA primaire: `{config.anchor_mode}`.",
         f"Target: `future_excess_return` clippe a +/-{config.target_clip:.2f}.",
-        f"Selection EMA validation: top {config.ema_selection_top_k} moyen en futur rendement relatif.",
+    ]
+    if config.anchor_mode == "legacy_exact_dominant":
+        lines.extend(
+            [
+                "EMA primaire: couple exact `n_short/n_long` du modele Legacy atomique dominant du mois, calcule depuis `close_vs_index`.",
+                f"Legacy detail: `{config.legacy_detailed_returns}`",
+                f"Prix relatifs: `{config.price_vs_index}`",
+            ]
+        )
+    else:
+        lines.append(f"Selection EMA validation: top {config.ema_selection_top_k} moyen en futur rendement relatif.")
+    lines.extend(
+        [
         "",
         "## Backtest",
         "",
         "| modele | total return | CAGR | Sharpe | max drawdown | vol mensuelle | mois positifs |",
         "|---|---:|---:|---:|---:|---:|---:|",
-    ]
+        ]
+    )
     for row in rows:
         lines.append(
             f"| `{row['model']}` | {row['Total Return'] * 100:.1f}% | {row['CAGR'] * 100:.1f}% | "
@@ -328,7 +449,7 @@ def _write_report(
             "",
             "## Lecture",
             "",
-            "- `ema_anchor_topK` = top K du boosting entraine uniquement sur l'EMA primaire du fold.",
+            "- `ema_anchor_topK` = top K du boosting entraine uniquement sur l'EMA primaire.",
             "- `ema_anchor_residual_topK` = top K du score base EMA + prediction du residu par les autres variables.",
             "- Les metriques prediction sont calculees uniquement sur les lignes de test out-of-sample.",
         ]
@@ -491,7 +612,14 @@ def _parse_args() -> EmaAnchorResidualConfig:
     parser = argparse.ArgumentParser(description="Train EMA-anchor plus residual boosting strategy.")
     parser.add_argument("--source-run", type=Path, default=DEFAULT_SOURCE_RUN)
     parser.add_argument("--legacy-monthly-returns", type=Path, default=DEFAULT_LEGACY_MONTHLY_RETURNS)
+    parser.add_argument("--legacy-detailed-returns", type=Path, default=DEFAULT_LEGACY_DETAILED_RETURNS)
+    parser.add_argument("--price-vs-index", type=Path, default=DEFAULT_PRICE_VS_INDEX)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
+    parser.add_argument(
+        "--anchor-mode",
+        choices=["legacy_exact_dominant", "validation_exact", "validation_available"],
+        default="legacy_exact_dominant",
+    )
     parser.add_argument("--target-clip", type=float, default=0.30)
     parser.add_argument("--min-train-months", type=int, default=168)
     parser.add_argument("--val-months", type=int, default=12)
@@ -505,7 +633,10 @@ def _parse_args() -> EmaAnchorResidualConfig:
     return EmaAnchorResidualConfig(
         source_run=args.source_run,
         legacy_monthly_returns=args.legacy_monthly_returns,
+        legacy_detailed_returns=args.legacy_detailed_returns,
+        price_vs_index=args.price_vs_index,
         output_dir=args.output_dir,
+        anchor_mode=args.anchor_mode,
         target_clip=args.target_clip,
         min_train_months=args.min_train_months,
         val_months=args.val_months,

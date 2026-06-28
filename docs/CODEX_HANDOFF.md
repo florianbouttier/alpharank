@@ -103,19 +103,19 @@ Current conclusion:
   validation quality with SPY overlay: `+614.3%`, CAGR `19.1%`, but max DD
   `-41.3%`, too risky. The overlay confirms that validation quality is useful
   for exposure, but the model still does not match Legacy returns.
-- 2026-06-28 EMA-anchor residual test:
-  `outputs/ema_anchor_residual_strategy_20260628_031118` tests the user's idea
-  of a first regression on one primary EMA, followed by a second regression on
-  the residual with all other available variables. This run is tradable and
-  does not use Legacy selections as feature/target, but it is a proxy: the
-  current ML frame only contains 16 fixed EMA variables, not the arbitrary
-  Legacy EMA pairs such as `72-95-30`. The primary EMA is selected per fold on
-  past validation top-20 future excess return. Result: residual boosting helps
-  materially versus EMA-only (`top20/top50 +368.9%`, CAGR `14.7%`) and beats SPY
-  slightly in CAGR, but stays far below Legacy and has weaker Sharpe/drawdown.
-  Next highest-signal experiment is to regenerate the exact arbitrary Legacy EMA
-  features from price history, impose the known primary EMA at each decision
-  date, then rerun the same residual protocol and risk overlay.
+- 2026-06-28 EMA-anchor residual tests:
+  `outputs/ema_anchor_residual_strategy_20260628_031118` was only a proxy,
+  because it used the 16 fixed EMA variables already present in the ML frame.
+  The corrected run is `outputs/ema_anchor_residual_strategy_20260628_131004`.
+  It regenerates 43 exact arbitrary Legacy EMA pairs from `close_vs_index` and
+  uses the dominant atomic Legacy EMA configuration of each month as the primary
+  anchor. Legacy tickers are not used as target/features. Result: exact EMA-only
+  is still weak (`top20 +149.8%`, CAGR `8.5%`), but residual boosting helps a
+  lot (`top10 +475.6%`, CAGR `16.8%`, DD `-51.3%`; `top20 +433.3%`, CAGR
+  `16.0%`, DD `-35.4%`). This is better than SPY in raw return but far below
+  Legacy and still worse on Sharpe/drawdown. Next highest-signal experiments:
+  compare raw exact EMA rank vs booster prediction, run `validation_exact`
+  across all 43 exact EMA pairs, then add validation-quality cash sizing.
 - New direction: keep Legacy recomposition as a diagnostic only. For allocation,
   work on pure future-return prediction plus portfolio/risk control: robust
   warm starts across regimes, drawdown-aware validation objectives, true
