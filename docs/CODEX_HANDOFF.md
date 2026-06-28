@@ -127,6 +127,17 @@ Current conclusion:
   validation is poor around 2019 and 2024, strong around 2021 and late 2025.
   Next test should add validation-quality cash exposure for fixed pairs and/or
   rerun for the exact pair Legacy says to use at each decision date.
+- Corrected final EMA-anchor run:
+  `outputs/ema_anchor_residual_strategy_20260628_194954` is the run that matches
+  the repeated monthly plan: each month uses the exact `n_short/n_long` EMA pair
+  from the dominant atomic Legacy model for that month, then trains the residual
+  second stage with true XGBoost `base_margin` / init score from the EMA base
+  prediction. Result is effectively the same as the earlier dominant run:
+  EMA-only top20 `+149.8%`, CAGR `8.5%`; EMA+init-score top10 `+475.6%`, CAGR
+  `16.8%`, DD `-51.3%`; EMA+init-score top20 `+433.3%`, CAGR `16.0%`, DD
+  `-35.4%`. This is the source of truth for the user's "repeat each month the
+  EMA Legacy would have used" question. Next bottleneck is risk/exposure, not
+  merely init-score mechanics.
 - New direction: keep Legacy recomposition as a diagnostic only. For allocation,
   work on pure future-return prediction plus portfolio/risk control: robust
   warm starts across regimes, drawdown-aware validation objectives, true
