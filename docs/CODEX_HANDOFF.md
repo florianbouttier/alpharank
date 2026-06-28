@@ -138,6 +138,19 @@ Current conclusion:
   `-35.4%`. This is the source of truth for the user's "repeat each month the
   EMA Legacy would have used" question. Next bottleneck is risk/exposure, not
   merely init-score mechanics.
+- 2026-06-29 recomposition gap diagnostic:
+  `outputs/ema_anchor_recomposition_gap_20260629_005116` explains why the
+  reported EMA-only top20 looked weak. `ema_anchor_prediction` is not the raw
+  EMA ranking; it is a booster trained on the EMA. That booster collapses the
+  ranking to very few distinct scores per month (median 3, minimum 1), so top K
+  becomes almost arbitrary. Raw `legacy_exact_primary_mtr` is strong:
+  dynamic-Legacy-K recomposition `699 / 1236 = 56.6%`, raw EMA top10
+  `+1307.5%`, CAGR `26.5%`, Sharpe `0.91`, max DD `-22.8%`, beating
+  `Combined_Frequency` in total return with similar risk. Atomic diagnostics:
+  dominant monthly atomic Legacy block recomposes `82.5%`; union of all atomic
+  blocks recomposes `100%`. Next model should keep raw EMA or a monotone
+  calibration as the primary score, then learn residuals around that score via
+  `base_margin`; do not ask a regularized booster to relearn the EMA ranking.
 - New direction: keep Legacy recomposition as a diagnostic only. For allocation,
   work on pure future-return prediction plus portfolio/risk control: robust
   warm starts across regimes, drawdown-aware validation objectives, true
