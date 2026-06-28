@@ -101,7 +101,7 @@ Table de synthese des runs longs importants :
 | `portfolio_boosting_top_return_classifier` | allocation autonome : classification `future_excess_return` dans le top 10% du mois suivant | 283 variables techniques calculables au mois de decision : momentum/ROC, EMA, RSI, Bollinger, stochastique, distances high/low, volatilite, rangs/z-scores/flags/agregats mensuels ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | KPI principal trading : meilleur top 7 = +364.3%, CAGR 14.6%, Sharpe 0.37, max DD -47.0%; sous Legacy et trop risque |
 | `portfolio_boosting_rank_regression` | allocation autonome : regression du rang percentile mensuel futur de `future_excess_return` | memes variables techniques calculables que ci-dessus ; target = rang relatif futur dans le mois, pas le rendement brut ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | meilleur baseline top 20 = +348.3%, CAGR 14.3%, Sharpe 0.54, max DD -33.9%; 3 trials/fold degrade a +253.1%, Sharpe 0.43 |
 | `portfolio_boosting_risk_overlay` | allocation autonome : pas de nouveau training, sizing de l'exposition sur predictions boosting out-of-sample | score boosting pur + top N ; exposition fixe ou dynamique ; dynamique basee sur dispersion des scores ou qualite validation connue avant le mois de test ; aucune variable Legacy dans le sizing | backtests 2015+ sur les predictions classifier et rank-regression | meilleur compromis risque = classifier top50 validation-quality cash, +429.5%, CAGR 16.0%, Sharpe 0.80, max DD -16.4%; meilleur rendement = classifier top7 validation-quality spy, +614.3%, CAGR 19.1%, mais DD -41.3% |
-| `ema_anchor_residual_strategy` | allocation autonome : regression boosting sur une EMA primaire, puis regression boosting du residu | run exact : EMA primaire = couple `n_short/n_long` exact du modele Legacy atomique dominant du mois, calcule depuis `close_vs_index`; modele base = 5 variables de cette EMA ; modele residu = toutes les autres variables disponibles, dont autres EMA exactes, techniques et fondamentales; les tickers Legacy ne sont pas target/features | backtest 2015+ `2015-02` a `2026-04`, run exact `outputs/ema_anchor_residual_strategy_20260628_131004` | EMA exacte seule reste faible : top20 +149.8%, CAGR 8.5%; le residu aide fortement : top10 +475.6%, CAGR 16.8%, top20 +433.3%, CAGR 16.0%; mais Sharpe 0.40/0.48 et DD -51.3%/-35.4%, encore sous Legacy |
+| `ema_anchor_residual_strategy` | allocation autonome : regression boosting sur une EMA primaire, puis regression boosting du residu | dernier run : EMA fixe imposee `34-7` au format Legacy, donc `n_long=34`, `n_short=7`, calculee depuis `close_vs_index`; modele base = 5 variables de cette EMA ; modele residu = init score XGBoost/base_margin du modele EMA puis toutes les autres variables disponibles; les tickers Legacy ne sont pas target/features | backtest 2015+ `2015-02` a `2026-04`, run fixed init-score `outputs/ema_anchor_residual_strategy_20260628_170654` | EMA fixe seule tres faible : top20 +81.7%, CAGR 5.5%; init-score residuel ameliore fortement : top20 +312.1%, CAGR 13.4%, mais reste sous SPY et Legacy; signal tres regime-dependent |
 | `deterministic_ema_signal_diagnostic` | pas de training : score tradable = rang mensuel d'un signal EMA / momentum observe | signaux calculables au mois de decision : `ema_ratio_2_12_rank_month`, `ema_ratio_3_12_rank_month`, `technical_z_mean`, `technical_rank_mean`; aucun objectif Legacy en training car il n'y a pas de training | diagnostic 2015+ `2015-01` a `2026-04`, 136 mois, 1 258 lignes Legacy | KPI strict `legacy_k`: `ema_ratio_3_12_rank_month` retrouve `655 / 1 258 = 52.1%`; `ema_ratio_2_12_rank_month` retrouve `647 / 1 258 = 51.4%` |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
@@ -188,7 +188,7 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_top_return_classifier.py`, run `outputs/portfolio_boosting_top_return_classifier_20260627_225903` | boosting seul mlcraft : classifier top 10% futur rendement relatif, baseline Optuna enqueued |
 | 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_rank_regression.py`, runs `outputs/portfolio_boosting_rank_regression_20260627_230913`, `outputs/portfolio_boosting_rank_regression_20260627_233738` | boosting seul mlcraft : regression du rang mensuel futur, test baseline puis 3 trials/fold |
 | 2026-06-28 | script `scripts/experiments/run_portfolio_boosting_risk_overlay.py`, runs `outputs/portfolio_boosting_risk_overlay_20260628_013024`, `013037`, `013107`, `013108` | overlays de risque boosting seul : exposition fixe, confiance score, qualite validation, cash/SPY |
-| 2026-06-28 | script `scripts/experiments/run_ema_anchor_residual_strategy.py`, run proxy `outputs/ema_anchor_residual_strategy_20260628_031118`, run exact `outputs/ema_anchor_residual_strategy_20260628_131004` | test idee EMA primaire puis regression des residus; le run exact regenere les couples EMA Legacy arbitraires depuis `close_vs_index` |
+| 2026-06-28 | script `scripts/experiments/run_ema_anchor_residual_strategy.py`, run proxy `outputs/ema_anchor_residual_strategy_20260628_031118`, run exact dominant `outputs/ema_anchor_residual_strategy_20260628_131004`, run fixed init-score `outputs/ema_anchor_residual_strategy_20260628_170654` | test idee EMA primaire puis regression des residus; le dernier run impose `34-7` et entraine le residu via init score/base_margin |
 
 Runs principaux :
 
@@ -256,6 +256,7 @@ Runs principaux :
 - `outputs/portfolio_boosting_risk_overlay_20260628_013108`
 - `outputs/ema_anchor_residual_strategy_20260628_031118`
 - `outputs/ema_anchor_residual_strategy_20260628_131004`
+- `outputs/ema_anchor_residual_strategy_20260628_170654`
 
 ## Donnees communes
 
@@ -1264,6 +1265,61 @@ Prochaine experience logique :
 3. Appliquer le risk overlay `dynamic_validation_quality_cash` au score
    `EMA exacte + residu`, car l'ancre exacte a des regimes de validation
    fortement negatifs, notamment 2019 et 2024.
+
+Run fixe `34-7` avec residu init-score :
+
+- script : `scripts/experiments/run_ema_anchor_residual_strategy.py`
+- run : `outputs/ema_anchor_residual_strategy_20260628_170654`
+- commande :
+  `./.venv/bin/python scripts/experiments/run_ema_anchor_residual_strategy.py --top-n 5 7 10 20 30 50 --anchor-mode fixed_exact --fixed-ema-pair 34-7 --residual-mode init_score`
+- interpretation du couple : `34-7` suit le format texte Legacy
+  `n_long-n_short`, donc `n_long=34`, `n_short=7`
+- EMA primaire : `EMA(close_vs_index, 7) / EMA(close_vs_index, 34)`
+- pas de choix automatique d'EMA, ni par validation, ni par dominance mensuelle
+- modele base : boosting mlcraft regression sur cette EMA fixe et ses
+  derives cross-sectionnels
+- modele residuel : XGBoost avec `base_margin` egal a la prediction du modele
+  EMA primaire. La raison technique est que le wrapper XGBoost actuel de
+  `mlcraft` n'expose pas `base_margin`; le modele base reste mlcraft et le
+  second etage utilise l'API XGBoost directe pour obtenir un vrai init score.
+
+Backtest fixe `34-7` :
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% | 60.0% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+| EMA fixe + init-score top 20 | 312.1% | 13.4% | 0.41 | -38.3% | 8.1% | 58.5% |
+| EMA fixe + init-score top 10 | 271.3% | 12.4% | 0.29 | -52.5% | 10.2% | 54.8% |
+| EMA fixe + init-score top 30 | 244.3% | 11.6% | 0.36 | -42.0% | 7.8% | 60.0% |
+| EMA fixe seule top 50 | 119.7% | 7.2% | 0.26 | -38.7% | 5.8% | 58.5% |
+| EMA fixe seule top 20 | 81.7% | 5.5% | 0.16 | -36.6% | 6.3% | 58.5% |
+
+Metriques prediction fixes sur test :
+
+| modele | RMSE | MAE | R2 | Pearson | Spearman |
+|---|---:|---:|---:|---:|---:|
+| EMA fixe seule | 0.0778 | 0.0556 | -0.0068 | 0.0081 | 0.0241 |
+| EMA fixe + init-score | 0.0778 | 0.0556 | -0.0067 | 0.0089 | 0.0226 |
+
+Metriques top K fixes sur test :
+
+| modele | top 10 excess | top 10 hit-rate | top 20 excess | top 20 hit-rate | top 50 excess | top 50 hit-rate |
+|---|---:|---:|---:|---:|---:|---:|
+| EMA fixe seule | -0.80% | 44.7% | -0.58% | 45.1% | -0.46% | 46.2% |
+| EMA fixe + init-score | 0.15% | 47.6% | 0.09% | 47.6% | -0.27% | 46.6% |
+
+Lecture :
+
+- l'init-score fait exactement ce qui etait attendu techniquement : il corrige
+  une ancre EMA tres faible et rend le top10/top20 positif en moyenne ;
+- mais le couple fixe `34-7` seul est beaucoup moins bon que l'ancre Legacy
+  dominante exacte du run `131004` ;
+- le run fixe est tres regime-dependent : la validation top20 est negative sur
+  de larges zones comme 2019 et 2024, puis redevient forte en 2021 et fin 2025 ;
+- donc si Legacy impose un couple, il faut probablement aussi imposer une regle
+  d'exposition/cash fondee sur la qualite validation recente de ce couple.
 
 #### Backtest trading vs Legacy du 2026-06-26
 

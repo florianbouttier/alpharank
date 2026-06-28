@@ -116,6 +116,17 @@ Current conclusion:
   Legacy and still worse on Sharpe/drawdown. Next highest-signal experiments:
   compare raw exact EMA rank vs booster prediction, run `validation_exact`
   across all 43 exact EMA pairs, then add validation-quality cash sizing.
+- Same day fixed-EMA correction:
+  `outputs/ema_anchor_residual_strategy_20260628_170654` tests the stricter
+  interpretation requested by the user: no EMA choice at all, fixed Legacy text
+  pair `34-7` (`n_long=34`, `n_short=7`), base model on this EMA only, then a
+  residual second stage trained with true XGBoost `base_margin` / init score
+  from the EMA base model. Result: fixed EMA-only is weak (`top20 +81.7%`, CAGR
+  `5.5%`), init-score residual improves it (`top20 +312.1%`, CAGR `13.4%`,
+  DD `-38.3%`) but remains below SPY/Legacy. The pair is regime-dependent:
+  validation is poor around 2019 and 2024, strong around 2021 and late 2025.
+  Next test should add validation-quality cash exposure for fixed pairs and/or
+  rerun for the exact pair Legacy says to use at each decision date.
 - New direction: keep Legacy recomposition as a diagnostic only. For allocation,
   work on pure future-return prediction plus portfolio/risk control: robust
   warm starts across regimes, drawdown-aware validation objectives, true

@@ -15,6 +15,7 @@ from alpharank.backtest.application import compare_backtest_curves
 from alpharank.backtest.mlcraft_adapter import ensure_mlcraft_importable, to_mlcraft_model_and_fit_params
 from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
 from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
+from alpharank.utils.xgboost_runtime import load_xgboost
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -38,6 +39,9 @@ class EmaAnchorResidualConfig:
     price_vs_index: Path = DEFAULT_PRICE_VS_INDEX
     output_dir: Path = Path("outputs")
     anchor_mode: str = "legacy_exact_dominant"
+    residual_mode: str = "init_score"
+    fixed_ema_short: int | None = None
+    fixed_ema_long: int | None = None
     target_clip: float = 0.30
     min_train_months: int = 168
     val_months: int = 12
@@ -126,6 +130,18 @@ def _load_legacy_atomic_configs(path: Path) -> tuple[pl.DataFrame, pl.DataFrame]
     return pairs, dominant
 
 
+def _fixed_pair_frame(config: EmaAnchorResidualConfig) -> pl.DataFrame:
+    if config.fixed_ema_short is None or config.fixed_ema_long is None:
+        raise ValueError("fixed_exact anchor mode requires fixed_ema_short and fixed_ema_long.")
+    return pl.DataFrame(
+        {
+            "n_short": [int(config.fixed_ema_short)],
+            "n_long": [int(config.fixed_ema_long)],
+        },
+        schema={"n_short": pl.Int32, "n_long": pl.Int32},
+    )
+
+
 def _exact_legacy_ema_features(price_path: Path, keys: pl.DataFrame, pairs: pl.DataFrame) -> tuple[pl.DataFrame, list[str]]:
     prices = (
         pl.read_parquet(price_path)
@@ -186,8 +202,12 @@ def _load_frame(config: EmaAnchorResidualConfig) -> tuple[pl.DataFrame, list[str
     frame = frame.filter(pl.col("future_return").is_not_null(), pl.col("future_excess_return").is_not_null())
 
     ema_features = available_ema_features
-    if config.anchor_mode in {"legacy_exact_dominant", "validation_exact"}:
-        pairs, dominant = _load_legacy_atomic_configs(config.legacy_detailed_returns)
+    if config.anchor_mode in {"legacy_exact_dominant", "validation_exact", "fixed_exact"}:
+        if config.anchor_mode == "fixed_exact":
+            pairs = _fixed_pair_frame(config)
+            dominant = pl.DataFrame()
+        else:
+            pairs, dominant = _load_legacy_atomic_configs(config.legacy_detailed_returns)
         exact_ema, exact_ema_features = _exact_legacy_ema_features(
             config.price_vs_index,
             frame.select(["holding_month", "ticker"]),
@@ -202,6 +222,8 @@ def _load_frame(config: EmaAnchorResidualConfig) -> tuple[pl.DataFrame, list[str
             frame = frame.with_columns(_dynamic_primary_expr(exact_ema_features, "legacy_primary_ema_feature", primary_col))
             source_features.append(primary_col)
             ema_features = [primary_col]
+        elif config.anchor_mode == "fixed_exact":
+            ema_features = exact_ema_features
 
     frame, enriched_features = _add_cross_sectional_features(frame, source_features, prefix="anchor_all")
     return frame, source_features, ema_features, enriched_features
@@ -233,6 +255,55 @@ def _fit_mlcraft_regressor(*, params: dict[str, Any], X: np.ndarray, y: np.ndarr
     )
     model.fit(X, y)
     return model
+
+
+def _xgb_regression_params(params: dict[str, Any], seed: int) -> dict[str, Any]:
+    converted: dict[str, Any] = {
+        "objective": "reg:squarederror",
+        "eval_metric": "rmse",
+        "seed": int(seed),
+        "verbosity": 0,
+    }
+    for key, value in params.items():
+        if key in {"objective", "eval_metric", "n_estimators"}:
+            continue
+        if key == "learning_rate":
+            converted["eta"] = value
+        elif key == "reg_alpha":
+            converted["alpha"] = value
+        elif key == "reg_lambda":
+            converted["lambda"] = value
+        elif key == "n_jobs":
+            converted["nthread"] = value
+        else:
+            converted[key] = value
+    return converted
+
+
+def _fit_xgb_regressor_with_base_margin(
+    *,
+    params: dict[str, Any],
+    X: np.ndarray,
+    y: np.ndarray,
+    base_margin: np.ndarray,
+    seed: int,
+):
+    xgb = load_xgboost()
+    dtrain = xgb.DMatrix(X, label=y)
+    dtrain.set_base_margin(np.asarray(base_margin, dtype=np.float32))
+    return xgb.train(
+        params=_xgb_regression_params(params, seed),
+        dtrain=dtrain,
+        num_boost_round=int(params.get("n_estimators", 200)),
+        verbose_eval=False,
+    )
+
+
+def _predict_xgb_with_base_margin(model: Any, X: np.ndarray, base_margin: np.ndarray) -> np.ndarray:
+    xgb = load_xgboost()
+    dtest = xgb.DMatrix(X)
+    dtest.set_base_margin(np.asarray(base_margin, dtype=np.float32))
+    return np.asarray(model.predict(dtest), dtype=float).reshape(-1)
 
 
 def _predict(model: Any, X: np.ndarray) -> np.ndarray:
@@ -393,11 +464,12 @@ def _write_report(
         "4. Comparer le top K du modele EMA seul au top K du modele EMA + residu.",
         "",
         "Les tickers selectionnes par Legacy ne sont pas utilises comme feature ou objectif.",
-        "En mode `legacy_exact_dominant`, la configuration EMA Legacy dominante du mois sert seulement a construire l'ancre primaire.",
+        "Quand une configuration EMA Legacy est fournie, elle sert seulement a construire l'ancre primaire.",
         "Legacy sert ensuite de benchmark de performance final.",
         "",
         f"Source run: `{config.source_run}`",
         f"Mode EMA primaire: `{config.anchor_mode}`.",
+        f"Mode residu: `{config.residual_mode}`.",
         f"Target: `future_excess_return` clippe a +/-{config.target_clip:.2f}.",
     ]
     if config.anchor_mode == "legacy_exact_dominant":
@@ -408,8 +480,19 @@ def _write_report(
                 f"Prix relatifs: `{config.price_vs_index}`",
             ]
         )
+    elif config.anchor_mode == "fixed_exact":
+        lines.extend(
+            [
+                f"EMA primaire fixe: `n_short={config.fixed_ema_short}`, `n_long={config.fixed_ema_long}`.",
+                f"Prix relatifs: `{config.price_vs_index}`",
+            ]
+        )
     else:
         lines.append(f"Selection EMA validation: top {config.ema_selection_top_k} moyen en futur rendement relatif.")
+    if config.residual_mode == "init_score":
+        lines.append(
+            "Le second etage est entraine avec l'init score XGBoost `base_margin` du modele EMA primaire."
+        )
     lines.extend(
         [
         "",
@@ -499,16 +582,33 @@ def run(config: EmaAnchorResidualConfig) -> Path:
             seed=seed,
         )
         base_train_pred = _predict(base_model, _matrix(train_df, base_features))
-        residual_target = (y_train - base_train_pred).astype(np.float32)
-        residual_model = _fit_mlcraft_regressor(
-            params=RESIDUAL_MODEL_PARAMS,
-            X=_matrix(train_df, residual_features),
-            y=residual_target,
-            seed=seed,
-        )
-
         base_test_pred = _predict(base_model, _matrix(test_df, base_features))
-        residual_test_pred = _predict(residual_model, _matrix(test_df, residual_features))
+        if config.residual_mode == "target_residual":
+            residual_target = (y_train - base_train_pred).astype(np.float32)
+            residual_model = _fit_mlcraft_regressor(
+                params=RESIDUAL_MODEL_PARAMS,
+                X=_matrix(train_df, residual_features),
+                y=residual_target,
+                seed=seed,
+            )
+            residual_test_pred = _predict(residual_model, _matrix(test_df, residual_features))
+            final_test_pred = base_test_pred + residual_test_pred
+        elif config.residual_mode == "init_score":
+            residual_model = _fit_xgb_regressor_with_base_margin(
+                params=RESIDUAL_MODEL_PARAMS,
+                X=_matrix(train_df, residual_features),
+                y=y_train,
+                base_margin=base_train_pred,
+                seed=seed,
+            )
+            final_test_pred = _predict_xgb_with_base_margin(
+                residual_model,
+                _matrix(test_df, residual_features),
+                base_margin=base_test_pred,
+            )
+            residual_test_pred = final_test_pred - base_test_pred
+        else:
+            raise ValueError(f"Unsupported residual_mode: {config.residual_mode!r}")
         prediction_frames.append(
             _prediction_frame(
                 test_df,
@@ -517,6 +617,7 @@ def run(config: EmaAnchorResidualConfig) -> Path:
                 base_prediction=base_test_pred,
                 residual_prediction=residual_test_pred,
             )
+            .with_columns(pl.Series("ema_anchor_residual_prediction", final_test_pred, dtype=pl.Float64))
         )
         fold_rows.append(
             {
@@ -529,6 +630,7 @@ def run(config: EmaAnchorResidualConfig) -> Path:
                 "test_end": str(max(window.test_months)),
                 "primary_ema": primary_ema,
                 "validation_topk_excess": validation_topk_excess,
+                "residual_mode": config.residual_mode,
                 "base_feature_count": len(base_features),
                 "residual_feature_count": len(residual_features),
             }
@@ -588,6 +690,12 @@ def run(config: EmaAnchorResidualConfig) -> Path:
                 "ema_candidates": ema_features,
                 "base_model_params": BASE_MODEL_PARAMS,
                 "residual_model_params": RESIDUAL_MODEL_PARAMS,
+                "residual_training": (
+                    "XGBoost base_margin/init_score through direct xgboost API because current mlcraft XGBoost wrapper "
+                    "does not expose base_margin."
+                    if config.residual_mode == "init_score"
+                    else "mlcraft residual target regression"
+                ),
                 "months": len(months_out),
                 "start_month": str(min(months_out)) if months_out else None,
                 "end_month": str(max(months_out)) if months_out else None,
@@ -617,8 +725,17 @@ def _parse_args() -> EmaAnchorResidualConfig:
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument(
         "--anchor-mode",
-        choices=["legacy_exact_dominant", "validation_exact", "validation_available"],
+        choices=["legacy_exact_dominant", "validation_exact", "validation_available", "fixed_exact"],
         default="legacy_exact_dominant",
+    )
+    parser.add_argument("--residual-mode", choices=["init_score", "target_residual"], default="init_score")
+    parser.add_argument("--fixed-ema-short", type=int, default=None)
+    parser.add_argument("--fixed-ema-long", type=int, default=None)
+    parser.add_argument(
+        "--fixed-ema-pair",
+        type=str,
+        default=None,
+        help="Legacy text order n_long-n_short, for example 34-7 means n_long=34 and n_short=7.",
     )
     parser.add_argument("--target-clip", type=float, default=0.30)
     parser.add_argument("--min-train-months", type=int, default=168)
@@ -630,6 +747,12 @@ def _parse_args() -> EmaAnchorResidualConfig:
     parser.add_argument("--top-n", type=int, nargs="*", default=[5, 7, 10, 20, 30, 50])
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+    fixed_ema_short = args.fixed_ema_short
+    fixed_ema_long = args.fixed_ema_long
+    if args.fixed_ema_pair:
+        raw_long, raw_short = args.fixed_ema_pair.replace("/", "-").split("-", maxsplit=1)
+        fixed_ema_long = int(float(raw_long))
+        fixed_ema_short = int(float(raw_short))
     return EmaAnchorResidualConfig(
         source_run=args.source_run,
         legacy_monthly_returns=args.legacy_monthly_returns,
@@ -637,6 +760,9 @@ def _parse_args() -> EmaAnchorResidualConfig:
         price_vs_index=args.price_vs_index,
         output_dir=args.output_dir,
         anchor_mode=args.anchor_mode,
+        residual_mode=args.residual_mode,
+        fixed_ema_short=fixed_ema_short,
+        fixed_ema_long=fixed_ema_long,
         target_clip=args.target_clip,
         min_train_months=args.min_train_months,
         val_months=args.val_months,
