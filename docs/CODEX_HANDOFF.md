@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-06-28
+Last updated: 2026-06-30
 Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -151,6 +151,21 @@ Current conclusion:
   blocks recomposes `100%`. Next model should keep raw EMA or a monotone
   calibration as the primary score, then learn residuals around that score via
   `base_margin`; do not ask a regularized booster to relearn the EMA ranking.
+- 2026-06-30 raw-EMA calibrated residual test:
+  `outputs/ema_raw_calibrated_residual_strategy_20260630_002942` implements
+  the corrected idea. It calibrates the monthly raw EMA rank into a train-only
+  expected `future_excess_return`, uses that as XGBoost `base_margin`, and
+  tests residual shrinkage `0.1/0.25/0.5/1.0`. Result: raw/calibrated EMA is
+  the winner, not the residual. EMA top7 is `+1578.8%`, CAGR `28.5%`, Sharpe
+  `0.91`, max DD `-22.6%`; EMA top10 is `+1307.5%`, CAGR `26.5%`, Sharpe
+  `0.91`, max DD `-22.8%`; Legacy `Combined_Frequency` is `+1118.1%`, CAGR
+  `24.9%`, Sharpe `0.93`, max DD `-23.5%`. Best residual shrinkage is
+  `alpha=0.1`, but it still degrades the useful top-K signal and creates bad
+  drawdown (`top5 +1053.4%`, CAGR `24.3%`, DD `-57.5%`; top10 `+847.9%`,
+  CAGR `22.1%`, DD `-42.9%`). Decision: do not use the current residual model
+  for allocation. Work next on portfolio construction around the raw EMA score:
+  K selection, validation-quality exposure, drawdown control, and
+  diversification/correlation constraints.
 - New direction: keep Legacy recomposition as a diagnostic only. For allocation,
   work on pure future-return prediction plus portfolio/risk control: robust
   warm starts across regimes, drawdown-aware validation objectives, true

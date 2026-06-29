@@ -102,6 +102,7 @@ Table de synthese des runs longs importants :
 | `portfolio_boosting_rank_regression` | allocation autonome : regression du rang percentile mensuel futur de `future_excess_return` | memes variables techniques calculables que ci-dessus ; target = rang relatif futur dans le mois, pas le rendement brut ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | meilleur baseline top 20 = +348.3%, CAGR 14.3%, Sharpe 0.54, max DD -33.9%; 3 trials/fold degrade a +253.1%, Sharpe 0.43 |
 | `portfolio_boosting_risk_overlay` | allocation autonome : pas de nouveau training, sizing de l'exposition sur predictions boosting out-of-sample | score boosting pur + top N ; exposition fixe ou dynamique ; dynamique basee sur dispersion des scores ou qualite validation connue avant le mois de test ; aucune variable Legacy dans le sizing | backtests 2015+ sur les predictions classifier et rank-regression | meilleur compromis risque = classifier top50 validation-quality cash, +429.5%, CAGR 16.0%, Sharpe 0.80, max DD -16.4%; meilleur rendement = classifier top7 validation-quality spy, +614.3%, CAGR 19.1%, mais DD -41.3% |
 | `ema_anchor_residual_strategy` | allocation autonome : regression boosting sur une EMA primaire, puis regression boosting du residu | run principal : EMA Legacy exacte repetee chaque mois, via le couple `n_short/n_long` du modele Legacy atomique dominant du mois, calcule depuis `close_vs_index`; attention diagnostic 2026-06-29 : le boosting base ecrase le ranking EMA, donc le vrai signal primaire est l'EMA brute, pas `ema_anchor_prediction` | backtest 2015+ `2015-02` a `2026-04`, run mensuel init-score `outputs/ema_anchor_residual_strategy_20260628_194954`, diagnostic `outputs/ema_anchor_recomposition_gap_20260629_005116` | EMA brute top10 = +1307.5%, CAGR 26.5%, Sharpe 0.91; EMA brute top20 = +726.2%, CAGR 20.6%; mais booster EMA top20 = seulement +149.8%, car predictions quasi constantes |
+| `ema_raw_calibrated_residual_strategy` | allocation autonome : calibration monotone du rang EMA en prediction de `future_excess_return`, puis XGBoost apprend le residu via `base_margin` | score primaire = `legacy_exact_primary_mtr_rank_month` issu du couple EMA Legacy atomique dominant du mois ; calibration lineaire train-only avec pente positive plancher ; residu sur 530 variables disponibles hors score EMA brut ; shrinkage residuel `0.1/0.25/0.5/1.0` | backtest walk-forward 2015+ `2015-02` a `2026-04`, run `outputs/ema_raw_calibrated_residual_strategy_20260630_002942` | EMA raw/calibree top7 = +1578.8%, CAGR 28.5%, Sharpe 0.91, DD -22.6%; top10 = +1307.5%, CAGR 26.5%; meilleur residu shrinke `0.1` top5 = +1053.4%, CAGR 24.3%, mais DD -57.5%, donc le residu degrade l'allocation |
 | `deterministic_ema_signal_diagnostic` | pas de training : score tradable = rang mensuel d'un signal EMA / momentum observe | signaux calculables au mois de decision : `ema_ratio_2_12_rank_month`, `ema_ratio_3_12_rank_month`, `technical_z_mean`, `technical_rank_mean`; aucun objectif Legacy en training car il n'y a pas de training | diagnostic 2015+ `2015-01` a `2026-04`, 136 mois, 1 258 lignes Legacy | KPI strict `legacy_k`: `ema_ratio_3_12_rank_month` retrouve `655 / 1 258 = 52.1%`; `ema_ratio_2_12_rank_month` retrouve `647 / 1 258 = 51.4%` |
 | `ema_rich_future_target` | futur rendement relatif : regression de `future_excess_return`, classification `>0%` / `>5%`, ranking mensuel | 16 EMA de base + rang mensuel de chaque EMA + z-score mensuel + flags top quartile + agregats `ema_rank_mean`, `ema_rank_max`, `ema_z_mean`, `ema_z_max`, `ema_top25_vote_count` | holdings Legacy `2010-02` a `2026-04`, 195 mois, 2 070 lignes Legacy | meilleur modele = ranking futur rendement relatif, `492 / 2 070 = 23.8%` |
 | `legacy_atomic_recomposition` | pas de ML : decomposition des blocs Legacy existants | sorties des 4 blocs `Legacy_Optuna_11`, `12`, `21`, `22`; chaque bloc contient un couple EMA, un nombre cible d'actions, une limite secteur | paniers Legacy sur la longue periode, 2 088 lignes Legacy dans ce diagnostic | union des 4 blocs = `2 088 / 2 088 = 100%`; un seul bloc monte entre 64.1% et 76.5% |
@@ -190,6 +191,7 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-28 | script `scripts/experiments/run_portfolio_boosting_risk_overlay.py`, runs `outputs/portfolio_boosting_risk_overlay_20260628_013024`, `013037`, `013107`, `013108` | overlays de risque boosting seul : exposition fixe, confiance score, qualite validation, cash/SPY |
 | 2026-06-28 | script `scripts/experiments/run_ema_anchor_residual_strategy.py`, run proxy `outputs/ema_anchor_residual_strategy_20260628_031118`, run exact dominant `outputs/ema_anchor_residual_strategy_20260628_131004`, run fixed init-score `outputs/ema_anchor_residual_strategy_20260628_170654`, run mensuel init-score `outputs/ema_anchor_residual_strategy_20260628_194954` | test idee EMA primaire puis regression des residus; run principal = EMA Legacy exacte repetee chaque mois + residu init score/base_margin |
 | 2026-06-29 | script `scripts/experiments/analyze_ema_anchor_recomposition_gap.py`, run `outputs/ema_anchor_recomposition_gap_20260629_005116` | diagnostic de l'ecart : l'EMA brute recompose/performe, le booster base ecrase le ranking avec trop peu de scores distincts |
+| 2026-06-30 | script `scripts/experiments/run_ema_raw_calibrated_residual_strategy.py`, run `outputs/ema_raw_calibrated_residual_strategy_20260630_002942` | test propre : EMA brute calibree en prediction train-only + residu XGBoost `base_margin` shrinke ; le residu degrade, l'EMA brute/calibree reste le meilleur score |
 
 Runs principaux :
 
@@ -1433,6 +1435,89 @@ ou calibration monotone de l'EMA brute
 Puis le boosting doit apprendre seulement un residu autour de ce score primaire,
 idealement avec `base_margin` construit depuis une calibration target-scale du
 score EMA brut, pas depuis une prediction booster EMA aplatie.
+
+#### EMA brute calibree puis residu du 2026-06-30
+
+Construit dans :
+
+- script : `scripts/experiments/run_ema_raw_calibrated_residual_strategy.py`
+- run principal : `outputs/ema_raw_calibrated_residual_strategy_20260630_002942`
+- commande :
+  `./.venv/bin/python scripts/experiments/run_ema_raw_calibrated_residual_strategy.py --top-n 5 7 10 20 30 50 --residual-shrinkages 0.1 0.25 0.5 1.0`
+
+But :
+
+Tester l'idee correcte apres le diagnostic : une EMA brute n'est pas une
+prediction numerique de rendement, mais son rang mensuel peut etre converti en
+prediction de rendement relatif attendu par calibration train-only. Cette
+prediction calibree sert ensuite de `base_margin` XGBoost, et le booster apprend
+uniquement le residu.
+
+Ce qui est regresse :
+
+- cible du calibrateur : `future_excess_return` clippe a `+/-30%` ;
+- cible du booster residuel : meme `future_excess_return` clippe, avec
+  `base_margin = prediction_EMA_calibree` ;
+- score final teste :
+  `prediction_EMA_calibree + alpha * residu_boosting`, avec
+  `alpha = 0.1 / 0.25 / 0.5 / 1.0`.
+
+Variables :
+
+- score primaire : `legacy_exact_primary_mtr_rank_month`, c'est-a-dire le rang
+  mensuel du couple EMA exact du bloc atomique Legacy dominant pour le mois ;
+- la calibration est une regression lineaire positive, ajustee seulement sur le
+  train du fold, avec une pente plancher `1e-6` pour conserver l'ordre EMA meme
+  quand la pente brute train est negative ou nulle ;
+- residu : 530 variables disponibles dans le `model_frame`, en excluant le
+  score EMA brut `legacy_exact_primary_mtr` mais en conservant les variables
+  tradables derivees/rangees disponibles dans la frame ;
+- aucune action Legacy n'est utilisee comme cible du training dans ce run.
+
+Ensemble de test :
+
+- walk-forward mensuel 2015+ ;
+- periode de performance : `2015-02` a `2026-04` ;
+- 135 mois de performance ;
+- 32 folds sur 135 ont une pente brute de calibration negative ou nulle, donc
+  la pente plancher a ete activee pour garder le classement EMA.
+
+Backtest :
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| EMA brute/calibree top7 | 1578.8% | 28.5% | 0.91 | -22.6% | 8.4% | 65.2% |
+| EMA brute/calibree top5 | 1499.9% | 27.9% | 0.78 | -30.5% | 9.6% | 63.7% |
+| EMA brute/calibree top10 | 1307.5% | 26.5% | 0.91 | -22.8% | 7.8% | 61.5% |
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| residu `alpha=0.1` top5 | 1053.4% | 24.3% | 0.57 | -57.5% | 11.4% | 59.3% |
+| residu `alpha=0.1` top10 | 847.9% | 22.1% | 0.66 | -42.9% | 8.8% | 60.7% |
+| EMA brute/calibree top20 | 726.2% | 20.6% | 0.85 | -18.1% | 6.3% | 59.3% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+
+Metriques de prediction top K :
+
+| score | pearson | spearman | top5 excess moyen | top5 hit rate | top10 excess moyen | top10 hit rate |
+|---|---:|---:|---:|---:|---:|---:|
+| EMA calibree | 0.0125 | 0.0267 | 1.25% | 53.9% | 1.03% | 52.9% |
+| residu `alpha=0.1` | 0.0128 | 0.0267 | 1.18% | 54.5% | 0.81% | 53.7% |
+| residu `alpha=0.25` | 0.0132 | 0.0265 | 0.41% | 52.6% | 0.57% | 53.6% |
+| residu `alpha=0.50` | 0.0138 | 0.0262 | 0.53% | 52.9% | 0.74% | 53.4% |
+| residu `alpha=1.00` | 0.0146 | 0.0254 | 0.04% | 51.7% | 0.64% | 52.8% |
+
+Lecture :
+
+- le residu ameliore legerement la metrique globale `pearson`, mais detruit la
+  partie qui compte pour trader : le haut du classement ;
+- `alpha=0.1` est le moins mauvais residu, mais il reste inferieur a EMA
+  brute/calibree et ajoute un drawdown inacceptable ;
+- donc ce run invalide l'idee "residu XGBoost direct sur toutes variables" comme
+  amelioration de l'allocation. Le signal utile est bien le rang EMA brut, pas
+  le residu ;
+- la prochaine piste propre n'est pas de forcer un residu plus fort, mais de
+  transformer le score EMA en portefeuille controle : choix de K, limite
+  volatilite/drawdown, exposure cash/SPY selon qualite validation recente, et
+  diversification/correlation.
 
 #### Backtest trading vs Legacy du 2026-06-26
 
