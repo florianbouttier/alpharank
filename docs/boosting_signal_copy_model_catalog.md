@@ -100,6 +100,7 @@ Table de synthese des runs longs importants :
 | `tradable_ema_residual_regression` | futur rendement relatif : base EMA-only puis regression du residu `future_excess_return_clippe - prediction_EMA` | base : 88 variables EMA ; residu : variables techniques non-EMA avec rangs mensuels, z-scores, flags top/bottom quartile et agregats ; score final `EMA + shrinkage * residu` | run court `2024-06` a `2026-04`, 23 mois, 169 lignes Legacy | meilleur shrinkage recomposition `0.25` : `69 / 169 = 40.8%`; mieux que le meilleur EMA court d'un ticker, mais backtest plus faible que la base EMA fixe |
 | `portfolio_boosting_top_return_classifier` | allocation autonome : classification `future_excess_return` dans le top 10% du mois suivant | 283 variables techniques calculables au mois de decision : momentum/ROC, EMA, RSI, Bollinger, stochastique, distances high/low, volatilite, rangs/z-scores/flags/agregats mensuels ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | KPI principal trading : meilleur top 7 = +364.3%, CAGR 14.6%, Sharpe 0.37, max DD -47.0%; sous Legacy et trop risque |
 | `portfolio_boosting_rank_regression` | allocation autonome : regression du rang percentile mensuel futur de `future_excess_return` | memes variables techniques calculables que ci-dessus ; target = rang relatif futur dans le mois, pas le rendement brut ; aucune variable Legacy dans le modele | backtest 2015+ `2015-02` a `2026-04`, 135 mois de performance | meilleur baseline top 20 = +348.3%, CAGR 14.3%, Sharpe 0.54, max DD -33.9%; 3 trials/fold degrade a +253.1%, Sharpe 0.43 |
+| `portfolio_boosting_exact_ema_rank` | allocation autonome : regression boosting mlcraft du rang percentile mensuel futur de `future_excess_return` | 215 variables EMA exactes : couples EMA observes dans les blocs Legacy, plus rangs mensuels, z-scores, flags top/bottom quartile ; score final = prediction XGBoost uniquement, pas score EMA brut, pas blend | backtest 2015+ `2015-02` a `2026-04`, runs `outputs/portfolio_boosting_exact_ema_rank_20260704_174140` et `outputs/portfolio_boosting_exact_ema_rank_20260704_180500` | meilleur run `mean_active` top10 = +809.3%, CAGR 21.7%, Sharpe 0.64, DD -26.9%; bat SPY en rendement mais reste sous Legacy (+1118.1%, CAGR 24.9%, Sharpe 0.93, DD -23.5%) |
 | `portfolio_boosting_risk_overlay` | allocation autonome : pas de nouveau training, sizing de l'exposition sur predictions boosting out-of-sample | score boosting pur + top N ; exposition fixe ou dynamique ; dynamique basee sur dispersion des scores ou qualite validation connue avant le mois de test ; aucune variable Legacy dans le sizing | backtests 2015+ sur les predictions classifier et rank-regression | meilleur compromis risque = classifier top50 validation-quality cash, +429.5%, CAGR 16.0%, Sharpe 0.80, max DD -16.4%; meilleur rendement = classifier top7 validation-quality spy, +614.3%, CAGR 19.1%, mais DD -41.3% |
 | `ema_anchor_residual_strategy` | allocation autonome : regression boosting sur une EMA primaire, puis regression boosting du residu | run principal : EMA Legacy exacte repetee chaque mois, via le couple `n_short/n_long` du modele Legacy atomique dominant du mois, calcule depuis `close_vs_index`; attention diagnostic 2026-06-29 : le boosting base ecrase le ranking EMA, donc le vrai signal primaire est l'EMA brute, pas `ema_anchor_prediction` | backtest 2015+ `2015-02` a `2026-04`, run mensuel init-score `outputs/ema_anchor_residual_strategy_20260628_194954`, diagnostic `outputs/ema_anchor_recomposition_gap_20260629_005116` | EMA brute top10 = +1307.5%, CAGR 26.5%, Sharpe 0.91; EMA brute top20 = +726.2%, CAGR 20.6%; mais booster EMA top20 = seulement +149.8%, car predictions quasi constantes |
 | `ema_raw_calibrated_residual_strategy` | allocation autonome : calibration monotone du rang EMA en prediction de `future_excess_return`, puis XGBoost apprend le residu via `base_margin` | score primaire = `legacy_exact_primary_mtr_rank_month` issu du couple EMA Legacy atomique dominant du mois ; calibration lineaire train-only avec pente positive plancher ; residu sur 530 variables disponibles hors score EMA brut ; shrinkage residuel `0.1/0.25/0.5/1.0` | backtest walk-forward 2015+ `2015-02` a `2026-04`, run `outputs/ema_raw_calibrated_residual_strategy_20260630_002942` | EMA raw/calibree top7 = +1578.8%, CAGR 28.5%, Sharpe 0.91, DD -22.6%; top10 = +1307.5%, CAGR 26.5%; meilleur residu shrinke `0.1` top5 = +1053.4%, CAGR 24.3%, mais DD -57.5%, donc le residu degrade l'allocation |
@@ -192,6 +193,7 @@ Regle de suite ajoutee apres clarification utilisateur :
 | 2026-06-28 | script `scripts/experiments/run_ema_anchor_residual_strategy.py`, run proxy `outputs/ema_anchor_residual_strategy_20260628_031118`, run exact dominant `outputs/ema_anchor_residual_strategy_20260628_131004`, run fixed init-score `outputs/ema_anchor_residual_strategy_20260628_170654`, run mensuel init-score `outputs/ema_anchor_residual_strategy_20260628_194954` | test idee EMA primaire puis regression des residus; run principal = EMA Legacy exacte repetee chaque mois + residu init score/base_margin |
 | 2026-06-29 | script `scripts/experiments/analyze_ema_anchor_recomposition_gap.py`, run `outputs/ema_anchor_recomposition_gap_20260629_005116` | diagnostic de l'ecart : l'EMA brute recompose/performe, le booster base ecrase le ranking avec trop peu de scores distincts |
 | 2026-06-30 | script `scripts/experiments/run_ema_raw_calibrated_residual_strategy.py`, run `outputs/ema_raw_calibrated_residual_strategy_20260630_002942` | test propre : EMA brute calibree en prediction train-only + residu XGBoost `base_margin` shrinke ; le residu degrade, l'EMA brute/calibree reste le meilleur score |
+| 2026-07-04 | script `scripts/experiments/run_portfolio_boosting_exact_ema_rank.py`, runs `outputs/portfolio_boosting_exact_ema_rank_20260704_174140`, `outputs/portfolio_boosting_exact_ema_rank_20260704_180500` | boosting-only sur EMA exactes comme variables ; le run `mean_active` top7 warm-starte devient le meilleur pur boosting EMA exact mais reste sous Legacy |
 
 Runs principaux :
 
@@ -935,6 +937,105 @@ Decision :
 Le meilleur boosting pur actuel est le baseline `rank-regression top 20` ou le
 `classifier top 30/50`, selon le critere. Aucun n'est encore un bon algo final :
 ils ont du signal, mais pas assez de controle du risque pour remplacer Legacy.
+
+##### `portfolio_boosting_exact_ema_rank`
+
+Construit le 2026-07-04 pour repondre a la contrainte utilisateur : ne plus
+mettre en avant les scores EMA bruts ou les blends non-boosting. Ici le score
+final est uniquement une prediction `mlcraft` XGBoost.
+
+Ce qui est appris :
+
+```text
+target = rang percentile mensuel du futur rendement relatif
+```
+
+Le rendement relatif est `future_excess_return`, donc rendement action moins le
+benchmark du mois dans la frame. Le modele apprend le rang futur relatif dans le
+mois, puis le portefeuille prend le top N des predictions boosting.
+
+Variables :
+
+- 215 variables EMA exactes ;
+- base : tous les couples EMA observes dans les blocs Legacy atomiques, calcules
+  depuis `close_vs_index` ;
+- transformations : valeur brute, rang mensuel, z-score mensuel, flag top
+  quartile, flag bottom quartile ;
+- aucune variable `legacy_selected` ou decision Legacy comme target ;
+- pas de score EMA brut dans la selection finale ;
+- pas de blend momentum ;
+- pas de SPY dans le score.
+
+Limite de proprete :
+
+La liste des couples EMA vient des blocs Legacy observes. C'est acceptable pour
+ce diagnostic "boosting avec les bonnes familles EMA", mais ce n'est pas encore
+la version finale la plus propre : une version production devrait utiliser une
+grille EMA declaree a l'avance, pas une liste extraite des runs Legacy.
+
+Protocole commun :
+
+- script : `scripts/experiments/run_portfolio_boosting_exact_ema_rank.py`
+- librairie : `mlcraft` + backend XGBoost regression ;
+- split : train passe, validation 12 mois, test 1 mois, rotation mensuelle ;
+- periode de performance : `2015-02` a `2026-04` ;
+- top N testes : `5, 7, 10, 20, 30, 50` ;
+- score final : prediction du modele XGBoost uniquement.
+
+Run 1 : objectif validation `mean_return` top10.
+
+- run : `outputs/portfolio_boosting_exact_ema_rank_20260704_174140`
+- Optuna : `4` trials/fold, `2` startup trials, sans warm-start.
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% | 60.0% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+| boosting exact EMA top7 | 321.4% | 13.6% | 0.42 | -40.9% | 8.1% | 57.8% |
+| boosting exact EMA top10 | 312.2% | 13.4% | 0.44 | -33.7% | 7.5% | 56.3% |
+| boosting exact EMA top20 | 285.2% | 12.7% | 0.46 | -32.3% | 6.8% | 54.8% |
+
+Run 2 : objectif validation `mean_active` top7, warm-start depuis le run 1.
+
+- run : `outputs/portfolio_boosting_exact_ema_rank_20260704_180500`
+- Optuna : `4` trials/fold, `2` startup trials ;
+- warm-start :
+  `outputs/portfolio_boosting_exact_ema_rank_20260704_174140/warm_start_candidates.json`.
+
+| modele | rendement total | CAGR | Sharpe | max DD | vol mensuelle | mois positifs |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy `Combined_Frequency` | 1118.1% | 24.9% | 0.93 | -23.5% | 7.1% | 63.0% |
+| Legacy `Combined_Equal` | 851.1% | 22.2% | 0.85 | -23.6% | 6.9% | 60.0% |
+| boosting exact EMA top10 | 809.3% | 21.7% | 0.64 | -26.9% | 8.9% | 60.0% |
+| boosting exact EMA top7 | 718.0% | 20.5% | 0.55 | -35.6% | 9.8% | 57.8% |
+| boosting exact EMA top20 | 640.3% | 19.5% | 0.67 | -27.2% | 7.6% | 58.5% |
+| boosting exact EMA top30 | 470.7% | 16.7% | 0.62 | -30.5% | 6.8% | 62.2% |
+| SPY | 332.2% | 13.9% | 0.79 | -23.9% | 4.4% | 69.6% |
+| boosting exact EMA top50 | 325.1% | 13.7% | 0.55 | -29.5% | 6.1% | 61.5% |
+
+Metriques top K du run 2 :
+
+| top N | futur excess return moyen mensuel | hit rate > 0 |
+|---:|---:|---:|
+| 5 | 0.27% | 50.7% |
+| 7 | 0.69% | 50.9% |
+| 10 | 0.72% | 51.6% |
+| 20 | 0.50% | 49.7% |
+| 30 | 0.28% | 49.1% |
+| 50 | 0.03% | 48.6% |
+
+Lecture :
+
+- ce run est le meilleur candidat **boosting pur EMA exact** a ce stade ;
+- il bat SPY en rendement total/CAGR sur top5 a top30, surtout top10 ;
+- il ne bat pas Legacy : top10 `+809.3%` vs `+1118.1%`, Sharpe `0.64` vs
+  `0.93`, max drawdown `-26.9%` vs `-23.5%` ;
+- le top du classement a seulement `51.6%` de hit rate positif, donc le signal
+  est reel mais faible ;
+- prochaine piste boosting-only : ne pas ajouter de score EMA brut ; travailler
+  un sizing/exposition base sur les predictions et la qualite validation du
+  modele, ou changer l'objectif Optuna pour penaliser drawdown/volatilite.
 
 #### Risk overlay boosting seul du 2026-06-28
 

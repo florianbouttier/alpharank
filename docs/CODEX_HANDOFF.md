@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-06-30
+Last updated: 2026-07-04
 Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -94,6 +94,20 @@ Current conclusion:
   `-33.9%`) but still far below Legacy (`+1,118%`, CAGR `24.9%`, Sharpe `0.93`,
   max DD `-23.5%`). A 3-trial Optuna run degraded the rank-regression result,
   so "more random trials" is not the immediate fix.
+- 2026-07-04 boosting-only exact-EMA test:
+  `outputs/portfolio_boosting_exact_ema_rank_20260704_174140` and
+  `outputs/portfolio_boosting_exact_ema_rank_20260704_180500` use only
+  `mlcraft` XGBoost predictions as the final score. Target is monthly future
+  `future_excess_return` rank percentile. Features are 215 exact EMA feature
+  columns: EMA pairs observed in Legacy atomic blocks plus rank/z-score/top and
+  bottom quartile transforms. There is no raw EMA score, no momentum blend, and
+  no Legacy objective. Best run is the warm-started `mean_active` top7 objective:
+  top10 `+809.3%`, CAGR `21.7%`, Sharpe `0.64`, max DD `-26.9%`; top20
+  `+640.3%`, CAGR `19.5%`, Sharpe `0.67`, max DD `-27.2%`. This beats SPY in
+  return/CAGR but remains below Legacy (`+1118.1%`, CAGR `24.9%`, Sharpe
+  `0.93`, max DD `-23.5%`). Decision: for the user, do not present raw EMA or
+  hybrid results as the solution. Active path is boosting-only, next step is
+  exposure/sizing or drawdown-aware Optuna on boosting predictions.
 - 2026-06-28 risk-overlay tests on pure boosting predictions improved the
   sizing story without using Legacy:
   `outputs/portfolio_boosting_risk_overlay_20260628_013037` is the main run.
