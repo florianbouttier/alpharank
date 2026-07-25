@@ -2990,3 +2990,87 @@ La variante union historique train-only est le benchmark propre. Les
 contraintes `n_asset`, filtre fondamental et plafond sectoriel doivent etre
 separees de la qualite du signal EMA pour savoir ce qui explique la
 performance.
+
+## 2026-07-25 — résultats exact-EMA point-in-time corrigés
+
+Rapport source de vérité :
+
+`docs/research/exact_legacy_ema_20260725/README.md`
+
+Hypothèse :
+
+> Un booster entraîné uniquement sur les couples EMA ayant déjà gagné dans
+> Legacy au moment de chaque fold peut préserver le bon inductive bias sans
+> recevoir les décisions futures de Legacy.
+
+Données et protocole :
+
+- snapshot figé `outputs/2026-07-19/runs/20260719_194418/input_snapshot` ;
+- calendrier Legacy
+  `outputs/2026-07-19/runs/20260719_194418/legacy_detailed_returns_polars.parquet` ;
+- horizons `1, 3, 6, 12, 24, 36` ;
+- walk-forward 72 mois train, 24 validation, 12 test, purges par horizon ;
+- coûts `10 bps x turnover` ;
+- `n_trials=0`.
+
+Runs corrigés :
+
+- `outputs/multihorizon_boosting/screening_clean_20260725` ;
+- `outputs/multihorizon_boosting/legacy_winners_pit_ema_only_20260725` ;
+- `outputs/multihorizon_boosting/legacy_winners_pit_ema_plus_20260725` ;
+- `outputs/multihorizon_boosting/legacy_active_oracle_20260725`.
+
+Incident et correction :
+
+- la probabilité calibrée isotone créait des plateaux ;
+- le top-N départageait alors certains ex aequo par ordre de ticker ;
+- les anciennes sorties sont conservées sous
+  `outputs/multihorizon_boosting/invalid_calibrated_tie_20260725` ;
+- le rerun utilise le score brut pour ordonner les titres et la probabilité
+  calibrée uniquement pour Brier, log-loss et ECE.
+
+Résultat principal autonome :
+
+- `legacy_winners_pit_ema_only`, classification top décile futur à 6 mois,
+  top 5 ;
+- test novembre 2013-octobre 2025, 144 mois, 12 folds ;
+- net `+2628.5%`, CAGR `31.7%`, Sharpe `0.969`, max DD `-30.3%` ;
+- Legacy mêmes mois : `+511.8%`, CAGR `16.3%`, Sharpe `0.873`,
+  max DD `-23.4%`.
+
+Robustesse :
+
+- top 10 : `+1135.1%`, Sharpe `0.835`, DD `-36.4%` ;
+- top 20 : `+791.4%`, Sharpe `0.766`, DD `-38.2%` ;
+- hors année 2016 : CAGR `25.3%`, Sharpe `0.814`, contre Legacy
+  CAGR `14.7%`, Sharpe `0.784` ;
+- avantage donc réel mais concentré dans les cinq premiers titres.
+
+Statistiques modèles :
+
+- meilleure discrimination future : EMA-plus classification 3 mois,
+  ROC-AUC `0.641`, PR-AUC `0.172` ;
+- meilleur trading futur : EMA-only classification 6 mois top 5 ;
+- régressions : tous les R2 test négatifs ; meilleur IC autour de 24 mois
+  (`0.096` broad, `0.092` EMA-plus) ;
+- ranking 36 mois donne plus d'overlap mais seulement quatre folds : ne pas
+  promouvoir ;
+- meilleure copie autonome Legacy : EMA-only teacher, ROC-AUC `0.975`,
+  PR-AUC `0.342`, overlap top20 `77.4%`.
+
+SHAP du champion 6 mois :
+
+- principaux signaux :
+  `95/72 z-score`, `100/326 z-score`, `95/72 rank`, `92/183 z-score`,
+  `27/106 z-score`, `7/333 raw` ;
+- les représentations cross-sectionnelles dominent ;
+- les directions SHAP sont descriptives et non causales.
+
+Décision :
+
+1. geler `EMA winners PIT only / classification 6m / top5` comme challenger ;
+2. valider sur un nouveau meta-holdout jamais utilisé pour choisir la variante ;
+3. garder teacher 1 mois pour rationalisation probabiliste de Legacy ;
+4. ajouter ensuite des têtes volatilité/downside et la calibration, sans
+   modifier le ranking avant validation indépendante ;
+5. ne pas considérer l'oracle actif comme autonome.

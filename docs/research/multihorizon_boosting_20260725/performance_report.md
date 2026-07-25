@@ -1,5 +1,12 @@
 # Rapport de performance propre — tous horizons
 
+> Superseded for classification/teacher ranking and trading by
+> [`../exact_legacy_ema_20260725/README.md`](../exact_legacy_ema_20260725/README.md).
+> The original run ranked stocks with isotonic-calibrated probabilities;
+> calibration plateaus created arbitrary ticker-order ties. Regression and
+> native ranking diagnostics remain unaffected, but the corrected rerun and
+> exact-EMA comparison are the current source of truth.
+
 Date du recalcul : 2026-07-25.
 
 Run valide :
