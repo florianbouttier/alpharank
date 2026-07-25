@@ -2748,7 +2748,7 @@ l'audit de Legacy, les commandes et le journal sont dans
 
 Controles essentiels :
 
-- grille de 43 paires EMA relatives declaree ex ante, pas extraite des choix
+- grille de 45 paires EMA relatives declaree ex ante, pas extraite des choix
   finaux de Legacy ;
 - constituants historiques et fondamentaux joints par date de publication ;
 - ecart calendaire exact pour chaque label ;

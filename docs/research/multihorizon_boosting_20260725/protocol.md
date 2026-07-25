@@ -21,7 +21,7 @@ research frame for the next multi-head allocation step.
 
 ## Features
 
-- Ex-ante grid of 43 daily relative-price EMA pairs. The grid is declared
+- Ex-ante grid of 45 daily relative-price EMA pairs. The grid is declared
   before the experiment and is not harvested from the final Legacy results.
 - For every EMA ratio: raw value, monthly percentile, monthly z-score, top and
   bottom quartile flags.
