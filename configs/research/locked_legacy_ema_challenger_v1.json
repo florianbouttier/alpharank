@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "challenger_id": "legacy_ema_pit_classification_h06_top05_v1",
+  "status": "locked_for_confirmatory_and_prospective_validation",
+  "locked_at": "2026-07-25T16:10:00+02:00",
+  "selection_disclosure": "This specification was selected after exploratory comparison on the 2013-2025 walk-forward history. That history is supporting evidence, not an untouched holdout.",
+  "code_commit": "1b32a95d878a01fa7af77d5931f6f95bfa58871a",
+  "data": {
+    "input_snapshot": "outputs/2026-07-19/runs/20260719_194418/input_snapshot",
+    "legacy_detailed_returns": "outputs/2026-07-19/runs/20260719_194418/legacy_detailed_returns_polars.parquet",
+    "legacy_detailed_returns_sha256": "ae29bff00dd8a83d781a3950090a03f41d4ed7aeb9c52b27468c8c7986757627",
+    "legacy_monthly_returns": "outputs/2026-07-19/runs/20260719_194418/legacy_monthly_returns_polars.parquet",
+    "legacy_monthly_returns_sha256": "253f2cc40035e8e40fa1d1cd58705bc8507db4bfe83883f9032e4b3b6fae9c77"
+  },
+  "model": {
+    "feature_mode": "legacy_winners_pit_ema_only",
+    "method": "classification",
+    "target": "future monthly cross-sectional excess-return rank >= 0.90",
+    "horizon_months": 6,
+    "positive_quantile": 0.9,
+    "num_boost_round": 100,
+    "n_trials": 0,
+    "random_seed": 42,
+    "ranking_score": "raw XGBoost positive-class probability",
+    "calibration_usage": "isotonic probability is reporting-only and must not change stock ordering"
+  },
+  "portfolio": {
+    "top_n": 5,
+    "weighting": "equal_weight",
+    "rebalance": "monthly",
+    "realized_return": "next_month",
+    "transaction_cost_bps_times_turnover": 10
+  },
+  "validation": {
+    "start_month": "2000-01",
+    "min_train_months": 72,
+    "validation_months": 24,
+    "test_months": 12,
+    "step_months": 12,
+    "outer_protocol": "expanding horizon-purged walk-forward",
+    "preprocessing": "fit inside each outer fold",
+    "confirmatory_comparators": [
+      "S&P 500",
+      "Legacy Combined_Frequency"
+    ],
+    "prospective_rule": "No model, feature, horizon, top-N, parameter or ranking change may be made using prospective outcomes under this challenger id."
+  }
+}
