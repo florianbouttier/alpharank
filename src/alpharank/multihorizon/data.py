@@ -279,7 +279,7 @@ def _append_legacy_labels(frame: pl.DataFrame, legacy_path: Path) -> pl.DataFram
             pl.col("n_models").fill_null(0).cast(pl.Int8).alias("legacy_n_models"),
             pl.col("weight_normalized").fill_null(0.0).alias("legacy_weight_normalized"),
         )
-        .drop("n_models")
+        .drop(["n_models", "weight_normalized"])
     )
 
 
