@@ -3136,3 +3136,75 @@ Décision suivante :
 2. versionner séparément les têtes volatilité/downside ;
 3. conserver l'ordre alpha exact du challenger ;
 4. ne promouvoir qu'après un holdout réellement nouveau et mûr.
+
+## 2026-07-25 — historique long et têtes de risque exact-EMA
+
+Rapport central :
+
+`docs/research/legacy_ema_risk_overlay_long_history_20260725/README.md`
+
+Spécification pré-enregistrée :
+
+`configs/research/legacy_ema_risk_overlay_long_history_v1.json`
+
+Implémentation : commit `ecb9e33`.
+
+Hypothèse :
+
+> Garder le classement alpha boosting exact-EMA inchangé, estimer séparément
+> volatilité, downside et probabilité high-vol, puis n'utiliser le risque que
+> pour les poids ou une contrainte sectorielle explicite.
+
+Historique maximal sans fuite de sélection :
+
+- prix à partir de janvier 2005 ;
+- première paire EMA gagnante observable en février 2010 ;
+- 62 mois train, 6 validation, purge conservatrice 6 mois ;
+- test juillet 2011-octobre 2025, 172 mois, 15 folds ;
+- remonter avant juillet 2011 nécessiterait de choisir rétroactivement une EMA
+  qui n'était pas encore gagnante dans Legacy.
+
+Alpha top 5 équipondéré sur l'historique long :
+
+- net `+3693.9%`, CAGR `28.88%`, Sharpe `0.778`, DD `-35.43%` ;
+- S&P 500 : CAGR `14.34%`, Sharpe `1.016`, DD `-23.93%` ;
+- Legacy : CAGR `17.07%`, Sharpe `0.890`, DD `-23.38%`.
+
+Le rendement reste fort, mais l'avantage ajusté du risque du résultat sélectionné
+2013-2025 ne se répète pas.
+
+Têtes de risque OOS :
+
+- volatilité réalisée 3 mois : Spearman mensuel `0.440`, R2 `0.152`,
+  13/15 folds avec R2 positif ;
+- downside 3 mois : Spearman `0.385`, R2 `0.085` ;
+- high-vol 3 mois : ROC-AUC `0.783`, PR-AUC `0.562` ;
+- high-vol 6 mois : ROC-AUC `0.784`, PR-AUC `0.569`.
+
+Les cibles utilisent uniquement les rendements journaliers des mois futurs,
+avec au moins 10 observations par mois. Toutes les têtes partagent la purge de
+six mois et les EMA winners train-only.
+
+Allocation primaire pré-enregistrée :
+
+- top 5 alpha égal : CAGR `28.88%`, Sharpe `0.778`, DD `-35.43%` ;
+- mêmes titres inverse-vol 3 mois : CAGR `26.96%`, Sharpe `0.781`,
+  DD `-31.80%` ;
+- différence de Sharpe `+0.003`, IC95% bootstrap
+  `[-0.051, +0.073]` ;
+- la règle sectorielle 40% : CAGR `24.35%`, Sharpe `0.719`,
+  DD `-35.62%`.
+
+Décision :
+
+- les têtes de risque sont conservées comme sorties utiles et explicables ;
+- aucun overlay ne passe tous les garde-fous pré-enregistrés ;
+- ne pas activer l'inverse-vol ni la contrainte sectorielle ;
+- toute piste high-vol veto ou tilt plus doux reçoit un nouvel identifiant et
+  ne doit pas être présentée comme confirmatoire sur ces mêmes 172 mois.
+
+Papiers HTML :
+
+- `outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725/html/index.html` ;
+- `outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725/html/risk_results_paper.html` ;
+- `outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725/html/methodology_paper.html`.

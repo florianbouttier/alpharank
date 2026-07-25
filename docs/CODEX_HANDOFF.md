@@ -18,6 +18,8 @@ notes when one of these canonical documents already fits:
   [`docs/research/exact_legacy_ema_20260725/`](./research/exact_legacy_ema_20260725/)
 - Locked challenger confirmation and HTML papers:
   [`docs/research/locked_challenger_confirmation_20260725/`](./research/locked_challenger_confirmation_20260725/)
+- Long-history exact-EMA risk heads, allocation test and HTML papers:
+  [`docs/research/legacy_ema_risk_overlay_long_history_20260725/`](./research/legacy_ema_risk_overlay_long_history_20260725/)
 - Monthly portfolio production:
   [`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md)
 - SEC/open-source data status:
