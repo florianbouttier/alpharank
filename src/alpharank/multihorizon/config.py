@@ -21,6 +21,7 @@ class MultiHorizonConfig:
     validation_months: int = 24
     test_months: int = 12
     step_months: int = 12
+    include_partial_test_window: bool = False
     max_windows: int | None = None
     missing_feature_threshold: float = 0.35
     target_clip_quantiles: Tuple[float, float] = (0.01, 0.99)

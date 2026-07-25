@@ -38,6 +38,7 @@ def main() -> None:
     parser.add_argument("--validation-months", type=int, default=24)
     parser.add_argument("--test-months", type=int, default=12)
     parser.add_argument("--step-months", type=int, default=12)
+    parser.add_argument("--include-partial-test-window", action="store_true")
     parser.add_argument("--max-windows", type=int)
     parser.add_argument("--n-trials", type=int, default=0)
     parser.add_argument("--num-boost-round", type=int, default=160)
@@ -67,6 +68,7 @@ def main() -> None:
         validation_months=args.validation_months,
         test_months=args.test_months,
         step_months=args.step_months,
+        include_partial_test_window=args.include_partial_test_window,
         max_windows=args.max_windows,
         n_trials=args.n_trials,
         num_boost_round=args.num_boost_round,

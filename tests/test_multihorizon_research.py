@@ -19,6 +19,11 @@ from alpharank.multihorizon.splits import (
     PurgedCombinatorialMonthSplit,
     horizon_walk_forward_windows,
 )
+from alpharank.multihorizon.risk import (
+    add_daily_forward_risk_targets,
+    build_risk_weighted_backtest,
+    capped_inverse_risk_weights,
+)
 from alpharank.multihorizon.trading import build_monthly_top_n_returns
 
 
@@ -78,6 +83,20 @@ def test_outer_window_respects_label_maturity_and_purge() -> None:
     assert len(first.train_months) == 120
     assert first.validation_months[0] - first.train_months[-1] == 36
     assert first.test_months[0] - first.validation_months[-1] == 36
+
+
+def test_outer_window_can_keep_a_final_partial_test_block() -> None:
+    windows = horizon_walk_forward_windows(
+        list(range(31)),
+        horizon=2,
+        min_train_months=12,
+        validation_months=6,
+        test_months=6,
+        step_months=6,
+        include_partial_test_window=True,
+    )
+    assert [len(window.test_months) for window in windows] == [6, 5]
+    assert windows[-1].test_months == tuple(range(26, 31))
 
 
 def test_inner_cpcv_removes_overlapping_label_intervals() -> None:
@@ -189,6 +208,90 @@ def test_monthly_trading_backtest_applies_turnover_cost() -> None:
     )
     assert monthly["turnover"].to_list() == pytest.approx([1.0, 0.5])
     assert monthly["net_return"].to_list() == pytest.approx([0.049, 0.0295])
+
+
+def test_daily_risk_target_uses_only_strictly_future_months() -> None:
+    dates = [
+        date(2020, 1, 30),
+        date(2020, 1, 31),
+        date(2020, 2, 3),
+        date(2020, 2, 4),
+        date(2020, 3, 2),
+        date(2020, 3, 3),
+        date(2020, 3, 4),
+    ]
+    prices = pl.DataFrame(
+        {
+            "ticker": ["A"] * len(dates),
+            "date": dates,
+            "adjusted_close": [
+                100.0,
+                110.0,
+                121.0,
+                108.9,
+                119.79,
+                107.811,
+                118.5921,
+            ],
+        }
+    )
+    frame = pl.DataFrame(
+        {
+            "ticker": ["A", "A"],
+            "decision_month": [date(2020, 1, 1), date(2020, 2, 1)],
+        }
+    )
+    result = add_daily_forward_risk_targets(
+        frame,
+        final_price=prices,
+        horizons=(1,),
+        minimum_daily_observations_per_month=2,
+    )
+    february_daily_returns = np.asarray([0.1, -0.1])
+    expected = np.std(february_daily_returns, ddof=1) * np.sqrt(252.0)
+    assert result["future_realized_volatility_1m"][0] == pytest.approx(expected)
+    assert result["future_realized_volatility_1m"][1] == pytest.approx(expected)
+
+
+def test_inverse_risk_weights_respect_cap_and_prefer_lower_risk() -> None:
+    weights = capped_inverse_risk_weights(
+        [0.10, 0.20, 0.30, 0.40, 0.50],
+        maximum_weight=0.30,
+    )
+    assert weights.sum() == pytest.approx(1.0)
+    assert weights.max() <= 0.30 + 1e-12
+    assert weights[0] > weights[-1]
+
+
+def test_sector_diversification_preserves_alpha_order_within_constraints() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)] * 6,
+            "ticker": ["A", "B", "C", "D", "E", "F"],
+            "score": [6.0, 5.0, 4.0, 3.0, 2.0, 1.0],
+            "predicted_risk": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+            "future_return_1m": [0.01] * 6,
+            "benchmark_future_return_1m": [0.005] * 6,
+        }
+    )
+    general = pl.DataFrame(
+        {
+            "ticker": ["A", "B", "C", "D", "E", "F"],
+            "GicSector": ["Tech", "Tech", "Tech", "Finance", "Health", "Energy"],
+            "Sector": ["Tech", "Tech", "Tech", "Finance", "Health", "Energy"],
+        }
+    )
+    monthly, holdings = build_risk_weighted_backtest(
+        predictions,
+        general=general,
+        strategy="risk_sector",
+        top_n=5,
+        risk_column="predicted_risk",
+        maximum_names_per_sector=2,
+        maximum_sector_weight=0.40,
+    )
+    assert holdings["ticker"].to_list() == ["A", "B", "D", "E", "F"]
+    assert monthly["maximum_sector_weight"][0] <= 0.40 + 1e-12
 
 
 def _write_legacy_winner_fixture(path) -> None:

@@ -24,6 +24,7 @@ def horizon_walk_forward_windows(
     validation_months: int,
     test_months: int,
     step_months: int,
+    include_partial_test_window: bool = False,
     max_windows: int | None = None,
 ) -> list[HorizonWindow]:
     """Expanding outer walk-forward with label maturity and overlap purge.
@@ -38,7 +39,10 @@ def horizon_walk_forward_windows(
     first_test = min_train_months + validation_months + 2 * (horizon - 1)
     windows: list[HorizonWindow] = []
     cursor = first_test
-    while cursor + test_months <= len(ordered):
+    while cursor < len(ordered):
+        test_end = min(cursor + test_months, len(ordered))
+        if test_end - cursor < test_months and not include_partial_test_window:
+            break
         validation_end = cursor - horizon + 1
         validation_start = validation_end - validation_months
         train_end = validation_start - (horizon - 1)
@@ -48,7 +52,7 @@ def horizon_walk_forward_windows(
                     fold=len(windows) + 1,
                     train_months=tuple(ordered[:train_end]),
                     validation_months=tuple(ordered[validation_start:validation_end]),
-                    test_months=tuple(ordered[cursor : cursor + test_months]),
+                    test_months=tuple(ordered[cursor:test_end]),
                     horizon=horizon,
                 )
             )

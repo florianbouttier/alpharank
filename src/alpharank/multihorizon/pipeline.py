@@ -143,6 +143,7 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                     validation_months=config.validation_months,
                     test_months=config.test_months,
                     step_months=config.step_months,
+                    include_partial_test_window=config.include_partial_test_window,
                     max_windows=config.max_windows,
                 )
             except ValueError as exc:
