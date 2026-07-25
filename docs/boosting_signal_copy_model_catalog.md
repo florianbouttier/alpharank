@@ -2720,3 +2720,152 @@ Mais l'objectif final ne doit pas etre d'apprendre `legacy_selected`. L'objectif
 final est d'apprendre le futur excess return et de verifier que le signal appris
 retrouve suffisamment les trades Legacy pour prouver que la famille de signaux
 est correcte.
+
+## 2026-07-25 — comparaison boosting multi-horizon
+
+### Hypothese et protocole
+
+La nouvelle piste compare sur une base commune :
+
+- classification du top decile futur ;
+- regression du rendement cumule futur relatif au S&P 500 ;
+- ranking groupe par mois ;
+- classifier teacher de `Combined_Frequency`, diagnostic uniquement.
+
+Les horizons economiques sont `1, 3, 6, 12, 24, 36` mois. Les horizons 24 et
+36 mois restent exploratoires : peu de regimes independants et fort
+chevauchement naturel des labels.
+
+Le package dedie est `src/alpharank/multihorizon/`. Le protocole detaille,
+l'audit de Legacy, les commandes et le journal sont dans
+`docs/research/multihorizon_boosting_20260725/`.
+
+Controles essentiels :
+
+- grille de 43 paires EMA relatives declaree ex ante, pas extraite des choix
+  finaux de Legacy ;
+- constituants historiques et fondamentaux joints par date de publication ;
+- ecart calendaire exact pour chaque label ;
+- walk-forward externe avec modele gele sur 12 mois ;
+- maturite des labels et purge adaptees a chaque horizon ;
+- CPCV purge uniquement dans l'historique pre-test ;
+- filtrage des variables, medianes et calibration appris dans chaque fold ;
+- SHAP calcule seulement sur les observations out-of-sample ;
+- overlap Legacy publie comme diagnostic, jamais utilise comme objectif des
+  modeles economiques.
+
+### Donnees et execution
+
+Snapshot de recherche coherent :
+
+`outputs/2026-07-19/runs/20260719_194418/input_snapshot`
+
+Sorties Legacy associees :
+
+- `legacy_detailed_returns_polars.parquet` ;
+- `legacy_monthly_returns_polars.parquet`.
+
+Le frame reel contient 113 351 observations, 387 colonnes et 335 variables
+candidates de janvier 2005 a avril 2026. Ce snapshot est coherent avec le run
+Legacy utilise pour les labels, mais cette experience ne le requalifie pas en
+package open-source production-clean.
+
+Run de screening :
+
+`outputs/multihorizon_boosting/screening_20260725`
+
+### Resultats du screening fixe
+
+Les chiffres ci-dessous sont hors echantillon. L'overlap est bien le nombre de
+noms communs divise par la taille du panier Legacy.
+
+| modele | h | folds | IC Spearman mensuel | top10 excess sur h | top10 excess a 1 mois | overlap Legacy top10 |
+|---|---:|---:|---:|---:|---:|---:|
+| regression | 24 | 7 | `0.0959` | `+17.71%` | `+1.15%` | `10.67%` |
+| ranking | 24 | 7 | `0.0485` | `+12.86%` | `+1.01%` | `23.82%` |
+| classification | 24 | 7 | `0.0243` | `+13.24%` | `+0.97%` | `19.03%` |
+| regression | 36 | 4 | `0.0492` | `+24.50%` | `+1.27%` | `18.85%` |
+| classification | 36 | 4 | `0.0571` | `+14.92%` | `+1.36%` | `21.75%` |
+| teacher Legacy | 1 | 8 | `0.0049` | `+0.60%` | `+0.60%` | `45.83%` |
+
+Lecture :
+
+- piste economique prioritaire : regression 24 mois. C'est le meilleur IC avec
+  sept blocs annuels et le meilleur top10 24 mois parmi les candidats mieux
+  couverts ;
+- meilleur pont avec Legacy : ranking 24 mois. Il double environ l'overlap de
+  la regression 24 mois tout en gardant un rendement relatif positif ;
+- 36 mois reste interessant mais non concluant avec quatre folds seulement ;
+- le teacher atteint `ROC AUC 0.9608`, Brier `0.0131` et `45.8%` d'overlap
+  top10. Il prouve que les features contiennent une grande partie de la
+  mecanique Legacy, mais pas toute sa recomposition ;
+- les dispersions par fold restent elevees. Pour la regression 24 mois,
+  IC `0.0959 +/- 0.1101` et excess mensuel top10
+  `1.15% +/- 1.06%` (moyenne +/- ecart type). Ce n'est pas encore un signal
+  production-ready.
+
+SHAP separe clairement les deux problemes :
+
+- regression 24 mois : croissance EPS TTM 4 trimestres, volatilites 36/24 mois,
+  earnings yield, ratio de volatilite 12/36, regime de volatilite SPY et
+  momentum 12/24/36 mois ;
+- ranking 24 mois : largeur Bollinger 12/6 mois, volatilites 3/6/12/24 mois,
+  earnings yield et EMA relatives longues `100/400`, `100/360`, `80/400` ;
+- teacher Legacy : surtout rangs/z-scores d'EMA relatives (`80/90`, `20/260`,
+  `60/120`, `40/180`, `10/180`) puis largeur Bollinger.
+
+La faible intersection entre les SHAP economiques, domines par risque,
+valorisation et croissance, et les SHAP teacher, domines par EMA
+cross-sectionnelles, explique pourquoi copier Legacy et prevoir la
+surperformance ne sont pas le meme probleme.
+
+Decision : CPCV cible sur regression, ranking et classification 24 mois, avec
+teacher comme controle. Ne pas promouvoir 36 mois sans nouvelles annees ou
+une analyse de stabilite plus forte.
+
+### Shortlist CPCV
+
+Run :
+
+`outputs/multihorizon_boosting/shortlist_cpcv_20260725`
+
+Le CPCV utilise trois trials sur les trois derniers blocs annuels. Ce run sert a
+tester la stabilite recente, pas a remplacer le screening sept-folds.
+
+| modele | IC | top10 excess 24m | top10 excess 1m | overlap Legacy |
+|---|---:|---:|---:|---:|
+| regression 24 | `0.0158` | `+8.78%` | `+2.12%` | `14.54%` |
+| ranking 24 | `-0.0334` | `+0.58%` | `+0.67%` | `20.02%` |
+| classification 24 | `-0.0016` | `-3.87%` | `+1.13%` | `14.74%` |
+| teacher 1 | `0.0066` | `+1.53%` | `+1.53%` | `41.53%` |
+
+Comparaison exacte aux memes trois derniers folds avec parametres fixes :
+
+- regression : CPCV ameliore top10 24 mois (`8.78%` vs `5.63%`) et excess un
+  mois (`2.12%` vs `0.84%`), IC presque inchange (`0.0158` vs `0.0164`) ;
+- ranking : CPCV degrade l'IC (`-0.0334` vs `-0.0085`) malgre un meilleur
+  overlap et un meilleur excess un mois ;
+- classification : CPCV reduit la perte 24 mois et ameliore l'excess un mois,
+  mais le rendement 24 mois reste negatif ;
+- teacher : les parametres fixes gagnent les trois recherches internes et
+  gardent un meilleur overlap.
+
+Conclusion honnete : seul le regresseur 24 mois merite de poursuivre le tuning.
+Le ranking 24 mois reste un bon diagnostic de proximite Legacy, mais son
+optimisation economique recente est instable. Trois folds ne suffisent pas pour
+declarer que le CPCV a augmente la performance generale.
+
+SHAP directionnel sur la shortlist :
+
+- regression : volatilite propre 24 mois elevee et volatilite SPY 24 mois
+  elevee diminuent le score ; earnings yield et momentum 36 mois eleves
+  l'augmentent. Le ratio de volatilite 12/36 est positif, ce qui signale une
+  forme plus complexe qu'un simple veto de volatilite ;
+- ranking : largeur Bollinger, volatilite propre, EMA longue `24/36`, EMA
+  relative longue et momentum 36 mois eleves augmentent plutot le score ;
+- classification : volatilite SPY elevee diminue la probabilite, tandis que
+  dispersion et volatilite propres elevees l'augmentent dans cet echantillon ;
+- teacher : plusieurs z-scores EMA relatifs eleves augmentent la probabilite.
+  Certains rangs EMA ont une correlation SHAP negative : avec des variables
+  fortement correlees et des interactions, ce resume de direction n'est pas
+  une contrainte monotone ni une interpretation causale.
