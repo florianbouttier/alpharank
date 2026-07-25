@@ -8,6 +8,11 @@ import pytest
 
 from alpharank.multihorizon.data import _add_multihorizon_targets
 from alpharank.multihorizon.data import _append_legacy_labels
+from alpharank.multihorizon.legacy_ema import (
+    add_active_legacy_oracle_features,
+    legacy_winning_pairs,
+    point_in_time_fold_features,
+)
 from alpharank.multihorizon.preprocessing import fit_fold_preprocessor
 from alpharank.multihorizon.metrics import score_predictions
 from alpharank.multihorizon.splits import (
@@ -135,6 +140,31 @@ def test_regression_report_contains_prediction_error_metrics() -> None:
     assert {"mae", "r2", "ndcg_at_10", "spearman_ic"} <= metrics.keys()
 
 
+def test_classification_ranking_score_is_separate_from_calibrated_probability() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)] * 4,
+            "ticker": ["A", "B", "C", "D"],
+            "score": [0.9, 0.8, 0.2, 0.1],
+            "calibrated_probability": [0.5, 0.5, 0.5, 0.5],
+            "future_excess_return_1m": [0.4, 0.3, -0.1, -0.2],
+            "future_excess_rank_1m": [1.0, 0.9, 0.2, 0.1],
+            "future_return_1m": [0.4, 0.3, -0.1, -0.2],
+            "legacy_selected": [1, 0, 0, 0],
+        }
+    )
+
+    metrics, _ = score_predictions(
+        predictions,
+        method="classification",
+        horizon=1,
+        top_n_values=(2,),
+    )
+
+    assert metrics["roc_auc"] == pytest.approx(1.0)
+    assert metrics["brier"] == pytest.approx(0.25)
+
+
 def test_monthly_trading_backtest_applies_turnover_cost() -> None:
     predictions = pl.DataFrame(
         {
@@ -159,3 +189,112 @@ def test_monthly_trading_backtest_applies_turnover_cost() -> None:
     )
     assert monthly["turnover"].to_list() == pytest.approx([1.0, 0.5])
     assert monthly["net_return"].to_list() == pytest.approx([0.049, 0.0295])
+
+
+def _write_legacy_winner_fixture(path) -> None:
+    pl.DataFrame(
+        {
+            "portfolio_model": [
+                "Legacy_Optuna_11",
+                "Legacy_Optuna_11",
+                "Legacy_Optuna_12",
+                "Combined_Frequency",
+            ],
+            "year_month": [
+                date(2020, 2, 1),
+                date(2021, 2, 1),
+                date(2020, 2, 1),
+                date(2020, 2, 1),
+            ],
+            "n_short": [5, 7, 12, None],
+            "n_long": [257, 333, 150, None],
+        }
+    ).write_parquet(path)
+
+
+def test_point_in_time_winner_features_exclude_future_pairs(tmp_path) -> None:
+    legacy_path = tmp_path / "legacy.parquet"
+    _write_legacy_winner_fixture(legacy_path)
+    all_features = (
+        "relative_ema_ratio_5_257",
+        "relative_ema_ratio_5_257_rank_month",
+        "relative_ema_ratio_7_333",
+        "relative_ema_ratio_12_150",
+        "volatility_12m",
+    )
+
+    ema_only, pairs = point_in_time_fold_features(
+        all_features=all_features,
+        legacy_path=legacy_path,
+        train_decision_cutoff=date(2020, 12, 1),
+        include_non_relative_features=False,
+    )
+    ema_plus, _ = point_in_time_fold_features(
+        all_features=all_features,
+        legacy_path=legacy_path,
+        train_decision_cutoff=date(2020, 12, 1),
+        include_non_relative_features=True,
+    )
+
+    assert pairs == ((5, 257), (12, 150))
+    assert ema_only == (
+        "relative_ema_ratio_5_257",
+        "relative_ema_ratio_5_257_rank_month",
+        "relative_ema_ratio_12_150",
+    )
+    assert "relative_ema_ratio_7_333" not in ema_plus
+    assert "volatility_12m" in ema_plus
+
+
+def test_active_legacy_oracle_uses_each_paths_current_pair(tmp_path) -> None:
+    legacy_path = tmp_path / "legacy.parquet"
+    pl.DataFrame(
+        {
+            "portfolio_model": [
+                "Legacy_Optuna_11",
+                "Legacy_Optuna_12",
+                "Legacy_Optuna_21",
+                "Legacy_Optuna_22",
+            ],
+            "year_month": [date(2020, 2, 1)] * 4,
+            "n_short": [5, 12, 5, 12],
+            "n_long": [257, 150, 257, 150],
+        }
+    ).write_parquet(legacy_path)
+    frame = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)],
+            "relative_ema_ratio_5_257": [1.25],
+            "relative_ema_ratio_12_150": [0.75],
+            "relative_ema_ratio_5_257_rank_month": [0.9],
+            "relative_ema_ratio_12_150_rank_month": [0.2],
+            "relative_ema_ratio_5_257_z_month": [1.0],
+            "relative_ema_ratio_12_150_z_month": [-1.0],
+            "relative_ema_ratio_5_257_top_quartile": [1],
+            "relative_ema_ratio_12_150_top_quartile": [0],
+            "relative_ema_ratio_5_257_bottom_quartile": [0],
+            "relative_ema_ratio_12_150_bottom_quartile": [1],
+        }
+    )
+
+    result, feature_columns = add_active_legacy_oracle_features(
+        frame,
+        legacy_path=legacy_path,
+        available_pairs=((5, 257), (12, 150)),
+    )
+
+    assert len(feature_columns) == 20
+    assert result["legacy_active_11_raw"].to_list() == [1.25]
+    assert result["legacy_active_12_raw"].to_list() == [0.75]
+    assert result["legacy_active_21_rank_month"].to_list() == [0.9]
+    assert result["legacy_active_22_bottom_quartile"].to_list() == [1]
+
+
+def test_legacy_winning_pairs_ignores_combined_basket(tmp_path) -> None:
+    legacy_path = tmp_path / "legacy.parquet"
+    _write_legacy_winner_fixture(legacy_path)
+    assert legacy_winning_pairs(legacy_path) == (
+        (5, 257),
+        (7, 333),
+        (12, 150),
+    )

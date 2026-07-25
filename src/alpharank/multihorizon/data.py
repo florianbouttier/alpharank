@@ -290,6 +290,7 @@ def build_research_frame(
     horizons: Sequence[int],
     start_month: str,
     excluded_tickers: Sequence[str],
+    relative_ema_pairs: Sequence[tuple[int, int]] | None = None,
 ) -> ResearchFrame:
     """Build the raw, non-imputed, point-in-time multi-horizon panel."""
 
@@ -317,10 +318,11 @@ def build_research_frame(
         earnings=raw.earnings,
         config=FundamentalFeatureConfig(quarterly_growth_lags=(1, 4, 12)),
     )
+    selected_relative_pairs = tuple(relative_ema_pairs or RELATIVE_EMA_PAIRS)
     relative, relative_base = _relative_daily_features(
         raw.final_price,
         raw.sp500_price,
-        RELATIVE_EMA_PAIRS,
+        selected_relative_pairs,
     )
     constituents = prepare_constituents_monthly(raw.constituents).rename({"year_month": "decision_month"})
     frame = (
@@ -397,5 +399,5 @@ def build_research_frame(
         frame=frame.sort(["decision_month", "ticker"]),
         feature_columns=tuple(feature_columns),
         input_paths=dict(raw.source_paths),
-        relative_ema_pairs=RELATIVE_EMA_PAIRS,
+        relative_ema_pairs=selected_relative_pairs,
     )

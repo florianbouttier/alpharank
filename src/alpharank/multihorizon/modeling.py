@@ -18,13 +18,16 @@ class FittedBooster:
     features: tuple[str, ...]
     target_bounds: tuple[float, float] | None = None
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict_raw_score(self, X: np.ndarray) -> np.ndarray:
         if self.method in {"classification", "teacher"}:
-            raw = self.model.predict_proba(X)[:, 1]
-            if self.calibrator is not None:
-                return np.asarray(self.calibrator.predict(raw), dtype=float)
-            return np.asarray(raw, dtype=float)
+            return np.asarray(self.model.predict_proba(X)[:, 1], dtype=float)
         return np.asarray(self.model.predict(X), dtype=float)
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        raw = self.predict_raw_score(X)
+        if self.method in {"classification", "teacher"} and self.calibrator is not None:
+            return np.asarray(self.calibrator.predict(raw), dtype=float)
+        return raw
 
 
 def _groups(frame: pl.DataFrame) -> list[int]:

@@ -32,6 +32,7 @@ class MultiHorizonConfig:
     shap_sample_per_fold: int = 200
     shap_top_features: int = 30
     save_research_frame: bool = False
+    feature_mode: str = "broad"
     excluded_tickers: Tuple[str, ...] = ("SII.US", "CBE.US", "TIE.US", "CPWR.US")
     random_seed: int = 42
     num_boost_round: int = 160
@@ -56,3 +57,16 @@ class MultiHorizonConfig:
             raise ValueError("test_months and step_months must be positive.")
         if not 0.0 < self.positive_quantile < 1.0:
             raise ValueError("positive_quantile must be strictly between 0 and 1.")
+        allowed_feature_modes = {
+            "broad",
+            "legacy_winners_pit_ema_only",
+            "legacy_winners_pit_ema_plus",
+            "legacy_active_oracle",
+        }
+        normalized_feature_mode = str(self.feature_mode).lower()
+        if normalized_feature_mode not in allowed_feature_modes:
+            raise ValueError(
+                f"Unsupported feature_mode={self.feature_mode!r}; "
+                f"expected one of {sorted(allowed_feature_modes)}."
+            )
+        object.__setattr__(self, "feature_mode", normalized_feature_mode)

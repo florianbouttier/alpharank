@@ -42,6 +42,16 @@ def main() -> None:
     parser.add_argument("--n-trials", type=int, default=0)
     parser.add_argument("--num-boost-round", type=int, default=160)
     parser.add_argument("--shap-sample-per-fold", type=int, default=200)
+    parser.add_argument(
+        "--feature-mode",
+        choices=(
+            "broad",
+            "legacy_winners_pit_ema_only",
+            "legacy_winners_pit_ema_plus",
+            "legacy_active_oracle",
+        ),
+        default="broad",
+    )
     parser.add_argument("--save-research-frame", action="store_true")
     args = parser.parse_args()
     config = MultiHorizonConfig(
@@ -61,6 +71,7 @@ def main() -> None:
         n_trials=args.n_trials,
         num_boost_round=args.num_boost_round,
         shap_sample_per_fold=args.shap_sample_per_fold,
+        feature_mode=args.feature_mode,
         save_research_frame=args.save_research_frame,
     )
     run_dir = run_multihorizon_research(config)

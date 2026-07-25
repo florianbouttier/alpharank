@@ -54,6 +54,11 @@ def score_predictions(
 ) -> tuple[dict[str, float], pl.DataFrame]:
     y = predictions.get_column(f"future_excess_return_{horizon}m").to_numpy()
     score = predictions.get_column("score").to_numpy()
+    probability = (
+        predictions.get_column("calibrated_probability").to_numpy()
+        if "calibrated_probability" in predictions.columns
+        else score
+    )
     rank_target = predictions.get_column(f"future_excess_rank_{horizon}m").to_numpy()
     selected = predictions.get_column("legacy_selected").to_numpy().astype(bool)
     monthly_ic: list[float] = []
@@ -123,9 +128,13 @@ def score_predictions(
             roc_auc=_safe_metric(roc_auc_score, target, score),
             pr_auc_average_precision=pr_auc,
             pr_auc_lift_vs_prevalence=pr_auc / positive_rate if positive_rate > 0 else float("nan"),
-            brier=_safe_metric(brier_score_loss, target, score),
-            log_loss=_safe_metric(log_loss, target, np.clip(score, 1e-6, 1 - 1e-6)),
-            expected_calibration_error=_expected_calibration_error(target, score),
+            brier=_safe_metric(brier_score_loss, target, probability),
+            log_loss=_safe_metric(
+                log_loss,
+                target,
+                np.clip(probability, 1e-6, 1 - 1e-6),
+            ),
+            expected_calibration_error=_expected_calibration_error(target, probability),
             positive_rate=positive_rate,
         )
     if method == "regression":
