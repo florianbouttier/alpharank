@@ -299,3 +299,7 @@ less than 700 MB free.
    at a new holdout. Add probability calibration, expected volatility and
    downside-risk heads without changing the stock-ranking score until the
    challenger has survived that holdout.
+
+Confirmatory follow-up:
+
+[`../locked_challenger_confirmation_20260725/README.md`](../locked_challenger_confirmation_20260725/README.md)

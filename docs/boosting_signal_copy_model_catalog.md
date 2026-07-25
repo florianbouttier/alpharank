@@ -3074,3 +3074,65 @@ Décision :
 4. ajouter ensuite des têtes volatilité/downside et la calibration, sans
    modifier le ranking avant validation indépendante ;
 5. ne pas considérer l'oracle actif comme autonome.
+
+## 2026-07-25 — challenger verrouillé et validation anti-sélection
+
+Spécification gelée :
+
+`configs/research/locked_legacy_ema_challenger_v1.json`
+
+Rapport central :
+
+`docs/research/locked_challenger_confirmation_20260725/README.md`
+
+Papiers HTML :
+
+- `outputs/multihorizon_boosting/locked_challenger_confirmation_20260725/html/methodology_paper.html` ;
+- `outputs/multihorizon_boosting/locked_challenger_confirmation_20260725/html/results_paper.html`.
+
+Le challenger reste :
+
+`exact EMA winners PIT / classification top 10% / horizon 6m / top5`
+
+Aucun paramètre, feature, horizon ou top-N n'a été modifié après le verrou.
+
+Contrôles ajoutés :
+
+- 10 000 bootstraps circulaires par blocs de 12 mois ;
+- Deflated Sharpe avec 162 essais autonomes ;
+- replay de sélection annuel parmi 108 candidats, utilisant seulement les
+  36 mois OOS précédents ;
+- sensibilité aux coûts `0/10/25/50/100 bps x turnover` ;
+- analyse par fold, ticker, secteur et calibration ;
+- tentative explicite de holdout partiel, laissée indisponible faute de cible
+  six mois mûre après octobre 2025.
+
+Résultats :
+
+- écart de rendement moyen annualisé vs Legacy `+16.30 pp`,
+  IC95% `[+3.88, +28.90] pp` ;
+- écart de Sharpe vs Legacy `+0.096`,
+  IC95% `[-0.326, +0.499]` : non confirmé ;
+- Deflated Sharpe probability `76.1%` après 162 essais : inférieur au seuil
+  confirmatoire de 95% ;
+- à 100 bps de coût, le candidat conserve CAGR `25.1%`, Sharpe `0.816`,
+  DD `-31.7%` ;
+- meta-selector temporel 2018-2024 : `+167.8%`, CAGR `15.5%`, Sharpe `0.589`,
+  DD `-33.0%`, contre Legacy Sharpe `0.684`, DD `-23.4%` ;
+- le meta-selector ne choisit jamais exactement le champion final ;
+- le secteur mensuel dominant pèse en moyenne `44.3%` et atteint parfois
+  `100%`.
+
+Conclusion :
+
+- le surplus de rendement historique est robuste et résiste aux coûts ;
+- la supériorité de Sharpe n'est pas statistiquement établie ;
+- le choix du champion reste exposé au multiple testing ;
+- le statut est `paper_challenger_not_production_ready`.
+
+Décision suivante :
+
+1. archiver des scores mensuels prospectifs sans retuning ;
+2. versionner séparément les têtes volatilité/downside ;
+3. conserver l'ordre alpha exact du challenger ;
+4. ne promouvoir qu'après un holdout réellement nouveau et mûr.

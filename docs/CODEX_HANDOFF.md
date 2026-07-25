@@ -16,6 +16,8 @@ notes when one of these canonical documents already fits:
   [`docs/research/multihorizon_boosting_20260725/`](./research/multihorizon_boosting_20260725/)
 - Corrected exact Legacy EMA comparison, trading and SHAP:
   [`docs/research/exact_legacy_ema_20260725/`](./research/exact_legacy_ema_20260725/)
+- Locked challenger confirmation and HTML papers:
+  [`docs/research/locked_challenger_confirmation_20260725/`](./research/locked_challenger_confirmation_20260725/)
 - Monthly portfolio production:
   [`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md)
 - SEC/open-source data status:
