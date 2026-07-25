@@ -7,6 +7,17 @@
 > `performance_report.md` and run
 > `outputs/multihorizon_boosting/screening_clean_20260725`.
 
+## 2026-07-25 — exact Legacy winner EMA diagnostic
+
+The four frozen Legacy Optuna paths contain 32 distinct winning
+`n_short/n_long` pairs over 2010-2026. The current 45-pair multi-horizon grid
+has zero exact overlap with those winners. The grid was deliberately declared
+ex ante, but it is therefore not a faithful representation test of Legacy.
+
+Next decision: build a train-only point-in-time union of previously winning
+Legacy pairs, compare EMA-only versus EMA-plus-risk/fundamentals, and keep the
+currently active four Legacy pairs as a diagnostic oracle only.
+
 ## 2026-07-25 — implementation
 
 Hypothesis:

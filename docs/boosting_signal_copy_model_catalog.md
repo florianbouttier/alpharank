@@ -2945,3 +2945,48 @@ a pas un horizon unique :
 Rapport complet :
 
 `docs/research/multihorizon_boosting_20260725/performance_report.md`
+
+## 2026-07-25 — diagnostic des couples EMA Legacy exacts
+
+Hypothese utilisateur :
+
+> Commencer par les EMA qui ont effectivement gagne dans Legacy avant
+> d'elargir la representation.
+
+Donnees :
+
+- run fige `outputs/2026-07-19/runs/20260719_194418` ;
+- `legacy_detailed_returns_polars.parquet` ;
+- quatre chemins `Legacy_Optuna_11`, `12`, `21`, `22`.
+
+Resultat :
+
+- chaque chemin utilise 13 couples `n_short/n_long` distincts sur les
+  portefeuilles 2010-2026 ;
+- l'union contient 32 couples exacts ;
+- la grille multi-horizon actuelle contient 45 couples arrondis declares ex
+  ante ;
+- intersection exacte entre grille actuelle et gagnants Legacy :
+  **`0 / 32`**.
+
+Exemples de gagnants absents de la grille actuelle :
+
+`5/257`, `7/333`, `34/189`, `45/92`, `63/150`, `71/260`,
+`95/72`, `100/326`.
+
+Decision :
+
+1. ajouter un benchmark `legacy_winners_pit_ema_only` ;
+2. dans chaque fold, construire l'union des couples gagnants connus strictement
+   avant validation/test, jamais l'union finale 2010-2026 injectee dans le
+   passe ;
+3. tester ces EMA exactes seules, puis EMA exactes + risque/fondamentaux ;
+4. conserver comme oracle diagnostique une variante utilisant les quatre
+   couples Legacy actifs au mois de decision ;
+5. comparer d'abord les horizons `1, 3, 6, 12`, puis `24, 36`.
+
+La variante oracle depend de Legacy et n'est donc pas un challenger autonome.
+La variante union historique train-only est le benchmark propre. Les
+contraintes `n_asset`, filtre fondamental et plafond sectoriel doivent etre
+separees de la qualite du signal EMA pour savoir ce qui explique la
+performance.
