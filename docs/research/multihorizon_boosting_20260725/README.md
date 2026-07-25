@@ -1,6 +1,10 @@
 # Multi-horizon boosting versus Legacy
 
-Status: screening and shortlisted CPCV completed 2026-07-25.
+Status: clean six-horizon screening and trading report completed 2026-07-25.
+
+Important: the first screening was invalidated after finding direct leakage
+from a raw Legacy weight column. Use `performance_report.md` and the
+`screening_clean_20260725` artifacts only.
 
 This directory is the detailed audit trail requested for the multi-horizon
 study. The durable conclusion is also recorded in
@@ -52,6 +56,8 @@ weighting.
 
 - `protocol.md`: exact targets, folds, leakage controls, metrics and SHAP plan.
 - `experiment_log.md`: commands, run IDs, results and next decisions.
+- `performance_report.md`: complete clean ML metrics and trading backtests for
+  1, 3, 6, 12, 24 and 36 months.
 - Runtime artifacts: `outputs/multihorizon_boosting/<run_id>/`.
 
 ## Source code

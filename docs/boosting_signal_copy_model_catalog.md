@@ -2721,7 +2721,13 @@ final est d'apprendre le futur excess return et de verifier que le signal appris
 retrouve suffisamment les trades Legacy pour prouver que la famille de signaux
 est correcte.
 
-## 2026-07-25 — comparaison boosting multi-horizon
+## 2026-07-25 — comparaison boosting multi-horizon — RUN INITIAL INVALIDE
+
+> Les tableaux de cette section et de la shortlist CPCV sont conservés comme
+> trace d'incident, mais ne doivent pas être utilisés. La jointure teacher
+> laissait la colonne source `weight_normalized` dans les features économiques.
+> Le run propre et les conclusions corrigées sont dans la section suivante et
+> dans `docs/research/multihorizon_boosting_20260725/performance_report.md`.
 
 ### Hypothese et protocole
 
@@ -2869,3 +2875,73 @@ SHAP directionnel sur la shortlist :
   Certains rangs EMA ont une correlation SHAP negative : avec des variables
   fortement correlees et des interactions, ce resume de direction n'est pas
   une contrainte monotone ni une interpretation causale.
+
+## 2026-07-25 — correction anti-fuite et backtest complet
+
+Run valide :
+
+`outputs/multihorizon_boosting/screening_clean_20260725`
+
+Correction :
+
+- suppression de la colonne source `weight_normalized` apres creation de
+  l'alias teacher explicitement exclu `legacy_weight_normalized` ;
+- test de regression reproduisant la fuite ;
+- verification effective de 334 features : aucun poids, label, nombre de votes
+  ou selection Legacy n'est accessible aux modeles economiques ;
+- rerun complet classification/regression/ranking aux horizons
+  `1, 3, 6, 12, 24, 36`.
+
+Historique test :
+
+| h | debut | fin | mois | folds |
+|---:|---:|---:|---:|---:|
+| 1 | 2013-01 | 2025-12 | 156 | 13 |
+| 3 | 2013-05 | 2025-04 | 144 | 12 |
+| 6 | 2013-11 | 2025-10 | 144 | 12 |
+| 12 | 2014-11 | 2024-10 | 120 | 10 |
+| 24 | 2016-11 | 2023-10 | 84 | 7 |
+| 36 | 2018-11 | 2022-10 | 48 | 4 |
+
+Conclusions ML :
+
+- classification : meilleurs ROC-AUC a 1 mois (`0.634`) et 3 mois (`0.633`) ;
+  PR-AUC `0.164-0.167` pour une prevalence proche de `0.10` ;
+- regression : tous les R2 sont negatifs et RMSE normalisees superieures a 1 ;
+  les amplitudes ne sont pas bien prevues. Le meilleur IC est a 24 mois
+  (`0.096`) ;
+- ranking : meilleur lift NDCG@10 a 12 mois (`+0.030` vs score sans signal) ;
+  meilleur compromis IC/overlap Legacy a 24 mois (`IC 0.048`,
+  overlap top10 `23.82%`) ;
+- teacher : ROC-AUC `0.961`, PR-AUC `0.356`, Brier `0.0132`, overlap top10
+  `47.60%`.
+
+Backtest mensuel top-N :
+
+- scores strictement out-of-sample ;
+- top-N egal-pondere, reequilibre mensuellement ;
+- rendement du mois suivant ;
+- cout `10 bps x turnover` ;
+- comparaison SPY et `Combined_Frequency` sur les memes mois.
+
+Candidats longue periode :
+
+- ranking 1 mois top20, 2013-2025 : `+1166.1%`, CAGR `21.6%`, Sharpe `0.80`,
+  max DD `-34.3%`; Legacy `+809.4%`, Sharpe `0.98`, DD `-23.4%` ;
+- regression 6 mois top5, 2013-2025 : `+1027.2%`, CAGR `22.4%`,
+  Sharpe `0.77`, max DD `-36.9%`; Legacy `+511.8%`, Sharpe `0.87`,
+  DD `-23.4%`.
+
+Conclusion : certains paniers boosting battent Legacy en rendement, mais pas
+en risque. Legacy reste meilleur en drawdown et generalement en Sharpe. Il n'y
+a pas un horizon unique :
+
+- probabilites : 1-3 mois ;
+- trading longue periode : ranking 1 mois ou regression 6 mois ;
+- signal ordinal : 12-24 mois ;
+- proximite Legacy : ranking 24 mois ;
+- 36 mois : exploratoire seulement, quatre folds.
+
+Rapport complet :
+
+`docs/research/multihorizon_boosting_20260725/performance_report.md`

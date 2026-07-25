@@ -1,5 +1,12 @@
 # Experiment log
 
+> **Invalidation notice:** the initial screening and shortlisted CPCV sections
+> below are retained as an incident history only. A raw
+> `weight_normalized` Legacy column leaked into the economic feature list.
+> Their numerical conclusions are invalid. The corrected source of truth is
+> `performance_report.md` and run
+> `outputs/multihorizon_boosting/screening_clean_20260725`.
+
 ## 2026-07-25 — implementation
 
 Hypothesis:
