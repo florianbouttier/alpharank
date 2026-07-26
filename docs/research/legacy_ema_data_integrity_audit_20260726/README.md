@@ -395,3 +395,7 @@ utilisé. En conséquence :
 Rapport HTML principal :
 
 `outputs/data_quality/historical_ticker_price_audit_20260726/price_identity_audit.html`
+
+Rapport annuel toutes méthodes, même calendrier :
+
+`outputs/multihorizon_boosting/legacy_ema_risk_overlay_ticker_quarantine_v6_20260726/html/annual_returns_all_methods.html`
