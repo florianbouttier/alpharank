@@ -3383,6 +3383,10 @@ alpha v6 à horizon six mois. Un rapport séparé publie sans troncature :
 
 - un beeswarm regroupant les `185` variables présentes sur l'union des folds ;
 - `185` graphiques individuels valeur de variable contre SHAP ;
+- un ordre identique pour le beeswarm et les graphiques individuels :
+  `mean(|SHAP|)` OOS strictement décroissant ;
+- un lexique exact des `185` colonnes et des `37` couples EMA : spans
+  numérateur/dénominateur, formule, suffixe, unité et interprétation ;
 - le nombre d'observations et de folds actifs pour chaque variable ;
 - les quantiles de valeur et de SHAP et la corrélation valeur–SHAP ;
 - les `172` portefeuilles mensuels Legacy publié, Alpha Top 5 égal et
@@ -3406,3 +3410,7 @@ n'est jamais imputée pour le graphique.
 Rapport :
 
 `outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/alpha_shap_and_monthly_portfolios.html`
+
+Lexique CSV :
+
+`outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/alpha_shap_feature_lexicon.csv`

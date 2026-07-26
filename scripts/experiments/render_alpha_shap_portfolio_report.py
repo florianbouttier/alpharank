@@ -33,6 +33,10 @@ DEFAULT_LEGACY_HOLDINGS = Path(
     "outputs/2026-07-13/runs/20260713_201639/"
     "legacy_detailed_returns_polars.parquet"
 )
+FEATURE_PATTERN = re.compile(
+    r"^relative_ema_ratio_(?P<numerator>\d+)_(?P<denominator>\d+)"
+    r"(?P<suffix>_rank_month|_z_month|_top_quartile|_bottom_quartile)?$"
+)
 
 
 def _sha256(path: Path) -> str:
@@ -46,6 +50,97 @@ def _sha256(path: Path) -> str:
 def _slug(index: int, feature: str) -> str:
     clean = re.sub(r"[^a-zA-Z0-9_-]+", "_", feature).strip("_")
     return f"{index:03d}_{clean}.svg"
+
+
+def _feature_lexicon(feature: str) -> dict[str, Any]:
+    match = FEATURE_PATTERN.fullmatch(feature)
+    if match is None:
+        raise ValueError(f"Unsupported alpha feature name: {feature}")
+    numerator = int(match.group("numerator"))
+    denominator = int(match.group("denominator"))
+    suffix = match.group("suffix") or ""
+    base = f"relative_ema_ratio_{numerator}_{denominator}"
+    ratio = (
+        f"EMA_{numerator}(P_action / P_SP500) / "
+        f"EMA_{denominator}(P_action / P_SP500)"
+    )
+    if suffix == "":
+        transformation = "ratio EMA relatif brut"
+        unit = "ratio sans unité, généralement proche de 1"
+        definition = ratio
+        interpretation = (
+            "Une valeur élevée signifie que l'EMA du numérateur est élevée "
+            "par rapport à celle du dénominateur."
+        )
+    elif suffix == "_rank_month":
+        transformation = "rang centile mensuel"
+        unit = "fraction dans ]0, 1], rang moyen croissant divisé par N"
+        definition = (
+            f"rank_average_month({base}) / N_month ; 1 désigne les ratios "
+            "les plus élevés de l'univers éligible du mois"
+        )
+        interpretation = (
+            "Une valeur élevée place l'action vers le haut du classement "
+            "mensuel du ratio EMA relatif."
+        )
+    elif suffix == "_z_month":
+        transformation = "z-score mensuel"
+        unit = "nombre d'écarts-types cross-sectionnels"
+        definition = (
+            f"({base} - mean_month({base})) / std_sample_month({base})"
+        )
+        interpretation = (
+            "Une valeur positive indique un ratio supérieur à la moyenne "
+            "cross-sectionnelle du mois."
+        )
+    elif suffix == "_top_quartile":
+        transformation = "indicateur quartile supérieur mensuel"
+        unit = "binaire 0/1"
+        definition = f"1 si rank_average_month({base}) / N_month >= 0.75, sinon 0"
+        interpretation = (
+            "1 signifie que l'action appartient au quart supérieur mensuel "
+            "du ratio EMA relatif."
+        )
+    else:
+        transformation = "indicateur quartile inférieur mensuel"
+        unit = "binaire 0/1"
+        definition = f"1 si rank_average_month({base}) / N_month <= 0.25, sinon 0"
+        interpretation = (
+            "1 signifie que l'action appartient au quart inférieur mensuel "
+            "du ratio EMA relatif."
+        )
+    span_order = (
+        "numérateur plus réactif"
+        if numerator < denominator
+        else "numérateur plus lent"
+        if numerator > denominator
+        else "spans identiques"
+    )
+    return {
+        "base_feature": base,
+        "ema_numerator_span_days": numerator,
+        "ema_denominator_span_days": denominator,
+        "span_order": span_order,
+        "transformation": transformation,
+        "unit": unit,
+        "exact_definition": definition,
+        "economic_interpretation": interpretation,
+    }
+
+
+def _sort_catalog(catalog: pl.DataFrame) -> pl.DataFrame:
+    """Lock display order to descending global mean absolute OOS SHAP."""
+
+    ordered = catalog.sort(
+        ["mean_abs_shap", "feature"],
+        descending=[True, False],
+    )
+    if "importance_rank" in ordered.columns:
+        ordered = ordered.drop("importance_rank")
+    return ordered.with_row_index("importance_rank", offset=1).select(
+        "importance_rank",
+        *ordered.columns,
+    )
 
 
 def _finite_feature_arrays(
@@ -128,7 +223,9 @@ def _binned_medians(
 
 def _plot_feature(
     *,
+    importance_rank: int,
     feature: str,
+    mean_abs_shap: float,
     values: np.ndarray,
     shap_values: np.ndarray,
     folds: np.ndarray,
@@ -158,7 +255,12 @@ def _plot_feature(
         )
         axis.legend(frameon=False, loc="best")
     axis.axhline(0.0, color="#55616c", linewidth=1.0, linestyle="--")
-    axis.set_title(feature, fontsize=11, loc="left")
+    axis.set_title(
+        f"#{importance_rank:03d} · {feature}\n"
+        f"mean(|SHAP|) OOS = {mean_abs_shap:.6f}",
+        fontsize=10,
+        loc="left",
+    )
     axis.set_xlabel("Valeur de la variable après prétraitement du fold")
     axis.set_ylabel("Contribution SHAP au score brut")
     axis.grid(alpha=0.18)
@@ -178,12 +280,15 @@ def _feature_catalog(
     rows: list[dict[str, Any]] = []
     for index, metadata in enumerate(direction.to_dicts(), start=1):
         feature = str(metadata["feature"])
+        mean_abs_shap = float(metadata["mean_abs_shap"])
         values, shap_values, folds = _finite_feature_arrays(samples, feature)
         if not values.size:
             continue
         image_name = _slug(index, feature)
         _plot_feature(
+            importance_rank=index,
             feature=feature,
+            mean_abs_shap=mean_abs_shap,
             values=values,
             shap_values=shap_values,
             folds=folds,
@@ -193,7 +298,7 @@ def _feature_catalog(
             {
                 "importance_rank": index,
                 "feature": feature,
-                "mean_abs_shap": float(metadata["mean_abs_shap"]),
+                "mean_abs_shap": mean_abs_shap,
                 "value_shap_correlation": (
                     float(metadata["value_shap_correlation"])
                     if metadata["value_shap_correlation"] is not None
@@ -209,9 +314,10 @@ def _feature_catalog(
                 "shap_median": float(np.median(shap_values)),
                 "shap_q95": float(np.quantile(shap_values, 0.95)),
                 "plot_path": f"shap_alpha_features/{image_name}",
+                **_feature_lexicon(feature),
             }
         )
-    return pl.DataFrame(rows).sort("importance_rank")
+    return _sort_catalog(pl.DataFrame(rows))
 
 
 def _monthly_portfolios(
@@ -402,6 +508,7 @@ def _render_html(
     beeswarm_path: str,
     output_path: Path,
 ) -> None:
+    catalog = _sort_catalog(catalog)
     top_rows = []
     for row in catalog.head(20).to_dicts():
         top_rows.append(
@@ -415,12 +522,34 @@ def _render_html(
             f'<td>{row["active_folds"]}/15</td>'
             "</tr>"
         )
+    pair_rows = []
+    for row in (
+        catalog.select(
+            "base_feature",
+            "ema_numerator_span_days",
+            "ema_denominator_span_days",
+            "span_order",
+        )
+        .unique()
+        .sort(["ema_numerator_span_days", "ema_denominator_span_days"])
+        .to_dicts()
+    ):
+        pair_rows.append(
+            "<tr>"
+            f'<td><code>{html.escape(row["base_feature"])}</code></td>'
+            f'<td>{row["ema_numerator_span_days"]}</td>'
+            f'<td>{row["ema_denominator_span_days"]}</td>'
+            f'<td>{html.escape(row["span_order"])}</td>'
+            "</tr>"
+        )
     feature_cards = []
     for index, row in enumerate(catalog.to_dicts()):
         feature_cards.append(
             f"""<details class="feature-card" data-feature="{
                 html.escape(str(row["feature"]).lower(), quote=True)
-            }" {"open" if index < 3 else ""}>
+            }" data-importance="{row["mean_abs_shap"]:.12f}" {
+                "open" if index < 3 else ""
+            }>
               <summary><span class="rank">#{row["importance_rank"]}</span>
                 <code>{html.escape(row["feature"])}</code>
                 <span>|SHAP| moyen {_number(row["mean_abs_shap"], 5)} ·
@@ -432,6 +561,17 @@ def _render_html(
                 <div class="feature-meta">
                   <p><strong>Direction globale :</strong>
                     {html.escape(str(row["direction"]))}</p>
+                  <p><strong>Définition exacte :</strong>
+                    <code>{html.escape(row["exact_definition"])}</code></p>
+                  <p><strong>Transformation :</strong>
+                    {html.escape(row["transformation"])}</p>
+                  <p><strong>Unité :</strong> {html.escape(row["unit"])}</p>
+                  <p><strong>Lecture économique :</strong>
+                    {html.escape(row["economic_interpretation"])}</p>
+                  <p><strong>Spans EMA, en observations quotidiennes :</strong>
+                    numérateur {row["ema_numerator_span_days"]},
+                    dénominateur {row["ema_denominator_span_days"]} ·
+                    {html.escape(row["span_order"])}</p>
                   <p><strong>Corrélation valeur–SHAP :</strong>
                     {_number(row["value_shap_correlation"], 3)}</p>
                   <p><strong>Valeur prétraitée P5 / médiane / P95 :</strong>
@@ -480,12 +620,17 @@ align-items:center;justify-content:space-between}} summary span{{color:var(--mut
 .rank{{color:var(--blue);font-weight:800}} .feature-body{{display:grid;
 grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:18px;padding:0 16px 18px}}
 .feature-body img{{width:100%;height:auto;border-radius:8px}} .feature-meta{{color:var(--muted)}}
+.formula{{padding:12px 14px;background:#f8fafb;border:1px solid var(--line);
+border-radius:8px;overflow:auto}} .lexicon-grid{{display:grid;
+grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}} .lexicon-card{{padding:16px;
+background:var(--card);border:1px solid var(--line);border-radius:11px}}
 .month-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;
 padding:0 12px 14px}} .portfolio-card{{min-width:0}} .portfolio-card table{{min-width:650px}}
 .portfolio-card h4{{padding-left:2px}} code{{font-size:12px}} footer{{margin-top:52px;
 color:var(--muted);font-size:12px}} .hidden{{display:none}}
 @media(max-width:900px){{main{{padding:30px 14px 60px}}.feature-body,.month-grid{{
-grid-template-columns:1fr}}summary{{align-items:flex-start;flex-direction:column}}}}
+grid-template-columns:1fr}}.lexicon-grid{{grid-template-columns:1fr}}
+summary{{align-items:flex-start;flex-direction:column}}}}
 </style></head><body><main>
 <p class="eyebrow">Alpha v6 · classification six mois · OOS seulement</p>
 <h1>SHAP complet et portefeuilles mensuels</h1>
@@ -501,10 +646,63 @@ sont dans l'espace du score brut XGBoost — la marge/log-odds — et non en poi
 de probabilité calibrée. Leur somme explique le score brut avant calibration
 isotone.</div>
 
+<h2>Lexique précis des variables</h2>
+<p class="lede">Les 185 colonnes sont cinq transformations de 37 couples EMA
+issus des gagnants Legacy disponibles à la date de chaque fold. Toutes partent
+du prix relatif quotidien de l'action contre le S&amp;P 500.</p>
+<div class="formula"><code>R(t) = P_action(t) / P_SP500(t)</code><br>
+<code>relative_ema_ratio_A_B =
+EMA_span=A(R(t), adjust=False) / EMA_span=B(R(t), adjust=False)</code><br>
+avec <code>alpha_EMA = 2 / (span + 1)</code>. La valeur mensuelle est la dernière
+valeur quotidienne du mois de décision. Dans ce run, <code>P_action</code> et
+<code>P_SP500</code> sont tous deux les colonnes <code>adjusted_close</code>
+des snapshots de prix.</div>
+<div class="callout warning"><strong>A et B ne signifient pas toujours
+« court puis long ».</strong> Ce sont exactement le span du numérateur et celui
+du dénominateur hérités des couples gagnants Legacy. Ainsi
+<code>relative_ema_ratio_95_50</code> divise bien l'EMA 95 par l'EMA 50 :
+son numérateur est plus lent.</div>
+<div class="lexicon-grid">
+  <article class="lexicon-card"><h3>Sans suffixe</h3>
+    <p>Ratio EMA relatif brut, sans unité et généralement proche de 1.
+    Une valeur supérieure à 1 signifie que l'EMA du numérateur dépasse celle
+    du dénominateur.</p></article>
+  <article class="lexicon-card"><h3><code>_rank_month</code></h3>
+    <p>Rang moyen croissant du ratio dans l'univers mensuel éligible, divisé par
+    le nombre d'actions du mois. Domaine <code>]0, 1]</code> ; une valeur proche
+    de 1 correspond aux ratios les plus élevés.</p></article>
+  <article class="lexicon-card"><h3><code>_z_month</code></h3>
+    <p><code>(ratio - moyenne mensuelle) / écart-type échantillonnal mensuel</code>.
+    L'unité est le nombre d'écarts-types cross-sectionnels.</p></article>
+  <article class="lexicon-card"><h3><code>_top_quartile</code></h3>
+    <p>Indicateur binaire égal à 1 lorsque
+    <code>rank_month &gt;= 0,75</code>, sinon 0.</p></article>
+  <article class="lexicon-card"><h3><code>_bottom_quartile</code></h3>
+    <p>Indicateur binaire égal à 1 lorsque
+    <code>rank_month &lt;= 0,25</code>, sinon 0.</p></article>
+  <article class="lexicon-card"><h3>Prétraitement du modèle</h3>
+    <p>Aucune standardisation supplémentaire. Les valeurs non finies sont
+    imputées par la médiane cross-sectionnelle du mois, puis, si nécessaire,
+    par la médiane apprise sur le train du fold et enfin 0. Une variable ayant
+    plus de 35 % de valeurs manquantes dans le train du fold est écartée de ce
+    fold.</p></article>
+</div>
+<details><summary><strong>Les 37 couples EMA exacts</strong>
+<span>numérateur, dénominateur et ordre des spans</span></summary>
+<div class="table-wrap"><table><thead><tr><th>Variable brute</th>
+<th>Span numérateur</th><th>Span dénominateur</th><th>Lecture</th></tr></thead>
+<tbody>{''.join(pair_rows)}</tbody></table></div></details>
+<p class="lede">L'univers cross-sectionnel est constitué des membres S&amp;P 500
+éligibles au mois de décision, après contrôles causaux de prix et quarantaine.
+Les spans comptent des observations quotidiennes, pas des mois. Le lexique
+exact de chaque colonne est aussi répété dans son graphique individuel et
+exporté dans <code>alpha_shap_feature_lexicon.csv</code>.</p>
+
 <h2>Beeswarm global — toutes les variables</h2>
 <p class="lede">Chaque point est une observation OOS. Rouge = valeur élevée,
 bleu = valeur faible. L'axe horizontal indique l'effet sur le score alpha brut.
-Le graphique contient les {catalog.height} variables, sans limitation top N.</p>
+Le graphique contient les {catalog.height} variables, sans limitation top N,
+classées par <code>mean(|SHAP|)</code> OOS décroissant.</p>
 <div class="beeswarm"><img src="{html.escape(beeswarm_path, quote=True)}"
 alt="Beeswarm SHAP complet"></div>
 
@@ -517,7 +715,9 @@ alt="Beeswarm SHAP complet"></div>
 <h2>Graphique individuel pour chaque variable</h2>
 <p class="lede">Le nuage relie la valeur prétraitée dans son fold à sa
 contribution SHAP. La ligne rouge donne la médiane par quantile ; elle aide à
-voir seuils, saturation et non-linéarités.</p>
+voir seuils, saturation et non-linéarités. Les cartes ci-dessous suivent
+strictement le même ordre que le beeswarm :
+<code>mean(|SHAP|)</code> OOS décroissant, de #1 à #{catalog.height}.</p>
 <input id="feature-search" class="search" type="search"
 placeholder="Filtrer les {catalog.height} variables…">
 <div id="feature-list">{''.join(feature_cards)}</div>
@@ -592,6 +792,20 @@ def main() -> None:
         assets_dir=assets_dir,
     )
     catalog.write_csv(allocation_dir / "alpha_shap_feature_catalog.csv")
+    lexicon_path = allocation_dir / "alpha_shap_feature_lexicon.csv"
+    catalog.select(
+        "importance_rank",
+        "feature",
+        "mean_abs_shap",
+        "base_feature",
+        "ema_numerator_span_days",
+        "ema_denominator_span_days",
+        "span_order",
+        "transformation",
+        "unit",
+        "exact_definition",
+        "economic_interpretation",
+    ).write_csv(lexicon_path)
 
     allocation_holdings_path = allocation_dir / "allocation_holdings.parquet"
     allocation_monthly_path = allocation_dir / "allocation_monthly.csv"
@@ -616,6 +830,9 @@ def main() -> None:
         "report": str(report_path),
         "renderer": str(Path(__file__).resolve()),
         "renderer_sha256": _sha256(Path(__file__).resolve()),
+        "feature_order": "descending mean absolute OOS SHAP",
+        "feature_lexicon": str(lexicon_path),
+        "feature_lexicon_sha256": _sha256(lexicon_path),
         "alpha_shap_samples": str(samples_path),
         "alpha_shap_samples_sha256": _sha256(samples_path),
         "alpha_shap_direction_sha256": _sha256(direction_path),
