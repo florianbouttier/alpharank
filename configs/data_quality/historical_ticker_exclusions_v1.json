@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "registry_id": "historical_ticker_exclusions_v1",
+  "created_at": "2026-07-26",
+  "scope": {
+    "dataset": "AlphaRank open-source historical packages derived from the current symbol-keyed US_Finalprice and SP500_Constituents files",
+    "application": "research and audited Legacy replays only",
+    "policy": "An exclude_all_dates decision removes the ticker from prices, fundamentals, constituents, feature construction, training, selection, and realized returns for the complete dataset trajectory.",
+    "warning": "This registry is a conservative quarantine, not a permanent security master. A ticker may be restored only after a stable company identifier and a source-consistent price history are reconstructed."
+  },
+  "entries": [
+    {
+      "ticker": "SII.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["ticker_reuse", "constituent_identity_mismatch", "post_delisting_contamination"],
+      "constituent_identity": "Smith International",
+      "dataset_general_identity": "Sprott Inc.",
+      "official_terminal_date": "2010-08-27",
+      "rationale": "The constituent history assigns SII to Smith International through August 2010, while the reference and continuing price series identify current SII as Sprott. Smith was acquired by Schlumberger and delisted on 2010-08-27; Sprott currently trades under the reused symbol SII.",
+      "sources": [
+        {
+          "title": "SEC Form 8-K — Smith International merger and delisting",
+          "url": "https://www.sec.gov/Archives/edgar/data/721083/000119312510199619/d8k.htm",
+          "claim": "Smith became a Schlumberger subsidiary and its NYSE shares were delisted effective 2010-08-27."
+        },
+        {
+          "title": "Sprott investor relations",
+          "url": "https://sprott.com/investor-relations",
+          "claim": "Sprott Inc. currently trades on the NYSE and TSX under SII."
+        }
+      ]
+    },
+    {
+      "ticker": "CBE.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["post_delisting_contamination", "price_series_continues_after_terminal_event"],
+      "constituent_identity": "Cooper Industries",
+      "dataset_general_identity": "Unresolved numeric identity 462219",
+      "official_terminal_date": "2012-12-03",
+      "rationale": "Cooper Industries shares were delisted before trading opened on 2012-12-03, but the dataset continues CBE through 2026 with sparse prices. The post-terminal observations cannot belong to the historical S&P constituent.",
+      "sources": [
+        {
+          "title": "SEC Form 8-K — Eaton and Cooper transaction completion",
+          "url": "https://www.sec.gov/Archives/edgar/data/31277/000119312512490771/d448563d8k.htm",
+          "claim": "Cooper shares were delisted from the NYSE before the open on 2012-12-03."
+        },
+        {
+          "title": "SEC transaction announcement",
+          "url": "https://www.sec.gov/Archives/edgar/data/1141982/000119312512242032/d356804dex991.htm",
+          "claim": "Cooper shareholders were to receive cash and Eaton shares in the acquisition."
+        }
+      ]
+    },
+    {
+      "ticker": "TIE.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["post_delisting_contamination", "impossible_price_scale"],
+      "constituent_identity": "Titanium Metals Corporation",
+      "dataset_general_identity": "Unresolved numeric identity 215914",
+      "official_terminal_date": "2013-01-07",
+      "rationale": "TIMET became a wholly owned Precision Castparts subsidiary and ceased NYSE trading in January 2013 at cash consideration of 16.50 USD per share. The dataset continues TIE through 2026 and reaches prices above 30,000, so the trajectory is not the historical constituent.",
+      "sources": [
+        {
+          "title": "SEC press release — Precision Castparts completes TIMET acquisition",
+          "url": "https://www.sec.gov/Archives/edgar/data/79958/000119312513006827/d464033dex992.htm",
+          "claim": "TIMET became wholly owned, received 16.50 USD per share, and ceased NYSE trading."
+        },
+        {
+          "title": "SEC Form 8-K — TIMET acquisition",
+          "url": "https://www.sec.gov/Archives/edgar/data/1011657/000119312513006836/d464049d8k.htm",
+          "claim": "The tender offer expired in December 2012 and TIMET became a subsidiary of the acquirer."
+        }
+      ]
+    },
+    {
+      "ticker": "CPWR.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["corrupt_historical_returns", "post_delisting_contamination", "unresolved_adjustment_chain"],
+      "constituent_identity": "Compuware Corporation",
+      "dataset_general_identity": "Compuware Corporation",
+      "official_terminal_date": "2014-12-15",
+      "rationale": "The dataset produces non-economic monthly returns of approximately -90%, +138%, and +300% while CPWR is held by Legacy in 2011, and it continues long after Compuware became private in December 2014. The whole series is quarantined because the pre-terminal adjustment chain cannot be trusted.",
+      "sources": [
+        {
+          "title": "SEC 2011 Form 10-K — Compuware market value",
+          "url": "https://www.sec.gov/Archives/edgar/data/859014/000114036111030346/form10k.htm",
+          "claim": "Compuware closed at 8.52 USD on 2010-09-30, inconsistent with the scale and jumps in the dataset."
+        },
+        {
+          "title": "SEC Form 8-K — Compuware merger completion",
+          "url": "https://www.sec.gov/Archives/edgar/data/859014/000114036114045515/form8k.htm",
+          "claim": "Compuware became a wholly owned private subsidiary on 2014-12-15."
+        }
+      ]
+    },
+    {
+      "ticker": "BMC.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["impossible_price_scale", "ohlc_inconsistency", "post_delisting_contamination"],
+      "constituent_identity": "BMC Software",
+      "dataset_general_identity": "BMC Software",
+      "official_terminal_date": "2013-09-10",
+      "rationale": "Official filings place BMC around 31–51 USD in 2011–2012 and at 46.25 USD on acquisition. The dataset ranges from 532 to 30,050, contains hundreds of impossible OHLC rows, and continues after BMC became private.",
+      "sources": [
+        {
+          "title": "SEC BMC merger proxy — historical market prices",
+          "url": "https://www.sec.gov/Archives/edgar/data/835729/000119312513269992/d542782ddefm14a.htm",
+          "claim": "BMC traded roughly between 31.62 and 51.03 USD in the cited 2011–2012 quarters."
+        },
+        {
+          "title": "SEC Form 8-K — BMC acquisition completion",
+          "url": "https://www.sec.gov/Archives/edgar/data/835729/000119312513364103/d595671d8k.htm",
+          "claim": "BMC became private on 2013-09-10 for 46.25 USD per share."
+        }
+      ]
+    },
+    {
+      "ticker": "COL.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["wrong_security_price_series", "post_delisting_contamination"],
+      "constituent_identity": "Rockwell Collins",
+      "dataset_general_identity": "Rockwell Collins",
+      "official_terminal_date": "2018-11-26",
+      "rationale": "Rockwell Collins officially traded around 78–132 USD in 2017 and was acquired in 2018 for consideration valued near 140 USD. The dataset's complete COL trajectory is only 0.015–1.80 with negligible liquidity and therefore belongs to another or corrupted security.",
+      "sources": [
+        {
+          "title": "SEC merger proxy — Rockwell Collins market prices",
+          "url": "https://www.sec.gov/Archives/edgar/data/101829/000119312517307079/d449927ds4.htm",
+          "claim": "Rockwell Collins NYSE prices were approximately 78.54–131.59 USD in the reported periods."
+        },
+        {
+          "title": "RTX — completion of Rockwell Collins acquisition",
+          "url": "https://investors.rtx.com/news-releases/news-release-details/united-technologies-announces-intention-separate-three",
+          "claim": "United Technologies completed the acquisition of NYSE:COL on 2018-11-26."
+        }
+      ]
+    },
+    {
+      "ticker": "GR.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["wrong_security_price_series", "illiquid_series", "post_delisting_contamination"],
+      "constituent_identity": "Goodrich Corporation",
+      "dataset_general_identity": "Unresolved numeric identity 1040989",
+      "official_terminal_date": "2012-07-26",
+      "rationale": "Goodrich officially traded between roughly 60 and 110 USD before a 127.50 USD cash acquisition. The dataset contains a sparse, often zero-volume series near pennies or a few dollars and continues through 2026.",
+      "sources": [
+        {
+          "title": "SEC Goodrich merger proxy — historical prices",
+          "url": "https://www.sec.gov/Archives/edgar/data/42542/000095012311092548/c66249pprem14a.htm",
+          "claim": "Goodrich NYSE prices were tens of dollars and the merger consideration was 127.50 USD."
+        },
+        {
+          "title": "SEC press release — UTC closes Goodrich acquisition",
+          "url": "https://www.sec.gov/Archives/edgar/data/101829/000119312512317134/d385777dex991.htm",
+          "claim": "United Technologies completed the Goodrich acquisition on 2012-07-26."
+        }
+      ]
+    },
+    {
+      "ticker": "EP.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["ticker_reuse", "constituent_identity_mismatch", "wrong_security_price_series"],
+      "constituent_identity": "El Paso Corporation",
+      "dataset_general_identity": "Empire Petroleum Corporation",
+      "official_terminal_date": "2012-05-25",
+      "rationale": "The constituent history expects El Paso Corporation, acquired by Kinder Morgan in May 2012. The general reference and price history are Empire Petroleum, which adopted EP on the NYSE American only in March 2022. Joining these files by symbol creates a false historical security.",
+      "sources": [
+        {
+          "title": "SEC press release — Kinder Morgan completes El Paso acquisition",
+          "url": "https://www.sec.gov/Archives/edgar/data/1506307/000119312512253766/d361051dex991.htm",
+          "claim": "Kinder Morgan completed the acquisition of NYSE:EP effective 2012-05-25."
+        },
+        {
+          "title": "Empire Petroleum — NYSE American uplisting",
+          "url": "https://empirepetroleumcorp.com/empire-petroleum-corporation-announces-uplisting-to-the-new-york-stock-exchange-american/",
+          "claim": "Empire changed its ticker from EMPR to EP effective 2022-03-08."
+        }
+      ]
+    },
+    {
+      "ticker": "SW.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["pre_listing_constituent_contamination", "ticker_reuse_or_splice"],
+      "constituent_identity": "Smurfit Westrock",
+      "dataset_general_identity": "Smurfit Westrock plc",
+      "official_terminal_date": null,
+      "official_start_date": "2024-07-08",
+      "rationale": "The constituent file assigns Smurfit Westrock to the S&P 500 from 1990 and the price file contains a pre-2024 history. Official filings state that SW first traded on the NYSE on 2024-07-08 and had no prior US public market, so the historical trajectory is an invalid splice.",
+      "sources": [
+        {
+          "title": "SEC 2024 Form 10-K — Smurfit Westrock listing history",
+          "url": "https://www.sec.gov/Archives/edgar/data/2005951/000200595125000005/smur-20241231.htm",
+          "claim": "SW began NYSE trading on 2024-07-08 and had no prior domestic public market."
+        },
+        {
+          "title": "Smurfit Westrock 2024 annual report",
+          "url": "https://www.smurfitwestrock.com/-/m/files/publications---global/financial-reports/sw-2024-annual-report.pdf",
+          "claim": "The annual report confirms NYSE trading under SW began on 2024-07-08."
+        }
+      ]
+    },
+    {
+      "ticker": "HAR.US",
+      "decision": "exclude_all_dates",
+      "reason_codes": ["impossible_price_scale", "ohlc_inconsistency", "post_delisting_contamination"],
+      "constituent_identity": "Harman International Industries",
+      "dataset_general_identity": "Harman International Industries",
+      "official_terminal_date": "2017-03-13",
+      "rationale": "Official transaction evidence fixes Harman at 112 USD per share immediately before delisting. The dataset ranges from 2,170 to 35,618 and contains recurrent OHLC contradictions, so even the pre-acquisition trajectory has the wrong scale or security mapping.",
+      "sources": [
+        {
+          "title": "SEC press release — Samsung completes Harman acquisition",
+          "url": "https://www.sec.gov/Archives/edgar/data/800459/000119312517078968/d184457dex991.htm",
+          "claim": "Harman shareholders received 112 USD per share and NYSE:HAR ceased trading before 2017-03-13."
+        },
+        {
+          "title": "Samsung Newsroom — Harman acquisition completion",
+          "url": "https://news.samsung.com/kr/%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90-%EB%AF%B8%EA%B5%AD-%ED%95%98%EB%A7%8C-%EC%9D%B8%EC%88%98-%EC%99%84%EB%A3%8C",
+          "claim": "Samsung independently confirms completion and the 112 USD cash consideration."
+        }
+      ]
+    }
+  ]
+}

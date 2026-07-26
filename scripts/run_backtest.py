@@ -18,10 +18,13 @@ from alpharank.backtest import (
     run_backtest_from_learning,
     run_learning_phase,
 )
+from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-LEGACY_DATA_QUALITY_EXCLUDED_TICKERS = ("SII.US", "CBE.US", "TIE.US","CPWR.US")
+LEGACY_DATA_QUALITY_EXCLUDED_TICKERS = (
+    load_ticker_exclusion_registry().excluded_tickers
+)
 
 DEFAULT_LEARNING_KPI_COLUMNS = (
     "fold",

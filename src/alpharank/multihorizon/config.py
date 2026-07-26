@@ -4,6 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple
 
+from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+
+
+DEFAULT_HISTORICAL_EXCLUDED_TICKERS = (
+    load_ticker_exclusion_registry().excluded_tickers
+)
+
 
 @dataclass(frozen=True)
 class MultiHorizonConfig:
@@ -34,13 +41,7 @@ class MultiHorizonConfig:
     shap_top_features: int = 30
     save_research_frame: bool = False
     feature_mode: str = "broad"
-    excluded_tickers: Tuple[str, ...] = (
-        "SII.US",
-        "CBE.US",
-        "TIE.US",
-        "CPWR.US",
-        "BMC.US",
-    )
+    excluded_tickers: Tuple[str, ...] = DEFAULT_HISTORICAL_EXCLUDED_TICKERS
     minimum_monthly_price_observations: int = 1
     minimum_monthly_median_dollar_volume: float = 0.0
     maximum_monthly_ohlc_violation_rate: float = 1.0

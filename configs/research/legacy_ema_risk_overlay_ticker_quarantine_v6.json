@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "research_id": "legacy_ema_risk_overlay_ticker_quarantine_v6",
+  "status": "full_trajectory_ticker_quarantine_replay",
+  "data": {
+    "input_snapshot": "outputs/2026-07-13/runs/20260713_201639/input_snapshot",
+    "legacy_detailed_returns": "outputs/2026-07-13/runs/20260713_201639/legacy_detailed_returns_polars.parquet",
+    "legacy_monthly_returns": "outputs/2026-07-13/runs/20260713_201639/legacy_monthly_returns_polars.parquet",
+    "ticker_exclusion_registry": "configs/data_quality/historical_ticker_exclusions_v1.json",
+    "excluded_tickers": [
+      "SII.US",
+      "CBE.US",
+      "TIE.US",
+      "CPWR.US",
+      "BMC.US",
+      "COL.US",
+      "GR.US",
+      "EP.US",
+      "SW.US",
+      "HAR.US"
+    ],
+    "price_integrity": {
+      "minimum_monthly_price_observations": 10,
+      "minimum_monthly_median_dollar_volume": 1000000,
+      "maximum_monthly_ohlc_violation_rate": 0.05,
+      "timing": "decision month only"
+    },
+    "exclusion_disclosure": "Every registry ticker is removed from its complete dataset trajectory before features, ranks, training, selection, and realized returns. The registry was based on price and identity integrity evidence, not on portfolio performance."
+  },
+  "alpha": {
+    "prediction_run": "outputs/multihorizon_boosting/legacy_ema_long_history_ticker_quarantine_v6_20260726",
+    "feature_mode": "legacy_winners_pit_ema_only",
+    "method": "classification",
+    "horizon_months": 6,
+    "positive_quantile": 0.9,
+    "top_n": 5,
+    "num_boost_round": 100,
+    "random_seed": 42
+  },
+  "risk_heads": {
+    "feature_mode": "legacy_winners_pit_ema_only",
+    "horizons_months": [1, 3, 6],
+    "continuous_targets": [
+      "future_realized_volatility",
+      "future_daily_downside"
+    ],
+    "classification_target": "future_realized_volatility_cross_sectional_top_20pct",
+    "num_boost_round": 100,
+    "primary_allocation_horizon_months": 3,
+    "selection_disclosure": "Frozen v4 alpha, risk-head, and allocation definitions retrained after applying registry historical_ticker_exclusions_v1 before any cross-sectional or temporal computation."
+  },
+  "validation": {
+    "start_month": "2005-01",
+    "min_train_months": 62,
+    "validation_months": 6,
+    "test_months": 12,
+    "step_months": 12,
+    "include_partial_final_test_window": true,
+    "outer_protocol": "expanding 6-month-purged walk-forward shared by alpha and all risk heads",
+    "preprocessing": "fit inside each outer fold",
+    "feature_selection": "only Legacy EMA winners observable through the outer training cutoff"
+  },
+  "allocations": [
+    {
+      "id": "alpha_top5_equal",
+      "selection": "top 5 by frozen raw alpha score",
+      "weighting": "equal"
+    },
+    {
+      "id": "alpha_top5_inverse_vol_h3",
+      "selection": "same top 5 by frozen raw alpha score",
+      "weighting": "inverse predicted 3-month realized volatility",
+      "maximum_stock_weight": 0.3
+    },
+    {
+      "id": "alpha_top5_inverse_vol_h3_sector2",
+      "selection": "alpha rank with at most 2 names per sector",
+      "weighting": "inverse predicted 3-month realized volatility",
+      "maximum_stock_weight": 0.3,
+      "maximum_names_per_sector": 2,
+      "maximum_sector_weight": 0.4
+    }
+  ],
+  "trading": {
+    "rebalance": "monthly",
+    "realized_return": "next month",
+    "transaction_cost_bps_times_turnover": 10,
+    "cost_sensitivity_bps": [0, 10, 25, 50, 100]
+  },
+  "acceptance_gates_vs_equal_weight": {
+    "sharpe_strictly_higher": true,
+    "max_drawdown_improvement_percentage_points": 5,
+    "maximum_cagr_loss_percentage_points": 3,
+    "maximum_sector_weight": 0.4,
+    "must_remain_robust_at_bps": 50
+  }
+}

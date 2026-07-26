@@ -21,6 +21,11 @@ import polars as pl
 
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
+from alpharank.data.ticker_integrity import (
+    exclude_tickers_from_frame,
+    load_ticker_exclusion_registry,
+    normalize_tickers,
+)
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.utils.frame_backend import normalize_year_month_to_period, to_pandas, to_polars
@@ -499,6 +504,7 @@ def run_pipeline(
     checkpoints_dir: Optional[Path] = None,
     final_price_path: Optional[Path] = None,
     sp500_price_path: Optional[Path] = None,
+    ticker_exclusion_registry: Optional[Path] = None,
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).parent.parent
@@ -532,6 +538,18 @@ def run_pipeline(
     input_files = _input_files(data_dir)
     payload = _load_data(data_dir)
     latest_snapshot = load_latest_manifest(data_dir)
+    audited_registry = (
+        load_ticker_exclusion_registry(ticker_exclusion_registry)
+        if ticker_exclusion_registry is not None
+        else None
+    )
+    legacy_exclusions = ("SII.US", "CBE.US", "TIE.US")
+    ticker_to_exclude = normalize_tickers(
+        (
+            *legacy_exclusions,
+            *(audited_registry.excluded_tickers if audited_registry else ()),
+        )
+    )
     run_config = {
         "backend": backend,
         "n_trials": n_trials,
@@ -542,6 +560,18 @@ def run_pipeline(
         "run_output_dir": str(run_day_dir.resolve()),
         "source_input_files": {name: str(path.resolve()) for name, path in source_input_files.items()},
         "source_input_sha256": {name: _sha256_path(path) for name, path in source_input_files.items()},
+        "excluded_tickers": list(ticker_to_exclude),
+        "ticker_exclusion_registry": (
+            str(audited_registry.path) if audited_registry is not None else None
+        ),
+        "ticker_exclusion_registry_id": (
+            audited_registry.registry_id if audited_registry is not None else None
+        ),
+        "ticker_exclusion_registry_sha256": (
+            _sha256_path(audited_registry.path)
+            if audited_registry is not None
+            else None
+        ),
     }
     manifest_extra = _manifest_extra_context(
         data_dir=data_dir,
@@ -577,13 +607,21 @@ def run_pipeline(
     sp500_price = payload["sp500_price"]
 
     print(f"Preprocessing ({backend})...")
-    ticker_to_exclude = ["SII.US", "CBE.US", "TIE.US"]
-    final_price = final_price.filter(~pl.col("ticker").is_in(ticker_to_exclude))
-    general = general.filter(~pl.col("ticker").is_in(ticker_to_exclude))
-    income_statement = income_statement.filter(~pl.col("ticker").is_in(ticker_to_exclude))
-    balance_sheet = balance_sheet.filter(~pl.col("ticker").is_in(ticker_to_exclude))
-    cash_flow = cash_flow.filter(~pl.col("ticker").is_in(ticker_to_exclude))
-    earnings = earnings.filter(~pl.col("ticker").is_in(ticker_to_exclude))
+    print(
+        "Full-trajectory ticker exclusions: "
+        + ", ".join(ticker_to_exclude)
+    )
+    final_price = exclude_tickers_from_frame(final_price, ticker_to_exclude)
+    general = exclude_tickers_from_frame(general, ticker_to_exclude)
+    income_statement = exclude_tickers_from_frame(income_statement, ticker_to_exclude)
+    balance_sheet = exclude_tickers_from_frame(balance_sheet, ticker_to_exclude)
+    cash_flow = exclude_tickers_from_frame(cash_flow, ticker_to_exclude)
+    earnings = exclude_tickers_from_frame(earnings, ticker_to_exclude)
+    us_historical_company = exclude_tickers_from_frame(
+        us_historical_company,
+        ticker_to_exclude,
+        ticker_column="Ticker",
+    )
 
     final_price = final_price.with_columns(
         pl.col("date").cast(pl.Date, strict=False).dt.truncate("1mo").alias("year_month")
@@ -1028,12 +1066,18 @@ def main(
     checkpoints_dir: str | Path = "outputs/checkpoints",
     final_price_path: str | Path | None = None,
     sp500_price_path: str | Path | None = None,
+    ticker_exclusion_registry: str | Path | None = None,
 ) -> None:
     checkpoints_dir = Path(checkpoints_dir).expanduser().resolve()
     data_dir = Path(data_dir).expanduser().resolve() if data_dir else None
     output_dir = Path(output_dir).expanduser().resolve() if output_dir else None
     final_price_path = Path(final_price_path).expanduser().resolve() if final_price_path else None
     sp500_price_path = Path(sp500_price_path).expanduser().resolve() if sp500_price_path else None
+    ticker_exclusion_registry = (
+        Path(ticker_exclusion_registry).expanduser().resolve()
+        if ticker_exclusion_registry
+        else None
+    )
 
     out = run_pipeline(
         n_trials=n_trials,
@@ -1045,6 +1089,7 @@ def main(
         checkpoints_dir=checkpoints_dir,
         final_price_path=final_price_path,
         sp500_price_path=sp500_price_path,
+        ticker_exclusion_registry=ticker_exclusion_registry,
     )
     print("Artifacts:")
     for k, v in out.artifacts.items():
@@ -1089,6 +1134,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoints-dir", default="outputs/checkpoints")
     parser.add_argument("--final-price-path")
     parser.add_argument("--sp500-price-path")
+    parser.add_argument(
+        "--ticker-exclusion-registry",
+        help="Optional versioned registry whose exclude_all_dates tickers are removed from the complete run.",
+    )
     parser.add_argument("--log-dir", default="logs/legacy_runs")
     parser.add_argument("--no-log", action="store_true", help="Disable automatic CLI log capture.")
     return parser.parse_args()
@@ -1106,6 +1155,7 @@ def _run_cli() -> None:
         "checkpoints_dir": args.checkpoints_dir,
         "final_price_path": args.final_price_path,
         "sp500_price_path": args.sp500_price_path,
+        "ticker_exclusion_registry": args.ticker_exclusion_registry,
     }
     if args.no_log:
         main(**kwargs)

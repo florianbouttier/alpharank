@@ -9,6 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.multihorizon import MultiHorizonConfig, run_multihorizon_research
 
 
@@ -56,7 +57,7 @@ def main() -> None:
     parser.add_argument(
         "--excluded-tickers",
         type=_strings,
-        default=("SII.US", "CBE.US", "TIE.US", "CPWR.US", "BMC.US"),
+        default=load_ticker_exclusion_registry().excluded_tickers,
         help="Comma-separated tickers excluded for documented price integrity.",
     )
     parser.add_argument(
