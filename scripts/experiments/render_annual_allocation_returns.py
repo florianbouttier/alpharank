@@ -176,9 +176,29 @@ def render_report(annual: pl.DataFrame, output_path: Path) -> None:
     h1 {{ max-width:980px; margin:8px 0 18px; font-size:clamp(36px,6vw,68px);
       line-height:1.02; letter-spacing:-.045em; }}
     h2 {{ margin:48px 0 12px; font-size:28px; letter-spacing:-.025em; }}
+    h3 {{ margin:0 0 8px; font-size:19px; letter-spacing:-.015em; }}
     .lede {{ max-width:860px; color:var(--muted); font-size:18px; }}
     .note {{ margin:26px 0; padding:20px 22px; background:#eaf2f6;
       border-left:4px solid var(--blue); border-radius:8px; }}
+    .method-grid {{ display:grid; grid-template-columns:repeat(3,1fr);
+      gap:14px; margin:18px 0; }}
+    .method-card {{ padding:20px; background:var(--card);
+      border:1px solid var(--line); border-radius:12px; }}
+    .method-card p {{ margin:0; color:var(--muted); }}
+    .method-card strong {{ color:var(--ink); }}
+    .links {{ display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 30px; }}
+    .links a {{ display:inline-block; padding:8px 12px; color:var(--blue);
+      background:var(--card); border:1px solid var(--line); border-radius:999px;
+      font-weight:750; text-decoration:none; }}
+    .flow {{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px;
+      margin:18px 0 28px; }}
+    .flow div {{ position:relative; padding:15px; background:#edf3f6;
+      border-radius:10px; font-size:13px; }}
+    .flow b {{ display:block; margin-bottom:4px; color:var(--blue); }}
+    .method-table {{ max-height:none; margin-top:18px; }}
+    .method-table table {{ min-width:1080px; }}
+    .method-table th,.method-table td {{ text-align:left; white-space:normal; }}
+    .method-table td:first-child {{ min-width:150px; font-weight:800; }}
     .table-wrap {{ overflow:auto; max-height:78vh; background:var(--card);
       border:1px solid var(--line); border-radius:12px; }}
     table {{ width:100%; min-width:1310px; border-collapse:separate;
@@ -209,6 +229,7 @@ def render_report(annual: pl.DataFrame, output_path: Path) -> None:
     @media(max-width:760px) {{
       main {{ padding:30px 14px 60px; }}
       h2 {{ margin-top:40px; }}
+      .method-grid,.flow {{ grid-template-columns:1fr; }}
       .year {{ min-width:62px; }}
       .months {{ left:62px; }}
     }}
@@ -220,10 +241,130 @@ def render_report(annual: pl.DataFrame, output_path: Path) -> None:
   <p class="lede">Rendements mensuels composés sur août 2011–novembre 2025.
   Les allocations ML sont nettes de 10 pb multipliés par le turnover. Legacy
   et SPY sont les séries publiées sur le même calendrier.</p>
+  <nav class="links">
+    <a href="risk_results_paper.html">Résultats modèles, risque et SHAP</a>
+    <a href="methodology_paper.html">Méthodologie complète</a>
+  </nav>
   <div class="note"><strong>Lecture prudente.</strong> 2011 ne contient que
   cinq mois et 2025 onze mois. Les années supérieures à 100 % sont correctement
   recomposées depuis le run, mais restent diagnostiques tant que l'univers
   historique des constituants n'est pas entièrement réparé.</div>
+
+  <h2>Ce que signifie « Alpha égal »</h2>
+  <div class="method-grid">
+    <article class="method-card">
+      <h3>Signal alpha</h3>
+      <p>Un <strong>classifieur XGBoost</strong> estime si une action fera partie
+      des 10 % de meilleures surperformances relatives au S&amp;P 500 sur les
+      six mois suivants. Le portefeuille est classé avec le score brut du
+      modèle.</p>
+    </article>
+    <article class="method-card">
+      <h3>Sélection</h3>
+      <p>À chaque fin de mois, les <strong>cinq actions au score alpha le plus
+      élevé</strong> sont retenues. Le score de risque ne change jamais cet
+      ordre, sauf la variante avec contrainte sectorielle.</p>
+    </article>
+    <article class="method-card">
+      <h3>Pondération égale</h3>
+      <p>« Égal » signifie simplement <strong>20 % par action</strong> pour les
+      cinq titres sélectionnés. C'est la référence permettant de mesurer si les
+      pondérations de risque apportent réellement quelque chose.</p>
+    </article>
+  </div>
+
+  <h2>Pipeline exact du modèle</h2>
+  <div class="flow">
+    <div><b>1 · Univers causal</b>Quarantaine complète des 10 tickers audités,
+      puis filtres de liquidité et cohérence OHLC connus au mois de décision.</div>
+    <div><b>2 · Variables</b>Uniquement les EMA gagnantes de Legacy disponibles
+      au cutoff d'entraînement : 40 paires relatives, 309 variables candidates.
+      Aucun fondamental dans ce run.</div>
+    <div><b>3 · Cible</b>Top 10 % cross-sectionnel du rendement composé à six
+      mois de l'action relativement au rendement composé du S&amp;P 500.</div>
+    <div><b>4 · Validation</b>Walk-forward expanding : 62 mois minimum de train,
+      6 mois de validation, purge de 6 mois, 12 mois de test, pas de mélange
+      temporel.</div>
+    <div><b>5 · Trading</b>Décision en t, rendement détenu en t+1, rééquilibrage
+      mensuel et coût de 10 pb multiplié par le turnover.</div>
+  </div>
+  <div class="note"><strong>Probabilité et classement.</strong> Le modèle produit
+  une probabilité brute XGBoost et une probabilité calibrée par régression
+  isotone pour les diagnostics. Le choix des cinq actions utilise le
+  <strong>score brut</strong>, afin de préserver l'ordre appris ; la probabilité
+  calibrée n'est pas utilisée pour pondérer le portefeuille.</div>
+
+  <h2>Définition de toutes les méthodes</h2>
+  <div class="table-wrap method-table">
+    <table>
+      <thead><tr><th>Nom affiché</th><th>Sélection des titres</th>
+        <th>Pondération</th><th>Rôle</th></tr></thead>
+      <tbody>
+        <tr><td>Legacy</td><td>Portefeuille déterministe
+          <code>Combined_Frequency</code> publié.</td><td>Fréquence de sélection
+          par les quatre blocs Legacy, puis normalisation.</td><td>Baseline
+          historique.</td></tr>
+        <tr><td>SPY</td><td>Aucune sélection d'actions.</td><td>100 % SPY,
+          adjusted close avec dividendes réinvestis.</td><td>Benchmark marché.</td></tr>
+        <tr><td>Alpha égal</td><td>Top 5 du score brut du classifieur alpha
+          six mois.</td><td>20 % par titre.</td><td>Référence ML sans intervention
+          du modèle de risque.</td></tr>
+        <tr><td>Vol 1m / 3m / 6m</td><td>Même top 5 alpha.</td><td>Inverse de la
+          volatilité future prédite à l'horizon indiqué ; poids maximal de
+          30 % par titre.</td><td>Réduire l'exposition aux titres annoncés comme
+          les plus volatils.</td></tr>
+        <tr><td>Down 1m / 3m / 6m</td><td>Même top 5 alpha.</td><td>Inverse du
+          downside journalier futur prédit à l'horizon indiqué ; poids maximal
+          de 30 %.</td><td>Réduire le poids des titres dont les rendements
+          négatifs futurs sont annoncés comme les plus violents.</td></tr>
+        <tr><td>Vol 3m + secteur</td><td>Parcourt le classement alpha et garde
+          au maximum deux titres par secteur.</td><td>Inverse de la volatilité
+          trois mois prédite, maximum 30 % par titre et 40 % par secteur.</td>
+          <td>Tester diversification et concentration sectorielle.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="lede">Les têtes de risque sont des XGBoost séparés entraînés sur les
+  mêmes variables EMA. Elles prédisent la volatilité réalisée ou le downside
+  journalier strictement futurs à 1, 3 ou 6 mois. Chaque mois futur exige au
+  moins dix observations journalières. Elles ne choisissent pas les actions :
+  elles modifient seulement les poids du top 5 alpha.</p>
+
+  <h2>Fiche technique des boosters</h2>
+  <div class="table-wrap method-table">
+    <table>
+      <thead><tr><th>Modèle</th><th>Cible</th><th>Paramètres principaux</th>
+        <th>Usage dans le portefeuille</th><th>Résultat hors échantillon</th></tr></thead>
+      <tbody>
+        <tr><td>Alpha</td><td>Classification : action dans le top 10 % du
+          rendement relatif futur à six mois.</td><td>XGBoost, 100 rounds
+          maximum, early stopping 25, profondeur 5, eta 0,04,
+          min-child-weight 20, subsample 0,80, colsample 0,75, L2 5, L1 0,2,
+          seed 42.</td><td>Classe toutes les actions ; le top 5 forme chaque
+          portefeuille.</td><td>15 folds, 76 534 observations test, ROC AUC
+          0,589, PR AUC 0,156, lift PR 1,535×, Brier 0,091.</td></tr>
+        <tr><td>Risque continu</td><td>Régression du log de la volatilité
+          réalisée ou du downside journalier futurs, winsorisés aux quantiles
+          1 % et 99 % du train.</td><td>Mêmes hyperparamètres XGBoost et même
+          géométrie walk-forward que l'alpha.</td><td>Pondération inverse du
+          risque prédit ; ne change pas la sélection alpha.</td><td>Spearman
+          mensuel de 0,302 à 0,401 selon cible et horizon.</td></tr>
+        <tr><td>Risque élevé</td><td>Classification : top 20 % cross-sectionnel
+          de volatilité future.</td><td>XGBoost avec calibration isotone sur la
+          validation.</td><td>Diagnostic seulement, non utilisé pour les poids
+          présentés dans ce tableau.</td><td>ROC AUC de 0,735 à 0,767 ; PR AUC
+          de 0,484 à 0,536.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><strong>Garde-fou de conclusion.</strong> Aucune variante
+  de pondération risque ne passe simultanément tous les critères
+  pré-enregistrés face à Alpha égal : Sharpe strictement supérieur,
+  amélioration du drawdown d'au moins cinq points, perte de CAGR limitée à
+  trois points, concentration sectorielle maximale de 40 % et robustesse à
+  50 pb de coûts.</div>
+
+  <h2>Résultats annuels</h2>
   <div class="legend">
     <span><i class="swatch positive"></i>rendement positif</span>
     <span><i class="swatch negative"></i>rendement négatif</span>
