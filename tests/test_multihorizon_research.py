@@ -8,6 +8,7 @@ import pytest
 
 from alpharank.multihorizon.data import _add_multihorizon_targets
 from alpharank.multihorizon.data import _append_legacy_labels
+from alpharank.multihorizon.data import _point_in_time_price_eligibility
 from alpharank.multihorizon.legacy_ema import (
     add_active_legacy_oracle_features,
     legacy_winning_pairs,
@@ -51,6 +52,35 @@ def test_future_target_requires_an_exact_calendar_gap() -> None:
     result = _add_multihorizon_targets(stock, index, [1])
     assert result["future_return_1m"].to_list()[0] == pytest.approx(0.1)
     assert result["future_return_1m"].to_list()[1:] == [None, None]
+
+
+def test_price_eligibility_is_month_local_and_rejects_bad_ohlc() -> None:
+    prices = pl.DataFrame(
+        {
+            "ticker": ["A.US"] * 4,
+            "date": [
+                date(2020, 1, 2),
+                date(2020, 1, 3),
+                date(2020, 2, 3),
+                date(2020, 2, 4),
+            ],
+            "adjusted_close": [10.0, 10.1, 10.2, 10.3],
+            "close": [10.0, 10.1, 10.2, 10.3],
+            "open": [9.9, 10.0, 10.1, 20.0],
+            "high": [10.1, 10.2, 10.3, 10.4],
+            "low": [9.8, 9.9, 10.0, 10.1],
+            "volume": [200_000.0] * 4,
+        }
+    )
+
+    eligibility = _point_in_time_price_eligibility(
+        prices,
+        minimum_observations=2,
+        minimum_median_dollar_volume=1_000_000.0,
+        maximum_ohlc_violation_rate=0.25,
+    ).sort("decision_month")
+
+    assert eligibility["_price_eligible"].to_list() == [True, False]
 
 
 def test_preprocessor_uses_train_only_median_after_monthly_fill() -> None:

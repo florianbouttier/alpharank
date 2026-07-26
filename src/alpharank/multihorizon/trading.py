@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable
+from datetime import date, datetime
 
 import numpy as np
 import polars as pl
@@ -86,6 +87,66 @@ def performance_statistics(returns: np.ndarray) -> dict[str, float]:
         "sharpe": sharpe,
         "max_drawdown": max_drawdown,
         "positive_month_rate": float(np.mean(clean > 0.0)),
+    }
+
+
+def legacy_report_statistics(
+    returns: np.ndarray,
+    *,
+    holding_months: Iterable[date | datetime | np.datetime64],
+    risk_free_rate: float = 0.02,
+) -> dict[str, float | int]:
+    """Return performance metrics using the canonical Legacy report convention.
+
+    The Legacy HTML reports define Sharpe as ``(CAGR - risk_free_rate) /
+    annualized_volatility``. The worst year is restricted to full calendar
+    years so partial boundary years cannot make strategies look artificially
+    better or worse.
+    """
+
+    values = np.asarray(returns, dtype=float)
+    months = np.asarray(list(holding_months))
+    if values.size != months.size:
+        raise ValueError("returns and holding_months must have the same length")
+    valid = np.isfinite(values) & ~np.isnat(months.astype("datetime64[ns]"))
+    values = values[valid]
+    months = months[valid].astype("datetime64[M]")
+    base = performance_statistics(values)
+    volatility = float(base["annualized_volatility"])
+    canonical_sharpe = (
+        float((float(base["cagr"]) - risk_free_rate) / volatility)
+        if volatility > 0.0
+        else float("nan")
+    )
+
+    annual_returns: list[tuple[int, float]] = []
+    if values.size:
+        years = months.astype("datetime64[Y]").astype(int) + 1970
+        month_numbers = (
+            months.astype(int) - months.astype("datetime64[Y]").astype(int) * 12
+        ) + 1
+        for year in np.unique(years):
+            in_year = years == year
+            if set(month_numbers[in_year].tolist()) != set(range(1, 13)):
+                continue
+            annual_returns.append(
+                (int(year), float(np.prod(1.0 + values[in_year]) - 1.0))
+            )
+    if annual_returns:
+        worst_year, worst_year_return = min(
+            annual_returns,
+            key=lambda item: item[1],
+        )
+    else:
+        worst_year, worst_year_return = -1, float("nan")
+
+    return {
+        **base,
+        "sharpe": canonical_sharpe,
+        "risk_free_rate": float(risk_free_rate),
+        "worst_full_calendar_year": worst_year,
+        "worst_full_calendar_year_return": worst_year_return,
+        "full_calendar_years": len(annual_returns),
     }
 
 

@@ -165,6 +165,9 @@ def _shell(
     status: str,
     body: str,
     current: str,
+    research_id: str,
+    snapshot_label: str,
+    period_label: str,
 ) -> str:
     navigation = [
         ("index.html", "Synthèse"),
@@ -307,26 +310,30 @@ def _shell(
   <aside>
     <div class="brand"><b>AlphaRank</b><span>Research monitor</span></div>
     <nav>{nav}</nav>
-    <div class="focus"><span class="mono">FOCUS</span><strong>Exact EMA · Risk heads v1</strong><span>172 mois OOS · 15 folds</span></div>
+    <div class="focus"><span class="mono">FOCUS</span><strong>Exact EMA · Risk heads</strong><span>172 mois OOS · 15 folds</span></div>
   </aside>
   <main>
     <header>
       <div>
-        <p class="eyebrow">Recherche boosting · 25 juillet 2026</p>
+        <p class="eyebrow">Recherche boosting · audit du 26 juillet 2026</p>
         <h1>{html.escape(title)}</h1>
         <p>{html.escape(subtitle)}</p>
       </div>
-      <div class="badges"><span class="badge no-go">{html.escape(status)}</span><span class="badge">2011-07 → 2025-10</span><span class="badge">S&amp;P 500</span></div>
+      <div class="badges"><span class="badge no-go">{html.escape(status)}</span><span class="badge">{html.escape(period_label)}</span><span class="badge">Legacy + SPY</span></div>
     </header>
     {body}
-    <footer>legacy_ema_risk_overlay_long_history_v1 · snapshot 20260719_194418 · rapport reproductible</footer>
+    <footer>{html.escape(research_id)} · snapshot {html.escape(snapshot_label)} · package rejouable · audit sémantique ouvert</footer>
   </main>
 </div>
 </body>
 </html>"""
 
 
-def _results_page(output_dir: Path) -> str:
+def _results_page(
+    output_dir: Path,
+    specification: dict,
+    manifest: dict,
+) -> str:
     metrics = pl.read_csv(output_dir / "risk_model_metrics.csv")
     performance = pl.read_csv(
         output_dir / "allocation_performance.csv",
@@ -338,6 +345,14 @@ def _results_page(output_dir: Path) -> str:
     )
     gates = pl.read_csv(output_dir / "allocation_acceptance_gates.csv")
     bootstrap = pl.read_csv(output_dir / "allocation_paired_bootstrap.csv")
+    canonical = pl.read_csv(
+        output_dir / "allocation_performance_legacy_convention.csv",
+        try_parse_dates=True,
+    )
+    reference_windows = pl.read_csv(
+        output_dir / "reference_performance_windows.csv",
+        try_parse_dates=True,
+    )
     vol3 = metrics.filter(
         (pl.col("head") == "realized_volatility")
         & (pl.col("horizon") == 3)
@@ -383,8 +398,12 @@ def _results_page(output_dir: Path) -> str:
         "alpha_top5_inverse_vol_h1",
         "alpha_top5_inverse_vol_h3",
         "alpha_top5_inverse_vol_h6",
+        "alpha_top5_inverse_downside_h1",
+        "alpha_top5_inverse_downside_h3",
         "alpha_top5_inverse_downside_h6",
         "alpha_top5_inverse_vol_h3_sector2",
+        "Legacy",
+        "SPY total return",
     ]
     performance_rows: list[list[str]] = []
     labels = {
@@ -392,20 +411,46 @@ def _results_page(output_dir: Path) -> str:
         "alpha_top5_inverse_vol_h1": "Inverse vol · 1m",
         "alpha_top5_inverse_vol_h3": "Inverse vol · 3m (primaire)",
         "alpha_top5_inverse_vol_h6": "Inverse vol · 6m",
+        "alpha_top5_inverse_downside_h1": "Inverse downside · 1m",
+        "alpha_top5_inverse_downside_h3": "Inverse downside · 3m",
         "alpha_top5_inverse_downside_h6": "Inverse downside · 6m",
         "alpha_top5_inverse_vol_h3_sector2": "Vol 3m + secteur",
+        "Legacy": "Legacy · Combined Frequency",
+        "SPY total return": "SPY · dividendes réinvestis",
     }
     for name in performance_names:
-        row = performance.filter(pl.col("strategy") == name).row(0, named=True)
+        row = canonical.filter(pl.col("series") == name).row(0, named=True)
         performance_rows.append(
             [
                 labels[name],
-                _pct(row["model_cagr"]),
-                _number(row["model_sharpe"]),
-                _pct(row["model_annualized_volatility"]),
-                _pct(row["model_max_drawdown"]),
-                _pct(row["average_turnover"]),
-                _pct(row["maximum_sector_weight"]),
+                _pct(row["cagr"]),
+                _number(row["sharpe"]),
+                _pct(row["annualized_volatility"]),
+                _pct(row["max_drawdown"]),
+                str(row["worst_full_calendar_year"]),
+                _pct(row["worst_full_calendar_year_return"]),
+            ]
+        )
+    history_rows: list[list[str]] = []
+    window_labels = {
+        "full_snapshot_common": "Snapshot complet commun",
+        "ml_common": "Fenêtre comparable au ML",
+        "legacy_report_2015_2026": "Fenêtre historique 2015–2026",
+    }
+    for row in reference_windows.sort(["window", "series"]).to_dicts():
+        history_rows.append(
+            [
+                window_labels[row["window"]],
+                row["series"].replace(
+                    "SPY total return",
+                    "SPY · dividendes réinvestis",
+                ),
+                f'{row["start_holding_month"]:%Y-%m} → '
+                f'{row["end_holding_month"]:%Y-%m}',
+                str(row["months"]),
+                _pct(row["cagr"], 2),
+                _number(row["sharpe"]),
+                _pct(row["max_drawdown"]),
             ]
         )
 
@@ -491,6 +536,35 @@ def _results_page(output_dir: Path) -> str:
         (pl.col("strategy") == "alpha_top5_inverse_vol_h3")
         & (pl.col("comparator") == "alpha_top5_equal")
     ).row(0, named=True)
+    baseline_canonical = canonical.filter(
+        pl.col("series") == "alpha_top5_equal"
+    ).row(0, named=True)
+    overlay_canonical = canonical.filter(
+        pl.col("series") == "alpha_top5_inverse_vol_h3"
+    ).row(0, named=True)
+    drawdown_improvement_pp = (
+        overlay_canonical["max_drawdown"]
+        - baseline_canonical["max_drawdown"]
+    ) * 100.0
+    cagr_loss_pp = (
+        baseline_canonical["cagr"] - overlay_canonical["cagr"]
+    ) * 100.0
+    sharpe_gain = (
+        overlay_canonical["sharpe"] - baseline_canonical["sharpe"]
+    )
+    drawdown_sentence = (
+        f"améliore le drawdown de {drawdown_improvement_pp:.2f} points"
+        if drawdown_improvement_pp >= 0.0
+        else (
+            "dégrade le drawdown de "
+            f"{abs(drawdown_improvement_pp):.2f} point"
+        )
+    )
+    cagr_sentence = (
+        f"perd {cagr_loss_pp:.2f} point de CAGR"
+        if cagr_loss_pp >= 0.0
+        else f"gagne {abs(cagr_loss_pp):.2f} point de CAGR"
+    )
     gate_rows = [
         [
             row["strategy"].replace("alpha_top5_", ""),
@@ -526,6 +600,13 @@ def _results_page(output_dir: Path) -> str:
   <div class="callout bad"><strong>Verdict : modèles de risque utiles, allocation non validée.</strong><p>Le booster apprend un signal de volatilité stable, mais le sizing inverse-vol ne prouve pas une amélioration économique face au top 5 équipondéré. Le filtre sectoriel coûte trop de rendement.</p></div>
 </section>
 <section>
+  <h2>Réconciliation du chiffre Legacy</h2>
+  <p class="section-lede">Le CAGR supérieur à 20 % et le CAGR de la comparaison ML sont tous les deux exacts, mais ils ne portent pas sur la même période. SPY est ici calculé partout sur adjusted close, dividendes réinvestis.</p>
+  {_table(["Fenêtre","Série","Holding","Mois","CAGR","Sharpe Legacy","Drawdown"], history_rows)}
+  <div class="callout"><strong>Conclusion de l’audit.</strong><p>Le snapshot validé donne 23,33 % de CAGR à Legacy sur février 2010–mai 2026. La fenêtre que le modèle peut réellement couvrir s’arrête en novembre 2025 et ramène Legacy à 16,43 %. Il ne s’agit pas d’une autre méthode Legacy, mais d’un effet de fenêtre particulièrement fort.</p></div>
+  <div class="callout bad"><strong>Validation sémantique des données non acquise.</strong><p>Le package passe le validateur de replay, mais le contrôle économique trouve des réutilisations de tickers et un historique de constituants imparfait : 526 noms sont présents dès janvier 1990 et Smurfit Westrock y apparaît avant sa création. Le filtre prix/liquidité retire les séries manifestement non tradables du ML, sans reconstruire l’appartenance historique de l’indice. Les performances restent donc des diagnostics de recherche, pas une preuve de supériorité.</p></div>
+</section>
+<section>
   <h2>Qualité des têtes de risque</h2>
   <p class="section-lede">Toutes les métriques sont calculées sur les mêmes 172 mois hors échantillon. La classification vise le quintile de volatilité future le plus élevé.</p>
   {_table(["Horizon","Vol Spearman","Vol R²","Downside Spearman","Downside R²","High-vol ROC","High-vol PR"], risk_rows)}
@@ -533,8 +614,9 @@ def _results_page(output_dir: Path) -> str:
 <section>
   <h2>Résultat portefeuille</h2>
   <p class="section-lede">Le classement alpha reste intact. Le risque ne sert qu’au poids, sauf dans la variante sectorielle explicitement contrainte.</p>
-  {_table(["Stratégie","CAGR net","Sharpe","Vol. ann.","Drawdown","Turnover","Secteur max"], performance_rows)}
-  <div class="callout"><strong>Lecture.</strong><p>L’inverse-vol 3 mois améliore le drawdown de 3,63 points et le Sharpe de seulement 0,003, au prix de 1,91 point de CAGR. Le bootstrap apparié estime la différence de Sharpe à {_number(overlay_bootstrap["observed_sharpe_difference"])} avec un IC 95 % [{_number(overlay_bootstrap["sharpe_difference_ci_low"])}, {_number(overlay_bootstrap["sharpe_difference_ci_high"])}].</p></div>
+  {_table(["Stratégie","CAGR net","Sharpe Legacy","Vol. ann.","Drawdown","Pire année","Perf. pire année"], performance_rows)}
+  <p class="chart-meta">Même holding calendar pour toutes les lignes : août 2011–novembre 2025, 172 mois. Sharpe = (CAGR − 2 %) / volatilité annualisée. Pire année limitée aux années calendaires complètes 2012–2024.</p>
+  <div class="callout"><strong>Lecture.</strong><p>L’inverse-vol 3 mois {drawdown_sentence}, améliore le Sharpe Legacy de {_number(sharpe_gain)} et {cagr_sentence}. Le bootstrap apparié, conservé dans sa convention statistique mensuelle, estime la différence de Sharpe à {_number(overlay_bootstrap["observed_sharpe_difference"])} avec un IC 95 % [{_number(overlay_bootstrap["sharpe_difference_ci_low"])}, {_number(overlay_bootstrap["sharpe_difference_ci_high"])}].</p></div>
 </section>
 <section>
   <h2>Trajectoire de capital</h2>
@@ -570,6 +652,11 @@ def _results_page(output_dir: Path) -> str:
         status="NO-GO OVERLAY",
         body=body,
         current="Résultats",
+        research_id=specification["research_id"],
+        snapshot_label=Path(specification["data"]["input_snapshot"]).name,
+        period_label=(
+            f'{manifest["test_start"][:7]} → {manifest["test_end"][:7]}'
+        ),
     )
 
 
@@ -637,29 +724,52 @@ def _methodology_page(specification: dict, manifest: dict) -> str:
         status="PROTOCOLE AUDITÉ",
         body=body,
         current="Méthode",
+        research_id=specification["research_id"],
+        snapshot_label=Path(specification["data"]["input_snapshot"]).name,
+        period_label=(
+            f'{manifest["test_start"][:7]} → {manifest["test_end"][:7]}'
+        ),
     )
 
 
-def _index_page(output_dir: Path) -> str:
+def _index_page(
+    output_dir: Path,
+    specification: dict,
+    manifest: dict,
+) -> str:
     performance = pl.read_csv(output_dir / "allocation_performance.csv")
+    metrics = pl.read_csv(output_dir / "risk_model_metrics.csv")
+    canonical = pl.read_csv(
+        output_dir / "allocation_performance_legacy_convention.csv"
+    )
     baseline = performance.filter(
         pl.col("strategy") == "alpha_top5_equal"
     ).row(0, named=True)
     risk = performance.filter(
         pl.col("strategy") == "alpha_top5_inverse_vol_h3"
     ).row(0, named=True)
+    baseline_canonical = canonical.filter(
+        pl.col("series") == "alpha_top5_equal"
+    ).row(0, named=True)
+    risk_canonical = canonical.filter(
+        pl.col("series") == "alpha_top5_inverse_vol_h3"
+    ).row(0, named=True)
+    high3 = metrics.filter(
+        (pl.col("head") == "high_volatility")
+        & (pl.col("horizon") == 3)
+    ).row(0, named=True)
     body = f"""
 <section>
   <div class="strip">
-    <div class="panel"><div class="kpi-label">Signal de risque</div><div class="kpi-value">Oui</div><div class="kpi-note">ROC-AUC high-vol 3m : 0,783</div></div>
+    <div class="panel"><div class="kpi-label">Signal de risque</div><div class="kpi-value">Oui</div><div class="kpi-note">ROC-AUC high-vol 3m : {_number(high3["roc_auc"])}</div></div>
     <div class="panel"><div class="kpi-label">Overlay validé</div><div class="kpi-value">Non</div><div class="kpi-note">0 garde-fou complet</div></div>
-    <div class="panel"><div class="kpi-label">Sharpe égal</div><div class="kpi-value">{_number(baseline["model_sharpe"])}</div><div class="kpi-note">Top 5 équipondéré</div></div>
-    <div class="panel"><div class="kpi-label">Sharpe inverse vol</div><div class="kpi-value">{_number(risk["model_sharpe"])}</div><div class="kpi-note">Gain non significatif</div></div>
+    <div class="panel"><div class="kpi-label">Sharpe égal</div><div class="kpi-value">{_number(baseline_canonical["sharpe"])}</div><div class="kpi-note">Convention Legacy</div></div>
+    <div class="panel"><div class="kpi-label">Sharpe inverse vol</div><div class="kpi-value">{_number(risk_canonical["sharpe"])}</div><div class="kpi-note">Convention Legacy</div></div>
   </div>
 </section>
 <section>
   <h2>Conclusion en une phrase</h2>
-  <div class="callout bad"><strong>On sait désormais expliquer et quantifier le risque avec du boosting exact-EMA, mais pas encore l’utiliser pour améliorer de façon robuste le portefeuille.</strong><p>Le bon résultat de cette phase est la séparation propre alpha/risque et la preuve que l’overlay naïf ne mérite pas d’être activé.</p></div>
+    <div class="callout bad"><strong>On sait expliquer et quantifier le risque avec du boosting exact-EMA, mais le backtest n’est pas encore qualifié.</strong><p>Le filtre causal de tradabilité retire les séries manifestement corrompues. Il reste à reconstruire et valider l’identité des titres et l’appartenance historique au S&amp;P 500 avant toute conclusion de performance.</p></div>
 </section>
 <section>
   <h2>Deux papiers</h2>
@@ -685,6 +795,11 @@ def _index_page(output_dir: Path) -> str:
         status="RECHERCHE · NO-GO",
         body=body,
         current="Synthèse",
+        research_id=specification["research_id"],
+        snapshot_label=Path(specification["data"]["input_snapshot"]).name,
+        period_label=(
+            f'{manifest["test_start"][:7]} → {manifest["test_end"][:7]}'
+        ),
     )
 
 
@@ -698,11 +813,11 @@ def main() -> None:
     html_dir = args.output_dir / "html"
     html_dir.mkdir(parents=True, exist_ok=True)
     (html_dir / "index.html").write_text(
-        _index_page(args.output_dir),
+        _index_page(args.output_dir, specification, manifest),
         encoding="utf-8",
     )
     (html_dir / "risk_results_paper.html").write_text(
-        _results_page(args.output_dir),
+        _results_page(args.output_dir, specification, manifest),
         encoding="utf-8",
     )
     (html_dir / "methodology_paper.html").write_text(

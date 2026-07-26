@@ -34,7 +34,16 @@ class MultiHorizonConfig:
     shap_top_features: int = 30
     save_research_frame: bool = False
     feature_mode: str = "broad"
-    excluded_tickers: Tuple[str, ...] = ("SII.US", "CBE.US", "TIE.US", "CPWR.US")
+    excluded_tickers: Tuple[str, ...] = (
+        "SII.US",
+        "CBE.US",
+        "TIE.US",
+        "CPWR.US",
+        "BMC.US",
+    )
+    minimum_monthly_price_observations: int = 1
+    minimum_monthly_median_dollar_volume: float = 0.0
+    maximum_monthly_ohlc_violation_rate: float = 1.0
     random_seed: int = 42
     num_boost_round: int = 160
     verbose: bool = True
@@ -71,3 +80,13 @@ class MultiHorizonConfig:
                 f"expected one of {sorted(allowed_feature_modes)}."
             )
         object.__setattr__(self, "feature_mode", normalized_feature_mode)
+        if self.minimum_monthly_price_observations < 1:
+            raise ValueError("minimum_monthly_price_observations must be positive.")
+        if self.minimum_monthly_median_dollar_volume < 0.0:
+            raise ValueError(
+                "minimum_monthly_median_dollar_volume cannot be negative."
+            )
+        if not 0.0 <= self.maximum_monthly_ohlc_violation_rate <= 1.0:
+            raise ValueError(
+                "maximum_monthly_ohlc_violation_rate must be between 0 and 1."
+            )

@@ -6,7 +6,7 @@ import hashlib
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +31,10 @@ from alpharank.multihorizon.risk import (
     score_risk_predictions,
 )
 from alpharank.multihorizon.splits import horizon_walk_forward_windows
-from alpharank.multihorizon.trading import performance_statistics
+from alpharank.multihorizon.trading import (
+    legacy_report_statistics,
+    performance_statistics,
+)
 
 
 def _sha256(path: Path) -> str:
@@ -138,6 +141,141 @@ def _performance_rows(monthly: pl.DataFrame) -> pl.DataFrame:
     return pl.DataFrame(rows).sort("strategy")
 
 
+def _legacy_convention_performance_rows(monthly: pl.DataFrame) -> pl.DataFrame:
+    """Compare every allocation and both references on one holding calendar."""
+
+    rows: list[dict] = []
+    for strategy_frame in monthly.partition_by("strategy", maintain_order=True):
+        strategy = str(strategy_frame["strategy"][0])
+        metrics = legacy_report_statistics(
+            strategy_frame["net_return"].to_numpy(),
+            holding_months=strategy_frame["holding_month"].to_list(),
+        )
+        rows.append(
+            {
+                "series": strategy,
+                "role": "allocation",
+                "start_holding_month": strategy_frame["holding_month"].min(),
+                "end_holding_month": strategy_frame["holding_month"].max(),
+                "months": strategy_frame.height,
+                **metrics,
+            }
+        )
+
+    reference_frame = monthly.filter(
+        pl.col("strategy") == "alpha_top5_equal"
+    ).sort("holding_month")
+    for series, column in (
+        ("Legacy", "legacy_return"),
+        ("SPY total return", "benchmark_return"),
+    ):
+        metrics = legacy_report_statistics(
+            reference_frame[column].to_numpy(),
+            holding_months=reference_frame["holding_month"].to_list(),
+        )
+        rows.append(
+            {
+                "series": series,
+                "role": "reference",
+                "start_holding_month": reference_frame["holding_month"].min(),
+                "end_holding_month": reference_frame["holding_month"].max(),
+                "months": reference_frame.height,
+                **metrics,
+            }
+        )
+    return pl.DataFrame(rows).sort(["role", "series"])
+
+
+def _reference_window_rows(
+    monthly: pl.DataFrame,
+    legacy_monthly_path: Path,
+    sp500_price_path: Path,
+) -> pl.DataFrame:
+    """Expose full-history and ML-common Legacy/SPY performance separately."""
+
+    legacy = (
+        pl.read_parquet(legacy_monthly_path)
+        .filter(pl.col("model") == "Combined_Frequency")
+        .with_columns(
+            pl.lit("Legacy").alias("series"),
+            pl.col("year_month").cast(pl.Date).alias("holding_month"),
+        )
+        .select("series", "holding_month", "monthly_return")
+    )
+    sp500_prices = pl.read_parquet(sp500_price_path)
+    spy_price_column = (
+        "adjusted_close"
+        if "adjusted_close" in sp500_prices.columns
+        else "close"
+    )
+    spy = (
+        sp500_prices.select(
+            pl.col("date").cast(pl.Date, strict=False).alias("date"),
+            pl.col(spy_price_column).cast(pl.Float64).alias("price"),
+        )
+        .drop_nulls()
+        .sort("date")
+        .with_columns(pl.col("date").dt.truncate("1mo").alias("holding_month"))
+        .group_by("holding_month")
+        .agg(pl.col("price").last().alias("price"))
+        .sort("holding_month")
+        .with_columns(
+            pl.lit("SPY total return").alias("series"),
+            pl.col("price").pct_change().alias("monthly_return"),
+        )
+        .select("series", "holding_month", "monthly_return")
+        .drop_nulls("monthly_return")
+    )
+    references = pl.concat([legacy, spy])
+    common_start = monthly["holding_month"].min()
+    common_end = monthly["holding_month"].max()
+    windows = (
+        ("full_snapshot_common", None, None),
+        ("ml_common", common_start, common_end),
+        ("legacy_report_2015_2026", date(2015, 2, 1), date(2026, 4, 1)),
+    )
+    rows: list[dict] = []
+    for window, requested_start, requested_end in windows:
+        parts: dict[str, pl.DataFrame] = {}
+        for series in ("Legacy", "SPY total return"):
+            frame = references.filter(pl.col("series") == series)
+            if requested_start is not None:
+                frame = frame.filter(pl.col("holding_month") >= requested_start)
+            if requested_end is not None:
+                frame = frame.filter(pl.col("holding_month") <= requested_end)
+            parts[series] = frame
+        aligned_months = (
+            parts["Legacy"]
+            .select("holding_month")
+            .join(
+            parts["SPY total return"].select("holding_month"),
+                on="holding_month",
+                how="inner",
+            )
+        )
+        for series in ("Legacy", "SPY total return"):
+            frame = (
+                parts[series]
+                .join(aligned_months, on="holding_month", how="inner")
+                .sort("holding_month")
+            )
+            metrics = legacy_report_statistics(
+                frame["monthly_return"].to_numpy(),
+                holding_months=frame["holding_month"].to_list(),
+            )
+            rows.append(
+                {
+                    "window": window,
+                    "series": series,
+                    "start_holding_month": frame["holding_month"].min(),
+                    "end_holding_month": frame["holding_month"].max(),
+                    "months": frame.height,
+                    **metrics,
+                }
+            )
+    return pl.DataFrame(rows).sort(["window", "series"])
+
+
 def _cost_sensitivity(
     monthly: pl.DataFrame,
     *,
@@ -181,7 +319,7 @@ def _bootstrap_rows(
             .sort("decision_month")
         )
         comparators = {
-            "S&P 500": "benchmark_return",
+            "SPY total return": "benchmark_return",
             "Legacy": "legacy_return",
         }
         if strategy != "alpha_top5_equal":
@@ -259,6 +397,7 @@ def main() -> None:
     parser.add_argument("--shap-sample-per-fold", type=int, default=40)
     args = parser.parse_args()
 
+    args.spec = args.spec.resolve()
     specification = json.loads(args.spec.read_text())
     args.output_dir.mkdir(parents=True, exist_ok=True)
     data_dir = PROJECT_ROOT / specification["data"]["input_snapshot"]
@@ -279,8 +418,28 @@ def main() -> None:
         legacy_detailed_returns_path=legacy_detailed_path,
         horizons=(1, int(specification["alpha"]["horizon_months"])),
         start_month=specification["validation"]["start_month"],
-        excluded_tickers=("SII.US", "CBE.US", "TIE.US", "CPWR.US"),
+        excluded_tickers=tuple(
+            specification["data"].get(
+                "excluded_tickers",
+                ("SII.US", "CBE.US", "TIE.US", "CPWR.US", "BMC.US"),
+            )
+        ),
         relative_ema_pairs=pairs,
+        minimum_monthly_price_observations=int(
+            specification["data"]
+            .get("price_integrity", {})
+            .get("minimum_monthly_price_observations", 1)
+        ),
+        minimum_monthly_median_dollar_volume=float(
+            specification["data"]
+            .get("price_integrity", {})
+            .get("minimum_monthly_median_dollar_volume", 0.0)
+        ),
+        maximum_monthly_ohlc_violation_rate=float(
+            specification["data"]
+            .get("price_integrity", {})
+            .get("maximum_monthly_ohlc_violation_rate", 1.0)
+        ),
     )
     final_price = pl.read_parquet(research.input_paths["final_price"])
     frame = add_daily_forward_risk_targets(
@@ -580,6 +739,12 @@ def main() -> None:
         how="diagonal_relaxed",
     )
     performance = _performance_rows(monthly)
+    legacy_convention_performance = _legacy_convention_performance_rows(monthly)
+    reference_windows = _reference_window_rows(
+        monthly,
+        legacy_monthly_path,
+        data_dir / "SP500Price.parquet",
+    )
     costs = _cost_sensitivity(
         monthly,
         cost_bps_values=tuple(
@@ -602,6 +767,12 @@ def main() -> None:
     monthly.write_csv(args.output_dir / "allocation_monthly.csv")
     holdings.write_parquet(args.output_dir / "allocation_holdings.parquet")
     performance.write_csv(args.output_dir / "allocation_performance.csv")
+    legacy_convention_performance.write_csv(
+        args.output_dir / "allocation_performance_legacy_convention.csv"
+    )
+    reference_windows.write_csv(
+        args.output_dir / "reference_performance_windows.csv"
+    )
     costs.write_csv(args.output_dir / "allocation_cost_sensitivity.csv")
     bootstrap.write_csv(args.output_dir / "allocation_paired_bootstrap.csv")
     gates.write_csv(args.output_dir / "allocation_acceptance_gates.csv")
@@ -618,8 +789,7 @@ def main() -> None:
                 PROJECT_ROOT / "src/alpharank/multihorizon/risk.py",
                 PROJECT_ROOT
                 / "scripts/experiments/run_legacy_ema_risk_heads.py",
-                PROJECT_ROOT
-                / "configs/research/legacy_ema_risk_overlay_long_history_v1.json",
+                args.spec,
             )
         },
         "input_paths": {

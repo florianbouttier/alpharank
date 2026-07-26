@@ -77,6 +77,15 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         start_month=config.start_month,
         excluded_tickers=config.excluded_tickers,
         relative_ema_pairs=relative_ema_pairs,
+        minimum_monthly_price_observations=(
+            config.minimum_monthly_price_observations
+        ),
+        minimum_monthly_median_dollar_volume=(
+            config.minimum_monthly_median_dollar_volume
+        ),
+        maximum_monthly_ohlc_violation_rate=(
+            config.maximum_monthly_ohlc_violation_rate
+        ),
     )
     frame = research.frame
     oracle_features: tuple[str, ...] = ()

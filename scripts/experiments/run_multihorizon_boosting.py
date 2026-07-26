@@ -53,6 +53,27 @@ def main() -> None:
         ),
         default="broad",
     )
+    parser.add_argument(
+        "--excluded-tickers",
+        type=_strings,
+        default=("SII.US", "CBE.US", "TIE.US", "CPWR.US", "BMC.US"),
+        help="Comma-separated tickers excluded for documented price integrity.",
+    )
+    parser.add_argument(
+        "--minimum-monthly-price-observations",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "--minimum-monthly-median-dollar-volume",
+        type=float,
+        default=0.0,
+    )
+    parser.add_argument(
+        "--maximum-monthly-ohlc-violation-rate",
+        type=float,
+        default=1.0,
+    )
     parser.add_argument("--save-research-frame", action="store_true")
     args = parser.parse_args()
     config = MultiHorizonConfig(
@@ -74,6 +95,16 @@ def main() -> None:
         num_boost_round=args.num_boost_round,
         shap_sample_per_fold=args.shap_sample_per_fold,
         feature_mode=args.feature_mode,
+        excluded_tickers=args.excluded_tickers,
+        minimum_monthly_price_observations=(
+            args.minimum_monthly_price_observations
+        ),
+        minimum_monthly_median_dollar_volume=(
+            args.minimum_monthly_median_dollar_volume
+        ),
+        maximum_monthly_ohlc_violation_rate=(
+            args.maximum_monthly_ohlc_violation_rate
+        ),
         save_research_frame=args.save_research_frame,
     )
     run_dir = run_multihorizon_research(config)
