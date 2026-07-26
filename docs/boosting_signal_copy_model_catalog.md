@@ -3375,3 +3375,34 @@ ne pas promouvoir Top 10.
 Rapport HTML détaillé :
 
 `outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/top5_vs_top10.html`
+
+### SHAP alpha complet et portefeuilles mensuels
+
+Le test Top 10 étant allocation-only, le dernier modèle reste le classifieur
+alpha v6 à horizon six mois. Un rapport séparé publie sans troncature :
+
+- un beeswarm regroupant les `185` variables présentes sur l'union des folds ;
+- `185` graphiques individuels valeur de variable contre SHAP ;
+- le nombre d'observations et de folds actifs pour chaque variable ;
+- les quantiles de valeur et de SHAP et la corrélation valeur–SHAP ;
+- les `172` portefeuilles mensuels Legacy publié, Alpha Top 5 égal et
+  Alpha Top 10 égal, avec tickers, rangs, poids, secteurs, scores,
+  probabilités calibrées et rendements réalisés ;
+- les rendements mensuels Legacy, Top 5, Top 10 et SPY sur le même calendrier.
+
+Commande :
+
+```bash
+./.venv/bin/python \
+  scripts/experiments/render_alpha_shap_portfolio_report.py
+```
+
+Précision d'interprétation : les SHAP expliquent la marge brute XGBoost
+(log-odds), avant calibration isotone. Ils ne sont pas exprimés en points de
+probabilité calibrée. Le sampling contient `1 200` observations OOS, soit
+`80` par fold ; une variable non disponible dans un fold reste manquante et
+n'est jamais imputée pour le graphique.
+
+Rapport :
+
+`outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/alpha_shap_and_monthly_portfolios.html`

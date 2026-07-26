@@ -244,6 +244,7 @@ def render_report(annual: pl.DataFrame, output_path: Path) -> None:
   <nav class="links">
     <a href="risk_results_paper.html">Résultats modèles, risque et SHAP</a>
     <a href="methodology_paper.html">Méthodologie complète</a>
+    <a href="../../legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/alpha_shap_and_monthly_portfolios.html">SHAP alpha complet et portefeuilles mensuels</a>
   </nav>
   <div class="note"><strong>Lecture prudente.</strong> 2011 ne contient que
   cinq mois et 2025 onze mois. Les années supérieures à 100 % sont correctement

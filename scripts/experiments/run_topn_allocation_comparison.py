@@ -586,6 +586,9 @@ letter-spacing:-.045em;margin:8px 0 18px}} h2{{margin:48px 0 12px;font-size:28px
 .card b{{display:block;font-size:27px}} .card span{{color:var(--muted)}}
 .callout{{padding:20px 22px;border-left:5px solid var(--blue);background:#eaf2f6;
 border-radius:8px;margin:22px 0}} .bad{{border-color:var(--red);background:#fff0ee}}
+.links{{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 26px}}
+.links a{{padding:8px 12px;color:var(--blue);background:var(--card);
+border:1px solid var(--line);border-radius:999px;font-weight:750;text-decoration:none}}
 .table-wrap{{overflow:auto;background:var(--card);border:1px solid var(--line);
 border-radius:12px}} table{{width:100%;min-width:900px;border-collapse:collapse;
 font-variant-numeric:tabular-nums}} th,td{{padding:12px 13px;text-align:right;
@@ -601,6 +604,8 @@ code{{font-size:12px}} footer{{margin-top:52px;color:var(--muted);font-size:12px
 <p class="lede">La seule variable modifiée est le nombre d'actions retenues.
 Les scores alpha six mois, les prédictions de risque, les 15 folds, les EMA,
 les exclusions, le calendrier et les coûts sont strictement identiques.</p>
+<nav class="links"><a href="alpha_shap_and_monthly_portfolios.html">
+SHAP complet et portefeuilles mensuels</a></nav>
 <div class="strip">
  <div class="card"><span>Top 5 égal · CAGR</span><b>{_pct(top5_equal["cagr"])}</b></div>
  <div class="card"><span>Top 10 égal · CAGR</span><b>{_pct(top10_equal["cagr"])}</b></div>

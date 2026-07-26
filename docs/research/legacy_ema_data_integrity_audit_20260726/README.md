@@ -403,3 +403,7 @@ Rapport annuel toutes méthodes, même calendrier :
 Comparaison allocation-only Top 5 contre Top 10 :
 
 `outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/top5_vs_top10.html`
+
+SHAP alpha complet et holdings mensuels Legacy/Top 5/Top 10 :
+
+`outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/alpha_shap_and_monthly_portfolios.html`
