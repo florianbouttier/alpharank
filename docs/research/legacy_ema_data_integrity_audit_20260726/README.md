@@ -399,3 +399,7 @@ Rapport HTML principal :
 Rapport annuel toutes méthodes, même calendrier :
 
 `outputs/multihorizon_boosting/legacy_ema_risk_overlay_ticker_quarantine_v6_20260726/html/annual_returns_all_methods.html`
+
+Comparaison allocation-only Top 5 contre Top 10 :
+
+`outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/top5_vs_top10.html`

@@ -3320,3 +3320,58 @@ pas que le challenger est validé. L'univers de constituants reste sémantiqueme
 fragile, le budget de multiple testing est consommé et le rerun Legacy complet
 n'est pas terminé. Le rapport source de vérité est
 `docs/research/legacy_ema_data_integrity_audit_20260726/README.md`.
+
+### Allocation-only Top 5 contre Top 10 — v7
+
+Hypothèse : augmenter le portefeuille de cinq à dix titres peut réduire la
+concentration et le drawdown sans trop diluer le signal alpha.
+
+Protocole :
+
+- réutilisation byte-for-byte des prédictions alpha et risque OOS de v6 ;
+- aucune modification du modèle, des EMA, de la cible six mois, des 15 folds,
+  de la calibration, des exclusions ou des horizons risque ;
+- seule variable modifiée : `top_n`, de 5 à 10 ;
+- mêmes 172 mois, août 2011 à novembre 2025 ;
+- mêmes coûts de 10 pb multipliés par le turnover ;
+- reconstruction top 5 vérifiée à `5,55e-17` d'erreur mensuelle maximale.
+
+Commande :
+
+```bash
+./.venv/bin/python \
+  scripts/experiments/run_topn_allocation_comparison.py
+```
+
+Run :
+
+`outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726`
+
+Résultat principal équipondéré :
+
+| Méthode | CAGR | Sharpe Legacy | Max DD | Pire année |
+|---|---:|---:|---:|---:|
+| Top 5 égal | 37,47 % | 1,045 | -27,88 % | 2015 : -6,25 % |
+| Top 10 égal | 25,24 % | 0,793 | -33,73 % | 2015 : -12,86 % |
+| Legacy publié | 16,43 % | 0,669 | -28,44 % | 2015 : -10,83 % |
+| SPY total return | 14,34 % | 0,865 | -23,93 % | 2022 : -18,18 % |
+
+Le bootstrap apparié par blocs de 12 mois donne Top 10 moins Top 5 :
+
+- écart moyen annualisé `-10,73` points, IC 95 % `[-16,55 ; -4,57]` ;
+- écart de Sharpe bootstrap `-0,191`, IC 95 % `[-0,360 ; -0,017]` ;
+- probabilité bootstrap d'un écart de Sharpe négatif : `98,2 %`.
+
+Diagnostic des holdings Top 10 avant coûts :
+
+- rangs 1–5 : CAGR `38,19 %`, Sharpe `1,066`, max DD `-27,68 %` ;
+- rangs 6–10 : CAGR `12,24 %`, Sharpe `0,326`, max DD `-50,51 %`.
+
+Le turnover moyen baisse légèrement (`45,12 %` à `44,48 %`) : la dégradation
+ne vient pas des frais mais de la dilution par les rangs 6–10. Les cinq
+garde-fous de promotion échouent. Décision : conserver Top 5 comme référence et
+ne pas promouvoir Top 10.
+
+Rapport HTML détaillé :
+
+`outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/html/top5_vs_top10.html`

@@ -324,6 +324,38 @@ def test_sector_diversification_preserves_alpha_order_within_constraints() -> No
     assert monthly["maximum_sector_weight"][0] <= 0.40 + 1e-12
 
 
+def test_top_ten_equal_allocation_selects_ten_highest_scores() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)] * 12,
+            "ticker": [f"T{index:02d}" for index in range(12)],
+            "score": [float(12 - index) for index in range(12)],
+            "future_return_1m": [0.01] * 12,
+            "benchmark_future_return_1m": [0.005] * 12,
+        }
+    )
+    general = pl.DataFrame(
+        {
+            "ticker": [f"T{index:02d}" for index in range(12)],
+            "GicSector": ["Test"] * 12,
+            "Sector": ["Test"] * 12,
+        }
+    )
+
+    monthly, holdings = build_risk_weighted_backtest(
+        predictions,
+        general=general,
+        strategy="alpha_top10_equal",
+        top_n=10,
+    )
+
+    assert monthly["n_positions"][0] == 10
+    assert holdings["ticker"].to_list() == [
+        f"T{index:02d}" for index in range(10)
+    ]
+    assert holdings["portfolio_weight"].to_list() == pytest.approx([0.1] * 10)
+
+
 def _write_legacy_winner_fixture(path) -> None:
     pl.DataFrame(
         {
