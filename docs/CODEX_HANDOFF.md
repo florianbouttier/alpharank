@@ -22,7 +22,8 @@ notes when one of these canonical documents already fits:
   [`docs/research/legacy_ema_risk_overlay_long_history_20260725/`](./research/legacy_ema_risk_overlay_long_history_20260725/)
 - Validated-snapshot replay and Legacy performance reconciliation:
   [`docs/research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/`](./research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/)
-- Semantic price/ticker/universe audit and causal tradability replay:
+- Semantic price/ticker/universe audit, versioned full-trajectory quarantine,
+  and causal ML rerun:
   [`docs/research/legacy_ema_data_integrity_audit_20260726/`](./research/legacy_ema_data_integrity_audit_20260726/)
 - Monthly portfolio production:
   [`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md)

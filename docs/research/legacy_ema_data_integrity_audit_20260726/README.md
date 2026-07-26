@@ -244,3 +244,154 @@ Prochaine condition de passage :
   `outputs/multihorizon_boosting/legacy_ema_risk_overlay_tradability_v4_20260726`
 - audit précédent BMC :
   `docs/research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/README.md`
+
+## 8. Audit d'identité et quarantaine complète v1
+
+Cette section remplace la liste provisoire d'exclusions utilisée dans v4.
+
+### Hypothèse et règle
+
+Hypothèse : les rendements extrêmes restants proviennent en partie de collisions
+de symboles, séries de prix mal ajustées et trajectoires qui continuent après une
+acquisition ou un delisting.
+
+La décision retenue est volontairement conservatrice :
+
+- une anomalie statistique seule ne déclenche jamais une suppression ;
+- une exclusion requiert une anomalie mesurée dans le snapshot et une preuve
+  externe officielle de l'identité, du niveau de prix ou de la date de
+  cotation ;
+- un ticker exclu est retiré sur **toutes les dates**, avant les prix mensuels,
+  EMA, rangs cross-sectionnels, entraînements, sélections et rendements ;
+- le registre est une quarantaine propre à ce dataset symbol-keyed, pas une
+  interdiction permanente de la société.
+
+Registre versionné :
+
+`configs/data_quality/historical_ticker_exclusions_v1.json`
+
+Les dix exclusions sont :
+
+`SII.US`, `CBE.US`, `TIE.US`, `CPWR.US`, `BMC.US`, `COL.US`, `GR.US`,
+`EP.US`, `SW.US`, `HAR.US`.
+
+Les cas couvrent notamment :
+
+- un ticker réutilisé entre deux sociétés : `SII` et `EP` ;
+- une série continuant après disparition du titre historique : `CBE`, `TIE`,
+  `CPWR`, `BMC`, `COL`, `GR`, `HAR` ;
+- une série présente avant la première cotation officielle : `SW` ;
+- une échelle de prix incompatible avec les documents officiels : `BMC`, `COL`,
+  `GR`, `HAR`.
+
+Le registre contient vingt liens de preuve. Les sources prioritaires sont les
+8-K, 10-K et proxies SEC, complétés par les pages investisseurs des acquéreurs
+ou émetteurs.
+
+### Crible exhaustif des titres effectivement détenus
+
+Commande :
+
+```bash
+./.venv/bin/python \
+  scripts/experiments/audit_historical_ticker_price_integrity.py
+```
+
+Entrées :
+
+- snapshot validé
+  `outputs/2026-07-13/runs/20260713_201639/input_snapshot` ;
+- holdings Legacy publiés du même run ;
+- holdings ML v2 publiés ;
+- registre `historical_ticker_exclusions_v1`.
+
+Résultat sur l'union des holdings Legacy et ML :
+
+| Statut | Nombre |
+|---|---:|
+| screen pass | 404 |
+| exclus parmi les holdings | 7 |
+| revue manuelle, non exclus | 9 |
+| total contrôlé | 420 |
+
+Les neuf cas en revue sont `ATI`, `CNX`, `FOXA`, `GE`, `HIG`, `IBM`, `SLB`,
+`UA` et `UBER`. Les faibles similarités de nom sont surtout des acronymes ou
+changements de dénomination. `HIG` a un vrai mouvement de `+102,36 %` le
+2008-12-05 avec OHLC cohérents et volume élevé ; `UA` n'a qu'une violation OHLC
+isolée. Ils ne sont donc pas supprimés.
+
+### Sensibilité des holdings publiés
+
+Cette table filtre et renormalise les holdings déjà choisis. Elle mesure
+l'exposition directe mais **n'est pas** un rerun causal, puisque les rangs et
+modèles n'ont pas été recalculés.
+
+| Fenêtre | Série | CAGR | Sharpe Legacy | Max DD |
+|---|---|---:|---:|---:|
+| 2010-02 à 2026-05 | Legacy publié | 23,33 % | 0,858 | -28,44 % |
+| 2010-02 à 2026-05 | Legacy, sensibilité sans les 10 tickers | 21,46 % | 0,801 | -28,44 % |
+| 2010-02 à 2026-05 | SPY total return | 14,72 % | 0,880 | -23,93 % |
+| 2011-08 à 2025-11 | ML v2 égal publié | 34,52 % | 0,824 | -31,44 % |
+| 2011-08 à 2025-11 | ML v2, sensibilité sans les 10 tickers | 32,39 % | 0,899 | -31,17 % |
+| 2011-08 à 2025-11 | Legacy publié | 16,43 % | 0,669 | -28,44 % |
+| 2011-08 à 2025-11 | SPY total return | 14,34 % | 0,865 | -23,93 % |
+
+### Rerun ML complet v6
+
+Hypothèse : vérifier si le résultat ML survit quand les dix tickers sont retirés
+avant toute transformation, tout en conservant exactement l'alpha EMA,
+l'horizon six mois, les fenêtres temporelles, les têtes de risque et les règles
+d'allocation gelés en v4.
+
+Run alpha :
+
+`outputs/multihorizon_boosting/legacy_ema_long_history_ticker_quarantine_v6_20260726`
+
+Run risque et allocation :
+
+`outputs/multihorizon_boosting/legacy_ema_risk_overlay_ticker_quarantine_v6_20260726`
+
+Métriques classification hors échantillon, 15 folds et 76 534 lignes test :
+
+- ROC AUC `0,5894` ;
+- PR AUC `0,1556`, soit `1,535x` la prévalence ;
+- Brier `0,0906` ;
+- log loss `0,3336` ;
+- ECE `0,0112` ;
+- lift NDCG@10 `0,0518`.
+
+Performance sur les mêmes 172 mois :
+
+| Méthode | CAGR | Sharpe Legacy | Max DD | Pire année |
+|---|---:|---:|---:|---:|
+| alpha top 5 égal | 37,47 % | 1,045 | -27,88 % | 2015 : -6,25 % |
+| inverse volatilité 3 mois | 38,41 % | 1,094 | -27,43 % | 2014 : -7,70 % |
+| inverse downside 1 mois | 38,76 % | 1,105 | -27,24 % | 2014 : -7,65 % |
+| Legacy publié | 16,43 % | 0,669 | -28,44 % | 2015 : -10,83 % |
+| SPY total return | 14,34 % | 0,865 | -23,93 % | 2022 : -18,18 % |
+
+Les têtes de risque restent prédictives : Spearman mensuel `0,30–0,44` selon
+la cible et l'horizon ; le classifieur de forte volatilité atteint ROC AUC
+`0,735–0,767`. Malgré cela, aucune allocation ne passe tous les garde-fous
+pré-enregistrés.
+
+Le CAGR ML plus élevé après quarantaine n'est pas un argument causal en faveur
+des exclusions : le retrait en amont change les rangs, le training et toutes les
+sélections. Le résultat reste diagnostique à cause du fichier de constituants
+non réparé, du multiple testing déjà consommé et de l'absence de nouveau holdout.
+
+### État du rerun Legacy
+
+Une exécution Legacy complète avec le même registre a été lancée mais
+interrompue avant la fin des 17 fenêtres Optuna. Aucun artefact partiel n'est
+utilisé. En conséquence :
+
+- les nombres Legacy corrigés présentés ici sont uniquement la sensibilité
+  post-sélection clairement étiquetée ;
+- la comparaison v6 utilise encore la série Legacy publiée ;
+- la prochaine condition nécessaire est le rerun Legacy complet sur l'univers
+  scellé, puis une comparaison Legacy/ML/SPY sur la même fenêtre.
+
+Rapport HTML principal :
+
+`outputs/data_quality/historical_ticker_price_audit_20260726/price_identity_audit.html`

@@ -3283,3 +3283,40 @@ pas encore réparé et la variante a subi du multiple testing.
 Décision : ne plus revendiquer que le ML bat Legacy tant qu'un univers
 historique à identité stable n'a pas été reconstruit et que Legacy et ML n'ont
 pas été rejoués ensemble sur ce même univers.
+
+### Quarantaine historique v1 et rerun ML v6
+
+Hypothèse : les collisions d'identité et les trajectoires post-delisting doivent
+être supprimées avant toute EMA, rang ou cible, et non corrigées mois par mois
+après observation des rendements.
+
+Registre :
+
+`configs/data_quality/historical_ticker_exclusions_v1.json`
+
+Dix tickers sont exclus sur toute leur trajectoire :
+`SII`, `CBE`, `TIE`, `CPWR`, `BMC`, `COL`, `GR`, `EP`, `SW`, `HAR`.
+Chaque décision combine une anomalie mesurée dans le snapshot avec des sources
+officielles externes. L'audit passe au crible les 420 tickers détenus par
+Legacy ou ML : 404 passent, 7 sont exclus parmi les holdings et 9 restent en
+revue sans exclusion automatique.
+
+La sensibilité post-sélection ramène Legacy, février 2010-mai 2026, de
+`23,33%` à `21,46%` de CAGR ; ce n'est pas un rerun causal. Sur la fenêtre
+2011-08 à 2025-11, ML v2 passe de `34,52%` à `32,39%`, Legacy publié vaut
+`16,43%` et SPY `14,34%`.
+
+Le rerun ML complet v6 retire les dix tickers avant features/rangs/training :
+
+- classification horizon 6 mois, 15 folds, 76 534 observations test ;
+- ROC AUC `0,5894`, PR AUC `0,1556` (`1,535x` la prévalence), Brier
+  `0,0906`, ECE `0,0112` ;
+- alpha top 5 égal : CAGR `37,47%`, Sharpe Legacy `1,045`, max DD `-27,88%` ;
+- inverse vol 3 mois : CAGR `38,41%`, Sharpe `1,094`, max DD `-27,43%` ;
+- aucune allocation risque ne passe tous les garde-fous.
+
+Conclusion : le rerun prouve que la mécanique d'exclusion causale fonctionne,
+pas que le challenger est validé. L'univers de constituants reste sémantiquement
+fragile, le budget de multiple testing est consommé et le rerun Legacy complet
+n'est pas terminé. Le rapport source de vérité est
+`docs/research/legacy_ema_data_integrity_audit_20260726/README.md`.
