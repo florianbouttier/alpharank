@@ -3208,3 +3208,78 @@ Papiers HTML :
 - `outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725/html/index.html` ;
 - `outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725/html/risk_results_paper.html` ;
 - `outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725/html/methodology_paper.html`.
+
+## 2026-07-26 — réaudit Legacy et replay sur snapshot validé
+
+Rapport source de vérité :
+
+`docs/research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/README.md`
+
+Le rapport du 25 juillet est conservé comme trace v1, mais ses chiffres ne
+doivent plus être utilisés comme référence centrale :
+
+- le package `20260719_194418` échoue au validateur officiel de lignée ;
+- son Sharpe utilisait la moyenne mensuelle annualisée et non la convention des
+  rapports Legacy.
+
+Le replay exact, sans changement de modèle ni de paramètre, utilise le package
+validé `outputs/2026-07-13/runs/20260713_201639`.
+
+Réconciliation Legacy :
+
+- historique complet commun Legacy/SPY, février 2010-mai 2026 :
+  Legacy CAGR `23,33%`, Sharpe Legacy `0,858`, DD `-28,44%` ;
+- fenêtre historique 2015-02 à 2026-04 :
+  Legacy CAGR `22,00%`, Sharpe Legacy `0,821`, DD `-28,44%` ;
+- fenêtre strictement commune au ML, août 2011-novembre 2025 :
+  Legacy CAGR `16,43%`, Sharpe Legacy `0,669`, DD `-28,44%`.
+
+La recomposition indépendante de `Combined_Frequency` depuis le détail reproduit
+les rendements mensuels à `1,76e-16` près. Le faible chiffre Legacy sur le test
+ML vient donc de la fenêtre, pas d'une mauvaise agrégation.
+
+Sur les mêmes 172 mois, avec Sharpe `(CAGR - 2%)/volatilité` :
+
+- alpha top 5 égal : CAGR `33,73%`, Sharpe `0,804`, DD `-31,65%`,
+  pire année complète 2024 `-15,85%` ;
+- inverse volatilité 3 mois : CAGR `32,60%`, Sharpe `0,836`,
+  DD `-28,97%`, pire année 2024 `-16,68%` ;
+- Legacy : CAGR `16,43%`, Sharpe `0,669`, DD `-28,44%`,
+  pire année 2015 `-10,83%` ;
+- SPY total return : CAGR `14,34%`, Sharpe `0,865`, DD `-23,93%`,
+  pire année 2022 `-18,18%`.
+
+Le replay confirme le rendement historique fort du booster, mais pas sa
+promotion : risque supérieur à SPY, avantage de Sharpe non confirmé par
+bootstrap, multiple testing antérieur et absence de holdout six mois neuf.
+Aucun overlay ne passe les garde-fous pré-enregistrés.
+
+### Correction sémantique le même jour
+
+Le replay ci-dessus est à son tour déclassé pour les performances ML : il
+sélectionne `BMC.US` sur un saut de prix non tradable de `+347%`.
+
+Audit source de vérité :
+
+`docs/research/legacy_ema_data_integrity_audit_20260726/README.md`
+
+Autres problèmes trouvés :
+
+- Legacy contient `CPWR.US` à `-90%`, `+138%` et `+300%` en 2011 ;
+- `EP`, `COL`, `GR` et `SW` mélangent identités historiques et tickers
+  réutilisés ;
+- Smurfit Westrock apparaît dès 1990 dans les constituants ;
+- janvier 1990 contient 526 membres.
+
+Une sensibilité Legacy sans CPWR ramène le CAGR complet de `23,33%` à
+`21,46%`, mais ne change pas la fenêtre 2015-2026 à `22,00%`.
+
+Un filtre causal de tradabilité a été ajouté avant les rangs et le training :
+10 observations mensuelles, volume dollar médian >= 1 M$, moins de 5% de lignes
+OHLC incohérentes. Le replay v4 donne alpha top5 CAGR `33,78%`, Sharpe Legacy
+`0,886`, DD `-28,01%`, mais reste diagnostique : l'univers de constituants n'est
+pas encore réparé et la variante a subi du multiple testing.
+
+Décision : ne plus revendiquer que le ML bat Legacy tant qu'un univers
+historique à identité stable n'a pas été reconstruit et que Legacy et ML n'ont
+pas été rejoués ensemble sur ce même univers.

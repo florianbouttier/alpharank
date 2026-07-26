@@ -1,6 +1,6 @@
 # Codex Handoff
 
-Last updated: 2026-07-05
+Last updated: 2026-07-26
 Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
@@ -20,6 +20,10 @@ notes when one of these canonical documents already fits:
   [`docs/research/locked_challenger_confirmation_20260725/`](./research/locked_challenger_confirmation_20260725/)
 - Long-history exact-EMA risk heads, allocation test and HTML papers:
   [`docs/research/legacy_ema_risk_overlay_long_history_20260725/`](./research/legacy_ema_risk_overlay_long_history_20260725/)
+- Validated-snapshot replay and Legacy performance reconciliation:
+  [`docs/research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/`](./research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/)
+- Semantic price/ticker/universe audit and causal tradability replay:
+  [`docs/research/legacy_ema_data_integrity_audit_20260726/`](./research/legacy_ema_data_integrity_audit_20260726/)
 - Monthly portfolio production:
   [`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md)
 - SEC/open-source data status:

@@ -6,6 +6,13 @@ Status: `risk_models_useful_overlay_not_validated`
 
 Implementation commit: `ecb9e33`
 
+> **Superseded on 2026-07-26.** The `20260719_194418` data package fails the
+> official replay-lineage validator, and this document used the monthly
+> mean/std Sharpe instead of the canonical Legacy report convention. Keep this
+> file as the v1 audit trail, but use
+> [`../legacy_ema_risk_overlay_long_history_clean_v2_20260726/README.md`](../legacy_ema_risk_overlay_long_history_clean_v2_20260726/README.md)
+> for all headline comparisons.
+
 ## Objective
 
 Keep the boosting-only exact-EMA alpha ranking unchanged, estimate future risk
