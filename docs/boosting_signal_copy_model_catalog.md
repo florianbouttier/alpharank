@@ -3511,3 +3511,49 @@ Rapports :
   `outputs/live_alpha/ema_classification_h6_202606_20260727_production_candidate_v3/html/live_alpha_portfolio.html`;
 - performance Legacy :
   `outputs/2026-07-27/runs/20260727_221253/performance_of_models_polars2026-07-27.html`.
+
+## Centre de recherche HTML consolidé — 2026-07-27
+
+Hypothèse : une lecture fiable du track nécessite de rapprocher, dans un même
+artefact, le screening méthode/horizon, le backtest, les actions mensuelles,
+SHAP, le risque et le candidat live sans changer les résultats sources.
+
+Commande :
+
+```bash
+./.venv/bin/python \
+  scripts/experiments/render_central_research_dashboard.py
+```
+
+Rapport :
+`outputs/research_dashboard/legacy_ema_alpha_central_20260727/html/alpharank_research_center.html`.
+Le manifeste adjacent enregistre les empreintes SHA-256 des 20 fichiers
+sources et les conventions d'interprétation.
+
+Contenu :
+
+- huit onglets : synthèse, modèles/horizons, backtest approfondi, actions par
+  mois, SHAP mensuel, risque, production 2026, documentation/audit ;
+- 172 mois de portefeuilles Top 5, Top 10 et Legacy avec entrées, sorties,
+  poids, score/probabilité disponibles et rendement réalisé ;
+- 1 200 observations SHAP OOS, 185 variables et 172 mois de décision, avec
+  importance, beeswarm, analyse individuelle et lexique filtrables par mois ;
+- comparaison commune août 2011-novembre 2025 contre Legacy et SPY : richesse,
+  drawdown, performances, années, régimes, coûts, bootstrap et gates ;
+- métriques des modèles alpha et risque, ainsi que le candidat live juillet
+  2026 et sa lignée temporelle.
+
+Interprétation temporelle à préserver : le backtest réentraîne une fois par
+fold externe, généralement avant un bloc de douze mois de test. Le filtre SHAP
+mensuel explique les observations du mois sous le modèle de ce fold ; il ne
+signifie pas qu'un nouveau modèle historique a été ajusté ce mois-là. Le
+runner live réentraîne en revanche à chaque exécution mensuelle.
+
+Limite SHAP : les 80 lignes sauvegardées par fold forment un échantillon de
+1 200 lignes. Selon le mois, 1 à 22 observations sont visibles ; ce diagnostic
+mensuel n'est donc pas une explication exhaustive de toute la cross-section.
+
+Décision : ce rapport devient le point d'entrée de lecture du track. Il ne
+modifie aucun modèle et ne promeut aucune variante supplémentaire. Top 5 égal
+reste le challenger, Top 10 et les overlays risque restent non promus, Legacy
+et SPY restent les contrôles obligatoires.
