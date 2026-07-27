@@ -3414,3 +3414,100 @@ Rapport :
 Lexique CSV :
 
 `outputs/multihorizon_boosting/legacy_ema_top5_vs_top10_quarantine_v7_20260726/alpha_shap_feature_lexicon.csv`
+
+### Passage au scoring mensuel sur données 2026
+
+Hypothèse : le classifieur EMA-only retenu peut être exécuté sur le même
+snapshot récent que Legacy, sans réentraîner sur une cible non mature et sans
+utiliser le mois calendaire partiel.
+
+Données :
+
+- registre officiel des changements 2026 :
+  `configs/data_quality/sp500_constituent_changes_2026.json`;
+- snapshots mensuels des constituants étendus d'avril à juillet 2026 ;
+- package open-source immuable `20260727_200005`, snapshot
+  `data/open_source/history/output/open_source_output_20260727_200058`;
+- `3 716 206` observations de prix sur `732` tickers historiques ;
+- les `503` membres de juillet ont tous un prix ajusté, avec une date commune
+  au `2026-07-23` et une date maximale au `2026-07-24`.
+
+Commandes :
+
+```bash
+./.venv/bin/python scripts/open_source/refresh_sp500_constituents.py \
+  --target-month 2026-07-01
+
+./.venv/bin/python scripts/open_source/refresh_current_constituent_prices.py
+
+./.venv/bin/python scripts/run_legacy.py \
+  --n-trials 30 \
+  --n-jobs 1 \
+  --first-date 2010-01 \
+  --open-source-run-id 20260727_200005 \
+  --output-dir outputs \
+  --checkpoints-dir outputs/checkpoints_open_source_20260727_constituents \
+  --ticker-exclusion-registry configs/data_quality/historical_ticker_exclusions_v1.json
+```
+
+Le candidat live est figé sur la classification XGBoost à horizon six mois,
+les seuls couples EMA relatifs gagnants de Legacy et la cible décile supérieur
+de surperformance face au S&P 500. Pour une décision juin 2026 :
+
+- les labels d'entraînement/calibration s'arrêtent en décembre 2025 ;
+- les six derniers mois matures servent à l'arrêt anticipé et à la calibration
+  isotone, donc leurs métriques ne sont pas présentées comme un nouveau test
+  scellé ;
+- le rang utilise la marge brute XGBoost et non la probabilité calibrée ;
+- Top 5 reste le portefeuille retenu, Top 10 reste un diagnostic non promu ;
+- le rapport compare Alpha et Legacy sur le même mois de détention, juillet
+  2026, à partir du même `input_snapshot/`.
+
+La mise à jour de juillet sert à prouver la fraîcheur des données. Le mois étant
+incomplet, il n'est pas utilisé comme décision pour un portefeuille août.
+
+Résultat du replay :
+
+- run Legacy `outputs/2026-07-27/runs/20260727_221253`;
+- paquet accepté par `scripts/validate_legacy_replay_package.py` et quatre ids
+  de lignée égaux à `20260727_200005`;
+- `Combined_Frequency` : CAGR historique affiché `18,82 %` contre `12,22 %`
+  pour le S&P 500 sur le calendrier du replay ; cette statistique Legacy
+  inclut sa mécanique historique complète et ne constitue pas un nouveau test
+  Alpha ;
+- portefeuille Legacy juillet : `LRCX`, `MU`, `TER` à `22,22 %`, puis `FIX`,
+  `STLD`, `WDC` à `11,11 %`.
+
+Résultat Alpha live :
+
+- run
+  `outputs/live_alpha/ema_classification_h6_202606_20260727_production_candidate_v3`;
+- entraînement janvier 2005-juin 2025, `101 631` observations ;
+- validation/calibration juillet-décembre 2025, `2 939` observations ;
+- ROC AUC `0,6615`, PR AUC `0,2106` pour une prévalence `0,1014`, soit un lift
+  PR de `2,077x` ; Brier `0,0861`, log loss `0,3060` ;
+- `35` couples EMA Legacy, `175` variables après préparation train-only ;
+- univers live : `503` lignes du mois de décision, puis `498` après
+  intersection avec l'univers juillet ; `CAG`, `CPB`, `EPAM`, `POOL` et `SATS`
+  sont retirés car absents du snapshot de détention ;
+- Top 5 égal : `ZTS`, `ACN`, `CHTR`, `IT`, `LULU`, cours ajustés datés du
+  `2026-06-30`, poids `20 %` chacun ;
+- Top 10 diagnostic : Top 5 plus `MU`, `SNDK`, `INTU`, `WDC`, `PODD`, poids
+  `10 %` chacun.
+
+Décision : ce run rend le challenger exécutable et auditable en mensuel, mais
+ne le promeut pas au-dessus de Legacy. Les métriques 2025 servent à l'arrêt
+anticipé et à la calibration. La preuve de performance hors échantillon reste
+le backtest temporel documenté plus haut ; le panier live doit être suivi en
+paper trading face à Legacy et au S&P 500 sur les mêmes mois.
+
+Rapports :
+
+- données/constituants :
+  `outputs/data_refresh/20260727_214718/html/constituent_refresh_audit.html`;
+- couverture prix :
+  `data/open_source/official/runs/20260727_200005/current_constituent_price_coverage.html`;
+- Alpha et Legacy juillet :
+  `outputs/live_alpha/ema_classification_h6_202606_20260727_production_candidate_v3/html/live_alpha_portfolio.html`;
+- performance Legacy :
+  `outputs/2026-07-27/runs/20260727_221253/performance_of_models_polars2026-07-27.html`.
