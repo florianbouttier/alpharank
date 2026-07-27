@@ -1,0 +1,101 @@
+{
+  "index": "S&P 500",
+  "base_month": "2026-04-01",
+  "snapshot_semantics": "membership effective at the start of the dated calendar month",
+  "events": [
+    {
+      "effective_date": "2026-04-09",
+      "source_url": "https://press.spglobal.com/2026-04-06-Caseys-General-Stores-Set-to-Join-S-P-500-DigitalOcean-Holdings-to-Join-S-P-MidCap-400-Broadstone-Net-Lease-to-Join-S-P-SmallCap-600",
+      "operations": [
+        {
+          "action": "add",
+          "ticker": "CASY",
+          "name": "Casey's",
+          "allow_existing": true,
+          "note": "CASY is already present in the inherited April snapshot."
+        },
+        {
+          "action": "remove",
+          "ticker": "HOLX",
+          "allow_missing": true,
+          "note": "HOLX is already absent from the inherited April snapshot."
+        }
+      ]
+    },
+    {
+      "effective_date": "2026-05-07",
+      "source_url": "https://press.spglobal.com/2026-04-30-Veeva-Systems-Set-to-Join-S-P-500",
+      "operations": [
+        {"action": "add", "ticker": "VEEV", "name": "Veeva Systems"},
+        {"action": "remove", "ticker": "CTRA"}
+      ]
+    },
+    {
+      "effective_date": "2026-05-21",
+      "source_url": "https://www.bny.com/corporate/global/en/about-us/newsroom/press-release/bny-announces-planned-change-of-stock-ticker-symbol-to-bny-130465.html",
+      "operations": [
+        {
+          "action": "ticker_change",
+          "ticker": "BK",
+          "new_ticker": "BNY",
+          "name": "BNY"
+        }
+      ]
+    },
+    {
+      "effective_date": "2026-06-01",
+      "source_url": "https://press.spglobal.com/2026-05-27-FedEx-Freight-Holding-Company-Set-to-Join-S-P-500-EPAM-Systems-and-Dave-to-Join-S-P-SmallCap-600",
+      "operations": [
+        {"action": "add", "ticker": "FDXF", "name": "FedEx Freight"}
+      ]
+    },
+    {
+      "effective_date": "2026-06-02",
+      "source_url": "https://press.spglobal.com/2026-05-27-FedEx-Freight-Holding-Company-Set-to-Join-S-P-500-EPAM-Systems-and-Dave-to-Join-S-P-SmallCap-600",
+      "operations": [
+        {"action": "remove", "ticker": "EPAM"}
+      ]
+    },
+    {
+      "effective_date": "2026-06-22",
+      "source_url": "https://press.spglobal.com/2026-06-05-Marvell-Technology-and-Flex-Set-to-Join-S-P-500-Others-to-Join-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "operations": [
+        {"action": "add", "ticker": "MRVL", "name": "Marvell Technology"},
+        {"action": "remove", "ticker": "POOL"},
+        {"action": "add", "ticker": "FLEX", "name": "Flex"},
+        {"action": "remove", "ticker": "CPB"}
+      ]
+    },
+    {
+      "effective_date": "2026-06-24",
+      "source_url": "https://ir.echostar.com/news-releases/news-release-details/echostar-changing-stocker-ticker-sats-echo-marking-companys-next",
+      "operations": [
+        {
+          "action": "ticker_change",
+          "ticker": "SATS",
+          "new_ticker": "ECHO",
+          "name": "EchoStar"
+        }
+      ]
+    },
+    {
+      "effective_date": "2026-06-29",
+      "source_url": "https://press.spglobal.com/2026-06-23-Honeywell-Aerospace-Set-to-Join-S-P-500-S-P-100-Others-to-Join-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "operations": [
+        {"action": "add", "ticker": "HONA", "name": "Honeywell Aerospace"}
+      ]
+    },
+    {
+      "effective_date": "2026-06-30",
+      "source_url": "https://press.spglobal.com/2026-06-23-Honeywell-Aerospace-Set-to-Join-S-P-500-S-P-100-Others-to-Join-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "operations": [
+        {"action": "remove", "ticker": "CAG"},
+        {
+          "action": "rename",
+          "ticker": "HON",
+          "name": "Honeywell Technologies"
+        }
+      ]
+    }
+  ]
+}
