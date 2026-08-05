@@ -3557,3 +3557,41 @@ Décision : ce rapport devient le point d'entrée de lecture du track. Il ne
 modifie aucun modèle et ne promeut aucune variante supplémentaire. Top 5 égal
 reste le challenger, Top 10 et les overlays risque restent non promus, Legacy
 et SPY restent les contrôles obligatoires.
+
+### Deep dive temporel interactif — 2026-08-05
+
+Hypothèse : les résultats figés sur 2011-2025 masquent la concentration
+temporelle éventuelle de l'alpha et rendent la géométrie H6 difficile à
+comprendre. Le centre doit donc recalculer les métriques sur toute période
+choisie, sans réentraîner ni modifier les prédictions OOS.
+
+Données : les 172 rendements mensuels communs déjà sauvegardés dans
+`monthly_portfolio_returns.csv`. Aucun nouveau résultat de modèle, prix ou
+label n'est injecté.
+
+Commande :
+
+```bash
+./.venv/bin/python \
+  scripts/experiments/render_central_research_dashboard.py
+```
+
+Résultat : l'onglet backtest explique désormais explicitement la chaîne mois
+de décision → features EMA → cible de surperformance H6 → fold externe → Top
+5 → détention un mois. Un sélecteur début/fin et des presets 3/5/10 ans
+recalculent sur le sous-échantillon commun : rendement total, CAGR,
+volatilité, Sharpe Legacy, Sortino, Calmar, drawdown, information ratio, beta,
+alpha, corrélation, hit rate, VaR/CVaR historiques, captures, Omega, extrêmes,
+années et épisodes de drawdown. Les diagnostics glissants sont disponibles sur
+12/24/36/60 mois.
+
+La sélection des EMA est elle aussi point-in-time : le manifeste par fold
+commence avec 3 paires gagnantes et 15 variables au fold 1, puis s'élargit
+jusqu'à 37 paires et 185 variables au fold 15. Le modèle historique ne reçoit
+donc pas dès 2011 la liste finale connue en 2025.
+
+Décision : ces découpes sont des audits des prédictions OOS figées et non de
+nouveaux tests indépendants. Une fenêtre inférieure à 36 mois est signalée
+comme fragile ; sous 12 mois les ratios annualisés ne doivent pas motiver une
+promotion. Legacy et SPY restent toujours calculés sur exactement les mêmes
+mois.

@@ -287,8 +287,11 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
 .shap-layout{display:grid;grid-template-columns:minmax(340px,.9fr) minmax(500px,1.4fr);gap:14px}.shap-bar{display:grid;grid-template-columns:minmax(150px,1fr) 4fr 72px;gap:8px;align-items:center;margin:7px 0;font:11px "IBM Plex Mono"}.bar-track{height:10px;background:var(--bluewash)}.bar-fill{height:100%;background:var(--navy)}canvas{width:100%;height:400px;border:1px solid var(--line);background:var(--panel)}
 .two-col-doc{columns:2 340px;column-gap:32px}.doc-block{break-inside:avoid;margin-bottom:18px}.doc-block h3{margin:0 0 5px}.doc-block p,.doc-block li{color:var(--muted)}code{font-family:"IBM Plex Mono";font-size:11px;color:var(--navy)}
 .source-list{font:11px "IBM Plex Mono";word-break:break-all}.fine{font-size:11px;color:var(--muted)}.spacer{height:8px}
+.method-flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.method-step{position:relative;padding:14px 12px;border-top:3px solid var(--navy)}.method-step b{display:block;font:600 11px "IBM Plex Mono";color:var(--navy);margin-bottom:7px}.method-step p{font-size:12px;margin:0}.period-bar{position:sticky;top:64px;z-index:9;display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:13px 14px;margin:0 0 14px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}.period-bar .field{display:grid;gap:4px}.period-bar .field span{font:600 10px "IBM Plex Mono";text-transform:uppercase;color:var(--muted)}.preset{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:3px;cursor:pointer}.preset.active{background:var(--navy);border-color:var(--navy);color:#fff}.period-status{margin-left:auto;font:500 11px "IBM Plex Mono";color:var(--muted)}
+.advanced-table td:first-child{font-weight:600}.advanced-table .subtle{display:block;font:10px "IBM Plex Mono";color:var(--muted);margin-top:2px}.metric-help{border-bottom:1px dashed var(--muted);cursor:help}.episodes{display:grid;gap:7px}.episode{display:grid;grid-template-columns:1.25fr .7fr .7fr .9fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font:11px "IBM Plex Mono"}.episode:last-child{border-bottom:0}.method-note{display:grid;grid-template-columns:1fr 1fr;gap:14px}.formula-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.formula{padding:12px;background:var(--bluewash);border-left:3px solid var(--navy)}.formula b{display:block;margin-bottom:4px}.formula code{display:block;margin:5px 0;white-space:normal}.range-warning{color:var(--red);font-weight:600}
 @media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3,.portfolio-cards{grid-template-columns:1fr 1fr}.shap-layout{grid-template-columns:1fr}}
-@media(max-width:760px){.shell{display:block}aside{position:sticky;height:auto;padding:12px;z-index:30}.brand{padding:2px 5px 10px}.tabs{display:flex;overflow:auto;margin-top:8px}.tab{white-space:nowrap;padding:8px}.aside-foot{display:none}.topbar{top:104px;height:52px;padding:0 14px}.page{padding:18px 12px}.hero h1{font-size:28px}.g4,.g3,.g2,.portfolio-cards{grid-template-columns:1fr}.chart{height:270px}.two-col-doc{columns:1}.section-head{align-items:start;flex-direction:column}}
+@media(max-width:1100px){.method-flow{grid-template-columns:repeat(3,1fr)}.formula-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.shell{display:block}aside{position:sticky;height:auto;padding:12px;z-index:30}.brand{padding:2px 5px 10px}.tabs{display:flex;overflow:auto;margin-top:8px}.tab{white-space:nowrap;padding:8px}.aside-foot{display:none}.topbar{top:104px;height:52px;padding:0 14px}.page{padding:18px 12px}.hero h1{font-size:28px}.g4,.g3,.g2,.portfolio-cards,.method-flow,.formula-grid,.method-note{grid-template-columns:1fr}.chart{height:270px}.two-col-doc{columns:1}.section-head{align-items:start;flex-direction:column}.period-bar{top:156px}.period-status{width:100%;margin-left:0}.episode{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -322,7 +325,7 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
  </div>
  <div class="section-head"><div><h2>Chaîne de décision</h2><p>Du modèle à l'action, puis au contrôle.</p></div></div>
  <div class="grid g4">
-  <article class="panel"><div class="eyebrow">1 · Features</div><h3>EMA relatives Legacy</h3><p>35 paires gagnantes, ratio action/SPY, puis ratio brut, rang, z-score et quartiles.</p></article>
+  <article class="panel"><div class="eyebrow">1 · Features</div><h3>EMA relatives Legacy</h3><p>Paires gagnantes disponibles point-in-time dans chaque fold, ratio action/SPY, puis ratio brut, rang, z-score et quartiles.</p></article>
   <article class="panel"><div class="eyebrow">2 · Modèle</div><h3>XGBoost classification H6</h3><p>Probabilité qu'une action soit dans le décile supérieur de surperformance future à six mois.</p></article>
   <article class="panel"><div class="eyebrow">3 · Portefeuille</div><h3>Top 5 égal</h3><p>Classement par score alpha brut, cinq titres, 20 % chacun, rebalancement mensuel.</p></article>
   <article class="panel"><div class="eyebrow">4 · Contrôle</div><h3>Legacy + SPY</h3><p>CAGR, Sharpe Legacy, drawdown, pire année, coûts et bootstrap apparié.</p></article>
@@ -344,18 +347,45 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
 </section>
 
 <section class="page" id="backtest">
- <div class="hero"><div class="eyebrow">Même calendrier · mêmes conventions</div><h1>Backtest fin contre Legacy et SPY</h1><p>172 mois de détention, août 2011–novembre 2025. Les stratégies ML incluent 10 pb × turnover. Sharpe Legacy = (CAGR − 2 %) / volatilité annualisée.</p></div>
+ <div class="hero"><div class="eyebrow">Audit interactif · période commune</div><h1>Comprendre puis disséquer le backtest</h1><p>Le modèle apprend à six mois, mais le portefeuille est reclassé et détenu un mois. Choisissez ensuite n'importe quelle période : tous les indicateurs, graphiques et années sont recalculés uniquement sur les mois communs sélectionnés.</p></div>
+ <div class="section-head"><div><h2>La mécanique exacte, de la donnée au rendement</h2><p>Ce que sait le modèle à chaque étape — et ce qu'il ne sait pas encore.</p></div></div>
+ <div class="method-flow">
+  <article class="panel method-step"><b>01 · mois t</b><h3>Photo causale</h3><p>Prix disponibles à la fin du mois de décision. Ratio action/SPY et EMA uniquement jusqu'à cette date.</p></article>
+  <article class="panel method-step"><b>02 · features PIT</b><h3>Liste croissante</h3><p>Seulement les gagnantes connues avant le fold : 3 paires/15 variables au fold 1, jusqu'à 37/185 au fold 15.</p></article>
+  <article class="panel method-step"><b>03 · cible H6</b><h3>Surperformance future</h3><p>Classe 1 si l'action finit dans le décile supérieur de surperformance cumulée contre SPY à six mois.</p></article>
+  <article class="panel method-step"><b>04 · fold externe</b><h3>Train → validation → test</h3><p>Le modèle est figé avant son bloc test, généralement douze mois. Aucun mois test ne sert au fit.</p></article>
+  <article class="panel method-step"><b>05 · mois t+1</b><h3>Top 5 équipondéré</h3><p>Classement par score brut, cinq actions à 20 %, puis nouvelle décision le mois suivant.</p></article>
+  <article class="panel method-step"><b>06 · mesure</b><h3>Rendement 1 mois</h3><p>Rendement réalisé du mois de détention, net de 10 pb × turnover, comparé aux mêmes mois Legacy et SPY.</p></article>
+ </div>
+ <div class="method-note">
+  <div class="callout"><strong>Pourquoi une cible 6 mois mais une détention 1 mois ?</strong>H6 stabilise le signal de surperformance. Le portefeuille est néanmoins rescored chaque mois : il exploite ce signal long en renouvelant mensuellement ses cinq convictions les plus fortes.</div>
+  <div class="callout warn"><strong>Ce que signifie « hors-échantillon » ici</strong>15 modèles successifs couvrent le test. Un modèle est entraîné avant chaque fold, pas chaque mois du fold. La dernière fenêtre est plus courte. Une période choisie ci-dessous ne réentraîne rien : elle tranche uniquement les prédictions OOS déjà figées.</div>
+ </div>
+ <div class="period-bar" aria-label="Sélecteur de période du backtest">
+  <label class="field"><span>Début</span><select id="bt-start"></select></label>
+  <label class="field"><span>Fin</span><select id="bt-end"></select></label>
+  <button class="preset active" data-period="full">Tout</button>
+  <button class="preset" data-period="120">10 ans</button>
+  <button class="preset" data-period="60">5 ans</button>
+  <button class="preset" data-period="36">3 ans</button>
+  <span class="period-status" id="bt-period-status"></span>
+ </div>
  <div class="grid g4" id="backtest-metrics"></div>
- <div class="section-head"><div><h2>Richesse cumulée</h2><p>Base 1 au début du test.</p></div></div>
+ <div hidden><table><tbody id="perf-rows"></tbody><tbody id="regime-rows"></tbody></table></div>
+ <div class="section-head"><div><h2>Tableau de bord avancé sur la période</h2><p>Survolez les noms soulignés pour la définition courte ; les formules complètes sont plus bas.</p></div></div>
+ <div class="table-wrap"><table class="advanced-table"><thead><tr><th>Méthode</th><th>Rendement total</th><th>CAGR</th><th>Vol.</th><th><span class="metric-help" title="(CAGR - 2 %) / volatilité annualisée">Sharpe Legacy</span></th><th><span class="metric-help" title="(CAGR - 2 %) / downside deviation annualisée">Sortino</span></th><th><span class="metric-help" title="CAGR / valeur absolue du max drawdown">Calmar</span></th><th>Max DD</th><th><span class="metric-help" title="Excès annualisé moyen / tracking error">Information ratio</span></th><th>Beta SPY</th><th>Alpha ann.</th><th>Corr. SPY</th><th>Hit vs SPY</th><th>VaR 95 %</th><th>CVaR 95 %</th></tr></thead><tbody id="advanced-rows"></tbody></table></div>
+ <div class="section-head"><div><h2>Richesse cumulée</h2><p>Base 1 au début de la période choisie.</p></div></div>
  <article class="panel"><div class="legend" id="wealth-legend"></div><div class="chart" id="wealth-chart"></div></article>
- <div class="section-head"><div><h2>Drawdowns</h2><p>Baisse depuis le plus haut historique de chaque méthode.</p></div></div>
+ <div class="section-head"><div><h2>Drawdowns</h2><p>Baisse depuis le plus haut atteint à l'intérieur de la période.</p></div></div>
  <article class="panel"><div class="chart" id="dd-chart"></div></article>
- <div class="section-head"><div><h2>Performance complète</h2><p>Toutes les méthodes d'allocation, puis décomposition par régime.</p></div></div>
- <div class="table-wrap"><table><thead><tr><th>Méthode</th><th>CAGR</th><th>Sharpe</th><th>Vol.</th><th>Max DD</th><th>Pire année</th><th>Turnover</th><th>Poids max</th><th>Secteur max</th></tr></thead><tbody id="perf-rows"></tbody></table></div>
- <div class="spacer"></div>
- <div class="table-wrap"><table><thead><tr><th>Période</th><th>Méthode</th><th>Mois</th><th>CAGR</th><th>Vol.</th><th>Sharpe</th><th>Max DD</th></tr></thead><tbody id="regime-rows"></tbody></table></div>
- <div class="section-head"><div><h2>Rendements par année</h2><p>* année partielle.</p></div></div>
+ <div class="section-head"><div><h2>Indicateurs glissants</h2><p>Détecter si l'avantage est durable ou concentré dans quelques régimes.</p></div><div class="controls"><label>Fenêtre</label><select id="rolling-window"><option value="12">12 mois</option><option value="24">24 mois</option><option value="36" selected>36 mois</option><option value="60">60 mois</option></select><label>Indicateur</label><select id="rolling-metric"><option value="sharpe">Sharpe Legacy</option><option value="excess_spy">Excès annualisé vs SPY</option><option value="excess_legacy">Excès annualisé vs Legacy</option><option value="volatility">Volatilité</option><option value="drawdown">Max drawdown fenêtre</option></select></div></div>
+ <article class="panel"><div class="chart" id="rolling-chart"></div></article>
+ <div class="section-head"><div><h2>Épisodes de drawdown</h2><p>Pic, creux, récupération et durée. Les trois pires épisodes par méthode.</p></div></div>
+ <div class="grid g2" id="drawdown-episodes"></div>
+ <div class="section-head"><div><h2>Rendements par année dans la sélection</h2><p>* année partielle ou tronquée par le filtre.</p></div></div>
  <div class="table-wrap"><table id="annual-table"></table></div>
+ <div class="section-head"><div><h2>Extrêmes et forme de distribution</h2></div></div>
+ <div class="table-wrap"><table><thead><tr><th>Méthode</th><th>Meilleur mois</th><th>Pire mois</th><th>Mois positifs</th><th>Skewness</th><th>Kurtosis excès</th><th>Omega 0 %</th><th>Capture haussière</th><th>Capture baissière</th></tr></thead><tbody id="distribution-rows"></tbody></table></div>
  <div class="section-head"><div><h2>Robustesse et dilution</h2></div></div>
  <div class="grid g2">
   <article class="panel"><h3>Bootstrap apparié, blocs de 12 mois</h3><div id="bootstrap-summary"></div><p class="fine">2 000 réplications. L'intervalle préserve mieux l'autocorrélation qu'un bootstrap mensuel naïf.</p></article>
@@ -363,6 +393,19 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
   <article class="panel"><h3>Sensibilité aux coûts</h3><div id="cost-summary"></div></article>
   <article class="panel"><h3>Garde-fous Top 10</h3><div id="promotion-summary"></div></article>
  </div>
+ <div class="section-head"><div><h2>Lexique des indicateurs</h2><p>Conventions utilisées dans le calcul interactif.</p></div></div>
+ <div class="formula-grid">
+  <div class="formula"><b>CAGR</b><code>(richesse finale)^(12 / N mois) − 1</code><span class="fine">Taux composé annualisé sur la période filtrée.</span></div>
+  <div class="formula"><b>Sharpe Legacy</b><code>(CAGR − 2 %) / volatilité annualisée</code><span class="fine">Même convention que les rapports Legacy ; différente du Sharpe arithmétique académique.</span></div>
+  <div class="formula"><b>Sortino</b><code>(CAGR − 2 %) / downside deviation</code><span class="fine">Ne pénalise que les rendements mensuels négatifs.</span></div>
+  <div class="formula"><b>Calmar</b><code>CAGR / |max drawdown|</code><span class="fine">Rendement composé obtenu par unité de perte maximale observée.</span></div>
+  <div class="formula"><b>Information ratio</b><code>12 × moyenne(R − B) / [écart-type(R − B) × √12]</code><span class="fine">B = SPY ; cohérence de l'excès plutôt que performance absolue.</span></div>
+  <div class="formula"><b>Alpha / Beta</b><code>beta = cov(R,B)/var(B) ; alpha = 12×[R−Rf−beta(B−Rf)]</code><span class="fine">Régression mensuelle simple contre SPY, taux sans risque 2 % annualisé.</span></div>
+  <div class="formula"><b>VaR / CVaR 95 %</b><code>quantile 5 % ; moyenne des mois ≤ VaR</code><span class="fine">Mesures historiques mensuelles, sans hypothèse de normalité.</span></div>
+  <div class="formula"><b>Capture</b><code>moyenne stratégie / moyenne SPY, mois SPY ±</code><span class="fine">Participation aux marchés haussiers et baissiers ; interpréter avec le nombre de mois.</span></div>
+  <div class="formula"><b>Omega 0 %</b><code>somme gains mensuels / |somme pertes mensuelles|</code><span class="fine">Rapport gains/pertes au seuil mensuel de zéro.</span></div>
+ </div>
+ <div class="callout bad"><strong>Règle d'interprétation</strong>Une fenêtre courte peut afficher des ratios extrêmes et trompeurs. Sous 36 mois, le rapport signale la fragilité ; sous 12 mois, CAGR, Sharpe, Sortino et alpha ne doivent pas servir à promouvoir un modèle.</div>
 </section>
 
 <section class="page" id="portfolios">
@@ -440,8 +483,8 @@ function metric(label,value,note){return `<article class="panel metric"><span>${
 function badge(ok){return `<span class="badge ${ok?"pass":"fail"}">${ok?"PASS":"FAIL"}</span>`}
 function td(v,cls="num"){return `<td class="${cls}">${v}</td>`}
 
-$$(".tab").forEach(b=>b.onclick=()=>{$$(".tab,.page").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.page).classList.add("active");$("#crumb").textContent=b.textContent.trim().replace(/^\\d+/,"");window.scrollTo(0,0);if(b.dataset.page==="backtest"){drawLine("wealth-chart","wealth");drawLine("dd-chart","drawdown")}if(b.dataset.page==="shap") renderShap()});
-$("#theme").onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==="dark"?"":"dark";if($("#shap").classList.contains("active"))renderShap();if($("#backtest").classList.contains("active")){drawLine("wealth-chart","wealth");drawLine("dd-chart","drawdown")}};
+$$(".tab").forEach(b=>b.onclick=()=>{$$(".tab,.page").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.page).classList.add("active");$("#crumb").textContent=b.textContent.trim().replace(/^\\d+/,"");window.scrollTo(0,0);if(b.dataset.page==="backtest")renderBacktest();if(b.dataset.page==="shap")renderShap()});
+$("#theme").onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==="dark"?"":"dark";if($("#shap").classList.contains("active"))renderShap();if($("#backtest").classList.contains("active"))renderBacktest()};
 
 const perfBy=s=>D.performance.find(x=>x.series===s);
 const p5=perfBy("alpha_top5_equal"),p10=perfBy("alpha_top10_equal"),leg=perfBy("Legacy"),spy=perfBy("SPY total return");
@@ -477,6 +520,97 @@ $("#cost-summary").innerHTML=[10,25,50,100].map(c=>{const x=D.costs.find(r=>r.st
 $("#promotion-summary").innerHTML=D.promotion.map(x=>`<p>${badge(x.pass)} ${x.gate.replaceAll("_"," ")}</p>`).join("");
 
 const months=[...new Set(D.holdings.map(x=>x.holding_month))].sort();$("#holding-month").innerHTML=months.map(x=>`<option value="${x}">${x.slice(0,7)}</option>`).join("");$("#holding-month").value=months.at(-1);
+const BT_SERIES=[
+ {label:"Top 5 égal",key:"alpha_top5_return"},
+ {label:"Top 10 égal",key:"alpha_top10_return"},
+ {label:"Legacy",key:"legacy_return"},
+ {label:"SPY",key:"spy_return"}
+];
+const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
+const sampleStd=a=>{if(a.length<2)return null;const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/(a.length-1))};
+const quantile=(a,q)=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),p=(s.length-1)*q,l=Math.floor(p),h=Math.ceil(p);return s[l]+(s[h]-s[l])*(p-l)};
+const covariance=(a,b)=>{if(a.length<2||a.length!==b.length)return null;const am=mean(a),bm=mean(b);return a.reduce((s,x,i)=>s+(x-am)*(b[i]-bm),0)/(a.length-1)};
+function drawdownEpisodes(rows,key){
+ let wealth=1,peak=1,peakIndex=0,current=null;const episodes=[];
+ rows.forEach((row,i)=>{
+  wealth*=1+row[key];
+  if(wealth>=peak){
+   if(current){current.recovery=i;current.recoveryMonth=row.holding_month;current.duration=i-current.peakIndex;episodes.push(current);current=null}
+   peak=wealth;peakIndex=i;return;
+  }
+  const dd=wealth/peak-1;
+  if(!current)current={peakIndex,peakMonth:rows[peakIndex].holding_month,troughIndex:i,troughMonth:row.holding_month,depth:dd,recovery:null,recoveryMonth:null,duration:null};
+  if(dd<current.depth){current.depth=dd;current.troughIndex=i;current.troughMonth=row.holding_month}
+ });
+ if(current){current.duration=rows.length-1-current.peakIndex;episodes.push(current)}
+ return episodes.sort((a,b)=>a.depth-b.depth);
+}
+function periodStats(rows,spec){
+ const r=rows.map(x=>x[spec.key]),b=rows.map(x=>x.spy_return),n=r.length,wealth=r.reduce((w,x)=>w*(1+x),1),years=n/12;
+ const cagr=n&&wealth>0?Math.pow(wealth,1/years)-1:null,vol=(sampleStd(r)??0)*Math.sqrt(12),downside=Math.sqrt(mean(r.map(x=>Math.min(0,x)**2))??0)*Math.sqrt(12);
+ const episodes=drawdownEpisodes(rows,spec.key),maxDD=episodes[0]?.depth??0,excess=r.map((x,i)=>x-b[i]),tracking=(sampleStd(excess)??0)*Math.sqrt(12),bstd=sampleStd(b),bvar=bstd==null?null:bstd*bstd,cov=covariance(r,b),beta=bvar?cov/bvar:null;
+ const rfm=Math.pow(1.02,1/12)-1,alpha=beta==null?null:12*((mean(r)-rfm)-beta*(mean(b)-rfm)),rstd=sampleStd(r),corr=(rstd&&bstd)?cov/(rstd*bstd):null;
+ const m=mean(r),m2=mean(r.map(x=>(x-m)**2)),skew=m2?mean(r.map(x=>(x-m)**3))/Math.pow(m2,1.5):null,kurt=m2?mean(r.map(x=>(x-m)**4))/(m2*m2)-3:null;
+ const var95=quantile(r,.05),tail=r.filter(x=>x<=var95),gains=r.filter(x=>x>0).reduce((s,x)=>s+x,0),losses=Math.abs(r.filter(x=>x<0).reduce((s,x)=>s+x,0));
+ const up=rows.filter(x=>x.spy_return>0),down=rows.filter(x=>x.spy_return<0),best=rows.reduce((a,x)=>x[spec.key]>a[spec.key]?x:a,rows[0]),worst=rows.reduce((a,x)=>x[spec.key]<a[spec.key]?x:a,rows[0]);
+ return {label:spec.label,key:spec.key,n,total:wealth-1,cagr,volatility:vol,sharpe:vol?(cagr-.02)/vol:null,sortino:downside?(cagr-.02)/downside:null,calmar:maxDD?cagr/Math.abs(maxDD):null,maxDD,informationRatio:tracking?12*mean(excess)/tracking:null,beta,alpha,corr,hitSpy:mean(rows.map(x=>x[spec.key]>x.spy_return?1:0)),var95,cvar95:mean(tail),positive:mean(r.map(x=>x>0?1:0)),skew,kurt,omega:losses?gains/losses:null,upCapture:up.length?mean(up.map(x=>x[spec.key]))/mean(up.map(x=>x.spy_return)):null,downCapture:down.length?mean(down.map(x=>x[spec.key]))/mean(down.map(x=>x.spy_return)):null,best,worst,episodes};
+}
+function selectedBacktestRows(){
+ const start=$("#bt-start").value,end=$("#bt-end").value;
+ return D.monthly.filter(x=>x.holding_month>=start&&x.holding_month<=end);
+}
+function wealthFor(rows){
+ const state=Object.fromEntries(BT_SERIES.map(s=>[s.label,{wealth:1,peak:1}]));
+ return rows.map(row=>{const out={month:row.holding_month};BT_SERIES.forEach(s=>{const x=state[s.label];x.wealth*=1+row[s.key];x.peak=Math.max(x.peak,x.wealth);out[s.label]={wealth:x.wealth,drawdown:x.wealth/x.peak-1}});return out});
+}
+function drawBacktestLine(id,field,rows){
+ const data=wealthFor(rows),el=$("#"+id);if(!data.length){el.innerHTML="<p class=\"fine\">Aucune donnée.</p>";return}
+ const w=Math.max(700,el.clientWidth||900),h=310,p={l:54,r:18,t:16,b:34},series=BT_SERIES.map(x=>x.label),vals=data.flatMap(r=>series.map(s=>r[s][field]));
+ let min=Math.min(...vals),max=Math.max(...vals);if(field==="wealth")min=Math.min(0,min);if(min===max){min-=.1;max+=.1}
+ const x=i=>p.l+i*(w-p.l-p.r)/Math.max(1,data.length-1),y=v=>p.t+(max-v)*(h-p.t-p.b)/(max-min);
+ let svg="<svg viewBox=\"0 0 "+w+" "+h+"\">";
+ for(let j=0;j<5;j++){const v=min+(max-min)*j/4,yy=y(v);svg+="<line class=\"gridline\" x1=\""+p.l+"\" y1=\""+yy+"\" x2=\""+(w-p.r)+"\" y2=\""+yy+"\"/><text x=\"4\" y=\""+(yy+3)+"\">"+(field==="wealth"?v.toFixed(1):pct(v,0))+"</text>"}
+ series.forEach(s=>{const pts=data.map((r,i)=>x(i)+","+y(r[s][field])).join(" ");svg+="<polyline points=\""+pts+"\" fill=\"none\" stroke=\""+color[s]+"\" stroke-width=\""+(s==="Top 5 égal"?2.5:1.7)+"\"/>"});
+ [0,Math.floor(data.length/2),data.length-1].forEach(i=>svg+="<text x=\""+x(i)+"\" y=\""+(h-8)+"\" text-anchor=\""+(i===0?"start":i===data.length-1?"end":"middle")+"\">"+data[i].month.slice(0,7)+"</text>");el.innerHTML=svg+"</svg>";
+}
+function rollingValue(slice,spec,kind){
+ const st=periodStats(slice,spec);
+ if(kind==="excess_spy")return 12*mean(slice.map(x=>x[spec.key]-x.spy_return));
+ if(kind==="excess_legacy")return 12*mean(slice.map(x=>x[spec.key]-x.legacy_return));
+ if(kind==="volatility")return st.volatility;
+ if(kind==="drawdown")return st.maxDD;
+ return st.sharpe;
+}
+function drawRolling(rows){
+ const win=Number($("#rolling-window").value),kind=$("#rolling-metric").value,points=[];
+ for(let i=win-1;i<rows.length;i++){const slice=rows.slice(i-win+1,i+1),values={};BT_SERIES.forEach(s=>values[s.label]=rollingValue(slice,s,kind));points.push({month:rows[i].holding_month,values})}
+ const el=$("#rolling-chart");if(!points.length){el.innerHTML="<p class=\"range-warning\">La période est plus courte que la fenêtre glissante.</p>";return}
+ const w=Math.max(700,el.clientWidth||900),h=310,p={l:58,r:18,t:16,b:34},series=BT_SERIES.map(x=>x.label),vals=points.flatMap(x=>series.map(s=>x.values[s])).filter(Number.isFinite);
+ let min=Math.min(...vals),max=Math.max(...vals);if(min===max){min-=.1;max+=.1}const x=i=>p.l+i*(w-p.l-p.r)/Math.max(1,points.length-1),y=v=>p.t+(max-v)*(h-p.t-p.b)/(max-min);
+ let svg="<svg viewBox=\"0 0 "+w+" "+h+"\">";for(let j=0;j<5;j++){const v=min+(max-min)*j/4,yy=y(v);svg+="<line class=\"gridline\" x1=\""+p.l+"\" y1=\""+yy+"\" x2=\""+(w-p.r)+"\" y2=\""+yy+"\"/><text x=\"3\" y=\""+(yy+3)+"\">"+(kind==="sharpe"?num(v,1):pct(v,0))+"</text>"}
+ series.forEach(s=>{const pts=points.map((r,i)=>x(i)+","+y(r.values[s])).join(" ");svg+="<polyline points=\""+pts+"\" fill=\"none\" stroke=\""+color[s]+"\" stroke-width=\""+(s==="Top 5 égal"?2.5:1.5)+"\"/>"});[0,Math.floor(points.length/2),points.length-1].forEach(i=>svg+="<text x=\""+x(i)+"\" y=\""+(h-8)+"\" text-anchor=\""+(i===0?"start":i===points.length-1?"end":"middle")+"\">"+points[i].month.slice(0,7)+"</text>");el.innerHTML=svg+"</svg>";
+}
+function renderBacktest(){
+ const rows=selectedBacktestRows();if(!rows.length)return;const stats=BT_SERIES.map(s=>periodStats(rows,s)),top=stats[0],legacy=stats[2],spyStats=stats[3],fragile=rows.length<36;
+ $("#bt-period-status").innerHTML=rows[0].holding_month.slice(0,7)+" → "+rows.at(-1).holding_month.slice(0,7)+" · "+rows.length+" mois"+(fragile?" · <span class=\"range-warning\">fenêtre courte</span>":"");
+ $("#backtest-metrics").innerHTML=metric("Top 5 · CAGR",pct(top.cagr),"Legacy "+pct(legacy.cagr)+" · SPY "+pct(spyStats.cagr))+metric("Top 5 · Sharpe",num(top.sharpe),"Legacy "+num(legacy.sharpe)+" · "+(fragile?"fragile":"fenêtre exploitable"))+metric("Top 5 · Max DD",pct(top.maxDD),"Legacy "+pct(legacy.maxDD)+" · SPY "+pct(spyStats.maxDD))+metric("Information ratio",num(top.informationRatio),"Top 5 contre SPY");
+ $("#advanced-rows").innerHTML=stats.map(x=>"<tr><td>"+x.label+"<span class=\"subtle\">"+x.n+" mois</span></td>"+td(pct(x.total))+td(pct(x.cagr))+td(pct(x.volatility))+td(num(x.sharpe))+td(num(x.sortino))+td(num(x.calmar))+td(pct(x.maxDD))+td(num(x.informationRatio))+td(num(x.beta))+td(pct(x.alpha))+td(num(x.corr))+td(pct(x.hitSpy))+td(pct(x.var95))+td(pct(x.cvar95))+"</tr>").join("");
+ $("#distribution-rows").innerHTML=stats.map(x=>"<tr><td>"+x.label+"</td>"+td(x.best.holding_month.slice(0,7)+" · "+pct(x.best[x.key]))+td(x.worst.holding_month.slice(0,7)+" · "+pct(x.worst[x.key]))+td(pct(x.positive))+td(num(x.skew))+td(num(x.kurt))+td(num(x.omega))+td(pct(x.upCapture))+td(pct(x.downCapture))+"</tr>").join("");
+ drawBacktestLine("wealth-chart","wealth",rows);drawBacktestLine("dd-chart","drawdown",rows);drawRolling(rows);
+ $("#drawdown-episodes").innerHTML=stats.map(x=>"<article class=\"panel\"><h3>"+x.label+"</h3><div class=\"episodes\">"+(x.episodes.length?x.episodes.slice(0,3).map(e=>"<div class=\"episode\"><span>"+e.peakMonth.slice(0,7)+" → "+e.troughMonth.slice(0,7)+"</span><b>"+pct(e.depth)+"</b><span>"+(e.recoveryMonth?"récup. "+e.recoveryMonth.slice(0,7):"non récupéré")+"</span><span>"+e.duration+" mois</span></div>").join(""):"<p class=\"fine\">Aucun drawdown.</p>")+"</div></article>").join("");
+ const byYear={};rows.forEach(r=>{const y=r.holding_month.slice(0,4);(byYear[y]??=[]).push(r)});const years=Object.keys(byYear).sort();
+ $("#annual-table").innerHTML="<thead><tr><th>Année</th><th>Mois</th>"+BT_SERIES.map(s=>"<th>"+s.label+"</th>").join("")+"</tr></thead><tbody>"+years.map(y=>{const rs=byYear[y];return "<tr><td>"+y+(rs.length<12?"*":"")+"</td>"+td(rs.length)+BT_SERIES.map(s=>td(pct(rs.reduce((w,r)=>w*(1+r[s.key]),1)-1))).join("")+"</tr>"}).join("")+"</tbody>";
+}
+const btMonths=D.monthly.map(x=>x.holding_month),btOptions=btMonths.map(x=>"<option value=\""+x+"\">"+x.slice(0,7)+"</option>").join("");
+$("#bt-start").innerHTML=btOptions;$("#bt-end").innerHTML=btOptions;$("#bt-start").value=btMonths[0];$("#bt-end").value=btMonths.at(-1);
+function resetPreset(){$$(".preset").forEach(x=>x.classList.remove("active"))}
+$("#bt-start").onchange=()=>{if($("#bt-start").value>$("#bt-end").value)$("#bt-end").value=$("#bt-start").value;resetPreset();renderBacktest()};
+$("#bt-end").onchange=()=>{if($("#bt-end").value<$("#bt-start").value)$("#bt-start").value=$("#bt-end").value;resetPreset();renderBacktest()};
+$$(".preset").forEach(b=>b.onclick=()=>{resetPreset();b.classList.add("active");const n=b.dataset.period;$("#bt-end").value=btMonths.at(-1);$("#bt-start").value=n==="full"?btMonths[0]:btMonths[Math.max(0,btMonths.length-Number(n))];renderBacktest()});
+$("#rolling-window").onchange=renderBacktest;$("#rolling-metric").onchange=renderBacktest;
+$("#wealth-legend").innerHTML=BT_SERIES.map(s=>"<span><i style=\"background:"+color[s.label]+"\"></i>"+s.label+"</span>").join("");
+renderBacktest();
+
 function portfolioCard(title,portfolio,month,cls=""){
  const current=D.holdings.filter(x=>x.holding_month===month&&x.portfolio===portfolio).sort((a,b)=>(a.rank??99)-(b.rank??99)),idx=months.indexOf(month),prev=idx>0?new Set(D.holdings.filter(x=>x.holding_month===months[idx-1]&&x.portfolio===portfolio).map(x=>x.ticker)):new Set(),now=new Set(current.map(x=>x.ticker)),exits=idx>0?D.holdings.filter(x=>x.holding_month===months[idx-1]&&x.portfolio===portfolio&&!now.has(x.ticker)).map(x=>x.ticker):[];
  return `<article class="panel portfolio-card ${cls}"><h2>${title}</h2>${current.map(x=>`<div class="ticker-row"><span class="ticker">${x.ticker.replace(".US","")}</span><span>${x.sector||"—"}<br><span class="fine">${x.rank?`rang ${x.rank} · `:""}${x.calibrated_probability==null?"":`p ${pct(x.calibrated_probability,0)} · `}réalisé ${pct(x.realized_return_1m)}</span></span><span><b>${pct(x.weight,0)}</b><br><span class="action ${prev.has(x.ticker)?"keep":"enter"}">${prev.has(x.ticker)?"KEEP":"ENTER"}</span></span></div>`).join("")}<p class="fine">Sorties : ${exits.length?exits.map(x=>x.replace(".US","")).join(", "):"aucune"}</p></article>`;

@@ -50,6 +50,14 @@ def test_render_writes_one_html_and_auditable_manifest(
     assert "__SOURCES__" not in html
     assert "SHAP filtré par mois de test" in html
     assert "Le backtest ne réentraîne pas tous les mois" in html
+    assert "Pourquoi une cible 6 mois mais une détention 1 mois" in html
+    assert 'id="bt-start"' in html
+    assert 'id="advanced-rows"' in html
+    assert 'id="rolling-chart"' in html
+    assert "Information ratio" in html
+    assert "VaR / CVaR 95 %" in html
+    assert "3 paires/15 variables au fold 1" in html
+    assert "37/185 au fold 15" in html
     assert manifest["semantics"]["historical_retraining"] == (
         "once per outer fold"
     )
