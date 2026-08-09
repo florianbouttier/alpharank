@@ -27,6 +27,10 @@ from alpharank.data.ticker_integrity import (
     normalize_tickers,
 )
 from alpharank.features.indicators import TechnicalIndicators
+from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.utils.frame_backend import normalize_year_month_to_period, to_pandas, to_polars
 from alpharank.visualization.plotting import PortfolioVisualizer
@@ -811,6 +815,60 @@ def run_pipeline(
     _write_checkpoint(_get_detailed_output(combined_frequency, label="combined_frequency"), checkpoints_dir, f"{backend}_combined_frequency_detailed")
     _write_checkpoint(index_data.monthly_returns, checkpoints_dir, f"{backend}_sp500")
 
+    common_benchmark = to_polars(
+        normalize_year_month_to_timestamp(
+            to_pandas(index_data.monthly_returns),
+            col="year_month",
+        )
+    ).select("year_month", "monthly_return")
+    common_holdings_parts: list[pl.DataFrame] = []
+    for strategy_name, portfolio_output in (
+        ("Combined_Equal", combined_equal),
+        ("Combined_Frequency", combined_frequency),
+    ):
+        common_holdings_parts.append(
+            legacy_detailed_to_holdings(
+                to_polars(
+                    normalize_year_month_to_timestamp(
+                        to_pandas(_get_detailed_output(portfolio_output, label=strategy_name)),
+                        col="year_month",
+                    )
+                ),
+                strategy=strategy_name,
+                benchmark_monthly=common_benchmark,
+            ).filter(pl.col("benchmark_return").is_not_null())
+        )
+    common_holdings = pl.concat(common_holdings_parts, how="diagonal_relaxed")
+    common_monthly = pl.concat(
+        [
+            simulate_weighted_portfolio(
+                strategy_holdings,
+                transaction_cost_bps=0.0,
+            )
+            for strategy_holdings in common_holdings.partition_by(
+                "strategy",
+                maintain_order=True,
+            )
+        ]
+    )
+    common_monthly = pl.concat(
+        [
+            common_monthly,
+            reference_monthly_series(
+                common_monthly.filter(pl.col("strategy") == "Combined_Frequency"),
+                strategy="SP500",
+                return_column="benchmark_return",
+            ),
+        ],
+        how="diagonal_relaxed",
+    )
+    common_artifacts = write_common_portfolio_artifacts(
+        output_dir=run_day_dir,
+        holdings=common_holdings,
+        monthly_returns=common_monthly,
+        prefix="legacy_common",
+    )
+
     models = {
         "Legacy_Optuna_11": to_pandas(_sort_monthly_frame(optuna_output_1["aggregated"])),
         "Legacy_Optuna_12": to_pandas(_sort_monthly_frame(optuna_output_12["aggregated"])),
@@ -1045,6 +1103,7 @@ def run_pipeline(
             "drawdowns": drawdowns_file,
             "annual_returns": annual_returns_file,
             "metrics": metrics_file,
+            **{f"common_{key}": value for key, value in common_artifacts.items()},
             "portfolio_frequency_html": freq_file,
             "portfolio_equal_html": equal_file,
             "data_input_manifest": run_day_dir / "data_input_manifest.json",

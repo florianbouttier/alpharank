@@ -21,6 +21,12 @@ from sklearn.metrics import (
 from alpharank.backtest.data_loading import find_existing_column
 from alpharank.backtest.mlcraft_adapter import ensure_mlcraft_importable
 from alpharank.multihorizon.metrics import _expected_calibration_error, _safe_metric
+from alpharank.portfolio.allocation import (
+    capped_inverse_risk_weights,
+    constrained_inverse_risk_weights,
+    select_ranked_candidates,
+)
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
 DAILY_RISK_TRADING_DAYS = 252.0
@@ -346,126 +352,6 @@ def score_risk_predictions(
     return metrics
 
 
-def capped_inverse_risk_weights(
-    risk: Sequence[float],
-    *,
-    maximum_weight: float,
-    floor_quantile: float = 0.20,
-) -> np.ndarray:
-    values = np.asarray(risk, dtype=float)
-    if values.size == 0:
-        return values
-    if maximum_weight * values.size < 1.0 - 1e-12:
-        raise ValueError("maximum_weight is infeasible for the number of assets.")
-    finite_positive = values[np.isfinite(values) & (values > 0.0)]
-    if finite_positive.size == 0:
-        base = np.ones(values.size, dtype=float)
-    else:
-        floor = max(
-            float(np.quantile(finite_positive, floor_quantile)),
-            1e-8,
-        )
-        clean = np.where(
-            np.isfinite(values) & (values > 0.0),
-            np.maximum(values, floor),
-            np.nanmedian(finite_positive),
-        )
-        base = 1.0 / clean
-    weights = np.zeros(values.size, dtype=float)
-    active = np.ones(values.size, dtype=bool)
-    remaining = 1.0
-    while np.any(active):
-        proposed = remaining * base[active] / base[active].sum()
-        active_indices = np.flatnonzero(active)
-        capped = proposed > maximum_weight + 1e-12
-        if not np.any(capped):
-            weights[active_indices] = proposed
-            break
-        capped_indices = active_indices[capped]
-        weights[capped_indices] = maximum_weight
-        remaining -= maximum_weight * len(capped_indices)
-        active[capped_indices] = False
-    return weights / weights.sum()
-
-
-def constrained_inverse_risk_weights(
-    risk: Sequence[float],
-    sectors: Sequence[str],
-    *,
-    maximum_weight: float,
-    maximum_sector_weight: float,
-    floor_quantile: float = 0.20,
-) -> np.ndarray:
-    values = np.asarray(risk, dtype=float)
-    sector_values = np.asarray(sectors, dtype=object)
-    if values.size != sector_values.size:
-        raise ValueError("risk and sectors must have the same length.")
-    if values.size == 0:
-        return values
-    finite_positive = values[np.isfinite(values) & (values > 0.0)]
-    if finite_positive.size:
-        floor = max(
-            float(np.quantile(finite_positive, floor_quantile)),
-            1e-8,
-        )
-        clean = np.where(
-            np.isfinite(values) & (values > 0.0),
-            np.maximum(values, floor),
-            np.nanmedian(finite_positive),
-        )
-        base = 1.0 / clean
-    else:
-        base = np.ones(values.size, dtype=float)
-    weights = np.zeros(values.size, dtype=float)
-    remaining = 1.0
-    unique_sectors = list(dict.fromkeys(sector_values.tolist()))
-    for _ in range(values.size + len(unique_sectors) + 2):
-        stock_capacity = maximum_weight - weights
-        sector_capacity = {
-            sector: maximum_sector_weight
-            - float(weights[sector_values == sector].sum())
-            for sector in unique_sectors
-        }
-        active = np.asarray(
-            [
-                stock_capacity[index] > 1e-12
-                and sector_capacity[sector_values[index]] > 1e-12
-                for index in range(values.size)
-            ]
-        )
-        if remaining <= 1e-12:
-            break
-        if not np.any(active):
-            raise ValueError("Portfolio constraints are infeasible.")
-        proportions = np.zeros(values.size, dtype=float)
-        proportions[active] = base[active] / base[active].sum()
-        allocation = remaining
-        allocation = min(
-            allocation,
-            *[
-                stock_capacity[index] / proportions[index]
-                for index in np.flatnonzero(active)
-                if proportions[index] > 0.0
-            ],
-        )
-        for sector in unique_sectors:
-            sector_share = float(
-                proportions[sector_values == sector].sum()
-            )
-            if sector_share > 0.0:
-                allocation = min(
-                    allocation,
-                    sector_capacity[sector] / sector_share,
-                )
-        if allocation <= 1e-12:
-            raise ValueError("Portfolio constraints cannot absorb remaining weight.")
-        weights += allocation * proportions
-        remaining -= allocation
-    if remaining > 1e-8:
-        raise ValueError("Portfolio constraints are infeasible.")
-    return weights / weights.sum()
-
-
 def build_risk_weighted_backtest(
     predictions: pl.DataFrame,
     *,
@@ -496,30 +382,17 @@ def build_risk_weighted_backtest(
     panel = predictions.join(sector_map, on="ticker", how="left").with_columns(
         pl.col("sector").fill_null("Unknown")
     )
-    previous_weights: dict[str, float] = {}
-    monthly_rows: list[dict] = []
     holding_parts: list[pl.DataFrame] = []
     for month in panel.partition_by("decision_month", maintain_order=True):
-        ordered = month.sort("score", descending=True)
-        selected_indices: list[int] = []
-        sector_counts: dict[str, int] = {}
-        for index, sector in enumerate(ordered["sector"].to_list()):
-            if (
-                maximum_names_per_sector is not None
-                and sector_counts.get(sector, 0) >= maximum_names_per_sector
-            ):
-                continue
-            selected_indices.append(index)
-            sector_counts[sector] = sector_counts.get(sector, 0) + 1
-            if len(selected_indices) == top_n:
-                break
-        if len(selected_indices) < top_n:
-            if maximum_names_per_sector is not None:
-                raise ValueError(
-                    "Not enough names to satisfy maximum_names_per_sector."
-                )
-            selected_indices = list(range(min(top_n, ordered.height)))
-        selected = ordered[selected_indices]
+        selected = select_ranked_candidates(
+            month,
+            top_n=top_n,
+            score_column="score",
+            sector_column="sector",
+            maximum_names_per_sector=maximum_names_per_sector,
+            # Preserve the existing stable input-order tie behavior.
+            tie_breaker_columns=(),
+        )
         if selected.is_empty():
             continue
         if risk_column is None:
@@ -538,70 +411,41 @@ def build_risk_weighted_backtest(
             )
         selected = selected.with_columns(
             pl.Series("portfolio_weight", weights),
+            pl.Series("target_weight", weights),
             pl.int_range(1, selected.height + 1, eager=True).alias(
                 "selection_rank"
             ),
             pl.lit(strategy).alias("strategy"),
-        )
-        tickers = selected["ticker"].to_list()
-        current_weights = dict(zip(tickers, weights, strict=True))
-        names = set(previous_weights) | set(current_weights)
-        turnover = (
-            0.5
-            * sum(
-                abs(
-                    current_weights.get(name, 0.0)
-                    - previous_weights.get(name, 0.0)
-                )
-                for name in names
-            )
-            if previous_weights
-            else 1.0
-        )
-        gross_return = float(
-            np.dot(
-                weights,
-                selected["future_return_1m"].to_numpy().astype(float),
-            )
-        )
-        cost = turnover * transaction_cost_bps / 10_000.0
-        sector_weights = (
-            selected.group_by("sector")
-            .agg(pl.col("portfolio_weight").sum().alias("weight"))
-            .sort("weight", descending=True)
-        )
-        monthly_rows.append(
-            {
-                "strategy": strategy,
-                "decision_month": selected["decision_month"][0],
-                "holding_month": selected["decision_month"][0],
-                "n_positions": selected.height,
-                "gross_return": gross_return,
-                "net_return": gross_return - cost,
-                "benchmark_return": float(
-                    selected["benchmark_future_return_1m"][0]
-                ),
-                "turnover": turnover,
-                "transaction_cost": cost,
-                "maximum_position_weight": float(np.max(weights)),
-                "maximum_sector_weight": float(sector_weights["weight"].max()),
-                "sector_count": sector_weights.height,
-            }
+            pl.col("decision_month").dt.offset_by("1mo").alias("holding_month"),
+            pl.col("future_return_1m").alias("realized_return"),
+            pl.col("benchmark_future_return_1m").alias("benchmark_return"),
         )
         holding_parts.append(selected)
-        previous_weights = current_weights
-    monthly = (
-        pl.DataFrame(monthly_rows)
-        .with_columns(
-            pl.col("decision_month").dt.offset_by("1mo").alias("holding_month")
-        )
-        .sort("decision_month")
-    )
-    holdings = (
-        pl.concat(holding_parts)
-        .with_columns(
-            pl.col("decision_month").dt.offset_by("1mo").alias("holding_month")
-        )
-        .sort(["decision_month", "selection_rank"])
+    holdings = pl.concat(holding_parts).sort(["decision_month", "selection_rank"])
+    monthly = simulate_weighted_portfolio(
+        holdings.select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "ticker",
+            "target_weight",
+            "realized_return",
+            "benchmark_return",
+            "sector",
+        ),
+        transaction_cost_bps=transaction_cost_bps,
+    ).select(
+        "strategy",
+        "decision_month",
+        "holding_month",
+        "n_positions",
+        "gross_return",
+        "net_return",
+        "benchmark_return",
+        "turnover",
+        "transaction_cost",
+        "maximum_position_weight",
+        "maximum_sector_weight",
+        "sector_count",
     )
     return monthly, holdings

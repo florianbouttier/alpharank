@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Tuple, Union
 
+from alpharank.portfolio.performance import performance_statistics
+
 class PerformanceAnalyzer:
     """
     Centralized engine for calculating financial performance metrics and time series analysis.
@@ -40,23 +42,17 @@ class PerformanceAnalyzer:
         if series.empty:
             return {}
 
-        # Time Calculation
-        n_periods = len(series)
-        total_years = n_periods / periods_per_year
-        if total_years < 1/periods_per_year: 
-             # Avoid huge numbers for very short periods
-             total_years = 1/periods_per_year
-
-        # 1. Return Metrics
-        total_return = (1 + series).prod() - 1
-        cagr = (1 + total_return) ** (1 / total_years) - 1
-        
-        # 2. Volatility Metrics
-        std_dev = series.std()
-        annualized_vol = std_dev * np.sqrt(periods_per_year)
-        
-        # 3. Risk-Adjusted Return
-        sharpe = (cagr - risk_free_rate) / annualized_vol if annualized_vol != 0 else np.nan
+        if periods_per_year != 12:
+            raise ValueError("The shared portfolio engine currently supports monthly returns only.")
+        base = performance_statistics(
+            series.to_numpy(),
+            risk_free_rate=risk_free_rate,
+            sharpe_convention="legacy",
+        )
+        total_return = base["total_return"]
+        cagr = base["cagr"]
+        annualized_vol = base["annualized_volatility"]
+        sharpe = base["sharpe"]
         
         # Sortino
         downside_returns = series[series < 0]
@@ -68,7 +64,7 @@ class PerformanceAnalyzer:
         wealth = (1 + series).cumprod()
         peaks = wealth.cummax()
         drawdown = (wealth - peaks) / peaks
-        max_drawdown = drawdown.min()
+        max_drawdown = base["max_drawdown"]
         
         calmar = cagr / abs(max_drawdown) if max_drawdown != 0 else np.nan
         
@@ -79,7 +75,7 @@ class PerformanceAnalyzer:
         max_dd_duration = underwater_periods.max() if not underwater_periods.empty else 0
         
         # 5. Consistency
-        positive_months_pct = (series > 0).mean()
+        positive_months_pct = base["positive_month_rate"]
 
         return {
             'Total Return': total_return,

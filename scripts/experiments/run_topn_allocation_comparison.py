@@ -22,7 +22,10 @@ if str(PROJECT_ROOT / "src") not in sys.path:
 
 from alpharank.multihorizon.confirmation import paired_block_bootstrap  # noqa: E402
 from alpharank.multihorizon.risk import build_risk_weighted_backtest  # noqa: E402
-from alpharank.multihorizon.trading import (  # noqa: E402
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts  # noqa: E402
+from alpharank.portfolio.comparison import reference_monthly_series  # noqa: E402
+from alpharank.portfolio.performance import (  # noqa: E402
+    annual_returns as common_annual_returns,
     legacy_report_statistics,
 )
 
@@ -220,18 +223,17 @@ def _performance(monthly: pl.DataFrame) -> pl.DataFrame:
 def _annual_returns(monthly: pl.DataFrame) -> pl.DataFrame:
     rows: list[dict[str, Any]] = []
     for frame in monthly.partition_by("strategy", maintain_order=True):
-        for key, year in frame.group_by(
-            pl.col("holding_month").dt.year().alias("year"),
-            maintain_order=True,
-        ):
+        yearly = common_annual_returns(
+            frame["net_return"].to_numpy(),
+            holding_months=frame["holding_month"].to_list(),
+        )
+        for year in yearly.iter_rows(named=True):
             rows.append(
                 {
-                    "year": int(key[0]),
-                    "months": year.height,
+                    "year": int(year["year"]),
+                    "months": int(year["months"]),
                     "series": frame["strategy"][0],
-                    "annual_return": float(
-                        (1.0 + year["net_return"]).product() - 1.0
-                    ),
+                    "annual_return": float(year["annual_return"]),
                 }
             )
     reference = monthly.filter(
@@ -241,18 +243,17 @@ def _annual_returns(monthly: pl.DataFrame) -> pl.DataFrame:
         ("Legacy", "legacy_return"),
         ("SPY total return", "benchmark_return"),
     ):
-        for key, year in reference.group_by(
-            pl.col("holding_month").dt.year().alias("year"),
-            maintain_order=True,
-        ):
+        yearly = common_annual_returns(
+            reference[column].to_numpy(),
+            holding_months=reference["holding_month"].to_list(),
+        )
+        for year in yearly.iter_rows(named=True):
             rows.append(
                 {
-                    "year": int(key[0]),
-                    "months": year.height,
+                    "year": int(year["year"]),
+                    "months": int(year["months"]),
                     "series": series,
-                    "annual_return": float(
-                        (1.0 + year[column]).product() - 1.0
-                    ),
+                    "annual_return": float(year["annual_return"]),
                 }
             )
     return pl.DataFrame(rows).sort(["year", "series"])
@@ -734,6 +735,60 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     monthly.write_csv(output_dir / "allocation_monthly.csv")
     holdings.write_parquet(output_dir / "allocation_holdings.parquet")
+    common_monthly = monthly.with_columns(
+        (pl.col("net_return") - pl.col("benchmark_return")).alias("active_return"),
+        (
+            (1.0 + pl.col("net_return")) / (1.0 + pl.col("benchmark_return")) - 1.0
+        ).alias("relative_return"),
+    )
+    reference_source = common_monthly.filter(pl.col("strategy") == "alpha_top5_equal")
+    common_monthly = pl.concat(
+        [
+            common_monthly,
+            reference_monthly_series(
+                reference_source,
+                strategy="Legacy",
+                return_column="legacy_return",
+            ),
+            reference_monthly_series(
+                reference_source,
+                strategy="SPY total return",
+                return_column="benchmark_return",
+            ),
+        ],
+        how="diagonal_relaxed",
+    )
+    write_common_portfolio_artifacts(
+        output_dir=output_dir,
+        holdings=holdings.select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "ticker",
+            "target_weight",
+            "realized_return",
+            "benchmark_return",
+            "sector",
+            "selection_rank",
+            "score",
+        ),
+        monthly_returns=common_monthly.select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "gross_return",
+            "turnover",
+            "transaction_cost",
+            "net_return",
+            "benchmark_return",
+            "active_return",
+            "relative_return",
+            "n_positions",
+            "maximum_position_weight",
+            "maximum_sector_weight",
+            "sector_count",
+        ),
+    )
     performance.write_csv(output_dir / "performance_legacy_convention.csv")
     annual.write_csv(output_dir / "annual_returns.csv")
     annual.pivot(

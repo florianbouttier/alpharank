@@ -4,6 +4,8 @@ import numpy as np
 #from .fundamentals import FundamentalAnalyzer
 from alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
 from alpharank.features.indicators import TechnicalIndicators
+from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
 import datetime
 from scipy import stats
 from tqdm import tqdm
@@ -803,24 +805,46 @@ class StrategyLearner:
                 )
                 .with_columns((pl.col('weight') / pl.col('weight').sum().over('year_month')).alias('weight_normalized'))
             )
-            perf_data = (
-                detailed_holdings
-                .filter(pl.col('dr').is_not_null())
-                .with_columns((pl.col('weight') / pl.col('weight').sum().over('year_month')).alias('weight_perf'))
-                .with_columns((pl.col('dr') * pl.col('weight_perf')).alias('weighted_dr'))
+            if index is not None:
+                benchmark_for_engine = to_polars(
+                    normalize_year_month_to_timestamp(
+                        index.monthly_returns[['year_month', 'monthly_return']],
+                        col='year_month',
+                    )
+                ).with_columns(pl.col('monthly_return').fill_null(0.0))
+            else:
+                benchmark_for_engine = detailed_holdings.select('year_month').unique().with_columns(
+                    pl.lit(0.0).alias('monthly_return')
+                )
+            engine_holdings = legacy_detailed_to_holdings(
+                detailed_holdings.with_columns((pl.col('dr') - 1.0).alias('dr')),
+                strategy=f'Legacy_{mode}',
+                benchmark_monthly=benchmark_for_engine,
+            ).filter(pl.col('realized_return').is_not_null())
+            engine_monthly = simulate_weighted_portfolio(
+                engine_holdings,
+                transaction_cost_bps=0.0,
+                # Missing Legacy returns are excluded and remaining weights are
+                # renormalized exactly as in the historical implementation.
+                validate=False,
+            )
+            model_counts = (
+                detailed_holdings.filter(pl.col('dr').is_not_null())
+                .with_columns(pl.col('year_month').cast(pl.Date))
+                .group_by('year_month')
+                .agg(pl.col('n_models').mean().alias('avg_models_per_stock'))
             )
             aggregated = (
-                perf_data.group_by('year_month')
-                .agg(
-                    pl.col('weighted_dr').sum().alias('monthly_return'),
-                    pl.col('ticker').count().alias('n'),
-                    pl.col('n_models').mean().alias('avg_models_per_stock'),
+                engine_monthly.select(
+                    pl.col('holding_month').alias('year_month'),
+                    pl.col('net_return').alias('monthly_return'),
+                    pl.col('n_positions').cast(pl.UInt32).alias('n'),
                 )
-                .with_columns((pl.col('monthly_return') - 1).alias('monthly_return'))
+                .join(model_counts, on='year_month', how='left')
             )
             if index is not None:
                 idx = normalize_year_month_to_timestamp(index.monthly_returns[['year_month', 'monthly_return']], col='year_month')
-                idx_pl = to_polars(idx).rename({'monthly_return': 'monthly_return_index'})
+                idx_pl = to_polars(idx).with_columns(pl.col('year_month').cast(pl.Date)).rename({'monthly_return': 'monthly_return_index'})
                 aggregated = (
                     aggregated.join(idx_pl, on='year_month', how='left')
                     .with_columns(((1 + pl.col('monthly_return')) / (1 + pl.col('monthly_return_index'))).alias('monthly_return_vs_index'))

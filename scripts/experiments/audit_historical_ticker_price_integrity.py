@@ -22,7 +22,7 @@ from alpharank.data.ticker_integrity import (  # noqa: E402
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     load_ticker_exclusion_registry,
 )
-from alpharank.multihorizon.trading import legacy_report_statistics  # noqa: E402
+from alpharank.portfolio.performance import legacy_report_statistics  # noqa: E402
 
 
 DEFAULT_SNAPSHOT = Path(

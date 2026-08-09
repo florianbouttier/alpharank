@@ -13,10 +13,8 @@ if str(PROJECT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from alpharank.multihorizon.metrics import score_predictions
-from alpharank.multihorizon.trading import (
-    evaluate_trading_predictions,
-    performance_statistics,
-)
+from alpharank.multihorizon.trading import evaluate_trading_predictions
+from alpharank.portfolio.performance import performance_statistics
 
 
 def _legacy_monthly(path: Path) -> pl.DataFrame:

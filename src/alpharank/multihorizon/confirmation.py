@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import kurtosis, norm, skew
 
-from alpharank.multihorizon.trading import performance_statistics
+from alpharank.portfolio.performance import performance_statistics
 
 
 @dataclass(frozen=True)

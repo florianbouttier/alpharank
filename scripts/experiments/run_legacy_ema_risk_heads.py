@@ -32,10 +32,12 @@ from alpharank.multihorizon.risk import (
     score_risk_predictions,
 )
 from alpharank.multihorizon.splits import horizon_walk_forward_windows
-from alpharank.multihorizon.trading import (
+from alpharank.portfolio.performance import (
     legacy_report_statistics,
     performance_statistics,
 )
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
 
 
 def _sha256(path: Path) -> str:
@@ -767,6 +769,60 @@ def main() -> None:
     gates = _acceptance_gates(performance, costs)
     monthly.write_csv(args.output_dir / "allocation_monthly.csv")
     holdings.write_parquet(args.output_dir / "allocation_holdings.parquet")
+    common_monthly = monthly.with_columns(
+        (pl.col("net_return") - pl.col("benchmark_return")).alias("active_return"),
+        (
+            (1.0 + pl.col("net_return")) / (1.0 + pl.col("benchmark_return")) - 1.0
+        ).alias("relative_return"),
+    )
+    reference_source = common_monthly.filter(pl.col("strategy") == "alpha_top5_equal")
+    common_monthly = pl.concat(
+        [
+            common_monthly,
+            reference_monthly_series(
+                reference_source,
+                strategy="Legacy",
+                return_column="legacy_return",
+            ),
+            reference_monthly_series(
+                reference_source,
+                strategy="SPY total return",
+                return_column="benchmark_return",
+            ),
+        ],
+        how="diagonal_relaxed",
+    )
+    write_common_portfolio_artifacts(
+        output_dir=args.output_dir,
+        holdings=holdings.select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "ticker",
+            "target_weight",
+            "realized_return",
+            "benchmark_return",
+            "sector",
+            "selection_rank",
+            "score",
+        ),
+        monthly_returns=common_monthly.select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "gross_return",
+            "turnover",
+            "transaction_cost",
+            "net_return",
+            "benchmark_return",
+            "active_return",
+            "relative_return",
+            "n_positions",
+            "maximum_position_weight",
+            "maximum_sector_weight",
+            "sector_count",
+        ),
+    )
     performance.write_csv(args.output_dir / "allocation_performance.csv")
     legacy_convention_performance.write_csv(
         args.output_dir / "allocation_performance_legacy_convention.csv"

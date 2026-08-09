@@ -13,6 +13,7 @@ from plotly.subplots import make_subplots
 
 from alpharank.backtest.kpis import compute_backtest_kpis
 from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
+from alpharank.portfolio.performance import annual_returns as common_annual_returns
 
 
 SelectionMode = Literal["top_n", "prediction_threshold"]
@@ -486,8 +487,12 @@ def _compute_drawdowns(cumulative_returns: pl.DataFrame) -> pl.DataFrame:
 def _compute_annual_returns(models_data: Dict[str, pl.DataFrame]) -> pl.DataFrame:
     annual_frames: list[pl.DataFrame] = []
     for model_name, frame in models_data.items():
-        annual = frame.group_by(pl.col("year_month").dt.year().alias("year")).agg(
-            ((pl.col("monthly_return") + 1.0).product() - 1.0).alias(model_name)
+        annual = common_annual_returns(
+            frame["monthly_return"].to_numpy(),
+            holding_months=frame["year_month"].to_list(),
+        ).select(
+            "year",
+            pl.col("annual_return").alias(model_name),
         )
         annual_frames.append(annual.sort("year"))
 

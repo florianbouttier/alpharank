@@ -33,10 +33,8 @@ from alpharank.multihorizon.metrics import score_predictions
 from alpharank.multihorizon.modeling import fit_booster
 from alpharank.multihorizon.preprocessing import fit_fold_preprocessor
 from alpharank.multihorizon.splits import horizon_walk_forward_windows
-from alpharank.multihorizon.trading import (
-    evaluate_trading_predictions,
-    performance_statistics,
-)
+from alpharank.multihorizon.trading import evaluate_trading_predictions
+from alpharank.portfolio.performance import performance_statistics
 
 
 def _sha256(path: Path) -> str:

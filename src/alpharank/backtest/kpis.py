@@ -5,6 +5,8 @@ from typing import Dict, Iterable, List
 import numpy as np
 import polars as pl
 
+from alpharank.portfolio.performance import performance_statistics
+
 
 FLOAT_DTYPES = {pl.Float32, pl.Float64}
 
@@ -18,32 +20,29 @@ def _compute_series_kpis(returns: np.ndarray, risk_free_rate: float) -> Dict[str
     if clean.size == 0:
         clean = np.array([0.0], dtype=float)
 
-    total_return = np.prod(1.0 + clean) - 1.0
+    base = performance_statistics(
+        clean,
+        risk_free_rate=risk_free_rate,
+        sharpe_convention="legacy",
+    )
+    total_return = float(base["total_return"])
+    cagr = float(base["cagr"])
     n_periods = clean.size
-    n_years = max(n_periods / 12.0, 1.0 / 12.0)
-
-    if 1.0 + total_return <= 0.0:
-        cagr = -1.0
-    else:
-        cagr = (1.0 + total_return) ** (1.0 / n_years) - 1.0
-
     monthly_mean = np.mean(clean)
-    monthly_std = np.std(clean, ddof=1) if clean.size > 1 else 0.0
-    annualized_vol = monthly_std * np.sqrt(12.0)
+    annualized_vol = float(base["annualized_volatility"])
 
     downside = clean[clean < 0.0]
     downside_std = np.std(downside, ddof=1) * np.sqrt(12.0) if downside.size > 1 else 0.0
 
-    sharpe = (cagr - risk_free_rate) / annualized_vol if annualized_vol > 1e-12 else 0.0
+    sharpe = float(base["sharpe"])
+    if not np.isfinite(sharpe):
+        sharpe = 0.0
     sortino = (cagr - risk_free_rate) / downside_std if downside_std > 1e-12 else 0.0
 
-    wealth = np.cumprod(1.0 + clean)
-    peaks = np.maximum.accumulate(wealth)
-    drawdowns = (wealth / peaks) - 1.0
-    max_drawdown = float(np.min(drawdowns)) if drawdowns.size else 0.0
+    max_drawdown = float(base["max_drawdown"])
 
     calmar = cagr / abs(max_drawdown) if abs(max_drawdown) > 1e-12 else 0.0
-    win_rate = float(np.mean(clean > 0.0))
+    win_rate = float(base["positive_month_rate"])
 
     return {
         "total_return": _finite_or_zero(total_return),

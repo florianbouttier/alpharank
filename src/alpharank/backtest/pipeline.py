@@ -31,6 +31,9 @@ from alpharank.backtest.kpis import (
     sanitize_numeric_frame,
 )
 from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.backtest.reporting import (
     save_auc_score_overview,
     save_backtest_vs_sp500_plots,
@@ -1180,25 +1183,23 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
             }
         )
     else:
-        fold_monthly = (
-            selections.group_by(["fold", "holding_month"])
-            .agg(
-                pl.col("decision_month").min().alias("decision_month"),
-                pl.mean("future_return").alias("portfolio_return"),
-                pl.mean("benchmark_future_return").alias("benchmark_return"),
-                pl.mean("target_label").alias("hit_rate"),
-                pl.len().alias("n_positions"),
+        fold_monthly_parts: List[pl.DataFrame] = []
+        for fold_key, fold_selections in selections.partition_by("fold", as_dict=True).items():
+            fold_id = int(fold_key[0]) if isinstance(fold_key, tuple) else int(fold_key)
+            fold_monthly_parts.append(
+                compute_monthly_portfolio_returns(
+                    fold_selections.select(
+                        "year_month",
+                        "decision_month",
+                        "holding_month",
+                        "future_return",
+                        "benchmark_future_return",
+                        "target_label",
+                        "ticker",
+                    )
+                ).with_columns(pl.lit(fold_id).cast(pl.Int64).alias("fold"))
             )
-            .with_columns(
-                pl.col("benchmark_return").fill_null(0.0).alias("benchmark_return"),
-                pl.col("hit_rate").fill_null(0.0).alias("hit_rate"),
-            )
-            .with_columns(
-                (pl.col("portfolio_return") - pl.col("benchmark_return")).alias("active_return"),
-                pl.col("holding_month").alias("year_month"),
-            )
-            .sort(["fold", "holding_month"])
-        )
+        fold_monthly = pl.concat(fold_monthly_parts).sort(["fold", "holding_month"])
 
     fold_backtest_metrics = (
         fold_monthly.group_by("fold")
@@ -1301,6 +1302,58 @@ def _finalize_backtest_run(
         top_n=config.top_n,
     )
 
+    common_artifacts: Dict[str, Path] = {}
+    if not backtest_phase.selections.is_empty():
+        common_holdings = backtest_phase.selections.with_columns(
+            pl.lit("Portfolio").alias("strategy"),
+            (1.0 / pl.len().over("holding_month")).alias("target_weight"),
+            pl.col("future_return").alias("realized_return"),
+            pl.col("benchmark_future_return")
+            .fill_null(
+                pl.col("benchmark_future_return").drop_nulls().first().over("holding_month")
+            )
+            .fill_null(0.0)
+            .alias("benchmark_return"),
+        ).select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "ticker",
+            "target_weight",
+            "realized_return",
+            "benchmark_return",
+            "prediction",
+        )
+        common_monthly = simulate_weighted_portfolio(
+            common_holdings.select(
+                "strategy",
+                "decision_month",
+                "holding_month",
+                "ticker",
+                "target_weight",
+                "realized_return",
+                "benchmark_return",
+            ),
+            transaction_cost_bps=0.0,
+        )
+        common_monthly = pl.concat(
+            [
+                common_monthly,
+                reference_monthly_series(
+                    common_monthly,
+                    strategy="Benchmark",
+                    return_column="benchmark_return",
+                ),
+            ],
+            how="diagonal_relaxed",
+        )
+        common_artifacts = write_common_portfolio_artifacts(
+            output_dir=learning.run_dir,
+            holdings=common_holdings,
+            monthly_returns=common_monthly,
+            prefix="boosting_common",
+        )
+
     assert_no_numeric_na(fold_metrics, context="fold_metrics")
     assert_no_numeric_na(backtest_kpis, context="backtest_kpis")
     assert_no_numeric_na(split_kpis, context="split_kpis")
@@ -1357,6 +1410,7 @@ def _finalize_backtest_run(
         "report_html": report_path,
         "backtest_audit_report": audit_report_path,
         "metadata": learning.run_dir / "metadata.json",
+        **{f"common_{key}": value for key, value in common_artifacts.items()},
     }
     shap_report_path = backtest_phase.global_assets.get("shap_global_report")
     if shap_report_path is not None:

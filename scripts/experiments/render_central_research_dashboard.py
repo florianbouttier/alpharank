@@ -71,6 +71,40 @@ def _parquet_records(path: Path) -> list[dict[str, Any]]:
     return _clean(pl.read_parquet(path).to_dicts())
 
 
+def _dashboard_monthly_source() -> Path:
+    common = TOPN_DIR / "portfolio_common_monthly.csv"
+    return common if common.exists() else TOPN_DIR / "monthly_portfolio_returns.csv"
+
+
+def _dashboard_monthly() -> pl.DataFrame:
+    source = _dashboard_monthly_source()
+    monthly = pl.read_csv(source, try_parse_dates=True)
+    if "strategy" not in monthly.columns:
+        return monthly
+    return (
+        monthly.filter(
+            pl.col("strategy").is_in(
+                [
+                    "alpha_top5_equal",
+                    "alpha_top10_equal",
+                    "Legacy",
+                    "SPY total return",
+                ]
+            )
+        )
+        .pivot(on="strategy", index="holding_month", values="net_return")
+        .rename(
+            {
+                "alpha_top5_equal": "alpha_top5_return",
+                "alpha_top10_equal": "alpha_top10_return",
+                "Legacy": "legacy_return",
+                "SPY total return": "spy_return",
+            }
+        )
+        .sort("holding_month")
+    )
+
+
 def _monthly_shap_payload(
     samples_path: Path,
     lexicon_path: Path,
@@ -182,7 +216,7 @@ def _live_payload() -> dict[str, Any]:
 def build_payload() -> tuple[dict[str, Any], list[Path]]:
     source_files = [
         TOPN_DIR / "monthly_portfolios.parquet",
-        TOPN_DIR / "monthly_portfolio_returns.csv",
+        _dashboard_monthly_source(),
         TOPN_DIR / "performance_legacy_convention.csv",
         TOPN_DIR / "annual_returns_wide.csv",
         TOPN_DIR / "cost_sensitivity.csv",
@@ -211,10 +245,7 @@ def build_payload() -> tuple[dict[str, Any], list[Path]]:
         CHAMPION_DIR / "classification_h06/shap_samples.parquet",
         TOPN_DIR / "alpha_shap_feature_lexicon.csv",
     )
-    monthly = pl.read_csv(
-        TOPN_DIR / "monthly_portfolio_returns.csv",
-        try_parse_dates=True,
-    )
+    monthly = _dashboard_monthly()
     payload = {
         "meta": {
             "created": datetime.now().astimezone().isoformat(),
@@ -228,7 +259,7 @@ def build_payload() -> tuple[dict[str, Any], list[Path]]:
         "performance": _records(
             TOPN_DIR / "performance_legacy_convention.csv"
         ),
-        "monthly": _records(TOPN_DIR / "monthly_portfolio_returns.csv"),
+        "monthly": _clean(monthly.to_dicts()),
         "wealth": _drawdowns(monthly),
         "regimes": _regimes(monthly),
         "annual": _records(TOPN_DIR / "annual_returns_wide.csv"),

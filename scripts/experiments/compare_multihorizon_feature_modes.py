@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from alpharank.multihorizon.trading import performance_statistics
+from alpharank.portfolio.performance import performance_statistics
 
 
 def _run(value: str) -> tuple[str, Path]:
