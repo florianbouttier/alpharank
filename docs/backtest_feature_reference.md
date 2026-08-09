@@ -515,11 +515,23 @@ Monthly selection:
 
 Portfolio return aggregation:
 
-- monthly backtest performance is aggregated on `holding_month`
-- `portfolio_return = mean(future_return of selected names)`
-- `benchmark_return = mean(benchmark_future_return of selected names)`
+- selected predictions are adapted to the canonical holdings contract in
+  `alpharank.portfolio`
+- monthly backtest performance is simulated on `holding_month`
+- equal weights are assigned to the selected names
+- `portfolio_return = net_return = weighted mean(future_return)` because this
+  generic preset currently uses zero transaction costs
+- `benchmark_return` is the S&P 500 return over the same holding month
 - `active_return = portfolio_return - benchmark_return`
 - `hit_rate = mean(target_label of selected names)`
+
+The generic backtest, multi-horizon allocation, and Legacy aggregation now use
+the same simulator and performance primitives. The full contracts, missing
+return policy, turnover formula, comparison convention, and parity validation
+are documented in `docs/common_portfolio_backtest_engine.md`.
+
+Every run also writes standardized `boosting_common_*` artifacts alongside the
+historical output names.
 
 ## Known Limitations
 

@@ -1,9 +1,31 @@
 # Codex Handoff
 
-Last updated: 2026-07-26
+Last updated: 2026-08-09
 Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
+
+## 0.0 Shared Portfolio Engine — 2026-08-09
+
+Legacy and boosting still own separate signal and training logic, but finalized
+holdings now share `src/alpharank/portfolio/` for contract validation,
+allocation primitives, monthly simulation, turnover/costs, performance,
+calendar alignment, and standard artifacts. The canonical architecture and
+formulas are in [`docs/common_portfolio_backtest_engine.md`](./common_portfolio_backtest_engine.md).
+
+The frozen validation command is
+`scripts/validate_common_portfolio_engine.py`. Against the validated Legacy run
+`outputs/2026-07-27/runs/20260727_221253` and the Alpha/risk run
+`outputs/multihorizon_boosting/legacy_ema_risk_overlay_ticker_quarantine_v6_20260726`,
+the maximum absolute discrepancies are `2.08e-16` for Legacy returns,
+`1.67e-16` for Alpha returns, and `2.22e-16` for turnover, all below the
+`1e-12` promotion gate.
+
+New comparisons and reports must consume the common holdings/monthly ledgers or
+the compatibility wrappers that delegate to them. Do not add another local
+CAGR, Sharpe, drawdown, turnover, annual-return, or equal-weight return
+implementation. `decision_month=t` and `holding_month=t+1` are validated at the
+portfolio boundary.
 
 ## 0. Documentation Map
 

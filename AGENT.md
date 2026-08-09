@@ -15,12 +15,17 @@ This repository is organized around two active workflows:
 
 ## Active Library Layout
 
-- `src/alpharank/legacy/`: public entrypoint for legacy workflow
-- `src/alpharank/boosting/`: public entrypoint for boosting workflow
 - `src/alpharank/backtest/`: modular boosting implementation (data loading, features, CV folds, Optuna tuning, SHAP, reporting)
+- `src/alpharank/multihorizon/`: current leakage-aware multi-horizon boosting, risk, SHAP, and live scoring implementation
+- `src/alpharank/portfolio/`: methodology-neutral holdings contract, allocation primitives, simulator, metrics, comparison, and artifacts shared after signal generation
 - `src/alpharank/data/`: shared data processing/services used by legacy and utilities
 - `src/alpharank/strategy/`: legacy strategy implementation
 - `src/alpharank/visualization/`: legacy visual/reporting helpers
+
+Legacy and boosting signal generation must remain separate, but new portfolio
+return, turnover, cost, benchmark-alignment, and performance code must use
+`src/alpharank/portfolio/`. The canonical contract and parity gate are in
+`docs/common_portfolio_backtest_engine.md`.
 
 ## Archived Code
 

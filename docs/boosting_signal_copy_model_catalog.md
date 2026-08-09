@@ -3595,3 +3595,44 @@ nouveaux tests indépendants. Une fenêtre inférieure à 36 mois est signalée
 comme fragile ; sous 12 mois les ratios annualisés ne doivent pas motiver une
 promotion. Legacy et SPY restent toujours calculés sur exactement les mêmes
 mois.
+
+### Mutualisation du moteur portefeuille — 2026-08-09
+
+Hypothèse : les comparaisons pouvaient encore dériver parce que Legacy, le
+backtest boosting générique et le track multi-horizon possédaient des
+implémentations différentes du portefeuille et des KPI. Les signaux doivent
+rester propres à chaque méthodologie, mais une décision mensuelle identique doit
+produire strictement le même rendement, le même turnover et les mêmes
+statistiques quel que soit son adaptateur d'origine.
+
+Implémentation : création de `src/alpharank/portfolio/` avec contrats de
+holdings, pondérations égales/inverse-risk/sectorielles, simulateur, coûts,
+performance, alignement temporel, artefacts standard et adaptateurs Legacy et
+boosting. `backtest.portfolio`, `backtest.kpis`, `strategy.analytics`,
+`multihorizon.trading`, `multihorizon.risk` et les scripts top-N/risk délèguent
+maintenant à ces briques communes.
+
+Données de validation : Legacy validé
+`outputs/2026-07-27/runs/20260727_221253` et allocation Alpha/risk
+`outputs/multihorizon_boosting/legacy_ema_risk_overlay_ticker_quarantine_v6_20260726`.
+
+Commande :
+
+```bash
+./.venv/bin/python scripts/validate_common_portfolio_engine.py \
+  --legacy-detailed outputs/2026-07-27/runs/20260727_221253/legacy_detailed_returns_polars.parquet \
+  --legacy-aggregated outputs/2026-07-27/runs/20260727_221253/legacy_aggregated_returns_polars.parquet \
+  --alpha-holdings outputs/multihorizon_boosting/legacy_ema_risk_overlay_ticker_quarantine_v6_20260726/allocation_holdings.parquet \
+  --alpha-monthly outputs/multihorizon_boosting/legacy_ema_risk_overlay_ticker_quarantine_v6_20260726/allocation_monthly.csv \
+  --output outputs/common_portfolio_engine_validation_20260809.json
+```
+
+Résultat : PASS à la tolérance `1e-12`. Erreur maximale Legacy
+`2.08e-16`, rendement Alpha `1.67e-16`, turnover `2.22e-16`. Le moteur commun
+rejoue 197 mois complets pour chacun des deux portefeuilles Legacy et 1 376
+strategy-months pour les huit allocations Alpha/risk.
+
+Décision : ce changement ne promeut aucun nouveau modèle et ne modifie pas les
+signaux. Top 5 égal reste le challenger retenu, Top 10 et les overlays restent
+diagnostiques. Toute future modification du portefeuille ou des KPI doit passer
+le replay commun avant publication.

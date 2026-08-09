@@ -42,6 +42,10 @@ procedure changes.
 - For boosting/Legacy-copy R&D, update `docs/boosting_signal_copy_model_catalog.md`; do not create parallel experiment notes unless they are linked from the handoff and intentionally promoted.
 - For SEC/open-source data status, update `docs/sec_open_source_status.md` and `docs/sec_data_robustness_plan.md` as applicable.
 - For monthly portfolio production, update `docs/monthly_portfolio_runbook.md`.
+- For portfolio simulation, performance metrics, or cross-method comparison,
+  update `docs/common_portfolio_backtest_engine.md` and use
+  `src/alpharank/portfolio/`; do not add another local CAGR, Sharpe, drawdown,
+  turnover, or annual-return implementation.
 - Every delegated research update should record, in the relevant central doc, the hypothesis, data used, command/run id, primary metric, result, and next decision.
 - Prefer project-visible memory in `AGENTS.md`, `AGENT.md`, and relevant docs over relying on chat history.
 
@@ -64,6 +68,11 @@ procedure changes.
 - A manifest without `input_snapshot_dir`, `run_config.source_input_sha256`, and `code_context.critical_file_sha256` is not a complete replay package.
 - For open-source production data, a manifest with `open_source_run_id_match=false`, `open_source_output_manifest_run_id_match=false`, or `open_source_output_matches_published_snapshot=false` is not a clean monthly package and must not be used as production truth without data-package investigation.
 - If rerunning a historical month with newer data changes the portfolio, treat it as data revision/look-ahead risk until proven otherwise.
+- Legacy and boosting may generate different signals, but finalized holdings
+  must pass through the shared portfolio contract for new backtests and reports.
+  A change to Legacy aggregation is not production-safe unless
+  `scripts/validate_common_portfolio_engine.py` reproduces the frozen Legacy
+  and Alpha references within `1e-12`.
 
 ## Open-Source Data Lineage
 

@@ -53,9 +53,9 @@ conda run -n alpharank python -m pip install -e .
 src/
   alpharank/
     __init__.py
-    legacy/               # public legacy API
-    boosting/             # public boosting API
     backtest/             # boosting modules (data/features/folds/tuning/shap/report)
+    multihorizon/         # current multi-horizon boosting and live scoring
+    portfolio/            # shared holdings, simulation, metrics and artifacts
     data/
     features/
     models/
@@ -69,6 +69,7 @@ src/
 
 - Legacy pipeline: `scripts/run_legacy.py`
 - Boosting pipeline: `scripts/run_backtest.py`
+- Common Legacy/Alpha replay gate: `scripts/validate_common_portfolio_engine.py`
 - Python source selection example: `scripts/backtest_data_source_examples.py`
 - EODHD exact-name mirror builder: `scripts/sync_eodhd_output.py`
 - Open-source price transition audit: `scripts/open_source/run_price_transition.py`
@@ -77,6 +78,11 @@ src/
 - Nightly ingestion runner: `scripts/open_source/nightly_ingestion.py`
 - Nightly launchd installer: `scripts/open_source/install_nightly_launchd.py`
 - Data lineage audit: `scripts/audit_data_lineage.py`
+
+Legacy and boosting keep separate signal/training logic, then adapt finalized
+monthly decisions to the same `alpharank.portfolio` contract. See
+`docs/common_portfolio_backtest_engine.md` for timing, weighting, cost,
+performance, and parity rules.
 
 ## Open-Source Price Transition
 

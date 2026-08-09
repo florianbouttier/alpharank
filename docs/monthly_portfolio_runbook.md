@@ -77,6 +77,12 @@ Key files:
 - `legacy_detailed_returns_polars.parquet`: ticker-level monthly portfolios.
 - `legacy_aggregated_returns_polars.parquet`: aggregated model returns.
 - `legacy_metrics_polars.parquet`: model comparison metrics.
+- `legacy_common_holdings.parquet`: canonical completed-month holdings for
+  `Combined_Equal` and `Combined_Frequency`.
+- `legacy_common_monthly.parquet`: canonical gross/net/benchmark return ledger
+  produced by the shared portfolio simulator.
+- `legacy_common_annual.csv`, `legacy_common_performance.csv`, and
+  `legacy_common_calendar.json`: shared Legacy/Alpha/SPY reporting convention.
 - `portfolio_report_frequency_polars_<YYYY-MM>.html`: frequency-weighted portfolio snapshot.
 - `portfolio_report_equal_polars_<YYYY-MM>.html`: equal-weighted portfolio snapshot.
 
@@ -84,6 +90,14 @@ The two production portfolio views are:
 
 - `Combined_Frequency`: consensus-weighted view, using model frequency as weights.
 - `Combined_Equal`: equal-weighted view of the selected tickers.
+
+The Legacy signal, annual Optuna search, and consensus votes remain owned by
+`StrategyLearner`. Finalized baskets are now adapted to the common portfolio
+engine documented in `docs/common_portfolio_backtest_engine.md`. This does not
+change the production strategy: the frozen 2026-07-27 replay reproduces both
+combined return series below `2.1e-16` absolute monthly error. Run
+`scripts/validate_common_portfolio_engine.py` after any change to portfolio
+aggregation, weighting, return handling, or performance metrics.
 
 ## Recovering A Prior Monthly Run
 
