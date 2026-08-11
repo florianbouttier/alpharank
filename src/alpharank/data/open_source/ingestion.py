@@ -43,6 +43,7 @@ from alpharank.data.open_source.general_reference import (
 )
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
 from alpharank.data.open_source.publishing import publish_open_source_output_package
+from alpharank.data.open_source.price_quality import assert_no_extreme_adjusted_price_moves
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
@@ -51,6 +52,7 @@ from alpharank.data.open_source.stockanalysis import StockAnalysisClient
 from alpharank.data.open_source.storage import (
     OpenSourceLivePaths,
     append_run_delta,
+    merge_upsert_frames,
     new_run_id,
     upsert_parquet,
     utc_now_iso,
@@ -269,33 +271,26 @@ def repair_open_source_price_history(
         ingested_at=ingested_at,
     )
 
+    (
+        raw_yahoo_prices,
+        raw_simfin_prices,
+        raw_stockanalysis_prices,
+        clean_prices,
+        clean_price_lineage,
+    ) = _prepare_validated_stock_price_merge(
+        paths=paths,
+        yahoo_delta=prices_delta,
+        simfin_delta=simfin_prices_delta,
+        stockanalysis_delta=stockanalysis_prices_delta,
+        ticker_list=ticker_list,
+        event_since=start_date,
+    )
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_stockanalysis.parquet", stockanalysis_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_spy_yfinance.parquet", benchmark_delta)
-    raw_yahoo_prices = upsert_parquet(
-        paths.raw_dir / "prices_yfinance.parquet",
-        prices_delta,
-        key_cols=["ticker", "date", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_yahoo_prices = _canonicalize_price_tickers(raw_yahoo_prices, ticker_list=ticker_list)
     raw_yahoo_prices.write_parquet(paths.raw_dir / "prices_yfinance.parquet")
-    raw_simfin_prices = upsert_parquet(
-        paths.raw_dir / "prices_simfin.parquet",
-        simfin_prices_delta,
-        key_cols=["ticker", "date", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_simfin_prices = _canonicalize_price_tickers(raw_simfin_prices, ticker_list=ticker_list)
     raw_simfin_prices.write_parquet(paths.raw_dir / "prices_simfin.parquet")
-    raw_stockanalysis_prices = upsert_parquet(
-        paths.raw_dir / "prices_stockanalysis.parquet",
-        stockanalysis_prices_delta,
-        key_cols=["ticker", "date", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_stockanalysis_prices = _canonicalize_price_tickers(raw_stockanalysis_prices, ticker_list=ticker_list)
     raw_stockanalysis_prices.write_parquet(paths.raw_dir / "prices_stockanalysis.parquet")
     raw_benchmark_prices = upsert_parquet(
         paths.raw_dir / "prices_spy_yfinance.parquet",
@@ -304,10 +299,6 @@ def repair_open_source_price_history(
         order_cols=["ingested_at"],
     )
 
-    clean_prices, clean_price_lineage = _consolidate_price_sources(
-        [raw_yahoo_prices, raw_simfin_prices, raw_stockanalysis_prices],
-        ticker_list=ticker_list,
-    )
     clean_benchmark_prices = raw_benchmark_prices.select(
         ["date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"]
     ).sort(["ticker", "date"])
@@ -879,43 +870,32 @@ def run_open_source_ingestion(
         run_id=run_id,
         ingested_at=ingested_at,
     )
+    (
+        raw_yahoo_prices,
+        raw_simfin_prices,
+        raw_stockanalysis_prices,
+        clean_prices,
+        clean_price_lineage,
+    ) = _prepare_validated_stock_price_merge(
+        paths=paths,
+        yahoo_delta=yahoo_prices_delta,
+        simfin_delta=simfin_prices_delta,
+        stockanalysis_delta=stockanalysis_prices_delta,
+        ticker_list=ticker_list,
+        event_since=price_start,
+    )
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", yahoo_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_stockanalysis.parquet", stockanalysis_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_spy_yfinance.parquet", benchmark_prices_delta)
-    raw_yahoo_prices = upsert_parquet(
-        paths.raw_dir / "prices_yfinance.parquet",
-        yahoo_prices_delta,
-        key_cols=["ticker", "date", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_yahoo_prices = _canonicalize_price_tickers(raw_yahoo_prices, ticker_list=ticker_list)
     raw_yahoo_prices.write_parquet(paths.raw_dir / "prices_yfinance.parquet")
-    raw_simfin_prices = upsert_parquet(
-        paths.raw_dir / "prices_simfin.parquet",
-        simfin_prices_delta,
-        key_cols=["ticker", "date", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_simfin_prices = _canonicalize_price_tickers(raw_simfin_prices, ticker_list=ticker_list)
     raw_simfin_prices.write_parquet(paths.raw_dir / "prices_simfin.parquet")
-    raw_stockanalysis_prices = upsert_parquet(
-        paths.raw_dir / "prices_stockanalysis.parquet",
-        stockanalysis_prices_delta,
-        key_cols=["ticker", "date", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_stockanalysis_prices = _canonicalize_price_tickers(raw_stockanalysis_prices, ticker_list=ticker_list)
     raw_stockanalysis_prices.write_parquet(paths.raw_dir / "prices_stockanalysis.parquet")
     raw_benchmark_prices = upsert_parquet(
         paths.raw_dir / "prices_spy_yfinance.parquet",
         benchmark_prices_delta,
         key_cols=["ticker", "date", "source"],
         order_cols=["ingested_at"],
-    )
-    clean_prices, clean_price_lineage = _consolidate_price_sources(
-        [raw_yahoo_prices, raw_simfin_prices, raw_stockanalysis_prices],
-        ticker_list=ticker_list,
     )
 
     earnings_delta = _empty_raw_earnings_frame()
@@ -1704,6 +1684,42 @@ def _load_existing_price_tickers(paths: OpenSourceLivePaths) -> tuple[str, ...]:
             .to_list()
         )
     return ()
+
+
+def _prepare_validated_stock_price_merge(
+    *,
+    paths: OpenSourceLivePaths,
+    yahoo_delta: pl.DataFrame,
+    simfin_delta: pl.DataFrame,
+    stockanalysis_delta: pl.DataFrame,
+    ticker_list: Sequence[str],
+    event_since: str,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    sources = (
+        ("prices_yfinance.parquet", yahoo_delta),
+        ("prices_simfin.parquet", simfin_delta),
+        ("prices_stockanalysis.parquet", stockanalysis_delta),
+    )
+    prospective: list[pl.DataFrame] = []
+    for file_name, delta in sources:
+        path = paths.raw_dir / file_name
+        existing = pl.read_parquet(path) if path.exists() else _empty_raw_price_frame()
+        merged = merge_upsert_frames(
+            existing,
+            delta,
+            key_cols=["ticker", "date", "source"],
+            order_cols=["ingested_at"],
+        )
+        prospective.append(_canonicalize_price_tickers(merged, ticker_list=ticker_list))
+
+    clean, lineage = _consolidate_price_sources(prospective, ticker_list=ticker_list)
+    quality_tickers = [f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in ticker_list]
+    assert_no_extreme_adjusted_price_moves(
+        clean,
+        event_since=event_since,
+        tickers=quality_tickers,
+    )
+    return prospective[0], prospective[1], prospective[2], clean, lineage
 
 
 def _consolidate_price_sources(

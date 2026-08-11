@@ -64,6 +64,134 @@ def performance_statistics(
     }
 
 
+def advanced_performance_statistics(
+    returns: np.ndarray | Iterable[float],
+    *,
+    benchmark_returns: np.ndarray | Iterable[float] | None = None,
+    risk_free_rate: float = 0.02,
+) -> dict[str, float]:
+    """Canonical advanced statistics for a monthly strategy comparison."""
+
+    values = np.asarray(
+        list(returns) if not isinstance(returns, np.ndarray) else returns,
+        dtype=float,
+    )
+    benchmark = None
+    if benchmark_returns is not None:
+        benchmark = np.asarray(
+            list(benchmark_returns)
+            if not isinstance(benchmark_returns, np.ndarray)
+            else benchmark_returns,
+            dtype=float,
+        )
+        if benchmark.size != values.size:
+            raise ValueError("returns and benchmark_returns must have the same length")
+        valid = np.isfinite(values) & np.isfinite(benchmark)
+        benchmark = benchmark[valid]
+    else:
+        valid = np.isfinite(values)
+    values = values[valid]
+    base = performance_statistics(
+        values,
+        risk_free_rate=risk_free_rate,
+        sharpe_convention="legacy",
+    )
+    if values.size == 0:
+        return {
+            **base,
+            **{
+                key: float("nan")
+                for key in (
+                    "sortino",
+                    "calmar",
+                    "information_ratio",
+                    "beta",
+                    "alpha",
+                    "correlation",
+                    "benchmark_hit_rate",
+                    "var_95",
+                    "cvar_95",
+                    "omega",
+                    "up_capture",
+                    "down_capture",
+                )
+            },
+        }
+
+    downside = math.sqrt(float(np.mean(np.minimum(values, 0.0) ** 2)) * 12.0)
+    sortino = (
+        (base["cagr"] - risk_free_rate) / downside
+        if downside > 0.0
+        else float("nan")
+    )
+    calmar = (
+        base["cagr"] / abs(base["max_drawdown"])
+        if base["max_drawdown"] < 0.0
+        else float("nan")
+    )
+    var_95 = float(np.quantile(values, 0.05))
+    tail = values[values <= var_95]
+    gains = float(values[values > 0.0].sum())
+    losses = abs(float(values[values < 0.0].sum()))
+    result = {
+        **base,
+        "sortino": float(sortino),
+        "calmar": float(calmar),
+        "var_95": var_95,
+        "cvar_95": float(np.mean(tail)) if tail.size else float("nan"),
+        "omega": gains / losses if losses > 0.0 else float("nan"),
+        "information_ratio": float("nan"),
+        "beta": float("nan"),
+        "alpha": float("nan"),
+        "correlation": float("nan"),
+        "benchmark_hit_rate": float("nan"),
+        "up_capture": float("nan"),
+        "down_capture": float("nan"),
+    }
+    if benchmark is None or values.size < 2:
+        return result
+
+    active = values - benchmark
+    tracking_error = float(np.std(active, ddof=1) * math.sqrt(12.0))
+    benchmark_variance = float(np.var(benchmark, ddof=1))
+    covariance = float(np.cov(values, benchmark, ddof=1)[0, 1])
+    beta = covariance / benchmark_variance if benchmark_variance > 0.0 else float("nan")
+    monthly_risk_free = (1.0 + risk_free_rate) ** (1.0 / 12.0) - 1.0
+    alpha = (
+        12.0
+        * (
+            (float(np.mean(values)) - monthly_risk_free)
+            - beta * (float(np.mean(benchmark)) - monthly_risk_free)
+        )
+        if math.isfinite(beta)
+        else float("nan")
+    )
+    up = benchmark > 0.0
+    down = benchmark < 0.0
+    result.update(
+        information_ratio=(
+            12.0 * float(np.mean(active)) / tracking_error
+            if tracking_error > 0.0
+            else float("nan")
+        ),
+        beta=beta,
+        alpha=alpha,
+        correlation=float(np.corrcoef(values, benchmark)[0, 1]),
+        benchmark_hit_rate=float(np.mean(values > benchmark)),
+        up_capture=(
+            float(np.mean(values[up]) / np.mean(benchmark[up]))
+            if np.any(up) and np.mean(benchmark[up]) != 0.0
+            else float("nan")
+        ),
+        down_capture=(
+            float(np.mean(values[down]) / np.mean(benchmark[down]))
+            if np.any(down) and np.mean(benchmark[down]) != 0.0
+            else float("nan")
+        ),
+    )
+    return result
+
+
 def annual_returns(
     returns: np.ndarray | Iterable[float],
     *,

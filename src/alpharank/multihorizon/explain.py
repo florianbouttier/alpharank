@@ -6,6 +6,13 @@ import numpy as np
 import polars as pl
 
 
+def shap_row_indexes(*, row_count: int, sample_size: int, seed: int) -> np.ndarray:
+    if sample_size > 0 and row_count > sample_size:
+        rng = np.random.default_rng(seed)
+        return np.sort(rng.choice(row_count, sample_size, replace=False))
+    return np.arange(row_count)
+
+
 def compute_shap_sample(
     *,
     fitted,
@@ -19,11 +26,9 @@ def compute_shap_sample(
 ) -> pl.DataFrame:
     import shap
 
-    if X.shape[0] > sample_size:
-        rng = np.random.default_rng(seed)
-        indexes = np.sort(rng.choice(X.shape[0], sample_size, replace=False))
-    else:
-        indexes = np.arange(X.shape[0])
+    indexes = shap_row_indexes(
+        row_count=X.shape[0], sample_size=sample_size, seed=seed
+    )
     values = np.asarray(shap.TreeExplainer(fitted.model.model_).shap_values(X[indexes]))
     if values.ndim == 3:
         values = values[:, :, -1]

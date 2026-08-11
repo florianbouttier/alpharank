@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
-from typing import Tuple
+from typing import Mapping, Tuple
 
 from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 
@@ -10,6 +11,50 @@ from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 DEFAULT_HISTORICAL_EXCLUDED_TICKERS = (
     load_ticker_exclusion_registry().excluded_tickers
 )
+
+LATEST_COMMON_COMPARISON_PROFILE_NAME = "legacy_ema_latest_common_v1"
+LATEST_COMMON_COMPARISON_PROFILE = {
+    "horizons": (6,),
+    "methods": ("classification",),
+    "start_month": "2005-01",
+    "min_train_months": 62,
+    "validation_months": 6,
+    "test_months": 12,
+    "step_months": 12,
+    "include_partial_test_window": True,
+    "n_trials": 0,
+    "num_boost_round": 100,
+    "shap_sample_per_fold": 0,
+    "feature_mode": "legacy_winners_pit_ema_only",
+    "minimum_monthly_price_observations": 10,
+    "minimum_monthly_median_dollar_volume": 1_000_000.0,
+    "maximum_monthly_ohlc_violation_rate": 0.05,
+    "random_seed": 42,
+}
+
+
+def validate_latest_common_comparison_profile(
+    config: Mapping[str, object],
+) -> dict[str, object]:
+    """Validate the versioned methodology contract used by the public comparison."""
+
+    mismatches: dict[str, dict[str, object]] = {}
+    for key, expected in LATEST_COMMON_COMPARISON_PROFILE.items():
+        observed = config.get(key)
+        if isinstance(expected, tuple) and isinstance(observed, list):
+            observed = tuple(observed)
+        if observed != expected:
+            mismatches[key] = {"expected": expected, "observed": observed}
+    if not config.get("score_only_end_month"):
+        mismatches["score_only_end_month"] = {
+            "expected": "a YYYY-MM decision cutoff",
+            "observed": config.get("score_only_end_month"),
+        }
+    return {
+        "name": LATEST_COMMON_COMPARISON_PROFILE_NAME,
+        "passed": not mismatches,
+        "mismatches": mismatches,
+    }
 
 
 @dataclass(frozen=True)
@@ -21,6 +66,7 @@ class MultiHorizonConfig:
     legacy_monthly_returns_path: Path
     output_dir: Path = Path("outputs")
     run_dir: Path | None = None
+    run_profile: str | None = None
     horizons: Tuple[int, ...] = (1, 3, 6, 12, 24, 36)
     methods: Tuple[str, ...] = ("classification", "regression", "ranking", "teacher")
     start_month: str = "2000-01"
@@ -29,6 +75,7 @@ class MultiHorizonConfig:
     test_months: int = 12
     step_months: int = 12
     include_partial_test_window: bool = False
+    score_only_end_month: str | None = None
     max_windows: int | None = None
     missing_feature_threshold: float = 0.35
     target_clip_quantiles: Tuple[float, float] = (0.01, 0.99)
@@ -66,6 +113,19 @@ class MultiHorizonConfig:
             raise ValueError("validation_months must be at least 6.")
         if self.test_months < 1 or self.step_months < 1:
             raise ValueError("test_months and step_months must be positive.")
+        if self.score_only_end_month is not None:
+            try:
+                normalized = date.fromisoformat(
+                    f"{self.score_only_end_month[:7]}-01"
+                ).strftime("%Y-%m")
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "score_only_end_month must use YYYY-MM."
+                ) from exc
+            if normalized != self.score_only_end_month:
+                raise ValueError("score_only_end_month must use YYYY-MM.")
+        if self.shap_sample_per_fold < 0:
+            raise ValueError("shap_sample_per_fold cannot be negative; use 0 for all rows.")
         if not 0.0 < self.positive_quantile < 1.0:
             raise ValueError("positive_quantile must be strictly between 0 and 1.")
         allowed_feature_modes = {

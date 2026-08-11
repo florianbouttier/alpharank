@@ -4,8 +4,14 @@ import os
 from pathlib import Path
 
 import polars as pl
+import pytest
 
-from alpharank.data.open_source.storage import release_json_lock, try_acquire_json_lock, upsert_parquet
+from alpharank.data.open_source.storage import (
+    acquire_process_json_lock,
+    release_json_lock,
+    try_acquire_json_lock,
+    upsert_parquet,
+)
 
 
 def test_upsert_parquet_replaces_overlapping_keys_with_latest_row(tmp_path: Path) -> None:
@@ -64,3 +70,18 @@ def test_json_lock_reclaims_stale_pid(tmp_path: Path) -> None:
 
     assert acquired is True
     assert existing is None
+
+
+def test_process_lock_fails_closed_when_publication_is_running(tmp_path: Path) -> None:
+    lock_path = tmp_path / "nightly.lock.json"
+    acquired, _ = try_acquire_json_lock(
+        lock_path,
+        {"pid": os.getpid(), "operation": "nightly_ingestion"},
+    )
+    assert acquired is True
+
+    try:
+        with pytest.raises(RuntimeError, match="already locked"):
+            acquire_process_json_lock(lock_path, operation="price_refresh")
+    finally:
+        release_json_lock(lock_path)

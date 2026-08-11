@@ -382,15 +382,132 @@ non réparé, du multiple testing déjà consommé et de l'absence de nouveau ho
 
 ### État du rerun Legacy
 
-Une exécution Legacy complète avec le même registre a été lancée mais
-interrompue avant la fin des 17 fenêtres Optuna. Aucun artefact partiel n'est
-utilisé. En conséquence :
+Mise à jour du 2026-08-07 : le rerun Legacy complet sur l'univers mis en
+quarantaine a finalement abouti. Le package rejouable validé est :
 
-- les nombres Legacy corrigés présentés ici sont uniquement la sensibilité
-  post-sélection clairement étiquetée ;
-- la comparaison v6 utilise encore la série Legacy publiée ;
-- la prochaine condition nécessaire est le rerun Legacy complet sur l'univers
-  scellé, puis une comparaison Legacy/ML/SPY sur la même fenêtre.
+`outputs/2026-07-27/runs/20260727_221253`
+
+Il utilise les 17 fenêtres Optuna, 30 essais par fenêtre, le registre
+`historical_ticker_exclusions_v1` appliqué avant les EMA, rangs et sélections,
+et le snapshot immuable `20260727_200005`. Le validateur officiel répond
+`Legacy replay package is valid.`
+
+Réconciliation de la baisse du CAGR `Combined_Frequency` :
+
+| Étape | Fin comparable | CAGR |
+|---|---|---:|
+| run publié du 13/07, preprocessing antérieur et séries corrompues | 2026-05 | 23,33 % |
+| run du 19/07 après correction du preprocessing, mais lignée invalide | 2026-05 | 21,24 % |
+| rerun causal propre avec quarantaine en amont | 2026-05 | 19,55 % |
+| même rerun après ajout de juin réalisé | 2026-06 | 20,17 % |
+| même série prolongée avec juillet complet | 2026-07 | 18,36 % |
+
+Le rendement de juillet du panier décidé le 30 juin est `-20,90 %`, contre
+environ `+0,03 %` pour SPY ajusté. Sur février 2010-juillet 2026, la comparaison
+équitable avec SPY sur `adjusted_close` donne Legacy `18,36 %` de CAGR contre
+SPY `14,47 %`; le Sharpe Legacy est toutefois inférieur (`0,74` contre `0,87`).
+
+Les prix et ratios communs des runs corrigés du 19 et du 27 juillet sont
+pratiquement identiques sur l'ancien historique. Le changement restant vient
+de la quarantaine appliquée avant le calcul : retirer les trajectoires de
+tickers corrompues modifie les rangs, l'optimisation et les sélections de toute
+la période. La sensibilité post-sélection à `21,46 %` ne devait donc pas être
+interprétée comme le résultat du rerun causal complet.
+
+### Attribution détaillée du CAGR courant
+
+Audit du 2026-08-09 sur `Combined_Frequency`, février 2010 à juillet 2026 :
+
+`outputs/legacy_attribution_20260809/`
+
+Restitution principale HTML :
+
+`outputs/legacy_attribution_20260809/html/index.html`
+
+Publication publique :
+
+`https://alpharank.net/research/legacy-attribution/index.html`
+
+Le dépôt voisin `portfolio` copie automatiquement le dernier dossier
+`outputs/legacy_attribution_*` pendant `make research-sync` et `make prod-build`.
+
+Les trois rapports reliés sont :
+
+- `html/ticker_attribution.html` : 374 tickers, filtres, tri et concentration ;
+- `html/monthly_attribution.html` : 198 mois, richesse et contributions ;
+- `html/preprocessing_impact.html` : décomposition avant/après par année,
+  mois et métrique fondamentale.
+
+Le script reproductible est
+`scripts/experiments/analyze_legacy_return_attribution.py`. Il publie :
+
+- `ticker_contributions.csv` : contribution agrégée des 374 tickers ;
+- `ticker_month_contributions.csv` : chaque position ticker/mois ;
+- `monthly_contributions.csv` : contribution des 198 mois ;
+- `summary.json` et `README.md` : contrôles et synthèse.
+
+Le générateur de restitution est
+`scripts/experiments/render_legacy_attribution_reports.py`. Les CSV restent des
+artefacts machine de contrôle ; ils ne sont plus le point d'entrée utilisateur.
+
+La décomposition additive porte sur `log(1 + rendement)`. La somme des
+contributions ticker et la somme des contributions mensuelles valent exactement
+`16,8594 %` annualisés ; `exp(16,8594 %) - 1` redonne le CAGR composé de
+`18,3639 %`. La colonne `cash_cagr_impact_pp` est un contre-factuel intuitif
+mais non additif : elle remplace le ticker ou le mois par du cash.
+
+Concentration du run courant : `NVDA.US` est le premier contributeur avec
+`+1,8507` point de log-rendement annualisé et `+2,1336` points de CAGR dans le
+contre-factuel cash. Les cinq premiers tickers représentent `32,81 %` du
+log-rendement net, les vingt premiers `72,51 %`. Aucun rendement ticker/mois du
+run propre ne dépasse `100 %` en valeur absolue. Cinq tickers dépassent `50 %`
+au moins une fois : `ANF.US`, `NFLX.US`, `SNDK.US`, `THC.US` et `WDC.US`.
+
+Le screen automatique des 374 tickers détenus donne 366 passages et huit cas
+en revue. Sept sont des faux positifs de similarité de nom. `HIG.US` est signalé
+pour un jour à `+102,36 %` en décembre 2008, hors fenêtre du backtest et hors de
+son unique mois détenu, février 2012. Aucun des dix tickers quarantainés
+n'apparaît dans les holdings du rerun causal.
+
+Il reste une position sans rendement : `DFS.US` pèse `5,1282 %` dans le
+portefeuille de juin 2025 alors que son dernier prix est le 16 mai et que son
+acquisition par Capital One est finalisée le 18 mai. Legacy retire la ligne et
+renormalise les autres poids, ce qui transforme le rendement mensuel de
+`5,7245 %` avec la poche manquante conservée en cash en `6,0339 %`. L'effet sur
+le CAGR complet est `+0,0210` point (`18,34298 %` contre `18,36395 %`). Ce cas
+doit être corrigé dans l'univers point-in-time ; son impact est mesuré, mais la
+convention actuelle n'est pas économiquement neutre.
+
+`SNDK.US` demande une correction de référence distincte : l'univers conserve
+correctement deux périodes séparées, l'ancien SanDisk jusqu'en mai 2016 puis le
+nouveau Sandisk à partir de décembre 2025. Les trois holdings commencent en
+février 2026 et utilisent uniquement les prix de la nouvelle cotation. En
+revanche, `US_General.parquet` conserve le CIK historique `0001000180`, alors
+que la nouvelle société cotée depuis février 2025 utilise le CIK SEC
+`0002023554`. Cela n'explique pas le rendement d'avril 2026, mais le mapping
+d'identité générale doit être rendu temporel pour éviter une future jointure
+incorrecte.
+
+### Décomposition de la correction de preprocessing
+
+La baisse comparable du 13 au 19 juillet, de `23,33 %` à `21,24 %` de CAGR,
+correspond à `1,7069` point de log-rendement annualisé. Elle ne vient pas d'une
+seule révision de fin de série :
+
+- 5 085 clés ticker/mois changent dans l'univers filtré ;
+- sur 73 105 clés communes, 51 975 `PE` changent (`71,1 %`) ;
+- les quatre branches Optuna changent de modèle sur 160 à 184 des 196 mois ;
+- les 196 rendements mensuels `Combined_Frequency` changent.
+
+Les plus gros écarts mensuels avant moins après correction sont août 2011
+`+34,03` points, juin 2011 `+15,26`, janvier 2026 `+13,31`, avril 2015
+`+10,49` et mai 2015 `-10,20`. Août 2011 contient l'exposition `CPWR` du run
+ancien ; la correction des fondamentaux a aussi changé sa sélection. Les
+contributions annuelles au gap de log-rendement se compensent fortement :
+2011 `+1,5879` point, 2015 `-1,6118`, 2026 `+1,6416`, et toutes les autres
+années entre `-0,7464` et `+0,8058`. Le mécanisme est donc global : les ratios
+point-in-time déterminent l'univers cross-sectionnel, puis les 17 fenêtres
+annuelles réoptimisent les modèles sur des entrées différentes.
 
 Rapport HTML principal :
 

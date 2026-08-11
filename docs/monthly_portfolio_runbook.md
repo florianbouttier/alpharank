@@ -33,6 +33,16 @@ Run the full monthly workflow from the repository root:
 Use a date-stamped checkpoint directory so a new run does not overwrite another
 audit trail.
 
+The versioned `historical_ticker_exclusions_v1` data-quality quarantine is
+enabled by default. The manifest must record its path, id, hash, and complete
+excluded-ticker list. `--no-ticker-exclusion-registry` exists only to reproduce
+an older historical convention and makes that run ineligible for a common
+Legacy/Boosting comparison that uses the registry.
+
+Current `--checkpoints-dir` artifacts are diagnostic snapshots, not a supported
+resume contract. A failed process must be restarted from its immutable input
+snapshot; never splice downstream files from an earlier process into a new run.
+
 When launching manually, capture stdout/stderr under `logs/legacy_runs/` with a
 timestamped filename and reference the output folder in the final handoff. The
 minimum durable evidence for a monthly run is the command log plus
@@ -89,6 +99,10 @@ Key files:
 The two production portfolio views are:
 
 - `Combined_Frequency`: consensus-weighted view, using model frequency as weights.
+- Standard performance benchmark: `SPY total return` built from
+  `SP500Price.parquet.adjusted_close`. The historical `SP500` row in raw Legacy
+  monthly artifacts uses `close` and is signal/replay compatibility data, not
+  the benchmark for a performance answer.
 - `Combined_Equal`: equal-weighted view of the selected tickers.
 
 The Legacy signal, annual Optuna search, and consensus votes remain owned by
@@ -173,3 +187,119 @@ and file hashes matching the ingestion manifest's published output snapshot.
 If the `input_snapshot/` directory is missing, the run is not fully replayable.
 Treat historical outputs without that directory as audit evidence only, not as a
 complete reproducibility package.
+
+## Derived Data Replay Gate
+
+The input snapshot is necessary but not sufficient. The first derived monthly
+selection checkpoint, `polars_stocks_selections.parquet`, must also be
+recomputable bit-for-bit from the retained `input_snapshot/` and the recorded
+code context. If two recomputations from the same snapshot produce different
+rows, ratios, or ticker/month membership, treat every downstream portfolio from
+that run as non-production until the preprocessing bug is fixed and the month is
+replayed.
+
+The fundamental preprocessing must obey point-in-time semantics:
+
+- statement rows without a usable as-of publication date must not be
+  forward-filled into monthly ratios;
+- when several statement rows map to the same `ticker` and as-of date, choose
+  the row deterministically using `quarter_end`, filing dates, and stable
+  tie-break columns before joining to monthly prices;
+- monthly ratio aggregation must select the last available observation by
+  explicit date ordering, not by implicit dataframe row order.
+
+## Current Constituents And Live Price Refresh
+
+Legacy joins the price/feature rows to the exact ticker membership recorded for
+each calendar month in `SP500_Constituents.csv`. Fresh daily prices alone do not
+extend the production calendar: the constituent snapshots must also reach the
+decision month.
+
+For the 2026 refresh, official index and company announcements are recorded in
+the versioned registry
+`configs/data_quality/sp500_constituent_changes_2026.json`. Rebuild the monthly
+snapshots and retain the generated audit:
+
+```bash
+./.venv/bin/python scripts/open_source/refresh_sp500_constituents.py \
+  --target-month YYYY-MM-01
+```
+
+Then backfill the prices of the newly active or renamed tickers and republish a
+complete, immutable open-source package:
+
+```bash
+./.venv/bin/python scripts/open_source/refresh_current_constituent_prices.py
+```
+
+The refresh is production-clean only when:
+
+- every current constituent has a non-null adjusted price through the same
+  recent trading session;
+- `data/open_source/official/manifests/latest_run.json`,
+  `data/open_source/output/lineage/manifest.json`, and the retained
+  `history/output/open_source_output_*` snapshot expose the same run id;
+- `scripts/validate_legacy_replay_package.py` accepts the Legacy run manifest.
+
+Price publication is fail-closed. The refresh builds the prospective merged
+series in memory and runs `src/alpharank/data/open_source/price_quality.py`
+before changing raw or published parquet files. Any recent absolute
+adjusted-close move of 40% or more blocks the run for investigation; do not
+raise the threshold merely to publish.
+
+When a provider has partially rewritten a split or another corporate action,
+restore only the affected ticker from a retained clean snapshot and keep the
+replaced rows in quarantine:
+
+```bash
+./.venv/bin/python scripts/open_source/restore_price_tickers_from_snapshot.py \
+  --snapshot-dir data/open_source/history/output/open_source_output_<clean> \
+  --tickers TICKER \
+  --reason "audited provider adjustment recovery"
+```
+
+Then rerun the normal current-constituent refresh. The recovery command does
+not publish; only a subsequent full refresh that passes the price gate may
+become production truth. The 2026-08-11 reference follows this procedure:
+MNST was restored from `open_source_output_20260810_015044`, and clean run
+`20260811_003849` was retained as
+`open_source_output_20260811_004415`. Its price gate passed, current-member
+coverage is 501 tickers through 2026-08-10 and two through 2026-08-07, and the
+Legacy replay package `outputs/2026-08-11/runs/20260811_030547` validates.
+
+This recovery package was superseded later the same night by the full ingestion
+run `20260811_001503`, retained as
+`open_source_output_20260811_014746`. Its post-publication audit passes: 503
+current members covered, 502 through 2026-08-10 and one through 2026-08-07, with
+no current-member adjusted-close move of 40% or more. The current Legacy replay
+is `outputs/2026-08-11/runs/20260811_035522` and validates against that retained
+snapshot. Refresh and restore commands must acquire
+`data/open_source/official/locks/nightly.lock.json`; never run a second publisher
+while the full ingestion holds it.
+
+If the latest price date is inside an unfinished month, use the preceding
+calendar month as the decision month. A partial July dataset can be displayed
+as freshness evidence, but it must not silently become the July decision input
+for an August portfolio.
+
+## Boosting Production Candidate
+
+Boosting remains an explicit R&D production candidate; it does not replace the
+canonical Legacy monthly portfolio. Once the full Legacy replay has produced
+`legacy_detailed_returns_polars.parquet`, score the latest completed month from
+that same immutable `input_snapshot/`:
+
+```bash
+./.venv/bin/python scripts/experiments/run_live_alpha_portfolio.py \
+  --data-dir outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/input_snapshot \
+  --legacy-detailed outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/legacy_detailed_returns_polars.parquet \
+  --decision-month YYYY-MM-01
+```
+
+This command freezes the selected research specification: XGBoost
+classification at six months, exact Legacy-winning relative EMA variables,
+strictly mature labels, a chronological calibration window, Top 5 as the
+retained portfolio and Top 10 as a non-promoted diagnostic. Its HTML report
+shows both Alpha and Legacy for the same holding month. The reported live
+validation block is used for early stopping and calibration, so it is not a new
+sealed test.

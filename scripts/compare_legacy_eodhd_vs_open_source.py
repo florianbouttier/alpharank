@@ -1624,7 +1624,17 @@ def _write_report(
             ]
         )
 
-    primary_models = metrics_diff.filter(pl.col("model").is_in(["Combined_Equal", "Combined_Frequency", "SP500"]))
+    primary_models = metrics_diff.filter(
+        pl.col("model").is_in(
+            [
+                "Combined_Equal",
+                "Combined_Frequency",
+                "SPY_Total_Return",
+                "SP500_Price_Return_Legacy_Signal",
+                "SP500",  # Compatibility with frozen pre-contract runs.
+            ]
+        )
+    )
     combined_frequency_row = metrics_diff.filter(pl.col("model") == "Combined_Frequency").head(1)
     combined_equal_row = metrics_diff.filter(pl.col("model") == "Combined_Equal").head(1)
     combined_frequency_gap_pts = None

@@ -1,8 +1,20 @@
 # SEC Open-Source Status
 
-Derniere mise a jour: `2026-05-25`
+Derniere mise a jour: `2026-08-11`
 
 Ce document est le point d'entree a lire en premier pour comprendre l'etat reel des fondamentaux open source dans AlphaRank.
+
+## Alerte actuelle sur le package mixte
+
+Le dernier package mixte publie est le run `20260811_001503`, snapshot retenu
+`open_source_output_20260811_014746`. Il est propre du point de vue publication,
+hashes, couverture prix et replay, mais il n'est pas SEC-only. L'audit contre le
+snapshot propre precedent trouve quatre valeurs earnings Yahoo 2005-2007
+reecrites par la reponse fournisseur du 11 aout. Le backtest commun courant ne
+change pas, mais ce constat confirme que `US_Earnings.parquet` mixte ne doit pas
+etre presente comme une source point-in-time stable. Voir
+`docs/sec_data_robustness_plan.md` et le `data_revision_audit.json` du replay
+commun `20260811_001503_035522_standard`.
 
 ## Objectif
 

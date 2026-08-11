@@ -11,7 +11,16 @@ from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.allocation import portfolio_turnover
 from alpharank.portfolio.comparison import align_return_series
 from alpharank.portfolio.contracts import validate_holdings
-from alpharank.portfolio.performance import annual_returns, legacy_report_statistics
+from alpharank.portfolio.performance import (
+    advanced_performance_statistics,
+    annual_returns,
+    legacy_report_statistics,
+)
+from alpharank.portfolio.lineage import (
+    compare_input_hashes,
+    compare_ticker_exclusions,
+    ticker_exclusions_from_manifest,
+)
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
@@ -134,3 +143,55 @@ def test_common_performance_excludes_partial_years_from_worst_year() -> None:
     yearly = annual_returns(returns, holding_months=months)
     assert metrics["worst_full_calendar_year"] == 2020
     assert yearly.filter(pl.col("year") == 2019)["is_full_calendar_year"][0] is False
+
+
+def test_advanced_statistics_use_the_same_canonical_base() -> None:
+    returns = np.asarray([0.10, -0.05, 0.02, 0.03])
+    benchmark = np.asarray([0.04, -0.02, 0.01, 0.01])
+    advanced = advanced_performance_statistics(
+        returns,
+        benchmark_returns=benchmark,
+    )
+    base = legacy_report_statistics(
+        returns,
+        holding_months=[date(2020, month, 1) for month in range(1, 5)],
+    )
+    assert advanced["cagr"] == pytest.approx(base["cagr"])
+    assert advanced["sharpe"] == pytest.approx(base["sharpe"])
+    assert advanced["sortino"] > advanced["sharpe"]
+    assert advanced["benchmark_hit_rate"] == pytest.approx(0.75)
+
+
+def test_comparison_lineage_rejects_distinct_data_snapshots() -> None:
+    report = compare_input_hashes(
+        {"final_price": "price-a", "sp500_price": "spy"},
+        {"final_price": "price-b", "sp500_price": "spy"},
+    )
+    assert report["passed"] is False
+    assert report["differing_keys"] == ["final_price"]
+
+
+def test_comparison_lineage_requires_every_declared_input() -> None:
+    report = compare_input_hashes(
+        {"final_price": "price", "sp500_price": "spy"},
+        {"final_price": "price"},
+    )
+    assert report["passed"] is False
+    assert report["missing_right"] == ["sp500_price"]
+
+
+def test_comparison_lineage_rejects_distinct_ticker_quarantines() -> None:
+    report = compare_ticker_exclusions(
+        ("SII.US", "CBE.US", "TIE.US"),
+        ("SII.US", "CBE.US", "TIE.US", "SW.US"),
+    )
+    assert report["passed"] is False
+    assert report["missing_left"] == ["SW.US"]
+    assert report["missing_right"] == []
+
+
+def test_ticker_exclusions_are_read_from_both_manifest_shapes() -> None:
+    legacy = {"run_config": {"excluded_tickers": ["sii.us", "CBE.US"]}}
+    boosting = {"config": {"excluded_tickers": ["CBE.US", "SII.US"]}}
+    assert ticker_exclusions_from_manifest(legacy) == ("CBE.US", "SII.US")
+    assert ticker_exclusions_from_manifest(boosting) == ("CBE.US", "SII.US")

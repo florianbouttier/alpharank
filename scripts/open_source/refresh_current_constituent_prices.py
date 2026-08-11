@@ -20,8 +20,15 @@ from alpharank.data.open_source.ingestion import (
 )
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
 from alpharank.data.open_source.publishing import publish_open_source_output_package
+from alpharank.data.open_source.price_quality import (
+    EXTREME_ADJUSTED_RETURN_THRESHOLD,
+    assert_no_extreme_adjusted_price_moves,
+)
 from alpharank.data.open_source.storage import (
     OpenSourceLivePaths,
+    acquire_process_json_lock,
+    append_run_delta,
+    merge_upsert_frames,
     new_run_id,
     read_json,
     upsert_parquet,
@@ -48,6 +55,12 @@ def main() -> None:
     parser.add_argument("--tickers", nargs="+", default=DEFAULT_TICKERS)
     parser.add_argument("--start-date", default="2005-01-01")
     parser.add_argument("--end-date", default=None)
+    parser.add_argument(
+        "--maximum-absolute-daily-return",
+        type=float,
+        default=EXTREME_ADJUSTED_RETURN_THRESHOLD,
+        help="Fail before writing when a refreshed adjusted close exceeds this move.",
+    )
     parser.add_argument("--official-dir", type=Path, default=DEFAULT_OFFICIAL_DIR)
     parser.add_argument("--reference-dir", type=Path, default=DEFAULT_REFERENCE_DIR)
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY)
@@ -60,6 +73,10 @@ def main() -> None:
 
     paths = OpenSourceLivePaths(args.official_dir.resolve())
     paths.ensure()
+    acquire_process_json_lock(
+        paths.manifests_dir / "nightly.lock.json",
+        operation="current_constituent_price_refresh",
+    )
     if args.finalize_current_package:
         _finalize_current_package(paths)
         return
@@ -79,6 +96,12 @@ def main() -> None:
         run_id=run_id,
         ingested_at=ingested_at,
     )
+    benchmark_delta = _with_price_ingestion_metadata(
+        yahoo.download_prices(["SPY"], args.start_date, end_date),
+        dataset="prices_spy_yfinance_current_refresh",
+        run_id=run_id,
+        ingested_at=ingested_at,
+    )
     covered = tuple(
         delta.filter(pl.col("adjusted_close").is_not_null())
         .select(pl.col("ticker").str.replace(r"\.US$", "").unique().sort())
@@ -93,8 +116,9 @@ def main() -> None:
         )
 
     raw_yahoo_path = paths.raw_dir / "prices_yfinance.parquet"
-    raw_yahoo = upsert_parquet(
-        raw_yahoo_path,
+    existing_yahoo = pl.read_parquet(raw_yahoo_path)
+    prospective_yahoo = merge_upsert_frames(
+        existing_yahoo,
         delta,
         key_cols=["ticker", "date", "source"],
         order_cols=["ingested_at"],
@@ -105,25 +129,60 @@ def main() -> None:
         .to_series()
         .to_list()
     )
-    raw_yahoo = _canonicalize_price_tickers(
-        raw_yahoo,
+    prospective_yahoo = _canonicalize_price_tickers(
+        prospective_yahoo,
         ticker_list=all_constituent_tickers,
     )
-    raw_yahoo.write_parquet(raw_yahoo_path)
     raw_simfin = pl.read_parquet(paths.raw_dir / "prices_simfin.parquet")
     raw_stockanalysis = pl.read_parquet(paths.raw_dir / "prices_stockanalysis.parquet")
-    clean_prices, clean_lineage = _consolidate_price_sources(
-        [raw_yahoo, raw_simfin, raw_stockanalysis],
+    prospective_prices, prospective_lineage = _consolidate_price_sources(
+        [prospective_yahoo, raw_simfin, raw_stockanalysis],
         ticker_list=all_constituent_tickers,
     )
+    assert_no_extreme_adjusted_price_moves(
+        prospective_prices,
+        event_since=args.start_date,
+        tickers=[f"{ticker}.US" for ticker in requested],
+        threshold=args.maximum_absolute_daily_return,
+    )
+
+    append_run_delta(
+        paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet",
+        delta,
+    )
+    append_run_delta(
+        paths.run_dir(run_id) / "raw" / "prices_spy_yfinance.parquet",
+        benchmark_delta,
+    )
+    raw_yahoo = prospective_yahoo
+    raw_yahoo.write_parquet(raw_yahoo_path)
+    raw_benchmark = upsert_parquet(
+        paths.raw_dir / "prices_spy_yfinance.parquet",
+        benchmark_delta,
+        key_cols=["ticker", "date", "source"],
+        order_cols=["ingested_at"],
+    )
+    benchmark = raw_benchmark.select(
+        [
+            "date",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adjusted_close",
+            "ticker",
+        ]
+    ).sort(["ticker", "date"])
+    benchmark.write_parquet(
+        paths.target_dir / "benchmark_prices_open_source.parquet"
+    )
+    clean_prices, clean_lineage = prospective_prices, prospective_lineage
     clean_prices.write_parquet(paths.target_dir / "prices_open_source.parquet")
     clean_lineage.write_parquet(
         paths.target_dir / "prices_open_source_lineage.parquet"
     )
 
-    benchmark = pl.read_parquet(
-        paths.target_dir / "benchmark_prices_open_source.parquet"
-    )
     general = pl.read_parquet(paths.target_dir / "general_reference.parquet")
     general_lineage = pl.read_parquet(
         paths.target_dir / "general_reference_lineage.parquet"
@@ -160,12 +219,18 @@ def main() -> None:
         "run_id": run_id,
         "mode": "current_constituent_price_refresh",
         "generated_at": ingested_at,
+        "ingested_at": ingested_at,
         "prior_run_id": prior_run_id,
         "official_dir": str(paths.base_dir),
         "target_dir": str(paths.target_dir),
         "output_dir": str(paths.output_dir),
         "legacy_dir": str(paths.legacy_dir),
         "refresh_tickers": requested,
+        "price_quality": {
+            "maximum_absolute_daily_return": args.maximum_absolute_daily_return,
+            "event_since": args.start_date,
+            "status": "passed",
+        },
         "constituent_registry": str(args.registry.resolve()),
         "constituent_registry_sha256": sha256_file(args.registry),
         "constituents_sha256": sha256_file(
@@ -191,6 +256,12 @@ def main() -> None:
         history_root=paths.root_dir / "history" / "output",
     )
     max_price_date = clean_prices.select(
+        pl.col("date")
+        .cast(pl.Date)
+        .filter(pl.col("adjusted_close").is_not_null())
+        .max()
+    ).item()
+    max_benchmark_date = benchmark.select(
         pl.col("date")
         .cast(pl.Date)
         .filter(pl.col("adjusted_close").is_not_null())
@@ -244,6 +315,7 @@ def main() -> None:
             "start_date": args.start_date,
             "end_date": end_date,
             "max_published_price_date": str(max_price_date),
+            "max_published_benchmark_date": str(max_benchmark_date),
         },
         "ticker_count": clean_prices.select(
             pl.col("ticker").n_unique()
@@ -268,6 +340,7 @@ def main() -> None:
     print(f"Refreshed tickers: {', '.join(requested)}")
     print(ticker_coverage)
     print(f"Published price max: {max_price_date}")
+    print(f"Published benchmark max: {max_benchmark_date}")
     print(f"Output snapshot: {published.snapshot_dir}")
     print(f"Official manifest: {paths.latest_manifest_path}")
 

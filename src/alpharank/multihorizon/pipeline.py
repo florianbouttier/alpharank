@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 import hashlib
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 
@@ -16,11 +17,64 @@ from alpharank.multihorizon.legacy_ema import (
     legacy_winning_pairs,
     point_in_time_fold_features,
 )
-from alpharank.multihorizon.metrics import score_predictions
+from alpharank.multihorizon.metrics import (
+    build_prediction_portfolios,
+    score_predictions,
+)
 from alpharank.multihorizon.modeling import fit_booster
 from alpharank.multihorizon.preprocessing import fit_fold_preprocessor
 from alpharank.multihorizon.splits import horizon_walk_forward_windows
 from alpharank.multihorizon.tuning import tune_with_purged_cpcv
+
+
+def _prediction_frame(
+    *,
+    source: pl.DataFrame,
+    matrix,
+    fitted: Any,
+    fold: int,
+    method: str,
+    horizon: int,
+) -> pl.DataFrame:
+    target_columns = [
+        column
+        for column in source.columns
+        if column.startswith("future_") or column.startswith("benchmark_future_")
+    ]
+    output = source.select(
+        "decision_month",
+        "ticker",
+        "legacy_selected",
+        *target_columns,
+    ).with_columns(
+        pl.Series("score", fitted.predict_raw_score(matrix)),
+        pl.lit(fold).alias("fold"),
+        pl.lit(method).alias("method"),
+        pl.lit(horizon).alias("horizon"),
+    )
+    target_column = (
+        "legacy_selected"
+        if method == "teacher"
+        else f"future_excess_return_{horizon}m"
+    )
+    benchmark_target_column = (
+        "legacy_selected"
+        if method == "teacher"
+        else f"benchmark_future_return_{horizon}m"
+    )
+    output = output.with_columns(
+        pl.when(pl.col(benchmark_target_column).is_null())
+        .then(pl.lit("horizon_pending"))
+        .when(pl.col(target_column).is_null())
+        .then(pl.lit("ticker_target_unavailable"))
+        .otherwise(pl.lit("evaluable"))
+        .alias("target_status")
+    )
+    if method in {"classification", "teacher"}:
+        output = output.with_columns(
+            pl.Series("calibrated_probability", fitted.predict(matrix))
+        )
+    return output
 
 
 def _jsonable_config(config: MultiHorizonConfig) -> dict:
@@ -52,6 +106,25 @@ def _eligible(
             (pl.col("legacy_label_available") == 1)
             & pl.col("future_excess_return_1m").is_not_null()
         )
+    return eligible.sort(["decision_month", "ticker"])
+
+
+def _score_only_panel(
+    frame: pl.DataFrame,
+    *,
+    method: str,
+    feature_mode: str,
+    end_month: str | None,
+) -> pl.DataFrame | None:
+    if end_month is None:
+        return None
+    cutoff = date.fromisoformat(f"{end_month}-01")
+    eligible = frame.filter(
+        (pl.col("decision_month") <= cutoff)
+        & pl.col("future_excess_return_1m").is_not_null()
+    )
+    if method == "teacher" or feature_mode == "legacy_active_oracle":
+        eligible = eligible.filter(pl.col("legacy_label_available") == 1)
     return eligible.sort(["decision_month", "ticker"])
 
 
@@ -123,6 +196,12 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             "outer": "strict expanding walk-forward; fixed model over each test block",
             "inner": "horizon-purged CPCV on pre-test data only",
             "preprocessing": "sparse filtering and fallback medians fitted inside each fold",
+            "score_only_tail": {
+                "enabled": config.score_only_end_month is not None,
+                "decision_end_month": config.score_only_end_month,
+                "model_metrics": "mature learning targets only",
+                "portfolio_metrics": "all test months with a complete one-month return",
+            },
             "teacher": "Legacy Combined_Frequency basket at decision t for holding t+1",
             "legacy_winners_pit": (
                 "for each outer fold, only exact EMA pairs observed in Legacy output "
@@ -143,7 +222,14 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             combination_dir = run_dir / f"{method}_h{horizon:02d}"
             combination_dir.mkdir(parents=True, exist_ok=True)
             panel = _eligible(frame, method, horizon, config.feature_mode)
-            all_months = panel["decision_month"].unique().sort().to_list()
+            score_only_panel = _score_only_panel(
+                frame,
+                method=method,
+                feature_mode=config.feature_mode,
+                end_month=config.score_only_end_month,
+            )
+            test_panel = score_only_panel if score_only_panel is not None else panel
+            all_months = test_panel["decision_month"].unique().sort().to_list()
             try:
                 windows = horizon_walk_forward_windows(
                     all_months,
@@ -152,7 +238,10 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                     validation_months=config.validation_months,
                     test_months=config.test_months,
                     step_months=config.step_months,
-                    include_partial_test_window=config.include_partial_test_window,
+                    include_partial_test_window=(
+                        config.include_partial_test_window
+                        or score_only_panel is not None
+                    ),
                     max_windows=config.max_windows,
                 )
             except ValueError as exc:
@@ -180,7 +269,9 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             for window in windows:
                 train = panel.filter(pl.col("decision_month").is_in(window.train_months))
                 validation = panel.filter(pl.col("decision_month").is_in(window.validation_months))
-                test = panel.filter(pl.col("decision_month").is_in(window.test_months))
+                test = test_panel.filter(
+                    pl.col("decision_month").is_in(window.test_months)
+                )
                 if train.is_empty() or validation.is_empty() or test.is_empty():
                     continue
                 train_cutoff = max(train["decision_month"])
@@ -228,7 +319,19 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                         "train_start": min(train["decision_month"]),
                         "train_cutoff": train_cutoff,
                         "validation_start": min(validation["decision_month"]),
+                        "validation_end": max(validation["decision_month"]),
                         "test_start": min(test["decision_month"]),
+                        "test_end": max(test["decision_month"]),
+                        "train_rows": train.height,
+                        "validation_rows": validation.height,
+                        "test_rows": test.height,
+                        "mature_test_rows": test.filter(
+                            pl.col(
+                                "legacy_selected"
+                                if method == "teacher"
+                                else f"future_excess_return_{horizon}m"
+                            ).is_not_null()
+                        ).height,
                         "winner_pair_count": len(fold_pairs),
                         "winner_pairs": json.dumps(fold_pairs),
                         "candidate_feature_count": len(fold_features),
@@ -252,33 +355,84 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                     num_boost_round=config.num_boost_round,
                     params=best_params,
                 )
-                raw_score = fitted.predict_raw_score(X_test)
-                predictions = test.select(
-                    "decision_month",
-                    "ticker",
-                    "legacy_selected",
-                    *[
-                        column
-                        for column in test.columns
-                        if column.startswith("future_") or column.startswith("benchmark_future_")
-                    ],
-                ).with_columns(
-                    pl.Series("score", raw_score),
-                    pl.lit(window.fold).alias("fold"),
-                    pl.lit(method).alias("method"),
-                    pl.lit(horizon).alias("horizon"),
+                split_predictions = {
+                    "train": _prediction_frame(
+                        source=train, matrix=X_train, fitted=fitted,
+                        fold=window.fold, method=method, horizon=horizon,
+                    ),
+                    "validation": _prediction_frame(
+                        source=validation, matrix=X_validation, fitted=fitted,
+                        fold=window.fold, method=method, horizon=horizon,
+                    ),
+                    "test": _prediction_frame(
+                        source=test, matrix=X_test, fitted=fitted,
+                        fold=window.fold, method=method, horizon=horizon,
+                    ),
+                }
+                predictions = split_predictions["test"]
+                target_column = (
+                    "legacy_selected"
+                    if method == "teacher"
+                    else f"future_excess_return_{horizon}m"
                 )
-                if method in {"classification", "teacher"}:
-                    predictions = predictions.with_columns(
-                        pl.Series("calibrated_probability", fitted.predict(X_test))
+                benchmark_target_column = (
+                    "legacy_selected"
+                    if method == "teacher"
+                    else f"benchmark_future_return_{horizon}m"
+                )
+                mature_predictions = predictions.filter(
+                    pl.col(target_column).is_not_null()
+                )
+                horizon_pending_predictions = predictions.filter(
+                    pl.col(benchmark_target_column).is_null()
+                )
+                ticker_target_unavailable_predictions = predictions.filter(
+                    pl.col(benchmark_target_column).is_not_null()
+                    & pl.col(target_column).is_null()
+                )
+                test_metrics: dict[str, float] = {}
+                if not mature_predictions.is_empty():
+                    test_metrics, _ = score_predictions(
+                        mature_predictions,
+                        method=method,
+                        horizon=horizon,
+                        top_n_values=config.top_n_values,
                     )
-                fold_metrics, portfolios = score_predictions(
+                portfolios = build_prediction_portfolios(
                     predictions,
-                    method=method,
                     horizon=horizon,
                     top_n_values=config.top_n_values,
                 )
-                fold_rows.append({"fold": window.fold, **fold_metrics})
+                split_metrics: dict[str, float] = {}
+                metric_splits = {
+                    "train": split_predictions["train"],
+                    "validation": split_predictions["validation"],
+                    "test": mature_predictions,
+                }
+                for split_name, split_frame in metric_splits.items():
+                    if split_frame.is_empty():
+                        continue
+                    metrics, _ = score_predictions(
+                        split_frame,
+                        method=method,
+                        horizon=horizon,
+                        top_n_values=config.top_n_values,
+                    )
+                    split_metrics.update(
+                        {f"{split_name}_{key}": value for key, value in metrics.items()}
+                    )
+                fold_rows.append(
+                    {
+                        "fold": window.fold,
+                        "mature_test_rows": mature_predictions.height,
+                        "score_only_test_rows": horizon_pending_predictions.height,
+                        "ticker_target_unavailable_rows": (
+                            ticker_target_unavailable_predictions.height
+                        ),
+                        **test_metrics,
+                        **split_metrics,
+                    }
+                )
                 prediction_parts.append(predictions)
                 portfolio_parts.append(
                     portfolios.with_columns(
@@ -309,12 +463,34 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             predictions = pl.concat(prediction_parts)
             portfolios = pl.concat(portfolio_parts)
             fold_metrics = pl.DataFrame(fold_rows)
-            overall, _ = score_predictions(
-                predictions,
-                method=method,
-                horizon=horizon,
-                top_n_values=config.top_n_values,
+            target_column = (
+                "legacy_selected"
+                if method == "teacher"
+                else f"future_excess_return_{horizon}m"
             )
+            benchmark_target_column = (
+                "legacy_selected"
+                if method == "teacher"
+                else f"benchmark_future_return_{horizon}m"
+            )
+            mature_predictions = predictions.filter(
+                pl.col(target_column).is_not_null()
+            )
+            horizon_pending_predictions = predictions.filter(
+                pl.col(benchmark_target_column).is_null()
+            )
+            ticker_target_unavailable_predictions = predictions.filter(
+                pl.col(benchmark_target_column).is_not_null()
+                & pl.col(target_column).is_null()
+            )
+            overall: dict[str, float] = {}
+            if not mature_predictions.is_empty():
+                overall, _ = score_predictions(
+                    mature_predictions,
+                    method=method,
+                    horizon=horizon,
+                    top_n_values=config.top_n_values,
+                )
             predictions.write_parquet(combination_dir / "predictions.parquet")
             portfolios.write_csv(combination_dir / "portfolio_monthly.csv")
             fold_metrics.write_csv(combination_dir / "fold_metrics.csv")
@@ -333,9 +509,36 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                     "horizon": horizon,
                     "folds": len(fold_rows),
                     "test_rows": predictions.height,
+                    "first_test_decision_month": predictions[
+                        "decision_month"
+                    ].min(),
+                    "last_test_decision_month": predictions[
+                        "decision_month"
+                    ].max(),
+                    "last_mature_target_decision_month": (
+                        mature_predictions["decision_month"].max()
+                        if not mature_predictions.is_empty()
+                        else None
+                    ),
+                    "first_score_only_decision_month": (
+                        horizon_pending_predictions["decision_month"].min()
+                        if not horizon_pending_predictions.is_empty()
+                        else None
+                    ),
+                    "mature_test_rows": mature_predictions.height,
+                    "score_only_test_rows": horizon_pending_predictions.height,
+                    "ticker_target_unavailable_rows": (
+                        ticker_target_unavailable_predictions.height
+                    ),
                     **overall,
                 }
             )
     summary = pl.DataFrame(all_summary)
     summary.write_csv(run_dir / "model_horizon_summary.csv")
+    manifest["results"] = {
+        "combinations": summary.to_dicts(),
+    }
+    (run_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, default=str) + "\n"
+    )
     return run_dir

@@ -22,6 +22,7 @@ import polars as pl
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
 from alpharank.data.ticker_integrity import (
+    DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     exclude_tickers_from_frame,
     load_ticker_exclusion_registry,
     normalize_tickers,
@@ -29,10 +30,20 @@ from alpharank.data.ticker_integrity import (
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.benchmark import (
+    SPY_TOTAL_RETURN,
+    completed_through_month,
+    monthly_benchmark_returns,
+)
 from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
-from alpharank.utils.frame_backend import normalize_year_month_to_period, to_pandas, to_polars
+from alpharank.utils.frame_backend import (
+    normalize_year_month_to_period,
+    normalize_year_month_to_timestamp,
+    to_pandas,
+    to_polars,
+)
 from alpharank.visualization.plotting import PortfolioVisualizer
 
 
@@ -185,7 +196,10 @@ def _open_source_lineage_context(data_dir: Path) -> Dict[str, Any]:
             {
                 "open_source_ingestion_manifest_path": str(ingestion_manifest_path.resolve()),
                 "open_source_ingestion_run_id": ingestion_manifest.get("run_id"),
-                "open_source_ingested_at": ingestion_manifest.get("ingested_at"),
+                "open_source_ingested_at": (
+                    ingestion_manifest.get("ingested_at")
+                    or ingestion_manifest.get("generated_at")
+                ),
                 "open_source_mode": ingestion_manifest.get("mode"),
                 "open_source_price_window": ingestion_manifest.get("price_window"),
                 "open_source_financial_years_refreshed": ingestion_manifest.get("financial_years_refreshed"),
@@ -508,7 +522,7 @@ def run_pipeline(
     checkpoints_dir: Optional[Path] = None,
     final_price_path: Optional[Path] = None,
     sp500_price_path: Optional[Path] = None,
-    ticker_exclusion_registry: Optional[Path] = None,
+    ticker_exclusion_registry: Optional[Path] = DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).parent.parent
@@ -815,12 +829,12 @@ def run_pipeline(
     _write_checkpoint(_get_detailed_output(combined_frequency, label="combined_frequency"), checkpoints_dir, f"{backend}_combined_frequency_detailed")
     _write_checkpoint(index_data.monthly_returns, checkpoints_dir, f"{backend}_sp500")
 
-    common_benchmark = to_polars(
-        normalize_year_month_to_timestamp(
-            to_pandas(index_data.monthly_returns),
-            col="year_month",
-        )
-    ).select("year_month", "monthly_return")
+    common_benchmark = monthly_benchmark_returns(
+        sp500_price,
+        convention=SPY_TOTAL_RETURN,
+    ).filter(
+        pl.col("year_month") <= completed_through_month(sp500_price)
+    )
     common_holdings_parts: list[pl.DataFrame] = []
     for strategy_name, portfolio_output in (
         ("Combined_Equal", combined_equal),
@@ -856,7 +870,7 @@ def run_pipeline(
             common_monthly,
             reference_monthly_series(
                 common_monthly.filter(pl.col("strategy") == "Combined_Frequency"),
-                strategy="SP500",
+                strategy=SPY_TOTAL_RETURN.label,
                 return_column="benchmark_return",
             ),
         ],
@@ -867,6 +881,13 @@ def run_pipeline(
         holdings=common_holdings,
         monthly_returns=common_monthly,
         prefix="legacy_common",
+        benchmark_metadata={
+            "id": SPY_TOTAL_RETURN.identifier,
+            "label": SPY_TOTAL_RETURN.label,
+            "price_column": SPY_TOTAL_RETURN.price_column,
+            "includes_distributions": SPY_TOTAL_RETURN.includes_distributions,
+            "completed_through_month": str(completed_through_month(sp500_price)),
+        },
     )
 
     models = {
@@ -876,7 +897,12 @@ def run_pipeline(
         "Legacy_Optuna_22": to_pandas(_sort_monthly_frame(optuna_output_22["aggregated"])),
         "Combined_Equal": to_pandas(_sort_monthly_frame(combined_equal["aggregated"])),
         "Combined_Frequency": to_pandas(_sort_monthly_frame(combined_frequency["aggregated"])),
-        "SP500": to_pandas(_sort_monthly_frame(index_data.monthly_returns)),
+        "SP500_Price_Return_Legacy_Signal": to_pandas(
+            _sort_monthly_frame(index_data.monthly_returns)
+        ),
+        "SPY_Total_Return": to_pandas(
+            _sort_monthly_frame(common_benchmark.select("year_month", "monthly_return"))
+        ),
     }
     metrics, cumulative, correlation, worst_periods, drawdowns, annual_returns, cumulative_metrics, annual_metrics, monthly_returns = ModelEvaluator.compare_models(
         models,
@@ -1125,7 +1151,7 @@ def main(
     checkpoints_dir: str | Path = "outputs/checkpoints",
     final_price_path: str | Path | None = None,
     sp500_price_path: str | Path | None = None,
-    ticker_exclusion_registry: str | Path | None = None,
+    ticker_exclusion_registry: str | Path | None = DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
 ) -> None:
     checkpoints_dir = Path(checkpoints_dir).expanduser().resolve()
     data_dir = Path(data_dir).expanduser().resolve() if data_dir else None
@@ -1193,9 +1219,16 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoints-dir", default="outputs/checkpoints")
     parser.add_argument("--final-price-path")
     parser.add_argument("--sp500-price-path")
-    parser.add_argument(
+    ticker_registry_group = parser.add_mutually_exclusive_group()
+    ticker_registry_group.add_argument(
         "--ticker-exclusion-registry",
-        help="Optional versioned registry whose exclude_all_dates tickers are removed from the complete run.",
+        default=str(DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY),
+        help="Versioned full-trajectory exclusion registry (enabled by default).",
+    )
+    ticker_registry_group.add_argument(
+        "--no-ticker-exclusion-registry",
+        action="store_true",
+        help="Disable the registry for an explicitly labelled compatibility replay.",
     )
     parser.add_argument("--log-dir", default="logs/legacy_runs")
     parser.add_argument("--no-log", action="store_true", help="Disable automatic CLI log capture.")
@@ -1214,7 +1247,11 @@ def _run_cli() -> None:
         "checkpoints_dir": args.checkpoints_dir,
         "final_price_path": args.final_price_path,
         "sp500_price_path": args.sp500_price_path,
-        "ticker_exclusion_registry": args.ticker_exclusion_registry,
+        "ticker_exclusion_registry": (
+            None
+            if args.no_ticker_exclusion_registry
+            else args.ticker_exclusion_registry
+        ),
     }
     if args.no_log:
         main(**kwargs)

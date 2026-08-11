@@ -10,6 +10,11 @@ from typing import Any
 import polars as pl
 
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
+from alpharank.portfolio.lineage import (
+    compare_input_hashes,
+    input_hashes_from_manifest,
+    load_manifest,
+)
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.strategy.legacy import StrategyLearner
 from alpharank.utils.frame_backend import to_pandas
@@ -176,6 +181,26 @@ def validate_alpha(
     }
 
 
+def validate_data_lineage(
+    legacy_manifest_path: Path,
+    alpha_manifest_path: Path,
+) -> dict[str, Any]:
+    legacy_hashes = input_hashes_from_manifest(load_manifest(legacy_manifest_path))
+    alpha_hashes = input_hashes_from_manifest(load_manifest(alpha_manifest_path))
+    report = compare_input_hashes(
+        legacy_hashes,
+        alpha_hashes,
+        required_keys=set(alpha_hashes),
+    )
+    report.update(
+        {
+            "legacy_manifest": str(legacy_manifest_path.resolve()),
+            "alpha_manifest": str(alpha_manifest_path.resolve()),
+        }
+    )
+    return report
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Replay frozen Legacy and Alpha portfolios through the shared portfolio engine."
@@ -184,10 +209,31 @@ def main() -> None:
     parser.add_argument("--legacy-aggregated", type=Path, required=True)
     parser.add_argument("--alpha-holdings", type=Path, required=True)
     parser.add_argument("--alpha-monthly", type=Path, required=True)
+    parser.add_argument("--legacy-data-manifest", type=Path)
+    parser.add_argument("--alpha-data-manifest", type=Path)
+    parser.add_argument(
+        "--allow-distinct-snapshots",
+        action="store_true",
+        help=(
+            "Allow mechanical parity validation to finish when data lineage is "
+            "missing or different. The report remains comparison_eligible=false."
+        ),
+    )
     parser.add_argument("--transaction-cost-bps", type=float, default=10.0)
     parser.add_argument("--tolerance", type=float, default=1e-12)
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
+
+    manifests = (args.legacy_data_manifest, args.alpha_data_manifest)
+    if any(manifests) and not all(manifests):
+        parser.error(
+            "--legacy-data-manifest and --alpha-data-manifest must be provided together"
+        )
+    if not all(manifests) and not args.allow_distinct_snapshots:
+        parser.error(
+            "data manifests are required; use --allow-distinct-snapshots only for "
+            "mechanical replay checks that must not be used as performance comparisons"
+        )
 
     report = {
         "tolerance": args.tolerance,
@@ -203,13 +249,29 @@ def main() -> None:
             tolerance=args.tolerance,
         ),
     }
-    report["passed"] = report["legacy"]["passed"] and report["alpha"]["passed"]
+    if all(manifests):
+        report["data_lineage"] = validate_data_lineage(*manifests)
+    else:
+        report["data_lineage"] = {
+            "passed": False,
+            "status": "not_checked",
+            "reason": "data manifests were not supplied",
+        }
+    report["engine_parity_passed"] = (
+        report["legacy"]["passed"] and report["alpha"]["passed"]
+    )
+    report["comparison_eligible"] = report["data_lineage"]["passed"]
+    report["passed"] = (
+        report["engine_parity_passed"] and report["comparison_eligible"]
+    )
     serialized = json.dumps(report, indent=2) + "\n"
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(serialized, encoding="utf-8")
     print(serialized, end="")
-    if not report["passed"]:
+    if not report["engine_parity_passed"] or (
+        not report["comparison_eligible"] and not args.allow_distinct_snapshots
+    ):
         raise SystemExit(1)
 
 

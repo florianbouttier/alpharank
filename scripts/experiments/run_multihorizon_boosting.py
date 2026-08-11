@@ -11,6 +11,10 @@ if str(PROJECT_ROOT / "src") not in sys.path:
 
 from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.multihorizon import MultiHorizonConfig, run_multihorizon_research
+from alpharank.multihorizon.config import (
+    LATEST_COMMON_COMPARISON_PROFILE,
+    LATEST_COMMON_COMPARISON_PROFILE_NAME,
+)
 
 
 def _integers(value: str) -> tuple[int, ...]:
@@ -28,6 +32,14 @@ def main() -> None:
     parser.add_argument("--legacy-monthly", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--run-dir", type=Path)
+    parser.add_argument(
+        "--latest-common-comparison-profile",
+        action="store_true",
+        help=(
+            "Apply the versioned causal Legacy-EMA comparison settings. "
+            "Requires --score-only-end-month."
+        ),
+    )
     parser.add_argument("--horizons", type=_integers, default=(1, 3, 6, 12, 24, 36))
     parser.add_argument(
         "--methods",
@@ -40,10 +52,23 @@ def main() -> None:
     parser.add_argument("--test-months", type=int, default=12)
     parser.add_argument("--step-months", type=int, default=12)
     parser.add_argument("--include-partial-test-window", action="store_true")
+    parser.add_argument(
+        "--score-only-end-month",
+        help=(
+            "Final decision month (YYYY-MM) to score using the causal outer "
+            "fold even when its learning target is not mature. Model metrics "
+            "remain restricted to mature targets."
+        ),
+    )
     parser.add_argument("--max-windows", type=int)
     parser.add_argument("--n-trials", type=int, default=0)
     parser.add_argument("--num-boost-round", type=int, default=160)
-    parser.add_argument("--shap-sample-per-fold", type=int, default=200)
+    parser.add_argument(
+        "--shap-sample-per-fold",
+        type=int,
+        default=200,
+        help="Maximum SHAP rows per test fold; use 0 to explain every test row.",
+    )
     parser.add_argument(
         "--feature-mode",
         choices=(
@@ -77,12 +102,23 @@ def main() -> None:
     )
     parser.add_argument("--save-research-frame", action="store_true")
     args = parser.parse_args()
+    run_profile = None
+    if args.latest_common_comparison_profile:
+        if not args.score_only_end_month:
+            parser.error(
+                "--latest-common-comparison-profile requires "
+                "--score-only-end-month YYYY-MM"
+            )
+        for key, value in LATEST_COMMON_COMPARISON_PROFILE.items():
+            setattr(args, key, value)
+        run_profile = LATEST_COMMON_COMPARISON_PROFILE_NAME
     config = MultiHorizonConfig(
         data_dir=args.data_dir,
         legacy_detailed_returns_path=args.legacy_detailed,
         legacy_monthly_returns_path=args.legacy_monthly,
         output_dir=args.output_dir,
         run_dir=args.run_dir,
+        run_profile=run_profile,
         horizons=args.horizons,
         methods=args.methods,
         start_month=args.start_month,
@@ -91,6 +127,7 @@ def main() -> None:
         test_months=args.test_months,
         step_months=args.step_months,
         include_partial_test_window=args.include_partial_test_window,
+        score_only_end_month=args.score_only_end_month,
         max_windows=args.max_windows,
         n_trials=args.n_trials,
         num_boost_round=args.num_boost_round,

@@ -15,7 +15,11 @@ from alpharank.multihorizon.legacy_ema import (
     point_in_time_fold_features,
 )
 from alpharank.multihorizon.preprocessing import fit_fold_preprocessor
-from alpharank.multihorizon.metrics import score_predictions
+from alpharank.multihorizon.metrics import (
+    build_prediction_portfolios,
+    score_predictions,
+)
+from alpharank.multihorizon.pipeline import _prediction_frame, _score_only_panel
 from alpharank.multihorizon.splits import (
     PurgedCombinatorialMonthSplit,
     horizon_walk_forward_windows,
@@ -26,6 +30,26 @@ from alpharank.multihorizon.risk import (
     capped_inverse_risk_weights,
 )
 from alpharank.multihorizon.trading import build_monthly_top_n_returns
+from alpharank.multihorizon.config import (
+    LATEST_COMMON_COMPARISON_PROFILE,
+    validate_latest_common_comparison_profile,
+)
+
+
+def test_latest_common_comparison_profile_fails_closed_on_config_drift() -> None:
+    config = dict(LATEST_COMMON_COMPARISON_PROFILE)
+    config["score_only_end_month"] = "2026-06"
+    assert validate_latest_common_comparison_profile(config)["passed"] is True
+
+    config["minimum_monthly_median_dollar_volume"] = 0.0
+    validation = validate_latest_common_comparison_profile(config)
+    assert validation["passed"] is False
+    assert validation["mismatches"] == {
+        "minimum_monthly_median_dollar_volume": {
+            "expected": 1_000_000.0,
+            "observed": 0.0,
+        }
+    }
 
 
 def test_future_target_requires_an_exact_calendar_gap() -> None:
@@ -212,6 +236,92 @@ def test_classification_ranking_score_is_separate_from_calibrated_probability() 
 
     assert metrics["roc_auc"] == pytest.approx(1.0)
     assert metrics["brier"] == pytest.approx(0.25)
+
+
+def test_score_only_tail_builds_portfolio_without_a_mature_h6_target() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2026, 5, 1)] * 3,
+            "ticker": ["A", "B", "C"],
+            "score": [3.0, 2.0, 1.0],
+            "legacy_selected": [1, 0, 0],
+            "future_excess_return_6m": [None, None, None],
+            "future_excess_return_1m": [0.10, 0.02, -0.04],
+        }
+    )
+
+    portfolio = build_prediction_portfolios(
+        predictions,
+        horizon=6,
+        top_n_values=(2,),
+    )
+
+    assert portfolio["future_excess_return"][0] is None
+    assert portfolio["realized_one_month_excess"][0] == pytest.approx(0.06)
+
+
+def test_score_only_panel_stops_at_explicit_complete_decision_month() -> None:
+    frame = pl.DataFrame(
+        {
+            "decision_month": [
+                date(2026, 5, 1),
+                date(2026, 6, 1),
+                date(2026, 7, 1),
+            ],
+            "ticker": ["A", "A", "A"],
+            "future_excess_return_1m": [0.01, 0.02, 0.03],
+            "legacy_label_available": [1, 1, 1],
+        }
+    )
+
+    panel = _score_only_panel(
+        frame,
+        method="classification",
+        feature_mode="legacy_winners_pit_ema_only",
+        end_month="2026-06",
+    )
+
+    assert panel is not None
+    assert panel["decision_month"].to_list() == [
+        date(2026, 5, 1),
+        date(2026, 6, 1),
+    ]
+
+
+def test_prediction_status_separates_ticker_gaps_from_horizon_maturity() -> None:
+    class Fitted:
+        @staticmethod
+        def predict_raw_score(matrix):
+            return np.arange(len(matrix), dtype=float)
+
+        @staticmethod
+        def predict(matrix):
+            return np.full(len(matrix), 0.5)
+
+    source = pl.DataFrame(
+        {
+            "decision_month": [date(2025, 12, 1)] * 3,
+            "ticker": ["A", "B", "C"],
+            "legacy_selected": [0, 0, 0],
+            "future_excess_return_6m": [0.1, None, None],
+            "benchmark_future_return_6m": [0.05, 0.05, None],
+        }
+    )
+
+    predictions = _prediction_frame(
+        source=source,
+        matrix=np.zeros((3, 1)),
+        fitted=Fitted(),
+        fold=1,
+        method="classification",
+        horizon=6,
+    )
+
+    assert predictions["target_status"].to_list() == [
+        "evaluable",
+        "ticker_target_unavailable",
+        "horizon_pending",
+    ]
 
 
 def test_monthly_trading_backtest_applies_turnover_cost() -> None:

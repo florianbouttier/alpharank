@@ -45,6 +45,60 @@ def _expected_calibration_error(target: np.ndarray, probability: np.ndarray, bin
     return error * len(target) / total
 
 
+def build_prediction_portfolios(
+    predictions: pl.DataFrame,
+    *,
+    horizon: int,
+    top_n_values: Iterable[int],
+) -> pl.DataFrame:
+    """Build Top-N diagnostics even when the learning target is not mature."""
+
+    portfolio_rows: list[dict] = []
+    horizon_column = f"future_excess_return_{horizon}m"
+    for month_frame in predictions.partition_by(
+        "decision_month", maintain_order=True
+    ):
+        ordered = month_frame.sort("score", descending=True)
+        legacy_names = set(
+            month_frame.filter(pl.col("legacy_selected").fill_null(0) == 1)
+            .get_column("ticker")
+            .to_list()
+        )
+        for top_n in top_n_values:
+            picked = ordered.head(top_n)
+            names = set(picked.get_column("ticker").to_list())
+            horizon_excess = picked.get_column(horizon_column).mean()
+            one_month_excess = picked.get_column(
+                "future_excess_return_1m"
+            ).mean()
+            portfolio_rows.append(
+                {
+                    "decision_month": month_frame.get_column(
+                        "decision_month"
+                    )[0],
+                    "top_n": int(top_n),
+                    "future_excess_return": (
+                        None
+                        if horizon_excess is None
+                        else float(horizon_excess)
+                    ),
+                    "realized_one_month_excess": (
+                        None
+                        if one_month_excess is None
+                        else float(one_month_excess)
+                    ),
+                    "legacy_overlap": (
+                        len(names & legacy_names) / max(1, len(legacy_names))
+                    ),
+                    "legacy_jaccard": (
+                        len(names & legacy_names)
+                        / max(1, len(names | legacy_names))
+                    ),
+                }
+            )
+    return pl.DataFrame(portfolio_rows)
+
+
 def score_predictions(
     predictions: pl.DataFrame,
     *,
@@ -148,30 +202,11 @@ def score_predictions(
             target_mean=float(np.mean(y)),
             target_std=target_std,
         )
-    portfolio_rows: list[dict] = []
-    for month_frame in predictions.partition_by("decision_month", maintain_order=True):
-        ordered = month_frame.sort("score", descending=True)
-        legacy_names = set(month_frame.filter(pl.col("legacy_selected") == 1).get_column("ticker").to_list())
-        for top_n in top_n_values:
-            picked = ordered.head(top_n)
-            names = set(picked.get_column("ticker").to_list())
-            # Canonical project definition: common names / Legacy basket size.
-            overlap_denominator = max(1, len(legacy_names))
-            portfolio_rows.append(
-                {
-                    "decision_month": month_frame.get_column("decision_month")[0],
-                    "top_n": int(top_n),
-                    "future_excess_return": float(
-                        picked.get_column(f"future_excess_return_{horizon}m").mean()
-                    ),
-                    "realized_one_month_excess": float(
-                        picked.get_column("future_excess_return_1m").mean()
-                    ),
-                    "legacy_overlap": len(names & legacy_names) / overlap_denominator,
-                    "legacy_jaccard": len(names & legacy_names) / max(1, len(names | legacy_names)),
-                }
-            )
-    portfolio = pl.DataFrame(portfolio_rows)
+    portfolio = build_prediction_portfolios(
+        predictions,
+        horizon=horizon,
+        top_n_values=top_n_values,
+    )
     for top_n in top_n_values:
         subset = portfolio.filter(pl.col("top_n") == top_n)
         metrics[f"top{top_n}_horizon_excess"] = float(subset["future_excess_return"].mean())

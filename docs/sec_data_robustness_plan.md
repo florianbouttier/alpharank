@@ -188,3 +188,23 @@ Future legacy monthly runs are now retainable at the model-input level.
 The open-source publication layer still needs the P0 drift, history, lineage,
 and legacy-export gates above before historical backtests can be treated as
 production-grade again.
+
+### 2026-08-11 revision audit
+
+The reusable command `scripts/audit_open_source_snapshot_revisions.py` now
+compares all Legacy inputs by natural key and then measures downstream Legacy
+and Boosting replay impact. Between retained snapshots `20260811_003849` and
+`20260811_001503`, it found 136 added price rows and these common-row revisions:
+
+- one UA volume value on 2026-08-07;
+- FLR operating income for 2025 Q2;
+- AKAM free cash flow for 2026 Q1;
+- four Yahoo-sourced earnings rows for FFIV, IPG, KBH, and NVDA from 2005-2007.
+
+The last four are direct evidence that current Yahoo earnings responses can
+rewrite historical `epsActual`, estimates, and surprise values. Immutable
+snapshots make the revision measurable, but a backtest fed with today's Yahoo
+history is not thereby point-in-time. For this comparison, Legacy has no
+selection/return change above `2.22e-16` and all 81,267 standard Boosting
+predictions are identical. This is an impact result, not permission to remove
+the SEC-first P1 work or the missing P0 publish-time historical-drift gate.

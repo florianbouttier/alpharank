@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -133,6 +134,24 @@ def release_json_lock(path: Path) -> None:
         pass
 
 
+def acquire_process_json_lock(path: Path, *, operation: str) -> None:
+    """Hold one cross-process data-publication lock until this process exits."""
+
+    acquired, existing = try_acquire_json_lock(
+        path,
+        {
+            "pid": os.getpid(),
+            "started_at": utc_now_iso(),
+            "operation": operation,
+        },
+    )
+    if not acquired:
+        raise RuntimeError(
+            f"Data publication is already locked by another process: {existing}"
+        )
+    atexit.register(release_json_lock, path)
+
+
 def append_run_delta(path: Path, frame: pl.DataFrame) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.write_parquet(path)
@@ -146,17 +165,39 @@ def upsert_parquet(
     order_cols: Iterable[str] = (),
 ) -> pl.DataFrame:
     path.parent.mkdir(parents=True, exist_ok=True)
-    key_list = list(key_cols)
-    order_list = list(order_cols)
-
     if path.exists():
         existing = pl.read_parquet(path)
-        merged = pl.concat([existing, frame], how="diagonal_relaxed")
     else:
+        existing = pl.DataFrame()
+
+    merged = merge_upsert_frames(
+        existing,
+        frame,
+        key_cols=key_cols,
+        order_cols=order_cols,
+    )
+    merged.write_parquet(path)
+    return merged
+
+
+def merge_upsert_frames(
+    existing: pl.DataFrame,
+    frame: pl.DataFrame,
+    *,
+    key_cols: Iterable[str],
+    order_cols: Iterable[str] = (),
+) -> pl.DataFrame:
+    """Return an upserted frame without mutating the persisted source."""
+    key_list = list(key_cols)
+    order_list = list(order_cols)
+    if existing.is_empty():
         merged = frame
+    elif frame.is_empty():
+        merged = existing
+    else:
+        merged = pl.concat([existing, frame], how="diagonal_relaxed")
 
     if merged.is_empty():
-        merged.write_parquet(path)
         return merged
 
     sort_cols = [column for column in [*key_list, *order_list] if column in merged.columns]
@@ -165,7 +206,6 @@ def upsert_parquet(
     if key_list:
         merged = merged.unique(subset=key_list, keep="last", maintain_order=True)
         merged = merged.sort([column for column in key_list if column in merged.columns])
-    merged.write_parquet(path)
     return merged
 
 

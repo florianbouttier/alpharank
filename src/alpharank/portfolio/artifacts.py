@@ -17,6 +17,7 @@ def write_common_portfolio_artifacts(
     monthly_returns: pl.DataFrame,
     prefix: str = "portfolio_common",
     risk_free_rate: float = 0.02,
+    benchmark_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     """Persist the shared audit contract used by Legacy and boosting reports."""
 
@@ -78,6 +79,7 @@ def write_common_portfolio_artifacts(
                 "return_contract": "gross - turnover*cost_bps/10000 = net",
                 "sharpe_convention": "(CAGR - risk_free_rate) / annualized_volatility",
                 "risk_free_rate": risk_free_rate,
+                "benchmark": benchmark_metadata,
                 "strategies": calendar_rows,
             },
             indent=2,

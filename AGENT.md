@@ -8,6 +8,11 @@ Documentation rule: keep `docs/CODEX_HANDOFF.md` as the central cross-track
 handoff. Specialized docs should be linked from that handoff instead of being
 created as unconnected one-off notes.
 
+Before changing or explaining either signal methodology, read
+`docs/legacy_boosting_methodology.md`. It is the canonical pseudocode and code
+architecture reference for Legacy and the public latest-common Boosting
+profile, including its liquidity gate and fundamental-data usage.
+
 This repository is organized around two active workflows:
 
 1. `legacy` (current production baseline)
@@ -17,6 +22,10 @@ This repository is organized around two active workflows:
 
 - `src/alpharank/backtest/`: modular boosting implementation (data loading, features, CV folds, Optuna tuning, SHAP, reporting)
 - `src/alpharank/multihorizon/`: current leakage-aware multi-horizon boosting, risk, SHAP, and live scoring implementation
+- Monthly SHAP reporting must disclose row counts and sampling. A month labelled exhaustive must contain one explanation for every test prediction in that month.
+- Model quality and portfolio performance have distinct maturity calendars. H6 metrics exclude immature targets, while a frozen out-of-sample model may score later decisions for a one-month replay when t+1 returns are complete; expose evaluable, ticker-unavailable, and horizon-pending counts separately.
+- Performance answers must name the snapshot and benchmark convention. Use `SPY total return` from `adjusted_close`; old Legacy `SP500` rows are price returns from `close` and cannot be reported as the standard benchmark. Standalone Legacy uses the latest validated replay, while Legacy/Boosting comparisons require one shared snapshot.
+- CAGR decompositions must use `src/alpharank/portfolio/attribution.py`, keep transaction costs separate, and reconcile monthly returns plus final CAGR within `1e-12`; do not add ordinary percentage-point CAGR contributions.
 - `src/alpharank/portfolio/`: methodology-neutral holdings contract, allocation primitives, simulator, metrics, comparison, and artifacts shared after signal generation
 - `src/alpharank/data/`: shared data processing/services used by legacy and utilities
 - `src/alpharank/strategy/`: legacy strategy implementation
@@ -26,6 +35,18 @@ Legacy and boosting signal generation must remain separate, but new portfolio
 return, turnover, cost, benchmark-alignment, and performance code must use
 `src/alpharank/portfolio/`. The canonical contract and parity gate are in
 `docs/common_portfolio_backtest_engine.md`.
+
+Every Legacy/boosting performance comparison must also pass the shared data
+lineage gate in `src/alpharank/portfolio/lineage.py`, including identical raw
+input hashes and full-trajectory ticker exclusions. Replaying each strategy
+through the same simulator on different snapshots validates only the simulator;
+it must be marked `comparison_eligible=false` and must not be presented as a
+data-constant strategy comparison.
+The public latest-common Boosting comparison must be launched with
+`--latest-common-comparison-profile`; the common replay validates this
+versioned profile and rejects configuration drift. Compare successive clean
+snapshots with `scripts/audit_open_source_snapshot_revisions.py` and retain the
+data plus downstream replay impact beside the common replay.
 
 ## Archived Code
 
@@ -77,6 +98,10 @@ For open-source production data, a manifest with `open_source_run_id_match=false
 `open_source_output_matches_published_snapshot=false` is not a clean monthly
 package and must not be used as production truth without data-package
 investigation.
+
+Full ingestion, current-constituent refresh, and ticker restore are all data
+publishers and must acquire the shared
+`data/open_source/official/locks/nightly.lock.json` before mutating state.
 
 If a historical month is recalculated with a newer data package, treat any
 portfolio drift as data revision/look-ahead risk until the manifest proves the

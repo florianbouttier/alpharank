@@ -1,14 +1,20 @@
 import hashlib
 import json
+import sys
 from pathlib import Path
 
+import pandas as pd
+
 from scripts.run_legacy import (
+    DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     INPUT_PACKAGE_FILENAMES,
+    _parse_args,
     _default_log_stem,
     _input_files,
     _manifest_extra_context,
     _resolve_open_source_output_by_run_id,
     _snapshot_input_package,
+    normalize_year_month_to_timestamp,
 )
 from scripts.validate_legacy_replay_package import _resolve_project_root
 from scripts.validate_legacy_replay_package import validate_manifest
@@ -17,6 +23,35 @@ from scripts.validate_legacy_replay_package import validate_manifest
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_run_legacy_exposes_common_holdings_month_normalizer() -> None:
+    frame = pd.DataFrame({"year_month": [pd.Period("2026-06", freq="M")]})
+    normalized = normalize_year_month_to_timestamp(frame)
+    assert normalized["year_month"].iloc[0] == pd.Timestamp("2026-06-01")
+
+
+def test_run_legacy_cli_enables_versioned_ticker_registry_by_default(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["run_legacy.py"])
+    args = _parse_args()
+    assert Path(args.ticker_exclusion_registry) == (
+        DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY
+    )
+    assert args.no_ticker_exclusion_registry is False
+
+
+def test_run_legacy_cli_can_disable_registry_for_compatibility(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run_legacy.py", "--no-ticker-exclusion-registry"],
+    )
+    args = _parse_args()
+    assert args.no_ticker_exclusion_registry is True
 
 
 def test_manifest_extra_context_links_open_source_output_to_latest_run(tmp_path: Path) -> None:

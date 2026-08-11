@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Build the self-contained AlphaRank research and production dashboard."""
+"""Build the AlphaRank research and production dashboard."""
 
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import math
@@ -12,6 +13,17 @@ from pathlib import Path
 from typing import Any
 
 import polars as pl
+
+from alpharank.portfolio.performance import advanced_performance_statistics
+from alpharank.portfolio.attribution import (
+    portfolio_return_attribution,
+    reference_return_attribution,
+)
+from alpharank.portfolio.lineage import (
+    input_hashes_from_manifest,
+    load_manifest,
+    require_matching_data_contexts,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +34,9 @@ TOPN_DIR = PROJECT_ROOT / (
 CHAMPION_DIR = PROJECT_ROOT / (
     "outputs/multihorizon_boosting/"
     "legacy_ema_long_history_ticker_quarantine_v6_20260726"
+)
+DIAGNOSTICS_DIR = PROJECT_ROOT / (
+    "outputs/multihorizon_boosting/legacy_ema_fold_full_shap_20260810"
 )
 RISK_DIR = PROJECT_ROOT / (
     "outputs/multihorizon_boosting/"
@@ -37,10 +52,22 @@ LIVE_DIR = PROJECT_ROOT / (
     "outputs/live_alpha/"
     "ema_classification_h6_202606_20260727_production_candidate_v3"
 )
+HISTORICAL_LEGACY_COMMON_DIR = PROJECT_ROOT / (
+    "outputs/common_portfolio_replays/"
+    "legacy_20260713_201639_spy_total_return"
+)
+CURRENT_LEGACY_COMMON_DIR = PROJECT_ROOT / (
+    "outputs/common_portfolio_replays/"
+    "legacy_20260727_221253_spy_total_return"
+)
+LATEST_OPEN_SOURCE_MANIFEST = (
+    PROJECT_ROOT / "data/open_source/official/manifests/latest_run.json"
+)
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / (
     "outputs/research_dashboard/"
-    "legacy_ema_alpha_central_20260727"
+    "legacy_ema_alpha_central_20260810_full_shap"
 )
+SHAP_OVERVIEW_ROWS_PER_FOLD = 80
 
 
 def _hash(path: Path) -> str:
@@ -69,6 +96,283 @@ def _records(path: Path) -> list[dict[str, Any]]:
 
 def _parquet_records(path: Path) -> list[dict[str, Any]]:
     return _clean(pl.read_parquet(path).to_dicts())
+
+
+def _full_precision_records(frame: pl.DataFrame) -> list[dict[str, Any]]:
+    """Serialize audit-critical returns without per-row decimal truncation."""
+
+    return [
+        {
+            key: value.isoformat() if isinstance(value, (date, datetime)) else value
+            for key, value in row.items()
+        }
+        for row in frame.to_dicts()
+    ]
+
+
+def _project_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def _maximum_date(path: Path, column: str) -> str:
+    value = pl.scan_parquet(path).select(pl.col(column).max()).collect().item()
+    return str(value)
+
+
+def _historical_lineage(monthly: pl.DataFrame) -> dict[str, Any]:
+    champion_manifest_path = CHAMPION_DIR / "manifest.json"
+    risk_manifest_path = RISK_DIR / "manifest.json"
+    topn_manifest_path = TOPN_DIR / "manifest.json"
+    report_manifest_path = TOPN_DIR / "alpha_shap_portfolio_manifest.json"
+    champion = load_manifest(champion_manifest_path)
+    risk = load_manifest(risk_manifest_path)
+    topn = load_manifest(topn_manifest_path)
+    report = load_manifest(report_manifest_path)
+    champion_hashes = input_hashes_from_manifest(champion)
+    context_check = require_matching_data_contexts(
+        champion_manifest_path,
+        risk_manifest_path,
+        required_keys=set(champion_hashes),
+    )
+    if topn["source_risk_manifest_sha256"] != _hash(risk_manifest_path):
+        raise ValueError("Top-N artifact does not match its declared risk manifest.")
+
+    legacy_detailed = _project_path(champion["legacy_detailed_returns_path"])
+    legacy_monthly = _project_path(champion["legacy_monthly_returns_path"])
+    if champion["legacy_detailed_returns_sha256"] != _hash(legacy_detailed):
+        raise ValueError("Champion Legacy detailed hash no longer matches its source.")
+    if report["legacy_holdings_sha256"] != _hash(legacy_detailed):
+        raise ValueError("Dashboard Legacy holdings and champion use different packages.")
+
+    common_manifest = load_manifest(HISTORICAL_LEGACY_COMMON_DIR / "manifest.json")
+    common = _canonical_legacy_monthly(HISTORICAL_LEGACY_COMMON_DIR).rename(
+        {
+            "legacy_return": "source_legacy_return",
+            "spy_return": "source_spy_return",
+        }
+    )
+    comparison = monthly.select(
+        "holding_month", "legacy_return", "spy_return"
+    ).join(
+        common,
+        on="holding_month",
+        how="inner",
+    )
+    legacy_maximum_error = float(
+        (comparison["legacy_return"] - comparison["source_legacy_return"])
+        .abs()
+        .max()
+    )
+    spy_maximum_error = float(
+        (comparison["spy_return"] - comparison["source_spy_return"])
+        .abs()
+        .max()
+    )
+    if (
+        comparison.height != monthly.height
+        or legacy_maximum_error > 1e-12
+        or spy_maximum_error > 1e-12
+    ):
+        raise ValueError(
+            "Dashboard Legacy/SPY series is not an exact canonical replay of "
+            "the champion data package."
+        )
+
+    data_dir = _project_path(champion["config"]["data_dir"])
+    return {
+        "label": "Backtest historique",
+        "status": "same_snapshot_verified",
+        "snapshot_id": data_dir.parent.name,
+        "input_snapshot": str(data_dir.relative_to(PROJECT_ROOT)),
+        "price_max_date": _maximum_date(data_dir / "US_Finalprice.parquet", "date"),
+        "universe_max_month": str(
+            pl.read_csv(data_dir / "SP500_Constituents.csv")
+            .select(pl.col("Date").str.to_date(strict=False).max())
+            .item()
+        ),
+        "last_test_decision_month": str(
+            pl.read_parquet(CHAMPION_DIR / "classification_h06/predictions.parquet")
+            ["decision_month"]
+            .max()
+        ),
+        "last_holding_month": str(monthly["holding_month"].max()),
+        "legacy_series_rows_verified": comparison.height,
+        "legacy_series_maximum_error": legacy_maximum_error,
+        "spy_series_maximum_error": spy_maximum_error,
+        "benchmark": common_manifest["benchmark"],
+        "note": "Legacy et Boosting : snapshot identique ; SPY total return ajusté",
+        "matching_input_keys": context_check["matching_keys"],
+    }
+
+
+def _canonical_legacy_monthly(root: Path) -> pl.DataFrame:
+    monthly = pl.read_csv(
+        root / "legacy_common_total_return_monthly.csv",
+        try_parse_dates=True,
+    )
+    return (
+        monthly.filter(
+            pl.col("strategy").is_in(
+                ["Combined_Frequency", "Combined_Equal", "SPY total return"]
+            )
+        )
+        .pivot(on="strategy", index="holding_month", values="net_return")
+        .rename(
+            {
+                "Combined_Frequency": "legacy_return",
+                "Combined_Equal": "legacy_equal_return",
+                "SPY total return": "spy_return",
+            }
+        )
+        .sort("holding_month")
+    )
+
+
+def _performance_attribution_payload() -> list[dict[str, Any]]:
+    alpha_holdings = (
+        pl.read_parquet(TOPN_DIR / "allocation_holdings.parquet")
+        .filter(
+            pl.col("strategy").is_in(
+                ["alpha_top5_equal", "alpha_top10_equal"]
+            )
+        )
+        .with_columns(
+            pl.col("portfolio_weight").alias("target_weight"),
+            pl.col("future_return_1m").alias("realized_return"),
+            pl.col("benchmark_future_return_1m").alias("benchmark_return"),
+        )
+        .select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "ticker",
+            "target_weight",
+            "realized_return",
+            "benchmark_return",
+            "sector",
+        )
+    )
+    alpha_monthly = (
+        pl.read_csv(TOPN_DIR / "allocation_monthly.csv", try_parse_dates=True)
+        .filter(
+            pl.col("strategy").is_in(
+                ["alpha_top5_equal", "alpha_top10_equal"]
+            )
+        )
+        .with_columns(
+            (pl.col("net_return") - pl.col("benchmark_return")).alias(
+                "active_return"
+            ),
+            (
+                (1.0 + pl.col("net_return"))
+                / (1.0 + pl.col("benchmark_return"))
+                - 1.0
+            ).alias("relative_return"),
+        )
+    )
+    alpha_attribution = portfolio_return_attribution(
+        alpha_holdings,
+        alpha_monthly,
+    )
+
+    legacy_holdings = pl.read_parquet(
+        HISTORICAL_LEGACY_COMMON_DIR
+        / "legacy_common_total_return_holdings.parquet"
+    ).filter(pl.col("strategy") == "Combined_Frequency")
+    legacy_monthly = pl.read_csv(
+        HISTORICAL_LEGACY_COMMON_DIR
+        / "legacy_common_total_return_monthly.csv",
+        try_parse_dates=True,
+    )
+    legacy_attribution = portfolio_return_attribution(
+        legacy_holdings,
+        legacy_monthly.filter(pl.col("strategy") == "Combined_Frequency"),
+    )
+    spy_attribution = reference_return_attribution(
+        legacy_monthly.filter(pl.col("strategy") == "SPY total return"),
+        component="SPY",
+    )
+    combined = pl.concat(
+        [alpha_attribution, legacy_attribution, spy_attribution],
+        how="diagonal_relaxed",
+    ).filter(
+        pl.col("holding_month").is_between(date(2011, 8, 1), date(2025, 11, 1))
+    )
+    compact = combined.select(
+        pl.col("strategy").alias("s"),
+        pl.col("holding_month").alias("m"),
+        pl.col("component").alias("c"),
+        pl.col("component_type").alias("k"),
+        pl.col("simple_return_contribution").alias("v"),
+        pl.col("log_return_contribution").alias("l"),
+        pl.col("effective_weight").alias("w"),
+        pl.col("realized_return").alias("r"),
+    )
+    return _full_precision_records(compact)
+
+
+def _current_legacy_lineage() -> dict[str, Any]:
+    manifest = load_manifest(CURRENT_LEGACY_COMMON_DIR / "manifest.json")
+    run_dir = Path(manifest["run_dir"])
+    data_dir = run_dir / "input_snapshot"
+    return {
+        "label": "Legacy autonome validé",
+        "status": "canonical_legacy_replay",
+        "snapshot_id": manifest["run_id"],
+        "input_snapshot": str(data_dir.relative_to(PROJECT_ROOT)),
+        "price_max_date": _maximum_date(data_dir / "US_Finalprice.parquet", "date"),
+        "last_holding_month": manifest["benchmark"]["completed_through_month"],
+        "benchmark": manifest["benchmark"],
+        "note": "Dernier replay Legacy validé ; non comparable au Boosting historique",
+    }
+
+
+def _live_lineage() -> dict[str, Any]:
+    live_manifest_path = LIVE_DIR / "manifest.json"
+    live = load_manifest(live_manifest_path)
+    data_dir = _project_path(live["config"]["data_dir"])
+    legacy_manifest_path = data_dir.parent / "data_input_manifest.json"
+    live_hashes = input_hashes_from_manifest(live)
+    context_check = require_matching_data_contexts(
+        legacy_manifest_path,
+        live_manifest_path,
+        required_keys=set(live_hashes),
+    )
+    legacy_detailed = Path(live["legacy_detailed_returns"]["path"])
+    if live["legacy_detailed_returns"]["sha256"] != _hash(legacy_detailed):
+        raise ValueError("Live Alpha and live Legacy do not share the declared package.")
+    return {
+        "label": "Candidat live",
+        "status": "same_snapshot_verified",
+        "snapshot_id": data_dir.parent.name,
+        "input_snapshot": str(data_dir.relative_to(PROJECT_ROOT)),
+        "price_max_date": _maximum_date(data_dir / "US_Finalprice.parquet", "date"),
+        "decision_month": live["decision_month"],
+        "holding_month": live["holding_month"],
+        "matching_input_keys": context_check["matching_keys"],
+        "note": "Legacy et Boosting live : snapshot identique",
+    }
+
+
+def _latest_data_lineage() -> dict[str, Any]:
+    manifest = load_manifest(LATEST_OPEN_SOURCE_MANIFEST)
+    snapshot = Path(manifest["official_dir"]).parent / manifest["published_output_snapshot"]
+    return {
+        "label": "Dernières données disponibles",
+        "status": "historized_not_model_rerun",
+        "snapshot_id": snapshot.name,
+        "input_snapshot": str(snapshot.relative_to(PROJECT_ROOT)),
+        "ingestion_run_id": manifest["run_id"],
+        "ingested_at": manifest["ingested_at"],
+        "price_max_date": _maximum_date(snapshot / "US_Finalprice.parquet", "date"),
+        "universe_max_month": str(
+            pl.read_csv(snapshot / "SP500_Constituents.csv")
+            .select(pl.col("Date").str.to_date(strict=False).max())
+            .item()
+        ),
+        "note": "Historisé, mais aucun backtest commun n'est encore publié",
+    }
 
 
 def _dashboard_monthly_source() -> Path:
@@ -105,15 +409,10 @@ def _dashboard_monthly() -> pl.DataFrame:
     )
 
 
-def _monthly_shap_payload(
-    samples_path: Path,
-    lexicon_path: Path,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
-    lexicon = pl.read_csv(lexicon_path).sort("importance_rank")
-    features = lexicon["feature"].to_list()
-    samples = pl.read_parquet(samples_path).sort(
-        ["decision_month", "ticker"]
-    )
+def _compact_shap_rows(
+    samples: pl.DataFrame,
+    features: list[str],
+) -> list[dict[str, Any]]:
     payload: list[dict[str, Any]] = []
     for row in samples.iter_rows(named=True):
         payload.append(
@@ -125,7 +424,119 @@ def _monthly_shap_payload(
                 "s": [_clean(row.get(f"shap__{feature}")) for feature in features],
             }
         )
-    return payload, _clean(lexicon.to_dicts()), features
+    return payload
+
+
+def _monthly_shap_payload(
+    samples_path: Path,
+    lexicon_path: Path,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[str],
+]:
+    lexicon = pl.read_csv(lexicon_path).sort("importance_rank")
+    features = lexicon["feature"].to_list()
+    samples = pl.read_parquet(samples_path).sort(
+        ["decision_month", "ticker"]
+    )
+    overview_parts = []
+    for fold in samples["fold"].unique().sort().to_list():
+        fold_rows = samples.filter(pl.col("fold") == fold)
+        overview_parts.append(
+            fold_rows.sample(
+                n=min(SHAP_OVERVIEW_ROWS_PER_FOLD, fold_rows.height),
+                seed=42 + int(fold),
+                shuffle=False,
+            )
+        )
+    overview = pl.concat(overview_parts).sort(["decision_month", "ticker"])
+    month_counts = (
+        samples.group_by("decision_month", "fold")
+        .len(name="rows")
+        .sort("decision_month")
+    )
+    return (
+        _compact_shap_rows(overview, features),
+        _clean(month_counts.to_dicts()),
+        _clean(lexicon.to_dicts()),
+        features,
+    )
+
+
+def _write_monthly_shap_sidecars(
+    samples_path: Path,
+    features: list[str],
+    target_dir: Path,
+) -> dict[str, Any]:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    samples = pl.read_parquet(samples_path).sort(["decision_month", "ticker"])
+    files: list[dict[str, Any]] = []
+    for month_rows in samples.partition_by("decision_month", maintain_order=True):
+        month = _clean(month_rows["decision_month"][0])
+        path = target_dir / f"{month[:7]}.json.gz"
+        encoded = json.dumps(
+            {"month": month, "rows": _compact_shap_rows(month_rows, features)},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        path.write_bytes(gzip.compress(encoded, compresslevel=9, mtime=0))
+        files.append(
+            {
+                "month": month,
+                "rows": month_rows.height,
+                "file": path.name,
+                "bytes": path.stat().st_size,
+                "sha256": _hash(path),
+            }
+        )
+    manifest = {
+        "source": str(samples_path.relative_to(PROJECT_ROOT)),
+        "source_sha256": _hash(samples_path),
+        "features": len(features),
+        "rows": samples.height,
+        "months": len(files),
+        "files": files,
+    }
+    (target_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def _fold_diagnostics() -> list[dict[str, Any]]:
+    root = DIAGNOSTICS_DIR / "classification_h06"
+    metrics = pl.read_csv(root / "fold_metrics.csv", try_parse_dates=True)
+    splits = pl.read_csv(root / "fold_feature_manifest.csv", try_parse_dates=True)
+    return _clean(splits.join(metrics, on="fold").sort("fold").to_dicts())
+
+
+PERIOD_METRIC_FIELDS = (
+    "total_return", "cagr", "annualized_volatility", "sharpe", "sortino",
+    "calmar", "max_drawdown", "information_ratio", "beta", "alpha",
+    "correlation", "benchmark_hit_rate", "var_95", "cvar_95", "omega",
+    "up_capture", "down_capture",
+)
+
+
+def _period_metrics(monthly: pl.DataFrame) -> dict[str, list[list[float | None]]]:
+    series = ("alpha_top5_return", "legacy_return", "spy_return")
+    benchmark = monthly["spy_return"].to_numpy()
+    months = monthly["holding_month"].to_list()
+    output: dict[str, list[list[float | None]]] = {}
+    for start in range(len(months)):
+        for end in range(start, len(months)):
+            rows: list[list[float | None]] = []
+            for column in series:
+                stats = advanced_performance_statistics(
+                    monthly[column].to_numpy()[start : end + 1],
+                    benchmark_returns=benchmark[start : end + 1],
+                )
+                rows.append([_clean(stats[field]) for field in PERIOD_METRIC_FIELDS])
+            output[f"{months[start].isoformat()}|{months[end].isoformat()}"] = rows
+    return output
 
 
 def _drawdowns(monthly: pl.DataFrame) -> list[dict[str, Any]]:
@@ -214,8 +625,25 @@ def _live_payload() -> dict[str, Any]:
 
 
 def build_payload() -> tuple[dict[str, Any], list[Path]]:
+    champion_manifest = load_manifest(CHAMPION_DIR / "manifest.json")
+    champion_data_manifest = (
+        _project_path(champion_manifest["config"]["data_dir"]).parent
+        / "data_input_manifest.json"
+    )
+    live_manifest = load_manifest(LIVE_DIR / "manifest.json")
+    live_data_manifest = (
+        _project_path(live_manifest["config"]["data_dir"]).parent
+        / "data_input_manifest.json"
+    )
     source_files = [
+        CHAMPION_DIR / "manifest.json",
+        champion_data_manifest,
+        RISK_DIR / "manifest.json",
+        TOPN_DIR / "manifest.json",
+        TOPN_DIR / "alpha_shap_portfolio_manifest.json",
         TOPN_DIR / "monthly_portfolios.parquet",
+        TOPN_DIR / "allocation_holdings.parquet",
+        TOPN_DIR / "allocation_monthly.csv",
         _dashboard_monthly_source(),
         TOPN_DIR / "performance_legacy_convention.csv",
         TOPN_DIR / "annual_returns_wide.csv",
@@ -224,7 +652,9 @@ def build_payload() -> tuple[dict[str, Any], list[Path]]:
         TOPN_DIR / "promotion_gates.csv",
         TOPN_DIR / "rank_bucket_diagnostics.csv",
         TOPN_DIR / "alpha_shap_feature_lexicon.csv",
-        CHAMPION_DIR / "classification_h06/shap_samples.parquet",
+        DIAGNOSTICS_DIR / "classification_h06/shap_samples.parquet",
+        DIAGNOSTICS_DIR / "classification_h06/fold_metrics.csv",
+        DIAGNOSTICS_DIR / "classification_h06/fold_feature_manifest.csv",
         CHAMPION_DIR / "model_horizon_summary.csv",
         SCREENING_DIR / "model_horizon_summary.csv",
         EMA_SCREENING_DIR / "model_horizon_summary.csv",
@@ -232,34 +662,58 @@ def build_payload() -> tuple[dict[str, Any], list[Path]]:
         RISK_DIR / "allocation_performance_legacy_convention.csv",
         RISK_DIR / "allocation_acceptance_gates.csv",
         LIVE_DIR / "manifest.json",
+        live_data_manifest,
+        LATEST_OPEN_SOURCE_MANIFEST,
         LIVE_DIR / "portfolio_top5.csv",
         LIVE_DIR / "portfolio_top10.csv",
         LIVE_DIR / "legacy_portfolio_same_holding_month.csv",
+        HISTORICAL_LEGACY_COMMON_DIR / "manifest.json",
+        HISTORICAL_LEGACY_COMMON_DIR / "legacy_common_total_return_holdings.parquet",
+        HISTORICAL_LEGACY_COMMON_DIR / "legacy_common_total_return_monthly.csv",
+        CURRENT_LEGACY_COMMON_DIR / "manifest.json",
+        CURRENT_LEGACY_COMMON_DIR / "legacy_common_total_return_monthly.csv",
     ]
     missing = [path for path in source_files if not path.exists()]
     if missing:
         raise FileNotFoundError(
             "Missing dashboard sources:\n" + "\n".join(map(str, missing))
         )
-    shap, lexicon, features = _monthly_shap_payload(
-        CHAMPION_DIR / "classification_h06/shap_samples.parquet",
+    shap, shap_month_counts, lexicon, features = _monthly_shap_payload(
+        DIAGNOSTICS_DIR / "classification_h06/shap_samples.parquet",
         TOPN_DIR / "alpha_shap_feature_lexicon.csv",
     )
+    shap_rows = sum(row["rows"] for row in shap_month_counts)
     monthly = _dashboard_monthly()
+    attribution = _performance_attribution_payload()
+    lineage = {
+        "historical": _historical_lineage(monthly),
+        "legacy_current": _current_legacy_lineage(),
+        "live": _live_lineage(),
+        "latest": _latest_data_lineage(),
+    }
     payload = {
         "meta": {
             "created": datetime.now().astimezone().isoformat(),
             "test_start": str(monthly["holding_month"].min()),
             "test_end": str(monthly["holding_month"].max()),
             "test_months": monthly.height,
-            "shap_rows": len(shap),
+            "shap_rows": shap_rows,
+            "shap_overview_rows": len(shap),
             "shap_features": len(features),
-            "shap_months": len({row["m"] for row in shap}),
+            "shap_months": len(shap_month_counts),
+            "attribution_rows": len(attribution),
         },
         "performance": _records(
             TOPN_DIR / "performance_legacy_convention.csv"
         ),
-        "monthly": _clean(monthly.to_dicts()),
+        "monthly": _full_precision_records(monthly),
+        "attribution": attribution,
+        "legacy_current_monthly": _full_precision_records(
+            _canonical_legacy_monthly(CURRENT_LEGACY_COMMON_DIR)
+        ),
+        "lineage": _clean(lineage),
+        "period_metric_fields": PERIOD_METRIC_FIELDS,
+        "period_metrics": _period_metrics(monthly),
         "wealth": _drawdowns(monthly),
         "regimes": _regimes(monthly),
         "annual": _records(TOPN_DIR / "annual_returns_wide.csv"),
@@ -273,6 +727,7 @@ def build_payload() -> tuple[dict[str, Any], list[Path]]:
             EMA_SCREENING_DIR / "model_horizon_summary.csv"
         ),
         "champion": _records(CHAMPION_DIR / "model_horizon_summary.csv"),
+        "folds": _fold_diagnostics(),
         "risk_models": _records(RISK_DIR / "risk_model_metrics.csv"),
         "risk_performance": _records(
             RISK_DIR / "allocation_performance_legacy_convention.csv"
@@ -281,6 +736,7 @@ def build_payload() -> tuple[dict[str, Any], list[Path]]:
             RISK_DIR / "allocation_acceptance_gates.csv"
         ),
         "shap": shap,
+        "shap_month_counts": shap_month_counts,
         "lexicon": lexicon,
         "features": features,
         "live": _live_payload(),
@@ -320,9 +776,10 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
 .source-list{font:11px "IBM Plex Mono";word-break:break-all}.fine{font-size:11px;color:var(--muted)}.spacer{height:8px}
 .method-flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.method-step{position:relative;padding:14px 12px;border-top:3px solid var(--navy)}.method-step b{display:block;font:600 11px "IBM Plex Mono";color:var(--navy);margin-bottom:7px}.method-step p{font-size:12px;margin:0}.period-bar{position:sticky;top:64px;z-index:9;display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:13px 14px;margin:0 0 14px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}.period-bar .field{display:grid;gap:4px}.period-bar .field span{font:600 10px "IBM Plex Mono";text-transform:uppercase;color:var(--muted)}.preset{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:3px;cursor:pointer}.preset.active{background:var(--navy);border-color:var(--navy);color:#fff}.period-status{margin-left:auto;font:500 11px "IBM Plex Mono";color:var(--muted)}
 .advanced-table td:first-child{font-weight:600}.advanced-table .subtle{display:block;font:10px "IBM Plex Mono";color:var(--muted);margin-top:2px}.metric-help{border-bottom:1px dashed var(--muted);cursor:help}.episodes{display:grid;gap:7px}.episode{display:grid;grid-template-columns:1.25fr .7fr .7fr .9fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font:11px "IBM Plex Mono"}.episode:last-child{border-bottom:0}.method-note{display:grid;grid-template-columns:1fr 1fr;gap:14px}.formula-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.formula{padding:12px;background:var(--bluewash);border-left:3px solid var(--navy)}.formula b{display:block;margin-bottom:4px}.formula code{display:block;margin:5px 0;white-space:normal}.range-warning{color:var(--red);font-weight:600}
+.segmented{display:inline-flex;border:1px solid var(--line);background:var(--panel)}.segmented button{border:0;border-right:1px solid var(--line);background:transparent;padding:8px 12px;cursor:pointer}.segmented button:last-child{border-right:0}.segmented button.active{background:var(--navy);color:#fff}.waterfall-scroll{overflow-x:auto;border:1px solid var(--line);background:var(--panel)}.waterfall-chart{height:430px;min-width:100%}.waterfall-chart svg{display:block;height:100%}.waterfall-chart text{font:10px "IBM Plex Mono";fill:var(--muted)}.waterfall-chart .wf-value{font-weight:600;fill:var(--ink)}.attribution-note{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}.attribution-note code{font-size:12px}.attribution-table td:first-child{font-family:"IBM Plex Mono"}
 @media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3,.portfolio-cards{grid-template-columns:1fr 1fr}.shap-layout{grid-template-columns:1fr}}
 @media(max-width:1100px){.method-flow{grid-template-columns:repeat(3,1fr)}.formula-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:760px){.shell{display:block}aside{position:sticky;height:auto;padding:12px;z-index:30}.brand{padding:2px 5px 10px}.tabs{display:flex;overflow:auto;margin-top:8px}.tab{white-space:nowrap;padding:8px}.aside-foot{display:none}.topbar{top:104px;height:52px;padding:0 14px}.page{padding:18px 12px}.hero h1{font-size:28px}.g4,.g3,.g2,.portfolio-cards,.method-flow,.formula-grid,.method-note{grid-template-columns:1fr}.chart{height:270px}.two-col-doc{columns:1}.section-head{align-items:start;flex-direction:column}.period-bar{top:156px}.period-status{width:100%;margin-left:0}.episode{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.shell{display:block}aside{position:sticky;height:auto;padding:12px;z-index:30}.brand{padding:2px 5px 10px}.tabs{display:flex;overflow:auto;margin-top:8px}.tab{white-space:nowrap;padding:8px}.aside-foot{display:none}.topbar{top:104px;height:52px;padding:0 14px}.page{padding:18px 12px}.hero h1{font-size:28px}.g4,.g3,.g2,.portfolio-cards,.method-flow,.formula-grid,.method-note,.attribution-note{grid-template-columns:1fr}.chart{height:270px}.two-col-doc{columns:1}.section-head{align-items:start;flex-direction:column}.period-bar{top:156px}.period-status{width:100%;margin-left:0}.episode{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -345,9 +802,11 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
 <header class="topbar"><div class="crumb">Legacy EMA / Boosting / <b id="crumb">Synthèse</b></div><button id="theme">◐ Thème</button></header>
 
 <section class="page active" id="overview">
- <div class="hero"><div class="eyebrow">Décision actuelle · recherche non promue automatiquement</div><h1>Le boosting produit un alpha fort, mais la preuve reste conditionnelle.</h1><p>Ce centre réunit le screening, le champion classification à 6 mois, les portefeuilles mensuels, les explications SHAP, le risque et le candidat live. Tous les chiffres comparatifs utilisent le même intervalle août 2011–novembre 2025.</p></div>
+ <div class="hero"><div class="eyebrow">Décision actuelle · recherche non promue automatiquement</div><h1>Le boosting produit un alpha fort, mais la preuve reste conditionnelle.</h1><p>Le backtest historique compare Legacy et Boosting sur le même snapshot figé du 13 juillet 2026. Il s'arrête en novembre 2025 parce que cet ancien univers finissait en avril 2026. Le candidat live utilise séparément le snapshot validé du 27 juillet.</p></div>
  <div class="grid g4" id="headline-metrics"></div>
- <div class="callout warn"><strong>Conclusion de gouvernance</strong>Top 5 égal reste la meilleure allocation testée, mais aucun overlay risque ni Top 10 ne passe tous ses critères de promotion. Le live de juillet 2026 est un candidat opérationnel, pas une nouvelle preuve hors-échantillon.</div>
+ <div class="callout warn"><strong>Conclusion de gouvernance</strong>Top 5 égal reste la meilleure allocation testée sur l'ancien snapshot commun. Ce résultat n'est pas encore la comparaison sur les dernières données historisées. Le live de juillet 2026 est un candidat opérationnel, pas une nouvelle preuve hors-échantillon.</div>
+ <div class="section-head"><div><h2>Lineage des trois contextes</h2><p>Un snapshot commun est obligatoire à l'intérieur de chaque comparaison ; les périodes historiques, live et données disponibles ne sont jamais fusionnées silencieusement.</p></div></div>
+ <div class="grid g3" id="lineage-contexts"></div>
  <div class="section-head"><div><h2>Ce qui est démontré</h2><p>Lecture synthétique, sans confondre performance et validité causale.</p></div></div>
  <div class="grid g3">
   <article class="panel"><h3>Signal</h3><p>La classification de surperformance à 6 mois, basée uniquement sur les EMA gagnantes de Legacy et leurs transformations mensuelles, est le champion retenu.</p></article>
@@ -364,7 +823,15 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
 </section>
 
 <section class="page" id="models">
- <div class="hero"><div class="eyebrow">Cadrage expérimental</div><h1>Quel objectif et quel horizon reproduisent le mieux Legacy ?</h1><p>Classification, régression, ranking et teacher ont été comparés sur 1, 3, 6, 12, 24 et 36 mois. Le tableau permet de basculer entre le screening large et la version EMA-only demandée.</p></div>
+ <div class="hero"><div class="eyebrow">Méthodes et validation temporelle</div><h1>Deux algorithmes distincts, un même contrat de portefeuille</h1><p>Legacy construit directement un panier par règles EMA et optimisation annuelle. Le boosting apprend une cible de surperformance future, puis transforme ses scores hors-échantillon en cinq positions équipondérées.</p></div>
+ <div class="grid g2 method-note">
+  <article class="panel"><div class="eyebrow">Méthode 1 · Legacy</div><h2>Quatre modèles Optuna, vote par fréquence</h2><p>Chaque fin de mois, Legacy calcule des ratios d'EMA du prix relatif action/SPY, applique les filtres fondamentaux et sectoriels point-in-time, puis exécute quatre branches <code>11/12/21/22</code>. Une action reçoit un poids proportionnel au nombre de branches qui la retiennent. Le panier décidé au mois t est détenu au mois t+1.</p><p class="fine">Référence publiée : <code>Combined_Frequency</code>. Coût historique : 0 pb. Les rendements manquants sont exclus puis les poids disponibles renormalisés.</p></article>
+  <article class="panel"><div class="eyebrow">Méthode 2 · Boosting</div><h2>Classification XGBoost H6, allocation Top 5</h2><p>Le modèle utilise uniquement les paires EMA gagnantes connues avant chaque fold. La cible vaut 1 pour le décile supérieur de surperformance cumulée future contre SPY à six mois. Le modèle est entraîné sur le passé, calibré sur les six mois suivants, figé sur le test, puis les cinq scores mensuels les plus élevés sont équipondérés.</p><p class="fine">Backtest : 15 folds walk-forward, 10 pb × turnover, détention un mois malgré une cible H6. Aucun mois test ne sert au fit ni au choix des variables de son fold.</p></article>
+ </div>
+ <div class="section-head"><div><h2>Les 15 ensembles train → calibration → test</h2><p>Choisissez un ensemble pour voir ses périodes, volumes et écarts de métriques.</p></div><div class="controls"><label>Ensemble test</label><select id="fold-select"></select></div></div>
+ <div class="grid g4" id="fold-metrics"></div>
+ <div class="table-wrap"><table><thead><tr><th>Split</th><th>Période</th><th>Lignes</th><th>ROC AUC</th><th>PR AUC</th><th>Lift PR</th><th>NDCG@10</th><th>Excès Top 5 1m</th><th>Overlap Legacy</th></tr></thead><tbody id="fold-rows"></tbody></table></div>
+ <div class="section-head"><div><h2>Screening des objectifs et horizons</h2><p>Comparaison de classification, régression, ranking et teacher sur les horizons disponibles.</p></div></div>
  <div class="controls"><label>Jeu d'entrée</label><select id="model-dataset"><option value="ema">EMA gagnantes Legacy</option><option value="broad">Screening large initial</option></select><label>Méthode</label><select id="model-method"><option value="all">Toutes</option></select></div>
  <div class="callout"><strong>Champion retenu : classification, horizon 6 mois</strong>Le choix final ne repose pas sur le seul ROC AUC : PR AUC, lift sur la prévalence, rendement Top 5 à un mois, overlap Legacy, calibration et stabilité temporelle sont lus ensemble.</div>
  <div class="table-wrap"><table><thead><tr><th>Méthode</th><th>Horizon</th><th>Folds</th><th>Rows test</th><th>ROC AUC</th><th>PR AUC</th><th>Lift PR</th><th>Spearman</th><th>NDCG@10</th><th>RMSE norm.</th><th>Top5 excès H</th><th>Top5 excès 1m</th><th>Overlap Legacy</th></tr></thead><tbody id="model-rows"></tbody></table></div>
@@ -401,6 +868,7 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
   <button class="preset" data-period="36">3 ans</button>
   <span class="period-status" id="bt-period-status"></span>
  </div>
+ <div id="snapshot-reconciliation" class="callout warn"></div>
  <div class="grid g4" id="backtest-metrics"></div>
  <div hidden><table><tbody id="perf-rows"></tbody><tbody id="regime-rows"></tbody></table></div>
  <div class="section-head"><div><h2>Tableau de bord avancé sur la période</h2><p>Survolez les noms soulignés pour la définition courte ; les formules complètes sont plus bas.</p></div></div>
@@ -417,6 +885,20 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
  <div class="table-wrap"><table id="annual-table"></table></div>
  <div class="section-head"><div><h2>Extrêmes et forme de distribution</h2></div></div>
  <div class="table-wrap"><table><thead><tr><th>Méthode</th><th>Meilleur mois</th><th>Pire mois</th><th>Mois positifs</th><th>Skewness</th><th>Kurtosis excès</th><th>Omega 0 %</th><th>Capture haussière</th><th>Capture baissière</th></tr></thead><tbody id="distribution-rows"></tbody></table></div>
+ <div class="section-head"><div><h2>D'où vient le CAGR ?</h2><p>Waterfall exact des actions, des coûts, des années et des mois sur la période choisie.</p></div></div>
+ <div class="controls">
+  <label>Méthode</label><select id="attr-strategy"></select>
+  <label>Décomposition</label><div class="segmented" id="attr-axis"><button class="active" data-axis="actions">Actions</button><button data-axis="years">Années</button><button data-axis="months">Mois</button></div>
+  <span id="attr-scope-wrap"><label>Détail actions</label> <select id="attr-scope"></select></span>
+ </div>
+ <div class="grid g4" id="attr-metrics"></div>
+ <div class="attribution-note">
+  <div class="callout"><strong>Réconciliation exacte</strong><code>Σ contributions log annualisées → exp(somme) − 1 = CAGR</code><br>Les contributions log sont additives. La barre « effet composé » fait le passage non linéaire vers le CAGR. Les impacts marginaux par action ne sont pas additifs.</div>
+  <div class="callout warn"><strong>Lecture par mois</strong>Le drill-down d'un mois explique son rendement mensuel, sans l'annualiser artificiellement. L'axe « Mois » mesure la contribution de chaque mois au CAGR de toute la période sélectionnée.</div>
+ </div>
+ <div class="waterfall-scroll"><div class="waterfall-chart" id="attr-waterfall"></div></div>
+ <div class="section-head"><div><h2 id="attr-table-title">Détail exhaustif</h2><p id="attr-table-note"></p></div><div class="controls"><label>Filtrer</label><input id="attr-search" type="search" placeholder="Ticker, année ou mois"></div></div>
+ <div class="table-wrap"><table class="attribution-table"><thead><tr><th>Composante</th><th>Type</th><th>Mois actifs</th><th>Contribution log</th><th>Impact CAGR marginal</th><th>Contribution simple cumulée</th><th>Poids effectif moyen</th></tr></thead><tbody id="attr-rows"></tbody></table></div>
  <div class="section-head"><div><h2>Robustesse et dilution</h2></div></div>
  <div class="grid g2">
   <article class="panel"><h3>Bootstrap apparié, blocs de 12 mois</h3><div id="bootstrap-summary"></div><p class="fine">2 000 réplications. L'intervalle préserve mieux l'autocorrélation qu'un bootstrap mensuel naïf.</p></article>
@@ -446,9 +928,9 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
 </section>
 
 <section class="page" id="shap">
- <div class="hero"><div class="eyebrow">Explication hors-échantillon</div><h1>SHAP filtré par mois de test</h1><p>Chaque filtre mensuel ne conserve que les observations SHAP appartenant au mois de décision sélectionné. L'ordre des variables et les graphiques sont recalculés sur ce sous-échantillon.</p></div>
+ <div class="hero"><div class="eyebrow">Explication hors-échantillon</div><h1>SHAP par ensemble de test et par mois</h1><p>Le détail d'un mois contient toutes les actions effectivement scorées, sans échantillonnage. La vue « tous les mois » reste un échantillon global de navigation, explicitement signalé pour préserver la rapidité du rapport.</p></div>
  <div class="callout warn"><strong>Point de méthode essentiel</strong>Le backtest ne réentraîne pas tous les mois : un modèle est ajusté une fois par fold, puis utilisé sur son bloc test (généralement 12 mois). Le filtre mensuel explique donc un mois hors-échantillon sous le modèle de son fold. Le live, lui, est réentraîné à chaque exécution mensuelle.</div>
- <div class="controls"><label>Mois de décision</label><select id="shap-month"><option value="all">Tous les mois</option></select><label>Variable individuelle</label><select id="shap-feature"></select></div>
+ <div class="controls"><label>Ensemble test</label><select id="shap-fold"><option value="all">Tous les ensembles</option></select><label>Mois de décision</label><select id="shap-month"></select><label>Variable individuelle</label><select id="shap-feature"></select></div>
  <div class="grid g4" id="shap-metrics"></div>
  <div class="shap-layout">
   <article class="panel"><h2>Importance |SHAP| décroissante</h2><p class="fine">Recalculée pour le mois sélectionné. Unité : marge brute XGBoost / log-odds, avant calibration isotone.</p><div id="shap-bars"></div></article>
@@ -490,7 +972,7 @@ main{min-width:0}.topbar{height:64px;display:flex;align-items:center;justify-con
   <div class="doc-block"><h3>Target alpha H6</h3><p>Classe positive si la surperformance cumulée future contre SPY à six mois appartient au décile supérieur du mois. Le modèle classe les actions ; la probabilité calibrée sert à l'interprétation, le score brut au ranking.</p></div>
   <div class="doc-block"><h3>Géométrie temporelle</h3><p>En historique : entraînement ancien, validation/calibration suivante, puis bloc test chronologique. Le modèle est réentraîné entre les folds, pas entre les mois d'un même bloc. Le dernier fold peut être plus court.</p></div>
   <div class="doc-block"><h3>Anti-fuite</h3><ul><li>Features datées au mois de décision.</li><li>Labels entièrement mûrs avant la fin du train.</li><li>Calibration apprise avant le test.</li><li>Univers et exclusions explicités.</li><li>Comparaisons sur mois communs.</li><li>Prix incohérents mis en quarantaine sur toute leur trajectoire.</li></ul></div>
-  <div class="doc-block"><h3>SHAP</h3><p>Les valeurs sont calculées sur un échantillon sauvegardé de 80 lignes par fold, soit 1 200 lignes. Un mois ne contient donc que 1 à 22 observations : l'analyse mensuelle est fidèle à l'échantillon OOS, mais ne représente pas la cross-section complète.</p></div>
+  <div class="doc-block"><h3>SHAP</h3><p>Chaque vue mensuelle explique exhaustivement toutes les actions scorées, soit 361 à 497 observations. Seule la vue globale utilise un échantillon de 80 lignes par fold, explicitement signalé.</p></div>
   <div class="doc-block"><h3>Risque</h3><p>Volatilité réalisée = écart-type annualisé des rendements quotidiens futurs. Downside = racine annualisée de la moyenne des carrés des rendements négatifs futurs. Classe high-vol = top 20 % cross-sectionnel de volatilité future.</p></div>
   <div class="doc-block"><h3>Coûts et Sharpe</h3><p>Le backtest principal applique 10 pb multipliés par le turnover. La sensibilité couvre plusieurs coûts. Le Sharpe dit « Legacy » emploie un taux sans risque annuel fixe de 2 % et le CAGR au numérateur.</p></div>
   <div class="doc-block"><h3>Ce qu'il ne faut pas conclure</h3><p>Une forte performance ne prouve pas que le signal survivra hors de la période étudiée. Multiple testing, révisions d'univers, survivorship historique imparfait et faible nombre de régimes restent des risques.</p></div>
@@ -509,7 +991,7 @@ const pct=(v,d=1)=>v==null?"—":(100*v).toFixed(d)+" %";
 const num=(v,d=2)=>v==null?"—":Number(v).toFixed(d);
 const money=(v)=>v==null?"—":"$"+Number(v).toFixed(2);
 const labels={alpha_top5_equal:"Top 5 égal",alpha_top10_equal:"Top 10 égal","SPY total return":"SPY",Legacy:"Legacy"};
-const color={"Top 5 égal":"#111D55","Top 10 égal":"#6071B5","Legacy":"#9B8816","SPY":"#657083"};
+const color={"Top 5 égal":"#111D55","Top 10 égal":"#6071B5","Legacy":"#9B8816","Legacy · snapshot 13/07":"#9B8816","SPY":"#657083"};
 function metric(label,value,note){return `<article class="panel metric"><span>${label}</span><strong>${value}</strong><small>${note||""}</small></article>`}
 function badge(ok){return `<span class="badge ${ok?"pass":"fail"}">${ok?"PASS":"FAIL"}</span>`}
 function td(v,cls="num"){return `<td class="${cls}">${v}</td>`}
@@ -519,7 +1001,9 @@ $("#theme").onclick=()=>{document.documentElement.dataset.theme=document.documen
 
 const perfBy=s=>D.performance.find(x=>x.series===s);
 const p5=perfBy("alpha_top5_equal"),p10=perfBy("alpha_top10_equal"),leg=perfBy("Legacy"),spy=perfBy("SPY total return");
-$("#headline-metrics").innerHTML=metric("Top 5 · CAGR",pct(p5.cagr),"net 10 pb × turnover")+metric("Legacy · CAGR",pct(leg.cagr),"même intervalle")+metric("SPY · CAGR",pct(spy.cagr),"total return")+metric("Top 5 · Sharpe",num(p5.sharpe),"Legacy convention");
+$("#headline-metrics").innerHTML=metric("Top 5 · CAGR",pct(p5.cagr),"net 10 pb × turnover")+metric("Legacy · CAGR",pct(leg.cagr),"snapshot commun du 13/07")+metric("SPY · CAGR",pct(spy.cagr),"total return · adjusted_close")+metric("Top 5 · Sharpe",num(p5.sharpe),"Legacy convention");
+const lineageCards=[D.lineage.historical,D.lineage.legacy_current,D.lineage.live,D.lineage.latest];
+$("#lineage-contexts").innerHTML=lineageCards.map(x=>`<article class="panel"><div class="eyebrow">${x.status==="same_snapshot_verified"?"Snapshot contrôlé":x.status==="canonical_legacy_replay"?"Replay canonique":"Données plus récentes"}</div><h3>${x.label}</h3><p class="mono">${x.snapshot_id}</p><p>Prix max : <b>${x.price_max_date}</b><br>${x.last_holding_month?`Dernière détention complète : <b>${x.last_holding_month.slice(0,7)}</b><br>`:""}${x.holding_month?`Détention live : <b>${x.holding_month.slice(0,7)}</b><br>`:""}${x.universe_max_month?`Univers : <b>${x.universe_max_month.slice(0,7)}</b>`:""}</p><p class="fine">${x.note}</p></article>`).join("");
 $("#backtest-metrics").innerHTML=metric("Top 5 · CAGR",pct(p5.cagr),`Δ Legacy ${pct(p5.cagr-leg.cagr)}`)+metric("Top 5 · Sharpe",num(p5.sharpe),`Legacy ${num(leg.sharpe)}`)+metric("Top 5 · Max DD",pct(p5.max_drawdown),`Legacy ${pct(leg.max_drawdown)}`)+metric("Top 10 · CAGR",pct(p10.cagr),`Δ Top 5 ${pct(p10.cagr-p5.cagr)}`);
 
 function modelRows(){
@@ -527,6 +1011,15 @@ function modelRows(){
  $("#model-rows").innerHTML=rows.filter(r=>method==="all"||r.method===method).map(r=>`<tr><td>${r.method}${r.method==="classification"&&r.horizon===6?' <span class="badge pass">CHAMPION</span>':""}</td>${td(r.horizon+"m")}${td(r.folds)}${td(r.test_rows)}${td(num(r.roc_auc,3))}${td(num(r.pr_auc_average_precision,3))}${td(num(r.pr_auc_lift_vs_prevalence,2))}${td(num(r.spearman_ic,3))}${td(num(r.ndcg_at_10,3))}${td(num(r.normalized_rmse,3))}${td(pct(r.top5_horizon_excess))}${td(pct(r.top5_one_month_excess))}${td(pct(r.top5_legacy_overlap))}</tr>`).join("");
 }
 const methods=[...new Set(D.ema_screening.map(x=>x.method))];$("#model-method").innerHTML+=[...methods].map(x=>`<option>${x}</option>`).join("");$("#model-dataset").onchange=modelRows;$("#model-method").onchange=modelRows;modelRows();
+
+$("#fold-select").innerHTML=D.folds.map(x=>`<option value="${x.fold}">Fold ${x.fold} · test ${x.test_start.slice(0,7)} → ${x.test_end.slice(0,7)}</option>`).join("");
+function renderFold(){
+ const f=D.folds.find(x=>x.fold===Number($("#fold-select").value))||D.folds[0];
+ $("#fold-metrics").innerHTML=metric("Train",`${f.train_start.slice(0,7)} → ${f.train_cutoff.slice(0,7)}`,`${f.train_rows} lignes · labels H6 mûrs`)+metric("Calibration",`${f.validation_start.slice(0,7)} → ${f.validation_end.slice(0,7)}`,`${f.validation_rows} lignes · early stopping + isotonic`)+metric("Test",`${f.test_start.slice(0,7)} → ${f.test_end.slice(0,7)}`,`${f.test_rows} lignes · strictement hors-échantillon`)+metric("Variables",f.kept_feature_count,`${f.winner_pair_count} paires EMA connues au cutoff`);
+ const splits=[['Train','train',f.train_start,f.train_cutoff,f.train_rows],['Calibration','validation',f.validation_start,f.validation_end,f.validation_rows],['Test OOS','test',f.test_start,f.test_end,f.test_rows]];
+ $("#fold-rows").innerHTML=splits.map(([label,prefix,start,end,rows])=>`<tr><td>${label}</td><td class="mono">${start.slice(0,7)} → ${end.slice(0,7)}</td>${td(rows)}${td(num(f[prefix+'_roc_auc'],3))}${td(num(f[prefix+'_pr_auc_average_precision'],3))}${td(num(f[prefix+'_pr_auc_lift_vs_prevalence'],2))}${td(num(f[prefix+'_ndcg_at_10'],3))}${td(pct(f[prefix+'_top5_one_month_excess']))}${td(pct(f[prefix+'_top5_legacy_overlap']))}</tr>`).join("");
+}
+$("#fold-select").onchange=renderFold;renderFold();
 
 const perfOrder=["alpha_top5_equal","alpha_top10_equal",...D.performance.map(x=>x.series).filter(x=>!["alpha_top5_equal","alpha_top10_equal","Legacy","SPY total return"].includes(x)),"Legacy","SPY total return"];
 $("#perf-rows").innerHTML=perfOrder.map(s=>perfBy(s)).filter(Boolean).map(r=>`<tr><td>${labels[r.series]||r.series.replaceAll("_"," ")}</td>${td(pct(r.cagr))}${td(num(r.sharpe))}${td(pct(r.annualized_volatility))}${td(pct(r.max_drawdown))}${td(`${r.worst_full_calendar_year} · ${pct(r.worst_full_calendar_year_return)}`)}${td(pct(r.average_turnover))}${td(pct(r.average_maximum_position_weight))}${td(pct(r.maximum_sector_weight))}</tr>`).join("");
@@ -553,8 +1046,7 @@ $("#promotion-summary").innerHTML=D.promotion.map(x=>`<p>${badge(x.pass)} ${x.ga
 const months=[...new Set(D.holdings.map(x=>x.holding_month))].sort();$("#holding-month").innerHTML=months.map(x=>`<option value="${x}">${x.slice(0,7)}</option>`).join("");$("#holding-month").value=months.at(-1);
 const BT_SERIES=[
  {label:"Top 5 égal",key:"alpha_top5_return"},
- {label:"Top 10 égal",key:"alpha_top10_return"},
- {label:"Legacy",key:"legacy_return"},
+ {label:"Legacy · snapshot 13/07",key:"legacy_return"},
  {label:"SPY",key:"spy_return"}
 ];
 const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
@@ -586,6 +1078,10 @@ function periodStats(rows,spec){
  const up=rows.filter(x=>x.spy_return>0),down=rows.filter(x=>x.spy_return<0),best=rows.reduce((a,x)=>x[spec.key]>a[spec.key]?x:a,rows[0]),worst=rows.reduce((a,x)=>x[spec.key]<a[spec.key]?x:a,rows[0]);
  return {label:spec.label,key:spec.key,n,total:wealth-1,cagr,volatility:vol,sharpe:vol?(cagr-.02)/vol:null,sortino:downside?(cagr-.02)/downside:null,calmar:maxDD?cagr/Math.abs(maxDD):null,maxDD,informationRatio:tracking?12*mean(excess)/tracking:null,beta,alpha,corr,hitSpy:mean(rows.map(x=>x[spec.key]>x.spy_return?1:0)),var95,cvar95:mean(tail),positive:mean(r.map(x=>x>0?1:0)),skew,kurt,omega:losses?gains/losses:null,upCapture:up.length?mean(up.map(x=>x[spec.key]))/mean(up.map(x=>x.spy_return)):null,downCapture:down.length?mean(down.map(x=>x[spec.key]))/mean(down.map(x=>x.spy_return)):null,best,worst,episodes};
 }
+function canonicalPeriodStats(rows){
+ const key=rows[0].holding_month+"|"+rows.at(-1).holding_month,values=D.period_metrics[key];
+ return BT_SERIES.map((spec,i)=>Object.assign({label:spec.label,key:spec.key,n:rows.length},Object.fromEntries(D.period_metric_fields.map((field,j)=>[field,values[i][j]]))));
+}
 function selectedBacktestRows(){
  const start=$("#bt-start").value,end=$("#bt-end").value;
  return D.monthly.filter(x=>x.holding_month>=start&&x.holding_month<=end);
@@ -605,11 +1101,11 @@ function drawBacktestLine(id,field,rows){
  [0,Math.floor(data.length/2),data.length-1].forEach(i=>svg+="<text x=\""+x(i)+"\" y=\""+(h-8)+"\" text-anchor=\""+(i===0?"start":i===data.length-1?"end":"middle")+"\">"+data[i].month.slice(0,7)+"</text>");el.innerHTML=svg+"</svg>";
 }
 function rollingValue(slice,spec,kind){
- const st=periodStats(slice,spec);
+ const st=canonicalPeriodStats(slice).find(x=>x.key===spec.key);
  if(kind==="excess_spy")return 12*mean(slice.map(x=>x[spec.key]-x.spy_return));
  if(kind==="excess_legacy")return 12*mean(slice.map(x=>x[spec.key]-x.legacy_return));
- if(kind==="volatility")return st.volatility;
- if(kind==="drawdown")return st.maxDD;
+ if(kind==="volatility")return st.annualized_volatility;
+ if(kind==="drawdown")return st.max_drawdown;
  return st.sharpe;
 }
 function drawRolling(rows){
@@ -621,16 +1117,59 @@ function drawRolling(rows){
  let svg="<svg viewBox=\"0 0 "+w+" "+h+"\">";for(let j=0;j<5;j++){const v=min+(max-min)*j/4,yy=y(v);svg+="<line class=\"gridline\" x1=\""+p.l+"\" y1=\""+yy+"\" x2=\""+(w-p.r)+"\" y2=\""+yy+"\"/><text x=\"3\" y=\""+(yy+3)+"\">"+(kind==="sharpe"?num(v,1):pct(v,0))+"</text>"}
  series.forEach(s=>{const pts=points.map((r,i)=>x(i)+","+y(r.values[s])).join(" ");svg+="<polyline points=\""+pts+"\" fill=\"none\" stroke=\""+color[s]+"\" stroke-width=\""+(s==="Top 5 égal"?2.5:1.5)+"\"/>"});[0,Math.floor(points.length/2),points.length-1].forEach(i=>svg+="<text x=\""+x(i)+"\" y=\""+(h-8)+"\" text-anchor=\""+(i===0?"start":i===points.length-1?"end":"middle")+"\">"+points[i].month.slice(0,7)+"</text>");el.innerHTML=svg+"</svg>";
 }
+const ATTR_METHODS=[
+ {id:"alpha_top5_equal",label:"XGBoost Top 5 égal"},
+ {id:"alpha_top10_equal",label:"XGBoost Top 10 égal"},
+ {id:"Combined_Frequency",label:"Legacy · snapshot 13/07"},
+ {id:"SPY total return",label:"SPY total return"}
+];
+let attrAxisMode="actions",attrTableRows=[];
+$("#attr-strategy").innerHTML=ATTR_METHODS.map(x=>`<option value="${x.id}">${x.label}</option>`).join("");
+function attributionBaseRows(){const start=$("#bt-start").value,end=$("#bt-end").value,strategy=$("#attr-strategy").value;return D.attribution.filter(x=>x.s===strategy&&x.m>=start&&x.m<=end)}
+function updateAttributionScopes(){
+ const rows=attributionBaseRows(),months=[...new Set(rows.map(x=>x.m))].sort(),years=[...new Set(months.map(x=>x.slice(0,4)))],previous=$("#attr-scope").value;
+ $("#attr-scope").innerHTML='<option value="all">Toute la période sélectionnée</option><optgroup label="Années">'+years.map(y=>`<option value="y:${y}">${y}</option>`).join("")+'</optgroup><optgroup label="Mois">'+months.map(m=>`<option value="m:${m}">${m.slice(0,7)}</option>`).join("")+'</optgroup>';
+ if([...$("#attr-scope").options].some(x=>x.value===previous))$("#attr-scope").value=previous;$("#attr-scope-wrap").style.display=attrAxisMode==="actions"?"inline":"none";
+}
+function groupedAttribution(){
+ const base=attributionBaseRows(),allMonths=[...new Set(base.map(x=>x.m))].sort(),scope=$("#attr-scope").value;let rows=base,scale=12/Math.max(1,allMonths.length),terminalLabel="CAGR période",title="Contributions par action";
+ if(attrAxisMode==="actions"){
+  if(scope.startsWith("y:")){const y=scope.slice(2);rows=base.filter(x=>x.m.startsWith(y));scale=12/Math.max(1,new Set(rows.map(x=>x.m)).size);terminalLabel="CAGR "+y;title="Actions · "+y}
+  else if(scope.startsWith("m:")){const m=scope.slice(2);rows=base.filter(x=>x.m===m);scale=1;terminalLabel="Rendement "+m.slice(0,7);title="Actions · "+m.slice(0,7)}
+  const groups=new Map();rows.forEach(x=>{const q=groups.get(x.c)||{name:x.c,type:x.k,value:0,simple:0,months:new Set(),weights:[]};q.value+=(x.l||0)*scale;q.simple+=x.v||0;q.months.add(x.m);if(Number.isFinite(x.w))q.weights.push(x.w);groups.set(x.c,q)});return finalizeAttribution([...groups.values()],rows,scale,terminalLabel,title,false)
+ }
+ const field=attrAxisMode==="years"?x=>x.m.slice(0,4):x=>x.m.slice(0,7),groups=new Map();base.forEach(x=>{const name=field(x),q=groups.get(name)||{name,type:attrAxisMode==="years"?"year":"month",value:0,simple:0,months:new Set(),weights:[]};q.value+=(x.l||0)*scale;q.simple+=x.v||0;q.months.add(x.m);groups.set(name,q)});const items=[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name));return finalizeAttribution(items,base,scale,"CAGR période",attrAxisMode==="years"?"Contribution de chaque année au CAGR":"Contribution de chaque mois au CAGR",true)
+}
+function finalizeAttribution(items,rows,scale,terminalLabel,title,chronological){
+ const logTotal=items.reduce((s,x)=>s+x.value,0),terminal=Math.expm1(logTotal),monthly=new Map();rows.forEach(x=>monthly.set(x.m,(monthly.get(x.m)||0)+(x.v||0)));const periodReturn=[...monthly.values()].reduce((w,r)=>w*(1+r),1)-1;
+ items.forEach(x=>{x.monthCount=x.months.size;x.averageWeight=x.weights.length?mean(x.weights):null;x.marginal=terminal-Math.expm1(logTotal-x.value)});if(!chronological)items.sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name));return {items,rows,scale,logTotal,terminal,terminalLabel,title,periodReturn,monthCount:monthly.size,chronological}
+}
+function compactWaterfallItems(view){
+ if(view.chronological||view.items.length<=32)return view.items;const positive=view.items.filter(x=>x.value>=0).sort((a,b)=>b.value-a.value).slice(0,15),negative=view.items.filter(x=>x.value<0).sort((a,b)=>a.value-b.value).slice(0,15),kept=new Set([...positive,...negative]),other=view.items.filter(x=>!kept.has(x));const items=[...positive];if(other.length)items.push({name:`Autres (${other.length})`,type:"aggregate",value:other.reduce((s,x)=>s+x.value,0),simple:other.reduce((s,x)=>s+x.simple,0),monthCount:new Set(other.flatMap(x=>[...x.months])).size,averageWeight:null,marginal:null});return [...items,...negative]
+}
+function drawAttributionWaterfall(view){
+ const items=compactWaterfallItems(view),bridge=view.terminal-view.logTotal,steps=[...items,{name:"Effet composé",type:"bridge",value:bridge}],cumulative=[0];steps.forEach(x=>cumulative.push(cumulative.at(-1)+x.value));const values=[0,...cumulative,view.terminal],min=Math.min(...values),max=Math.max(...values),pad=Math.max(.01,(max-min)*.14),lo=min-pad,hi=max+pad,w=Math.max(900,(steps.length+1)*72),h=430,p={l:62,r:28,t:28,b:112},x=i=>p.l+i*(w-p.l-p.r)/(steps.length+1),y=v=>p.t+(hi-v)*(h-p.t-p.b)/(hi-lo||1),bar=38;
+ let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:${w}px">`;for(let j=0;j<5;j++){const v=lo+(hi-lo)*j/4,yy=y(v);svg+=`<line class="gridline" x1="${p.l}" y1="${yy}" x2="${w-p.r}" y2="${yy}"/><text x="4" y="${yy+3}">${pct(v,1)}</text>`}svg+=`<line x1="${p.l}" y1="${y(0)}" x2="${w-p.r}" y2="${y(0)}" stroke="var(--muted)"/>`;
+ steps.forEach((q,i)=>{const before=cumulative[i],after=cumulative[i+1],top=y(Math.max(before,after)),bottom=y(Math.min(before,after)),fill=q.type==="bridge"?"#26387E":q.value>=0?"#16794B":"#B03A45",xx=x(i);svg+=`<line x1="${xx+bar/2}" y1="${y(after)}" x2="${x(i+1)-bar/2}" y2="${y(after)}" stroke="var(--muted)" stroke-dasharray="3 3"/><rect x="${xx-bar/2}" y="${top}" width="${bar}" height="${Math.max(2,bottom-top)}" fill="${fill}"><title>${q.name}: ${pct(q.value,3)}</title></rect>`;if(steps.length<45)svg+=`<text class="wf-value" x="${xx}" y="${top-6}" text-anchor="middle">${pct(q.value,1)}</text>`;svg+=`<text transform="translate(${xx},${h-p.b+18}) rotate(-48)" text-anchor="end">${q.name.replace('.US','').slice(0,20)}</text>`});const tx=x(steps.length),topy=y(Math.max(0,view.terminal)),bottomy=y(Math.min(0,view.terminal));svg+=`<rect x="${tx-bar/2}" y="${topy}" width="${bar}" height="${Math.max(2,bottomy-topy)}" fill="#9B8816"><title>${view.terminalLabel}: ${pct(view.terminal,4)}</title></rect><text class="wf-value" x="${tx}" y="${topy-7}" text-anchor="middle">${pct(view.terminal,1)}</text><text transform="translate(${tx},${h-p.b+18}) rotate(-48)" text-anchor="end">${view.terminalLabel}</text></svg>`;$("#attr-waterfall").innerHTML=svg;
+}
+function renderAttributionTable(){const q=$("#attr-search").value.toLowerCase(),rows=attrTableRows.filter(x=>!q||x.name.toLowerCase().includes(q));$("#attr-rows").innerHTML=rows.map(x=>`<tr><td>${x.name.replace('.US','')}</td><td>${x.type}</td>${td(x.monthCount)}${td(pct(x.value,3))}${td(pct(x.marginal,3))}${td(pct(x.simple,2))}${td(pct(x.averageWeight,2))}</tr>`).join("")}
+function renderAttribution(){
+ updateAttributionScopes();const view=groupedAttribution(),method=ATTR_METHODS.find(x=>x.id===$("#attr-strategy").value);attrTableRows=view.items;$("#attr-metrics").innerHTML=metric(view.terminalLabel,pct(view.terminal,2),`${method.label} · réconcilié`)+metric("Log annualisé additif",pct(view.logTotal,2),"somme exacte du waterfall")+metric("Rendement composé",pct(view.periodReturn,1),`${view.monthCount} mois dans le scope`)+metric("Composantes",view.items.length,attrAxisMode==="actions"?"actions + coûts":"périodes calendaires");$("#attr-table-title").textContent=view.title;$("#attr-table-note").textContent=`${view.items.length} composantes exhaustives ; graphique compacté seulement au-delà de 32 actions.`;drawAttributionWaterfall(view);renderAttributionTable();
+}
+$("#attr-strategy").onchange=()=>{updateAttributionScopes();renderAttribution()};$("#attr-scope").onchange=renderAttribution;$("#attr-search").oninput=renderAttributionTable;$$('#attr-axis button').forEach(b=>b.onclick=()=>{$$('#attr-axis button').forEach(x=>x.classList.remove('active'));b.classList.add('active');attrAxisMode=b.dataset.axis;updateAttributionScopes();renderAttribution()});
 function renderBacktest(){
- const rows=selectedBacktestRows();if(!rows.length)return;const stats=BT_SERIES.map(s=>periodStats(rows,s)),top=stats[0],legacy=stats[2],spyStats=stats[3],fragile=rows.length<36;
+ const rows=selectedBacktestRows();if(!rows.length)return;const canonical=canonicalPeriodStats(rows),distribution=BT_SERIES.map(s=>periodStats(rows,s)),stats=canonical.map((x,i)=>({...distribution[i],...x})),top=stats[0],legacy=stats[1],spyStats=stats[2],fragile=rows.length<36;
+ const currentRows=D.legacy_current_monthly.filter(x=>x.holding_month>=rows[0].holding_month&&x.holding_month<=rows.at(-1).holding_month),currentLegacy=periodStats(currentRows,{label:"Legacy · snapshot 27/07",key:"legacy_return"}),currentSpy=periodStats(currentRows,{label:"SPY total return",key:"spy_return"});
  $("#bt-period-status").innerHTML=rows[0].holding_month.slice(0,7)+" → "+rows.at(-1).holding_month.slice(0,7)+" · "+rows.length+" mois"+(fragile?" · <span class=\"range-warning\">fenêtre courte</span>":"");
+ $("#snapshot-reconciliation").innerHTML="<strong>Deux snapshots Legacy, une convention SPY explicite</strong>Comparaison Boosting : Legacy snapshot 13/07 <b>"+pct(legacy.cagr,2)+"</b>. Dernier replay Legacy validé, snapshot 27/07 : <b>"+pct(currentLegacy.cagr,2)+"</b> sur les mêmes "+currentRows.length+" mois. SPY total return (<code>adjusted_close</code>) : <b>"+pct(currentSpy.cagr,2)+"</b>. Le SPY price return (<code>close</code>) n'est pas utilisé comme benchmark de performance.";
  $("#backtest-metrics").innerHTML=metric("Top 5 · CAGR",pct(top.cagr),"Legacy "+pct(legacy.cagr)+" · SPY "+pct(spyStats.cagr))+metric("Top 5 · Sharpe",num(top.sharpe),"Legacy "+num(legacy.sharpe)+" · "+(fragile?"fragile":"fenêtre exploitable"))+metric("Top 5 · Max DD",pct(top.maxDD),"Legacy "+pct(legacy.maxDD)+" · SPY "+pct(spyStats.maxDD))+metric("Information ratio",num(top.informationRatio),"Top 5 contre SPY");
- $("#advanced-rows").innerHTML=stats.map(x=>"<tr><td>"+x.label+"<span class=\"subtle\">"+x.n+" mois</span></td>"+td(pct(x.total))+td(pct(x.cagr))+td(pct(x.volatility))+td(num(x.sharpe))+td(num(x.sortino))+td(num(x.calmar))+td(pct(x.maxDD))+td(num(x.informationRatio))+td(num(x.beta))+td(pct(x.alpha))+td(num(x.corr))+td(pct(x.hitSpy))+td(pct(x.var95))+td(pct(x.cvar95))+"</tr>").join("");
+ $("#advanced-rows").innerHTML=stats.map(x=>"<tr><td>"+x.label+"<span class=\"subtle\">"+x.n+" mois</span></td>"+td(pct(x.total_return))+td(pct(x.cagr))+td(pct(x.annualized_volatility))+td(num(x.sharpe))+td(num(x.sortino))+td(num(x.calmar))+td(pct(x.max_drawdown))+td(num(x.information_ratio))+td(num(x.beta))+td(pct(x.alpha))+td(num(x.correlation))+td(pct(x.benchmark_hit_rate))+td(pct(x.var_95))+td(pct(x.cvar_95))+"</tr>").join("");
  $("#distribution-rows").innerHTML=stats.map(x=>"<tr><td>"+x.label+"</td>"+td(x.best.holding_month.slice(0,7)+" · "+pct(x.best[x.key]))+td(x.worst.holding_month.slice(0,7)+" · "+pct(x.worst[x.key]))+td(pct(x.positive))+td(num(x.skew))+td(num(x.kurt))+td(num(x.omega))+td(pct(x.upCapture))+td(pct(x.downCapture))+"</tr>").join("");
  drawBacktestLine("wealth-chart","wealth",rows);drawBacktestLine("dd-chart","drawdown",rows);drawRolling(rows);
+ renderAttribution();
  $("#drawdown-episodes").innerHTML=stats.map(x=>"<article class=\"panel\"><h3>"+x.label+"</h3><div class=\"episodes\">"+(x.episodes.length?x.episodes.slice(0,3).map(e=>"<div class=\"episode\"><span>"+e.peakMonth.slice(0,7)+" → "+e.troughMonth.slice(0,7)+"</span><b>"+pct(e.depth)+"</b><span>"+(e.recoveryMonth?"récup. "+e.recoveryMonth.slice(0,7):"non récupéré")+"</span><span>"+e.duration+" mois</span></div>").join(""):"<p class=\"fine\">Aucun drawdown.</p>")+"</div></article>").join("");
- const byYear={};rows.forEach(r=>{const y=r.holding_month.slice(0,4);(byYear[y]??=[]).push(r)});const years=Object.keys(byYear).sort();
- $("#annual-table").innerHTML="<thead><tr><th>Année</th><th>Mois</th>"+BT_SERIES.map(s=>"<th>"+s.label+"</th>").join("")+"</tr></thead><tbody>"+years.map(y=>{const rs=byYear[y];return "<tr><td>"+y+(rs.length<12?"*":"")+"</td>"+td(rs.length)+BT_SERIES.map(s=>td(pct(rs.reduce((w,r)=>w*(1+r[s.key]),1)-1))).join("")+"</tr>"}).join("")+"</tbody>";
+ const startYear=Number(rows[0].holding_month.slice(0,4)),endYear=Number(rows.at(-1).holding_month.slice(0,4)),annual=D.annual.filter(x=>x.months===12&&x.year>=startYear&&x.year<=endYear);
+ $("#annual-table").innerHTML="<thead><tr><th>Année complète</th><th>Boosting Top 5</th><th>Legacy · snapshot 13/07</th><th>SPY total return</th></tr></thead><tbody>"+annual.map(x=>`<tr><td>${x.year}</td>${td(pct(x.alpha_top5_equal))}${td(pct(x.Legacy))}${td(pct(x['SPY total return']))}</tr>`).join("")+"</tbody>";
 }
 const btMonths=D.monthly.map(x=>x.holding_month),btOptions=btMonths.map(x=>"<option value=\""+x+"\">"+x.slice(0,7)+"</option>").join("");
 $("#bt-start").innerHTML=btOptions;$("#bt-end").innerHTML=btOptions;$("#bt-start").value=btMonths[0];$("#bt-end").value=btMonths.at(-1);
@@ -649,9 +1188,18 @@ function portfolioCard(title,portfolio,month,cls=""){
 function renderPortfolios(){const m=$("#holding-month").value,r=D.monthly.find(x=>x.holding_month===m);$("#month-returns").textContent=`Top 5 ${pct(r?.alpha_top5_return)} · Top 10 ${pct(r?.alpha_top10_return)} · Legacy ${pct(r?.legacy_return)} · SPY ${pct(r?.spy_return)}`;$("#portfolio-cards").innerHTML=portfolioCard("Legacy","Legacy publié",m,"legacy")+portfolioCard("Alpha Top 5","Alpha Top 5 égal",m)+portfolioCard("Alpha Top 10","Alpha Top 10 égal",m)}
 $("#holding-month").onchange=renderPortfolios;renderPortfolios();
 
-const shapMonths=[...new Set(D.shap.map(x=>x.m))].sort();$("#shap-month").innerHTML+=shapMonths.map(x=>`<option value="${x}">${x.slice(0,7)}</option>`).join("");
+const shapFolds=[...new Set(D.shap_month_counts.map(x=>x.fold))].sort((a,b)=>a-b);$("#shap-fold").innerHTML+=shapFolds.map(x=>`<option value="${x}">Fold ${x}</option>`).join("");
 $("#shap-feature").innerHTML=D.features.map((f,i)=>`<option value="${i}">${i+1}. ${f}</option>`).join("");
-function shapSubset(){const m=$("#shap-month").value;return m==="all"?D.shap:D.shap.filter(x=>x.m===m)}
+const shapMonthCache=new Map();let shapRenderToken=0;
+function updateShapMonths(){const f=$("#shap-fold").value,months=D.shap_month_counts.filter(x=>f==="all"||x.fold===Number(f));$("#shap-month").innerHTML='<option value="all">Tous les mois · échantillon global</option>'+months.map(x=>`<option value="${x.decision_month}">${x.decision_month.slice(0,7)} · ${x.rows} actions</option>`).join("")}
+async function loadShapMonth(month){
+ if(shapMonthCache.has(month))return shapMonthCache.get(month);
+ const response=await fetch(new URL(`shap/${month.slice(0,7)}.json.gz`,location.href));if(!response.ok)throw new Error(`Fichier SHAP ${month.slice(0,7)} indisponible (${response.status})`);
+ const buffer=await response.arrayBuffer(),bytes=new Uint8Array(buffer);let text;
+ if(bytes[0]===31&&bytes[1]===139){if(typeof DecompressionStream==="undefined")throw new Error("Décompression gzip non prise en charge par ce navigateur");const stream=new Blob([buffer]).stream().pipeThrough(new DecompressionStream("gzip"));text=await new Response(stream).text()}else{text=new TextDecoder().decode(bytes)}
+ const rows=JSON.parse(text).rows;shapMonthCache.set(month,rows);return rows;
+}
+async function shapSubset(){const m=$("#shap-month").value,f=$("#shap-fold").value,rows=m==="all"?D.shap:await loadShapMonth(m);return rows.filter(x=>(f==="all"||x.f===Number(f))&&(m==="all"||x.m===m))}
 function importance(rows){return D.features.map((f,i)=>({f,i,v:rows.reduce((a,r)=>a+(r.s[i]==null?0:Math.abs(r.s[i])),0)/Math.max(1,rows.filter(r=>r.s[i]!=null).length)})).sort((a,b)=>b.v-a.v)}
 function canvasSetup(c){const rect=c.getBoundingClientRect(),dpr=devicePixelRatio||1;c.width=Math.max(600,rect.width*dpr);c.height=Math.max(300,rect.height*dpr);const ctx=c.getContext("2d");ctx.scale(dpr,dpr);return {ctx,w:rect.width,h:rect.height}}
 function renderBeeswarm(rows,imp){
@@ -666,13 +1214,15 @@ function renderIndividual(rows,idx){
  for(let j=0;j<5;j++){const y=p.t+j*(h-p.t-p.b)/4;ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();const v=ymax-j*(ymax-ymin)/4;ctx.fillText(v.toFixed(3),5,y+3)}
  pts.forEach(q=>{ctx.fillStyle="#26387E";ctx.globalAlpha=.58;ctx.beginPath();ctx.arc(xx(q.x),yy(q.y),3,0,Math.PI*2);ctx.fill()});ctx.globalAlpha=1;ctx.fillStyle=ink;ctx.textAlign="center";ctx.fillText(`Valeur · ${xmin.toFixed(3)} → ${xmax.toFixed(3)}`,w/2,h-10);$("#individual-title").textContent=`Analyse individuelle · ${D.features[idx]}`;
 }
-function renderShap(){
- const rows=shapSubset(),imp=importance(rows),folds=[...new Set(rows.map(x=>x.f))],m=$("#shap-month").value,idx=Number($("#shap-feature").value||imp[0].i);if(m!=="all"&&!$("#shap-feature").dataset.manual){$("#shap-feature").value=imp[0].i}
- $("#shap-metrics").innerHTML=metric("Observations",rows.length,m==="all"?"échantillon OOS complet":"échantillon du mois")+metric("Folds",folds.join(", "),m==="all"?"15 modèles":"modèle(s) associé(s)")+metric("Variables",D.features.length,"EMA uniquement")+metric("|SHAP| n°1",num(imp[0].v,4),imp[0].f);
+async function renderShap(){
+ const token=++shapRenderToken,m=$("#shap-month").value;if(m!=="all")$("#shap-metrics").innerHTML=metric("Chargement",m.slice(0,7),"détail exhaustif du mois");
+ let rows;try{rows=await shapSubset()}catch(error){if(token===shapRenderToken)$("#shap-metrics").innerHTML='<div class="callout bad"><strong>Chargement SHAP impossible</strong>'+error.message+'</div>';return}if(token!==shapRenderToken)return;
+ const imp=importance(rows),folds=[...new Set(rows.map(x=>x.f))],idx=Number($("#shap-feature").value||imp[0].i),foldMeta=folds.length===1?D.folds.find(x=>x.fold===folds[0]):null;if(m!=="all"&&!$("#shap-feature").dataset.manual){$("#shap-feature").value=imp[0].i}
+ $("#shap-metrics").innerHTML=metric("Observations SHAP",rows.length,m==="all"?"échantillon global · 80 par fold":"toutes les actions scorées du mois")+metric("Test expliqué",foldMeta?`${foldMeta.test_start.slice(0,7)} → ${foldMeta.test_end.slice(0,7)}`:folds.join(", "),foldMeta?`train jusqu'au ${foldMeta.train_cutoff.slice(0,7)}`:"15 modèles OOS")+metric("Variables",D.features.length,"EMA uniquement")+metric("|SHAP| n°1",num(imp[0].v,4),imp[0].f);
  const mx=imp[0].v||1;$("#shap-bars").innerHTML=imp.slice(0,20).map((x,j)=>`<div class="shap-bar"><span>${j+1}. ${x.f.slice(0,28)}</span><span class="bar-track"><span class="bar-fill" style="display:block;width:${100*x.v/mx}%"></span></span><b>${num(x.v,4)}</b></div>`).join("");
- renderBeeswarm(rows,imp);renderIndividual(rows,Number($("#shap-feature").value));const fi=Number($("#shap-feature").value);$("#shap-detail-note").textContent=`${rows.length} observations ; variable ${D.features[fi]}`;$("#shap-detail").innerHTML=rows.slice().sort((a,b)=>Math.abs(b.s[fi]||0)-Math.abs(a.s[fi]||0)).map(r=>`<tr><td>${r.m.slice(0,7)}</td><td>${r.t}</td>${td(r.f)}${td(num(r.v[fi],5))}${td(num(r.s[fi],5))}</tr>`).join("");
+ renderBeeswarm(rows,imp);renderIndividual(rows,Number($("#shap-feature").value));const fi=Number($("#shap-feature").value);$("#shap-detail-note").textContent=`${rows.length} observations ${m==="all"?"échantillonnées":"exhaustives"} ; variable ${D.features[fi]}`;$("#shap-detail").innerHTML=rows.slice().sort((a,b)=>Math.abs(b.s[fi]||0)-Math.abs(a.s[fi]||0)).map(r=>`<tr><td>${r.m.slice(0,7)}</td><td>${r.t}</td>${td(r.f)}${td(num(r.v[fi],5))}${td(num(r.s[fi],5))}</tr>`).join("");
 }
-$("#shap-month").onchange=()=>{$("#shap-feature").dataset.manual="";renderShap()};$("#shap-feature").onchange=()=>{$("#shap-feature").dataset.manual="1";renderShap()};
+$("#shap-fold").onchange=()=>{updateShapMonths();$("#shap-feature").dataset.manual="";renderShap()};$("#shap-month").onchange=()=>{$("#shap-feature").dataset.manual="";renderShap()};$("#shap-feature").onchange=()=>{$("#shap-feature").dataset.manual="1";renderShap()};updateShapMonths();
 function renderLexicon(){const q=$("#lexicon-search").value.toLowerCase();$("#lexicon-rows").innerHTML=D.lexicon.filter(x=>!q||Object.values(x).join(" ").toLowerCase().includes(q)).map(x=>`<tr>${td(x.importance_rank)}<td><code>${x.feature}</code></td>${td(num(x.mean_abs_shap,5))}<td>${x.transformation}</td><td>${x.ema_numerator_span_days} / ${x.ema_denominator_span_days}</td><td>${x.unit}</td><td>${x.exact_definition}</td><td>${x.economic_interpretation}</td></tr>`).join("")}$("#lexicon-search").oninput=renderLexicon;renderLexicon();
 
 $("#risk-model-rows").innerHTML=D.risk_models.map(r=>`<tr><td>${r.head}</td>${td(r.horizon+"m")}<td>${r.task_type}</td><td>${r.target}</td>${td(r.test_rows)}${td(num(r.monthly_spearman,3))}${td(num(r.rmse,3))}${td(num(r.normalized_rmse,3))}${td(num(r.mae,3))}${td(num(r.roc_auc,3))}${td(num(r.pr_auc_average_precision,3))}${td(num(r.pr_auc_lift_vs_prevalence,2))}</tr>`).join("");
@@ -694,6 +1244,11 @@ def render(output_dir: Path) -> tuple[Path, Path]:
     payload, sources = build_payload()
     html_dir = output_dir / "html"
     html_dir.mkdir(parents=True, exist_ok=True)
+    shap_sidecars = _write_monthly_shap_sidecars(
+        DIAGNOSTICS_DIR / "classification_h06/shap_samples.parquet",
+        payload["features"],
+        html_dir / "shap",
+    )
     output_path = html_dir / "alpharank_research_center.html"
     manifest_path = output_dir / "manifest.json"
     source_manifest = [
@@ -722,14 +1277,33 @@ def render(output_dir: Path) -> tuple[Path, Path]:
                 "status": "research_dashboard",
                 "semantics": {
                     "historical_retraining": "once per outer fold",
+                    "historical_legacy_snapshot": "20260713_201639",
+                    "standalone_legacy_snapshot": "20260727_221253",
+                    "performance_benchmark": "spy_total_return_adjusted_close",
+                    "legacy_signal_benchmark": (
+                        "spy_price_return_close; not used as the standard "
+                        "performance benchmark"
+                    ),
                     "monthly_shap_filter": (
-                        "test-month observations explained by that fold model"
+                        "all test-month observations explained by that fold model"
                     ),
                     "live_retraining": "once per monthly execution",
                     "shap_unit": "raw XGBoost margin / log-odds",
-                    "shap_sampling": "80 rows per fold; 1200 total",
+                    "shap_sampling": (
+                        "monthly views are exhaustive; all-month overview is "
+                        "80 rows per fold"
+                    ),
+                    "cagr_attribution": (
+                        "exact additive log-return allocation; "
+                        "exp(sum(annualized log contributions)) - 1"
+                    ),
+                    "attribution_cost_treatment": (
+                        "transaction costs are reported as a separate component"
+                    ),
                 },
                 "counts": payload["meta"],
+                "shap_sidecars": shap_sidecars,
+                "data_lineage": payload["lineage"],
                 "sources": source_manifest,
             },
             ensure_ascii=False,

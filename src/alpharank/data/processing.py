@@ -274,6 +274,41 @@ class FundamentalProcessor :
     """
 
     @staticmethod
+    def _deduplicate_asof_fundamentals(funda: "pl.DataFrame") -> "pl.DataFrame":
+        """Keep one deterministic point-in-time row per ticker/as-of date."""
+        if "ticker" not in funda.columns or "date" not in funda.columns:
+            return funda
+
+        funda = funda.filter(pl.col("date").is_not_null())
+        if funda.is_empty():
+            return funda
+
+        primary_sort_cols = [
+            col
+            for col in [
+                "ticker",
+                "date",
+                "quarter_end",
+                "filing_date_income",
+                "filing_date_balance",
+                "filing_date_cash",
+                "filing_date_earning",
+            ]
+            if col in funda.columns
+        ]
+        tie_break_cols = [col for col in sorted(funda.columns) if col not in primary_sort_cols]
+        return (
+            funda.sort(primary_sort_cols + tie_break_cols, nulls_last=True)
+            .unique(subset=["ticker", "date"], keep="last", maintain_order=True)
+            .sort(["ticker", "date"])
+        )
+
+    @staticmethod
+    def _last_exprs_by_order(columns: Sequence[str], order_cols: Sequence[str]) -> List["pl.Expr"]:
+        sort_exprs = [pl.col(col) for col in order_cols]
+        return [pl.col(col).sort_by(sort_exprs).last().alias(col) for col in columns]
+
+    @staticmethod
     def calculate_fundamental_ratios(
         balance: pd.DataFrame, 
         cashflow: pd.DataFrame, 
@@ -318,6 +353,10 @@ class FundamentalProcessor :
         require_polars()
         balance_cols_to_roll = ['totalStockholderEquity', 'netDebt', 'commonStockSharesOutstanding', 'totalAssets', 'cashAndShortTermInvestments']
         income_cols_to_annualize = ['totalRevenue', 'grossProfit', 'operatingIncome', 'incomeBeforeTax', 'netIncome', 'ebit', 'ebitda']
+        balance_order_cols = ['filing_date_balance', 'date'] + balance_cols_to_roll
+        earnings_order_cols = ['filing_date_earning', 'date', 'epsActual']
+        income_order_cols = ['filing_date_income', 'date'] + income_cols_to_annualize
+        cash_order_cols = ['filing_date_cash', 'date', 'freeCashFlow']
 
         pl_balance = (
             to_polars(balance[['ticker', 'date', 'filing_date', 'commonStockSharesOutstanding', 'totalStockholderEquity', 'netDebt', 'totalAssets', 'cashAndShortTermInvestments']])
@@ -333,17 +372,9 @@ class FundamentalProcessor :
                 pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
                 pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_balance'),
             ])
-            .sort(['ticker', 'filing_date_balance'])
-            .group_by(['ticker', 'quarter_end'])
-            .agg([
-                pl.col('filing_date_balance').last().alias('filing_date_balance'),
-                pl.col('commonStockSharesOutstanding').last().alias('commonStockSharesOutstanding'),
-                pl.col('totalStockholderEquity').last().alias('totalStockholderEquity'),
-                pl.col('netDebt').last().alias('netDebt'),
-                pl.col('totalAssets').last().alias('totalAssets'),
-                pl.col('cashAndShortTermInvestments').last().alias('cashAndShortTermInvestments'),
-            ])
-            .sort(['ticker', 'filing_date_balance'])
+            .group_by(['ticker', 'quarter_end'], maintain_order=True)
+            .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_balance'] + balance_cols_to_roll, balance_order_cols))
+            .sort(['ticker', 'quarter_end'])
         )
         pl_balance = pl_balance.with_columns([
             pl.col(col).rolling_mean(window_size=4, min_samples=1).over('ticker').alias(f"{col.lower()}_rolling")
@@ -360,14 +391,10 @@ class FundamentalProcessor :
                 pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
                 pl.col('reportDate').cast(pl.Date, strict=False).alias('filing_date_earning'),
             ])
-            .sort(['ticker', 'filing_date_earning'])
-            .group_by(['ticker', 'quarter_end'])
-            .agg([
-                pl.col('filing_date_earning').last().alias('filing_date_earning'),
-                pl.col('epsActual').last().alias('epsActual'),
-            ])
+            .group_by(['ticker', 'quarter_end'], maintain_order=True)
+            .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_earning', 'epsActual'], earnings_order_cols))
             .filter(pl.col('epsActual').is_not_null())
-            .sort(['ticker', 'filing_date_earning'])
+            .sort(['ticker', 'quarter_end'])
             .with_columns(
                 (pl.col('epsActual').rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias('epsactual_rolling')
             )
@@ -382,13 +409,9 @@ class FundamentalProcessor :
                 pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
                 pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_income'),
             ])
-            .sort(['ticker', 'filing_date_income'])
-            .group_by(['ticker', 'quarter_end'])
-            .agg(
-                [pl.col('filing_date_income').last().alias('filing_date_income')]
-                + [pl.col(col).last().alias(col) for col in income_cols_to_annualize]
-            )
-            .sort(['ticker', 'filing_date_income'])
+            .group_by(['ticker', 'quarter_end'], maintain_order=True)
+            .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_income'] + income_cols_to_annualize, income_order_cols))
+            .sort(['ticker', 'quarter_end'])
         )
         pl_income = pl_income.with_columns([
             pl.col(col).cast(pl.Float64, strict=False).alias(col)
@@ -409,13 +432,9 @@ class FundamentalProcessor :
                 pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
                 pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_cash'),
             ])
-            .sort(['ticker', 'filing_date_cash'])
-            .group_by(['ticker', 'quarter_end'])
-            .agg([
-                pl.col('filing_date_cash').last().alias('filing_date_cash'),
-                pl.col('freeCashFlow').last().alias('freeCashFlow'),
-            ])
-            .sort(['ticker', 'filing_date_cash'])
+            .group_by(['ticker', 'quarter_end'], maintain_order=True)
+            .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_cash', 'freeCashFlow'], cash_order_cols))
+            .sort(['ticker', 'quarter_end'])
             .with_columns(
                 (pl.col('freeCashFlow').rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias('freecashflow_rolling')
             )
@@ -513,11 +532,12 @@ class FundamentalProcessor :
         funda = funda.drop(['date', 'date_x', 'date_y'], strict=False)
         if date_cols:
             funda = funda.with_columns(pl.max_horizontal([pl.col(c) for c in date_cols]).alias('date'))
+        funda = FundamentalProcessor._deduplicate_asof_fundamentals(funda)
 
         if list_ratios_to_augment:
             funda_pd = to_pandas(funda)
             funda_pd = TechnicalIndicators.augmenting_ratios(funda_pd, list_ratios_to_augment, 'date')
-            funda = to_polars(funda_pd)
+            funda = FundamentalProcessor._deduplicate_asof_fundamentals(to_polars(funda_pd))
 
         funda = funda.drop(balance_cols_to_roll + ['epsActual', 'freeCashFlow'] + income_cols_to_annualize, strict=False)
         return to_pandas(funda)
@@ -615,9 +635,12 @@ class FundamentalProcessor :
                 pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
                 for c in ['pe', 'ps_ratio', 'pb_ratio', 'ev_ebitda_ratio', 'market_cap']
             ])
-            .sort(['ticker', 'year_month', 'date'])
-            .group_by(['ticker', 'year_month'])
-            .agg(pl.all().last())
+        )
+        monthly_value_cols = [c for c in merged.columns if c not in ['ticker', 'year_month']]
+        merged = (
+            merged.sort(['ticker', 'year_month', 'date'])
+            .group_by(['ticker', 'year_month'], maintain_order=True)
+            .agg([pl.col(c).sort_by('date').last().alias(c) for c in monthly_value_cols])
         )
         result = to_pandas(merged.select(output_cols))
         result = normalize_year_month_to_period(result, 'year_month')
@@ -680,7 +703,9 @@ class FundamentalProcessor :
             fdf = normalize_year_month_to_timestamp(fdf, col='quarter_end')
 
         pl_mret = to_polars(mret).with_columns(pl.col('date').cast(pl.Date))
-        pl_fdf = to_polars(fdf).with_columns(pl.col('date').cast(pl.Date))
+        pl_fdf = FundamentalProcessor._deduplicate_asof_fundamentals(
+            to_polars(fdf).with_columns(pl.col('date').cast(pl.Date))
+        )
         ffill_cols = [c for c in fdf.columns if c not in ['ticker', 'date']]
 
         combined = (
@@ -715,8 +740,12 @@ class FundamentalProcessor :
 
         final_df = (
             combined.sort(['ticker', 'year_month', 'date'])
-            .group_by(['ticker', 'year_month'])
-            .agg(pl.all().last())
+            .group_by(['ticker', 'year_month'], maintain_order=True)
+            .agg([
+                pl.col(c).sort_by('date').last().alias(c)
+                for c in combined.columns
+                if c not in ['ticker', 'year_month']
+            ])
         )
         out = to_pandas(final_df)
         out = normalize_year_month_to_period(out, 'year_month')
