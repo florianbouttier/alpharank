@@ -22,6 +22,7 @@ from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.lineage import (
     load_manifest,
     require_matching_data_contexts,
+    require_matching_price_eligibility,
     require_matching_ticker_exclusions,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
@@ -90,6 +91,10 @@ def build_comparison(
         legacy_manifest_path,
         boosting_manifest_path,
     )
+    price_eligibility_check = require_matching_price_eligibility(
+        legacy_manifest_path,
+        boosting_manifest_path,
+    )
 
     expected_snapshot = (legacy_run_dir / "input_snapshot").resolve()
     declared_snapshot = _declared_path(boosting_manifest["config"]["data_dir"]).resolve()
@@ -140,18 +145,22 @@ def build_comparison(
         .unique()
         .sort("holding_month")
     )
-    legacy_monthly = pl.read_parquet(legacy_monthly_path).filter(
+    legacy_monthly_source = pl.read_parquet(legacy_monthly_path).filter(
         pl.col("holding_month").is_between(common_start, common_end)
+    )
+    legacy_holdings = pl.read_parquet(legacy_holdings_path).filter(
+        (pl.col("strategy") == "Combined_Frequency")
+        & pl.col("holding_month").is_between(common_start, common_end)
+    ).with_columns(pl.lit("Legacy").alias("strategy"))
+    legacy_monthly = simulate_weighted_portfolio(
+        legacy_holdings,
+        transaction_cost_bps=transaction_cost_bps,
     )
     references = pl.concat(
         [
+            legacy_monthly,
             _reference_series(
-                legacy_monthly,
-                source_strategy="Combined_Frequency",
-                strategy="Legacy",
-            ),
-            _reference_series(
-                legacy_monthly,
+                legacy_monthly_source,
                 source_strategy="SPY total return",
                 strategy="SPY total return",
             ),
@@ -167,10 +176,6 @@ def build_comparison(
         ):
             raise ValueError(f"{strategy} does not cover the exact boosting calendar.")
 
-    legacy_holdings = pl.read_parquet(legacy_holdings_path).filter(
-        (pl.col("strategy") == "Combined_Frequency")
-        & pl.col("holding_month").is_between(common_start, common_end)
-    ).with_columns(pl.lit("Legacy").alias("strategy"))
     holdings = pl.concat([boosting_holdings, legacy_holdings], how="diagonal_relaxed")
     monthly = pl.concat([boosting_monthly, references], how="diagonal_relaxed")
     artifacts = write_common_portfolio_artifacts(
@@ -198,10 +203,15 @@ def build_comparison(
                     "months": expected_months.height,
                     "latest_month_status": "complete_realized_one_month_return",
                 },
-                "transaction_cost_bps_times_turnover": transaction_cost_bps,
+                "transaction_cost_policy": {
+                    "strategies": ["Boosting Top 5", "Boosting Top 10", "Legacy"],
+                    "bps_times_turnover": transaction_cost_bps,
+                    "benchmark": "SPY total return has no simulated trading cost",
+                },
                 "comparison_profile": comparison_profile,
                 "lineage_check": lineage,
                 "ticker_exclusion_check": ticker_exclusion_check,
+                "price_eligibility_check": price_eligibility_check,
                 "sources": {
                     "legacy_run_manifest": {
                         "path": str(legacy_manifest_path.resolve()),

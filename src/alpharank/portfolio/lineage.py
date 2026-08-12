@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from alpharank.data.price_eligibility import (
+    price_eligibility_policy_from_manifest,
+)
+
 
 def load_manifest(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -145,5 +149,28 @@ def require_matching_ticker_exclusions(
             "Portfolio comparison ticker exclusions differ: "
             f"missing_left={report['missing_left']}, "
             f"missing_right={report['missing_right']}"
+        )
+    return report
+
+
+def require_matching_price_eligibility(
+    left_manifest: Path,
+    right_manifest: Path,
+) -> dict[str, Any]:
+    """Fail closed unless both strategies use the same monthly price policy."""
+
+    left = price_eligibility_policy_from_manifest(load_manifest(left_manifest))
+    right = price_eligibility_policy_from_manifest(load_manifest(right_manifest))
+    report = {
+        "left_policy": left.to_manifest(),
+        "right_policy": right.to_manifest(),
+        "passed": left == right,
+        "left_manifest": str(left_manifest.resolve()),
+        "right_manifest": str(right_manifest.resolve()),
+    }
+    if not report["passed"]:
+        raise ValueError(
+            "Portfolio comparison monthly price eligibility differs: "
+            f"left={report['left_policy']}, right={report['right_policy']}"
         )
     return report

@@ -39,9 +39,19 @@ excluded-ticker list. `--no-ticker-exclusion-registry` exists only to reproduce
 an older historical convention and makes that run ineligible for a common
 Legacy/Boosting comparison that uses the registry.
 
+Legacy and Boosting also share `monthly_price_eligibility_v1`, implemented only
+in `src/alpharank/data/price_eligibility.py`. For each decision month, a ticker
+requires at least 10 daily prices, USD 1,000,000 median daily `close * volume`,
+and at most 5% invalid OHLC rows. Legacy intersects this table with historical
+S&P membership before ranking EMA signals. The run retains
+`monthly_price_eligibility.parquet` and records the policy id plus thresholds in
+`data_input_manifest.json`.
+
 Current `--checkpoints-dir` artifacts are diagnostic snapshots, not a supported
 resume contract. A failed process must be restarted from its immutable input
 snapshot; never splice downstream files from an earlier process into a new run.
+Use `--no-checkpoints` when disk space is constrained; it skips only optional
+diagnostics and preserves the complete canonical replay package.
 
 When launching manually, capture stdout/stderr under `logs/legacy_runs/` with a
 timestamped filename and reference the output folder in the final handoff. The
@@ -83,7 +93,9 @@ recent run instance for that date.
 Key files:
 
 - `data_input_manifest.json`: files, row counts, hashes, and max dates used by the run.
-- `input_snapshot/`: canonical copy of every model input file used by the run, including copied lineage metadata when available.
+- `input_snapshot/`: canonical copy of every model input file used by the run, including copied lineage metadata when available. On APFS/macOS the runner uses byte-identical copy-on-write clones; other filesystems use physical copies. `storage_manifest.json` records the effective mode, and neither mode uses symlinks.
+- `monthly_price_eligibility.parquet`: exhaustive ticker-month observations,
+  dollar volume, OHLC violation rate, and eligibility decision.
 - `legacy_detailed_returns_polars.parquet`: ticker-level monthly portfolios.
 - `legacy_aggregated_returns_polars.parquet`: aggregated model returns.
 - `legacy_metrics_polars.parquet`: model comparison metrics.

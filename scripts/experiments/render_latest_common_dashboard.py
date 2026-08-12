@@ -254,6 +254,10 @@ def build_payload(
         raise ValueError(
             "The comparison manifest does not prove matching ticker exclusions."
         )
+    if not comparison_manifest.get("price_eligibility_check", {}).get("passed"):
+        raise ValueError(
+            "The comparison manifest does not prove matching monthly price eligibility."
+        )
 
     holdings = pl.read_parquet(comparison_dir / "comparison_common_holdings.parquet")
     monthly = pl.read_parquet(comparison_dir / "comparison_common_monthly.parquet")
@@ -297,7 +301,12 @@ def build_payload(
             "end": str(monthly["holding_month"].max()),
             "months": monthly.filter(pl.col("strategy") == strategies[0]).height,
             "benchmark": "SPY total return from adjusted_close",
-            "transaction_cost_bps": comparison_manifest["transaction_cost_bps_times_turnover"],
+        "transaction_cost_bps": comparison_manifest.get(
+            "transaction_cost_policy", {}
+        ).get(
+            "bps_times_turnover",
+            comparison_manifest.get("transaction_cost_bps_times_turnover", 0.0),
+        ),
             "comparison_profile": comparison_manifest.get("comparison_profile"),
             "stock_price_max": legacy_manifest["datasets"]["final_price"]["summary"][
                 "max_temporal_values"
@@ -338,6 +347,9 @@ def build_payload(
             "comparison": _clean(comparison_manifest["lineage_check"]),
             "ticker_exclusions": _clean(
                 comparison_manifest["ticker_exclusion_check"]
+            ),
+            "price_eligibility": _clean(
+                comparison_manifest["price_eligibility_check"]
             ),
             "revision": _clean(revision_audit),
             "legacy": {

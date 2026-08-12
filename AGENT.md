@@ -26,6 +26,7 @@ This repository is organized around two active workflows:
 - Model quality and portfolio performance have distinct maturity calendars. H6 metrics exclude immature targets, while a frozen out-of-sample model may score later decisions for a one-month replay when t+1 returns are complete; expose evaluable, ticker-unavailable, and horizon-pending counts separately.
 - Performance answers must name the snapshot and benchmark convention. Use `SPY total return` from `adjusted_close`; old Legacy `SP500` rows are price returns from `close` and cannot be reported as the standard benchmark. Standalone Legacy uses the latest validated replay, while Legacy/Boosting comparisons require one shared snapshot.
 - CAGR decompositions must use `src/alpharank/portfolio/attribution.py`, keep transaction costs separate, and reconcile monthly returns plus final CAGR within `1e-12`; do not add ordinary percentage-point CAGR contributions.
+- Cross-method performance comparisons must resimulate every investable strategy with the same transaction-cost policy; show any standalone production convention separately.
 - `src/alpharank/portfolio/`: methodology-neutral holdings contract, allocation primitives, simulator, metrics, comparison, and artifacts shared after signal generation
 - `src/alpharank/data/`: shared data processing/services used by legacy and utilities
 - `src/alpharank/strategy/`: legacy strategy implementation
@@ -38,7 +39,8 @@ return, turnover, cost, benchmark-alignment, and performance code must use
 
 Every Legacy/boosting performance comparison must also pass the shared data
 lineage gate in `src/alpharank/portfolio/lineage.py`, including identical raw
-input hashes and full-trajectory ticker exclusions. Replaying each strategy
+input hashes, full-trajectory ticker exclusions, and the shared monthly price
+eligibility policy. Replaying each strategy
 through the same simulator on different snapshots validates only the simulator;
 it must be marked `comparison_eligible=false` and must not be presented as a
 data-constant strategy comparison.
@@ -93,6 +95,9 @@ The legacy runner must compute from the timestamped run `input_snapshot/`.
 `data/open_source/output` is only a source to copy from. A manifest without
 `input_snapshot_dir`, `run_config.source_input_sha256`, and
 `code_context.critical_file_sha256` is not a complete replay package.
+On filesystems that support it, snapshots use byte-identical copy-on-write
+clones, with a physical-copy fallback and `input_snapshot/storage_manifest.json`.
+Symlinks are forbidden because they do not preserve immutable replay semantics.
 For open-source production data, a manifest with `open_source_run_id_match=false`,
 `open_source_output_manifest_run_id_match=false`, or
 `open_source_output_matches_published_snapshot=false` is not a clean monthly

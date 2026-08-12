@@ -8,7 +8,10 @@ import pytest
 
 from alpharank.multihorizon.data import _add_multihorizon_targets
 from alpharank.multihorizon.data import _append_legacy_labels
-from alpharank.multihorizon.data import _point_in_time_price_eligibility
+from alpharank.data.price_eligibility import (
+    MonthlyPriceEligibilityPolicy,
+    build_monthly_price_eligibility,
+)
 from alpharank.multihorizon.legacy_ema import (
     add_active_legacy_oracle_features,
     legacy_winning_pairs,
@@ -97,14 +100,17 @@ def test_price_eligibility_is_month_local_and_rejects_bad_ohlc() -> None:
         }
     )
 
-    eligibility = _point_in_time_price_eligibility(
+    eligibility = build_monthly_price_eligibility(
         prices,
-        minimum_observations=2,
-        minimum_median_dollar_volume=1_000_000.0,
-        maximum_ohlc_violation_rate=0.25,
+        policy=MonthlyPriceEligibilityPolicy(
+            policy_id="test",
+            minimum_observations=2,
+            minimum_median_dollar_volume=1_000_000.0,
+            maximum_ohlc_violation_rate=0.25,
+        ),
     ).sort("decision_month")
 
-    assert eligibility["_price_eligible"].to_list() == [True, False]
+    assert eligibility["price_eligible"].to_list() == [True, False]
 
 
 def test_preprocessor_uses_train_only_median_after_monthly_fill() -> None:

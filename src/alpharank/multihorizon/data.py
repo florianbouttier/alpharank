@@ -16,6 +16,10 @@ from alpharank.backtest.features import (
     compute_technical_features,
 )
 from alpharank.backtest.fundamentals import build_monthly_fundamental_features
+from alpharank.data.price_eligibility import (
+    MonthlyPriceEligibilityPolicy,
+    build_monthly_price_eligibility,
+)
 
 
 RELATIVE_EMA_SHORT_SPANS = (5, 10, 20, 40, 60, 80, 100)
@@ -62,70 +66,6 @@ def _apply_exclusions(raw: RawDataBundle, excluded: Sequence[str]) -> RawDataBun
         constituents=raw.constituents,
         sp500_price=raw.sp500_price,
         source_paths=raw.source_paths,
-    )
-
-
-def _point_in_time_price_eligibility(
-    final_price: pl.DataFrame,
-    *,
-    minimum_observations: int,
-    minimum_median_dollar_volume: float,
-    maximum_ohlc_violation_rate: float,
-) -> pl.DataFrame:
-    """Build causal monthly price-integrity and tradability eligibility."""
-
-    price_column = (
-        "close"
-        if "close" in final_price.columns
-        else _resolve_price_column(final_price)
-    )
-    required_ohlc = {"open", "high", "low", "close"}
-    if required_ohlc <= set(final_price.columns):
-        ohlc_violation = (
-            (pl.col("high") < pl.max_horizontal("open", "close", "low"))
-            | (pl.col("low") > pl.min_horizontal("open", "close", "high"))
-            | (pl.col("high") < pl.col("low"))
-            | (pl.col("open") <= 0.0)
-            | (pl.col("close") <= 0.0)
-        ).fill_null(True)
-    else:
-        ohlc_violation = pl.lit(False)
-    volume = (
-        pl.col("volume").cast(pl.Float64)
-        if "volume" in final_price.columns
-        else pl.lit(None).cast(pl.Float64)
-    )
-    return (
-        final_price.select(
-            pl.col("ticker").cast(pl.Utf8),
-            pl.col("date").cast(pl.Date, strict=False).alias("date"),
-            pl.col(price_column).cast(pl.Float64).alias("_price"),
-            volume.alias("_volume"),
-            ohlc_violation.alias("_ohlc_violation"),
-        )
-        .with_columns(pl.col("date").dt.truncate("1mo").alias("decision_month"))
-        .group_by(["ticker", "decision_month"])
-        .agg(
-            pl.col("_price").is_not_null().sum().alias("_price_observations"),
-            (pl.col("_price") * pl.col("_volume"))
-            .drop_nulls()
-            .median()
-            .alias("_median_dollar_volume"),
-            pl.col("_ohlc_violation").mean().alias("_ohlc_violation_rate"),
-        )
-        .with_columns(
-            (
-                (pl.col("_price_observations") >= minimum_observations)
-                & (
-                    pl.col("_median_dollar_volume").fill_null(0.0)
-                    >= minimum_median_dollar_volume
-                )
-                & (
-                    pl.col("_ohlc_violation_rate").fill_null(1.0)
-                    <= maximum_ohlc_violation_rate
-                )
-            ).alias("_price_eligible")
-        )
     )
 
 
@@ -392,11 +332,14 @@ def build_research_frame(
         selected_relative_pairs,
     )
     constituents = prepare_constituents_monthly(raw.constituents).rename({"year_month": "decision_month"})
-    price_eligibility = _point_in_time_price_eligibility(
+    price_eligibility = build_monthly_price_eligibility(
         raw.final_price,
-        minimum_observations=minimum_monthly_price_observations,
-        minimum_median_dollar_volume=minimum_monthly_median_dollar_volume,
-        maximum_ohlc_violation_rate=maximum_monthly_ohlc_violation_rate,
+        policy=MonthlyPriceEligibilityPolicy(
+            policy_id="research_config",
+            minimum_observations=minimum_monthly_price_observations,
+            minimum_median_dollar_volume=minimum_monthly_median_dollar_volume,
+            maximum_ohlc_violation_rate=maximum_monthly_ohlc_violation_rate,
+        ),
     )
     frame = (
         monthly_prices.rename({"year_month": "decision_month", "date": "decision_asof_date"})
@@ -421,13 +364,13 @@ def build_research_frame(
             pl.col("decision_month")
             >= pl.lit(datetime.strptime(start_month, "%Y-%m").date())
         )
-        .filter(pl.col("_price_eligible").fill_null(False))
+        .filter(pl.col("price_eligible").fill_null(False))
         .drop(
             [
-                "_price_observations",
-                "_median_dollar_volume",
-                "_ohlc_violation_rate",
-                "_price_eligible",
+                "price_observations",
+                "median_dollar_volume",
+                "ohlc_violation_rate",
+                "price_eligible",
             ]
         )
     )

@@ -21,6 +21,11 @@ import polars as pl
 
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
+from alpharank.data.price_eligibility import (
+    STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
+    build_monthly_price_eligibility,
+    monthly_price_eligibility_policy,
+)
 from alpharank.data.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     exclude_tickers_from_frame,
@@ -114,21 +119,64 @@ def _sha256_path(path: Path) -> str:
 def _copy_if_exists(source: Path, destination: Path) -> None:
     if source.exists():
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
+        _copy_snapshot_file(source, destination)
+
+
+def _copy_snapshot_file(source: Path | str, destination: Path | str) -> str:
+    """Copy a snapshot file, using an APFS clone when macOS supports it."""
+    source_path = Path(source)
+    destination_path = Path(destination)
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "darwin":
+        clone = subprocess.run(
+            ["cp", "-c", "-p", str(source_path), str(destination_path)],
+            capture_output=True,
+            check=False,
+        )
+        if clone.returncode == 0:
+            return "apfs_clone"
+        destination_path.unlink(missing_ok=True)
+    shutil.copy2(source_path, destination_path)
+    return "physical_copy"
 
 
 def _snapshot_input_package(*, source_data_dir: Path, input_files: Dict[str, Path], run_day_dir: Path) -> Path:
     snapshot_dir = run_day_dir / "input_snapshot"
     snapshot_dir.mkdir(parents=True, exist_ok=True)
+    storage_modes: list[str] = []
     for name, source_path in input_files.items():
         target_name = INPUT_PACKAGE_FILENAMES[name]
-        shutil.copy2(source_path, snapshot_dir / target_name)
+        storage_modes.append(_copy_snapshot_file(source_path, snapshot_dir / target_name))
 
     lineage_dir = source_data_dir / "lineage"
     if lineage_dir.exists():
-        shutil.copytree(lineage_dir, snapshot_dir / "lineage", dirs_exist_ok=True)
+        def copy_lineage_file(source: str, destination: str) -> str:
+            storage_modes.append(_copy_snapshot_file(source, destination))
+            return destination
+
+        shutil.copytree(
+            lineage_dir,
+            snapshot_dir / "lineage",
+            dirs_exist_ok=True,
+            copy_function=copy_lineage_file,
+        )
     for metadata_name in ("snapshot_manifest.json", "latest_snapshot.json", "README.md"):
-        _copy_if_exists(source_data_dir / metadata_name, snapshot_dir / metadata_name)
+        source = source_data_dir / metadata_name
+        if source.exists():
+            storage_modes.append(_copy_snapshot_file(source, snapshot_dir / metadata_name))
+    storage_manifest = {
+        "strategy": "copy_on_write_with_physical_copy_fallback",
+        "semantics": "independent path with byte-identical content; APFS clones are copy-on-write",
+        "source_data_dir": str(source_data_dir.resolve()),
+        "file_count": len(storage_modes),
+        "storage_mode_counts": {
+            mode: storage_modes.count(mode) for mode in sorted(set(storage_modes))
+        },
+    }
+    (snapshot_dir / "storage_manifest.json").write_text(
+        json.dumps(storage_manifest, indent=2),
+        encoding="utf-8",
+    )
     return snapshot_dir
 
 
@@ -523,6 +571,10 @@ def run_pipeline(
     final_price_path: Optional[Path] = None,
     sp500_price_path: Optional[Path] = None,
     ticker_exclusion_registry: Optional[Path] = DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
+    price_eligibility_policy_id: str = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.policy_id,
+    minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
+    minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
+    maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).parent.parent
@@ -568,6 +620,12 @@ def run_pipeline(
             *(audited_registry.excluded_tickers if audited_registry else ()),
         )
     )
+    price_eligibility_policy = monthly_price_eligibility_policy(
+        policy_id=price_eligibility_policy_id,
+        minimum_observations=minimum_monthly_price_observations,
+        minimum_median_dollar_volume=minimum_monthly_median_dollar_volume,
+        maximum_ohlc_violation_rate=maximum_monthly_ohlc_violation_rate,
+    )
     run_config = {
         "backend": backend,
         "n_trials": n_trials,
@@ -578,7 +636,20 @@ def run_pipeline(
         "run_output_dir": str(run_day_dir.resolve()),
         "source_input_files": {name: str(path.resolve()) for name, path in source_input_files.items()},
         "source_input_sha256": {name: _sha256_path(path) for name, path in source_input_files.items()},
+        "input_snapshot_storage": _read_json_if_exists(
+            input_snapshot_dir / "storage_manifest.json"
+        ),
         "excluded_tickers": list(ticker_to_exclude),
+        "price_eligibility_policy_id": price_eligibility_policy.policy_id,
+        "minimum_monthly_price_observations": (
+            price_eligibility_policy.minimum_observations
+        ),
+        "minimum_monthly_median_dollar_volume": (
+            price_eligibility_policy.minimum_median_dollar_volume
+        ),
+        "maximum_monthly_ohlc_violation_rate": (
+            price_eligibility_policy.maximum_ohlc_violation_rate
+        ),
         "ticker_exclusion_registry": (
             str(audited_registry.path) if audited_registry is not None else None
         ),
@@ -641,6 +712,22 @@ def run_pipeline(
         ticker_column="Ticker",
     )
 
+    monthly_price_eligibility = build_monthly_price_eligibility(
+        final_price,
+        policy=price_eligibility_policy,
+    )
+    monthly_price_eligibility_file = run_day_dir / "monthly_price_eligibility.parquet"
+    monthly_price_eligibility.write_parquet(monthly_price_eligibility_file)
+    print(
+        "Monthly price eligibility: "
+        f"policy={price_eligibility_policy.policy_id}, "
+        f"observations>={price_eligibility_policy.minimum_observations}, "
+        "median_dollar_volume>="
+        f"{price_eligibility_policy.minimum_median_dollar_volume:.0f}, "
+        "ohlc_violation_rate<="
+        f"{price_eligibility_policy.maximum_ohlc_violation_rate:.2%}"
+    )
+
     final_price = final_price.with_columns(
         pl.col("date").cast(pl.Date, strict=False).dt.truncate("1mo").alias("year_month")
     )
@@ -652,10 +739,23 @@ def run_pipeline(
         ])
         .with_columns((pl.col("ticker") + pl.lit(".US")).alias("ticker"))
     )
+    eligible_historical_company = (
+        us_historical_company.join(
+            monthly_price_eligibility.select(
+                pl.col("decision_month").alias("year_month"),
+                "ticker",
+                "price_eligible",
+            ),
+            on=["ticker", "year_month"],
+            how="left",
+        )
+        .filter(pl.col("price_eligible").fill_null(False))
+        .drop("price_eligible")
+    )
 
     index_data = IndexDataManager(
         daily_prices_df=sp500_price.clone(),
-        components_df=us_historical_company.clone(),
+        components_df=eligible_historical_company.clone(),
         backend=backend,
     )
 
@@ -726,7 +826,7 @@ def run_pipeline(
             & pl.col("market_cap").is_not_null()
         )
         .join(
-            us_historical_company.select(
+            eligible_historical_company.select(
                 pl.col("year_month").cast(pl.Date, strict=False).alias("year_month"),
                 pl.col("ticker"),
             ),
@@ -1134,6 +1234,7 @@ def run_pipeline(
             "portfolio_equal_html": equal_file,
             "data_input_manifest": run_day_dir / "data_input_manifest.json",
             "input_snapshot_dir": input_snapshot_dir,
+            "monthly_price_eligibility": monthly_price_eligibility_file,
             "latest_run_pointer": latest_pointer_file,
             **monthly_snapshot_files,
         },
@@ -1148,12 +1249,20 @@ def main(
     data_dir: str | Path | None = None,
     open_source_run_id: str | None = None,
     output_dir: str | Path | None = None,
-    checkpoints_dir: str | Path = "outputs/checkpoints",
+    checkpoints_dir: str | Path | None = "outputs/checkpoints",
     final_price_path: str | Path | None = None,
     sp500_price_path: str | Path | None = None,
     ticker_exclusion_registry: str | Path | None = DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
+    price_eligibility_policy_id: str = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.policy_id,
+    minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
+    minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
+    maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
 ) -> None:
-    checkpoints_dir = Path(checkpoints_dir).expanduser().resolve()
+    checkpoints_dir = (
+        Path(checkpoints_dir).expanduser().resolve()
+        if checkpoints_dir is not None
+        else None
+    )
     data_dir = Path(data_dir).expanduser().resolve() if data_dir else None
     output_dir = Path(output_dir).expanduser().resolve() if output_dir else None
     final_price_path = Path(final_price_path).expanduser().resolve() if final_price_path else None
@@ -1175,6 +1284,14 @@ def main(
         final_price_path=final_price_path,
         sp500_price_path=sp500_price_path,
         ticker_exclusion_registry=ticker_exclusion_registry,
+        price_eligibility_policy_id=price_eligibility_policy_id,
+        minimum_monthly_price_observations=minimum_monthly_price_observations,
+        minimum_monthly_median_dollar_volume=(
+            minimum_monthly_median_dollar_volume
+        ),
+        maximum_monthly_ohlc_violation_rate=(
+            maximum_monthly_ohlc_violation_rate
+        ),
     )
     print("Artifacts:")
     for k, v in out.artifacts.items():
@@ -1217,6 +1334,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--open-source-run-id")
     parser.add_argument("--output-dir")
     parser.add_argument("--checkpoints-dir", default="outputs/checkpoints")
+    parser.add_argument(
+        "--no-checkpoints",
+        action="store_true",
+        help="Skip optional diagnostic checkpoints; canonical run artifacts remain unchanged.",
+    )
     parser.add_argument("--final-price-path")
     parser.add_argument("--sp500-price-path")
     ticker_registry_group = parser.add_mutually_exclusive_group()
@@ -1229,6 +1351,29 @@ def _parse_args() -> argparse.Namespace:
         "--no-ticker-exclusion-registry",
         action="store_true",
         help="Disable the registry for an explicitly labelled compatibility replay.",
+    )
+    parser.add_argument(
+        "--price-eligibility-policy-id",
+        default=STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.policy_id,
+    )
+    parser.add_argument(
+        "--minimum-monthly-price-observations",
+        type=int,
+        default=STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
+    )
+    parser.add_argument(
+        "--minimum-monthly-median-dollar-volume",
+        type=float,
+        default=(
+            STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume
+        ),
+    )
+    parser.add_argument(
+        "--maximum-monthly-ohlc-violation-rate",
+        type=float,
+        default=(
+            STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate
+        ),
     )
     parser.add_argument("--log-dir", default="logs/legacy_runs")
     parser.add_argument("--no-log", action="store_true", help="Disable automatic CLI log capture.")
@@ -1244,13 +1389,23 @@ def _run_cli() -> None:
         "data_dir": args.data_dir,
         "open_source_run_id": args.open_source_run_id,
         "output_dir": args.output_dir,
-        "checkpoints_dir": args.checkpoints_dir,
+        "checkpoints_dir": None if args.no_checkpoints else args.checkpoints_dir,
         "final_price_path": args.final_price_path,
         "sp500_price_path": args.sp500_price_path,
         "ticker_exclusion_registry": (
             None
             if args.no_ticker_exclusion_registry
             else args.ticker_exclusion_registry
+        ),
+        "price_eligibility_policy_id": args.price_eligibility_policy_id,
+        "minimum_monthly_price_observations": (
+            args.minimum_monthly_price_observations
+        ),
+        "minimum_monthly_median_dollar_volume": (
+            args.minimum_monthly_median_dollar_volume
+        ),
+        "maximum_monthly_ohlc_violation_rate": (
+            args.maximum_monthly_ohlc_violation_rate
         ),
     }
     if args.no_log:

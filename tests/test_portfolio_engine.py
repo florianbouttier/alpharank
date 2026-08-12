@@ -21,6 +21,9 @@ from alpharank.portfolio.lineage import (
     compare_ticker_exclusions,
     ticker_exclusions_from_manifest,
 )
+from alpharank.data.price_eligibility import (
+    price_eligibility_policy_from_manifest,
+)
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
@@ -195,3 +198,15 @@ def test_ticker_exclusions_are_read_from_both_manifest_shapes() -> None:
     boosting = {"config": {"excluded_tickers": ["CBE.US", "SII.US"]}}
     assert ticker_exclusions_from_manifest(legacy) == ("CBE.US", "SII.US")
     assert ticker_exclusions_from_manifest(boosting) == ("CBE.US", "SII.US")
+
+
+def test_price_eligibility_policy_is_read_from_both_manifest_shapes() -> None:
+    policy = {
+        "price_eligibility_policy_id": "monthly_price_eligibility_v1",
+        "minimum_monthly_price_observations": 10,
+        "minimum_monthly_median_dollar_volume": 1_000_000.0,
+        "maximum_monthly_ohlc_violation_rate": 0.05,
+    }
+    assert price_eligibility_policy_from_manifest({"run_config": policy}) == (
+        price_eligibility_policy_from_manifest({"config": policy})
+    )

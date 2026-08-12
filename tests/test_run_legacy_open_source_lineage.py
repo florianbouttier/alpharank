@@ -8,6 +8,7 @@ import pandas as pd
 from scripts.run_legacy import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     INPUT_PACKAGE_FILENAMES,
+    _copy_snapshot_file,
     _parse_args,
     _default_log_stem,
     _input_files,
@@ -40,6 +41,11 @@ def test_run_legacy_cli_enables_versioned_ticker_registry_by_default(
         DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY
     )
     assert args.no_ticker_exclusion_registry is False
+    assert args.price_eligibility_policy_id == "monthly_price_eligibility_v1"
+    assert args.minimum_monthly_price_observations == 10
+    assert args.minimum_monthly_median_dollar_volume == 1_000_000.0
+    assert args.maximum_monthly_ohlc_violation_rate == 0.05
+    assert args.no_checkpoints is False
 
 
 def test_run_legacy_cli_can_disable_registry_for_compatibility(
@@ -52,6 +58,12 @@ def test_run_legacy_cli_can_disable_registry_for_compatibility(
     )
     args = _parse_args()
     assert args.no_ticker_exclusion_registry is True
+
+
+def test_run_legacy_cli_can_skip_optional_checkpoints(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["run_legacy.py", "--no-checkpoints"])
+    args = _parse_args()
+    assert args.no_checkpoints is True
 
 
 def test_manifest_extra_context_links_open_source_output_to_latest_run(tmp_path: Path) -> None:
@@ -192,6 +204,26 @@ def test_snapshot_input_package_copies_canonical_inputs_and_lineage(tmp_path: Pa
         assert (snapshot_dir / filename).read_text(encoding="utf-8") == f"content for {filename}"
     assert json.loads((snapshot_dir / "lineage" / "manifest.json").read_text(encoding="utf-8")) == {"run_id": "lineage_run"}
     assert json.loads((snapshot_dir / "snapshot_manifest.json").read_text(encoding="utf-8")) == {"run_id": "snapshot_run"}
+    storage = json.loads(
+        (snapshot_dir / "storage_manifest.json").read_text(encoding="utf-8")
+    )
+    assert storage["strategy"] == "copy_on_write_with_physical_copy_fallback"
+    assert storage["file_count"] == len(INPUT_PACKAGE_FILENAMES) + 2
+    assert sum(storage["storage_mode_counts"].values()) == storage["file_count"]
+
+
+def test_copy_snapshot_file_falls_back_to_physical_copy(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "source.txt"
+    destination = tmp_path / "destination.txt"
+    source.write_text("immutable snapshot", encoding="utf-8")
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    mode = _copy_snapshot_file(source, destination)
+
+    assert mode == "physical_copy"
+    assert destination.read_text(encoding="utf-8") == "immutable snapshot"
 
 
 def test_validate_legacy_replay_package_requires_retained_snapshot(tmp_path: Path) -> None:

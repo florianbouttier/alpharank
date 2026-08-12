@@ -3836,3 +3836,25 @@ Le contrat a ensuite été durci une seconde fois :
 des listes `excluded_tickers` identiques. Legacy active désormais
 `historical_ticker_exclusions_v1` par défaut. Le site retenu ci-dessus précède
 ce garde-fou et doit être régénéré après un rerun aligné.
+
+### Eligible shared-filter rerun — 2026-08-12
+
+Hypothèse : l'écart de performance historique ne peut être interprété que si
+Legacy et Boosting utilisent les mêmes entrées immuables, la même quarantaine
+de tickers et le même filtre mensuel de qualité des prix.
+
+Données et runs : snapshot open source `20260811_001503`, Legacy
+`20260812_171646`, Boosting
+`legacy_ema_latest_common_shared_eligibility_final_20260812`, replay commun
+`legacy_boosting_shared_eligibility_final_20260812`. La comparaison couvre 180
+mois détenus réalisés, d'août 2011 à juillet 2026.
+
+Résultat : tous les contrôles de hashes, exclusions et politique de prix
+passent. CAGR : Top 10 `24,2818 %`, Top 5 `23,6497 %`, Legacy `17,0257 %`, SPY
+total return `14,3779 %`. Sharpe : `0,6788`, `0,5990`, `0,6740`, `0,8653` ; le
+max drawdown Top 10 atteint `-40,3548 %`.
+
+Décision : conserver Boosting comme challenger, sans le promouvoir sur le seul
+CAGR. Sa performance ajustée du risque reste inférieure à Legacy et SPY. La
+prochaine décision doit utiliser des preuves temporelles appariées et les
+diagnostics de concentration/attribution.

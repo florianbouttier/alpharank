@@ -31,10 +31,10 @@ registry by default. The displayed comparison must be regenerated from an
 aligned Legacy and Boosting pair before it is treated as a pure strategy
 comparison.
 
-The two methods may intentionally use different signal eligibility rules, such
-as Boosting's monthly liquidity gate. They may not silently use different
-data-quality quarantines. A common snapshot proves raw-data comparability, not
-methodological identity or preprocessing parity.
+The two methods may intentionally use different signal logic, but they may not
+silently use different data-quality quarantines or monthly tradability gates.
+A common snapshot proves raw-data comparability, not methodological identity or
+preprocessing parity.
 
 ## Data Usage Matrix
 
@@ -44,7 +44,7 @@ methodological identity or preprocessing parity.
 | Daily S&P 500 prices | Yes | Yes |
 | Historical S&P 500 membership | Yes | Yes |
 | Full-trajectory data-quality quarantine | Required; versioned registry is now the default | Required; must match Legacy exactly |
-| Volume and OHLC quality | No explicit threshold | Yes, point-in-time monthly gate |
+| Volume and OHLC quality | Yes, shared point-in-time monthly gate | Yes, identical shared gate |
 | Income, balance, cash flow, earnings | Yes | Loaded and hash-checked, but not fed to the current model |
 | Sector | Yes, position cap | No |
 | Legacy historical winners | Native output | Yes, only to define the causal EMA feature catalogue available in each fold |
@@ -69,10 +69,10 @@ The last fold has 29 causal EMA pairs, hence 145 model inputs. Other research
 modes such as `broad` or `legacy_winners_pit_ema_plus` may include fundamental
 features, but they are not the current public comparison.
 
-## Boosting Liquidity And Price-Quality Gate
+## Shared Liquidity And Price-Quality Gate
 
-The profile `legacy_ema_latest_common_v1` applies all three conditions to each
-ticker and decision month:
+The policy `monthly_price_eligibility_v1` applies all three conditions to each
+ticker and decision month in both Legacy and Boosting:
 
 | Condition | Threshold | Exact calculation |
 | --- | ---: | --- |
@@ -88,8 +88,10 @@ A daily OHLC row is invalid if any of these conditions is true:
 - `open <= 0` or `close <= 0`;
 - a required OHLC value is null.
 
-Failure removes only that ticker-month from the Boosting research universe. A
-ticker can become eligible again in another month. Separately, the versioned
+Failure removes only that ticker-month from both investable universes. A ticker
+can become eligible again in another month. Legacy applies the gate before its
+monthly EMA Top 30 so the next eligible security can enter the ranking; it is
+not removed after selection. Separately, the versioned
 historical ticker quarantine removes the complete trajectory of known broken
 identifiers before feature construction. This list must match Legacy exactly
 for a common comparison.
@@ -102,11 +104,15 @@ Observed effect on the current snapshot:
 | 2026-06 | 504 | 503 | 1 | Boosting quarantine removes `SW.US` |
 | 2026-07 | 503 | 501 | 2 | Boosting quarantine removes `SW.US`; `EA.US` has 13.64% OHLC violations |
 
-This gate is currently Boosting-specific. Legacy does not impose an explicit
-minimum dollar volume, minimum observation count, or maximum OHLC violation
-rate. Its investability restriction instead includes historical-index
-membership, its declared ticker quarantine, available market capitalization,
-and the fundamental screen `0 < PE < 100`.
+Legacy additionally requires historical-index membership, available market
+capitalization, and the fundamental screen `0 < PE < 100`. Boosting does not
+inherit that fundamental screen. Therefore the shared gate aligns data quality
+and tradability, while signal-specific investability rules remain explicit.
+
+The single code owner is `src/alpharank/data/price_eligibility.py`. Every run
+records the policy id and three thresholds in its manifest. Legacy also writes
+`monthly_price_eligibility.parquet`. A Legacy/Boosting replay fails closed if
+raw hashes, full-trajectory exclusions, or the monthly policy differ.
 
 ## Complete Legacy Pseudocode
 
@@ -122,14 +128,17 @@ INPUT requested open-source package or immutable run id
 5. Load prices, SPY, historical constituents, sectors, and four fundamentals.
 6. Remove the declared versioned historical ticker quarantine from all relevant
    inputs. A new production run uses historical_ticker_exclusions_v1 by default.
+7. Build monthly_price_eligibility_v1 from rows observed in each decision month.
+   Intersect historical S&P membership with eligible ticker-months before EMA
+   ranking and retain the complete eligibility ledger.
 
-7. Build market series:
+8. Build market series:
    stock_monthly_return[ticker, month]
        = product(1 + adjusted_close_daily_return) - 1
    relative_close[ticker, day]
        = stock_adjusted_close / SP500_close
 
-8. Build point-in-time fundamental eligibility:
+9. Build point-in-time fundamental eligibility:
    a. consolidate statements using filing/report dates;
    b. compute rolling net income, shares, revenue, equity, debt, cash, EBITDA;
    c. forward-fill only after the value's available date;
@@ -137,14 +146,14 @@ INPUT requested open-source package or immutable run id
    e. retain historical S&P 500 members with market_cap present and 0 < PE < 100;
    f. shift this eligibility by one month before applying it to holdings.
 
-9. Run four independent annual expanding Optuna tracks:
+10. Run four independent annual expanding Optuna tracks:
    track 11 = alpha 2, seed 42
    track 12 = alpha 2, seed 41
    track 21 = alpha 1, seed 42
    track 22 = alpha 1, seed 41
    common settings = EMA, trailing half-life 120 months, mean aggregation
 
-10. For each January split S from first_date onward, in each track:
+11. For each January split S from first_date onward, in each track:
     train_prices = rows with decision month < S
 
     Optuna samples 30 candidates in production:
@@ -176,7 +185,7 @@ INPUT requested open-source package or immutable run id
     Refit the selected parameters on all available prices.
     Keep only holdings after S until the next annual split replaces them.
 
-11. Combine the four finalized tracks by month:
+12. Combine the four finalized tracks by month:
     Combined_Equal:
         union all selected tickers and assign equal weights
     Combined_Frequency (production Legacy):
@@ -184,13 +193,13 @@ INPUT requested open-source package or immutable run id
         vote_count = number of tracks selecting the ticker
         target_weight = vote_count / sum(vote_count)
 
-12. Convert finalized baskets to the common holdings contract:
+13. Convert finalized baskets to the common holdings contract:
     decision_month = holding_month - 1 month
     Legacy historical transaction cost = 0 bps
     simulate returns with the shared portfolio engine
     compare with SPY total return from adjusted_close
 
-13. Write detailed holdings, monthly returns, reports, manifest, checkpoints,
+14. Write detailed holdings, monthly returns, reports, manifest, checkpoints,
     immutable input snapshot, and CLI log.
 ```
 
@@ -280,9 +289,12 @@ PROFILE legacy_ema_latest_common_v1
 
 11. Convert predictions to the common holdings contract.
 12. Simulate gross return, turnover, 10 bps * turnover cost, and net return.
-13. Fail comparison unless all seven input hashes and both full-trajectory
-    ticker-exclusion sets match.
-14. Write predictions, fold boundaries, feature manifests, train/validation/test
+13. Fail comparison unless all seven input hashes, both full-trajectory
+    ticker-exclusion sets, and both monthly price-eligibility policies match.
+14. Resimulate both Legacy and Boosting holdings with the same comparison cost
+    policy (`10 bps * turnover` in the current reference); keep standalone
+    Legacy production metrics under their documented historical convention.
+15. Write predictions, fold boundaries, feature manifests, train/validation/test
     metrics, exhaustive SHAP, holdings, monthly returns, performance, and lineage.
 ```
 
@@ -293,6 +305,9 @@ data/open_source/output or retained history snapshot
                     |
                     v
 scripts/run_legacy.py ---------------------- immutable Legacy run package
+        |                                             |
+        v                                             |
+src/alpharank/data/price_eligibility.py               |
         |                                             |
         v                                             |
 src/alpharank/data/processing.py                      |
@@ -308,7 +323,7 @@ scripts/experiments/run_multihorizon_boosting.py <----+
         v
 src/alpharank/multihorizon/
     config.py          versioned public profile
-    data.py            research frame, targets, liquidity gate
+    data.py            research frame and targets; consumes shared gate
     legacy_ema.py      causal Legacy-winner EMA feature catalogue
     splits.py          outer walk-forward and purged CPCV
     preprocessing.py   train-only sparse filter and imputation
@@ -346,7 +361,8 @@ interactive HTML research site
 | Monthly production entrypoint | `scripts/run_legacy.py` |
 | Legacy signal and annual Optuna logic | `src/alpharank/strategy/legacy.py` |
 | Current Boosting profile | `src/alpharank/multihorizon/config.py` |
-| Boosting data, target, and liquidity gate | `src/alpharank/multihorizon/data.py` |
+| Shared monthly liquidity/OHLC gate | `src/alpharank/data/price_eligibility.py` |
+| Boosting data and target construction | `src/alpharank/multihorizon/data.py` |
 | Walk-forward and purge | `src/alpharank/multihorizon/splits.py` |
 | XGBoost fitting | `src/alpharank/multihorizon/modeling.py` |
 | Shared holdings and simulation | `src/alpharank/portfolio/` |
@@ -357,3 +373,12 @@ Do not implement another local CAGR, Sharpe, drawdown, benchmark, portfolio
 return, or lineage comparison. Signal changes belong to the method-specific
 modules; everything after finalized holdings belongs to
 `src/alpharank/portfolio/`.
+
+## Validated Reference Run
+
+The current same-data reference is open-source run `20260811_001503`, Legacy
+run `20260812_171646`, and Boosting run
+`legacy_ema_latest_common_shared_eligibility_final_20260812`. The common replay
+passes matching input hashes, ticker exclusions, and monthly price eligibility.
+Its complete holding calendar is August 2011 through July 2026; Boosting has no
+OOS portfolio before August 2011.

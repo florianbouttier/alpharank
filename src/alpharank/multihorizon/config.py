@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Mapping, Tuple
 
 from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+from alpharank.data.price_eligibility import (
+    STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
+    monthly_price_eligibility_policy,
+)
 
 
 DEFAULT_HISTORICAL_EXCLUDED_TICKERS = (
@@ -26,9 +30,18 @@ LATEST_COMMON_COMPARISON_PROFILE = {
     "num_boost_round": 100,
     "shap_sample_per_fold": 0,
     "feature_mode": "legacy_winners_pit_ema_only",
-    "minimum_monthly_price_observations": 10,
-    "minimum_monthly_median_dollar_volume": 1_000_000.0,
-    "maximum_monthly_ohlc_violation_rate": 0.05,
+    "price_eligibility_policy_id": (
+        STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.policy_id
+    ),
+    "minimum_monthly_price_observations": (
+        STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations
+    ),
+    "minimum_monthly_median_dollar_volume": (
+        STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume
+    ),
+    "maximum_monthly_ohlc_violation_rate": (
+        STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate
+    ),
     "random_seed": 42,
 }
 
@@ -89,6 +102,7 @@ class MultiHorizonConfig:
     save_research_frame: bool = False
     feature_mode: str = "broad"
     excluded_tickers: Tuple[str, ...] = DEFAULT_HISTORICAL_EXCLUDED_TICKERS
+    price_eligibility_policy_id: str = "custom"
     minimum_monthly_price_observations: int = 1
     minimum_monthly_median_dollar_volume: float = 0.0
     maximum_monthly_ohlc_violation_rate: float = 1.0
@@ -151,3 +165,13 @@ class MultiHorizonConfig:
             raise ValueError(
                 "maximum_monthly_ohlc_violation_rate must be between 0 and 1."
             )
+        monthly_price_eligibility_policy(
+            policy_id=self.price_eligibility_policy_id,
+            minimum_observations=self.minimum_monthly_price_observations,
+            minimum_median_dollar_volume=(
+                self.minimum_monthly_median_dollar_volume
+            ),
+            maximum_ohlc_violation_rate=(
+                self.maximum_monthly_ohlc_violation_rate
+            ),
+        )

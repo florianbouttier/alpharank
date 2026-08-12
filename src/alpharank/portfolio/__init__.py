@@ -43,6 +43,7 @@ from alpharank.portfolio.lineage import (
     compare_ticker_exclusions,
     input_hashes_from_manifest,
     require_matching_data_contexts,
+    require_matching_price_eligibility,
     require_matching_ticker_exclusions,
     ticker_exclusions_from_manifest,
 )
@@ -73,6 +74,7 @@ __all__ = [
     "reference_monthly_series",
     "reference_return_attribution",
     "require_matching_data_contexts",
+    "require_matching_price_eligibility",
     "require_matching_ticker_exclusions",
     "select_ranked_candidates",
     "simulate_weighted_portfolio",

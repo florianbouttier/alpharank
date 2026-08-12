@@ -90,6 +90,7 @@ def main() -> None:
         type=int,
         default=1,
     )
+    parser.add_argument("--price-eligibility-policy-id", default="custom")
     parser.add_argument(
         "--minimum-monthly-median-dollar-volume",
         type=float,
@@ -134,6 +135,7 @@ def main() -> None:
         shap_sample_per_fold=args.shap_sample_per_fold,
         feature_mode=args.feature_mode,
         excluded_tickers=args.excluded_tickers,
+        price_eligibility_policy_id=args.price_eligibility_policy_id,
         minimum_monthly_price_observations=(
             args.minimum_monthly_price_observations
         ),

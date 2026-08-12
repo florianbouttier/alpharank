@@ -65,6 +65,9 @@ procedure changes.
   percentage-point CAGR contributions are not additive. Report annualized log
   contributions, isolate transaction costs, show the compound-effect bridge,
   and require monthly plus final CAGR reconciliation within `1e-12`.
+- Cross-method performance comparisons must resimulate every investable
+  strategy with the same transaction-cost policy; a standalone production
+  convention may be shown separately but cannot be mixed into the comparison.
 - Every delegated research update should record, in the relevant central doc, the hypothesis, data used, command/run id, primary metric, result, and next decision.
 - Prefer project-visible memory in `AGENTS.md`, `AGENT.md`, and relevant docs over relying on chat history.
 
@@ -84,6 +87,7 @@ procedure changes.
   - `outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/portfolio_report_*_<YYYY-MM>.html`
   - a log under `logs/legacy_runs/` when the command is launched manually
 - The legacy runner must compute from the timestamped run `input_snapshot/`; `data/open_source/output` is only a source to copy from.
+- Snapshot storage should use copy-on-write clones where the filesystem supports them, with a physical-copy fallback and `input_snapshot/storage_manifest.json`; never replace immutable snapshot semantics with symlinks.
 - A manifest without `input_snapshot_dir`, `run_config.source_input_sha256`, and `code_context.critical_file_sha256` is not a complete replay package.
 - For open-source production data, a manifest with `open_source_run_id_match=false`, `open_source_output_manifest_run_id_match=false`, or `open_source_output_matches_published_snapshot=false` is not a clean monthly package and must not be used as production truth without data-package investigation.
 - If rerunning a historical month with newer data changes the portfolio, treat it as data revision/look-ahead risk until proven otherwise.
@@ -91,7 +95,8 @@ procedure changes.
   must pass through the shared portfolio contract for new backtests and reports.
   Any Legacy/boosting performance comparison must also prove matching input
   data hashes and full-trajectory ticker exclusions through
-  `src/alpharank/portfolio/lineage.py`. A shared simulator
+  `src/alpharank/portfolio/lineage.py`, plus the same shared monthly price
+  eligibility policy from `src/alpharank/data/price_eligibility.py`. A shared simulator
   replay on distinct snapshots is mechanical validation only and must be marked
   `comparison_eligible=false`; it is not evidence that the strategies are
   comparable.
