@@ -219,7 +219,9 @@ After a production Legacy run, also validate its immutable replay package:
   --strict-code outputs/<run>/data_input_manifest.json
 ```
 
-The current reference passes 185 tests and strict Legacy replay validation.
+The targeted production-data suite passes 185 tests; the full repository suite
+passes 247 tests. The current Legacy package also passes strict replay
+validation.
 See `docs/monthly_portfolio_runbook.md`,
 `docs/open_source_ingestion_architecture.md`, and
 `docs/legacy_boosting_methodology.md` for the complete operational contracts.
