@@ -115,9 +115,9 @@ Observed effect on the current snapshot:
 
 | Decision month | S&P 500 rows | Eligible | Excluded | Explanation |
 | --- | ---: | ---: | ---: | --- |
-| 2026-05 | 503 | 501 | 2 | Boosting quarantine removes `SW.US`; `CTRA.US` has 5 prices and 75% OHLC violations |
-| 2026-06 | 504 | 503 | 1 | Boosting quarantine removes `SW.US` |
-| 2026-07 | 503 | 501 | 2 | Boosting quarantine removes `SW.US`; `EA.US` has 13.64% OHLC violations |
+| 2026-05 | 503 | 499 | 4 | permanent quarantine removes `SW.US`; `BK.US` and `SATS.US` have no monthly price rows; `CTRA.US` has only 5 observations |
+| 2026-06 | 504 | 502 | 2 | permanent quarantine removes `SW.US`; `SATS.US` has no monthly price rows |
+| 2026-07 | 503 | 502 | 1 | permanent quarantine removes `SW.US`; every remaining member passes the monthly gate |
 
 Legacy additionally requires historical-index membership, available market
 capitalization, and the fundamental screen `0 < PE < 100`. Boosting does not
