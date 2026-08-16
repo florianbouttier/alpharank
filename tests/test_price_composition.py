@@ -7,6 +7,10 @@ from alpharank.data.prices.composition import (
     compose_hybrid_price_history,
     roll_forward_validated_price_history,
 )
+from alpharank.data.prices.history import (
+    build_persistent_price_history_registry,
+    persistent_history_summary,
+)
 from alpharank.data.prices.contracts import ADJUSTMENT_POLICY_VERSION, PRICE_LINEAGE_COLUMNS
 
 
@@ -136,6 +140,13 @@ def test_roll_forward_preserves_inactive_and_replaces_active() -> None:
         [
             _lineage("A.US", ["2026-08-12"], [10.0], source="yfinance", vintage="old"),
             _lineage(
+                "CI.US",
+                ["2026-07-01", "2026-07-02"],
+                [30.0, 31.0],
+                source="yfinance",
+                vintage="first-published",
+            ),
+            _lineage(
                 "OLD.US",
                 ["2020-01-02"],
                 [20.0],
@@ -161,9 +172,24 @@ def test_roll_forward_preserves_inactive_and_replaces_active() -> None:
     assert result.lineage.filter(pl.col("ticker") == "OLD.US").equals(
         previous.filter(pl.col("ticker") == "OLD.US"), null_equal=True
     )
+    assert result.lineage.filter(pl.col("ticker") == "CI.US").equals(
+        previous.filter(pl.col("ticker") == "CI.US"), null_equal=True
+    )
     assert result.lineage.filter(pl.col("ticker") == "A.US")[
         "source_vintage_id"
     ].unique().to_list() == ["fresh"]
+    assert result.composition_report["preserved_open_source_only_tickers"] == 1
+
+    registry = build_persistent_price_history_registry(
+        result.lineage,
+        active_tickers=["A"],
+    )
+    ci = registry.filter(pl.col("ticker") == "CI.US").row(0, named=True)
+    assert ci["persistence_class"] == "inactive_open_source_only"
+    assert ci["has_eodhd_seed"] is False
+    assert ci["has_open_source_history"] is True
+    summary = persistent_history_summary(registry)
+    assert summary["non_eodhd_persisted_tickers"] == ["CI.US"]
 
 
 def test_roll_forward_preserves_confirmed_terminal_active_ticker() -> None:
@@ -188,3 +214,11 @@ def test_roll_forward_preserves_confirmed_terminal_active_ticker() -> None:
         previous.filter(pl.col("ticker") == "EA.US"), null_equal=True
     )
     assert result.composition_report["preserved_terminal_tickers"] == ["EA.US"]
+    registry = build_persistent_price_history_registry(
+        result.lineage,
+        active_tickers=["A", "EA"],
+        preserved_terminal_tickers=["EA"],
+    )
+    assert persistent_history_summary(registry)["non_eodhd_persisted_tickers"] == [
+        "EA.US"
+    ]

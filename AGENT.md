@@ -91,6 +91,12 @@ Current production source:
 - resolve `data/model_inputs/manifests/latest.json` and pass its immutable
   `snapshot_dir`; do not use mutable `data/open_source/output`
 
+The same pointer owns durable price-history continuity. Every previously
+published ticker remains in subsequent price packages after it becomes
+inactive, including Yahoo-only names absent from EODHD. The roll-forward writes
+`persistent_price_history_registry.parquet`; EODHD is the initial delisted seed,
+not the complete long-term persistence boundary.
+
 Launch monthly runs through `./.venv/bin/python scripts/run_legacy.py ...` so
 the CLI captures a timestamped log under `logs/legacy_runs/`.
 

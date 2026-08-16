@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 import polars as pl
 
+from alpharank.data.prices.history import PERSISTENT_PRICE_HISTORY_POLICY_ID
 from alpharank.data.snapshot_storage import copy_snapshot_file
 
 
@@ -164,7 +165,10 @@ def build_composed_model_snapshot(
             "output_sha256": output_hashes,
             "data_freshness": price_manifest.get("data_freshness", {}),
             "validation": {
-                "price_contract": "full_ingestion + EODHD seed + passed revision gate",
+                "price_contract": (
+                    "full_ingestion + preceding validated published lineage + "
+                    "EODHD coverage + passed revision gate"
+                ),
                 "fundamental_contract": "strict SEC-only",
                 "same_snapshot_for_legacy_and_boosting": True,
                 "passed": True,
@@ -253,6 +257,26 @@ def _validate_price_package(
     gate = contract.get("price_revision_guard")
     if not isinstance(gate, Mapping) or gate.get("passed") is not True:
         raise RuntimeError("Price package did not pass the price revision gate")
+    if int(manifest.get("contract_version", 1)) >= 2:
+        persistent = contract.get("persistent_price_history")
+        if (
+            not isinstance(persistent, Mapping)
+            or persistent.get("policy_id") != PERSISTENT_PRICE_HISTORY_POLICY_ID
+            or persistent.get("routine_deletion_allowed") is not False
+        ):
+            raise RuntimeError("Price package has no valid persistent-history contract")
+        validation = manifest.get("validation")
+        if (
+            not isinstance(validation, Mapping)
+            or validation.get("all_previous_validated_inactive_history_preserved")
+            is not True
+            or validation.get("open_source_only_inactive_history_persisted")
+            is not True
+        ):
+            raise RuntimeError("Price package did not prove persistent inactive history")
+        registry = package_dir / "lineage" / "persistent_price_history_registry.parquet"
+        if not registry.is_file():
+            raise RuntimeError("Price package is missing its persistent-history registry")
     if expected_through is not None:
         freshness = manifest.get("data_freshness", {})
         market_date = freshness.get("prices", {}).get("max_market_date")

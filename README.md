@@ -98,6 +98,10 @@ contains:
 - strict SEC/GAAP fundamentals, with every raw filing version retained;
 - a guarded price package that refreshes active securities from one complete
   Yahoo vintage and preserves the frozen EODHD-seeded inactive/delisted history;
+- a persistent published-price registry: once a ticker has appeared in a
+  validated snapshot, its complete retained history survives later refreshes
+  even when it was first downloaded from Yahoo, is absent from EODHD, leaves
+  the active universe, or is no longer downloadable;
 - historical S&P 500 membership, SPY total-return prices, source manifests, and
   SHA-256 hashes for every model input.
 
@@ -119,12 +123,21 @@ the declared seven-day mutable tail:
 - a historical return changing between available and unavailable;
 - a historical price key disappearing;
 - a frozen inactive EODHD seed key disappearing;
+- any previously published inactive ticker/date disappearing, including
+  Yahoo-only histories that have no EODHD seed;
 - an unexplained split-adjustment transition, ticker-reuse splice, or price
   bridge with insufficient overlap or a gap above ten calendar days.
 
 Confirmed splits/dividends must be declared in the versioned corporate-action
 registry and produce a new historized derived package. Published snapshots and
 the frozen EODHD seed are never edited in place.
+
+`scripts/open_source/build_roll_forward_price_package.py` resolves the previous
+validated lineage from `data/model_inputs/manifests/latest.json` by default and
+writes `lineage/persistent_price_history_registry.parquet`. The registry records
+each ticker's first/last date, row count, sources, latest vintage, active status,
+and persistence class. An explicit previous-lineage path remains available only
+for controlled replay or migration.
 
 Fundamental publication is also fail-closed:
 
@@ -220,7 +233,7 @@ After a production Legacy run, also validate its immutable replay package:
 ```
 
 The targeted production-data suite passes 185 tests; the full repository suite
-passes 247 tests. The current Legacy package also passes strict replay
+passes 250 tests. The current Legacy package also passes strict replay
 validation.
 See `docs/monthly_portfolio_runbook.md`,
 `docs/open_source_ingestion_architecture.md`, and

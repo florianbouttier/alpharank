@@ -121,3 +121,21 @@ def test_composed_snapshot_rejects_stale_prices(tmp_path: Path) -> None:
             history_root=tmp_path / "history",
             expected_through="2026-08-16",
         )
+
+
+def test_composed_snapshot_rejects_v2_price_without_persistent_history(tmp_path: Path) -> None:
+    price = tmp_path / "price"
+    sec = tmp_path / "sec"
+    _write_price_package(price)
+    _write_sec_package(sec)
+    manifest_path = price / "lineage" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["contract_version"] = 2
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="persistent-history contract"):
+        build_composed_model_snapshot(
+            price_package_dir=price,
+            sec_package_dir=sec,
+            history_root=tmp_path / "history",
+        )

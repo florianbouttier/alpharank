@@ -14,7 +14,10 @@ import polars as pl
 
 from alpharank.data.prices import (
     audit_price_candidate,
+    build_persistent_price_history_registry,
     load_eodhd_seed,
+    persistent_history_summary,
+    resolve_previous_validated_price_lineage,
     roll_forward_validated_price_history,
     validate_price_candidate,
 )
@@ -31,7 +34,15 @@ def main() -> None:
     (output_dir / "lineage").mkdir()
     (output_dir / "audit").mkdir()
 
-    previous_lineage = pl.read_parquet(args.previous_validated_lineage.resolve())
+    previous_source = None
+    if args.previous_validated_lineage is not None:
+        previous_lineage_path = args.previous_validated_lineage.resolve()
+    else:
+        previous_source = resolve_previous_validated_price_lineage(
+            args.latest_composed_manifest.resolve()
+        )
+        previous_lineage_path = previous_source.lineage_path
+    previous_lineage = pl.read_parquet(previous_lineage_path)
     fresh_yahoo = pl.read_parquet(args.fresh_yahoo_vintage.resolve())
     active_tickers = _latest_constituents(base_dir / "SP500_Constituents.csv")
     terminal_tickers = _validated_terminal_tickers(
@@ -61,10 +72,19 @@ def main() -> None:
         expected_through=args.expected_through,
         policy=PRODUCTION_PRICE_GATE_POLICY,
     )
+    history_registry = build_persistent_price_history_registry(
+        result.lineage,
+        active_tickers=active_tickers,
+        preserved_terminal_tickers=terminal_tickers,
+    )
+    history_summary = persistent_history_summary(history_registry)
 
     result.prices.write_parquet(output_dir / "US_Finalprice.parquet")
     result.lineage.write_parquet(
         output_dir / "lineage" / "prices_open_source_lineage.parquet"
+    )
+    history_registry.write_parquet(
+        output_dir / "lineage" / "persistent_price_history_registry.parquet"
     )
     shutil.copy2(base_dir / "SP500Price.parquet", output_dir / "SP500Price.parquet")
     shutil.copy2(
@@ -85,22 +105,40 @@ def main() -> None:
 
     base_manifest = _read_json(base_dir / "lineage" / "manifest.json")
     source_contract = dict(base_manifest["source_refresh_contract"])
+    source_contract["contract_version"] = 2
     source_contract["price_composition"] = result.composition_report
     source_contract["price_revision_guard"] = gate.report
-    source_contract["previous_validated_price_lineage"] = _file_record(
-        args.previous_validated_lineage.resolve()
-    )
+    source_contract["previous_validated_price_lineage"] = {
+        **_file_record(previous_lineage_path),
+        "resolution": (
+            "explicit_cli_path"
+            if previous_source is None
+            else "latest_composed_model_snapshot"
+        ),
+        "composition_id": (
+            previous_source.composition_id if previous_source is not None else None
+        ),
+    }
     source_contract["fresh_yahoo_vintage"] = _file_record(
         args.fresh_yahoo_vintage.resolve()
     )
     source_contract["eodhd_price_seed"] = seed.manifest()
+    source_contract["persistent_price_history"] = {
+        **history_summary,
+        "semantics": (
+            "Every ticker/date published by the preceding validated lineage is "
+            "retained when the ticker leaves the active refresh universe, "
+            "including histories first acquired from Yahoo and absent from EODHD."
+        ),
+        "routine_deletion_allowed": False,
+    }
     source_contract["policy"] = {
         **source_contract["policy"],
         "allow_historical_price_revisions": False,
         "allow_historical_price_key_removals": False,
     }
     manifest = {
-        "contract_version": 1,
+        "contract_version": 2,
         "scope": "canonical_price_package",
         "run_id": base_manifest["run_id"],
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -117,8 +155,20 @@ def main() -> None:
         },
         "validation": {
             "inactive_history_byte_preserved": True,
+            "all_previous_validated_inactive_history_preserved": True,
+            "open_source_only_inactive_history_persisted": True,
             "active_history_single_fresh_yahoo_vintage": True,
             "price_revision_guard_passed": gate.report["passed"],
+        },
+        "artifacts": {
+            "price_lineage": _file_record(
+                output_dir / "lineage" / "prices_open_source_lineage.parquet"
+            ),
+            "persistent_price_history_registry": _file_record(
+                output_dir
+                / "lineage"
+                / "persistent_price_history_registry.parquet"
+            ),
         },
     }
     _write_json(output_dir / "lineage" / "manifest.json", manifest)
@@ -129,7 +179,25 @@ def main() -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-package-dir", type=Path, required=True)
-    parser.add_argument("--previous-validated-lineage", type=Path, required=True)
+    parser.add_argument(
+        "--previous-validated-lineage",
+        type=Path,
+        help=(
+            "Explicit prior lineage. If omitted, resolve it from the latest "
+            "validated composed model snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--latest-composed-manifest",
+        type=Path,
+        default=(
+            Path(__file__).resolve().parents[2]
+            / "data"
+            / "model_inputs"
+            / "manifests"
+            / "latest.json"
+        ),
+    )
     parser.add_argument("--fresh-yahoo-vintage", type=Path, required=True)
     parser.add_argument("--eodhd-seed", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)

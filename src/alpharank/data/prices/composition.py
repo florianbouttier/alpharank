@@ -157,6 +157,15 @@ def roll_forward_validated_price_history(
         raise RuntimeError(f"Fresh active universe contains {non_yahoo} non-Yahoo rows")
 
     preserved = previous.filter(~pl.col("ticker").is_in(sorted(refreshable_active)))
+    preserved_eodhd_tickers = (
+        preserved.filter(pl.col("source") == "eodhd_frozen_history")
+        .get_column("ticker")
+        .unique()
+        .to_list()
+    )
+    preserved_open_source_only = preserved.filter(
+        ~pl.col("ticker").is_in(preserved_eodhd_tickers)
+    )
     lineage = (
         pl.concat([preserved, yahoo], how="diagonal_relaxed")
         .sort(["ticker", "date"])
@@ -180,6 +189,10 @@ def roll_forward_validated_price_history(
             "previous_rows": previous.height,
             "preserved_history_rows": preserved.height,
             "preserved_history_tickers": preserved.select(
+                pl.col("ticker").n_unique()
+            ).item(),
+            "preserved_open_source_only_rows": preserved_open_source_only.height,
+            "preserved_open_source_only_tickers": preserved_open_source_only.select(
                 pl.col("ticker").n_unique()
             ).item(),
             "active_ticker_count": len(active),

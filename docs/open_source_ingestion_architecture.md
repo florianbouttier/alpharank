@@ -65,9 +65,13 @@ fail-closed promotion sequence:
    submissions, current-member Yahoo histories, SPY, and membership must pass
    freshness checks;
 2. roll the latest validated price lineage forward with
-   `scripts/open_source/build_roll_forward_price_package.py`; inactive histories
-   remain byte-stable, active histories come from one new Yahoo vintage, and
-   the historical return/key gates must pass without routine overrides;
+   `scripts/open_source/build_roll_forward_price_package.py`; by default it
+   resolves that lineage from `data/model_inputs/manifests/latest.json`.
+   Inactive histories remain byte-stable, including tickers first downloaded
+   from Yahoo and absent from EODHD. Active histories come from one new Yahoo
+   vintage, `persistent_price_history_registry.parquet` records every retained
+   trajectory, and the historical return/key gates must pass without routine
+   overrides;
 3. build the strict SEC-only package with
    `scripts/open_source/build_sec_output_package.py`; the 730-day revision guard
    must pass without `--allow-historical-revisions` now that the one-time raw

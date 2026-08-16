@@ -39,6 +39,19 @@ Boosting has 88,948 predictions and 88,948 exhaustive SHAP rows over 181
 decision months. July 2026 is score-only and produces an August target; it is
 not included in performance because August is incomplete.
 
+Price persistence was extended after this snapshot. Contract v2 treats the
+complete preceding validated published lineage as the durable seed, not EODHD
+alone. `build_roll_forward_price_package.py` resolves it automatically from
+`data/model_inputs/manifests/latest.json` and writes
+`persistent_price_history_registry.parquet`. A ticker first ingested from Yahoo
+therefore remains byte-stable after delisting or removal even if it never
+existed in EODHD. Real validation package
+`outputs/production_refresh_20260816/price_package_roll_forward_v5_persistent_contract`
+contains 3,709,695 rows / 840 tickers, identifies `EA.US` as a non-EODHD
+persisted terminal history, removes zero prior keys, and changes zero historical
+daily returns above 1 bp. The v2 compose gate has also been exercised without
+changing the canonical latest pointer.
+
 ## 0.0b Hybrid price candidate - 2026-08-15
 
 Canonical price composition and fail-closed gates now live under

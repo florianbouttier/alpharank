@@ -13,40 +13,32 @@ official snapshot; an EODHD ticker-to-CIK bridge is identity metadata only.
 
 The retained T1 package from 2026-08-11 contains 19,243 selected non-SEC
 fundamental values, so it remains reproducible replay evidence but is not
-SEC-only production truth. There is currently no canonical single-folder
-composition of approved prices plus refreshed SEC-only fundamentals.
+SEC-only production truth. Current production inputs are composed under
+`data/model_inputs/history/` and selected through
+`data/model_inputs/manifests/latest.json`.
 
 ## Price-history warning
 
-The intended price contract is not open-source-only. The frozen archive at
-`data/eodhd/output/US_Finalprice.parquet` must remain the historical seed for
-delisted and former constituents, while Yahoo and other open sources extend
-downloadable names after the EODHD subscription was cancelled.
+The price contract is not open-source-only. The frozen archive at
+`data/eodhd/output/US_Finalprice.parquet` is the initial historical seed for
+delisted and former constituents. It is not the long-term persistence boundary.
+After the first validated publication, the complete preceding published price
+lineage becomes the seed of the next refresh.
 
-The active `output/US_Finalprice.parquet` does not yet satisfy that contract.
-The 2026-08-14 audit found 110 normalized EODHD-only historical constituents
-and 419,656 EODHD rows missing from the open package; its lineage contains no
-EODHD-seeded row. The backtest-relevant gaps are 108 tickers / 271,385 rows
-since 2005 and 104 tickers / 168,242 rows since 2010. "Retains inactive
-histories" currently means only histories
-already bootstrapped from Yahoo, StockAnalysis, or SimFin. It must not be read
-as full Legacy/EODHD delisted coverage.
+Therefore, a ticker first downloaded from Yahoo remains byte-stable after it
+leaves the active universe or becomes unavailable upstream, even when it never
+existed in EODHD. The routine roll-forward resolves the previous lineage from
+`data/model_inputs/manifests/latest.json`, rejects any removed prior inactive
+ticker/date, and writes
+`lineage/persistent_price_history_registry.parquet` with the source and
+lifecycle state of every retained ticker.
 
-Evidence: `outputs/eodhd_price_seed_audit_20260814/`.
-
-The migration code and transition audit are implemented, but the active output
-has not been promoted. The reviewed non-published candidate is
-`outputs/hybrid_price_candidate_20260815_final/`: 3,708,691 valid rows / 840
-tickers, one Yahoo vintage for all 503 active tickers, 143 inactive extensions
-reconstructed from same-vintage returns, and 7 long-gap symbol-reuse tails
-rejected. The candidate replays byte-identically from the frozen EODHD seed,
-Yahoo run `20260813_071802`, and immutable `official/runs/` deltas.
-
-Continue to report active-price freshness and frozen historical-universe
-coverage as separate statuses until that candidate is combined with and
-published alongside a refreshed SEC-only fundamental package. A green
-freshness gate does not make the current active package historically comparable
-with Legacy.
+The 2026-08-16 canonical package has 3,709,695 rows / 840 tickers: 502 active
+tickers from one Yahoo vintage and 338 retained inactive/terminal histories.
+The real persistence replay resolves the preceding snapshot automatically,
+preserves every row, and identifies `EA.US` as a non-EODHD terminal history.
+Future Yahoo-only delistings are classified `inactive_open_source_only` without
+requiring a manual exception once they leave the active constituent universe.
 
 The frozen EODHD archive itself is never edited. If new evidence establishes a
 missing or incorrect split/dividend, publish a versioned correction overlay and

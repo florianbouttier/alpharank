@@ -109,6 +109,13 @@ procedure changes.
   inactive histories byte-stable and replace refreshable active tickers with
   one full Yahoo vintage. A carried-forward terminal ticker requires a sourced
   removal event in the constituent registry and must be listed in the manifest.
+- The durable price seed is the complete preceding validated published lineage,
+  not EODHD alone. A ticker first acquired from Yahoo must remain byte-stable
+  after it leaves the active universe or becomes unavailable upstream, even if
+  it never existed in EODHD. Resolve the preceding lineage from
+  `data/model_inputs/manifests/latest.json` and retain
+  `persistent_price_history_registry.parquet`; routine deletion of any prior
+  inactive ticker/date is forbidden.
 - Launch monthly runs through `./.venv/bin/python scripts/run_legacy.py ...` so the CLI captures a timestamped log.
 - For current production, pass the immutable composed `snapshot_dir`. Keep
   `open_source_run_id` only for explicit replays of the older open-source

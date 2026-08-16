@@ -389,6 +389,14 @@ from the previous validated package because Yahoo no longer serves its full
 history after delisting; the exception is allowed only because the versioned
 constituent registry records its official 2026-08-05 removal.
 
+For every later refresh, the complete preceding validated price lineage is the
+durable base. This includes tickers first ingested from Yahoo that never existed
+in EODHD. When such a ticker leaves the active universe, its published rows are
+copied byte-for-byte and registered as `inactive_open_source_only`; they are not
+redownloaded, discarded, or reconstructed from the current universe. Resolve
+the base from `data/model_inputs/manifests/latest.json` rather than selecting an
+older EODHD-only seed by hand.
+
 The SEC package is a reviewed one-time point-in-time migration. Raw
 Companyfacts now retain each `filing_date`; model exports select the earliest
 filing version. The manifest records the migration note and exhaustive
