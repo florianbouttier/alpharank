@@ -1,35 +1,45 @@
 # Legacy And Boosting Methodologies
 
-Last updated: 2026-08-11
+Last updated: 2026-08-16
 
 This document is the source of truth for signal generation in the two methods
 shown by the common research dashboard. Portfolio simulation, benchmarks,
 performance metrics, lineage validation, and CAGR attribution are documented
 separately in [`common_portfolio_backtest_engine.md`](./common_portfolio_backtest_engine.md).
 
-## Current Retained Comparison Candidate
+## Current Validated Comparison
 
-The retained replay candidate is built from one immutable input snapshot:
+The current replay is built from one immutable composed input snapshot:
 
-- Legacy run: `outputs/2026-08-11/runs/20260811_035522`;
+- source ingestion: `20260816_103942`, with prices and SEC filings through
+  `2026-08-14`;
+- composed snapshot:
+  `data/model_inputs/history/alpharank_input_20260816_120458_2a01288bab06`;
+- Legacy run:
+  `outputs/production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810`;
 - Boosting run:
-  `outputs/multihorizon_boosting/legacy_ema_latest_common_score_tail_20260811_001503_standard`;
+  `outputs/production_refresh_20260816/boosting_latest_common_v3`;
 - common replay:
-  `outputs/common_portfolio_replays/legacy_boosting_20260811_001503_035522_standard`;
-- raw snapshot lineage: all seven required input hashes match;
-- decision calendar: 2011-07 through 2026-06;
+  `outputs/production_refresh_20260816/common_replay_v3`;
+- research dashboard:
+  `outputs/research_dashboard/alpharank_common_20260816_pit_validated`;
+- input lineage: all seven required hashes, the ten-ticker quarantine, and the
+  monthly price-eligibility policy match;
+- decision calendar with realized one-month returns: 2011-07 through 2026-06;
 - holding calendar: 2011-08 through completed 2026-07;
+- score-only decision: 2026-07, producing the August 2026 target without using
+  partial August prices or unevaluable future labels;
 - benchmark: SPY total return from `adjusted_close`;
 - timing: decision at month `t`, holding and return at month `t+1`.
 
-Post-run audit found that the retained artifact is not fully comparison-safe:
-Legacy excluded only `SII.US`, `CBE.US`, and `TIE.US`, while Boosting used the
-ten-ticker `historical_ticker_exclusions_v1` registry. The old comparison
-builder checked raw file hashes but not this preprocessing context. It now
-fails closed on exclusion-set differences, and Legacy enables the versioned
-registry by default. The displayed comparison must be regenerated from an
-aligned Legacy and Boosting pair before it is treated as a pure strategy
-comparison.
+The composed package uses strict SEC-only fundamentals. Prices use one fresh
+Yahoo vintage for 502 refreshable active tickers and preserve 338 validated
+inactive/terminal histories from the frozen EODHD-seeded lineage. Its routine
+price revision gate passes with zero removed historical keys, zero return
+availability changes, zero historical daily-return changes above 1 bp, and
+zero adjustment-transition findings. The SEC package is a reviewed one-time
+point-in-time migration: raw Companyfacts retain filing versions and model
+exports select the earliest available filing.
 
 The two methods may intentionally use different signal logic, but they may not
 silently use different data-quality quarantines or monthly tradability gates.
@@ -49,6 +59,11 @@ preprocessing parity.
 | Sector | Yes, position cap | No |
 | Legacy historical winners | Native output | Yes, only to define the causal EMA feature catalogue available in each fold |
 
+For any new official comparison, the fundamental files in this matrix must be
+SEC/GAAP only. EODHD is retained for historical prices, not fundamental values.
+Both methods must consume the same composed snapshot and hashes even though the
+current Boosting profile ultimately drops fundamental features.
+
 ### Does The Current Boosting Model Use Fundamentals?
 
 No. The shared research-frame builder computes broad technical and fundamental
@@ -64,8 +79,8 @@ Each retained EMA pair contributes five columns:
 4. top-quartile flag;
 5. bottom-quartile flag.
 
-The 15 outer folds contain 10 to 145 features and zero fundamental features.
-The last fold has 29 causal EMA pairs, hence 145 model inputs. Other research
+The 16 outer folds contain 10 to 185 features and zero fundamental features.
+The last fold has 37 causal EMA pairs, hence 185 model inputs. Other research
 modes such as `broad` or `legacy_winners_pit_ema_plus` may include fundamental
 features, but they are not the current public comparison.
 
@@ -119,7 +134,8 @@ raw hashes, full-trajectory exclusions, or the monthly policy differ.
 Canonical entrypoint: `scripts/run_legacy.py`.
 
 ```text
-INPUT requested open-source package or immutable run id
+INPUT one immutable composed package:
+      approved EODHD/open prices + SEC-only fundamentals + constituents
 
 1. Create timestamped run directory.
 2. Copy every required source into run/input_snapshot.
@@ -282,7 +298,8 @@ PROFILE legacy_ema_latest_common_v1
    compute SHAP for every outer-test prediction; no row sampling
 
 10. For each test decision month and N in {5, 10, 20}:
-    rank calibrated probabilities descending with deterministic ticker tie-break
+    rank raw XGBoost scores descending with deterministic ticker tie-break
+    retain isotonic probabilities for calibration diagnostics only
     select top N
     assign equal target weights
     hold during t+1
@@ -376,9 +393,29 @@ modules; everything after finalized holdings belongs to
 
 ## Validated Reference Run
 
-The current same-data reference is open-source run `20260811_001503`, Legacy
-run `20260812_171646`, and Boosting run
-`legacy_ema_latest_common_shared_eligibility_final_20260812`. The common replay
-passes matching input hashes, ticker exclusions, and monthly price eligibility.
-Its complete holding calendar is August 2011 through July 2026; Boosting has no
-OOS portfolio before August 2011.
+The current same-data reference is ingestion `20260816_103942`, Legacy run
+`20260816_142810`, and Boosting run `boosting_latest_common_v3`. The common
+replay passes matching input hashes, ticker exclusions, and monthly price
+eligibility. Its complete realized holding calendar is August 2011 through
+July 2026; Boosting has no OOS portfolio before August 2011. On that exact
+calendar, with 10 bps times turnover for both strategies and no simulated cost
+for SPY, CAGR is 28.1562% for Boosting Top 5, 26.5717% for Boosting Top 10,
+18.9965% for Legacy, and 14.3975% for SPY total return. These are research
+results, not a promotion of Boosting into the canonical monthly production
+workflow.
+
+Boosting retains 88,948 test predictions and exactly 88,948 SHAP rows over 181
+decision months. SHAP is exhaustive, not sampled. There are 16 outer folds;
+the H6 target is mature through decision January 2026, while February through
+July are score-only H6 rows. July's one-month return is deliberately null
+because August is incomplete.
+
+### Completed-month boundary
+
+Both methods share the same completed-month contract. Legacy truncates daily
+price inputs before feature construction. Boosting may still score the final
+completed decision month, but every target whose return window ends after that
+month is forced to null. Such rows remain available for portfolio selection
+and exhaustive SHAP; they are excluded from model metrics and realized
+performance. This prevents a partial current month from becoming either a
+one-month return or a mature six-month label.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
+import math
 from pathlib import Path
 import re
 import time
@@ -29,11 +30,16 @@ class SecCompanyFactsClient:
         user_agent: str,
         timeout: int = 30,
         cache_dir: Path | None = None,
+        refresh_cache: bool = False,
+        persist_cache: bool = True,
         max_retries: int = 5,
         request_pause_seconds: float = 0.25,
     ) -> None:
         self.timeout = timeout
         self.cache_dir = cache_dir
+        self.refresh_cache = refresh_cache
+        self.persist_cache = persist_cache
+        self._response_cache: dict[str, dict[str, Any]] = {}
         self.max_retries = max_retries
         self.request_pause_seconds = request_pause_seconds
         if self.cache_dir is not None:
@@ -86,6 +92,14 @@ class SecCompanyFactsClient:
             cache_name=f"CIK{cik_str}.json",
         )
 
+    def discard_company_facts(self, cik: str | int) -> None:
+        """Release one company payload after all per-run derivations are built."""
+        cik_str = str(cik).zfill(10)
+        self._response_cache.pop(
+            f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_str}.json",
+            None,
+        )
+
     def extract_financials(self, ticker: str, cik: str | int) -> pl.DataFrame:
         payload = self.fetch_company_facts(cik)
         facts_payload = payload.get("facts", {})
@@ -130,9 +144,13 @@ class SecCompanyFactsClient:
         return frame.sort(["ticker", "statement", "metric", "date"])
 
     def _get_json(self, url: str, cache_name: str) -> dict[str, Any]:
+        if url in self._response_cache:
+            return self._response_cache[url]
         cache_path = self.cache_dir / cache_name if self.cache_dir is not None else None
-        if cache_path is not None and cache_path.exists():
-            return json.loads(cache_path.read_text(encoding="utf-8"))
+        if cache_path is not None and cache_path.exists() and not self.refresh_cache:
+            payload = json.loads(cache_path.read_text(encoding="utf-8"))
+            self._response_cache[url] = payload
+            return payload
 
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
@@ -145,8 +163,9 @@ class SecCompanyFactsClient:
                     continue
                 response.raise_for_status()
                 payload = response.json()
-                if cache_path is not None:
+                if cache_path is not None and self.persist_cache:
                     cache_path.write_text(json.dumps(payload), encoding="utf-8")
+                self._response_cache[url] = payload
                 time.sleep(self.request_pause_seconds)
                 return payload
             except requests.RequestException as exc:
@@ -180,7 +199,7 @@ def _select_best_facts(
             candidates.extend(record for record in cleaned if record is not None)
 
     if statement == "shares":
-        return _select_share_facts(candidates)
+        return _select_share_facts(_normalize_share_candidate_scales(candidates))
     if statement in {"income_statement", "cash_flow"}:
         return _select_duration_facts(candidates)
     return _select_instant_facts(candidates)
@@ -391,6 +410,73 @@ def _select_share_facts(candidates: list[dict[str, Any]]) -> list[dict[str, Any]
     return selected
 
 
+def _normalize_share_candidate_scales(
+    candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Repair SEC share facts reported in thousands or millions despite `shares` units."""
+    reference_candidates = [
+        record
+        for record in candidates
+        if record.get("tag")
+        in {"EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding"}
+        and _positive_float(record.get("val")) >= 100_000.0
+    ]
+    if not reference_candidates:
+        reference_candidates = [
+            record for record in candidates if _positive_float(record.get("val")) >= 100_000.0
+        ]
+    if not reference_candidates:
+        return candidates
+
+    normalized: list[dict[str, Any]] = []
+    for record in candidates:
+        value = _positive_float(record.get("val"))
+        if value <= 0.0 or value >= 100_000.0:
+            normalized.append(record)
+            continue
+        reference = min(
+            reference_candidates,
+            key=lambda candidate: _date_distance_days(record.get("end"), candidate.get("end")),
+        )
+        reference_value = _positive_float(reference.get("val"))
+        if reference_value <= 0.0:
+            normalized.append(record)
+            continue
+        factor, scaled_value = min(
+            ((factor, value * factor) for factor in (1.0, 1_000.0, 1_000_000.0)),
+            key=lambda item: abs(math.log10(item[1] / reference_value)),
+        )
+        ratio = scaled_value / reference_value
+        if factor == 1.0 or not 0.05 <= ratio <= 20.0:
+            normalized.append(record)
+            continue
+        normalized.append(
+            {
+                **record,
+                "val": scaled_value,
+                "tag": f"{record['tag']}_unit_scaled_x{int(factor)}",
+            }
+        )
+    return normalized
+
+
+def _positive_float(value: object) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return numeric if math.isfinite(numeric) and numeric > 0.0 else 0.0
+
+
+def _date_distance_days(left: object, right: object) -> int:
+    try:
+        left_date = datetime.strptime(str(left), "%Y-%m-%d").date()
+        right_date = datetime.strptime(str(right), "%Y-%m-%d").date()
+    except ValueError:
+        return 10**9
+    return abs((left_date - right_date).days)
+
+
 def _collapse_share_group(records: list[dict[str, Any]]) -> dict[str, Any] | None:
     total_candidates = [record for record in records if _is_total_share_record(record)]
     if total_candidates:
@@ -512,7 +598,6 @@ def _select_duration_facts(candidates: list[dict[str, Any]]) -> list[dict[str, A
 
     direct_by_fy_fp = _dedupe_by_fy_fp(direct_by_end.values())
     cumulative_by_fy_fp = _dedupe_by_fy_fp(cumulative_q2_q3)
-    annual_by_fy = _dedupe_annuals_by_fy(annuals)
 
     derived_from_cumulative = _derive_missing_quarters_from_cumulative(
         direct_by_fy_fp=direct_by_fy_fp,
@@ -522,7 +607,7 @@ def _select_duration_facts(candidates: list[dict[str, Any]]) -> list[dict[str, A
         chosen_by_end.setdefault(str(record["end"]), record)
 
     q4_basis = {**direct_by_fy_fp, **_dedupe_by_fy_fp(derived_from_cumulative)}
-    derived_q4 = _derive_q4_facts(q4_basis.values(), annual_by_fy.values())
+    derived_q4 = _derive_q4_facts(q4_basis.values(), annuals)
     for record in derived_q4:
         chosen_by_end.setdefault(str(record["end"]), record)
 
@@ -616,19 +701,25 @@ def _duration_bucket_priority(record: dict[str, Any]) -> tuple[int, int]:
     return (9, duration)
 
 
-def _fy_fp_record_sort_key(record: dict[str, Any]) -> tuple[int, int, int, str]:
+def _fy_fp_record_sort_key(record: dict[str, Any]) -> tuple[int, int, int, int, str]:
     bucket_rank, bucket_distance = _duration_bucket_priority(record)
     return (
         bucket_rank,
         bucket_distance,
         int(bool(record.get("has_dimensions"))),
+        int(record.get("tag_priority") or 0),
         str(record.get("filed") or ""),
     )
 
 
-def _annual_record_sort_key(record: dict[str, Any]) -> tuple[int, int, str]:
+def _annual_record_sort_key(record: dict[str, Any]) -> tuple[int, int, int, str]:
     duration = int(record.get("duration_days") or 0)
-    return (abs(duration - 365), int(bool(record.get("has_dimensions"))), str(record.get("filed") or ""))
+    return (
+        abs(duration - 365),
+        int(bool(record.get("has_dimensions"))),
+        int(record.get("tag_priority") or 0),
+        str(record.get("filed") or ""),
+    )
 
 
 def _derive_missing_quarters_from_cumulative(
@@ -782,16 +873,17 @@ def _derive_cumulative_quarter(
 
 def _derive_q4_facts(quarterlies: Iterable[dict[str, Any]], annuals: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     quarterly_records = list(quarterlies)
+    annual_records = list(annuals)
     quarterly_by_fy_fp = {
         (record.get("fy"), record.get("fp")): record
         for record in quarterly_records
         if record.get("fy") is not None and record.get("fp") in {"Q1", "Q2", "Q3", "Q4"}
     }
     derived: list[dict[str, Any]] = []
-    for annual in annuals:
-        fy = annual.get("fy")
-        if fy is None:
-            continue
+    fiscal_years = sorted(
+        {int(record["fy"]) for record in annual_records if record.get("fy") is not None}
+    )
+    for fy in fiscal_years:
         q1 = quarterly_by_fy_fp.get((fy, "Q1"))
         q2 = quarterly_by_fy_fp.get((fy, "Q2"))
         q3 = quarterly_by_fy_fp.get((fy, "Q3"))
@@ -800,6 +892,20 @@ def _derive_q4_facts(quarterlies: Iterable[dict[str, Any]], annuals: Iterable[di
             continue
         inferred_end = _infer_next_quarter_end(q3)
         inferred_start = _infer_next_quarter_start(q3)
+        annual_candidates = [
+            record for record in annual_records if int(record.get("fy") or -1) == fy
+        ]
+        if not annual_candidates:
+            continue
+        annual = min(
+            annual_candidates,
+            key=lambda record: (
+                _date_distance_days(inferred_end, record.get("end")),
+                _annual_record_sort_key(record),
+            ),
+        )
+        if _date_distance_days(inferred_end, annual.get("end")) > 120:
+            continue
         derived.append(
             {
                 **annual,

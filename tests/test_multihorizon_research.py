@@ -6,7 +6,10 @@ import numpy as np
 import polars as pl
 import pytest
 
-from alpharank.multihorizon.data import _add_multihorizon_targets
+from alpharank.multihorizon.data import (
+    _add_multihorizon_targets,
+    mask_targets_after_completed_month,
+)
 from alpharank.multihorizon.data import _append_legacy_labels
 from alpharank.data.price_eligibility import (
     MonthlyPriceEligibilityPolicy,
@@ -266,6 +269,27 @@ def test_score_only_tail_builds_portfolio_without_a_mature_h6_target() -> None:
     assert portfolio["realized_one_month_excess"][0] == pytest.approx(0.06)
 
 
+def test_prediction_portfolio_breaks_equal_scores_by_ticker() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2026, 6, 1)] * 4,
+            "ticker": ["D", "B", "C", "A"],
+            "score": [0.5] * 4,
+            "legacy_selected": [0, 1, 0, 1],
+            "future_excess_return_6m": [None] * 4,
+            "future_excess_return_1m": [0.04, 0.02, 0.03, 0.01],
+        }
+    )
+
+    portfolio = build_prediction_portfolios(
+        predictions,
+        horizon=6,
+        top_n_values=(2,),
+    )
+
+    assert portfolio["realized_one_month_excess"][0] == pytest.approx(0.015)
+
+
 def test_score_only_panel_stops_at_explicit_complete_decision_month() -> None:
     frame = pl.DataFrame(
         {
@@ -292,6 +316,59 @@ def test_score_only_panel_stops_at_explicit_complete_decision_month() -> None:
         date(2026, 5, 1),
         date(2026, 6, 1),
     ]
+
+
+def test_score_only_panel_keeps_final_decision_without_realized_return() -> None:
+    frame = pl.DataFrame(
+        {
+            "decision_month": [date(2026, 6, 1), date(2026, 7, 1)],
+            "ticker": ["A", "A"],
+            "future_excess_return_1m": [0.02, None],
+            "legacy_label_available": [1, 1],
+        }
+    )
+
+    panel = _score_only_panel(
+        frame,
+        method="classification",
+        feature_mode="legacy_winners_pit_ema_only",
+        end_month="2026-07",
+    )
+
+    assert panel is not None
+    assert panel["decision_month"].to_list() == [
+        date(2026, 6, 1),
+        date(2026, 7, 1),
+    ]
+
+
+def test_future_targets_are_masked_after_completed_calendar() -> None:
+    frame = pl.DataFrame(
+        {
+            "decision_month": [
+                date(2026, 1, 1),
+                date(2026, 2, 1),
+                date(2026, 6, 1),
+                date(2026, 7, 1),
+            ],
+            "future_return_1m": [0.01, 0.02, 0.03, 0.04],
+            "future_excess_return_1m": [0.01, 0.02, 0.03, 0.04],
+            "benchmark_future_return_1m": [0.0, 0.0, 0.0, 0.0],
+            "future_return_6m": [0.10, 0.20, None, None],
+            "future_excess_return_6m": [0.10, 0.20, None, None],
+            "benchmark_future_return_6m": [0.0, 0.0, None, None],
+        }
+    )
+
+    result = mask_targets_after_completed_month(
+        frame,
+        horizons=(1, 6),
+        completed_through_month=date(2026, 7, 1),
+    )
+
+    assert result["future_return_1m"].to_list() == [0.01, 0.02, 0.03, None]
+    assert result["future_return_6m"].to_list() == [0.10, None, None, None]
+    assert result["benchmark_future_return_6m"].to_list() == [0.0, None, None, None]
 
 
 def test_prediction_status_separates_ticker_gaps_from_horizon_maturity() -> None:

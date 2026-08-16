@@ -343,7 +343,10 @@ def holdings_and_concentration(
     selected_parts: list[pl.DataFrame] = []
     for month in predictions.partition_by("decision_month", maintain_order=True):
         selected_parts.append(
-            month.sort("score", descending=True)
+            month.sort(
+                ["score", "ticker"],
+                descending=[True, False],
+            )
             .head(top_n)
             .with_row_index("selection_rank", offset=1)
         )

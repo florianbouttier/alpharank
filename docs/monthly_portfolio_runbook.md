@@ -12,13 +12,60 @@ Before running the workflow, read `AGENTS.md` and `AGENT.md`. If the procedure
 or expected artifacts differ from those files, update the documentation in the
 same task.
 
-The current open-source data source is:
+## Required Input Composition
 
-```text
-data/open_source/output
+There is currently no single folder that satisfies the clarified production
+contract. A new official monthly snapshot must be composed from:
+
+- approved hybrid prices: frozen EODHD history for delisted/former constituents
+  plus audited open-source extensions and corporate-action corrections;
+- SEC-only fundamentals from an immutable `data/sec/output` snapshot;
+- the historical constituent calendar;
+- explicit price-lineage, SEC-lineage, source hashes, and one composition id.
+
+`data/open_source/output` is a mixed-source R&D/replay package. It must not be
+used for a new production recommendation: retained T1 selected 19,243 non-SEC
+fundamental values, and its price layer is still missing the frozen EODHD seed.
+The old T1/T2 Legacy runs remain valid evidence of what the old package
+produced, but they are not SEC-only production runs.
+
+Until the composed-package builder and validator exist, the monthly production
+workflow is blocked at data assembly. Do not work around this by manually
+copying unmanifested files into one folder.
+
+Before composing a future model snapshot, extend the membership calendar,
+refresh the price research store, and rebuild/historize the SEC-only package.
+The following ingestion command alone does not create a production model input:
+
+```bash
+./.venv/bin/python scripts/open_source/refresh_sp500_constituents.py \
+  --target-month YYYY-MM-01
+
+./.venv/bin/python scripts/open_source/nightly_ingestion.py
 ```
 
-Run the full monthly workflow from the repository root:
+Despite its historical name, the second command applies the multi-source full
+refresh contract: complete available Yahoo price history for the latest active universe and SPY, full SEC companyfacts
+payloads including historical revisions, fresh SEC submissions, and refreshed
+fallback bulk/history sources. HTTP payloads are not replay data;
+`official/raw`, run deltas, and immutable snapshots are retained.
+
+Fallback financial rows produced by this command are for R&D/audit only. The
+composed model snapshot must replace every fundamental file with its SEC-only
+counterpart and validate allowed lineage sources.
+
+Before Legacy, require `source_refresh_contract.snapshot_scope=full_ingestion`
+and inspect `data_freshness`. Also require a retained
+`official/runs/<run_id>/historical_revision_guard.json`, the same guard embedded
+in `source_refresh_contract`, and no quarantine marker. Historical revisions
+older than 730 days block by default; the override requires explicit review and
+is never part of the normal monthly command. Do not confuse
+`financials.max_fiscal_period_end` with source freshness: a June accounting
+period can be normal in August, while an old `max_sec_filing_date` must fail the
+freshness gate.
+
+The historical command below reproduces the mixed-source workflow only. It is
+retained for replay/diagnosis and must not be labelled current production:
 
 ```bash
 ./.venv/bin/python scripts/run_legacy.py \
@@ -30,8 +77,10 @@ Run the full monthly workflow from the repository root:
   --checkpoints-dir outputs/checkpoints_open_source_YYYYMMDD
 ```
 
-Use a date-stamped checkpoint directory so a new run does not overwrite another
-audit trail.
+Use a date-stamped checkpoint directory so a diagnostic replay does not
+overwrite another audit trail. A future production command must point
+`--data-dir` to the immutable composed package, not
+`data/open_source/output`.
 
 The versioned `historical_ticker_exclusions_v1` data-quality quarantine is
 enabled by default. The manifest must record its path, id, hash, and complete
@@ -60,8 +109,9 @@ minimum durable evidence for a monthly run is the command log plus
 `outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/input_snapshot/`. The legacy runner
 computes from this local input snapshot, not from the mutable source directory.
 
-For a point-in-time replay, prefer the immutable open-source run identifier
-instead of the mutable `data/open_source/output` directory:
+For a point-in-time replay of the historical mixed-source workflow, prefer the
+immutable open-source run identifier instead of the mutable
+`data/open_source/output` directory:
 
 ```bash
 ./.venv/bin/python scripts/run_legacy.py \
@@ -187,6 +237,10 @@ Required audit fields in
 - `open_source_run_id_match`
 - `open_source_price_window`
 - `open_source_financial_years_refreshed`
+- `open_source_sec_companyfacts_years_refreshed`
+- `open_source_source_refresh_scope`
+- `open_source_source_refresh_contract`
+- `open_source_data_freshness`
 - `open_source_ticker_count`
 
 If `open_source_run_id_match`, `open_source_output_manifest_run_id_match`, or
@@ -195,6 +249,8 @@ as a clean point-in-time monthly portfolio without investigating the data
 package first. A clean open-source package must have matching
 `snapshot_manifest.json`, `lineage/manifest.json`, ingestion run manifest ids,
 and file hashes matching the ingestion manifest's published output snapshot.
+If `open_source_source_refresh_scope` is present and is not `full_ingestion`,
+the package is diagnostic and not production-clean.
 
 If the `input_snapshot/` directory is missing, the run is not fully replayable.
 Treat historical outputs without that directory as audit evidence only, not as a
@@ -237,14 +293,16 @@ snapshots and retain the generated audit:
   --target-month YYYY-MM-01
 ```
 
-Then backfill the prices of the newly active or renamed tickers and republish a
-complete, immutable open-source package:
+The targeted price command remains available for diagnosis and repair:
 
 ```bash
 ./.venv/bin/python scripts/open_source/refresh_current_constituent_prices.py
 ```
 
-The refresh is production-clean only when:
+It publishes a package marked
+`snapshot_scope=current_constituent_price_refresh`; it is not the final monthly
+production package. Follow it with the full ingestion described above. The
+resulting full ingestion is production-clean only when:
 
 - every current constituent has a non-null adjusted price through the same
   recent trading session;
@@ -286,13 +344,57 @@ current members covered, 502 through 2026-08-10 and one through 2026-08-07, with
 no current-member adjusted-close move of 40% or more. The current Legacy replay
 is `outputs/2026-08-11/runs/20260811_035522` and validates against that retained
 snapshot. Refresh and restore commands must acquire
-`data/open_source/official/locks/nightly.lock.json`; never run a second publisher
+`data/open_source/official/manifests/nightly.lock.json`; never run a second publisher
 while the full ingestion holds it.
 
 If the latest price date is inside an unfinished month, use the preceding
 calendar month as the decision month. A partial July dataset can be displayed
 as freshness evidence, but it must not silently become the July decision input
 for an August portfolio.
+
+`scripts/run_legacy.py` enforces this before feature construction: the raw
+snapshot and manifest retain the newest partial prices for audit, while model
+inputs are truncated to `run_config.decision_data_completed_through_month`.
+Consequently, a run performed during August produces the final August target
+from the completed July decision and must not publish a September target based
+on partial August prices.
+
+## Retained 2026-08-16 data refresh
+
+The full ingestion run is `20260816_103942`. Prices and SEC filing dates both
+reach 2026-08-14. New model runs must resolve
+`data/model_inputs/manifests/latest.json`, currently composed snapshot
+`data/model_inputs/history/alpharank_input_20260816_120458_2a01288bab06`,
+or the byte-identical `input_snapshot/` retained by its Legacy run.
+
+The Legacy CLI does not infer this pointer: resolve `snapshot_dir` from the
+JSON pointer and pass it explicitly with `--data-dir`. A run pointed at
+`data/open_source/output` is not production under this contract.
+
+The completed canonical Legacy run is
+`outputs/production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810`.
+Its strict replay validator passes. It excludes partial August prices before
+feature construction, uses the completed July decision, and publishes the
+August 2026 `Combined_Frequency` target. Its realized performance ledger stops
+at holding month July 2026; this is expected because August is not complete.
+The aligned Boosting replay is
+`outputs/production_refresh_20260816/boosting_latest_common_v3`, and the
+same-snapshot common comparison is
+`outputs/production_refresh_20260816/common_replay_v3`.
+
+The price package passed without a historical revision override: zero removed
+old keys, zero old return-availability changes, zero old daily-return changes
+above 1 bp, and zero adjustment-transition findings. EA is carried forward
+from the previous validated package because Yahoo no longer serves its full
+history after delisting; the exception is allowed only because the versioned
+constituent registry records its official 2026-08-05 removal.
+
+The SEC package is a reviewed one-time point-in-time migration. Raw
+Companyfacts now retain each `filing_date`; model exports select the earliest
+filing version. The manifest records the migration note and exhaustive
+historical revision guard. Do not regenerate this migration with an unlabelled
+`--allow-historical-revisions` flag: the CLI requires
+`--revision-review-note`.
 
 ## Boosting Production Candidate
 

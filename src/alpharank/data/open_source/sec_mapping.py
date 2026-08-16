@@ -16,10 +16,10 @@ def resolve_sec_company_mapping(
     if not requested:
         return _empty_mapping_frame()
 
-    manual_bridge = load_sec_historical_ticker_bridge(reference_data_dir).filter(pl.col("ticker").is_in(list(requested)))
-    live = _prepare_live_sec_mapping(sec_mapping_all).filter(pl.col("ticker").is_in(list(requested)))
-    lineage_bridge = _prepare_raw_lineage_bridge(existing_general_reference_lineage).filter(pl.col("ticker").is_in(list(requested)))
-    eodhd_bridge = _prepare_eodhd_cik_bridge(reference_data_dir).filter(pl.col("ticker").is_in(list(requested)))
+    manual_bridge = load_sec_historical_ticker_bridge(reference_data_dir)
+    live = _prepare_live_sec_mapping(sec_mapping_all)
+    lineage_bridge = _prepare_raw_lineage_bridge(existing_general_reference_lineage)
+    eodhd_bridge = _prepare_eodhd_cik_bridge(reference_data_dir)
 
     combined = (
         pl.concat([manual_bridge, live, lineage_bridge, eodhd_bridge], how="diagonal_relaxed")
@@ -29,10 +29,48 @@ def resolve_sec_company_mapping(
     if combined.is_empty():
         return combined
 
+    combined = _expand_requested_ticker_aliases(combined, requested=requested)
+
     return (
-        combined.sort(["ticker", "mapping_priority", "name", "exchange", "cik"], descending=[False, False, False, False, False])
+        combined.sort(
+            ["ticker", "ticker_alias_priority", "mapping_priority", "name", "exchange", "cik"],
+            descending=[False, False, False, False, False, False],
+        )
         .unique(subset=["ticker"], keep="first", maintain_order=True)
+        .drop("ticker_alias_priority")
         .sort("ticker")
+    )
+
+
+def _expand_requested_ticker_aliases(
+    mapping: pl.DataFrame,
+    *,
+    requested: tuple[str, ...],
+) -> pl.DataFrame:
+    alias_rows: list[dict[str, object]] = []
+    for ticker in requested:
+        alias_rows.append(
+            {
+                "mapping_ticker": ticker,
+                "requested_ticker": ticker,
+                "ticker_alias_priority": 0,
+            }
+        )
+        yahoo_alias = ticker.replace(".", "-")
+        if yahoo_alias != ticker:
+            alias_rows.append(
+                {
+                    "mapping_ticker": yahoo_alias,
+                    "requested_ticker": ticker,
+                    "ticker_alias_priority": 1,
+                }
+            )
+    aliases = pl.DataFrame(alias_rows)
+    return (
+        mapping.rename({"ticker": "mapping_ticker"})
+        .join(aliases, on="mapping_ticker", how="inner")
+        .drop("mapping_ticker")
+        .rename({"requested_ticker": "ticker"})
     )
 
 

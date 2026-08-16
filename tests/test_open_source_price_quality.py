@@ -7,7 +7,9 @@ import pytest
 
 from alpharank.data.open_source.price_quality import (
     assert_no_extreme_adjusted_price_moves,
+    build_split_detection_prices,
     find_extreme_adjusted_price_moves,
+    repair_confirmed_split_discontinuities,
 )
 from alpharank.data.open_source.storage import merge_upsert_frames
 
@@ -51,6 +53,93 @@ def test_price_quality_ignores_moves_before_refresh_window() -> None:
     )
     findings = find_extreme_adjusted_price_moves(prices, event_since="2026-08-01")
     assert findings.is_empty()
+
+
+def test_full_refresh_split_detection_cannot_be_masked_by_old_adjusted_vintage() -> None:
+    existing = pl.DataFrame(
+        {
+            "ticker": ["MNST.US", "MNST.US"],
+            "date": ["2026-08-07", "2026-08-11"],
+            "adjusted_close": [45.18, 45.53],
+        }
+    )
+    fresh = pl.DataFrame(
+        {
+            "ticker": ["MNST.US", "MNST.US"],
+            "date": ["2026-08-07", "2026-08-11"],
+            "adjusted_close": [90.36, 45.53],
+        }
+    )
+
+    detection = build_split_detection_prices(
+        existing_prices=existing,
+        fresh_prices=fresh,
+        full_history_refresh=True,
+    )
+    findings = find_extreme_adjusted_price_moves(
+        detection,
+        event_since="2026-08-09",
+    )
+
+    assert findings.height == 1
+    assert findings["date"].item() == date(2026, 8, 11)
+
+
+def test_confirmed_split_repair_back_adjusts_only_pre_event_delta() -> None:
+    delta = pl.DataFrame(
+        {
+            "ticker": ["MNST.US", "MNST.US"],
+            "date": ["2026-08-10", "2026-08-11"],
+            "open": [90.0, 45.0],
+            "high": [92.0, 46.0],
+            "low": [89.0, 44.0],
+            "close": [91.43, 45.53],
+            "adjusted_close": [91.43, 45.53],
+            "volume": [5_000_000.0, 11_000_000.0],
+        }
+    )
+    findings = find_extreme_adjusted_price_moves(delta, event_since="2026-08-11")
+    splits = pl.DataFrame(
+        {
+            "ticker": ["MNST.US"],
+            "date": ["2026-08-11"],
+            "split_ratio": [2.0],
+            "source": ["yahoo_actions"],
+        }
+    )
+
+    repaired, repairs = repair_confirmed_split_discontinuities(
+        delta,
+        findings=findings,
+        splits=splits,
+    )
+
+    assert repairs[0]["split_ratio"] == 2.0
+    assert repaired["adjusted_close"].to_list() == pytest.approx([45.715, 45.53])
+    assert repaired["volume"].to_list() == pytest.approx([10_000_000.0, 11_000_000.0])
+    assert_no_extreme_adjusted_price_moves(repaired, event_since="2026-08-11")
+
+
+def test_unconfirmed_split_does_not_repair_jump() -> None:
+    delta = pl.DataFrame(
+        {
+            "ticker": ["A.US", "A.US"],
+            "date": ["2026-08-10", "2026-08-11"],
+            "adjusted_close": [100.0, 50.0],
+        }
+    )
+    findings = find_extreme_adjusted_price_moves(delta, event_since="2026-08-11")
+
+    repaired, repairs = repair_confirmed_split_discontinuities(
+        delta,
+        findings=findings,
+        splits=pl.DataFrame(
+            schema={"ticker": pl.String, "date": pl.String, "split_ratio": pl.Float64}
+        ),
+    )
+
+    assert repairs == []
+    assert repaired.equals(delta)
 
 
 def test_merge_upsert_frames_has_no_persistence_side_effect() -> None:

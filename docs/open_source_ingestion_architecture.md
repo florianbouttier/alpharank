@@ -10,6 +10,216 @@ Important scope note:
 - the SEC-only fundamentals package has its own contract in `docs/sec_fundamentals_contract.md`
 - the June 2026 replayability and data-drift incident is tracked in `docs/sec_data_robustness_plan.md`
 
+## Official Fundamental Contract: SEC/GAAP Only
+
+Official model fundamentals come exclusively from the SEC package documented
+in `docs/sec_fundamentals_contract.md`:
+
+- SEC companyfacts;
+- filing-level SEC XBRL;
+- explicitly labelled derived values calculated only from SEC facts.
+
+EODHD fundamental values are excluded because the historical vendor fields can
+mix non-GAAP semantics with GAAP facts. Yahoo, SimFin, StockAnalysis, and EODHD
+may be used for research discrepancy analysis, but none may fill a missing
+official fundamental value. A historical EODHD ticker/CIK mapping is permitted
+only as an identity bridge to reach the SEC; it is not a value source.
+
+`data/open_source/output` still publishes a multi-source consolidation for R&D
+and transition audits. It must not be mistaken for the official monthly
+fundamental package. `data/sec/output` is an older SEC-only baseline; current
+production resolves the immutable SEC-only successor through
+`data/model_inputs/manifests/latest.json`.
+
+### Verified status on 2026-08-16
+
+Fresh full ingestion `20260816_103942` downloaded prices through 2026-08-14
+and SEC filings through 2026-08-14. The mutable mixed-source output remains an
+R&D artifact, but the production composition gap is now closed by immutable
+snapshot `outputs/production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06`
+(composition id `2a01288bab06102fce4f18cfd66c04e416fb4b3236aa5edf4c46a0ea213be9be`).
+The canonical pointer is `data/model_inputs/manifests/latest.json`, resolving
+the hash-identical historized copy under `data/model_inputs/history/`.
+
+Its price package rolls forward the reviewed EODHD/Yahoo candidate: 338
+inactive or terminal tickers are preserved from the prior validated lineage,
+502 refreshable active tickers use only Yahoo vintage `20260816_103942`, and
+EA is the sole carried-forward terminal exception after its sourced 2026-08-05
+index removal. The strict gate reports zero historical key removals, zero
+historical return-availability changes, zero old daily-return revisions above
+1 bp, and zero adjustment-transition findings.
+
+The SEC package preserves 509,254 raw Companyfacts filing versions. Raw
+uniqueness now includes `filing_date`; model exports select the earliest filing
+version per ticker/statement/metric/period/source. The one-time migration from
+the previously collapsed raw store is explicitly approved in the SEC manifest
+and retains the exhaustive 730-day revision guard. Both packages are copied
+into the composed snapshot and all nine model files are hash-verified.
+
+### Repeatable routine refresh after the migration
+
+The next refresh is not "refresh SEC and overwrite one folder". It is one
+fail-closed promotion sequence:
+
+1. run a full network ingestion to a timestamped candidate; Companyfacts,
+   submissions, current-member Yahoo histories, SPY, and membership must pass
+   freshness checks;
+2. roll the latest validated price lineage forward with
+   `scripts/open_source/build_roll_forward_price_package.py`; inactive histories
+   remain byte-stable, active histories come from one new Yahoo vintage, and
+   the historical return/key gates must pass without routine overrides;
+3. build the strict SEC-only package with
+   `scripts/open_source/build_sec_output_package.py`; the 730-day revision guard
+   must pass without `--allow-historical-revisions` now that the one-time raw
+   version migration is complete;
+4. compose both validated packages with
+   `scripts/open_source/build_composed_model_snapshot.py`; update
+   `data/model_inputs/manifests/latest.json` only after all source hashes and
+   source allowlists pass;
+5. launch Legacy on that immutable path, launch Boosting on the exact retained
+   Legacy `input_snapshot/`, then require the common lineage/calendar replay.
+
+Any failed step leaves the previous pointer and production truth unchanged.
+
+### Previous verified status on 2026-08-15
+
+The retained T1 snapshot `open_source_output_20260811_014746` selected 426,195
+consolidated fundamental values: 406,952 from SEC companyfacts/filing extraction
+and 19,243 from non-SEC fallbacks (14,754 Yahoo and 4,489 SimFin). Legacy runs
+that consumed this single-folder snapshot are reproducible, but they are not
+compliant with the clarified SEC-only production contract.
+
+`data/open_source/output` must still be labelled mixed-source research/replay
+data. The immutable composed snapshot described above supersedes this former
+composition gap for new model runs.
+
+## Historical Price Contract: Frozen EODHD Base Plus Open Updates
+
+Price history is intentionally different from fundamentals. Cancelling the
+EODHD subscription stopped future downloads; it did not make the already-paid
+historical archive disposable. The required long-run price package is hybrid:
+
+1. `data/eodhd/output/US_Finalprice.parquet` is the immutable EODHD historical
+   seed, including former constituents and delisted companies that Yahoo no
+   longer returns;
+2. open sources refresh or extend securities that remain downloadable;
+3. a missing Yahoo response must never delete or replace an EODHD-only history;
+4. every selected row must retain its real source, including
+   `eodhd_frozen_history` for seeded rows;
+5. vendor transitions and split adjustments must be stitched and audited
+   explicitly. A rolling Yahoo tail must not be pasted onto an incompatible
+   EODHD or older-Yahoo adjustment regime.
+
+The frozen EODHD parquet is immutable source evidence. The canonical derived
+price package is nevertheless correctable when new corporate-action evidence
+arrives:
+
+- for a split ratio `r`, pre-event OHLC values may be divided by `r` and volume
+  multiplied by `r` according to the package's adjusted-history convention;
+- a dividend correction must leave raw OHLCV unchanged and recompute only the
+  adjusted-close/total-return factor;
+- every correction is a versioned overlay recording ticker, ex-date, split
+  ratio or cash dividend, evidence source, retrieval timestamp, affected date
+  range, old/new hashes, and row-level diff;
+- the correction produces a new immutable output snapshot. It never rewrites
+  `data/eodhd/output/US_Finalprice.parquet` or an older published snapshot.
+
+This is the rationale for incremental ingestion: preserve the broad frozen
+historical base while adding new observations, not rebuild the historical
+universe from whichever tickers Yahoo still recognizes today.
+
+### Verified status on 2026-08-14
+
+The active output still predates the migration, but the canonical composition
+and fail-closed publication gates are now implemented in
+`src/alpharank/data/prices/` and wired into full ingestion:
+
+- `data/eodhd/output/US_Finalprice.parquet` is byte-identical to
+  `data/US_Finalprice.parquet` and contains 6,254,372 rows / 835 tickers;
+- `data/open_source/output/US_Finalprice.parquet` contains 3,723,301 rows / 732
+  tickers;
+- 723 ticker symbols are common, 112 EODHD symbols are absent, and two of those
+  are punctuation aliases (`BF-B`/`BF.B` and `BRK-B`/`BRK.B`);
+- after alias normalization, 110 historical constituents and 419,656 EODHD
+  price rows remain absent from the open package;
+- restricted to the configured 2005+ horizon, the gap is 108 tickers / 271,385
+  rows; restricted to the 2010+ Legacy backtest horizon, it is 104 tickers /
+  168,242 rows;
+- the active open price lineage contains only `yfinance`, `stockanalysis`, and
+  `simfin`; it contains zero EODHD-seeded rows because the reviewed candidate
+  has deliberately not replaced the active mixed-fundamental package.
+
+The machine-readable ticker/date audit and its HTML view are retained under
+`outputs/eodhd_price_seed_audit_20260814/`.
+
+Therefore the current active package preserves 229 inactive histories that happened
+to have been bootstrapped from free sources, but it does **not** preserve the
+complete frozen EODHD delisted universe. Until a reviewed EODHD-seed migration,
+coverage parity with the Legacy price history must be reported as false. A
+successful freshness gate for the active S&P 500 universe does not prove this
+historical coverage contract.
+
+The reviewed, non-published migration candidate is
+`outputs/hybrid_price_candidate_20260815_final/`. It uses frozen EODHD hash
+`0ee4b6d9766fef6942f12bb1591426302b29e19347fb32c87cb04e6777b3f8f5`
+and the single Yahoo active-universe vintage `20260813_071802`. It contains
+3,708,691 valid price rows / 840 tickers, all 503 active tickers come from that
+one Yahoo vintage, 143 recent inactive histories are extended from
+same-vintage daily returns, and 7 long-gap symbol reuses are rejected. Its
+price and lineage parquets replay byte-identically from the retained inputs.
+
+Migration overrides were required and are recorded: 23,885 historical daily
+return differences exceed 1 bp, 45,739 return-availability states change, and
+7,257 prior non-null keys across 43 tickers are removed. The removals are
+retained exhaustively in
+`audit/price_historical_key_removals.parquet`; they are dominated by implausible
+post-delisting/reused-symbol histories such as PTV, TEG, and MHS. These
+overrides are off by default and must not be enabled for routine ingestion.
+
+### Canonical composition algorithm
+
+```text
+seed = load immutable EODHD parquet; verify and record SHA-256
+active = latest S&P 500 membership
+yahoo = one full-history network vintage for every active ticker
+
+for active ticker:
+    select valid rows only from the current Yahoo vintage
+    never fill a hole from an older vendor or vintage
+
+for inactive EODHD ticker:
+    retain every frozen EODHD row
+    if an open tail starts within 10 calendar days:
+        derive each daily return inside one timestamped source vintage
+        select the latest available same-vintage return for each market date
+        chain those returns from the final EODHD adjusted close
+    else:
+        reject the tail as a possible ticker reuse or discontinuous security
+
+before publication:
+    require one Yahoo vintage and recent coverage for every active ticker
+    require all inactive EODHD keys
+    reject duplicate keys or missing lineage
+    reject source-transition adjustment-factor jumps above 1 bp
+    reject historical daily-return revisions above 1 bp
+    reject historical key removals
+    write exhaustive audit artifacts, then publish transactionally
+```
+
+Code ownership is explicit:
+
+- `src/alpharank/data/prices/seed.py`: immutable seed normalization and hash;
+- `src/alpharank/data/prices/composition.py`: active-vintage selection and
+  inactive return-ledger continuation;
+- `src/alpharank/data/prices/gates.py`: cross-snapshot revision and continuity
+  gates;
+- `src/alpharank/data/prices/contracts.py`: versioned lineage columns and
+  production thresholds;
+- `scripts/open_source/build_hybrid_price_candidate.py`: deterministic,
+  non-publishing migration/review entrypoint;
+- `src/alpharank/data/open_source/ingestion.py`: transactional orchestration
+  before any target or output publication.
+
 ## Core Rules
 
 1. Raw source tables are the canonical store.
@@ -22,6 +232,17 @@ Important scope note:
 8. Every run writes its own immutable run delta under `data/open_source/official/runs/<run_id>/`.
 9. The latest successful run is referenced by `data/open_source/official/manifests/latest_run.json`.
 10. Nightly automation keeps a lock and status file under `data/open_source/official/manifests/` to avoid overlapping writers.
+11. A production snapshot is eligible only when its manifest records
+    `source_refresh_contract.snapshot_scope=full_ingestion` and passes the
+    `data_freshness` gate before publication.
+12. Full ingestion runs inside an official-store transaction. `raw`, `target`,
+    active `output`, and the latest manifest roll back together on failure;
+    a startup recovery journal handles an interrupted prior process.
+13. Historical price coverage must be measured against the frozen EODHD seed,
+    separately from active-universe freshness. Neither check substitutes for
+    the other.
+14. Routine runs may not enable either historical-price override. A migration
+    review must record return revisions and key removals separately.
 
 Important consequence:
 
@@ -29,14 +250,92 @@ Important consequence:
 - The current pipeline has no built-in delete or purge path for open-source data.
 - A retained `history/output/open_source_output_*` snapshot must be the final published package for its run. Its `snapshot_manifest.json`, `lineage/manifest.json`, and `official/runs/<run_id>/manifest.json` must agree on the same `run_id`; otherwise the snapshot is not a clean replay source.
 
+## Production Source Refresh Contract
+
+The normalized `official/raw/*.parquet` tables are retained history. HTTP/API
+payload caches under `_cache/` are not.
+
+Every full ingestion now applies this policy:
+
+| Source | Network refresh | Historical scope | Persistent payload |
+| --- | --- | --- | --- |
+| Frozen EODHD prices | never; subscription cancelled | immutable historical seed, especially delisted/former constituents; selected directly into the derived candidate with explicit hash and lineage | retained local archive; never rewritten |
+| Yahoo prices and SPY | every full ingestion | complete available history from `start_date` for the latest active universe and SPY; inactive histories are retained | no business-data cache |
+| SEC companyfacts | every full ingestion | complete company payload, including historical revisions | no |
+| SEC submissions | every full ingestion | complete company filing index | no |
+| SEC filing XBRL | on demand for bounded fallback years | immutable accession document | no |
+| StockAnalysis | every time it is needed as fallback | full history | no |
+| SimFin | every full ingestion when enabled | full bulk file, then filtered for fallback years | temporary library file |
+
+The SEC/Yahoo/SimFin financial rows described in this table belong to the
+multi-source research store. Before model production, the composed snapshot
+must replace all fundamental files with their SEC-only counterparts and prove
+through lineage that no non-SEC fundamental value remains.
+
+The transport cache is removed at the end of every full ingestion, successful,
+failed, or interrupted. Filing-level XBRL fallback is limited to active tickers
+for which companyfacts returned no recognized financial row in the requested
+year. Metric-level gaps use tabular fallbacks; they do not trigger a full XML
+filing crawl. Yahoo quarterly fallback is fetched once per ticker per run and
+reused across refreshed years.
+
+This distinction matters:
+
+- `financials.max_fiscal_period_end` answers which accounting period is present;
+- `financials.max_sec_filing_date` answers when the newest SEC document was
+  filed;
+- neither is inferred from the snapshot folder timestamp.
+
+The publish gate records and validates:
+
+- latest stock-price date;
+- latest SPY date;
+- latest fiscal period end;
+- latest SEC filing date;
+- latest SEC earnings-calendar filing date;
+- latest S&P 500 membership month.
+
+Price and benchmark dates may lag the requested end by at most seven calendar
+days. The latest SEC filing may lag by at most 45 days. Membership must include
+the first day of the requested end month. The active universe must also have a
+fresh network price row, an SEC mapping, a successful SEC submissions refresh,
+and a successful companyfacts refresh for every ticker. A failed gate rolls
+back `official/raw`, `official/target`, active `output`, and the latest manifest;
+it does not publish a new output snapshot.
+
+Partial repair and reference-refresh packages explicitly carry
+`snapshot_scope=price_history_repair` or `reference_refresh`. They are useful for
+diagnosis but are rejected by the monthly replay validator as production input.
+
+After legacy-compatible candidate files are built, every ingestion path calls
+one shared historical-revision gate before publication. It compares income,
+balance sheet, cash flow, shares, and earnings rows older than 730 days with the
+active clean output. The report is written to
+`official/runs/<run_id>/historical_revision_guard.json` and embedded in
+`source_refresh_contract`. Any added, removed, or changed old row blocks the
+transaction by default. `ALPHARANK_ALLOW_HISTORICAL_REVISIONS=1` is reserved for
+an explicitly reviewed migration; it is not a routine freshness option.
+
+A snapshot missing this prepublication report is invalid even if all downloads
+finished. Quarantined snapshots remain immutable audit evidence. The active
+`output/` is restored from the last clean snapshot with a full SHA-256 match;
+the normalized `raw/target` store remains marked until a later guarded full
+ingestion succeeds.
+
 I verified this in code:
 
 - `src/alpharank/data/open_source/storage.py`
   `upsert_parquet(...)` concatenates `existing + delta`, then keeps the latest row for the same natural key.
 - `src/alpharank/data/open_source/ingestion.py`
   target outputs are rebuilt from the full `raw/*.parquet`, not only from the current nightly delta.
-- `src/alpharank/data/open_source/` and `scripts/open_source/`
-  there is currently no delete/remove/unlink/rmtree path for the official store.
+- `src/alpharank/data/open_source/transaction.py`
+  deletion is limited to transaction rollback/recovery and newly-created failed
+  snapshots; there is no production purge path for canonical history.
+
+SEC memory is bounded per company. One companyfacts payload produces both the
+financial table and earnings actuals, then is released. SEC submissions and
+filing metadata are likewise released after each company. This avoids both a
+second companyfacts download and run-wide JSON accumulation.
 
 ## High-Level Flow
 
@@ -133,6 +432,31 @@ data/open_source/
   archive/
     ...
 ```
+
+`_cache/` can be deleted entirely. It is intentionally excluded from all replay
+contracts. The durable reconstruction layers are `official/raw/`, immutable run
+deltas, published output snapshots, and monthly `input_snapshot/` packages.
+
+## Snapshot Storage And Compaction
+
+Published output snapshots are ordinary directories and remain directly
+readable by Polars and the Legacy runner. On APFS, files are created as
+byte-identical copy-on-write clones; physical copies are the fallback on other
+filesystems. A `storage_manifest.json` records the effective mode.
+
+Publication also avoids replacing an output file when its bytes are unchanged,
+which allows subsequent snapshots to share the same blocks. Existing snapshots
+can be compacted without changing any path or content:
+
+```bash
+./.venv/bin/python scripts/open_source/compact_output_history.py --dry-run
+./.venv/bin/python scripts/open_source/compact_output_history.py
+```
+
+The compactor hashes candidate files, clones only exact duplicates, verifies the
+replacement hash, and writes a report under `data/open_source/history/`.
+Parquet files are already compressed; wrapping snapshots in tar/zip would save
+little and would break direct replay, so it is not the supported approach.
 
 Related package outside this tree:
 
@@ -462,6 +786,17 @@ Typical use:
 - broad historical universe
 - creates the base coverage for delisted names
 
+Required EODHD-aware behavior:
+
+- import every frozen EODHD price row from the retained archive once;
+- normalize ticker aliases without losing the original symbol;
+- label those rows `eodhd_frozen_history` in lineage;
+- then layer open-source observations using an explicit transition policy.
+
+The full-ingestion path now selects the frozen seed directly into the derived
+canonical package; it does not duplicate or mutate the seed in `official/raw/`.
+The final publication still requires every price and SEC-only fundamental gate.
+
 Behavior:
 
 - prices are fetched from the explicit `start_date`
@@ -475,7 +810,8 @@ Intent:
 
 Behavior:
 
-- prices refresh from `max(existing_date) - price_lookback_days`
+- the complete available Yahoo history is downloaded for every active ticker
+- inactive continuations are reconstructed from immutable run deltas
 - financials refresh for recent years only via `financial_lookback_years`
 - target, legacy, and audit layers are rebuilt from the full raw store
 
@@ -483,6 +819,8 @@ Important limitation:
 
 - daily preserves delisted names that already exist in the store
 - daily does not magically discover old delisted names that were never bootstrapped in the first place
+- the candidate includes the normalized EODHD-only historical names; the active
+  output will gain them only when the composed SEC-only snapshot is promoted
 
 ## Nightly Universe Policy
 
@@ -508,6 +846,11 @@ These are normal and expected:
 - SEC amended filings
 - vendor revisions
 - improved fallback source coverage
+
+For prices, "retrospective replacement" applies only to a new derived version,
+not to the frozen vendor archive. Corporate-action corrections must satisfy the
+split/dividend rules above and pass a price-history revision report before the
+new package is promoted.
 
 When that happens, the intended mechanism is:
 
@@ -541,6 +884,8 @@ Known weak spots remain:
 - `shares`
 - some `gross_profit` / `operating_income` coverage
 - historical earnings coverage from free sources
-- old delisted names that were never seeded during bootstrap
+- the active output still lacks the EODHD migration; the deterministic candidate
+  closes that coverage gap but remains non-published pending the SEC-only
+  composed snapshot
 
 Those are source-quality problems, not store-integrity problems.

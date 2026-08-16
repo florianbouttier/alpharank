@@ -58,7 +58,10 @@ def build_prediction_portfolios(
     for month_frame in predictions.partition_by(
         "decision_month", maintain_order=True
     ):
-        ordered = month_frame.sort("score", descending=True)
+        ordered = month_frame.sort(
+            ["score", "ticker"],
+            descending=[True, False],
+        )
         legacy_names = set(
             month_frame.filter(pl.col("legacy_selected").fill_null(0) == 1)
             .get_column("ticker")

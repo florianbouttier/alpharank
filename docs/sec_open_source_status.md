@@ -1,10 +1,35 @@
 # SEC Open-Source Status
 
-Derniere mise a jour: `2026-08-11`
+Derniere mise a jour: `2026-08-16`
 
 Ce document est le point d'entree a lire en premier pour comprendre l'etat reel des fondamentaux open source dans AlphaRank.
 
+## Statut courant - refresh du 2026-08-16
+
+Le nouveau package SEC-only valide est
+`outputs/production_refresh_20260816/sec_package_pit_validated`, run source
+`20260816_103942`. Les depots SEC atteignent le 2026-08-14. Il est integre au
+snapshot modele immutable
+`outputs/production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06`.
+
+Correction structurelle: le raw Companyfacts conserve maintenant
+`filing_date` dans sa cle de version. Il contient 509 254 lignes et 34 111
+groupes de facts ayant plusieurs dates de depot. Le package modele choisit la
+premiere version deposee; il ne rejoue plus une valeur restatee ulterieurement
+comme si elle etait la seule version historique.
+
+Cette migration modifie massivement l'ancien package de mai, surtout les
+actions en circulation. Elle a donc declenche la garde 730 jours sur les cinq
+datasets. L'autorisation est une migration ponctuelle documentee dans
+`lineage/manifest.json`, avec sa note de revue; ce n'est pas la tolerance par
+defaut des refreshs suivants.
+
 ## Alerte actuelle sur le package mixte
+
+Clarification de source: les fondamentaux officiels sont SEC/GAAP only. EODHD
+est conserve pour les prix historiques et les delisted, pas pour fournir une
+valeur fondamentale. Un bridge ticker/CIK EODHD reste autorise pour retrouver
+la societe SEC correspondante.
 
 Le dernier package mixte publie est le run `20260811_001503`, snapshot retenu
 `open_source_output_20260811_014746`. Il est propre du point de vue publication,
@@ -16,31 +41,57 @@ etre presente comme une source point-in-time stable. Voir
 `docs/sec_data_robustness_plan.md` et le `data_revision_audit.json` du replay
 commun `20260811_001503_035522_standard`.
 
+Ce snapshot a selectionne 19 243 valeurs fondamentales non-SEC dans sa couche
+consolidee: 14 754 Yahoo et 4 489 SimFin. Les runs Legacy T1/T2 qui l'utilisent
+sont donc des replays reproductibles de l'ancien contrat mixte, pas des runs de
+production conformes au contrat SEC-only clarifie.
+
+Ce package est maintenant un repli gele, pas un snapshot conforme au nouveau
+contrat: son manifeste precede `source_refresh_contract`, `data_freshness` et la
+garde historique prepublication. Il peut rejouer les decisions deja produites,
+mais aucune nouvelle production mensuelle ne doit pretendre que les donnees du
+13 aout sont validees a partir de ce package.
+
+Le refresh complet `20260813_071802` est conserve mais quarantaine. Son audit
+reconstruit contre le snapshot propre du 11 aout detecte des revisions
+historiques massives dans income, balance, cash flow, shares et earnings. Il ne
+remplace donc pas le package production `20260811_001503`. La garde est
+desormais appelee avant publication par le chemin d'ingestion complete; une
+garde absente ou un marqueur de quarantaine invalide le package.
+
 ## Objectif
 
-Le chantier actuel ne cherche pas a refaire tout EODHD.
+Pour les fondamentaux, le chantier ne cherche pas a refaire EODHD: il l'exclut.
+Pour les prix, l'archive EODHD gelee reste au contraire necessaire pour les
+delisted et doit etre prolongee/corrigee par une couche prix separee.
 La cible active est plus etroite et plus mesurable:
 
 - package fondamental `SEC-only`
 - KPI coeur: `epsActual`, `revenue`, `net_income`
 - objectif qualite: **moins de 1 % de trous sur la pire annee**
 
-## Decision actuelle
+## Packages historiques de qualite KPI
 
-Pour les fondamentaux, il faut raisonner sur quatre packages differents:
+La production modele courante n'utilise plus directement les packages de ce
+tableau. Elle utilise `sec_package_pit_validated` dans le snapshot compose
+immutable pointe par `data/model_inputs/manifests/latest.json`. Les packages
+ci-dessous restent des benchmarks historiques du chantier de couverture KPI de
+mai; ils ne doivent pas etre confondus avec la production aout 2026.
 
-| Package | Role | Statut au `2026-05-25` |
+Pour relire ces experiences, il faut raisonner sur quatre packages differents:
+
+| Package | Role historique | Statut au `2026-05-25` |
 | --- | --- | --- |
-| `data/sec/output/` | package SEC-only canonique | **base officielle actuelle** |
+| `data/sec/output/` | ancienne baseline SEC-only de qualite | **baseline historique, non canonique pour les nouveaux runs** |
 | `outputs/sec_kpi_hybrid_output_latest/` | fusion selective KPI entre le meilleur chemin `EPS` et le meilleur chemin `revenue` / `net_income` | **meilleur candidat global observe a date** |
 | `outputs/sec_q4_fix2_candidate_combo_output_latest/` | workflow autonome parser Q4 + refresh cible + overlay historique | **meilleur candidat package-entier avant fusion selective** |
 | `outputs/sec_overlay_fix2_output/` | meilleur overlay historique teste seul | **meilleur overlay pur a date** |
 | `outputs/sec_overlay_multi_history_output/` | overlay multi-snapshots large | **experience utile, non promue** |
 
-Ce qu'il faut retenir:
+Ce qu'il faut retenir pour ces benchmarks historiques:
 
 - `data/open_source/output/` n'est **pas** le bon package pour piloter l'objectif `<1 %` sur `EPS`, `revenue` et `net_income`
-- le travail KPI coeur se fait aujourd'hui sur la branche `SEC-only`
+- le travail KPI coeur se faisait sur la branche `SEC-only`
 - `outputs/sec_kpi_hybrid_output_latest/` est le meilleur resultat global concret observe jusqu'ici
 - l'overlay multi-history a enrichi la couverture brute, mais il a aussi rouvert des annees anciennes plus trouees et a donc degrade le pire cas
 
@@ -52,7 +103,7 @@ Fenetre de lecture standardisee pour ce document:
 - meme fenetre pour la baseline SEC et pour les overlays compares
 - le fichier le plus court a publier apres chaque run est `worst_year_brief.md`
 
-### Baseline officielle: `data/sec/output/`
+### Baseline historique: `data/sec/output/`
 
 Rapports de reference:
 
@@ -335,3 +386,22 @@ Ce document doit etre mis a jour a chaque fois qu'un de ces points change:
 - meilleur overlay candidat
 - score de pire annee sur `epsActual`, `revenue` ou `net_income`
 - interpretation officielle des experimentations historiques
+
+## Politique de fraicheur production - 2026-08-13
+
+Le cache HTTP n'est plus une source de verite. Un snapshot production doit
+porter `source_refresh_contract.snapshot_scope=full_ingestion` et exposer
+`data_freshness`.
+
+- `companyfacts` SEC est retelcharge en entier a chaque ingestion complete, y
+  compris son historique potentiellement revise;
+- les index `submissions` SEC mutables sont retelcharges;
+- les XML XBRL par accession, immuables, sont charges a la demande mais ne sont
+  plus stockes durablement;
+- les historiques prix Yahoo/StockAnalysis et les fichiers bulk SimFin sont
+  rafraichis selon le contrat de production;
+- `official/raw` reste la base normalisee durable; `_cache/` est jetable.
+
+La fraicheur doit toujours distinguer la fin de periode fiscale de la date de
+filing SEC. La premiere peut etre en juin pour un snapshot d'aout; la seconde
+doit passer le seuil de fraicheur et prouver que SEC a reellement ete interroge.

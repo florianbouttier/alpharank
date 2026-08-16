@@ -100,6 +100,7 @@ def test_build_financial_statement_audit_dashboard_writes_expected_outputs(tmp_p
     assert "Vendor / non-SEC" in dashboard_html
 
     alignment = pl.read_parquet(result.alignment_path)
+    assert "weighted_average_diluted_shares" not in alignment["metric"].to_list()
     aaa_revenue = alignment.filter(
         (pl.col("ticker") == "AAA.US")
         & (pl.col("statement") == "income_statement")

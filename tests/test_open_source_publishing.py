@@ -4,8 +4,33 @@ import json
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from alpharank.data.open_source.publishing import publish_open_source_output_package
+
+
+def test_publisher_rejects_diagnostic_source_refresh_contract(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="full_ingestion"):
+        publish_open_source_output_package(
+            output_dir=tmp_path / "output",
+            legacy_paths={},
+            constituents_source_path=tmp_path / "missing.csv",
+            prices_frame=pl.DataFrame(),
+            benchmark_prices=pl.DataFrame(),
+            general_reference=pl.DataFrame(),
+            general_reference_lineage=pl.DataFrame(),
+            consolidated_financials=pl.DataFrame(),
+            consolidated_lineage=pl.DataFrame(),
+            source_summary=pl.DataFrame(),
+            earnings_consolidated=pl.DataFrame(),
+            earnings_lineage=pl.DataFrame(),
+            earnings_long_frame=pl.DataFrame(),
+            manifest={
+                "source_refresh_contract": {
+                    "snapshot_scope": "price_history_repair",
+                }
+            },
+        )
 
 
 def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp_path: Path) -> None:
@@ -60,6 +85,9 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
     assert published.snapshot_dir.exists()
     assert json.loads((published.snapshot_dir / "snapshot_manifest.json").read_text(encoding="utf-8")) == {"run_id": "abc"}
     assert json.loads((published.snapshot_dir / "lineage" / "manifest.json").read_text(encoding="utf-8")) == {"run_id": "abc"}
+    storage = json.loads((published.snapshot_dir / "storage_manifest.json").read_text(encoding="utf-8"))
+    assert storage["strategy"] == "copy_on_write_with_physical_copy_fallback"
+    assert sum(storage["storage_mode_counts"].values()) == storage["file_count"]
 
     second = publish_open_source_output_package(
         output_dir=output_dir,

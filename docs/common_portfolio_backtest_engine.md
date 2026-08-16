@@ -1,6 +1,6 @@
 # Common Portfolio And Backtest Engine
 
-Last updated: 2026-08-11
+Last updated: 2026-08-16
 
 This document is the source of truth for the code shared after signal
 generation by the Legacy and boosting methodologies.
@@ -25,6 +25,19 @@ audit artifacts.
 
 The shared package is deliberately independent from XGBoost, Optuna, SHAP, and
 the Legacy strategy classes.
+
+## Completed-Month Contract
+
+The raw immutable snapshot may contain the current partial month. That month is
+freshness evidence, not a realized period. Legacy truncates price inputs to the
+last completed decision month before signal construction. Boosting keeps the
+same completed decision month available for scoring, but nulls every target
+whose end month is later than the cutoff. The common adapter then admits only
+rows with both a stock and benchmark one-month return.
+
+The common replay must therefore end at the same completed holding month for
+Legacy, Boosting, and SPY. A partial current-month return is a hard failure, not
+an extra observation.
 
 ## Package Layout
 
@@ -279,6 +292,38 @@ Legacy, and SPY returns. `scripts/build_common_legacy_boosting_replay.py`
 enforces matching input hashes and rejects a Legacy/Boosting pair that does not
 declare the exact same `input_snapshot/` and full-trajectory ticker exclusions.
 
+## Current Eligible Reference — 2026-08-16
+
+```text
+ingestion: 20260816_103942
+composed snapshot: data/model_inputs/history/alpharank_input_20260816_120458_2a01288bab06
+Legacy run: outputs/production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810
+Boosting run: outputs/production_refresh_20260816/boosting_latest_common_v3
+common replay: outputs/production_refresh_20260816/common_replay_v3
+holding calendar: 2011-08 through 2026-07, 180 realized months
+benchmark: SPY total return from adjusted_close
+transaction costs: 10 bps times turnover for Boosting and Legacy
+```
+
+The replay passes the seven required input hashes, the ten-ticker
+`historical_ticker_exclusions_v1` registry, and the shared
+`monthly_price_eligibility_v1` policy. The last raw price date is 2026-08-14,
+but August is incomplete and excluded before feature construction. The July
+decision is retained as score-only for the August target; it has no realized
+August return and therefore cannot enter performance.
+
+| Strategy | CAGR | Volatility | Sharpe | Max drawdown |
+| --- | ---: | ---: | ---: | ---: |
+| Boosting Top 5 | 28.1562% | 41.4778% | 0.6306 | -51.9717% |
+| Boosting Top 10 | 26.5717% | 33.4204% | 0.7352 | -25.3178% |
+| Legacy | 18.9965% | 23.1727% | 0.7335 | -25.7052% |
+| SPY total return | 14.3975% | 14.3014% | 0.8669 | -23.9272% |
+
+These figures use the common cost and calendar convention. Standalone Legacy
+production retains its historical zero-cost convention. Boosting remains R&D;
+its higher CAGR is paired with much higher volatility, and Top 5 has a 51.97%
+maximum drawdown.
+
 ## Retained Same-Raw-Snapshot Reference — 2026-08-11
 
 The retained replay below passes the original raw-input hash gate:
@@ -336,7 +381,7 @@ lookahead rejection, missing-return handling, adapter equivalence, turnover,
 calendar alignment, and complete-year performance. Existing backtest and
 multi-horizon tests exercise the compatibility wrappers.
 
-## Current Eligible Reference — 2026-08-12
+## Previous Eligible Reference — 2026-08-12
 
 This reference supersedes the ineligible 2026-08-11 comparison above:
 

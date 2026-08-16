@@ -4,8 +4,10 @@ import polars as pl
 
 from alpharank.data.open_source.ingestion import (
     _consolidate_price_sources,
+    _download_yahoo_price_history,
     _identify_simfin_price_fallback_tickers,
     _identify_stockanalysis_price_fallback_tickers,
+    _network_price_refresh_coverage,
     _with_price_ingestion_metadata,
 )
 
@@ -132,3 +134,58 @@ def test_identify_stockanalysis_price_fallback_tickers_targets_remaining_gaps() 
     )
 
     assert fallback == ("JNPR", "K")
+
+
+def test_network_price_refresh_coverage_does_not_count_retained_rows() -> None:
+    delta = _with_price_ingestion_metadata(
+        _price_frame(ticker="AAPL.US", adjusted_close=100.0),
+        dataset="prices_yfinance",
+        run_id="run",
+        ingested_at="2026-08-13T00:00:00Z",
+    )
+
+    refreshed, missing = _network_price_refresh_coverage(
+        delta,
+        requested_tickers=["AAPL", "MSFT"],
+    )
+
+    assert refreshed == {"AAPL"}
+    assert missing == ("MSFT",)
+
+
+def test_network_price_refresh_coverage_accepts_benchmark_symbol_without_suffix() -> None:
+    delta = _with_price_ingestion_metadata(
+        _price_frame(ticker="SPY.US", adjusted_close=100.0),
+        dataset="prices_spy_yfinance",
+        run_id="run",
+        ingested_at="2026-08-13T00:00:00Z",
+    )
+
+    refreshed, missing = _network_price_refresh_coverage(delta, requested_tickers=["SPY"])
+
+    assert refreshed == {"SPY"}
+    assert missing == ()
+
+
+def test_yahoo_history_retries_only_missing_network_tickers() -> None:
+    class Client:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, ...]] = []
+
+        def download_prices(self, tickers, start_date, end_date):
+            requested = tuple(tickers)
+            self.calls.append(requested)
+            ticker = "AAPL.US" if len(self.calls) == 1 else "MSFT.US"
+            return _price_frame(ticker=ticker, adjusted_close=100.0)
+
+    client = Client()
+    prices = _download_yahoo_price_history(
+        client,
+        tickers=("AAPL", "MSFT"),
+        start_date="2025-01-01",
+        end_date="2026-08-13",
+        max_attempts=3,
+    )
+
+    assert client.calls == [("AAPL", "MSFT"), ("MSFT",)]
+    assert set(prices["ticker"].to_list()) == {"AAPL.US", "MSFT.US"}

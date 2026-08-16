@@ -143,3 +143,31 @@ def test_holdings_concentration_uses_top_scores_and_sector_map(tmp_path) -> None
     assert ticker["selected_months"].max() == 2
     assert sector["average_monthly_weight"].sum() == 1.0
     assert concentration["unique_tickers"][0] == 2
+
+
+def test_holdings_concentration_breaks_equal_scores_by_ticker(tmp_path) -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)] * 3,
+            "ticker": ["C", "A", "B"],
+            "score": [0.5, 0.5, 0.5],
+        }
+    )
+    general_path = tmp_path / "general.parquet"
+    pl.DataFrame(
+        {
+            "ticker": ["A", "B", "C"],
+            "GicSector": ["Tech", "Tech", "Tech"],
+            "Sector": ["Technology", "Technology", "Technology"],
+            "GicIndustry": ["Software", "Software", "Software"],
+            "Industry": ["Software", "Software", "Software"],
+        }
+    ).write_parquet(general_path)
+
+    holdings, _, _, _ = holdings_and_concentration(
+        predictions,
+        general_path=general_path,
+        top_n=2,
+    )
+
+    assert holdings["ticker"].to_list() == ["A", "B"]

@@ -4,7 +4,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+import shutil
+import time
+from typing import Any, Iterable, Mapping, Sequence
 
 import polars as pl
 
@@ -25,7 +27,11 @@ from alpharank.data.open_source.benchmark import (
     write_detail_reports,
     write_html_report,
 )
-from alpharank.data.open_source.consolidation import FinancialSourceInput, consolidate_financial_sources
+from alpharank.data.open_source.consolidation import (
+    FinancialSourceInput,
+    consolidate_financial_sources,
+    consolidate_financial_sources_with_share_quality,
+)
 from alpharank.data.open_source.config import GENERAL_COLUMNS, METRIC_SPECS, PRICE_COLUMNS
 from alpharank.data.open_source.earnings import (
     build_sec_companyfacts_earnings_actuals,
@@ -41,14 +47,31 @@ from alpharank.data.open_source.general_reference import (
     empty_general_reference_frame,
     empty_general_reference_lineage_frame,
 )
+from alpharank.data.open_source.freshness import build_data_freshness_summary, validate_data_freshness
+from alpharank.data.open_source.fundamental_quality import (
+    audit_fundamental_quality,
+    quarantine_implausible_share_candidates,
+    validate_fundamental_quality,
+)
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
 from alpharank.data.open_source.publishing import publish_open_source_output_package
-from alpharank.data.open_source.price_quality import assert_no_extreme_adjusted_price_moves
+from alpharank.data.open_source.price_quality import (
+    assert_no_extreme_adjusted_price_moves,
+    build_split_detection_prices,
+    find_extreme_adjusted_price_moves,
+    repair_confirmed_split_discontinuities,
+)
+from alpharank.data.open_source.refresh_policy import (
+    PRODUCTION_SOURCE_REFRESH_POLICY,
+    SourceRefreshPolicy,
+)
+from alpharank.data.open_source.revision_guard import audit_historical_revisions
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.simfin import SimFinClient
 from alpharank.data.open_source.stockanalysis import StockAnalysisClient
+from alpharank.data.open_source.transaction import OpenSourceStoreTransaction
 from alpharank.data.open_source.storage import (
     OpenSourceLivePaths,
     append_run_delta,
@@ -56,9 +79,18 @@ from alpharank.data.open_source.storage import (
     new_run_id,
     upsert_parquet,
     utc_now_iso,
+    write_json,
     write_run_manifest,
 )
 from alpharank.data.open_source.yahoo import YahooFinanceClient
+from alpharank.data.prices import (
+    audit_price_candidate,
+    combine_stock_split_evidence,
+    compose_hybrid_price_history,
+    load_eodhd_seed,
+    load_confirmed_stock_splits,
+    validate_price_candidate,
+)
 
 
 RAW_PRICE_SCHEMA = {
@@ -75,6 +107,36 @@ RAW_PRICE_SCHEMA = {
     "ingestion_run_id": pl.String,
     "ingested_at": pl.String,
 }
+
+
+def _audit_and_validate_historical_revisions(
+    *,
+    paths: OpenSourceLivePaths,
+    run_id: str,
+    legacy_paths: Mapping[str, Path],
+    expected_through: str,
+    source_refresh_policy: SourceRefreshPolicy,
+    source_refresh_contract: dict[str, object],
+) -> dict[str, object]:
+    report = audit_historical_revisions(
+        previous_output_dir=paths.output_dir,
+        candidate_paths={path.name: path for path in legacy_paths.values()},
+        expected_through=expected_through,
+        guard_days=source_refresh_policy.historical_revision_guard_days,
+    )
+    report["override_enabled"] = source_refresh_policy.allow_historical_revisions
+    source_refresh_contract["historical_revision_guard"] = report
+    write_json(paths.run_dir(run_id) / "historical_revision_guard.json", report)
+    if (
+        report["historical_revisions_detected"]
+        and not source_refresh_policy.allow_historical_revisions
+    ):
+        raise RuntimeError(
+            "Historical fundamental revisions require explicit review; "
+            f"blocked_datasets={report['blocked_datasets']}. "
+            "No package was published."
+        )
+    return report
 
 RAW_FINANCIAL_SCHEMA = {
     "ticker": pl.String,
@@ -155,6 +217,7 @@ class OpenSourceIngestionResult:
     price_rows: int
     consolidated_rows: int
     lineage_rows: int
+    sec_companyfacts_years: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -184,6 +247,7 @@ def repair_open_source_price_history(
     reference_data_dir: Path | None = None,
     audit_years: Sequence[int] = (),
     threshold_pct: float = 0.5,
+    source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or (project_root / "data")
@@ -197,16 +261,38 @@ def repair_open_source_price_history(
     run_id = new_run_id()
     ingested_at = utc_now_iso()
     end_date = end_date or date.today().strftime("%Y-%m-%d")
+    source_refresh_contract = source_refresh_policy.to_manifest(
+        mode="price_history_repair",
+        price_start_date=start_date,
+        price_end_date=end_date,
+        financial_years=(),
+        snapshot_scope="price_history_repair",
+    )
     if tickers is None:
-        current_sp500 = set(load_sp500_tickers_for_year(reference_data_dir, date.today().year))
+        current_sp500 = set(_load_latest_sp500_tickers(reference_data_dir))
         existing_price_tickers = set(_load_existing_price_tickers(paths))
         ticker_list = tuple(sorted(current_sp500 | existing_price_tickers))
     else:
         ticker_list = tuple(tickers)
+        current_sp500 = set(_load_latest_sp500_tickers(reference_data_dir))
+    price_quality_tickers = tuple(sorted(current_sp500.intersection(ticker_list))) or ticker_list
+    price_refresh_tickers = (
+        price_quality_tickers
+        if source_refresh_policy.refresh_full_price_history
+        else ticker_list
+    )
+    retained_inactive_price_tickers = tuple(sorted(set(ticker_list) - set(price_refresh_tickers)))
 
     yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
-    simfin_client = SimFinClient(data_dir=project_root / "data" / "open_source" / "_cache" / "simfin")
-    stockanalysis_client = StockAnalysisClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis")
+    simfin_client = SimFinClient(
+        data_dir=project_root / "data" / "open_source" / "_cache" / "simfin",
+        refresh_days=source_refresh_policy.simfin_refresh_days,
+    )
+    stockanalysis_client = StockAnalysisClient(
+        cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis",
+        refresh_cache=source_refresh_policy.refresh_stockanalysis,
+        persist_cache=source_refresh_policy.persist_stockanalysis_payloads,
+    )
     existing_price_history = _load_existing_price_history_frame(paths)
     backfill_tickers = _identify_price_history_backfill_tickers(
         requested_tickers=ticker_list,
@@ -325,6 +411,14 @@ def repair_open_source_price_history(
         reference_data_dir=reference_data_dir,
         output_dir=paths.legacy_dir,
     )
+    _audit_and_validate_historical_revisions(
+        paths=paths,
+        run_id=run_id,
+        legacy_paths=legacy_paths,
+        expected_through=end_date,
+        source_refresh_policy=source_refresh_policy,
+        source_refresh_contract=source_refresh_contract,
+    )
     published_output_paths = publish_open_source_output_package(
         output_dir=paths.output_dir,
         legacy_paths=legacy_paths,
@@ -353,6 +447,7 @@ def repair_open_source_price_history(
             "simfin_price_fallback_ticker_examples": list(simfin_price_tickers[:20]),
             "stockanalysis_price_fallback_ticker_count": len(stockanalysis_price_tickers),
             "stockanalysis_price_fallback_ticker_examples": list(stockanalysis_price_tickers[:20]),
+            "source_refresh_contract": source_refresh_contract,
         },
         history_root=paths.root_dir / "history" / "output",
     )
@@ -381,6 +476,7 @@ def repair_open_source_price_history(
         "stockanalysis_price_fallback_ticker_count": len(stockanalysis_price_tickers),
         "stockanalysis_price_fallback_ticker_examples": list(stockanalysis_price_tickers[:20]),
         "price_window": {"start_date": start_date, "end_date": end_date},
+        "source_refresh_contract": source_refresh_contract,
         "official_dir": str(paths.base_dir),
         "target_dir": str(paths.target_dir),
         "published_output_snapshot": (
@@ -424,6 +520,7 @@ def refresh_open_source_reference_layers(
     user_agent: str = "Florian Bouttier florianbouttier@example.com",
     audit_years: Sequence[int] = (),
     threshold_pct: float = 0.5,
+    source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
 ) -> OpenSourceReferenceRefreshResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or (project_root / "data")
@@ -438,11 +535,29 @@ def refresh_open_source_reference_layers(
     ingested_at = utc_now_iso()
     final_end_year = end_year or date.today().year
     refreshed_years = tuple(range(start_year, final_end_year + 1))
+    source_refresh_contract = source_refresh_policy.to_manifest(
+        mode="reference_refresh",
+        price_start_date="not_refreshed",
+        price_end_date="not_refreshed",
+        financial_years=refreshed_years,
+        snapshot_scope="reference_refresh",
+    )
     ticker_list = tuple(tickers) if tickers is not None else _load_existing_open_source_tickers(paths, reference_data_dir)
 
     yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
-    sec_client = SecCompanyFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts")
-    sec_filing_client = SecFilingFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing")
+    sec_client = SecCompanyFactsClient(
+        user_agent=user_agent,
+        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts",
+        refresh_cache=source_refresh_policy.refresh_sec_companyfacts,
+        persist_cache=source_refresh_policy.persist_sec_companyfacts_payloads,
+    )
+    sec_filing_client = SecFilingFactsClient(
+        user_agent=user_agent,
+        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing",
+        refresh_mutable_cache=source_refresh_policy.refresh_sec_submissions,
+        persist_metadata_cache=source_refresh_policy.persist_sec_filing_metadata,
+        persist_filing_documents=source_refresh_policy.persist_sec_filing_documents,
+    )
 
     existing_general_reference = (
         pl.read_parquet(paths.raw_dir / "general_reference.parquet")
@@ -461,6 +576,23 @@ def refresh_open_source_reference_layers(
         reference_data_dir=reference_data_dir,
         existing_general_reference_lineage=existing_general_reference_lineage,
     )
+    mapped_sec_tickers, required_sec_tickers, missing_active_sec_mappings = (
+        _resolve_sec_mapping_coverage(
+            sec_mapping=sec_mapping,
+            required_tickers=price_quality_tickers,
+        )
+    )
+    source_refresh_contract["source_semantics"]["sec_companyfacts"].update(
+        {
+            "active_mapping_count": len(required_sec_tickers) - len(missing_active_sec_mappings),
+            "active_mapping_missing_tickers": list(missing_active_sec_mappings),
+        }
+    )
+    if missing_active_sec_mappings:
+        raise RuntimeError(
+            "SEC mapping is incomplete for the active universe; "
+            f"missing={list(missing_active_sec_mappings)}. No package was published."
+        )
     general_refresh_tickers = _identify_general_reference_refresh_tickers(
         requested_tickers=ticker_list,
         existing_general_reference=existing_general_reference,
@@ -599,6 +731,14 @@ def refresh_open_source_reference_layers(
         reference_data_dir=reference_data_dir,
         output_dir=paths.legacy_dir,
     )
+    _audit_and_validate_historical_revisions(
+        paths=paths,
+        run_id=run_id,
+        legacy_paths=legacy_paths,
+        expected_through=end_date,
+        source_refresh_policy=source_refresh_policy,
+        source_refresh_contract=source_refresh_contract,
+    )
     published_output_paths = publish_open_source_output_package(
         output_dir=paths.output_dir,
         legacy_paths=legacy_paths,
@@ -622,6 +762,7 @@ def refresh_open_source_reference_layers(
             "legacy_dir": str(paths.legacy_dir),
             "refresh_type": "reference_layers",
             "refreshed_years": list(refreshed_years),
+            "source_refresh_contract": source_refresh_contract,
         },
         history_root=paths.root_dir / "history" / "output",
     )
@@ -651,6 +792,7 @@ def refresh_open_source_reference_layers(
         ),
         "ticker_count": len(ticker_list),
         "refreshed_years": list(refreshed_years),
+        "source_refresh_contract": source_refresh_contract,
         "general_rows": general_reference.height,
         "general_sector_non_null_rows": general_reference.filter(pl.col("Sector").is_not_null() & (pl.col("Sector") != "")).height,
         "earnings_rows": clean_earnings.height,
@@ -694,9 +836,61 @@ def run_open_source_ingestion(
     financial_lookback_years: int = 2,
     audit_years: Sequence[int] = (),
     threshold_pct: float = 0.5,
+    source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
+    eodhd_price_seed_path: Path | None = None,
+) -> OpenSourceIngestionResult:
+    project_root = Path(__file__).resolve().parents[4]
+    official_dir = (
+        live_dir.resolve()
+        if live_dir is not None
+        else project_root / "data" / "open_source" / "official"
+    )
+    try:
+        with OpenSourceStoreTransaction(official_dir=official_dir):
+            return _run_open_source_ingestion_in_place(
+                mode=mode,
+                start_date=start_date,
+                end_date=end_date,
+                tickers=tickers,
+                live_dir=official_dir,
+                reference_data_dir=reference_data_dir,
+                user_agent=user_agent,
+                simfin_api_key=simfin_api_key,
+                price_lookback_days=price_lookback_days,
+                financial_lookback_years=financial_lookback_years,
+                audit_years=audit_years,
+                threshold_pct=threshold_pct,
+                source_refresh_policy=source_refresh_policy,
+                eodhd_price_seed_path=eodhd_price_seed_path,
+            )
+    finally:
+        transport_cache = official_dir.parent / "_cache"
+        shutil.rmtree(transport_cache, ignore_errors=True)
+        transport_cache.mkdir(parents=True, exist_ok=True)
+
+
+def _run_open_source_ingestion_in_place(
+    *,
+    mode: str = "daily",
+    start_date: str = "2005-01-01",
+    end_date: str | None = None,
+    tickers: Sequence[str] | None = None,
+    live_dir: Path | None = None,
+    reference_data_dir: Path | None = None,
+    user_agent: str = "Florian Bouttier florianbouttier@example.com",
+    simfin_api_key: str | None = None,
+    price_lookback_days: int = 7,
+    financial_lookback_years: int = 2,
+    audit_years: Sequence[int] = (),
+    threshold_pct: float = 0.5,
+    source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
+    eodhd_price_seed_path: Path | None = None,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or (project_root / "data")
+    eodhd_price_seed_path = eodhd_price_seed_path or (
+        project_root / "data" / "eodhd" / "output" / "US_Finalprice.parquet"
+    )
     open_source_root = project_root / "data" / "open_source"
     paths = OpenSourceLivePaths(
         live_dir or (open_source_root / "official"),
@@ -707,20 +901,40 @@ def run_open_source_ingestion(
     run_id = new_run_id()
     ingested_at = utc_now_iso()
     end_date = end_date or date.today().strftime("%Y-%m-%d")
-    ticker_list = tuple(tickers) if tickers is not None else _load_reference_tickers(reference_data_dir, start_date=start_date)
+    if tickers is None:
+        current_sp500 = set(_load_latest_sp500_tickers(reference_data_dir))
+        existing_price_tickers = set(_load_existing_price_tickers(paths))
+        ticker_list = tuple(sorted(current_sp500 | existing_price_tickers))
+    else:
+        ticker_list = tuple(tickers)
+        current_sp500 = set(_load_latest_sp500_tickers(reference_data_dir))
+    price_quality_tickers = tuple(sorted(current_sp500.intersection(ticker_list))) or ticker_list
+    price_refresh_tickers = (
+        price_quality_tickers
+        if source_refresh_policy.refresh_full_price_history
+        else ticker_list
+    )
+    retained_inactive_price_tickers = tuple(
+        sorted(set(ticker_list) - set(price_refresh_tickers))
+    )
     existing_price_history = _load_existing_price_history_frame(paths)
-    price_start = _resolve_price_start(
+    rolling_price_start = _resolve_price_start(
         mode=mode,
         explicit_start_date=start_date,
         raw_price_path=paths.raw_dir / "prices_yfinance.parquet",
         lookback_days=price_lookback_days,
         existing_prices=existing_price_history,
     )
-    price_backfill_tickers = _identify_price_history_backfill_tickers(
-        requested_tickers=ticker_list,
-        existing_prices=existing_price_history,
-        explicit_start_date=start_date,
-        mode=mode,
+    price_start = start_date if source_refresh_policy.refresh_full_price_history else rolling_price_start
+    price_backfill_tickers = (
+        ()
+        if source_refresh_policy.refresh_full_price_history
+        else _identify_price_history_backfill_tickers(
+            requested_tickers=ticker_list,
+            existing_prices=existing_price_history,
+            explicit_start_date=start_date,
+            mode=mode,
+        )
     )
     refreshed_years = _resolve_refreshed_years(
         mode=mode,
@@ -728,12 +942,55 @@ def run_open_source_ingestion(
         end_date=end_date,
         lookback_years=financial_lookback_years,
     )
+    companyfacts_years = (
+        tuple(range(int(start_date[:4]), int(end_date[:4]) + 1))
+        if source_refresh_policy.refresh_full_sec_companyfacts_history
+        else refreshed_years
+    )
+    source_refresh_contract = source_refresh_policy.to_manifest(
+        mode=mode,
+        price_start_date=price_start,
+        price_end_date=end_date,
+        financial_years=companyfacts_years,
+    )
+    source_refresh_contract["source_semantics"]["yfinance_prices"].update(
+        {
+            "refreshed_ticker_count": len(price_refresh_tickers),
+            "retained_inactive_ticker_count": len(retained_inactive_price_tickers),
+            "retained_inactive_ticker_examples": list(retained_inactive_price_tickers[:20]),
+            "inactive_history_semantics": "retained official raw; upstream symbol no longer assumed downloadable",
+        }
+    )
+    source_refresh_contract["source_semantics"]["active_universe"] = {
+        "ticker_count": len(price_quality_tickers),
+        "mutable_yahoo_layers": ["prices", "earnings", "general_reference", "financial_fallback"],
+        "inactive_history": "retained in official raw; SEC full-company payloads still refreshed when a CIK resolves",
+    }
 
     yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
-    sec_client = SecCompanyFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts")
-    sec_filing_client = SecFilingFactsClient(user_agent=user_agent, cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing")
-    simfin_client = SimFinClient(api_key=simfin_api_key, data_dir=project_root / "data" / "open_source" / "_cache" / "simfin")
-    stockanalysis_client = StockAnalysisClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis")
+    sec_client = SecCompanyFactsClient(
+        user_agent=user_agent,
+        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts",
+        refresh_cache=source_refresh_policy.refresh_sec_companyfacts,
+        persist_cache=source_refresh_policy.persist_sec_companyfacts_payloads,
+    )
+    sec_filing_client = SecFilingFactsClient(
+        user_agent=user_agent,
+        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing",
+        refresh_mutable_cache=source_refresh_policy.refresh_sec_submissions,
+        persist_metadata_cache=source_refresh_policy.persist_sec_filing_metadata,
+        persist_filing_documents=source_refresh_policy.persist_sec_filing_documents,
+    )
+    simfin_client = SimFinClient(
+        api_key=simfin_api_key,
+        data_dir=project_root / "data" / "open_source" / "_cache" / "simfin",
+        refresh_days=source_refresh_policy.simfin_refresh_days,
+    )
+    stockanalysis_client = StockAnalysisClient(
+        cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis",
+        refresh_cache=source_refresh_policy.refresh_stockanalysis,
+        persist_cache=source_refresh_policy.persist_stockanalysis_payloads,
+    )
     run_failures: dict[str, list[dict[str, str]]] = {
         "sec_companyfacts": [],
         "sec_filing": [],
@@ -759,10 +1016,30 @@ def run_open_source_ingestion(
         reference_data_dir=reference_data_dir,
         existing_general_reference_lineage=existing_general_reference_lineage,
     )
+    mapped_sec_tickers, required_sec_tickers, missing_active_sec_mappings = (
+        _resolve_sec_mapping_coverage(
+            sec_mapping=sec_mapping,
+            required_tickers=price_quality_tickers,
+        )
+    )
+    source_refresh_contract["source_semantics"]["sec_companyfacts"].update(
+        {
+            "active_mapping_count": len(required_sec_tickers) - len(missing_active_sec_mappings),
+            "active_mapping_missing_tickers": list(missing_active_sec_mappings),
+        }
+    )
+    if missing_active_sec_mappings:
+        raise RuntimeError(
+            "SEC mapping is incomplete for the active universe; "
+            f"missing={list(missing_active_sec_mappings)}. No package was published."
+        )
     general_refresh_tickers = _identify_general_reference_refresh_tickers(
         requested_tickers=ticker_list,
         existing_general_reference=existing_general_reference,
         mode=mode,
+    )
+    general_refresh_tickers = tuple(
+        sorted(set(general_refresh_tickers).intersection(price_quality_tickers))
     )
     if general_refresh_tickers:
         yahoo_general_metadata = yahoo_client.fetch_company_metadata(general_refresh_tickers)
@@ -810,7 +1087,12 @@ def run_open_source_ingestion(
 
     yahoo_price_deltas = [
         _with_price_ingestion_metadata(
-            yahoo_client.download_prices(ticker_list, price_start, end_date),
+            _download_yahoo_price_history(
+                yahoo_client,
+                tickers=price_refresh_tickers,
+                start_date=price_start,
+                end_date=end_date,
+            ),
             dataset="prices_yfinance",
             run_id=run_id,
             ingested_at=ingested_at,
@@ -832,8 +1114,60 @@ def run_open_source_ingestion(
             .unique(subset=["ticker", "date", "source"], keep="last", maintain_order=True)
             .sort(["ticker", "date"])
         )
+    refreshed_price_roots, missing_network_price_tickers = _network_price_refresh_coverage(
+        yahoo_prices_delta,
+        requested_tickers=price_refresh_tickers,
+    )
+    source_refresh_contract["source_semantics"]["yfinance_prices"].update(
+        {
+            "network_refreshed_ticker_count": len(refreshed_price_roots),
+            "network_missing_tickers": list(missing_network_price_tickers),
+        }
+    )
+    if source_refresh_policy.refresh_full_price_history and missing_network_price_tickers:
+        raise RuntimeError(
+            "Full active-universe Yahoo history refresh is incomplete; "
+            f"missing={list(missing_network_price_tickers)}. No package was published."
+        )
+    preliminary_prices = build_split_detection_prices(
+        existing_prices=existing_price_history.select(list(PRICE_COLUMNS)),
+        fresh_prices=yahoo_prices_delta.select(list(PRICE_COLUMNS)),
+        full_history_refresh=source_refresh_policy.refresh_full_price_history,
+    )
+    preliminary_split_findings = find_extreme_adjusted_price_moves(
+        preliminary_prices,
+        event_since=rolling_price_start,
+        tickers=[f"{ticker}.US" for ticker in price_quality_tickers],
+    )
+    split_repairs: list[dict[str, object]] = []
+    if not preliminary_split_findings.is_empty():
+        split_tickers = (
+            preliminary_split_findings.select(
+                pl.col("ticker").str.replace(r"\.US$", "").unique().sort()
+            )
+            .to_series()
+            .to_list()
+        )
+        registry_splits, registry_manifest = load_confirmed_stock_splits(
+            project_root
+            / "configs"
+            / "data_quality"
+            / "confirmed_corporate_actions.json",
+            tickers=[f"{ticker}.US" for ticker in split_tickers],
+        )
+        split_evidence = combine_stock_split_evidence(
+            yahoo_client.fetch_stock_splits(split_tickers),
+            registry_splits,
+        )
+        source_refresh_contract["corporate_action_registry"] = registry_manifest
+        yahoo_prices_delta, split_repairs = repair_confirmed_split_discontinuities(
+            yahoo_prices_delta,
+            findings=preliminary_split_findings,
+            splits=split_evidence,
+        )
+    source_refresh_contract["corporate_action_repairs"] = split_repairs
     simfin_price_tickers = _identify_simfin_price_fallback_tickers(
-        requested_tickers=ticker_list,
+        requested_tickers=price_refresh_tickers,
         yahoo_prices_delta=yahoo_prices_delta,
         backfill_tickers=price_backfill_tickers,
     )
@@ -849,7 +1183,7 @@ def run_open_source_ingestion(
     if simfin_client.last_fetch_failures:
         run_failures["simfin"].extend(simfin_client.last_fetch_failures)
     stockanalysis_price_tickers = _identify_stockanalysis_price_fallback_tickers(
-        requested_tickers=ticker_list,
+        requested_tickers=price_refresh_tickers,
         covered_prices_delta=_concat_or_empty([yahoo_prices_delta, simfin_prices_delta], empty=_empty_raw_price_frame()),
         backfill_tickers=price_backfill_tickers,
     )
@@ -865,24 +1199,80 @@ def run_open_source_ingestion(
     if stockanalysis_client.last_fetch_failures:
         run_failures["stockanalysis"].extend(stockanalysis_client.last_fetch_failures)
     benchmark_prices_delta = _with_price_ingestion_metadata(
-        yahoo_client.download_prices(["SPY"], price_start, end_date),
+        _download_yahoo_price_history(
+            yahoo_client,
+            tickers=("SPY",),
+            start_date=price_start,
+            end_date=end_date,
+        ),
         dataset="prices_spy_yfinance",
         run_id=run_id,
         ingested_at=ingested_at,
     )
+    benchmark_refreshed, benchmark_missing = _network_price_refresh_coverage(
+        benchmark_prices_delta,
+        requested_tickers=("SPY",),
+    )
+    source_refresh_contract["source_semantics"]["yfinance_prices"].update(
+        {
+            "benchmark_network_refreshed": "SPY" in benchmark_refreshed,
+            "benchmark_network_missing_tickers": list(benchmark_missing),
+        }
+    )
+    if source_refresh_policy.refresh_full_price_history and benchmark_missing:
+        raise RuntimeError(
+            "Full Yahoo benchmark history refresh is incomplete; "
+            f"missing={list(benchmark_missing)}. No package was published."
+        )
+    if source_refresh_policy.refresh_full_price_history:
+        _drop_refreshed_partitions(
+            paths.raw_dir / "prices_yfinance.parquet",
+            tickers=price_refresh_tickers,
+            date_column="date",
+            start_date=price_start,
+            end_date=end_date,
+        )
+        _drop_refreshed_partitions(
+            paths.raw_dir / "prices_simfin.parquet",
+            tickers=simfin_price_tickers,
+            date_column="date",
+            start_date=price_start,
+            end_date=end_date,
+        )
+        _drop_refreshed_partitions(
+            paths.raw_dir / "prices_stockanalysis.parquet",
+            tickers=stockanalysis_price_tickers,
+            date_column="date",
+            start_date=price_start,
+            end_date=end_date,
+        )
+        _drop_refreshed_partitions(
+            paths.raw_dir / "prices_spy_yfinance.parquet",
+            tickers=("SPY",),
+            date_column="date",
+            start_date=price_start,
+            end_date=end_date,
+        )
     (
         raw_yahoo_prices,
         raw_simfin_prices,
         raw_stockanalysis_prices,
         clean_prices,
         clean_price_lineage,
-    ) = _prepare_validated_stock_price_merge(
+    ) = _prepare_canonical_hybrid_price_merge(
         paths=paths,
         yahoo_delta=yahoo_prices_delta,
         simfin_delta=simfin_prices_delta,
         stockanalysis_delta=stockanalysis_prices_delta,
         ticker_list=ticker_list,
-        event_since=price_start,
+        active_tickers=price_quality_tickers,
+        event_since=rolling_price_start,
+        start_date=start_date,
+        expected_through=end_date,
+        eodhd_seed_path=eodhd_price_seed_path,
+        run_id=run_id,
+        source_refresh_policy=source_refresh_policy,
+        source_refresh_contract=source_refresh_contract,
     )
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", yahoo_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
@@ -901,13 +1291,13 @@ def run_open_source_ingestion(
     earnings_delta = _empty_raw_earnings_frame()
     earnings_sec_calendar_delta = _empty_raw_earnings_frame()
     earnings_sec_actuals_delta = _empty_raw_earnings_frame()
-    sec_financial_deltas: list[pl.DataFrame] = []
+    sec_financials_all = _empty_raw_financial_base()
     sec_filing_deltas: list[pl.DataFrame] = []
     simfin_deltas: list[pl.DataFrame] = []
     yahoo_financial_deltas: list[pl.DataFrame] = []
     if refreshed_years:
         try:
-            earnings_fetched = yahoo_client.fetch_earnings_dates(ticker_list, limit=100)
+            earnings_fetched = yahoo_client.fetch_earnings_dates(price_quality_tickers, limit=100)
         except Exception as exc:
             earnings_fetched = _empty_raw_earnings_frame()
             run_failures["yfinance_earnings"].append({"error": str(exc)})
@@ -920,6 +1310,21 @@ def run_open_source_ingestion(
         append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_yfinance.parquet", earnings_delta)
         sec_calendar_frames, sec_calendar_failures = _fetch_sec_earnings_calendar(sec_filing_client, sec_mapping, years=refreshed_years)
         run_failures["sec_filing"].extend(sec_calendar_failures)
+        active_sec_calendar_failures = _required_failure_tickers(
+            sec_calendar_failures,
+            required_tickers=price_quality_tickers,
+        )
+        source_refresh_contract["source_semantics"]["sec_submissions"].update(
+            {
+                "active_network_failure_tickers": list(active_sec_calendar_failures),
+                "active_network_complete": not active_sec_calendar_failures,
+            }
+        )
+        if active_sec_calendar_failures:
+            raise RuntimeError(
+                "SEC submissions refresh is incomplete for the active universe; "
+                f"failed={list(active_sec_calendar_failures)}. No package was published."
+            )
         earnings_sec_calendar_delta = _with_earnings_ingestion_metadata(
             _concat_or_empty(sec_calendar_frames, empty=empty_earnings_calendar_frame()),
             dataset="earnings_sec_calendar",
@@ -927,25 +1332,101 @@ def run_open_source_ingestion(
             ingested_at=ingested_at,
         )
         append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_calendar.parquet", earnings_sec_calendar_delta)
-        sec_actual_frames, sec_actual_failures = _fetch_sec_earnings_actuals(sec_client, sec_mapping)
+        sec_frames, sec_actual_frames, sec_actual_failures = _fetch_sec_companyfacts_bundle(
+            sec_client,
+            sec_mapping,
+        )
         run_failures["sec_companyfacts"].extend(sec_actual_failures)
+        active_sec_actual_failures = _required_failure_tickers(
+            sec_actual_failures,
+            required_tickers=price_quality_tickers,
+        )
+        source_refresh_contract["source_semantics"]["sec_companyfacts"].update(
+            {
+                "active_network_failure_tickers": list(active_sec_actual_failures),
+                "active_network_complete": not active_sec_actual_failures,
+            }
+        )
+        if active_sec_actual_failures:
+            raise RuntimeError(
+                "SEC companyfacts refresh is incomplete for the active universe; "
+                f"failed={list(active_sec_actual_failures)}. No package was published."
+            )
         earnings_sec_actuals_delta = _with_earnings_ingestion_metadata(
-            _filter_earnings_years(_concat_or_empty(sec_actual_frames, empty=empty_earnings_actuals_frame()), refreshed_years),
+            _filter_earnings_years(
+                _concat_or_empty(sec_actual_frames, empty=empty_earnings_actuals_frame()),
+                companyfacts_years,
+            ),
             dataset="earnings_sec_actuals",
             run_id=run_id,
             ingested_at=ingested_at,
         )
         append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_actuals.parquet", earnings_sec_actuals_delta)
-
-    sec_financials_all = _empty_raw_financial_base()
-    if refreshed_years:
-        sec_frames, sec_failures = _fetch_sec_financials(sec_client, sec_mapping)
-        run_failures["sec_companyfacts"].extend(sec_failures)
         sec_financials_all = _concat_or_empty(sec_frames)
+
+    successful_companyfacts_tickers = tuple(
+        sorted(
+            mapped_sec_tickers
+            - {
+                str(item["ticker"]).upper().removesuffix(".US")
+                for item in run_failures["sec_companyfacts"]
+                if item.get("ticker")
+            }
+        )
+    )
+    successful_submission_tickers = tuple(
+        sorted(
+            mapped_sec_tickers
+            - {
+                str(item["ticker"]).upper().removesuffix(".US")
+                for item in run_failures["sec_filing"]
+                if item.get("ticker") and item.get("dataset") == "earnings_sec_calendar"
+            }
+        )
+    )
+    if source_refresh_policy.refresh_sec_companyfacts:
+        companyfacts_start = f"{min(companyfacts_years):04d}-01-01"
+        companyfacts_end = f"{max(companyfacts_years):04d}-12-31"
+        _drop_refreshed_partitions(
+            paths.raw_dir / "earnings_sec_actuals.parquet",
+            tickers=successful_companyfacts_tickers,
+            date_column="period_end",
+            start_date=companyfacts_start,
+            end_date=companyfacts_end,
+        )
+        _drop_refreshed_partitions(
+            paths.raw_dir / "financials_sec_companyfacts.parquet",
+            tickers=successful_companyfacts_tickers,
+            date_column="date",
+            start_date=companyfacts_start,
+            end_date=companyfacts_end,
+        )
+    if source_refresh_policy.refresh_sec_submissions:
+        refreshed_start = f"{min(refreshed_years):04d}-01-01"
+        refreshed_end = f"{max(refreshed_years):04d}-12-31"
+        _drop_refreshed_partitions(
+            paths.raw_dir / "earnings_sec_calendar.parquet",
+            tickers=successful_submission_tickers,
+            date_column="period_end",
+            start_date=refreshed_start,
+            end_date=refreshed_end,
+        )
+
+    sec_financial_deltas: list[pl.DataFrame] = [
+        _with_financial_ingestion_metadata(
+            _filter_financial_years(sec_financials_all, years=companyfacts_years),
+            dataset="financials_sec_companyfacts",
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
+    ]
 
     for year in refreshed_years:
         sec_year = _filter_financial_year(sec_financials_all, year=year)
-        sec_filing_tickers = _identify_sec_filing_fallback_tickers(tickers=ticker_list, sec_companyfacts=sec_year)
+        sec_filing_tickers = _identify_sec_filing_fallback_tickers(
+            tickers=price_quality_tickers,
+            sec_companyfacts=sec_year,
+        )
         sec_filing_year = _empty_raw_financial_base()
         if sec_filing_tickers:
             sec_filing_mapping = sec_mapping.filter(pl.col("ticker").is_in(list(sec_filing_tickers)))
@@ -961,6 +1442,9 @@ def run_open_source_ingestion(
             sec_companyfacts=sec_year,
             sec_filing=sec_filing_year,
         )
+        yfinance_financial_tickers = tuple(
+            sorted(set(yfinance_financial_tickers).intersection(price_quality_tickers))
+        )
         yahoo_financial_year = (
             yahoo_client.fetch_quarterly_financials(yfinance_financial_tickers).filter(pl.col("date").str.starts_with(str(year)))
             if yfinance_financial_tickers
@@ -973,9 +1457,6 @@ def run_open_source_ingestion(
             run_failures["simfin"].append({"year": str(year), "error": str(exc)})
         run_failures["simfin"].extend(simfin_client.last_fetch_failures)
 
-        sec_financial_deltas.append(
-            _with_financial_ingestion_metadata(sec_year, dataset="financials_sec_companyfacts", run_id=run_id, ingested_at=ingested_at)
-        )
         sec_filing_deltas.append(
             _with_financial_ingestion_metadata(sec_filing_year, dataset="financials_sec_filing", run_id=run_id, ingested_at=ingested_at)
         )
@@ -1040,34 +1521,57 @@ def run_open_source_ingestion(
         raw_yahoo_earnings=raw_earnings,
         raw_earnings_sec_calendar=raw_earnings_sec_calendar,
         raw_earnings_sec_actuals=raw_earnings_sec_actuals,
-        candidate_tickers=ticker_list,
+        candidate_tickers=price_quality_tickers,
         years=refreshed_years,
     )
 
-    consolidated_financials, consolidated_lineage, source_summary = consolidate_financial_sources(
-        [
+    financial_source_frames: list[tuple[str, pl.DataFrame, int]] = [
+        ("sec_companyfacts", raw_sec_financials, 1),
+        ("sec_filing", raw_sec_filing_financials, 2),
+        ("simfin", raw_simfin_financials, 3),
+        ("yfinance", raw_yahoo_financials, 4),
+    ]
+    sanitized_financial_sources: list[FinancialSourceInput] = []
+    share_candidate_quarantine: dict[str, object] = {}
+    for source_name, source_frame, priority in financial_source_frames:
+        sanitized, quarantine_report = quarantine_implausible_share_candidates(
+            source_frame.select(_clean_financial_columns())
+        )
+        share_candidate_quarantine[source_name] = quarantine_report
+        sanitized_financial_sources.append(
             FinancialSourceInput(
-                source_name="sec_companyfacts",
-                frame=raw_sec_financials.select(_clean_financial_columns()),
-                priority=1,
-            ),
-            FinancialSourceInput(
-                source_name="sec_filing",
-                frame=raw_sec_filing_financials.select(_clean_financial_columns()),
-                priority=2,
-            ),
-            FinancialSourceInput(
-                source_name="simfin",
-                frame=raw_simfin_financials.select(_clean_financial_columns()),
-                priority=3,
-            ),
-            FinancialSourceInput(
-                source_name="yfinance",
-                frame=raw_yahoo_financials.select(_clean_financial_columns()),
-                priority=4,
-            ),
-        ]
+                source_name=source_name,
+                frame=sanitized,
+                priority=priority,
+            )
+        )
+    source_refresh_contract["share_candidate_quarantine"] = share_candidate_quarantine
+    write_json(
+        paths.run_dir(run_id) / "share_candidate_quarantine.json",
+        share_candidate_quarantine,
     )
+
+    (
+        consolidated_financials,
+        consolidated_lineage,
+        source_summary,
+        share_selection_quality,
+    ) = consolidate_financial_sources_with_share_quality(
+        sanitized_financial_sources
+    )
+    source_refresh_contract["share_selection_quality"] = share_selection_quality
+    write_json(
+        paths.run_dir(run_id) / "share_selection_quality.json",
+        share_selection_quality,
+    )
+
+    fundamental_quality = audit_fundamental_quality(consolidated_financials)
+    source_refresh_contract["fundamental_quality_guard"] = fundamental_quality
+    write_json(
+        paths.run_dir(run_id) / "fundamental_quality_guard.json",
+        fundamental_quality,
+    )
+    validate_fundamental_quality(fundamental_quality)
 
     clean_prices.write_parquet(paths.clean_dir / "prices_open_source.parquet")
     clean_price_lineage.write_parquet(paths.clean_dir / "prices_open_source_lineage.parquet")
@@ -1081,6 +1585,16 @@ def run_open_source_ingestion(
     general_reference.write_parquet(paths.clean_dir / "general_reference.parquet")
     general_reference_lineage.write_parquet(paths.clean_dir / "general_reference_lineage.parquet")
 
+    constituents_frame = pl.read_csv(reference_data_dir / "SP500_Constituents.csv", try_parse_dates=True)
+    data_freshness = build_data_freshness_summary(
+        prices=clean_prices,
+        benchmark_prices=clean_benchmark_prices,
+        financials=consolidated_financials,
+        earnings_sec_calendar=raw_earnings_sec_calendar,
+        constituents=constituents_frame,
+    )
+    validate_data_freshness(data_freshness, expected_through=end_date)
+
     legacy_paths = export_legacy_compatible_outputs(
         clean_prices=clean_prices,
         benchmark_prices=clean_benchmark_prices,
@@ -1090,6 +1604,14 @@ def run_open_source_ingestion(
         earnings_frame=clean_earnings,
         reference_data_dir=reference_data_dir,
         output_dir=paths.legacy_dir,
+    )
+    _audit_and_validate_historical_revisions(
+        paths=paths,
+        run_id=run_id,
+        legacy_paths=legacy_paths,
+        expected_through=end_date,
+        source_refresh_policy=source_refresh_policy,
+        source_refresh_contract=source_refresh_contract,
     )
     published_output_paths = publish_open_source_output_package(
         output_dir=paths.output_dir,
@@ -1112,6 +1634,8 @@ def run_open_source_ingestion(
             "target_dir": str(paths.target_dir),
             "output_dir": str(paths.output_dir),
             "legacy_dir": str(paths.legacy_dir),
+            "source_refresh_contract": source_refresh_contract,
+            "data_freshness": data_freshness,
         },
         history_root=paths.root_dir / "history" / "output",
     )
@@ -1140,6 +1664,10 @@ def run_open_source_ingestion(
         "stockanalysis_price_fallback_ticker_count": len(stockanalysis_price_tickers),
         "stockanalysis_price_fallback_ticker_examples": list(stockanalysis_price_tickers[:20]),
         "financial_years_refreshed": list(refreshed_years),
+        "sec_companyfacts_years_refreshed": list(companyfacts_years),
+        "source_refresh_contract": source_refresh_contract,
+        "data_freshness": data_freshness,
+        "corporate_action_repairs": split_repairs,
         "ticker_count": len(ticker_list),
         "earnings_repair_ticker_count": len(earnings_repair_tickers),
         "earnings_repair_ticker_examples": list(earnings_repair_tickers[:20]),
@@ -1185,6 +1713,7 @@ def run_open_source_ingestion(
         "audit_dirs": [str(path.relative_to(paths.root_dir)) for path in audit_dirs],
     }
     write_run_manifest(paths, run_id, manifest)
+    (paths.manifests_dir / "raw_store_quarantine.json").unlink(missing_ok=True)
 
     return OpenSourceIngestionResult(
         mode=mode,
@@ -1205,6 +1734,7 @@ def run_open_source_ingestion(
         price_rows=clean_prices.height,
         consolidated_rows=consolidated_financials.height,
         lineage_rows=consolidated_lineage.height,
+        sec_companyfacts_years=companyfacts_years,
     )
 
 
@@ -1569,6 +2099,125 @@ def _identify_simfin_price_fallback_tickers(
     return tuple(sorted(fallback))
 
 
+def _network_price_refresh_coverage(
+    prices_delta: pl.DataFrame,
+    *,
+    requested_tickers: Sequence[str],
+) -> tuple[set[str], tuple[str, ...]]:
+    refreshed = (
+        set(
+            prices_delta.select(
+                pl.col("ticker")
+                .cast(pl.String)
+                .str.replace(r"\.US$", "")
+                .str.to_uppercase()
+            )
+            .unique()
+            .to_series()
+            .to_list()
+        )
+        if not prices_delta.is_empty()
+        else set()
+    )
+    requested = {str(ticker).upper().removesuffix(".US") for ticker in requested_tickers}
+    return refreshed, tuple(sorted(requested - refreshed))
+
+
+def _drop_refreshed_partitions(
+    path: Path,
+    *,
+    tickers: Sequence[str],
+    date_column: str,
+    start_date: str,
+    end_date: str,
+) -> None:
+    """Remove only the partitions a successful full network fetch will replace."""
+    if not path.exists() or not tickers:
+        return
+    frame = pl.read_parquet(path)
+    if frame.is_empty():
+        return
+    ticker_roots = sorted(
+        {str(ticker).upper().removesuffix(".US") for ticker in tickers}
+    )
+    ticker_root = (
+        pl.col("ticker")
+        .cast(pl.String)
+        .str.to_uppercase()
+        .str.replace(r"\.US$", "")
+    )
+    normalized_date = pl.col(date_column).cast(pl.String, strict=False).str.slice(0, 10)
+    replaced_partition = (
+        ticker_root.is_in(ticker_roots)
+        & (normalized_date >= start_date)
+        & (normalized_date <= end_date)
+    )
+    frame.filter(replaced_partition.not_()).write_parquet(path)
+
+
+def _required_failure_tickers(
+    failures: Sequence[dict[str, str]],
+    *,
+    required_tickers: Sequence[str],
+) -> tuple[str, ...]:
+    required = {
+        str(ticker).upper().removesuffix(".US") for ticker in required_tickers
+    }
+    failed = {
+        str(item["ticker"]).upper().removesuffix(".US")
+        for item in failures
+        if item.get("ticker")
+    }
+    return tuple(sorted(required.intersection(failed)))
+
+
+def _resolve_sec_mapping_coverage(
+    *,
+    sec_mapping: pl.DataFrame,
+    required_tickers: Sequence[str],
+) -> tuple[set[str], set[str], tuple[str, ...]]:
+    mapped = {
+        str(ticker).upper().removesuffix(".US")
+        for ticker in sec_mapping.get_column("ticker").to_list()
+    }
+    required = {
+        str(ticker).upper().removesuffix(".US") for ticker in required_tickers
+    }
+    return mapped, required, tuple(sorted(required - mapped))
+
+
+def _download_yahoo_price_history(
+    yahoo_client: YahooFinanceClient,
+    *,
+    tickers: Sequence[str],
+    start_date: str,
+    end_date: str,
+    max_attempts: int = 3,
+) -> pl.DataFrame:
+    remaining = tuple(sorted({str(ticker).upper().removesuffix(".US") for ticker in tickers}))
+    frames: list[pl.DataFrame] = []
+    for attempt in range(max_attempts):
+        if not remaining:
+            break
+        fetched = yahoo_client.download_prices(remaining, start_date, end_date)
+        frames.append(fetched)
+        refreshed, _ = _network_price_refresh_coverage(
+            _concat_or_empty(frames, empty=fetched),
+            requested_tickers=tickers,
+        )
+        remaining = tuple(sorted(set(remaining) - refreshed))
+        if remaining and attempt + 1 < max_attempts:
+            time.sleep(min(4.0, 2.0**attempt))
+    if not frames:
+        return pl.DataFrame()
+    return (
+        pl.concat(frames, how="diagonal_relaxed")
+        .sort(["ticker", "date"])
+        .unique(subset=["ticker", "date"], keep="last", maintain_order=True)
+        .sort(["ticker", "date"])
+    )
+
+
 def _identify_stockanalysis_price_fallback_tickers(
     *,
     requested_tickers: Sequence[str],
@@ -1605,6 +2254,20 @@ def _load_reference_tickers(reference_data_dir: Path, *, start_date: str) -> tup
         .select(pl.col("ticker").str.replace(r"\.US$", "").alias("ticker"))
         .unique()
         .sort("ticker")
+        .to_series()
+        .to_list()
+    )
+
+
+def _load_latest_sp500_tickers(reference_data_dir: Path) -> tuple[str, ...]:
+    constituents = pl.read_csv(reference_data_dir / "SP500_Constituents.csv", try_parse_dates=True).select(
+        pl.col("Date").cast(pl.Date, strict=False),
+        pl.col("Ticker").cast(pl.String).str.to_uppercase(),
+    )
+    latest_month = constituents.select(pl.col("Date").max()).item()
+    return tuple(
+        constituents.filter(pl.col("Date") == latest_month)
+        .select(pl.col("Ticker").unique().sort())
         .to_series()
         .to_list()
     )
@@ -1686,6 +2349,91 @@ def _load_existing_price_tickers(paths: OpenSourceLivePaths) -> tuple[str, ...]:
     return ()
 
 
+def _prepare_canonical_hybrid_price_merge(
+    *,
+    paths: OpenSourceLivePaths,
+    yahoo_delta: pl.DataFrame,
+    simfin_delta: pl.DataFrame,
+    stockanalysis_delta: pl.DataFrame,
+    ticker_list: Sequence[str],
+    active_tickers: Sequence[str],
+    event_since: str,
+    start_date: str,
+    expected_through: str,
+    eodhd_seed_path: Path,
+    run_id: str,
+    source_refresh_policy: SourceRefreshPolicy,
+    source_refresh_contract: dict[str, object],
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    prospective = _merge_prospective_price_sources(
+        paths=paths,
+        yahoo_delta=yahoo_delta,
+        simfin_delta=simfin_delta,
+        stockanalysis_delta=stockanalysis_delta,
+        ticker_list=ticker_list,
+    )
+    retained_open_history = _load_retained_open_price_vintages(
+        paths=paths,
+        prospective=prospective,
+        active_tickers=active_tickers,
+        ticker_list=ticker_list,
+    )
+    seed = load_eodhd_seed(eodhd_seed_path, start_date=start_date)
+    price_policy = source_refresh_policy.price_gate_policy()
+    hybrid = compose_hybrid_price_history(
+        eodhd_seed=seed.frame,
+        active_yahoo_vintage=yahoo_delta,
+        retained_open_history=retained_open_history,
+        active_tickers=active_tickers,
+        policy=price_policy,
+    )
+
+    previous_path = paths.output_dir / "US_Finalprice.parquet"
+    previous_prices = pl.read_parquet(previous_path) if previous_path.exists() else None
+    gate = audit_price_candidate(
+        previous_prices=previous_prices,
+        candidate_prices=hybrid.prices,
+        candidate_lineage=hybrid.lineage,
+        active_tickers=active_tickers,
+        expected_eodhd_keys=seed.frame.select("ticker", "date"),
+        expected_through=expected_through,
+        policy=price_policy,
+    )
+
+    source_refresh_contract["eodhd_price_seed"] = seed.manifest()
+    source_refresh_contract["price_composition"] = hybrid.composition_report
+    source_refresh_contract["price_revision_guard"] = gate.report
+    run_dir = paths.run_dir(run_id)
+    write_json(run_dir / "price_composition.json", hybrid.composition_report)
+    write_json(run_dir / "price_revision_guard.json", gate.report)
+    gate.daily_return_revisions.write_parquet(
+        run_dir / "price_daily_return_revisions.parquet"
+    )
+    gate.transition_factor_findings.write_parquet(
+        run_dir / "price_transition_factor_findings.parquet"
+    )
+    gate.historical_key_removals.write_parquet(
+        run_dir / "price_historical_key_removals.parquet"
+    )
+    validate_price_candidate(gate)
+
+    quality_tickers = [
+        f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in active_tickers
+    ]
+    assert_no_extreme_adjusted_price_moves(
+        hybrid.prices,
+        event_since=event_since,
+        tickers=quality_tickers,
+    )
+    return (
+        prospective[0],
+        prospective[1],
+        prospective[2],
+        hybrid.prices,
+        hybrid.lineage,
+    )
+
+
 def _prepare_validated_stock_price_merge(
     *,
     paths: OpenSourceLivePaths,
@@ -1693,8 +2441,38 @@ def _prepare_validated_stock_price_merge(
     simfin_delta: pl.DataFrame,
     stockanalysis_delta: pl.DataFrame,
     ticker_list: Sequence[str],
+    quality_tickers: Sequence[str] | None = None,
     event_since: str,
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    prospective = _merge_prospective_price_sources(
+        paths=paths,
+        yahoo_delta=yahoo_delta,
+        simfin_delta=simfin_delta,
+        stockanalysis_delta=stockanalysis_delta,
+        ticker_list=ticker_list,
+    )
+
+    clean, lineage = _consolidate_price_sources(prospective, ticker_list=ticker_list)
+    quality_tickers = [
+        f"{str(ticker).upper().removesuffix('.US')}.US"
+        for ticker in (quality_tickers if quality_tickers is not None else ticker_list)
+    ]
+    assert_no_extreme_adjusted_price_moves(
+        clean,
+        event_since=event_since,
+        tickers=quality_tickers,
+    )
+    return prospective[0], prospective[1], prospective[2], clean, lineage
+
+
+def _merge_prospective_price_sources(
+    *,
+    paths: OpenSourceLivePaths,
+    yahoo_delta: pl.DataFrame,
+    simfin_delta: pl.DataFrame,
+    stockanalysis_delta: pl.DataFrame,
+    ticker_list: Sequence[str],
+) -> list[pl.DataFrame]:
     sources = (
         ("prices_yfinance.parquet", yahoo_delta),
         ("prices_simfin.parquet", simfin_delta),
@@ -1711,15 +2489,40 @@ def _prepare_validated_stock_price_merge(
             order_cols=["ingested_at"],
         )
         prospective.append(_canonicalize_price_tickers(merged, ticker_list=ticker_list))
+    return prospective
 
-    clean, lineage = _consolidate_price_sources(prospective, ticker_list=ticker_list)
-    quality_tickers = [f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in ticker_list]
-    assert_no_extreme_adjusted_price_moves(
-        clean,
-        event_since=event_since,
-        tickers=quality_tickers,
+
+def _load_retained_open_price_vintages(
+    *,
+    paths: OpenSourceLivePaths,
+    prospective: Sequence[pl.DataFrame],
+    active_tickers: Sequence[str],
+    ticker_list: Sequence[str],
+) -> pl.DataFrame:
+    active = [
+        f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in active_tickers
+    ]
+    archived_paths = sorted(
+        paths.runs_dir.glob("*/raw/prices_yfinance.parquet")
     )
-    return prospective[0], prospective[1], prospective[2], clean, lineage
+    archived = (
+        pl.concat(
+            [pl.scan_parquet(path) for path in archived_paths],
+            how="diagonal_relaxed",
+        )
+        .filter(~pl.col("ticker").cast(pl.String).str.to_uppercase().is_in(active))
+        .collect()
+        if archived_paths
+        else _empty_raw_price_frame()
+    )
+    current = _concat_or_empty(
+        list(prospective),
+        empty=_empty_raw_price_frame(),
+    ).filter(~pl.col("ticker").cast(pl.String).str.to_uppercase().is_in(active))
+    return _canonicalize_price_tickers(
+        _concat_or_empty([archived, current], empty=_empty_raw_price_frame()),
+        ticker_list=ticker_list,
+    )
 
 
 def _consolidate_price_sources(
@@ -1981,8 +2784,15 @@ def _upsert_financial_dataset(
     return upsert_parquet(
         paths.raw_dir / file_name,
         delta,
-        key_cols=["ticker", "statement", "metric", "date", "source"],
-        order_cols=["filing_date", "ingested_at"],
+        key_cols=[
+            "ticker",
+            "statement",
+            "metric",
+            "date",
+            "filing_date",
+            "source",
+        ],
+        order_cols=["ingested_at"],
     )
 
 
@@ -2040,6 +2850,13 @@ def _filter_financial_year(frame: pl.DataFrame, *, year: int) -> pl.DataFrame:
     return frame.filter(pl.col("date").str.starts_with(str(year)))
 
 
+def _filter_financial_years(frame: pl.DataFrame, *, years: Sequence[int]) -> pl.DataFrame:
+    if frame.is_empty():
+        return _empty_raw_financial_base()
+    year_values = tuple(str(year) for year in years)
+    return frame.filter(pl.col("date").str.slice(0, 4).is_in(year_values))
+
+
 def _fetch_sec_financials(
     sec_client: SecCompanyFactsClient,
     sec_mapping: pl.DataFrame,
@@ -2060,6 +2877,49 @@ def _fetch_sec_financials(
             except Exception as exc:
                 failures.append({"ticker": ticker, "error": str(exc)})
     return frames, failures
+
+
+def _fetch_sec_companyfacts_bundle(
+    sec_client: SecCompanyFactsClient,
+    sec_mapping: pl.DataFrame,
+    max_workers: int = 1,
+) -> tuple[list[pl.DataFrame], list[pl.DataFrame], list[dict[str, str]]]:
+    """Derive all companyfacts outputs while each network payload is resident once."""
+    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
+    financial_frames: list[pl.DataFrame] = []
+    earnings_frames: list[pl.DataFrame] = []
+    failures: list[dict[str, str]] = []
+
+    def fetch_one(ticker: str, cik: str) -> tuple[pl.DataFrame, pl.DataFrame]:
+        try:
+            financials = sec_client.extract_financials(ticker, cik)
+            earnings = _extract_sec_companyfacts_earnings_actuals(sec_client, ticker, cik)
+            return financials, earnings
+        finally:
+            sec_client.discard_company_facts(cik)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(fetch_one, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
+            for row in rows
+        }
+        for completed, future in enumerate(as_completed(futures), start=1):
+            ticker = futures[future]
+            try:
+                financials, earnings = future.result()
+                financial_frames.append(financials)
+                earnings_frames.append(earnings)
+            except Exception as exc:
+                failures.append(
+                    {
+                        "ticker": ticker,
+                        "error": str(exc),
+                        "dataset": "sec_companyfacts_bundle",
+                    }
+                )
+            if completed % 100 == 0:
+                print(f"SEC companyfacts progress: {completed}/{len(futures)}")
+    return financial_frames, earnings_frames, failures
 
 
 def _fetch_sec_earnings_actuals(
@@ -2099,12 +2959,16 @@ def _fetch_sec_filing_earnings_actuals(
             executor.submit(sec_client.extract_earnings_actuals, str(row["ticker"]), str(row["cik"]), list(years)): str(row["ticker"])
             for row in rows
         }
-        for future in as_completed(futures):
+        for completed, future in enumerate(as_completed(futures), start=1):
             ticker = futures[future]
             try:
                 frames.append(future.result())
             except Exception as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals_filing"})
+            finally:
+                sec_client.clear_memory_cache()
+            if completed % 100 == 0:
+                print(f"SEC filing earnings progress: {completed}/{len(futures)}")
     return frames, failures
 
 
@@ -2123,12 +2987,16 @@ def _fetch_sec_earnings_calendar(
             executor.submit(sec_client.extract_earnings_calendar, str(row["ticker"]), str(row["cik"]), list(years)): str(row["ticker"])
             for row in rows
         }
-        for future in as_completed(futures):
+        for completed, future in enumerate(as_completed(futures), start=1):
             ticker = futures[future]
             try:
                 frames.append(future.result())
             except Exception as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
+            finally:
+                sec_client.clear_memory_cache()
+            if completed % 100 == 0:
+                print(f"SEC submissions progress: {completed}/{len(futures)}")
     return frames, failures
 
 
@@ -2151,6 +3019,8 @@ def _fetch_sec_company_profiles(
                 frames.append(future.result())
             except Exception as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "general_reference"})
+            finally:
+                sec_client.clear_memory_cache()
     return frames, failures
 
 
@@ -2175,6 +3045,8 @@ def _fetch_sec_filing_financials(
                 frames.append(future.result())
             except Exception as exc:
                 failures.append({"ticker": ticker, "error": str(exc)})
+            finally:
+                sec_client.clear_memory_cache()
     return frames, failures
 
 
@@ -2192,15 +3064,16 @@ def _identify_sec_filing_fallback_tickers(
     tickers: tuple[str, ...],
     sec_companyfacts: pl.DataFrame,
 ) -> tuple[str, ...]:
-    return _identify_metric_gap_tickers(
-        tickers=tickers,
-        financials=sec_companyfacts,
-        supported_metrics={
-            (spec.statement, spec.metric)
-            for spec in METRIC_SPECS
-            if spec.statement != "earnings" and (spec.sec_tags or spec.metric in {"free_cash_flow"})
-        },
+    requested = {str(ticker).upper().removesuffix(".US") for ticker in tickers}
+    covered = (
+        {
+            str(ticker).upper().removesuffix(".US")
+            for ticker in sec_companyfacts.get_column("ticker").unique().to_list()
+        }
+        if not sec_companyfacts.is_empty()
+        else set()
     )
+    return tuple(sorted(requested - covered))
 
 
 def _identify_yfinance_financial_fallback_tickers(

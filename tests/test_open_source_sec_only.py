@@ -9,7 +9,29 @@ from alpharank.data.open_source.sec_only import (
     build_sec_only_earnings,
     build_sec_only_financials,
     build_sec_only_general_reference_from_raw_lineage,
+    select_initial_sec_filing_versions,
 )
+
+
+def test_initial_sec_filing_version_is_selected_for_point_in_time_values() -> None:
+    versions = pl.DataFrame(
+        {
+            "ticker": ["AAA.US", "AAA.US"],
+            "statement": ["shares", "shares"],
+            "metric": ["outstanding_shares", "outstanding_shares"],
+            "date": ["2020-12-31", "2020-12-31"],
+            "filing_date": ["2022-02-01", "2021-02-01"],
+            "value": [110.0, 100.0],
+            "source": ["sec_companyfacts", "sec_companyfacts"],
+            "ingested_at": ["2026-08-16", "2026-08-16"],
+        }
+    )
+
+    selected = select_initial_sec_filing_versions(versions)
+
+    assert selected.select("filing_date", "value").rows() == [
+        ("2021-02-01", 100.0)
+    ]
 
 
 def test_build_sec_only_general_reference_from_raw_lineage_ignores_yahoo_fields() -> None:

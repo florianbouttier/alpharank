@@ -106,6 +106,12 @@ def validate_manifest(manifest_path: Path, *, strict_code: bool = False) -> tupl
         differing_files = manifest.get("open_source_output_published_snapshot_differing_files")
         suffix = f": {differing_files}" if differing_files else ""
         errors.append(f"open_source_output_matches_published_snapshot is false{suffix}")
+    refresh_scope = manifest.get("open_source_source_refresh_scope")
+    if refresh_scope is not None and refresh_scope != "full_ingestion":
+        errors.append(
+            "open_source_source_refresh_scope is not production-eligible: "
+            f"{refresh_scope}"
+        )
 
     return errors, warnings
 

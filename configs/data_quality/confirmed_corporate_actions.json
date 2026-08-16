@@ -1,0 +1,15 @@
+{
+  "registry_id": "confirmed_corporate_actions_v1",
+  "description": "Reviewed corporate actions used only to reconcile a matching observed price discontinuity.",
+  "events": [
+    {
+      "ticker": "MNST.US",
+      "action": "stock_split",
+      "effective_date": "2026-08-11",
+      "split_ratio": 2.0,
+      "announced_date": "2026-07-08",
+      "source": "issuer_press_release",
+      "source_url": "https://www.globenewswire.com/news-release/2026/07/08/3324442/10193/en/monster-beverage-declares-two-for-one-stock-split.html"
+    }
+  ]
+}

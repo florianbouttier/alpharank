@@ -15,6 +15,8 @@ from alpharank.data.open_source.config import GENERAL_COLUMNS, PRICE_COLUMNS, sp
 class YahooFinanceClient:
     def __init__(self, *, cache_dir: str | Path | None = None) -> None:
         self._ticker_cache: dict[str, yf.Ticker] = {}
+        self._quarterly_financial_cache: dict[str, pl.DataFrame] = {}
+        self._downloaded_split_rows: dict[tuple[str, str], dict[str, object]] = {}
         self._cache_dir = Path(cache_dir).expanduser().resolve() if cache_dir else None
         if self._cache_dir is not None:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
@@ -34,7 +36,7 @@ class YahooFinanceClient:
         self._ticker_cache[yahoo_symbol] = ticker
         return ticker
 
-    def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 5) -> pl.DataFrame:
+    def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 50) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
         tickers = list(tickers)
         for start_idx in range(0, len(tickers), chunk_size):
@@ -42,6 +44,11 @@ class YahooFinanceClient:
             yahoo_symbols = [_normalize_yahoo_symbol(ticker) for ticker in chunk]
             history = _download_with_retries(yahoo_symbols, start_date, end_date)
             for ticker, yahoo_symbol in zip(chunk, yahoo_symbols):
+                self._record_downloaded_splits(
+                    history,
+                    request_symbol=yahoo_symbol,
+                    ticker=ticker,
+                )
                 frame = _extract_price_frame(history, request_symbol=yahoo_symbol, ticker=ticker)
                 if frame is None:
                     frame = _download_single_ticker_frame(ticker, start_date, end_date)
@@ -49,6 +56,95 @@ class YahooFinanceClient:
                     frames.append(frame)
 
         return pl.concat(frames, how="vertical") if frames else pl.DataFrame(schema={c: pl.String for c in PRICE_COLUMNS})
+
+    def fetch_stock_splits(self, tickers: Iterable[str]) -> pl.DataFrame:
+        rows: list[dict[str, object]] = []
+        ticker_roots = sorted({str(value).upper().removesuffix(".US") for value in tickers})
+        for ticker in ticker_roots:
+            downloaded = [
+                row
+                for (row_ticker, _), row in self._downloaded_split_rows.items()
+                if row_ticker == f"{ticker}.US"
+            ]
+            if downloaded:
+                rows.extend(downloaded)
+                continue
+            actions = self._fetch_actions_with_retries(ticker)
+            if actions is None or actions.empty or "Stock Splits" not in actions.columns:
+                continue
+            for timestamp, ratio in actions["Stock Splits"].items():
+                numeric_ratio = float(ratio)
+                if numeric_ratio <= 0.0:
+                    continue
+                rows.append(
+                    {
+                        "ticker": f"{ticker}.US",
+                        "date": pd.Timestamp(timestamp).strftime("%Y-%m-%d"),
+                        "split_ratio": numeric_ratio,
+                        "source": "yahoo_actions",
+                    }
+                )
+        if not rows:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "date": pl.String,
+                    "split_ratio": pl.Float64,
+                    "source": pl.String,
+                }
+            )
+        return (
+            pl.DataFrame(rows)
+            .unique(subset=["ticker", "date", "split_ratio"], keep="first")
+            .sort(["ticker", "date"])
+        )
+
+    def _record_downloaded_splits(
+        self,
+        history: pd.DataFrame,
+        *,
+        request_symbol: str,
+        ticker: str,
+    ) -> None:
+        if history is None or history.empty:
+            return
+        ticker_frame = history
+        if isinstance(history.columns, pd.MultiIndex):
+            if request_symbol not in history.columns.get_level_values(0):
+                return
+            ticker_frame = history[request_symbol]
+        if "Stock Splits" not in ticker_frame.columns:
+            return
+        normalized_ticker = f"{str(ticker).upper().removesuffix('.US')}.US"
+        for timestamp, ratio in ticker_frame["Stock Splits"].items():
+            numeric_ratio = float(ratio) if pd.notna(ratio) else 0.0
+            if numeric_ratio <= 0.0:
+                continue
+            event_date = pd.Timestamp(timestamp).strftime("%Y-%m-%d")
+            self._downloaded_split_rows[(normalized_ticker, event_date)] = {
+                "ticker": normalized_ticker,
+                "date": event_date,
+                "split_ratio": numeric_ratio,
+                "source": "yahoo_price_download_actions",
+            }
+
+    def _fetch_actions_with_retries(
+        self,
+        ticker: str,
+        *,
+        retries: int = 5,
+    ) -> pd.DataFrame | None:
+        for attempt in range(retries):
+            ticker_object = self._ticker(ticker) if attempt == 0 else self._fresh_ticker(ticker)
+            try:
+                actions = ticker_object.actions
+            except Exception:
+                actions = None
+            if actions is not None and not actions.empty and "Stock Splits" in actions.columns:
+                return actions
+            if attempt + 1 < retries:
+                time.sleep(float(attempt + 1))
+        return None
 
     def fetch_company_metadata(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
         rows: list[dict[str, object]] = []
@@ -119,33 +215,25 @@ class YahooFinanceClient:
             )
         return pl.DataFrame(rows).select(GENERAL_COLUMNS) if rows else pl.DataFrame(schema={c: pl.String for c in GENERAL_COLUMNS})
 
-    def fetch_earnings_dates(self, tickers: Iterable[str], limit: int = 100) -> pl.DataFrame:
+    def fetch_earnings_dates(
+        self,
+        tickers: Iterable[str],
+        limit: int = 100,
+        max_workers: int = 6,
+    ) -> pl.DataFrame:
         rows: list[dict[str, object]] = []
         effective_limit = max(8, min(int(limit), 100))
-        for ticker in tickers:
-            history = _safe_get_earnings_dates(self._ticker(ticker), ticker=ticker, limit=effective_limit)
-            if history is None or history.empty:
-                history = _safe_get_earnings_dates(self._fresh_ticker(ticker), ticker=ticker, limit=effective_limit)
-            if history is None or history.empty:
-                continue
-            frame = history.reset_index()
-            date_col = frame.columns[0]
-            if date_col not in frame.columns:
-                continue
-            for record in frame.to_dict(orient="records"):
-                earnings_date = pd.Timestamp(record[date_col]).tz_localize(None) if getattr(record[date_col], "tzinfo", None) else pd.Timestamp(record[date_col])
-                rows.append(
-                    {
-                        "ticker": f"{ticker}.US",
-                        "reportDate": earnings_date.strftime("%Y-%m-%d"),
-                        "earningsDatetime": earnings_date.strftime("%Y-%m-%d %H:%M:%S"),
-                        "period_end": None,
-                        "epsEstimate": _as_float(record.get("EPS Estimate")),
-                        "epsActual": _as_float(record.get("Reported EPS")),
-                        "surprisePercent": _as_float(record.get("Surprise(%)")),
-                        "source": "yfinance",
-                    }
-                )
+        ticker_list = sorted({str(ticker).upper().removesuffix(".US") for ticker in tickers})
+        with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(ticker_list) or 1))) as executor:
+            futures = {
+                executor.submit(self._fetch_ticker_earnings_rows, ticker, effective_limit): ticker
+                for ticker in ticker_list
+            }
+            for future in as_completed(futures):
+                try:
+                    rows.extend(future.result())
+                except Exception:
+                    continue
         if not rows:
             return pl.DataFrame(
                 schema={
@@ -166,18 +254,56 @@ class YahooFinanceClient:
             .sort(["ticker", "reportDate"])
         )
 
+    def _fetch_ticker_earnings_rows(self, ticker: str, limit: int) -> list[dict[str, object]]:
+        history = _safe_get_earnings_dates(self._ticker(ticker), ticker=ticker, limit=limit)
+        if history is None or history.empty:
+            history = _safe_get_earnings_dates(self._fresh_ticker(ticker), ticker=ticker, limit=limit)
+        if history is None or history.empty:
+            return []
+        frame = history.reset_index()
+        date_col = frame.columns[0]
+        if date_col not in frame.columns:
+            return []
+        rows: list[dict[str, object]] = []
+        for record in frame.to_dict(orient="records"):
+            timestamp = pd.Timestamp(record[date_col])
+            earnings_date = timestamp.tz_localize(None) if getattr(timestamp, "tzinfo", None) else timestamp
+            rows.append(
+                {
+                    "ticker": f"{ticker}.US",
+                    "reportDate": earnings_date.strftime("%Y-%m-%d"),
+                    "earningsDatetime": earnings_date.strftime("%Y-%m-%d %H:%M:%S"),
+                    "period_end": None,
+                    "epsEstimate": _as_float(record.get("EPS Estimate")),
+                    "epsActual": _as_float(record.get("Reported EPS")),
+                    "surprisePercent": _as_float(record.get("Surprise(%)")),
+                    "source": "yfinance",
+                }
+            )
+        return rows
+
     def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
         frames: list[pl.DataFrame] = []
-        ticker_list = list(tickers)
+        ticker_list = sorted({str(ticker).upper().removesuffix(".US") for ticker in tickers})
+
+        def fetch_one(ticker: str) -> pl.DataFrame:
+            cached = self._quarterly_financial_cache.get(ticker)
+            if cached is not None:
+                return cached
+            ticker_frames = _fetch_ticker_financial_frames(ticker)
+            frame = pl.concat(ticker_frames, how="vertical") if ticker_frames else _empty_financial_frame()
+            self._quarterly_financial_cache[ticker] = frame
+            return frame
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(_fetch_ticker_financial_frames, ticker): ticker for ticker in ticker_list}
+            futures = {executor.submit(fetch_one, ticker): ticker for ticker in ticker_list}
             for future in as_completed(futures):
                 try:
-                    ticker_frames = future.result()
+                    frame = future.result()
                 except Exception:
-                    ticker_frames = []
-                if ticker_frames:
-                    frames.extend(ticker_frames)
+                    frame = _empty_financial_frame()
+                if not frame.is_empty():
+                    frames.append(frame)
         return pl.concat(frames, how="vertical") if frames else _empty_financial_frame()
 
     def normalize_earnings_long(self, earnings_dates: pl.DataFrame) -> pl.DataFrame:
@@ -375,6 +501,7 @@ def _download_with_retries(chunk: list[str], start_date: str, end_date: str, ret
                 start=start_date,
                 end=end_date,
                 auto_adjust=False,
+                actions=True,
                 progress=False,
                 threads=False,
                 group_by="ticker",

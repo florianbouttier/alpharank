@@ -2,7 +2,12 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime, timezone
+import hashlib
+import json
+import os
 from pathlib import Path
+import re
 import shutil
 
 import polars as pl
@@ -15,7 +20,21 @@ from alpharank.data.open_source.sec_only import (
     build_sec_only_general_reference_from_raw_lineage,
 )
 from alpharank.data.open_source.storage import utc_now_iso, write_json
+from alpharank.data.open_source.revision_guard import audit_historical_revisions
 from alpharank.data.output_history import snapshot_output_directory
+
+
+RAW_FILE_NAMES = (
+    "financials_sec_companyfacts.parquet",
+    "financials_sec_filing.parquet",
+    "earnings_sec_calendar.parquet",
+    "earnings_sec_actuals.parquet",
+    "general_reference_lineage.parquet",
+)
+ALLOWED_FINANCIAL_SOURCES = frozenset({"sec_companyfacts", "sec_filing"})
+ALLOWED_EARNINGS_SOURCES = frozenset(
+    {"sec_companyfacts", "sec_filing", "sec_derived_eps", "sec_submissions"}
+)
 
 
 def main(
@@ -23,6 +42,10 @@ def main(
     raw_source_dir: str | Path | None = None,
     reference_data_dir: str | Path | None = None,
     output_dir: str | Path | None = None,
+    previous_output_dir: str | Path | None = None,
+    expected_through: str | None = None,
+    allow_historical_revisions: bool = False,
+    revision_review_note: str | None = None,
 ) -> None:
     project_root = Path(__file__).resolve().parents[2]
     resolved_raw_source_dir = (
@@ -41,6 +64,16 @@ def main(
         else project_root / "data" / "sec" / "output"
     )
     history_root = resolved_output_dir.parent / "history" / "output"
+    resolved_previous_output_dir = (
+        Path(previous_output_dir).expanduser().resolve()
+        if previous_output_dir
+        else project_root / "data" / "sec" / "output"
+    )
+    expected_through = expected_through or date.today().isoformat()
+    if allow_historical_revisions and not revision_review_note:
+        raise ValueError(
+            "--revision-review-note is required when historical revisions are allowed"
+        )
 
     sec_companyfacts = pl.read_parquet(resolved_raw_source_dir / "financials_sec_companyfacts.parquet")
     sec_filing = pl.read_parquet(resolved_raw_source_dir / "financials_sec_filing.parquet")
@@ -114,8 +147,13 @@ def main(
     general_reference, general_reference_lineage = build_sec_only_general_reference_from_raw_lineage(
         general_reference_lineage_raw
     )
+    _validate_sec_only_lineage(
+        consolidated_lineage=consolidated_lineage,
+        earnings_lineage=earnings_lineage,
+    )
 
-    staging_dir = resolved_output_dir.parent / "_staging_sec_output_package"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+    staging_dir = resolved_output_dir.parent / f"._staging_sec_output_package_{timestamp}"
     if staging_dir.exists():
         shutil.rmtree(staging_dir)
     legacy_paths = export_legacy_compatible_fundamental_outputs(
@@ -128,12 +166,61 @@ def main(
         align_shares_with_earnings_semantics=False,
     )
 
+    raw_records = {
+        name: _file_record(resolved_raw_source_dir / name) for name in RAW_FILE_NAMES
+    }
+    source_run_ids = sorted(
+        {
+            str(value)
+            for frame in (
+                sec_companyfacts,
+                sec_filing,
+                sec_calendar,
+                sec_actuals,
+                general_reference_lineage_raw,
+            )
+            if "ingestion_run_id" in frame.columns
+            for value in frame.get_column("ingestion_run_id").drop_nulls().unique().to_list()
+        }
+    )
+    chronological_run_ids = [
+        value for value in source_run_ids if re.fullmatch(r"\d{8}_\d{6}", value)
+    ]
+    run_id = max(chronological_run_ids) if chronological_run_ids else timestamp[:15]
+    historical_revision_guard = audit_historical_revisions(
+        previous_output_dir=resolved_previous_output_dir,
+        candidate_paths=legacy_paths,
+        expected_through=expected_through,
+        guard_days=730,
+    )
+    historical_revision_guard.update(
+        {
+            "override_enabled": allow_historical_revisions,
+            "revision_review_note": revision_review_note,
+            "previous_output_dir": str(resolved_previous_output_dir),
+            "candidate_dir": str(staging_dir),
+        }
+    )
+    write_json(
+        staging_dir / "lineage" / "historical_revision_guard.json",
+        historical_revision_guard,
+    )
+
     manifest = {
+        "run_id": run_id,
         "generated_at": utc_now_iso(),
         "output_dir": str(resolved_output_dir),
         "raw_source_dir": str(resolved_raw_source_dir),
         "reference_data_dir": str(resolved_reference_data_dir),
         "scope": "sec_only_fundamentals",
+        "source_run_ids": source_run_ids,
+        "raw_sources": raw_records,
+        "historical_revision_guard": historical_revision_guard,
+        "revision_review": {
+            "required": historical_revision_guard["historical_revisions_detected"],
+            "approved": allow_historical_revisions,
+            "note": revision_review_note,
+        },
         "dataset_policy": {
             "financials": "sec_companyfacts -> sec_filing",
             "earnings_calendar": "sec_submissions",
@@ -173,6 +260,16 @@ def main(
             "earnings_period_end_max": earnings_consolidated.get_column("period_end").max() if not earnings_consolidated.is_empty() else None,
         },
     }
+    if (
+        historical_revision_guard["historical_revisions_detected"]
+        and not allow_historical_revisions
+    ):
+        write_json(staging_dir / "lineage" / "candidate_manifest.json", manifest)
+        raise RuntimeError(
+            "SEC-only historical revisions require review before publication; "
+            f"blocked_datasets={historical_revision_guard['blocked_datasets']}; "
+            f"candidate={staging_dir}"
+        )
 
     published = publish_sec_output_package(
         output_dir=resolved_output_dir,
@@ -218,6 +315,21 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=project_root / "data" / "sec" / "output",
     )
+    parser.add_argument(
+        "--previous-output-dir",
+        type=Path,
+        default=project_root / "data" / "sec" / "output",
+    )
+    parser.add_argument("--expected-through", default=date.today().isoformat())
+    parser.add_argument(
+        "--allow-historical-revisions",
+        action="store_true",
+        help="Publish only after the generated SEC-only revision report was reviewed.",
+    )
+    parser.add_argument(
+        "--revision-review-note",
+        help="Required audit note explaining reviewed historical revisions.",
+    )
     return parser.parse_args()
 
 
@@ -237,27 +349,25 @@ def publish_sec_output_package(
     earnings_long: pl.DataFrame,
     manifest: dict[str, object],
 ) -> Path | None:
-    snapshot_dir = snapshot_output_directory(
-        output_dir,
-        history_root=history_root,
-        snapshot_prefix="sec_output",
-        metadata=manifest,
-    )
-    output_dir.mkdir(parents=True, exist_ok=True)
-    lineage_dir = output_dir / "lineage"
+    candidate_dirs = {path.parent.resolve() for path in legacy_paths.values()}
+    if len(candidate_dirs) != 1:
+        raise RuntimeError("SEC legacy outputs must share one staging directory")
+    candidate_dir = next(iter(candidate_dirs))
+    lineage_dir = candidate_dir / "lineage"
     lineage_dir.mkdir(parents=True, exist_ok=True)
 
     allowed_output_files = set(legacy_paths) | {"SP500_Constituents.csv", "README.md"}
-    for existing in output_dir.iterdir():
+    for existing in candidate_dir.iterdir():
         if existing.name == "lineage" or existing.name in allowed_output_files:
             continue
         if existing.is_file():
             existing.unlink()
 
     for file_name, source_path in legacy_paths.items():
-        shutil.copy2(source_path, output_dir / file_name)
-    shutil.copy2(constituents_source_path, output_dir / "SP500_Constituents.csv")
-    _write_readme(output_dir / "README.md")
+        if source_path.resolve() != (candidate_dir / file_name).resolve():
+            shutil.copy2(source_path, candidate_dir / file_name)
+    shutil.copy2(constituents_source_path, candidate_dir / "SP500_Constituents.csv")
+    _write_readme(candidate_dir / "README.md")
 
     lineage_outputs = {
         "general_reference.parquet": general_reference,
@@ -278,7 +388,86 @@ def publish_sec_output_package(
     for file_name, frame in lineage_outputs.items():
         frame.write_parquet(lineage_dir / file_name)
     write_json(lineage_dir / "manifest.json", manifest)
+    snapshot_dir = snapshot_output_directory(
+        candidate_dir,
+        history_root=history_root,
+        snapshot_prefix="sec_output",
+        metadata=manifest,
+    )
+    if snapshot_dir is None:
+        raise RuntimeError("SEC candidate snapshot was not created")
+    _replace_directory_atomically(source_dir=candidate_dir, output_dir=output_dir)
     return snapshot_dir
+
+
+def _validate_sec_only_lineage(
+    *,
+    consolidated_lineage: pl.DataFrame,
+    earnings_lineage: pl.DataFrame,
+) -> None:
+    financial_source_col = (
+        "selected_source"
+        if "selected_source" in consolidated_lineage.columns
+        else "source"
+    )
+    financial_sources = set(
+        consolidated_lineage.get_column(financial_source_col)
+        .drop_nulls()
+        .cast(pl.String)
+        .unique()
+        .to_list()
+    )
+    forbidden_financial = sorted(financial_sources - ALLOWED_FINANCIAL_SOURCES)
+    if forbidden_financial:
+        raise RuntimeError(
+            f"SEC-only financial lineage contains forbidden sources: {forbidden_financial}"
+        )
+    for column in ("calendar_source", "actual_source"):
+        if column not in earnings_lineage.columns:
+            continue
+        sources = set(
+            earnings_lineage.get_column(column)
+            .drop_nulls()
+            .cast(pl.String)
+            .unique()
+            .to_list()
+        )
+        forbidden = sorted(sources - ALLOWED_EARNINGS_SOURCES)
+        if forbidden:
+            raise RuntimeError(
+                f"SEC-only earnings lineage contains forbidden {column}: {forbidden}"
+            )
+
+
+def _file_record(path: Path) -> dict[str, object]:
+    return {
+        "path": str(path.resolve()),
+        "size_bytes": path.stat().st_size,
+        "sha256": _sha256(path),
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _replace_directory_atomically(*, source_dir: Path, output_dir: Path) -> None:
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    backup_dir = output_dir.parent / f".{output_dir.name}.previous"
+    shutil.rmtree(backup_dir, ignore_errors=True)
+    if output_dir.exists():
+        os.replace(output_dir, backup_dir)
+    try:
+        os.replace(source_dir, output_dir)
+    except Exception:
+        if backup_dir.exists() and not output_dir.exists():
+            os.replace(backup_dir, output_dir)
+        raise
+    shutil.rmtree(backup_dir, ignore_errors=True)
 
 
 def _filter_frame_by_historical_windows(
@@ -406,4 +595,8 @@ if __name__ == "__main__":
         raw_source_dir=args.raw_source_dir,
         reference_data_dir=args.reference_data_dir,
         output_dir=args.output_dir,
+        previous_output_dir=args.previous_output_dir,
+        expected_through=args.expected_through,
+        allow_historical_revisions=args.allow_historical_revisions,
+        revision_review_note=args.revision_review_note,
     )

@@ -78,6 +78,7 @@ def test_manifest_extra_context_links_open_source_output_to_latest_run(tmp_path:
             "target_dir": str(official_dir / "target"),
             "output_dir": str(data_dir),
             "legacy_dir": str(official_dir / "target" / "legacy_compatible"),
+            "source_refresh_contract": {"snapshot_scope": "full_ingestion"},
         },
     )
     _write_json(
@@ -113,6 +114,7 @@ def test_manifest_extra_context_links_open_source_output_to_latest_run(tmp_path:
     assert context["open_source_price_window"] == {"start_date": "2026-05-22", "end_date": "2026-05-31"}
     assert context["open_source_financial_years_refreshed"] == [2025, 2026]
     assert context["open_source_ticker_count"] == 725
+    assert context["open_source_source_refresh_scope"] == "full_ingestion"
     assert context["open_source_output_manifest_path"].endswith("output/lineage/manifest.json")
     assert context["open_source_ingestion_manifest_path"].endswith("official/runs/20260531_001503/manifest.json")
 

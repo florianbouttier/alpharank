@@ -31,6 +31,11 @@ Il ne contient pas:
 - de fallback SimFin
 - de fallback EODHD
 
+Cette exclusion est semantique, pas seulement technique: les fondamentaux
+EODHD historiques peuvent utiliser des definitions non-GAAP qui ne sont pas
+comparables aux facts GAAP SEC. Une valeur EODHD ne doit donc jamais completer
+un trou SEC dans un snapshot officiel, meme si elle existe localement.
+
 Nuance importante:
 
 - un bridge d'identifiant historique peut etre utilise pour retrouver un `CIK` SEC ancien ou delisted
@@ -41,8 +46,30 @@ Nuance importante:
 
 Les prix doivent venir d'un package separe:
 
-- aujourd'hui: un package prix dedie ou un mirror existant
-- cible: `data/stitched_prices/output`
+- socle historique: archive EODHD gelee pour conserver les delisted
+- extension/correction: sources de prix ouvertes et overlays corporate actions
+- cible: un package prix historise, joint au package SEC-only seulement lors de
+  la composition du snapshot modele
+
+Une correction de split ou dividende peut modifier le package prix derive mais
+ne change jamais le contrat fondamental SEC-only. L'archive EODHD brute reste
+immutable; les corrections sont versionnees et tracees dans le lineage prix.
+
+## Composition Du Snapshot Modele
+
+Un snapshot officiel Legacy doit reunir dans un package immutable:
+
+- `US_Finalprice.parquet` et `SP500Price.parquet` issus du package prix hybride
+  approuve;
+- income, balance, cash flow, shares, earnings et general issus exclusivement
+  d'un snapshot historise de `data/sec/output`;
+- le calendrier historique des constituants;
+- les deux manifests de lineage, leurs hashes et l'identifiant de composition.
+
+Copier directement tous les fichiers de `data/open_source/output` ne respecte
+pas ce contrat: ce dossier contient encore des fondamentaux Yahoo/SimFin. Un
+snapshot compose doit echouer si `selected_source` contient autre chose que
+`sec_companyfacts`, `sec_filing` ou une derivation explicitement SEC-only.
 
 ## Politique Source
 
@@ -130,6 +157,22 @@ Cle logique d'un fait financier:
 - `fiscal_year`
 - `fiscal_period`
 
+Cle de conservation dans le raw SEC Companyfacts:
+
+- `ticker`
+- `statement`
+- `metric`
+- `date`
+- `filing_date`
+- `source`
+
+`filing_date` est obligatoire dans cette cle: deux depots qui republient le
+meme fait sont deux versions distinctes. Le raw conserve toutes les versions.
+Pour le snapshot causal utilise par les modeles, on selectionne la premiere
+version deposee pour chaque `(ticker, statement, metric, date, source)` avant la
+normalisation trimestrielle. Une version ulterieure ne doit jamais remplacer la
+valeur qui etait disponible a la date initiale dans un replay historique.
+
 Quand plusieurs candidats SEC existent pour le meme quarter logique:
 
 - on privilegie `companyfacts`
@@ -176,7 +219,8 @@ Cle logique:
 
 Si plusieurs filings SEC concernent le meme quarter:
 
-- la version la plus recente et la plus exploitable est retenue
+- la premiere version exploitable par `reportDate` est retenue pour le replay
+  causal; les versions ulterieures restent dans le raw
 - le lineage doit permettre de remonter au filing retenu
 - au moment de publier le package SEC-only, les `sec_actuals` sont realignes une premiere fois sur le calendrier SEC par `reportDate`, puis une seconde fois par `ticker + fiscal_year + fiscal_period` si la date de publication seule ne suffit pas
 

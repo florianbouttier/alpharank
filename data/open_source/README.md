@@ -2,13 +2,66 @@
 
 This folder has one official purpose: hold the canonical open-source replacement data model.
 
+## Fundamental boundary
+
+The financial consolidation in this tree is multi-source research data. It is
+not the official model-fundamental package. Official monthly fundamentals must
+come from `data/sec/output` and may contain only SEC companyfacts, filing-level
+SEC extraction, or explicitly labelled values derived solely from SEC facts.
+EODHD/Yahoo/SimFin/StockAnalysis fundamental values are forbidden in an
+official snapshot; an EODHD ticker-to-CIK bridge is identity metadata only.
+
+The retained T1 package from 2026-08-11 contains 19,243 selected non-SEC
+fundamental values, so it remains reproducible replay evidence but is not
+SEC-only production truth. There is currently no canonical single-folder
+composition of approved prices plus refreshed SEC-only fundamentals.
+
+## Price-history warning
+
+The intended price contract is not open-source-only. The frozen archive at
+`data/eodhd/output/US_Finalprice.parquet` must remain the historical seed for
+delisted and former constituents, while Yahoo and other open sources extend
+downloadable names after the EODHD subscription was cancelled.
+
+The active `output/US_Finalprice.parquet` does not yet satisfy that contract.
+The 2026-08-14 audit found 110 normalized EODHD-only historical constituents
+and 419,656 EODHD rows missing from the open package; its lineage contains no
+EODHD-seeded row. The backtest-relevant gaps are 108 tickers / 271,385 rows
+since 2005 and 104 tickers / 168,242 rows since 2010. "Retains inactive
+histories" currently means only histories
+already bootstrapped from Yahoo, StockAnalysis, or SimFin. It must not be read
+as full Legacy/EODHD delisted coverage.
+
+Evidence: `outputs/eodhd_price_seed_audit_20260814/`.
+
+The migration code and transition audit are implemented, but the active output
+has not been promoted. The reviewed non-published candidate is
+`outputs/hybrid_price_candidate_20260815_final/`: 3,708,691 valid rows / 840
+tickers, one Yahoo vintage for all 503 active tickers, 143 inactive extensions
+reconstructed from same-vintage returns, and 7 long-gap symbol-reuse tails
+rejected. The candidate replays byte-identically from the frozen EODHD seed,
+Yahoo run `20260813_071802`, and immutable `official/runs/` deltas.
+
+Continue to report active-price freshness and frozen historical-universe
+coverage as separate statuses until that candidate is combined with and
+published alongside a refreshed SEC-only fundamental package. A green
+freshness gate does not make the current active package historically comparable
+with Legacy.
+
+The frozen EODHD archive itself is never edited. If new evidence establishes a
+missing or incorrect split/dividend, publish a versioned correction overlay and
+a new immutable derived snapshot. Splits may restate pre-event OHLC and inverse
+volume; dividends leave raw OHLCV unchanged and alter only adjusted/total-return
+values. The overlay must retain event evidence and before/after hashes.
+
 ## What matters
 
 - `official/`: the canonical open-source store
 - `output/`: the exact-name user-facing package
 - `audit/`: HTML and parquet comparison reports versus EODHD
 - `archive/`: old probes, experiments, and one-off runs kept only for reference
-- `_cache/`: source caches for SEC and SimFin
+- `_cache/`: disposable transport cache; it may be empty and is never required
+  to replay a published snapshot
 
 ## Where to look first
 
@@ -38,6 +91,35 @@ If you want the internal canonical store, start here:
 4. `official/target/financials_open_source_consolidated.parquet`
 5. `audit/` only if you want discrepancy analysis
 6. `archive/` only if you are debugging old exploratory work
+
+In the manifest, read both:
+
+- `source_refresh_contract`: what was actually downloaded for this run
+- `data_freshness`: observed price, filing, fiscal-period, earnings, and
+  membership dates
+
+Only `snapshot_scope=full_ingestion` is eligible for a production monthly run.
+`official/raw/` is the retained normalized source history. Deleting `_cache/`
+does not delete that history or any published replay package.
+
+A successful production manifest also proves current network coverage for all
+active constituents and SPY, complete SEC mapping, and successful active-universe
+SEC submissions/companyfacts refreshes. A failed or interrupted run is rolled
+back transactionally and cannot replace the published snapshot.
+
+It must also contain a prepublication `historical_revision_guard` and the run
+must retain `official/runs/<run_id>/historical_revision_guard.json`. Historical
+changes older than 730 days block publication by default. Any
+`QUARANTINED.json`, `quarantined_run_*.json`, or `raw_store_quarantine.json`
+marker makes the corresponding data non-production until a later guarded full
+ingestion succeeds.
+
+Price publication additionally requires `price_composition.json`,
+`price_revision_guard.json`, exhaustive daily-return and removed-key parquet
+artifacts, complete inactive EODHD-key coverage, and one full Yahoo vintage for
+every active ticker. Historical return revisions above 1 bp and historical key
+removals have separate migration-only overrides; both are disabled in routine
+production.
 
 ## Rule
 

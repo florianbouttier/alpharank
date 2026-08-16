@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import filecmp
 from pathlib import Path
+import os
 import shutil
 from typing import Any
 
@@ -36,6 +38,7 @@ def publish_open_source_output_package(
     history_root: Path | None = None,
     snapshot_prefix: str = "open_source_output",
 ) -> PublishedOutputResult:
+    _validate_source_refresh_contract(manifest)
     output_dir.mkdir(parents=True, exist_ok=True)
     lineage_dir = output_dir / "lineage"
     lineage_dir.mkdir(parents=True, exist_ok=True)
@@ -50,11 +53,11 @@ def publish_open_source_output_package(
 
     for file_name, source_path in legacy_paths.items():
         destination = output_dir / file_name
-        shutil.copy2(source_path, destination)
+        _copy_if_changed(source_path, destination)
         published[file_name] = destination
 
     constituents_destination = output_dir / "SP500_Constituents.csv"
-    shutil.copy2(constituents_source_path, constituents_destination)
+    _copy_if_changed(constituents_source_path, constituents_destination)
     published["SP500_Constituents.csv"] = constituents_destination
 
     lineage_outputs = {
@@ -89,11 +92,11 @@ def publish_open_source_output_package(
             existing.unlink()
     for file_name, frame in lineage_outputs.items():
         path = lineage_dir / file_name
-        frame.write_parquet(path)
+        _write_parquet_if_changed(frame, path)
         published[f"lineage/{file_name}"] = path
     for file_name, source_path in staging_lineage_paths.items():
         destination = lineage_dir / file_name
-        shutil.copy2(source_path, destination)
+        _copy_if_changed(source_path, destination)
         published[f"lineage/{file_name}"] = destination
 
     if manifest is not None:
@@ -113,3 +116,41 @@ def publish_open_source_output_package(
     )
 
     return PublishedOutputResult(published_paths=published, snapshot_dir=snapshot_dir)
+
+
+def _validate_source_refresh_contract(manifest: dict[str, Any] | None) -> None:
+    if manifest is None:
+        return
+    contract = manifest.get("source_refresh_contract")
+    if not isinstance(contract, dict):
+        return
+    if contract.get("snapshot_scope") != "full_ingestion":
+        raise RuntimeError(
+            "Only a guarded full_ingestion may replace the canonical open-source "
+            "output package. Diagnostic refreshes must remain non-published."
+        )
+    policy = contract.get("policy")
+    if not isinstance(policy, dict) or not policy.get("require_eodhd_price_seed"):
+        raise RuntimeError("Production publication requires the immutable EODHD price seed")
+    gate = contract.get("price_revision_guard")
+    if not isinstance(gate, dict) or gate.get("passed") is not True:
+        raise RuntimeError("Production publication requires a passed price revision guard")
+
+
+def _copy_if_changed(source: Path, destination: Path) -> None:
+    if destination.exists() and filecmp.cmp(source, destination, shallow=False):
+        return
+    temporary = destination.with_name(f".{destination.name}.publishing-tmp")
+    temporary.unlink(missing_ok=True)
+    shutil.copy2(source, temporary)
+    os.replace(temporary, destination)
+
+
+def _write_parquet_if_changed(frame: pl.DataFrame, destination: Path) -> None:
+    temporary = destination.with_name(f".{destination.name}.publishing-tmp")
+    temporary.unlink(missing_ok=True)
+    frame.write_parquet(temporary)
+    if destination.exists() and filecmp.cmp(temporary, destination, shallow=False):
+        temporary.unlink()
+        return
+    os.replace(temporary, destination)

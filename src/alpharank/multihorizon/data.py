@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -252,6 +252,44 @@ def _add_multihorizon_targets(
             .alias(f"future_downside_{horizon}m")
         ).drop("_target_end_month")
     return result.drop(["_benchmark_close", "_benchmark_monthly_return"])
+
+
+def mask_targets_after_completed_month(
+    frame: pl.DataFrame,
+    *,
+    horizons: Iterable[int],
+    completed_through_month: date,
+) -> pl.DataFrame:
+    """Remove labels whose return window extends beyond the completed calendar.
+
+    The final decision month may still be scored. Its future labels remain null
+    until the corresponding holding period is complete.
+    """
+
+    result = frame
+    for horizon in sorted(set(horizons)):
+        target_columns = [
+            column
+            for column in result.columns
+            if column.endswith(f"_{horizon}m")
+            and (
+                column.startswith("future_")
+                or column.startswith("benchmark_future_")
+            )
+        ]
+        if not target_columns:
+            continue
+        target_end_month = pl.col("decision_month").dt.offset_by(f"{horizon}mo")
+        result = result.with_columns(
+            [
+                pl.when(target_end_month <= pl.lit(completed_through_month))
+                .then(pl.col(column))
+                .otherwise(None)
+                .alias(column)
+                for column in target_columns
+            ]
+        )
+    return result
 
 
 def _append_legacy_labels(frame: pl.DataFrame, legacy_path: Path) -> pl.DataFrame:

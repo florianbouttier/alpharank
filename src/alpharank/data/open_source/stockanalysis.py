@@ -21,12 +21,16 @@ class StockAnalysisClient:
         self,
         *,
         cache_dir: Path | None = None,
+        refresh_cache: bool = False,
+        persist_cache: bool = True,
         max_workers: int = 4,
         timeout_seconds: int = 30,
         user_agent: str | None = None,
     ) -> None:
         _load_local_dotenv()
         self.cache_dir = cache_dir or (Path.cwd() / "data" / "open_source" / "_cache" / "stockanalysis")
+        self.refresh_cache = refresh_cache
+        self.persist_cache = persist_cache
         self.max_workers = max(1, max_workers)
         self.timeout_seconds = timeout_seconds
         self.user_agent = (user_agent or os.getenv("STOCKANALYSIS_USER_AGENT", "")).strip() or "Mozilla/5.0"
@@ -86,7 +90,7 @@ class StockAnalysisClient:
 
     def _load_or_fetch_payload(self, ticker: str) -> dict[str, object]:
         cache_path = self.cache_dir / f"{ticker}.json"
-        if cache_path.exists():
+        if cache_path.exists() and not self.refresh_cache:
             try:
                 return json.loads(cache_path.read_text(encoding="utf-8"))
             except json.JSONDecodeError:
@@ -107,7 +111,8 @@ class StockAnalysisClient:
             if payload.get("status") != 200 or not isinstance(payload.get("data"), list):
                 last_error = RuntimeError(f"unexpected payload for {ticker}: {payload.get('status')}")
                 continue
-            cache_path.write_text(json.dumps(payload), encoding="utf-8")
+            if self.persist_cache:
+                cache_path.write_text(json.dumps(payload), encoding="utf-8")
             return payload
         if last_error is not None:
             raise last_error

@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+"""Build a canonical price package from a validated base plus one fresh vintage."""
+
+from __future__ import annotations
+
+import argparse
+from datetime import date, datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+import polars as pl
+
+from alpharank.data.prices import (
+    audit_price_candidate,
+    load_eodhd_seed,
+    roll_forward_validated_price_history,
+    validate_price_candidate,
+)
+from alpharank.data.prices.contracts import PRODUCTION_PRICE_GATE_POLICY
+
+
+def main() -> None:
+    args = _parse_args()
+    base_dir = args.base_package_dir.resolve()
+    output_dir = args.output_dir.resolve()
+    if output_dir.exists():
+        raise FileExistsError(output_dir)
+    output_dir.mkdir(parents=True)
+    (output_dir / "lineage").mkdir()
+    (output_dir / "audit").mkdir()
+
+    previous_lineage = pl.read_parquet(args.previous_validated_lineage.resolve())
+    fresh_yahoo = pl.read_parquet(args.fresh_yahoo_vintage.resolve())
+    active_tickers = _latest_constituents(base_dir / "SP500_Constituents.csv")
+    terminal_tickers = _validated_terminal_tickers(
+        requested=args.preserve_terminal_tickers,
+        registry_path=args.constituent_registry.resolve(),
+        expected_through=args.expected_through,
+    )
+    terminal_set = set(terminal_tickers)
+    refreshable_active_tickers = tuple(
+        ticker
+        for ticker in active_tickers
+        if f"{ticker.upper().removesuffix('.US')}.US" not in terminal_set
+    )
+    result = roll_forward_validated_price_history(
+        previous_validated_lineage=previous_lineage,
+        active_yahoo_vintage=fresh_yahoo,
+        active_tickers=active_tickers,
+        preserved_terminal_tickers=terminal_tickers,
+    )
+    seed = load_eodhd_seed(args.eodhd_seed.resolve(), start_date=args.start_date)
+    gate = audit_price_candidate(
+        previous_prices=previous_lineage,
+        candidate_prices=result.prices,
+        candidate_lineage=result.lineage,
+        active_tickers=refreshable_active_tickers,
+        expected_eodhd_keys=seed.frame.select("ticker", "date"),
+        expected_through=args.expected_through,
+        policy=PRODUCTION_PRICE_GATE_POLICY,
+    )
+
+    result.prices.write_parquet(output_dir / "US_Finalprice.parquet")
+    result.lineage.write_parquet(
+        output_dir / "lineage" / "prices_open_source_lineage.parquet"
+    )
+    shutil.copy2(base_dir / "SP500Price.parquet", output_dir / "SP500Price.parquet")
+    shutil.copy2(
+        base_dir / "SP500_Constituents.csv",
+        output_dir / "SP500_Constituents.csv",
+    )
+    gate.daily_return_revisions.write_parquet(
+        output_dir / "audit" / "price_daily_return_revisions.parquet"
+    )
+    gate.transition_factor_findings.write_parquet(
+        output_dir / "audit" / "price_transition_factor_findings.parquet"
+    )
+    gate.historical_key_removals.write_parquet(
+        output_dir / "audit" / "price_historical_key_removals.parquet"
+    )
+    _write_json(output_dir / "audit" / "price_revision_guard.json", gate.report)
+    _write_json(output_dir / "audit" / "price_composition.json", result.composition_report)
+
+    base_manifest = _read_json(base_dir / "lineage" / "manifest.json")
+    source_contract = dict(base_manifest["source_refresh_contract"])
+    source_contract["price_composition"] = result.composition_report
+    source_contract["price_revision_guard"] = gate.report
+    source_contract["previous_validated_price_lineage"] = _file_record(
+        args.previous_validated_lineage.resolve()
+    )
+    source_contract["fresh_yahoo_vintage"] = _file_record(
+        args.fresh_yahoo_vintage.resolve()
+    )
+    source_contract["eodhd_price_seed"] = seed.manifest()
+    source_contract["policy"] = {
+        **source_contract["policy"],
+        "allow_historical_price_revisions": False,
+        "allow_historical_price_key_removals": False,
+    }
+    manifest = {
+        "contract_version": 1,
+        "scope": "canonical_price_package",
+        "run_id": base_manifest["run_id"],
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "base_full_ingestion_package": str(base_dir),
+        "source_refresh_contract": source_contract,
+        "data_freshness": base_manifest["data_freshness"],
+        "output_sha256": {
+            name: _sha256(output_dir / name)
+            for name in (
+                "US_Finalprice.parquet",
+                "SP500Price.parquet",
+                "SP500_Constituents.csv",
+            )
+        },
+        "validation": {
+            "inactive_history_byte_preserved": True,
+            "active_history_single_fresh_yahoo_vintage": True,
+            "price_revision_guard_passed": gate.report["passed"],
+        },
+    }
+    _write_json(output_dir / "lineage" / "manifest.json", manifest)
+    validate_price_candidate(gate)
+    print(json.dumps({"output_dir": str(output_dir), "manifest": manifest}, indent=2))
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-package-dir", type=Path, required=True)
+    parser.add_argument("--previous-validated-lineage", type=Path, required=True)
+    parser.add_argument("--fresh-yahoo-vintage", type=Path, required=True)
+    parser.add_argument("--eodhd-seed", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-through", default=date.today().isoformat())
+    parser.add_argument("--start-date", default="2005-01-01")
+    parser.add_argument(
+        "--preserve-terminal-tickers",
+        nargs="*",
+        default=(),
+        help="Carry forward only tickers with a confirmed removal event in the registry.",
+    )
+    parser.add_argument(
+        "--constituent-registry",
+        type=Path,
+        default=Path("configs/data_quality/sp500_constituent_changes_2026.json"),
+    )
+    return parser.parse_args()
+
+
+def _latest_constituents(path: Path) -> tuple[str, ...]:
+    frame = pl.read_csv(path, infer_schema_length=0)
+    date_col = "Date" if "Date" in frame.columns else "date"
+    ticker_col = "Ticker" if "Ticker" in frame.columns else "ticker"
+    latest = frame.select(pl.col(date_col).max()).item()
+    return tuple(
+        frame.filter(pl.col(date_col) == latest)
+        .get_column(ticker_col)
+        .drop_nulls()
+        .cast(pl.String)
+        .str.to_uppercase()
+        .unique()
+        .sort()
+        .to_list()
+    )
+
+
+def _validated_terminal_tickers(
+    *,
+    requested: tuple[str, ...] | list[str],
+    registry_path: Path,
+    expected_through: str,
+) -> tuple[str, ...]:
+    requested_normalized = {
+        str(ticker).upper().removesuffix(".US") for ticker in requested
+    }
+    if not requested_normalized:
+        return ()
+    registry = _read_json(registry_path)
+    confirmed = {
+        str(operation["ticker"]).upper().removesuffix(".US")
+        for event in registry.get("events", [])
+        if str(event.get("effective_date", "")) <= expected_through
+        for operation in event.get("operations", [])
+        if operation.get("action") == "remove"
+    }
+    unconfirmed = sorted(requested_normalized - confirmed)
+    if unconfirmed:
+        raise RuntimeError(
+            f"Terminal price preservation lacks a confirmed removal event: {unconfirmed}"
+        )
+    return tuple(sorted(f"{ticker}.US" for ticker in requested_normalized))
+
+
+def _file_record(path: Path) -> dict[str, object]:
+    return {"path": str(path), "sha256": _sha256(path), "size_bytes": path.stat().st_size}
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _read_json(path: Path) -> dict[str, object]:
+    with path.open(encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8")
+
+
+if __name__ == "__main__":
+    main()

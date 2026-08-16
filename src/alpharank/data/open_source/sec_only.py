@@ -93,6 +93,8 @@ def build_sec_only_financials(
     sec_companyfacts: pl.DataFrame,
     sec_filing: pl.DataFrame,
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    sec_companyfacts = select_initial_sec_filing_versions(sec_companyfacts)
+    sec_filing = select_initial_sec_filing_versions(sec_filing)
     non_share_companyfacts = sec_companyfacts.filter(pl.col("metric") != "outstanding_shares")
     non_share_filing = sec_filing.filter(pl.col("metric") != "outstanding_shares")
     share_companyfacts = _sanitize_share_quality(sec_companyfacts.filter(pl.col("metric") == "outstanding_shares"))
@@ -138,6 +140,25 @@ def build_sec_only_financials(
     consolidated, lineage = _finalize_share_quarters(consolidated, lineage)
     source_summary = _summarize_financial_sources(consolidated)
     return consolidated, lineage, source_summary
+
+
+def select_initial_sec_filing_versions(frame: pl.DataFrame) -> pl.DataFrame:
+    """Select the first filed version while the raw store retains all revisions."""
+
+    if frame.is_empty() or "filing_date" not in frame.columns:
+        return frame
+    keys = ["ticker", "statement", "metric", "date", "source"]
+    missing = set(keys) - set(frame.columns)
+    if missing:
+        raise ValueError(f"SEC financial frame is missing version keys: {sorted(missing)}")
+    sort_columns = [*keys, "filing_date"]
+    if "ingested_at" in frame.columns:
+        sort_columns.append("ingested_at")
+    return (
+        frame.sort(sort_columns)
+        .unique(subset=keys, keep="first", maintain_order=True)
+        .sort(["ticker", "statement", "metric", "date"])
+    )
 
 
 def build_sec_only_earnings(

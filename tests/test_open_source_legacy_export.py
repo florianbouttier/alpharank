@@ -1029,6 +1029,49 @@ def test_export_legacy_compatible_outputs_keeps_distinct_quarters_from_same_fili
     assert shares["shares"].to_list() == [4_443_236_000.0, 4_275_634_000.0]
 
 
+def test_share_export_prefers_earliest_filing_within_calendarized_quarter(tmp_path: Path) -> None:
+    reference_dir = tmp_path / "reference"
+    output_dir = tmp_path / "live" / "legacy"
+    reference_dir.mkdir(parents=True)
+    _write_minimal_legacy_reference(reference_dir, ticker="A.US", code="A", name="Agilent")
+    financials = pl.DataFrame(
+        {
+            "ticker": ["A.US"] * 3,
+            "statement": ["shares"] * 3,
+            "metric": ["outstanding_shares"] * 3,
+            "date": ["2011-10-31", "2011-12-01", "2011-12-31"],
+            "filing_date": ["2012-06-04", "2011-12-16", "2012-03-05"],
+            "value": [591_000_000.0, 348_125_175.0, 593_000_000.0],
+            "source": ["sec_companyfacts"] * 3,
+            "source_label": ["shares"] * 3,
+            "selected_source": ["sec_companyfacts"] * 3,
+            "selected_source_label": ["shares"] * 3,
+            "selected_form": ["10-Q", "10-K", "10-Q"],
+            "selected_fiscal_period": ["Q2", "FY", "Q4"],
+            "selected_fiscal_year": [2012, 2011, 2012],
+            "source_priority": [1, 1, 1],
+        }
+    )
+
+    export_legacy_compatible_outputs(
+        clean_prices=pl.read_parquet(reference_dir / "US_Finalprice.parquet"),
+        benchmark_prices=pl.read_parquet(reference_dir / "SP500Price.parquet"),
+        general_reference=pl.DataFrame(
+            {"ticker": ["A.US"], "name": ["Agilent"], "exchange": ["NYSE"], "cik": ["0001090872"]}
+        ),
+        consolidated_financials=financials,
+        consolidated_lineage=financials,
+        earnings_frame=pl.DataFrame(),
+        reference_data_dir=reference_dir,
+        output_dir=output_dir,
+    )
+
+    shares = pl.read_parquet(output_dir / "US_share.parquet")
+    assert shares.select("dateFormatted", "shares").rows() == [
+        ("2011-12-31", 348_125_175.0)
+    ]
+
+
 def test_export_legacy_compatible_outputs_can_skip_earnings_implied_share_alignment(tmp_path: Path) -> None:
     reference_dir = tmp_path / "reference"
     output_dir = tmp_path / "live" / "legacy"

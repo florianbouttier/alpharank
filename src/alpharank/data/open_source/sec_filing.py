@@ -38,11 +38,19 @@ class SecFilingFactsClient:
         user_agent: str,
         timeout: int = 30,
         cache_dir: Path | None = None,
+        refresh_mutable_cache: bool = False,
+        persist_metadata_cache: bool = True,
+        persist_filing_documents: bool = True,
         max_retries: int = 5,
         request_pause_seconds: float = 0.25,
     ) -> None:
         self.timeout = timeout
         self.cache_dir = cache_dir
+        self.refresh_mutable_cache = refresh_mutable_cache
+        self.persist_metadata_cache = persist_metadata_cache
+        self.persist_filing_documents = persist_filing_documents
+        self._json_memory_cache: dict[str, dict[str, Any]] = {}
+        self._text_memory_cache: dict[str, str] = {}
         self.max_retries = max_retries
         self.request_pause_seconds = request_pause_seconds
         if self.cache_dir is not None:
@@ -104,7 +112,13 @@ class SecFilingFactsClient:
         return self._get_json(
             f"https://data.sec.gov/submissions/CIK{cik_str}.json",
             cache_name=f"CIK{cik_str}_submissions.json",
+            refresh=self.refresh_mutable_cache,
         )
+
+    def clear_memory_cache(self) -> None:
+        """Release transient SEC payloads after one company has been derived."""
+        self._json_memory_cache.clear()
+        self._text_memory_cache.clear()
 
     def extract_company_profile(self, ticker: str, cik: str | int) -> pl.DataFrame:
         payload = self.fetch_company_submissions(cik)
@@ -253,6 +267,9 @@ class SecFilingFactsClient:
             payload = self._get_text(
                 f"https://www.sec.gov/cgi-bin/browse-edgar?{query}",
                 cache_name=f"atom_{int(cik)}_{filing_type}_{start}.xml".replace("/", "_"),
+                refresh=self.refresh_mutable_cache,
+                persist=self.persist_metadata_cache,
+                memory_cache=True,
             )
             batch = _parse_atom_filings(payload, filing_type=filing_type)
             if not batch:
@@ -275,6 +292,7 @@ class SecFilingFactsClient:
             older_payload = self._get_json(
                 f"https://data.sec.gov/submissions/{name}",
                 cache_name=str(name),
+                refresh=self.refresh_mutable_cache,
             )
             if older_payload:
                 blocks.append(older_payload)
@@ -370,26 +388,45 @@ class SecFilingFactsClient:
         return self._get_text(
             f"https://www.sec.gov/Archives/edgar/data/{folder}/{instance_name}",
             cache_name=f"{folder}_{instance_name}".replace("/", "_"),
+            refresh=not self.persist_filing_documents,
+            persist=self.persist_filing_documents,
         )
 
-    def _get_json(self, url: str, cache_name: str) -> dict[str, Any]:
+    def _get_json(self, url: str, cache_name: str, *, refresh: bool = False) -> dict[str, Any]:
+        if url in self._json_memory_cache:
+            return self._json_memory_cache[url]
         cache_path = self.cache_dir / cache_name if self.cache_dir is not None else None
-        if cache_path is not None and cache_path.exists():
-            return json.loads(cache_path.read_text(encoding="utf-8"))
+        if cache_path is not None and cache_path.exists() and not refresh:
+            payload = json.loads(cache_path.read_text(encoding="utf-8"))
+            self._json_memory_cache[url] = payload
+            return payload
 
         payload = self._request(url).json()
-        if cache_path is not None:
+        if cache_path is not None and self.persist_metadata_cache:
             cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        self._json_memory_cache[url] = payload
         return payload
 
-    def _get_text(self, url: str, cache_name: str) -> str:
+    def _get_text(
+        self,
+        url: str,
+        cache_name: str,
+        *,
+        refresh: bool = False,
+        persist: bool = True,
+        memory_cache: bool = False,
+    ) -> str:
+        if memory_cache and url in self._text_memory_cache:
+            return self._text_memory_cache[url]
         cache_path = self.cache_dir / cache_name if self.cache_dir is not None else None
-        if cache_path is not None and cache_path.exists():
+        if cache_path is not None and cache_path.exists() and not refresh:
             return cache_path.read_text(encoding="utf-8")
 
         text = self._request(url).text
-        if cache_path is not None:
+        if cache_path is not None and persist:
             cache_path.write_text(text, encoding="utf-8")
+        if memory_cache:
+            self._text_memory_cache[url] = text
         return text
 
     def _request(self, url: str) -> requests.Response:

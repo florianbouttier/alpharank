@@ -1,16 +1,107 @@
 # Codex Handoff
 
-Last updated: 2026-08-12
+Last updated: 2026-08-16
 Branch at write time: `data-backfill-fixes`
 
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
 
-## 0.0 Current retained reference — 2026-08-11
+## 0.0c Full guarded refresh and composed snapshot - 2026-08-16
 
-The current production-comparable package is the retained open-source snapshot
+Fresh full ingestion is `20260816_103942`: prices and SEC filing dates reach
+2026-08-14. The canonical pointer is
+`data/model_inputs/manifests/latest.json`; it resolves immutable snapshot
+`data/model_inputs/history/alpharank_input_20260816_120458_2a01288bab06`,
+composition id `2a01288bab06102fce4f18cfd66c04e416fb4b3236aa5edf4c46a0ea213be9be`.
+Do not substitute mutable `data/open_source/output`.
+
+Prices are in `price_package_roll_forward_v2`: 502 refreshable active tickers
+come only from Yahoo vintage `20260816_103942`; 338 inactive/terminal histories
+are carried byte-stably from the validated predecessor. EA is the only terminal
+exception and is backed by the sourced 2026-08-05 removal in the constituent
+registry. The strict gate passes with zero old keys removed, zero old return
+availability changes, zero old daily-return revisions over 1 bp, and zero
+transition findings.
+
+SEC is in `sec_package_pit_validated`. Raw Companyfacts now preserves
+`filing_date` in its natural key (509,254 rows; 34,111 multi-version fact
+groups); exports select the earliest available filing version. The one-time
+migration triggered all historical revision guards and has a required review
+note in `lineage/manifest.json`. Legacy and Boosting must use the exact retained
+Legacy `input_snapshot/`; compare only after matching-hash validation.
+
+The completed aligned runs are Legacy `20260816_142810`, Boosting
+`outputs/production_refresh_20260816/boosting_latest_common_v3`, and common
+replay `outputs/production_refresh_20260816/common_replay_v3`. The common replay
+passes all lineage, exclusion-registry, and liquidity-policy gates over 180
+realized holding months from 2011-08 through 2026-07. The interactive report is
+`outputs/research_dashboard/alpharank_common_20260816_pit_validated/html/alpharank_research_center.html`.
+Boosting has 88,948 predictions and 88,948 exhaustive SHAP rows over 181
+decision months. July 2026 is score-only and produces an August target; it is
+not included in performance because August is incomplete.
+
+## 0.0b Hybrid price candidate - 2026-08-15
+
+Canonical price composition and fail-closed gates now live under
+`src/alpharank/data/prices/` and are wired into full ingestion before
+publication. Active members use one complete Yahoo vintage; inactive history
+uses the immutable EODHD seed and recent tails are chained from daily returns
+computed inside immutable run vintages. Tails after a gap over 10 days are
+rejected as possible ticker reuse. Routine historical-return and historical-key
+removal overrides are false.
+
+The reviewed candidate is
+`outputs/hybrid_price_candidate_20260815_final/`: 3,708,691 valid rows / 840
+tickers, 503/503 active tickers from Yahoo run `20260813_071802`, 143 inactive
+return-ledger extensions, zero adjustment-transition findings, and zero lost
+inactive EODHD keys. Migration review records 23,885 daily-return revisions
+over 1 bp, 45,739 availability changes, and 7,257 removed prior non-null keys
+across 43 tickers. A second build is byte-identical for price, lineage, and
+daily-revision parquets.
+
+Do not promote this old price-only candidate by hand. It is superseded by the
+2026-08-16 guarded roll-forward and composed snapshot above.
+
+## 0.0a Quarantined full-refresh comparison - 2026-08-13
+
+Production remains snapshot `open_source_output_20260811_014746`, run id
+`20260811_001503`. Full-refresh candidate
+`open_source_output_20260813_075926`, run id `20260813_071802`, is quarantined
+and must only be used for diagnostics. Its reconstructed historical-revision
+guard found thousands of pre-2024 additions, removals, and changes in every
+fundamental dataset. The active package was restored byte-identically to the
+production snapshot.
+
+The controlled downstream comparison lives in
+`outputs/data_revision_portfolios_20260813/`. Legacy old/new runs are
+`outputs/2026-08-12/runs/20260812_171646` and
+`legacy_new/2026-08-13/runs/20260813_154243`. Boosting old/new replays are
+`boosting_old` and `boosting_new`; July live scorers are
+`live_boosting_old_july` and `live_boosting_new_july`. The complete diff is
+`data_revision_audit.json`.
+
+Date convention is strict: decision month June means information through
+2026-06-30 and holdings in July; decision month July means information through
+2026-07-31 and target holdings in August. Legacy changes 2/6 June names and
+1/8 July names. Boosting changes 2/5 names in each month. Boosting prediction
+keys stay exactly equal, but all scores change because revised Legacy history
+replaces 37 of 39 causal EMA winner pairs. The old Boosting replay reproduces
+the prior 81,267 prediction artifact exactly, so this is data-driven rather
+than seed-driven. See `docs/sec_data_robustness_plan.md` for quantified data
+and eligibility changes.
+
+## 0.0 Historical retained reference — 2026-08-11
+
+The superseded reproducible mixed-contract reference is the retained open-source snapshot
 `data/open_source/history/output/open_source_output_20260811_014746`, run id
 `20260811_001503`. Stock and SPY prices reach 2026-08-10; the last complete
 decision month is 2026-06 and the last complete holding month is 2026-07.
+
+It is not a current production-data package under the 2026-08-14 clarified
+contract. Its fundamentals include 19,243 selected non-SEC values and its price
+history omits 110 normalized EODHD-only historical constituents. Official
+fundamentals are SEC/GAAP only; prices must retain the frozen EODHD delisted
+base with versioned open-source corporate-action corrections. The compliant
+2026-08-16 composed package is documented in section 0.0c.
 
 Legacy is `outputs/2026-08-12/runs/20260812_171646`; its replay validator
 passes and all upstream run-id/hash publication gates are true. Boosting is
@@ -425,6 +516,17 @@ The SEC-only fundamentals track was separated from the broader mixed
 open-source package. The active SEC-quality work focuses on reducing missing
 coverage for `epsActual`, `revenue`, and `net_income`, while keeping lineage
 visible.
+
+Production boundary clarified on 2026-08-14:
+
+- final fundamental values are SEC-only; EODHD may bridge ticker to CIK but
+  never supply a value;
+- prices are hybrid: frozen EODHD history for delisted names plus open-source
+  extensions and versioned split/dividend correction overlays;
+- `data/open_source/output` remains mixed-source R&D/replay data and cannot be
+  the source folder for a new official monthly recommendation;
+- monthly production is blocked until a composed-package builder/validator
+  records approved price lineage and historized SEC-only fundamental lineage.
 
 Current notable result:
 
@@ -889,7 +991,8 @@ Do not overwrite local state casually. Read the working tree first if continuing
 
 ## 11. Current Legacy / Boosting comparable reference — 2026-08-12
 
-The current eligible reference uses retained open-source run `20260811_001503`.
+The current mechanically comparable research reference uses retained
+open-source run `20260811_001503`.
 Legacy run `outputs/2026-08-12/runs/20260812_171646` and Boosting run
 `outputs/multihorizon_boosting/legacy_ema_latest_common_shared_eligibility_final_20260812`
 pass matching raw hashes, the same ten-ticker quarantine, and the same monthly
@@ -909,3 +1012,35 @@ Start-year CAGR and annual returns are in
 Legacy snapshots now use byte-identical APFS copy-on-write clones when
 available, with physical-copy fallback. The run manifest records the mode;
 symlinks are not used.
+
+## 12. Open-source refresh and storage contract - 2026-08-13
+
+The canonical full ingestion no longer trusts persistent HTTP payload caches.
+It refetches full available price history for the latest active universe and SPY, full SEC companyfacts history,
+mutable SEC submissions, and fallback source histories. Filing-level accession
+documents are fetched on demand without persistent XML storage. The normalized
+`official/raw` layer and immutable snapshots remain the replay sources.
+
+Every new full snapshot records `source_refresh_contract` and
+`data_freshness`. Fiscal period end and SEC filing date are separate fields.
+Partial price/reference snapshots are diagnostic and rejected for monthly
+production when their scope is present. See
+`docs/open_source_ingestion_architecture.md` and
+`docs/sec_data_robustness_plan.md` for the complete contract.
+
+All old fetch caches were removed, freeing roughly 53 GiB including the prior
+filing XML cache. Existing output history was then compacted with verified APFS
+clones: 1,343 exact duplicates, 3,560,991,710 logical bytes, about 3.3 GiB
+physical recovery. Future snapshots use copy-on-write storage automatically.
+
+The fresh full candidate `20260813_071802` is not production. It revealed that
+the full-ingestion path, unlike both repair paths, did not invoke the historical
+revision guard before publication. A reconstructed immutable-snapshot audit
+found extensive pre-2024-08-13 changes in all five fundamental datasets. The
+candidate snapshot `open_source_output_20260813_075926` and current normalized
+raw/target store are marked quarantined; active output and `latest_run.json`
+were restored byte-for-byte to clean run `20260811_001503` with 23/23 matching
+files. One shared tested helper now gates every ingestion path before publish.
+The restored 11 August package predates the new refresh and revision manifests;
+it is a frozen replay fallback, not evidence that fresh 13 August fundamentals
+were accepted.

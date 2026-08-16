@@ -226,6 +226,18 @@ def main() -> None:
         "output_dir": str(paths.output_dir),
         "legacy_dir": str(paths.legacy_dir),
         "refresh_tickers": requested,
+        "source_refresh_contract": {
+            "contract_version": 1,
+            "snapshot_scope": "current_constituent_price_refresh",
+            "source_semantics": {
+                "yfinance_prices": {
+                    "fetch": "network",
+                    "tickers": requested,
+                    "window": {"start_date": args.start_date, "end_date": end_date},
+                },
+                "all_other_sources": {"fetch": "not_refreshed"},
+            },
+        },
         "price_quality": {
             "maximum_absolute_daily_return": args.maximum_absolute_daily_return,
             "event_since": args.start_date,

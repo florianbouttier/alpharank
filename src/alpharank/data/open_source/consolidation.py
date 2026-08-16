@@ -5,6 +5,10 @@ from typing import Iterable
 
 import polars as pl
 
+from alpharank.data.open_source.fundamental_quality import (
+    quarantine_implausible_share_candidates,
+)
+
 
 @dataclass(frozen=True)
 class FinancialSourceInput:
@@ -64,6 +68,62 @@ def consolidate_financial_sources(
     )
 
     return consolidated, candidates, source_summary
+
+
+def consolidate_financial_sources_with_share_quality(
+    sources: Iterable[FinancialSourceInput],
+    *,
+    max_selection_passes: int = 10,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, dict[str, object]]:
+    """Re-select a fallback when the chosen share candidate is off-scale."""
+    working_sources = [
+        FinancialSourceInput(source.source_name, source.frame, source.priority)
+        for source in sources
+    ]
+    pass_reports: list[dict[str, object]] = []
+    for pass_index in range(1, max_selection_passes + 1):
+        consolidated, lineage, summary = consolidate_financial_sources(working_sources)
+        accepted, quality_report = quarantine_implausible_share_candidates(consolidated)
+        quality_report["pass"] = pass_index
+        pass_reports.append(quality_report)
+        if int(quality_report["quarantined_rows"]) == 0:
+            return consolidated, lineage, summary, {
+                "selection_passes": pass_index,
+                "passes": pass_reports,
+                "unresolved_selected_rows": 0,
+            }
+
+        rejected = consolidated.join(
+            accepted.select(["ticker", "statement", "metric", "date", "value"]),
+            on=["ticker", "statement", "metric", "date", "value"],
+            how="anti",
+        )
+        next_sources: list[FinancialSourceInput] = []
+        removed_rows = 0
+        for source in working_sources:
+            rejected_for_source = rejected.filter(
+                pl.col("selected_source") == source.source_name
+            ).select(["ticker", "statement", "metric", "date", "value"])
+            filtered = source.frame.join(
+                rejected_for_source,
+                on=["ticker", "statement", "metric", "date", "value"],
+                how="anti",
+            )
+            removed_rows += source.frame.height - filtered.height
+            next_sources.append(
+                FinancialSourceInput(source.source_name, filtered, source.priority)
+            )
+        if removed_rows == 0:
+            break
+        working_sources = next_sources
+
+    consolidated, lineage, summary = consolidate_financial_sources(working_sources)
+    _, unresolved = quarantine_implausible_share_candidates(consolidated)
+    return consolidated, lineage, summary, {
+        "selection_passes": len(pass_reports),
+        "passes": pass_reports,
+        "unresolved_selected_rows": int(unresolved["quarantined_rows"]),
+    }
 
 
 def split_consolidated_by_statement(consolidated: pl.DataFrame) -> dict[str, pl.DataFrame]:

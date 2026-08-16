@@ -63,3 +63,27 @@ def test_resolve_sec_company_mapping_uses_historical_bridges(tmp_path: Path) -> 
         "eodhd_cik_bridge",
     ]
     assert mapping["cik"].to_list() == ["0000320193", "0000944868", "0000448271", "0000051644", "0001618921"]
+
+
+def test_resolve_sec_company_mapping_expands_dot_share_class_aliases() -> None:
+    sec_mapping_all = pl.DataFrame(
+        {
+            "ticker": ["BF-B", "BRK-B"],
+            "name": ["Brown-Forman", "Berkshire Hathaway"],
+            "exchange": ["NYSE", "NYSE"],
+            "cik": [14693, 1067983],
+        }
+    )
+
+    mapping = resolve_sec_company_mapping(
+        requested_tickers=["BF-B", "BF.B", "BRK-B", "BRK.B"],
+        sec_mapping_all=sec_mapping_all,
+    ).sort("ticker")
+
+    assert mapping["ticker"].to_list() == ["BF-B", "BF.B", "BRK-B", "BRK.B"]
+    assert mapping["cik"].to_list() == [
+        "0000014693",
+        "0000014693",
+        "0001067983",
+        "0001067983",
+    ]

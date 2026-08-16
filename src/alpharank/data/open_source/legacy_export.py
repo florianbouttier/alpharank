@@ -646,6 +646,7 @@ def _select_default_legacy_candidate(rows: list[dict[str, object]], *, statement
         key=lambda row: (
             _sort_int(row.get("source_priority"), fallback=99),
             0 if row.get("filing_date") else 1,
+            str(row.get("filing_date") or "9999-12-31"),
             0 if row.get("selected_fiscal_period") else 1,
             0 if row.get("selected_fiscal_year") is not None else 1,
             str(row.get("source_date") or ""),

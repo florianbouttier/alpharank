@@ -74,15 +74,155 @@ src/
 - EODHD exact-name mirror builder: `scripts/sync_eodhd_output.py`
 - Open-source price transition audit: `scripts/open_source/run_price_transition.py`
 - Unified open-source ingestion: `scripts/open_source/run_ingestion.py`
+- Guarded price roll-forward: `scripts/open_source/build_roll_forward_price_package.py`
+- Point-in-time SEC raw rebuild: `scripts/open_source/build_sec_raw_version_candidate.py`
+- Immutable production snapshot composer: `scripts/open_source/build_composed_model_snapshot.py`
 - Open-source exact-name output builder: `scripts/open_source/build_output_package.py`
 - Nightly ingestion runner: `scripts/open_source/nightly_ingestion.py`
 - Nightly launchd installer: `scripts/open_source/install_nightly_launchd.py`
 - Data lineage audit: `scripts/audit_data_lineage.py`
+- Strict Legacy replay validation: `scripts/validate_legacy_replay_package.py`
 
 Legacy and boosting keep separate signal/training logic, then adapt finalized
 monthly decisions to the same `alpharank.portfolio` contract. See
 `docs/common_portfolio_backtest_engine.md` for timing, weighting, cost,
 performance, and parity rules.
+
+## Production Data Contract And Anti-Leakage Controls
+
+New production runs must resolve the immutable package referenced by
+`data/model_inputs/manifests/latest.json`. Do not use mutable
+`data/open_source/output` as current production truth. The composed package
+contains:
+
+- strict SEC/GAAP fundamentals, with every raw filing version retained;
+- a guarded price package that refreshes active securities from one complete
+  Yahoo vintage and preserves the frozen EODHD-seeded inactive/delisted history;
+- historical S&P 500 membership, SPY total-return prices, source manifests, and
+  SHA-256 hashes for every model input.
+
+The 2026-08-16 validated reference is ingestion `20260816_103942`, composed
+snapshot `alpharank_input_20260816_120458_2a01288bab06`. Prices and SEC filing
+dates reach 2026-08-14. Legacy run `20260816_142810` and Boosting run
+`outputs/production_refresh_20260816/boosting_latest_common_v3` consume the
+same retained Legacy `input_snapshot/`; the common replay is
+`outputs/production_refresh_20260816/common_replay_v3`.
+
+### What Is Rejected Before Publication
+
+The price revision gate fails closed when it finds any of the following outside
+the declared seven-day mutable tail:
+
+- an active ticker missing from the single fresh Yahoo vintage;
+- active rows mixed across Yahoo vintages or sourced from another provider;
+- a historical adjusted-close daily-return revision above 1 bp;
+- a historical return changing between available and unavailable;
+- a historical price key disappearing;
+- a frozen inactive EODHD seed key disappearing;
+- an unexplained split-adjustment transition, ticker-reuse splice, or price
+  bridge with insufficient overlap or a gap above ten calendar days.
+
+Confirmed splits/dividends must be declared in the versioned corporate-action
+registry and produce a new historized derived package. Published snapshots and
+the frozen EODHD seed are never edited in place.
+
+Fundamental publication is also fail-closed:
+
+- official model values may come only from SEC Companyfacts, filing-level SEC
+  XBRL, or an explicitly labelled derivation using only SEC facts;
+- the raw natural key includes `filing_date`, so later restatements cannot
+  overwrite what was originally filed;
+- model exports select the earliest available filing version, and monthly
+  features become available only from their filing/report date;
+- historical revisions beyond the declared mutable window require a written,
+  retained migration review and cannot be silently accepted.
+
+### Causal Model Calendar
+
+- Information observed in decision month `t` can only create holdings for
+  month `t+1`.
+- The still-open calendar month is retained only as freshness evidence and is
+  removed before Legacy feature construction.
+- Historical S&P membership and monthly tradability are evaluated point in
+  time, rather than from today's constituent list.
+- Boosting uses chronological expanding train/validation/test folds. Legacy EMA
+  winner features for each fold are restricted to winners known by that fold's
+  training cutoff.
+- A future H6 label is forced to null whenever its return window extends beyond
+  the last completed month. Pending rows may be scored and explained by SHAP,
+  but cannot enter model-quality metrics or realized performance.
+- Backtest performance includes a holding month only after its complete
+  one-month stock and SPY total returns exist.
+
+### Permanent Ticker Quarantine
+
+`configs/data_quality/historical_ticker_exclusions_v1.json` excludes these ten
+entire trajectories from both Legacy and Boosting:
+
+| Ticker | Why the full trajectory is excluded |
+| --- | --- |
+| `SII.US` | ticker reuse, identity mismatch, post-delisting contamination |
+| `CBE.US` | observations continuing after the 2012 delisting |
+| `TIE.US` | post-delisting contamination and impossible price scale |
+| `CPWR.US` | corrupt returns and unresolved adjustment chain |
+| `BMC.US` | impossible scale, OHLC errors, post-delisting contamination |
+| `COL.US` | wrong security/price series and post-delisting contamination |
+| `GR.US` | wrong, illiquid series continuing after delisting |
+| `EP.US` | ticker reuse between El Paso and Empire Petroleum |
+| `SW.US` | pre-2024 history spliced onto a security first listed in 2024 |
+| `HAR.US` | impossible scale, OHLC errors, post-delisting contamination |
+
+The registry includes source links, official start/terminal dates, and the
+reason for every exclusion. It is hash-recorded in each run manifest. Adding or
+removing a ticker is a versioned data-quality decision, not an ad hoc backtest
+parameter.
+
+Separately, `monthly_price_eligibility_v1` excludes only a ticker-month when it
+has fewer than 10 price observations, median daily dollar volume below USD 1m,
+or more than 5% invalid OHLC rows. A ticker can become eligible again later.
+Legacy additionally requires point-in-time S&P membership, market
+capitalization, `0 < PE < 100`, and applies its sector cap. The current public
+Boosting profile uses price/relative-EMA features and does not use fundamental
+features, but it must consume and hash the same snapshot.
+
+### Verification Suite
+
+The production-data suite covers snapshot composition, price lineage and
+corporate actions, SEC-only exports and filing versions, atomic publication,
+historical revision guards, Legacy lineage, completed-month target masking,
+walk-forward behavior, common portfolio simulation, CAGR attribution, and the
+research dashboard:
+
+```bash
+PYTHONPATH=. ./.venv/bin/pytest -q \
+  tests/test_composed_snapshot.py \
+  tests/test_price_composition.py tests/test_price_gates.py \
+  tests/test_price_corporate_actions.py tests/test_price_seed.py \
+  tests/test_open_source_price_quality.py tests/test_open_source_sec_only.py \
+  tests/test_sec_raw_versions.py tests/test_open_source_financial_versions.py \
+  tests/test_open_source_transaction.py tests/test_open_source_publishing.py \
+  tests/test_open_source_consolidation.py tests/test_open_source_earnings.py \
+  tests/test_open_source_legacy_export.py tests/test_open_source_price_fallback.py \
+  tests/test_open_source_sec_mapping.py tests/test_open_source_yahoo.py \
+  tests/test_open_source_freshness.py tests/test_open_source_fundamental_quality.py \
+  tests/test_open_source_refresh_policy.py tests/test_open_source_revision_guard.py \
+  tests/test_run_legacy_open_source_lineage.py \
+  tests/test_multihorizon_research.py tests/test_multihorizon_confirmation.py \
+  tests/test_portfolio_engine.py tests/test_portfolio_attribution.py \
+  tests/test_central_research_dashboard.py
+```
+
+After a production Legacy run, also validate its immutable replay package:
+
+```bash
+./.venv/bin/python scripts/validate_legacy_replay_package.py \
+  --strict-code outputs/<run>/data_input_manifest.json
+```
+
+The current reference passes 185 tests and strict Legacy replay validation.
+See `docs/monthly_portfolio_runbook.md`,
+`docs/open_source_ingestion_architecture.md`, and
+`docs/legacy_boosting_methodology.md` for the complete operational contracts.
 
 ## Open-Source Price Transition
 
@@ -304,18 +444,24 @@ Available source profiles:
 
 ## Data Snapshotting
 
-Refreshing `data/` now keeps an immutable snapshot under `data/_snapshots/<timestamp>/` and updates `data/latest_snapshot.json`.
+Production model packages are immutable directories under
+`data/model_inputs/history/`. The only mutable entrypoint is the small pointer
+`data/model_inputs/manifests/latest.json`; consumers resolve it once, then copy
+the referenced package into the run's timestamped `input_snapshot/` using APFS
+copy-on-write cloning where available.
 
-Each legacy run also writes its own input manifest to:
+Each Legacy run writes its own input manifest to:
 
 ```text
-outputs/YYYY-MM-DD/data_input_manifest.json
+outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/data_input_manifest.json
 ```
 
 Monthly portfolio production is documented in
 [`docs/monthly_portfolio_runbook.md`](docs/monthly_portfolio_runbook.md).
 
-This makes it possible to distinguish:
+The manifest records input hashes, critical-code hashes, exclusion-policy hash,
+liquidity thresholds, completed-month cutoff, storage method, and source
+lineage. This distinguishes:
 
 - source files changed
 - same source files, different processing code

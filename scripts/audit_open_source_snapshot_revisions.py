@@ -72,39 +72,62 @@ def _compare_frames(
     _require_unique(previous, keys, label="previous frame")
     _require_unique(current, keys, label="current frame")
     value_columns = [column for column in previous.columns if column not in keys]
-    previous_hashes = previous.with_columns(
-        pl.struct(previous.columns).hash(seed=42).alias("_row_hash")
-    ).select(*keys, "_row_hash")
-    current_hashes = current.with_columns(
-        pl.struct(current.columns).hash(seed=42).alias("_row_hash")
-    ).select(*keys, "_row_hash")
-    added = current_hashes.join(previous_hashes, on=list(keys), how="anti")
-    removed = previous_hashes.join(current_hashes, on=list(keys), how="anti")
-    changed_keys = (
-        previous_hashes.join(
-            current_hashes,
-            on=list(keys),
-            how="inner",
-            suffix="_current",
-        )
-        .filter(pl.col("_row_hash") != pl.col("_row_hash_current"))
-        .select(*keys)
-        .sort(list(keys))
+    previous_keys = previous.select(keys)
+    current_keys = current.select(keys)
+    added = current_keys.join(previous_keys, on=list(keys), how="anti")
+    removed = previous_keys.join(current_keys, on=list(keys), how="anti")
+    paired = previous.select(
+        *keys,
+        *(pl.col(column).alias(f"previous__{column}") for column in value_columns),
+    ).join(
+        current.select(
+            *keys,
+            *(pl.col(column).alias(f"current__{column}") for column in value_columns),
+        ),
+        on=list(keys),
+        how="inner",
     )
-    changed_examples: list[dict[str, Any]] = []
-    materially_changed_rows = 0
+    exact_change_exprs: list[pl.Expr] = []
+    material_change_exprs: list[pl.Expr] = []
+    numeric_difference_exprs: list[pl.Expr] = []
+    for column in value_columns:
+        previous_column = pl.col(f"previous__{column}")
+        current_column = pl.col(f"current__{column}")
+        exact_change = previous_column.eq_missing(current_column).not_()
+        exact_change_exprs.append(exact_change)
+        if previous.schema[column].is_numeric():
+            difference = (
+                previous_column.cast(pl.Float64) - current_column.cast(pl.Float64)
+            ).abs()
+            numeric_difference_exprs.append(difference.fill_nan(float("inf")))
+            material_change_exprs.append(
+                pl.when(previous_column.is_null() | current_column.is_null())
+                .then(exact_change)
+                .otherwise(difference.fill_nan(float("inf")) > materiality_tolerance)
+            )
+        else:
+            material_change_exprs.append(exact_change)
+
+    exact_changed = pl.any_horizontal(exact_change_exprs) if exact_change_exprs else pl.lit(False)
+    material_changed = (
+        pl.any_horizontal(material_change_exprs) if material_change_exprs else pl.lit(False)
+    )
+    changed_pairs = paired.filter(exact_changed).sort(list(keys))
+    materially_changed_rows = paired.filter(material_changed).height
     maximum_numeric_absolute_difference = 0.0
-    for index, key_row in enumerate(changed_keys.iter_rows(named=True)):
-        predicate = pl.lit(True)
-        for key in keys:
-            predicate &= pl.col(key).eq_missing(key_row[key])
-        previous_row = previous.filter(predicate).row(0, named=True)
-        current_row = current.filter(predicate).row(0, named=True)
+    if numeric_difference_exprs and not paired.is_empty():
+        maximum = paired.select(
+            pl.max_horizontal(numeric_difference_exprs).max().alias("maximum")
+        ).item()
+        if maximum is not None and math.isfinite(float(maximum)):
+            maximum_numeric_absolute_difference = float(maximum)
+
+    changed_examples: list[dict[str, Any]] = []
+    for row in changed_pairs.head(example_limit).iter_rows(named=True):
         changes: dict[str, Any] = {}
-        row_is_material = False
         for column in value_columns:
-            previous_value = previous_row[column]
-            current_value = current_row[column]
+            previous_value = row[f"previous__{column}"]
+            current_value = row[f"current__{column}"]
             if previous_value == current_value or (
                 previous_value is None and current_value is None
             ):
@@ -119,36 +142,33 @@ def _compare_frames(
             ):
                 difference = abs(float(previous_value) - float(current_value))
                 if math.isfinite(difference):
-                    maximum_numeric_absolute_difference = max(
-                        maximum_numeric_absolute_difference, difference
-                    )
                     is_material = difference > materiality_tolerance
-            row_is_material |= is_material
             changes[column] = {
                 "previous": _clean(previous_value),
                 "current": _clean(current_value),
                 "absolute_difference": difference,
                 "material": is_material,
             }
-        materially_changed_rows += int(row_is_material)
-        if index < example_limit:
-            changed_examples.append(
-                {"key": _clean(key_row), "changed_values": changes}
-            )
+        changed_examples.append(
+            {
+                "key": _clean({key: row[key] for key in keys}),
+                "changed_values": changes,
+            }
+        )
     return {
         "previous_rows": previous.height,
         "current_rows": current.height,
         "added_rows": added.height,
         "removed_rows": removed.height,
-        "changed_common_rows": changed_keys.height,
+        "changed_common_rows": changed_pairs.height,
         "materiality_tolerance": materiality_tolerance,
         "materially_changed_common_rows": materially_changed_rows,
         "maximum_numeric_absolute_difference": maximum_numeric_absolute_difference,
         "added_key_examples": _clean(
-            added.drop("_row_hash").sort(list(keys)).head(example_limit).to_dicts()
+            added.sort(list(keys)).head(example_limit).to_dicts()
         ),
         "removed_key_examples": _clean(
-            removed.drop("_row_hash").sort(list(keys)).head(example_limit).to_dicts()
+            removed.sort(list(keys)).head(example_limit).to_dicts()
         ),
         "changed_row_examples": changed_examples,
     }

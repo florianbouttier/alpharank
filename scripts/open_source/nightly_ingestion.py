@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from datetime import date
 from datetime import datetime
+from dataclasses import replace
 import os
 from pathlib import Path
 import traceback
@@ -10,7 +10,8 @@ import traceback
 import polars as pl
 
 from alpharank.data.open_source import run_open_source_ingestion
-from alpharank.data.open_source.benchmark import load_sp500_tickers_for_year
+from alpharank.data.open_source.ingestion import _load_latest_sp500_tickers
+from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
 from alpharank.data.open_source.storage import read_json, release_json_lock, try_acquire_json_lock, write_json
 
 
@@ -26,6 +27,13 @@ PRICE_LOOKBACK_DAYS = 7
 FINANCIAL_LOOKBACK_YEARS = 2
 USER_AGENT = "Florian Bouttier florianbouttier@example.com"
 TICKERS: tuple[str, ...] | None = None
+ALLOW_HISTORICAL_REVISIONS = os.environ.get("ALPHARANK_ALLOW_HISTORICAL_REVISIONS") == "1"
+ALLOW_HISTORICAL_PRICE_REVISIONS = (
+    os.environ.get("ALPHARANK_ALLOW_HISTORICAL_PRICE_REVISIONS") == "1"
+)
+ALLOW_HISTORICAL_PRICE_KEY_REMOVALS = (
+    os.environ.get("ALPHARANK_ALLOW_HISTORICAL_PRICE_KEY_REMOVALS") == "1"
+)
 
 
 RAW_TICKER_FILES = ("prices_yfinance.parquet", "prices_simfin.parquet", "prices_stockanalysis.parquet")
@@ -68,14 +76,13 @@ def default_nightly_tickers(
     reference_data_dir: Path = REFERENCE_DATA_DIR,
     live_dir: Path = LIVE_DIR,
 ) -> tuple[str, ...]:
-    current_year = date.today().year
-    current_sp500 = set(load_sp500_tickers_for_year(reference_data_dir, current_year))
+    current_sp500 = set(_load_latest_sp500_tickers(reference_data_dir))
     existing_live = set(load_existing_live_tickers(live_dir))
     return tuple(sorted(current_sp500 | existing_live))
 
 
 def main() -> None:
-    current_sp500 = load_sp500_tickers_for_year(REFERENCE_DATA_DIR, date.today().year)
+    current_sp500 = _load_latest_sp500_tickers(REFERENCE_DATA_DIR)
     existing_live = load_existing_live_tickers(LIVE_DIR)
     active_tickers = TICKERS or default_nightly_tickers(reference_data_dir=REFERENCE_DATA_DIR, live_dir=LIVE_DIR)
     started_at = datetime.now().isoformat(timespec="seconds")
@@ -122,6 +129,15 @@ def main() -> None:
     )
     print(f"[{started_at}] Starting nightly ingestion")
     print(f"Universe tickers: {len(active_tickers)}")
+    print(f"Historical revision override: {ALLOW_HISTORICAL_REVISIONS}")
+    print(
+        "Historical price revision override: "
+        f"{ALLOW_HISTORICAL_PRICE_REVISIONS}"
+    )
+    print(
+        "Historical price key removal override: "
+        f"{ALLOW_HISTORICAL_PRICE_KEY_REMOVALS}"
+    )
     if TICKERS is None:
         print(f"Current S&P 500 tickers: {len(current_sp500)}")
         print(f"Already tracked live tickers: {len(existing_live)}")
@@ -138,13 +154,22 @@ def main() -> None:
             price_lookback_days=PRICE_LOOKBACK_DAYS,
             financial_lookback_years=FINANCIAL_LOOKBACK_YEARS,
             user_agent=USER_AGENT,
+            source_refresh_policy=replace(
+                PRODUCTION_SOURCE_REFRESH_POLICY,
+                allow_historical_revisions=ALLOW_HISTORICAL_REVISIONS,
+                allow_historical_price_revisions=ALLOW_HISTORICAL_PRICE_REVISIONS,
+                allow_historical_price_key_removals=(
+                    ALLOW_HISTORICAL_PRICE_KEY_REMOVALS
+                ),
+            ),
         )
-    except Exception as exc:
+    except BaseException as exc:
         finished_at = datetime.now().isoformat(timespec="seconds")
+        status = "interrupted" if isinstance(exc, KeyboardInterrupt) else "failed"
         write_json(
             STATUS_PATH,
             {
-                "status": "failed",
+                "status": status,
                 "started_at": started_at,
                 "finished_at": finished_at,
                 "pid": os.getpid(),
@@ -177,6 +202,7 @@ def main() -> None:
                 "end_date": result.price_end_date,
             },
             "financial_years_refreshed": list(result.refreshed_years),
+            "sec_companyfacts_years_refreshed": list(result.sec_companyfacts_years),
             "audit_dirs": [str(path) for path in result.audit_dirs],
         },
     )
@@ -189,7 +215,8 @@ def main() -> None:
         print(f"Output snapshot dir: {result.output_snapshot_dir}")
     print(f"Tickers: {result.ticker_count}")
     print(f"Price window: {result.price_start_date} -> {result.price_end_date}")
-    print(f"Financial years refreshed: {', '.join(str(year) for year in result.refreshed_years)}")
+    print(f"Fallback financial years refreshed: {', '.join(str(year) for year in result.refreshed_years)}")
+    print(f"SEC companyfacts years refreshed: {', '.join(str(year) for year in result.sec_companyfacts_years)}")
     if result.audit_dirs:
         print("Audit dirs:")
         for audit_dir in result.audit_dirs:

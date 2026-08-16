@@ -96,6 +96,14 @@
           "name": "Honeywell Technologies"
         }
       ]
+    },
+    {
+      "effective_date": "2026-08-05",
+      "source_url": "https://press.spglobal.com/2026-07-31-Ferguson-Enterprises-Set-to-Join-S-P-500-and-ADI-Global-Distribution-to-Join-S-P-SmallCap-600",
+      "operations": [
+        {"action": "add", "ticker": "FERG", "name": "Ferguson Enterprises"},
+        {"action": "remove", "ticker": "EA"}
+      ]
     }
   ]
 }

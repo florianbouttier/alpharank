@@ -15,12 +15,17 @@ from alpharank.data.open_source.ingestion import (
     _canonicalize_price_tickers,
     _filter_earnings_years,
     _identify_price_history_backfill_tickers,
+    _identify_sec_filing_fallback_tickers,
     _identify_yfinance_financial_fallback_tickers,
     _with_financial_ingestion_metadata,
 )
 from alpharank.data.open_source.general_reference import build_general_reference
 from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
-from alpharank.data.open_source.sec import _select_best_facts, _select_share_facts
+from alpharank.data.open_source.sec import (
+    _normalize_share_candidate_scales,
+    _select_best_facts,
+    _select_share_facts,
+)
 from alpharank.data.open_source.sec_filing import (
     _derive_missing_total_liabilities,
     _infer_fiscal_period,
@@ -153,6 +158,24 @@ def test_identify_yfinance_financial_fallback_tickers_ignores_lineage_schema_mis
     )
 
     assert fallback_tickers == ("AAPL",)
+
+
+def test_sec_filing_fallback_only_targets_active_tickers_without_companyfacts_rows() -> None:
+    companyfacts = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "statement": ["income_statement"],
+            "metric": ["revenue"],
+            "date": ["2026-03-31"],
+        }
+    )
+
+    fallback = _identify_sec_filing_fallback_tickers(
+        tickers=("AAPL", "MSFT"),
+        sec_companyfacts=companyfacts,
+    )
+
+    assert fallback == ("MSFT",)
 
 
 def test_with_financial_ingestion_metadata_adds_missing_provider_lineage_columns() -> None:
@@ -403,6 +426,53 @@ def test_select_best_facts_derives_q4_using_next_quarter_end_not_annual_end() ->
     assert q4["end"] == "2023-11-30"
     assert q4["start"] == "2023-09-01"
     assert q4["val"] == 130.0
+
+
+def test_q4_derivation_keeps_same_preferred_tag_as_direct_quarters() -> None:
+    def fact(start, end, value, fp, form, filed):
+        return {
+            "start": start,
+            "end": end,
+            "val": value,
+            "fy": 2011,
+            "fp": fp,
+            "form": form,
+            "filed": filed,
+        }
+
+    facts_payload = {
+        "us-gaap": {
+            "PreferredNetIncome": {
+                "units": {
+                    "USD": [
+                        fact("2010-11-01", "2011-01-31", 193.0, "Q1", "10-Q", "2011-03-09"),
+                        fact("2011-02-01", "2011-04-30", 200.0, "Q2", "10-Q", "2011-06-07"),
+                        fact("2011-05-01", "2011-07-31", 330.0, "Q3", "10-Q", "2011-09-07"),
+                        fact("2010-11-01", "2011-10-31", 1012.0, "FY", "10-K", "2011-12-16"),
+                        fact("2011-01-01", "2011-12-31", 684.0, "FY", "10-K", "2012-02-01"),
+                    ]
+                }
+            },
+            "FallbackNetIncome": {
+                "units": {
+                    "USD": [
+                        fact("2010-11-01", "2011-10-31", 684.0, "FY", "10-K", "2011-12-16"),
+                    ]
+                }
+            },
+        }
+    }
+
+    selected = _select_best_facts(
+        "income_statement",
+        ("us-gaap",),
+        ("PreferredNetIncome", "FallbackNetIncome"),
+        facts_payload,
+    )
+    q4 = next(row for row in selected if row["fp"] == "Q4")
+
+    assert q4["tag"] == "PreferredNetIncome_derived_q4"
+    assert q4["val"] == 289.0
 
 
 def test_select_best_facts_derives_missing_q1_from_q2_cumulative_and_q2_direct() -> None:
@@ -783,6 +853,26 @@ def test_select_share_facts_prefers_dimensionless_total_when_available() -> None
     assert len(selected) == 1
     assert selected[0]["val"] == 615_355_540.0
     assert selected[0]["tag"] == "EntityCommonStockSharesOutstanding"
+
+
+def test_share_scale_normalization_uses_nearby_outstanding_share_reference() -> None:
+    normalized = _normalize_share_candidate_scales(
+        [
+            {
+                "tag": "WeightedAverageNumberOfDilutedSharesOutstanding",
+                "val": 344.0,
+                "end": "2009-03-31",
+            },
+            {
+                "tag": "EntityCommonStockSharesOutstanding",
+                "val": 345_112_058.0,
+                "end": "2009-06-30",
+            },
+        ]
+    )
+
+    assert normalized[0]["val"] == 344_000_000.0
+    assert normalized[0]["tag"].endswith("_unit_scaled_x1000000")
 
 
 def test_sec_companyfacts_earnings_prefers_usd_per_share_unit() -> None:

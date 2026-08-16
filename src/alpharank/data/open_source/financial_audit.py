@@ -241,7 +241,21 @@ def normalize_output_financials_between(
         )
         if frame.is_empty():
             continue
-        for spec in [item for item in METRIC_SPECS if item.eodhd_path == parquet_name and item.statement in statement_set]:
+        path_specs = [
+            item
+            for item in METRIC_SPECS
+            if item.eodhd_path == parquet_name and item.statement in statement_set
+        ]
+        # A physical vendor column can represent only one auditable metric. SEC
+        # may use diluted shares as a fallback, but US_share.shares remains the
+        # outstanding-shares reference and must not be counted twice.
+        auditable_specs = list(
+            {
+                spec.eodhd_column: spec
+                for spec in reversed(path_specs)
+            }.values()
+        )[::-1]
+        for spec in auditable_specs:
             if spec.eodhd_column not in frame.columns:
                 continue
             frames.append(

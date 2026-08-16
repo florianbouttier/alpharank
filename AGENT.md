@@ -4,6 +4,18 @@ Codex sessions should read `AGENTS.md` first. This file keeps the broader
 AlphaRank project context and must remain in sync when agent-facing run
 instructions change.
 
+Git publication rule: commits and normal pushes are allowed only after an
+explicit user request, passing relevant tests, and reviewing the staged scope.
+Never include generated snapshots, raw data, caches, secrets, or large output
+artifacts by default. Force-push requires a separate explicit request and a
+review of the remote history impact.
+
+Before publishing a production-data or model change, run the verification suite
+in README section `Production Data Contract And Anti-Leakage Controls`. For a
+new monthly Legacy package, also run strict replay validation. Every claim of
+causality must name the immutable snapshot, completed-month cutoff,
+filing-availability rule, historical-universe rule, and known coverage limits.
+
 Documentation rule: keep `docs/CODEX_HANDOFF.md` as the central cross-track
 handoff. Specialized docs should be linked from that handoff instead of being
 created as unconnected one-off notes.
@@ -76,13 +88,16 @@ Before running, replaying, or explaining a monthly portfolio, read:
 
 Current production source:
 
-- `data/open_source/output`
+- resolve `data/model_inputs/manifests/latest.json` and pass its immutable
+  `snapshot_dir`; do not use mutable `data/open_source/output`
 
 Launch monthly runs through `./.venv/bin/python scripts/run_legacy.py ...` so
 the CLI captures a timestamped log under `logs/legacy_runs/`.
 
-For point-in-time replay, prefer `open_source_run_id` over the mutable output
-folder. Every monthly run must leave a durable audit trail through:
+For current production, pass the immutable composed `snapshot_dir` through
+`--data-dir`. Keep `open_source_run_id` only for explicit replays of the older
+open-source package contract. Every monthly run must leave a durable audit
+trail through:
 
 - `outputs/YYYY-MM-DD/latest_legacy_run.json`
 - `outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/data_input_manifest.json`
@@ -90,6 +105,12 @@ folder. Every monthly run must leave a durable audit trail through:
 - `outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/legacy_detailed_returns_polars.parquet`
 - `outputs/YYYY-MM-DD/runs/YYYYMMDD_HHMMSS/portfolio_report_*_<YYYY-MM>.html`
 - `logs/legacy_runs/` when launching the command manually
+
+If the newest observed prices belong to the still-open calendar month, retain
+them in the raw snapshot for audit but exclude that whole month before Legacy
+feature construction. Record the cutoff as
+`run_config.decision_data_completed_through_month`. Boosting may score that
+completed decision month, but every label ending later must remain null.
 
 The legacy runner must compute from the timestamped run `input_snapshot/`.
 `data/open_source/output` is only a source to copy from. A manifest without
@@ -106,7 +127,7 @@ investigation.
 
 Full ingestion, current-constituent refresh, and ticker restore are all data
 publishers and must acquire the shared
-`data/open_source/official/locks/nightly.lock.json` before mutating state.
+`data/open_source/official/manifests/nightly.lock.json` before mutating state.
 
 If a historical month is recalculated with a newer data package, treat any
 portfolio drift as data revision/look-ahead risk until the manifest proves the
@@ -195,7 +216,7 @@ The open-source replacement data model must stay clean and discoverable.
 
 Use only these top-level folders under `data/open_source/`:
 
-- `_cache/`: fetch caches
+- `_cache/`: disposable fetch transport; never a replay or freshness source
 - `official/`: canonical ingestion outputs
 - `output/`: user-facing exact-name package for backtests and manual inspection
 - `audit/`: discrepancy reports and audit artifacts
@@ -210,7 +231,67 @@ Rules:
 - The official exported lineage must include the selected financial, earnings, and general-reference files under `data/open_source/output/lineage/`.
 - `US_Earnings.parquet` and `US_General.parquet` must be published from official consolidations, not ad hoc one-off artifacts.
 - Published open-source outputs must be historized under `data/open_source/history/output/` after the final package is written, so the retained snapshot contains the exact legacy files, lineage files, and manifest for the published run.
+- Production publication requires
+  `source_refresh_contract.snapshot_scope=full_ingestion`. Mutable sources are
+  refetched from the network, while normalized history is retained in
+  `official/raw/`; SEC filing documents are immutable accession payloads fetched
+  on demand without persistent XML storage.
+- Report freshness from `data_freshness`: market date, fiscal period end, SEC
+  filing date, earnings filing date, and membership month are different clocks.
+  A recent fiscal period does not prove a recent SEC download.
+- Full ingestion must write `historical_revision_guard.json` before publication
+  and copy its result into `source_refresh_contract`. Revisions older than the
+  730-day mutable window fail closed. The explicit override is review-only and
+  must never be used merely to make a scheduled run pass.
+- A run or raw/target store carrying a quarantine marker is not production
+  truth. Keep its immutable snapshot and audit report, restore the last clean
+  output byte-for-byte, and require a later guarded full ingestion to clear it.
+- Retained output snapshots use byte-identical copy-on-write clones and may be
+  compacted with `scripts/open_source/compact_output_history.py` without
+  changing paths, bytes, or replay semantics.
 - The legacy reference mirror must live under `data/eodhd/output/` with the same exact filenames as `data/open_source/output/`.
+- Official monthly fundamentals are SEC/GAAP only. Final fundamental values may
+  come from SEC companyfacts, filing-level SEC XBRL, or an explicitly labelled
+  derivation using only SEC facts. EODHD may bridge ticker identities to CIKs,
+  but EODHD/Yahoo/SimFin/StockAnalysis values must never enter an official
+  fundamental file.
+- The EODHD mirror is not merely an audit benchmark for stock prices. Because
+  the subscription was cancelled and Yahoo omits many delisted names, its
+  frozen `US_Finalprice.parquet` is the required immutable historical seed;
+  open sources supply extensions/refreshes. Preserve source lineage and audit
+  every vendor transition and split seam.
+- The mutable mixed-source output remains non-compliant. The 2026-08-16
+  production refresh instead composes a guarded price roll-forward and a
+  strict SEC-only package with `build_composed_model_snapshot.py`; consumers
+  must use `data/model_inputs/manifests/latest.json` and its immutable composed
+  folder, not `data/open_source/output`.
+- Canonical price composition lives in `src/alpharank/data/prices/`. Active
+  tickers must come from one complete Yahoo vintage; inactive history starts
+  from the immutable EODHD seed and may continue only with daily returns
+  computed inside immutable source vintages. Reject an open tail after a gap
+  over 10 calendar days as possible ticker reuse.
+- Every price candidate must retain composition, daily-return revision,
+  adjustment-transition, and removed-key artifacts. Historical return and key
+  removal overrides are migration-only and disabled for routine runs.
+- Routine price refreshes preserve the last validated inactive history
+  byte-for-byte and replace refreshable active names with one fresh Yahoo
+  vintage. A terminal active-month symbol may be carried forward only when its
+  removal is sourced in the constituent registry and recorded explicitly.
+- Raw SEC Companyfacts keys include `filing_date`. Preserve all filing versions
+  in raw storage; select the earliest filing version per fact for causal model
+  exports. Historical SEC migrations require a non-empty review note.
+- Preserve the frozen EODHD price archive byte-for-byte. Correct a newly known
+  split or dividend through a versioned corporate-action overlay and a newly
+  historized derived package, with event evidence and before/after hashes;
+  never mutate the frozen source or an existing snapshot. Split corrections
+  may restate pre-event OHLC and inverse volume. Dividend corrections must not
+  restate raw OHLCV, only adjusted/total-return series.
+- `data/open_source/output` contains mixed-source fundamentals and is an R&D or
+  replay package. It is not a valid new monthly-production input under the
+  SEC-only contract. The retained 2026-08-11 package contains 19,243 selected
+  non-SEC consolidated values (14,754 Yahoo, 4,489 SimFin). Production requires
+  an immutable composed package with approved hybrid prices plus SEC-only
+  fundamentals and both source lineages.
 - If exploratory outputs must be kept, move them under `data/open_source/archive/` instead of leaving them at the root.
 - When documentation mentions the open-source store, prefer the words `official`, `target`, `output`, `audit`, and `archive` over ambiguous names like `live` or `clean`.
 - When changing ingestion semantics, consolidation priority, natural keys, quarter normalization, or lineage schema, update the corresponding docs in the same task. At minimum keep `README.md`, `docs/open_source_ingestion_architecture.md`, and any package-specific contract document current.

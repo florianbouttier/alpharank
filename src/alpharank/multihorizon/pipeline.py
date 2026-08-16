@@ -10,7 +10,11 @@ from typing import Any
 import polars as pl
 
 from alpharank.multihorizon.config import MultiHorizonConfig
-from alpharank.multihorizon.data import RELATIVE_EMA_PAIRS, build_research_frame
+from alpharank.multihorizon.data import (
+    RELATIVE_EMA_PAIRS,
+    build_research_frame,
+    mask_targets_after_completed_month,
+)
 from alpharank.multihorizon.explain import compute_shap_sample, write_shap_outputs
 from alpharank.multihorizon.legacy_ema import (
     add_active_legacy_oracle_features,
@@ -119,10 +123,7 @@ def _score_only_panel(
     if end_month is None:
         return None
     cutoff = date.fromisoformat(f"{end_month}-01")
-    eligible = frame.filter(
-        (pl.col("decision_month") <= cutoff)
-        & pl.col("future_excess_return_1m").is_not_null()
-    )
+    eligible = frame.filter(pl.col("decision_month") <= cutoff)
     if method == "teacher" or feature_mode == "legacy_active_oracle":
         eligible = eligible.filter(pl.col("legacy_label_available") == 1)
     return eligible.sort(["decision_month", "ticker"])
@@ -161,6 +162,16 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         ),
     )
     frame = research.frame
+    completed_through_month = None
+    if config.score_only_end_month is not None:
+        completed_through_month = date.fromisoformat(
+            f"{config.score_only_end_month}-01"
+        )
+        frame = mask_targets_after_completed_month(
+            frame,
+            horizons=tuple(sorted(set(config.horizons) | {1})),
+            completed_through_month=completed_through_month,
+        )
     oracle_features: tuple[str, ...] = ()
     if config.feature_mode == "legacy_active_oracle":
         frame, oracle_features = add_active_legacy_oracle_features(
@@ -199,6 +210,13 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             "score_only_tail": {
                 "enabled": config.score_only_end_month is not None,
                 "decision_end_month": config.score_only_end_month,
+                "realized_targets_completed_through_month": (
+                    completed_through_month
+                ),
+                "target_maturity_rule": (
+                    "a future label is null when decision_month + horizon "
+                    "extends past decision_end_month"
+                ),
                 "model_metrics": "mature learning targets only",
                 "portfolio_metrics": "all test months with a complete one-month return",
             },

@@ -8,7 +8,6 @@ import os
 import platform
 import re
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,6 +25,7 @@ from alpharank.data.price_eligibility import (
     build_monthly_price_eligibility,
     monthly_price_eligibility_policy,
 )
+from alpharank.data.snapshot_storage import copy_snapshot_file
 from alpharank.data.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     exclude_tickers_from_frame,
@@ -123,21 +123,9 @@ def _copy_if_exists(source: Path, destination: Path) -> None:
 
 
 def _copy_snapshot_file(source: Path | str, destination: Path | str) -> str:
-    """Copy a snapshot file, using an APFS clone when macOS supports it."""
-    source_path = Path(source)
-    destination_path = Path(destination)
-    destination_path.parent.mkdir(parents=True, exist_ok=True)
-    if sys.platform == "darwin":
-        clone = subprocess.run(
-            ["cp", "-c", "-p", str(source_path), str(destination_path)],
-            capture_output=True,
-            check=False,
-        )
-        if clone.returncode == 0:
-            return "apfs_clone"
-        destination_path.unlink(missing_ok=True)
-    shutil.copy2(source_path, destination_path)
-    return "physical_copy"
+    """Backward-compatible wrapper for the shared snapshot storage helper."""
+
+    return copy_snapshot_file(source, destination)
 
 
 def _snapshot_input_package(*, source_data_dir: Path, input_files: Dict[str, Path], run_day_dir: Path) -> Path:
@@ -146,12 +134,12 @@ def _snapshot_input_package(*, source_data_dir: Path, input_files: Dict[str, Pat
     storage_modes: list[str] = []
     for name, source_path in input_files.items():
         target_name = INPUT_PACKAGE_FILENAMES[name]
-        storage_modes.append(_copy_snapshot_file(source_path, snapshot_dir / target_name))
+        storage_modes.append(copy_snapshot_file(source_path, snapshot_dir / target_name))
 
     lineage_dir = source_data_dir / "lineage"
     if lineage_dir.exists():
         def copy_lineage_file(source: str, destination: str) -> str:
-            storage_modes.append(_copy_snapshot_file(source, destination))
+            storage_modes.append(copy_snapshot_file(source, destination))
             return destination
 
         shutil.copytree(
@@ -163,7 +151,7 @@ def _snapshot_input_package(*, source_data_dir: Path, input_files: Dict[str, Pat
     for metadata_name in ("snapshot_manifest.json", "latest_snapshot.json", "README.md"):
         source = source_data_dir / metadata_name
         if source.exists():
-            storage_modes.append(_copy_snapshot_file(source, snapshot_dir / metadata_name))
+            storage_modes.append(copy_snapshot_file(source, snapshot_dir / metadata_name))
     storage_manifest = {
         "strategy": "copy_on_write_with_physical_copy_fallback",
         "semantics": "independent path with byte-identical content; APFS clones are copy-on-write",
@@ -226,6 +214,13 @@ def _open_source_lineage_context(data_dir: Path) -> Dict[str, Any]:
         "open_source_output_dir": output_manifest.get("output_dir"),
         "open_source_legacy_dir": output_manifest.get("legacy_dir"),
     }
+    output_refresh_contract = output_manifest.get("source_refresh_contract")
+    if isinstance(output_refresh_contract, dict):
+        context["open_source_source_refresh_contract"] = output_refresh_contract
+        context["open_source_source_refresh_scope"] = output_refresh_contract.get("snapshot_scope")
+    output_freshness = output_manifest.get("data_freshness")
+    if isinstance(output_freshness, dict):
+        context["open_source_data_freshness"] = output_freshness
     if snapshot_manifest is not None:
         context["open_source_output_snapshot_manifest_path"] = str(snapshot_manifest_path.resolve())
         context["open_source_output_snapshot_run_id"] = snapshot_run_id
@@ -252,6 +247,9 @@ def _open_source_lineage_context(data_dir: Path) -> Dict[str, Any]:
                 "open_source_price_window": ingestion_manifest.get("price_window"),
                 "open_source_financial_years_refreshed": ingestion_manifest.get("financial_years_refreshed"),
                 "open_source_ticker_count": ingestion_manifest.get("ticker_count"),
+                "open_source_sec_companyfacts_years_refreshed": ingestion_manifest.get(
+                    "sec_companyfacts_years_refreshed"
+                ),
             }
         )
         published_snapshot = ingestion_manifest.get("published_output_snapshot")
@@ -661,6 +659,13 @@ def run_pipeline(
             if audited_registry is not None
             else None
         ),
+        "decision_data_completed_through_month": str(
+            completed_through_month(payload["sp500_price"])
+        ),
+        "partial_price_month_policy": (
+            "exclude the latest observed calendar month from model inputs; "
+            "retain it only as snapshot freshness evidence"
+        ),
     }
     manifest_extra = _manifest_extra_context(
         data_dir=data_dir,
@@ -710,6 +715,20 @@ def run_pipeline(
         us_historical_company,
         ticker_to_exclude,
         ticker_column="Ticker",
+    )
+
+    decision_data_cutoff = completed_through_month(sp500_price)
+    final_price = final_price.filter(
+        pl.col("date").cast(pl.Date, strict=False).dt.truncate("1mo")
+        <= pl.lit(decision_data_cutoff)
+    )
+    sp500_price = sp500_price.filter(
+        pl.col("date").cast(pl.Date, strict=False).dt.truncate("1mo")
+        <= pl.lit(decision_data_cutoff)
+    )
+    print(
+        "Decision data completed through: "
+        f"{decision_data_cutoff}; latest observed partial month excluded"
     )
 
     monthly_price_eligibility = build_monthly_price_eligibility(
@@ -933,7 +952,7 @@ def run_pipeline(
         sp500_price,
         convention=SPY_TOTAL_RETURN,
     ).filter(
-        pl.col("year_month") <= completed_through_month(sp500_price)
+        pl.col("year_month") <= decision_data_cutoff
     )
     common_holdings_parts: list[pl.DataFrame] = []
     for strategy_name, portfolio_output in (
@@ -986,7 +1005,7 @@ def run_pipeline(
             "label": SPY_TOTAL_RETURN.label,
             "price_column": SPY_TOTAL_RETURN.price_column,
             "includes_distributions": SPY_TOTAL_RETURN.includes_distributions,
-            "completed_through_month": str(completed_through_month(sp500_price)),
+            "completed_through_month": str(decision_data_cutoff),
         },
     )
 
