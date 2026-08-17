@@ -33,6 +33,7 @@ from alpharank.data.ticker_integrity import (
     normalize_tickers,
 )
 from alpharank.features.indicators import TechnicalIndicators
+from alpharank.governance import capture_runtime_provenance
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.benchmark import (
@@ -287,6 +288,7 @@ def _manifest_extra_context(
     input_snapshot_dir: Path | None = None,
     run_config: Dict[str, Any] | None = None,
     code_context: Dict[str, Any] | None = None,
+    runtime_provenance: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     extra: Dict[str, Any] = {
         "data_dir": str(data_dir.resolve()),
@@ -300,6 +302,8 @@ def _manifest_extra_context(
         extra["run_config"] = run_config
     if code_context is not None:
         extra["code_context"] = code_context
+    if runtime_provenance is not None:
+        extra["runtime_provenance"] = runtime_provenance
     if latest_snapshot is not None:
         extra.update(
             {
@@ -667,6 +671,39 @@ def run_pipeline(
             "retain it only as snapshot freshness evidence"
         ),
     }
+    runtime_provenance = capture_runtime_provenance(
+        project_root=project_root,
+        entrypoint="scripts.run_legacy.run_pipeline",
+        command_argv=[sys.executable, *sys.argv],
+        resolved_config=run_config,
+        seeds={
+            "frequency_split_1": 42,
+            "frequency_split_2": 41,
+            "equal_split_1": 42,
+            "equal_split_2": 41,
+        },
+        critical_files=(
+            "scripts/run_legacy.py",
+            "src/alpharank/data/processing.py",
+            "src/alpharank/strategy/legacy.py",
+            "src/alpharank/portfolio/simulation.py",
+            "src/alpharank/data/price_eligibility.py",
+            "src/alpharank/governance.py",
+        ),
+        data_identifiers={
+            "input_snapshot_id": (
+                (latest_snapshot or {}).get("snapshot_id")
+                or _snapshot_identifier(data_dir)
+                or run_instance_id
+            ),
+            "input_snapshot_dir": str(input_snapshot_dir.resolve()),
+            "source_input_sha256": run_config["source_input_sha256"],
+            "ticker_exclusion_registry_id": run_config[
+                "ticker_exclusion_registry_id"
+            ],
+        },
+        patch_path=run_day_dir / "runtime_git_patch.json",
+    )
     manifest_extra = _manifest_extra_context(
         data_dir=data_dir,
         latest_snapshot=latest_snapshot,
@@ -674,6 +711,7 @@ def run_pipeline(
         input_snapshot_dir=input_snapshot_dir,
         run_config=run_config,
         code_context=_code_context(project_root),
+        runtime_provenance=runtime_provenance,
     )
     run_manifest = write_manifest(
         manifest_path=run_day_dir / "data_input_manifest.json",

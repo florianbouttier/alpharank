@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
@@ -49,6 +50,7 @@ from alpharank.backtest.reporting import (
 )
 from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows, walk_forward_windows
 from alpharank.data.lineage import load_latest_manifest, write_manifest
+from alpharank.governance import capture_runtime_provenance
 
 
 @dataclass
@@ -363,6 +365,7 @@ def _write_run_data_input_manifest(
     run_dir: Path,
     data_dir: Path,
     raw: RawDataBundle,
+    config: BacktestConfig,
 ) -> Dict[str, Any]:
     lineage_root = _resolve_lineage_root(data_dir)
     latest_snapshot = load_latest_manifest(lineage_root)
@@ -380,6 +383,36 @@ def _write_run_data_input_manifest(
         extra["source_snapshot_manifest_path"] = latest_snapshot.get("manifest_path")
     if source_snapshot_match is not None:
         extra["source_snapshot_match"] = source_snapshot_match
+    project_root = Path(__file__).resolve().parents[3]
+    extra["runtime_provenance"] = capture_runtime_provenance(
+        project_root=project_root,
+        entrypoint="alpharank.backtest.run_learning_phase",
+        command_argv=[sys.executable, *sys.argv],
+        resolved_config=asdict(config),
+        seeds={"random_seed": config.random_seed},
+        critical_files=(
+            "scripts/run_backtest.py",
+            "src/alpharank/backtest/config.py",
+            "src/alpharank/backtest/pipeline.py",
+            "src/alpharank/backtest/tuning.py",
+            "src/alpharank/portfolio/simulation.py",
+            "src/alpharank/governance.py",
+        ),
+        data_identifiers={
+            "source_snapshot_id": (
+                (latest_snapshot or {}).get("snapshot_id") or "unversioned"
+            ),
+            "source_snapshot_dir": (
+                (latest_snapshot or {}).get("snapshot_dir")
+                or str(lineage_root.resolve())
+            ),
+            "source_files": {
+                name: str(path.resolve())
+                for name, path in sorted(raw.source_paths.items())
+            },
+        },
+        patch_path=run_dir / "runtime_git_patch.json",
+    )
 
     return write_manifest(
         manifest_path=run_dir / "data_input_manifest.json",
@@ -411,7 +444,12 @@ def _prepare_modeling_frame(config: BacktestConfig, *, run_dir: Path) -> tuple[p
         final_price_path=config.final_price_path,
         sp500_price_path=config.sp500_price_path,
     )
-    _write_run_data_input_manifest(run_dir=run_dir, data_dir=config.data_dir, raw=raw)
+    _write_run_data_input_manifest(
+        run_dir=run_dir,
+        data_dir=config.data_dir,
+        raw=raw,
+        config=config,
+    )
     raw = _apply_data_quality_ticker_exclusions(raw, config.excluded_tickers)
     if config.verbose and config.excluded_tickers:
         print(

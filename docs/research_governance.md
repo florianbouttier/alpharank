@@ -62,3 +62,26 @@ Le rapport contient les SHA-256 canoniques, les clés manquantes ou inattendues 
 l'écart maximal de chaque colonne. Une différence sur un mois publié interdit de
 qualifier la migration de neutre ; elle doit être traitée comme correction
 économique et produire une nouvelle version.
+
+## Provenance runtime
+
+Chaque nouveau run Legacy ou Boosting écrit un bloc `runtime_provenance` dans
+son `data_input_manifest.json` et un artefact `runtime_git_patch.json` dans son
+répertoire immuable. Le bloc enregistre la commande exacte, la configuration
+résolue, les seeds, l'interpréteur et la plateforme, l'inventaire complet des
+dépendances installées, les hashes du code critique et les identifiants de
+données. Les valeurs dont le nom évoque un secret, mot de passe, token, clé API
+ou credential sont remplacées par `<redacted>`.
+
+La section Git contient le commit, la branche, l'état dirty réel, le hash de
+l'état porcelain, le hash et la taille du patch suivi, ainsi que le nombre et le
+hash d'inventaire des fichiers non suivis. Le bundle conserve le patch Git
+binaire complet des fichiers suivis et les empreintes SHA-256 des fichiers non
+suivis. Un run R&D sale est donc rejouable et attribuable sans embarquer le
+contenu potentiellement sensible ou volumineux des fichiers non suivis.
+
+`validate_runtime_provenance` échoue si un champ obligatoire ou l'artefact de
+patch manque, si un hash diverge, ou si le manifeste déclare `git_dirty=false`
+alors que le dépôt est sale. La validation contre le worktree courant est une
+preuve de capture immédiate ; un replay ultérieur vérifie le manifeste et son
+bundle sans exiger que le dépôt soit resté dans le même état.
