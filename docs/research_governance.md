@@ -248,3 +248,16 @@ Legacy doit écrire `legacy_execution_sensitivity.parquet` et
 référence non exécutable, prochaine ouverture canonique et VWAP de séance
 uniquement lorsqu'une valeur VWAP observée existe. Aucun proxy VWAP n'est
 reconstruit depuis OHLC, et l'absence du prix canonique bloque le run.
+
+## Protocole de recherche Legacy
+
+Le protocole `legacy-optuna-search-v1` verrouille l'espace entier des quatre
+hyperparamètres, 30 trials par split annuel de janvier, les seeds 42 et 41, le
+début de calibration `2010-01`, les cinq ancres et la règle de départage. Le
+jeu de confirmation final est explicitement interdit pour la sélection.
+
+Chaque run écrit `legacy_search_protocol.json` avec tous les trials Optuna,
+leurs paramètres, scores et états, puis tous les candidats raffinés, le gagnant
+et le motif de rejet des autres. Les exécutions smoke restent autorisées mais
+sont marquées non promouvables si le nombre de trials, la période ou `n_jobs`
+diffère du protocole verrouillé.

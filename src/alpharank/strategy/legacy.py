@@ -7,6 +7,10 @@ from alpharank.data.sector_history import (
     SECTOR_HISTORY_LINEAGE_COLUMNS,
     resolve_point_in_time_sectors,
 )
+from alpharank.strategy.search_protocol import (
+    LEGACY_SEARCH_SPACE,
+    LOCKED_LEGACY_ANCHORS,
+)
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
@@ -93,13 +97,7 @@ class StrategyLearner:
     # Stable anchor models observed repeatedly across legacy runs. We re-score these
     # alongside the raw Optuna winner so near-equivalent datasets do not drift just
     # because a 30-trial search sampled a slightly different local optimum.
-    STABLE_PARAM_CANDIDATES = (
-        {"n_long": 260, "n_short": 71, "n_asset": 5, "n_max_per_sector": 2},
-        {"n_long": 201, "n_short": 87, "n_asset": 5, "n_max_per_sector": 2},
-        {"n_long": 224, "n_short": 83, "n_asset": 7, "n_max_per_sector": 2},
-        {"n_long": 181, "n_short": 96, "n_asset": 24, "n_max_per_sector": 2},
-        {"n_long": 138, "n_short": 5, "n_asset": 22, "n_max_per_sector": 1},
-    )
+    STABLE_PARAM_CANDIDATES = LOCKED_LEGACY_ANCHORS
 
     @staticmethod
     def learning_one_technicalparameter(df,column_price, historical_company,n_long, n_short, func_movingaverage, n_asset):
@@ -498,11 +496,9 @@ class StrategyLearner:
             trial = study.ask()
             
         return {
-            "n_long": trial.suggest_int("n_long", 50, 400),
-            "n_short": trial.suggest_int("n_short", 1, 100),
-            "n_asset": trial.suggest_int("n_asset", 5, 30),
-            "n_max_per_sector": trial.suggest_int("n_max_per_sector", 1,2),
-            }
+            name: trial.suggest_int(name, int(spec["low"]), int(spec["high"]))
+            for name, spec in LEGACY_SEARCH_SPACE.items()
+        }
 
     @staticmethod
     def _param_sort_key(params: Dict[str, Any]) -> tuple[int, int, int, int]:

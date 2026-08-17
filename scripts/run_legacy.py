@@ -49,6 +49,7 @@ from alpharank.portfolio.execution import (
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
+from alpharank.strategy.search_protocol import write_legacy_search_audit
 from alpharank.utils.frame_backend import (
     normalize_year_month_to_period,
     normalize_year_month_to_timestamp,
@@ -976,6 +977,13 @@ def run_pipeline(
     for key, out in optuna_outputs.items():
         _write_checkpoint(out["aggregated"], checkpoints_dir, f"{backend}_optuna_output_{key}_aggregated")
         _write_checkpoint(_get_detailed_output(out, label=f"optuna_output_{key}"), checkpoints_dir, f"{backend}_optuna_output_{key}_detailed")
+    write_legacy_search_audit(
+        output_path=run_day_dir / "legacy_search_protocol.json",
+        experiments=optuna_outputs,
+        n_trials=n_trials,
+        first_date=first_date,
+        n_jobs=n_jobs,
+    )
 
     combined_equal = StrategyLearner.aggregate_portfolios(
         [optuna_output_1, optuna_output_12, optuna_output_21, optuna_output_22],
