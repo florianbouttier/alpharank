@@ -1,0 +1,9 @@
+{
+  "policy_id": "sec-only-exclude-ex-ante-v1",
+  "version": 1,
+  "required_source": "SEC",
+  "missing_action": "exclude_ex_ante",
+  "fallback_sources": [],
+  "coverage_report_period": "decision_year",
+  "rationale": "A candidate without an SEC fundamental set known at the decision is excluded without consulting future return, later survival, or a present-day coverage map."
+}

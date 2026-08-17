@@ -132,3 +132,11 @@ la décision, avec identifiant, source et confiance. Le cap sectoriel est marqu�
 n'a pas de secteur point-in-time complet. Une table statique de secteurs courants
 est explicitement incompatible avec ce contrat ; son branchement au moteur Legacy
 relève de `LEG-001`.
+
+La politique officielle pour une absence de fondamentaux est
+`sec-only-exclude-ex-ante-v1` : seuls les ensembles SEC déjà disponibles à la
+décision rendent un candidat éligible. Aucun fallback Yahoo, SimFin ou EODHD
+n'est autorisé. L'exclusion ne reçoit ni rendement futur ni statut de survie et
+produit un statut par ticker-mois ainsi qu'un rapport de couverture par année.
+Les 3 023 ticker-mois et 62 tickers constatés dans la baseline auditée doivent
+être recalculés par le replay `v2`, pas copiés comme une constante de décision.
