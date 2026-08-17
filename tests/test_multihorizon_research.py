@@ -7,8 +7,12 @@ import polars as pl
 import pytest
 
 from alpharank.multihorizon.data import (
+    TargetCensoringError,
     _add_multihorizon_targets,
+    classify_training_target_status,
     mask_targets_after_completed_month,
+    require_resolved_training_targets,
+    target_censoring_counts,
 )
 from alpharank.multihorizon.data import _append_legacy_labels
 from alpharank.data.price_eligibility import (
@@ -388,6 +392,11 @@ def test_prediction_status_separates_ticker_gaps_from_horizon_maturity() -> None
             "legacy_selected": [0, 0, 0],
             "future_excess_return_6m": [0.1, None, None],
             "benchmark_future_return_6m": [0.05, 0.05, None],
+            "target_status_6m": [
+                "evaluable",
+                "ticker_target_unavailable",
+                "horizon_pending",
+            ],
         }
     )
 
@@ -405,6 +414,61 @@ def test_prediction_status_separates_ticker_gaps_from_horizon_maturity() -> None
         "ticker_target_unavailable",
         "horizon_pending",
     ]
+
+
+def test_training_target_missingness_is_not_survival_filter() -> None:
+    mature_month = date(2020, 1, 1)
+    pending_month = date(2021, 1, 1)
+    rows = 1_502
+    frame = pl.DataFrame(
+        {
+            "decision_month": [mature_month] * (rows - 1) + [pending_month],
+            "future_excess_return_6m": (
+                [None] * 1_497 + [0.12, -0.25, None, None, None]
+            ),
+            "benchmark_future_return_6m": (
+                [0.03] * 1_500 + [None, None]
+            ),
+            "return_resolution_6m": (
+                [None] * 1_498
+                + ["resolved_terminal_event", None, None, None]
+            ),
+            "terminal_event_id_6m": (
+                [None] * 1_498
+                + ["resolved-event", "unresolved-event", None, None]
+            ),
+        }
+    )
+
+    classified = classify_training_target_status(
+        frame,
+        horizons=(6,),
+        completed_through_month=date(2021, 1, 1),
+    )
+    counts = target_censoring_counts(
+        classified,
+        method="classification",
+        horizon=6,
+    )
+
+    assert counts == {
+        "evaluable": 1,
+        "terminal_event_resolved": 1,
+        "horizon_pending": 1,
+        "benchmark_target_unavailable": 1,
+        "ticker_target_unavailable": 1_497,
+        "terminal_event_unresolved": 1,
+    }
+    with pytest.raises(
+        TargetCensoringError,
+        match="ticker_target_unavailable=1497",
+    ):
+        require_resolved_training_targets(
+            classified,
+            method="classification",
+            horizon=6,
+            context="audited H6 panel",
+        )
 
 
 def test_monthly_trading_backtest_applies_turnover_cost() -> None:

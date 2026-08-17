@@ -254,6 +254,13 @@ PROFILE legacy_ema_latest_common_v1
    target = 1 when the stock is in the top 10% of future_excess_6m at t,
             otherwise 0
 
+   classify every H6 row before training as evaluable, terminal-event resolved,
+   horizon pending, benchmark unavailable, ticker target unavailable, or
+   terminal event unresolved. A mature missing benchmark/ticker/terminal target
+   fails the fold before fitting; it is never removed by a generic null filter.
+   Write the complete train/validation/test census to
+   fold_target_censoring.csv for every outer fold.
+
 8. Create strict expanding outer walk-forward windows:
    minimum train = 62 months
    validation = 6 months

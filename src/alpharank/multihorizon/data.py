@@ -30,6 +30,21 @@ RELATIVE_EMA_PAIRS = tuple(
     for long in RELATIVE_EMA_LONG_SPANS
     if long > short
 )
+TARGET_STATUS_VALUES = (
+    "evaluable",
+    "terminal_event_resolved",
+    "horizon_pending",
+    "benchmark_target_unavailable",
+    "ticker_target_unavailable",
+    "terminal_event_unresolved",
+)
+TRAINABLE_TARGET_STATUSES = frozenset(
+    {"evaluable", "terminal_event_resolved"}
+)
+
+
+class TargetCensoringError(RuntimeError):
+    """Raised when mature labels would be dropped through survival filtering."""
 
 
 @dataclass(frozen=True)
@@ -290,6 +305,140 @@ def mask_targets_after_completed_month(
             ]
         )
     return result
+
+
+def classify_training_target_status(
+    frame: pl.DataFrame,
+    *,
+    horizons: Iterable[int],
+    completed_through_month: date,
+) -> pl.DataFrame:
+    """Classify every target row without treating missingness as survival.
+
+    A terminal event is considered resolved only when its return has already
+    been incorporated in the target and the row carries explicit resolution
+    lineage. An event identifier with no usable target remains fail-closed.
+    """
+
+    result = frame
+    for horizon in sorted(set(horizons)):
+        target = f"future_excess_return_{horizon}m"
+        benchmark = f"benchmark_future_return_{horizon}m"
+        if target not in result.columns or benchmark not in result.columns:
+            raise ValueError(
+                f"Cannot classify H{horizon} target without {target!r} and {benchmark!r}."
+            )
+        status_column = f"target_status_{horizon}m"
+        resolution_column = f"return_resolution_{horizon}m"
+        event_column = f"terminal_event_id_{horizon}m"
+        resolution = (
+            pl.col(resolution_column).cast(pl.String)
+            if resolution_column in result.columns
+            else pl.lit(None, dtype=pl.String)
+        )
+        event_id = (
+            pl.col(event_column).cast(pl.String)
+            if event_column in result.columns
+            else pl.lit(None, dtype=pl.String)
+        )
+        target_end_month = pl.col("decision_month").dt.offset_by(f"{horizon}mo")
+        result = result.with_columns(
+            pl.when(target_end_month > pl.lit(completed_through_month))
+            .then(pl.lit("horizon_pending"))
+            .when(pl.col(benchmark).is_null())
+            .then(pl.lit("benchmark_target_unavailable"))
+            .when(
+                pl.col(target).is_not_null()
+                & (resolution == pl.lit("resolved_terminal_event"))
+            )
+            .then(pl.lit("terminal_event_resolved"))
+            .when(pl.col(target).is_not_null())
+            .then(pl.lit("evaluable"))
+            .when(event_id.is_not_null())
+            .then(pl.lit("terminal_event_unresolved"))
+            .otherwise(pl.lit("ticker_target_unavailable"))
+            .alias(status_column)
+        )
+    return result
+
+
+def target_censoring_counts(
+    frame: pl.DataFrame,
+    *,
+    method: str,
+    horizon: int,
+) -> dict[str, int]:
+    """Return a complete, zero-filled target-status census."""
+
+    if method == "teacher":
+        evaluable = frame.filter(pl.col("legacy_selected").is_not_null()).height
+        return {
+            "evaluable": evaluable,
+            "terminal_event_resolved": 0,
+            "horizon_pending": 0,
+            "benchmark_target_unavailable": 0,
+            "ticker_target_unavailable": frame.height - evaluable,
+            "terminal_event_unresolved": 0,
+        }
+    status_column = f"target_status_{horizon}m"
+    if status_column not in frame.columns:
+        raise ValueError(f"Target status column is missing: {status_column}")
+    observed = {
+        str(row[status_column]): int(row["len"])
+        for row in frame.group_by(status_column).len().to_dicts()
+    }
+    unknown = sorted(set(observed) - set(TARGET_STATUS_VALUES))
+    if unknown:
+        raise ValueError(f"Unknown target censoring statuses: {unknown}")
+    return {status: observed.get(status, 0) for status in TARGET_STATUS_VALUES}
+
+
+def require_resolved_training_targets(
+    frame: pl.DataFrame,
+    *,
+    method: str,
+    horizon: int,
+    context: str,
+) -> dict[str, int]:
+    """Reject mature missing labels instead of silently selecting survivors."""
+
+    counts = target_censoring_counts(frame, method=method, horizon=horizon)
+    unresolved = {
+        status: counts[status]
+        for status in (
+            "benchmark_target_unavailable",
+            "ticker_target_unavailable",
+            "terminal_event_unresolved",
+        )
+        if counts[status]
+    }
+    if unresolved:
+        details = ", ".join(
+            f"{status}={count}" for status, count in unresolved.items()
+        )
+        raise TargetCensoringError(
+            f"Unresolved mature training targets in {context}: {details}. "
+            "Resolve source data or a sourced terminal event; never drop these rows."
+        )
+    return counts
+
+
+def filter_trainable_targets(
+    frame: pl.DataFrame, *, method: str, horizon: int
+) -> pl.DataFrame:
+    """Filter only after the unresolved-mature fail-closed check has passed."""
+
+    require_resolved_training_targets(
+        frame,
+        method=method,
+        horizon=horizon,
+        context="target panel",
+    )
+    if method == "teacher":
+        return frame.filter(pl.col("legacy_selected").is_not_null())
+    return frame.filter(
+        pl.col(f"target_status_{horizon}m").is_in(TRAINABLE_TARGET_STATUSES)
+    )
 
 
 def _append_legacy_labels(frame: pl.DataFrame, legacy_path: Path) -> pl.DataFrame:

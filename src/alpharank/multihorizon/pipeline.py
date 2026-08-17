@@ -12,8 +12,12 @@ import polars as pl
 from alpharank.multihorizon.config import MultiHorizonConfig
 from alpharank.multihorizon.data import (
     RELATIVE_EMA_PAIRS,
+    TRAINABLE_TARGET_STATUSES,
     build_research_frame,
+    classify_training_target_status,
     mask_targets_after_completed_month,
+    require_resolved_training_targets,
+    target_censoring_counts,
 )
 from alpharank.multihorizon.explain import compute_shap_sample, write_shap_outputs
 from alpharank.multihorizon.legacy_ema import (
@@ -45,11 +49,15 @@ def _prediction_frame(
         for column in source.columns
         if column.startswith("future_") or column.startswith("benchmark_future_")
     ]
+    status_columns = [
+        column for column in source.columns if column.startswith("target_status_")
+    ]
     output = source.select(
         "decision_month",
         "ticker",
         "legacy_selected",
         *target_columns,
+        *status_columns,
     ).with_columns(
         pl.Series("score", fitted.predict_raw_score(matrix)),
         pl.lit(fold).alias("fold"),
@@ -66,14 +74,17 @@ def _prediction_frame(
         if method == "teacher"
         else f"benchmark_future_return_{horizon}m"
     )
-    output = output.with_columns(
-        pl.when(pl.col(benchmark_target_column).is_null())
-        .then(pl.lit("horizon_pending"))
-        .when(pl.col(target_column).is_null())
-        .then(pl.lit("ticker_target_unavailable"))
-        .otherwise(pl.lit("evaluable"))
-        .alias("target_status")
-    )
+    if method == "teacher":
+        output = output.with_columns(
+            pl.when(pl.col(target_column).is_not_null())
+            .then(pl.lit("evaluable"))
+            .otherwise(pl.lit("ticker_target_unavailable"))
+            .alias("target_status")
+        )
+    else:
+        output = output.with_columns(
+            pl.col(f"target_status_{horizon}m").alias("target_status")
+        )
     if method in {"classification", "teacher"}:
         output = output.with_columns(
             pl.Series("calibrated_probability", fitted.predict(matrix))
@@ -103,14 +114,51 @@ def _eligible(
     horizon: int,
     feature_mode: str,
 ) -> pl.DataFrame:
-    target = "legacy_selected" if method == "teacher" else f"future_excess_return_{horizon}m"
-    eligible = frame.filter(pl.col(target).is_not_null())
-    if method == "teacher" or feature_mode == "legacy_active_oracle":
-        eligible = eligible.filter(
-            (pl.col("legacy_label_available") == 1)
-            & pl.col("future_excess_return_1m").is_not_null()
+    if method == "teacher":
+        eligible = frame.filter(pl.col("legacy_selected").is_not_null())
+    else:
+        eligible = frame.filter(
+            pl.col(f"target_status_{horizon}m").is_in(
+                TRAINABLE_TARGET_STATUSES
+            )
         )
+    if method == "teacher" or feature_mode == "legacy_active_oracle":
+        eligible = eligible.filter(pl.col("legacy_label_available") == 1)
     return eligible.sort(["decision_month", "ticker"])
+
+
+def _fold_censoring_rows(
+    *,
+    frame: pl.DataFrame,
+    windows: list[Any],
+    method: str,
+    horizon: int,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for window in windows:
+        for split, months in (
+            ("train", window.train_months),
+            ("validation", window.validation_months),
+            ("test", window.test_months),
+        ):
+            population = frame.filter(pl.col("decision_month").is_in(months))
+            counts = target_censoring_counts(
+                population,
+                method=method,
+                horizon=horizon,
+            )
+            rows.append(
+                {
+                    "fold": window.fold,
+                    "split": split,
+                    "population_rows": population.height,
+                    "trainable_rows": sum(
+                        counts[status] for status in TRAINABLE_TARGET_STATUSES
+                    ),
+                    **{f"{status}_rows": count for status, count in counts.items()},
+                }
+            )
+    return rows
 
 
 def _score_only_panel(
@@ -172,6 +220,13 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             horizons=tuple(sorted(set(config.horizons) | {1})),
             completed_through_month=completed_through_month,
         )
+    if completed_through_month is None:
+        completed_through_month = frame["decision_month"].max()
+    frame = classify_training_target_status(
+        frame,
+        horizons=tuple(sorted(set(config.horizons) | {1})),
+        completed_through_month=completed_through_month,
+    )
     oracle_features: tuple[str, ...] = ()
     if config.feature_mode == "legacy_active_oracle":
         frame, oracle_features = add_active_legacy_oracle_features(
@@ -217,6 +272,10 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                     "a future label is null when decision_month + horizon "
                     "extends past decision_end_month"
                 ),
+                "target_censoring_rule": (
+                    "every row is classified; mature benchmark/ticker/terminal "
+                    "missingness fails training closed and is never dropped silently"
+                ),
                 "model_metrics": "mature learning targets only",
                 "portfolio_metrics": "all test months with a complete one-month return",
             },
@@ -247,6 +306,11 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                 end_month=config.score_only_end_month,
             )
             test_panel = score_only_panel if score_only_panel is not None else panel
+            censoring_panel = frame
+            if method == "teacher" or config.feature_mode == "legacy_active_oracle":
+                censoring_panel = censoring_panel.filter(
+                    pl.col("legacy_label_available") == 1
+                )
             all_months = test_panel["decision_month"].unique().sort().to_list()
             try:
                 windows = horizon_walk_forward_windows(
@@ -279,12 +343,39 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                     + "\n"
                 )
                 continue
+            censoring_rows = _fold_censoring_rows(
+                frame=censoring_panel,
+                windows=windows,
+                method=method,
+                horizon=horizon,
+            )
+            pl.DataFrame(censoring_rows).write_csv(
+                combination_dir / "fold_target_censoring.csv"
+            )
             prediction_parts: list[pl.DataFrame] = []
             portfolio_parts: list[pl.DataFrame] = []
             fold_rows: list[dict] = []
             feature_manifest_rows: list[dict] = []
             shap_parts: list[pl.DataFrame] = []
             for window in windows:
+                train_population = censoring_panel.filter(
+                    pl.col("decision_month").is_in(window.train_months)
+                )
+                validation_population = censoring_panel.filter(
+                    pl.col("decision_month").is_in(window.validation_months)
+                )
+                require_resolved_training_targets(
+                    train_population,
+                    method=method,
+                    horizon=horizon,
+                    context=f"fold {window.fold} train",
+                )
+                require_resolved_training_targets(
+                    validation_population,
+                    method=method,
+                    horizon=horizon,
+                    context=f"fold {window.fold} validation",
+                )
                 train = panel.filter(pl.col("decision_month").is_in(window.train_months))
                 validation = panel.filter(pl.col("decision_month").is_in(window.validation_months))
                 test = test_panel.filter(
