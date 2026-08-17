@@ -145,8 +145,8 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 2 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
-| Qualité et documentation | 5 | 2 | 1 | 2 | 0 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **6** | **3** | **7,3 %** |
+| Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
+| **Total** | **41** | **12** | **22** | **7** | **7** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -233,7 +233,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 
 | ID | Criticité | Changement et dépendances | Test associé et critère d'acceptation | Statut | Commit | Effet historique |
 |---|---|---|---|---|---|---|
-| `QA-001` | P0 | Créer une suite de tests sémantiques par mutation du futur : cible, prix futur, membership futur, secteur futur et filing futur. | `test_future_mutations_do_not_change_past_decisions` : scores et ordres antérieurs au cutoff restent identiques pour chaque mutation. | À faire | — | Aucun ; empêche les régressions futures |
+| `QA-001` | P0 | Créer une suite de tests sémantiques par mutation du futur : cible, prix futur, membership futur, secteur futur et filing futur. | `test_future_mutations_do_not_change_past_decisions` : scores et ordres antérieurs au cutoff restent identiques pour chaque mutation. | Implémenté | `68a1f557aeb146b5a1f031570c67086ef86d5365` | Aucun ; contrat générique prêt, branchement production UNI/FND et replay v2 restants |
 | `QA-002` | P0 | Étendre les validateurs pour recalculer les sorties depuis le package, pas seulement vérifier quelques hashes de fichiers. Inclure tout le moteur commun et les règles d'éligibilité. | `test_replay_recomputes_outputs_from_sealed_inputs` : environnement neuf, sorties identiques ; échec à toute mutation de code, config, entrée ou modèle. | À faire | — | Doit reproduire exactement une version donnée |
 | `QA-003` | P1 | Ajouter une matrice CI des deux dépôts : tests unitaires, tests anti-look-ahead, replay court, validation documentation et build frontend. | Pipeline : AlphaRank complet, `make test`, `npm run build`, validateurs de docs et replay smoke tous verts sur commit propre. | À faire | — | Aucun attendu |
 | `DOC-001` | P2 | Mettre à jour les sources de vérité après chaque correction : contrat temporel, univers, prix, cible, exécution, coûts, limites et procédure de replay. | `test_documentation_structure.py` et revue croisée code/doc : chaque règle normative pointe vers son test et sa configuration. | À faire | — | Aucun attendu |
@@ -339,6 +339,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `GOV-003` | Codex | Gate G0 | À faire | Validé | `2f89e39b519355a51be569aaf118a50f9fc46d31` | 26 tests ciblés puis suite 275/275 ; capture réelle sale : diff `fc317404697bea44904aff78973db68f68196e190166b438783c2d5405e3a85c`, dépendances `507eedd23191425cd08930feb4960ffa4a0909ae70aa54d50f210344c8df6b61`, bundle `80fa8815ff21d6f0550c39349a41b55af7d526dcdd81a986169e796911612b6b` | Gate G0 franchie ; R&D sale attribuable, promotion toujours réservée à un commit propre |
 | 2026-08-17 | `BST-003` | Codex | Gate G1 | À faire | Implémenté | `34df93c7f99ff1f3961bc36b1d1b4f9422e38ce1` | Artefact audité reclassé : 84 443 évaluables, 3 008 horizons en attente, 1 497 cibles titre indisponibles ; test ciblé 25/25 ; suite 276/276 | Plus aucun drop générique : census par fold, entraînement fail-closed sur toute cible mature benchmark/titre/terminale non résolue ; replay v2 restant |
 | 2026-08-17 | `SIM-004` | Codex | Gate G1 | À faire | Implémenté | `5b96074747c94058693607bdd7b5ef828aaa4804` | 46 tests ciblés ; suite 277/277 ; test signal/exécution/première observation et événement terminal résolu | Le défaut exige cinq timestamps causaux ; tous les replays historiques déclarent explicitement le mode `legacy_month_only` non promouvable ; replay v2 restant |
+| 2026-08-17 | `QA-001` | Codex | Gate G1 | À faire | Implémenté | `68a1f557aeb146b5a1f031570c67086ef86d5365` | Mutation séparée cible/prix/membership/secteur/filing ; test d'acceptation 1/1 ; suite 278/278 | Garde transversal et join PIT auditable ajoutés ; validation finale dépend du branchement de toutes les sources UNI/FND et du replay v2 |
 
 ## 12. Registre des baselines et publications
 
