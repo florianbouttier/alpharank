@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-18
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et trente-sept corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : les 41 actions sont traitées (3 validées, 38 implémentées) ; replay causal `v2`, rapprochement et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -145,8 +145,8 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Legacy | 4 | 0 | 3 | 1 | 4 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 4 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 6 | 0 | 0 % |
-| Qualité et documentation | 5 | 2 | 1 | 2 | 4 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **37** | **3** | **7,3 %** |
+| Qualité et documentation | 5 | 2 | 1 | 2 | 5 | 0 | 0 % |
+| **Total** | **41** | **12** | **22** | **7** | **38** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -237,7 +237,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `QA-002` | P0 | Étendre les validateurs pour recalculer les sorties depuis le package, pas seulement vérifier quelques hashes de fichiers. Inclure tout le moteur commun et les règles d'éligibilité. | `test_replay_recomputes_outputs_from_sealed_inputs` : environnement neuf, sorties identiques ; échec à toute mutation de code, config, entrée ou modèle. | Implémenté | `c750254055a4fd740cf4213df879a8aae787b9cd` | Reproduit exactement la version scellée ; code moteur, éligibilité, configuration, entrée, modèle et sortie attendue sont inventoriés |
 | `QA-003` | P1 | Ajouter une matrice CI des deux dépôts : tests unitaires, tests anti-look-ahead, replay court, validation documentation et build frontend. | Pipeline : AlphaRank complet, `make test`, `npm run build`, validateurs de docs et replay smoke tous verts sur commit propre. | Implémenté | `fcecf5ab0bb187e2f5ca9e9f44d0eee24c23ab26` | Aucun ; matrice sur checkouts propres AlphaRank/Portfolio avec référence Portfolio configurable |
 | `DOC-001` | P2 | Mettre à jour les sources de vérité après chaque correction : contrat temporel, univers, prix, cible, exécution, coûts, limites et procédure de replay. | `test_documentation_structure.py` et revue croisée code/doc : chaque règle normative pointe vers son test et sa configuration. | Implémenté | `1ed8e66b9a8080536b20920b712ab17eceed6f13` | Aucun ; index normatif central relié aux propriétaires code, configurations et tests |
-| `DOC-002` | P2 | Afficher dans les rapports et le dashboard version méthodologique, vintage de données, commit, statut `provisional/final/superseded` et avertissements connus. | `test_report_exposes_methodology_identity` : informations présentes et cohérentes avec le manifeste ; impossible de publier sans identité complète. | À faire | — | Aucun attendu |
+| `DOC-002` | P2 | Afficher dans les rapports et le dashboard version méthodologique, vintage de données, commit, statut `provisional/final/superseded` et avertissements connus. | `test_report_exposes_methodology_identity` : informations présentes et cohérentes avec le manifeste ; impossible de publier sans identité complète. | Implémenté | `52c93e272d12d8ceac9026bd3f1780af33f6f92e` | Aucun ; identité fail-closed exposée par l'API et bannière globale sur dashboard, documentation et rapports intégrés |
 
 ## 7. Protocole de validation par changement
 
@@ -370,6 +370,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-18 | `QA-002` | Codex | Gate G4 | À faire | Implémenté | `c750254055a4fd740cf4213df879a8aae787b9cd` | Replay propre recalculé exactement ; mutations code, config, entrée et modèle toutes rejetées ; test ciblé 1/1 ; suite AlphaRank 299/299 ; aide du validateur commun et validation docs réussies | Package autonome avec inventaire SHA-256, seal détaché, moteur commun complet et règles d'éligibilité ; replay causal v2 réel restant à produire |
 | 2026-08-18 | `QA-003` | Codex | Gate G5 | À faire | Implémenté | `fcecf5ab0bb187e2f5ca9e9f44d0eee24c23ab26` | Workflow YAML contrôlé ; AlphaRank 300/300, Portfolio 61/61, liens Markdown suivis des deux dépôts et build frontend réussis | Matrice `alpharank/portfolio`, smoke anti-look-ahead et replay ; secret `CROSS_REPO_TOKEN` requis si Portfolio est privé |
 | 2026-08-18 | `DOC-001` | Codex | Gate G6 | À faire | Implémenté | `1ed8e66b9a8080536b20920b712ab17eceed6f13` | Huit domaines normatifs reliés au code, aux politiques et aux tests ; 2 tests ciblés ; liens Markdown et validation documentaire réussis | `docs/research_governance.md` distingue explicitement implémentation, validation économique et promotion v2 |
+| 2026-08-18 | `DOC-002` | Codex | Gate G6 | À faire | Implémenté | `52c93e272d12d8ceac9026bd3f1780af33f6f92e` | Identité complète acceptée, manifeste incomplet ou absent refusé ; 2 tests ciblés ; suite Portfolio 62/62 ; build frontend et validation docs réussis | Version `v2-causal-implementation`, vintage runtime, commit normatif, statut provisoire et trois avertissements affichés partout |
 
 ## 12. Registre des baselines et publications
 
