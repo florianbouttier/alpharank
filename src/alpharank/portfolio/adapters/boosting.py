@@ -14,14 +14,15 @@ def boosting_predictions_to_holdings(
     realized_return_column: str = "future_return_1m",
     benchmark_return_column: str = "benchmark_future_return_1m",
 ) -> pl.DataFrame:
-    """Adapt out-of-sample boosting scores to the common holdings contract."""
+    """Adapt out-of-sample scores without conditioning selection on future returns.
+
+    Missing realized stock or benchmark returns remain visible on selected rows
+    so downstream simulation can apply an explicit missing-return policy. They
+    must never cause a lower-ranked candidate to enter the portfolio.
+    """
 
     parts: list[pl.DataFrame] = []
-    usable = predictions.filter(
-        pl.col(realized_return_column).is_not_null()
-        & pl.col(benchmark_return_column).is_not_null()
-    )
-    for month in usable.partition_by("decision_month", maintain_order=True):
+    for month in predictions.partition_by("decision_month", maintain_order=True):
         selected = select_ranked_candidates(
             month,
             top_n=top_n,

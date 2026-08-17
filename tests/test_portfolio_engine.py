@@ -119,6 +119,41 @@ def test_legacy_adapter_and_boosting_adapter_share_the_same_contract() -> None:
     )
 
 
+def test_boosting_selection_ignores_future_return_availability() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)] * 3,
+            "ticker": ["A", "B", "C"],
+            "score": [0.9, 0.8, 0.7],
+            "future_return_1m": [0.25, 0.10, -0.05],
+            "benchmark_future_return_1m": [0.02, 0.02, 0.02],
+        }
+    )
+    missing_top_return = predictions.with_columns(
+        pl.when(pl.col("ticker") == "A")
+        .then(None)
+        .otherwise(pl.col(column))
+        .alias(column)
+        for column in ("future_return_1m", "benchmark_future_return_1m")
+    )
+
+    complete = boosting_predictions_to_holdings(
+        predictions,
+        strategy="boosting",
+        top_n=2,
+    )
+    with_missing_return = boosting_predictions_to_holdings(
+        missing_top_return,
+        strategy="boosting",
+        top_n=2,
+    )
+
+    assert complete["ticker"].to_list() == ["A", "B"]
+    assert with_missing_return["ticker"].to_list() == ["A", "B"]
+    assert with_missing_return["realized_return"].to_list() == [None, 0.10]
+    assert with_missing_return["benchmark_return"].to_list() == [None, 0.02]
+
+
 def test_turnover_and_period_alignment_are_explicit() -> None:
     assert portfolio_turnover({"A": 0.5, "B": 0.5}, {"A": 0.5, "C": 0.5}) == pytest.approx(0.5)
     first = pl.DataFrame(
