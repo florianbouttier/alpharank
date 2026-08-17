@@ -85,3 +85,15 @@ patch manque, si un hash diverge, ou si le manifeste déclare `git_dirty=false`
 alors que le dépôt est sale. La validation contre le worktree courant est une
 preuve de capture immédiate ; un replay ultérieur vérifie le manifeste et son
 bundle sans exiger que le dépôt soit resté dans le même état.
+
+## Mutations du futur
+
+`tests/test_future_mutation_invariance.py` constitue le garde transversal
+anti-look-ahead. Il modifie séparément une cible future, un prix futur, un
+événement de membership futur, un reclassement sectoriel futur et un filing
+futur, puis exige l'identité des décisions, features ou attributs antérieurs au
+cutoff. Les attributs datés utilisent `join_point_in_time_attributes`, qui
+retient dans la sortie le timestamp effectif sélectionné et refuse les versions
+dupliquées. Ce garde est une condition nécessaire de promotion ; les tâches
+UNI/FND restent responsables de brancher toutes les sources de production sur
+ces contrats point-in-time.
