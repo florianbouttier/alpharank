@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import polars as pl
 
-from alpharank.data.open_source.constituents import refresh_monthly_constituents
+from alpharank.data.open_source.constituents import (
+    membership_at_decision_time,
+    refresh_monthly_constituents,
+)
 
 
 def test_refresh_monthly_constituents_obeys_effective_month_and_ticker_change() -> None:
@@ -52,7 +55,7 @@ def test_refresh_monthly_constituents_obeys_effective_month_and_ticker_change() 
     june = set(result.frame.filter(pl.col("Date") == date(2026, 6, 1))["Ticker"])
     july = set(result.frame.filter(pl.col("Date") == date(2026, 7, 1))["Ticker"])
     assert april == {"OLD", "KEEP"}
-    assert may == {"OLD", "KEEP"}
+    assert may == {"NEW", "KEEP"}
     assert june == {"NEW", "KEPT"}
     assert july == {"NEW", "KEPT"}
     assert len(result.operation_audit) == 3
@@ -89,3 +92,71 @@ def test_refresh_monthly_constituents_requires_explicit_noop_permission() -> Non
         target_month=date(2026, 5, 1),
     )
     assert result.operation_audit[0]["status"] == "inherited_snapshot_already_applied"
+
+
+def test_membership_effective_at_decision_time() -> None:
+    source = pl.DataFrame(
+        {
+            "Date": [date(2026, 4, 1)] * 3,
+            "Ticker": ["CTRA", "POOL", "EA"],
+            "Name": ["Coterra", "Pool", "Electronic Arts"],
+        }
+    )
+    registry = {
+        "base_month": "2026-04-01",
+        "events": [
+            {
+                "effective_date": "2026-05-07",
+                "source_url": "https://example.test/veev",
+                "operations": [
+                    {"action": "add", "ticker": "VEEV", "name": "Veeva"},
+                    {"action": "remove", "ticker": "CTRA"},
+                ],
+            },
+            {
+                "effective_date": "2026-06-22",
+                "source_url": "https://example.test/mrvl-flex",
+                "operations": [
+                    {"action": "add", "ticker": "MRVL", "name": "Marvell"},
+                    {"action": "add", "ticker": "FLEX", "name": "Flex"},
+                    {"action": "remove", "ticker": "POOL"},
+                ],
+            },
+            {
+                "effective_date": "2026-08-05",
+                "source_url": "https://example.test/ferg",
+                "operations": [
+                    {"action": "add", "ticker": "FERG", "name": "Ferguson"},
+                    {"action": "remove", "ticker": "EA"},
+                ],
+            },
+        ],
+    }
+    effective_times = [
+        datetime(2026, 5, 7, 4, 0, tzinfo=timezone.utc),
+        datetime(2026, 6, 22, 4, 0, tzinfo=timezone.utc),
+        datetime(2026, 8, 5, 4, 0, tzinfo=timezone.utc),
+    ]
+    decisions = [
+        value + offset
+        for value in effective_times
+        for offset in (-timedelta(microseconds=1), timedelta(0))
+    ]
+
+    membership = membership_at_decision_time(
+        source,
+        registry=registry,
+        decision_times=decisions,
+    )
+
+    def names(at: datetime) -> set[str]:
+        return set(
+            membership.filter(pl.col("decision_at") == at)["ticker"].to_list()
+        )
+
+    assert "VEEV" not in names(decisions[0])
+    assert "VEEV" in names(decisions[1]) and "CTRA" not in names(decisions[1])
+    assert {"MRVL", "FLEX"}.isdisjoint(names(decisions[2]))
+    assert {"MRVL", "FLEX"}.issubset(names(decisions[3]))
+    assert "EA" in names(decisions[4]) and "FERG" not in names(decisions[4])
+    assert "EA" not in names(decisions[5]) and "FERG" in names(decisions[5])

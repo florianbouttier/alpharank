@@ -97,3 +97,14 @@ retient dans la sortie le timestamp effectif sélectionné et refuse les version
 dupliquées. Ce garde est une condition nécessaire de promotion ; les tâches
 UNI/FND restent responsables de brancher toutes les sources de production sur
 ces contrats point-in-time.
+
+## Appartenance à l'univers
+
+Les événements S&P sont appliqués à leur instant effectif, par défaut minuit
+`America/New_York` de `effective_date` lorsqu'aucune heure plus précise n'est
+fournie. `membership_at_decision_time` exige une décision timezone-aware et
+rejoue les opérations jusqu'à cet instant inclus. Les snapshots mensuels datés
+du premier jour représentent l'univers utilisable à la décision de fin de ce
+mois : un événement effectif au milieu du mois n'est donc plus décalé au mois
+suivant. Le snapshot de base est lui aussi rapproché avec les événements de son
+mois et chaque opération reste dans l'audit.
