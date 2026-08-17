@@ -196,3 +196,16 @@ features, la seed, le nombre d'itérations retenu et les bornes temporelles du
 fold. Le cas mono-classe est sérialisé comme probabilité constante explicite.
 Le chargeur de replay vérifie le hash avant de produire scores et rangs sans
 réentraînement.
+
+## Confirmation finale scellée
+
+Le protocole `sealed-confirmation-v1` déclare avant toute observation la période
+finale, son inventaire SHA-256 et la liste exhaustive des identifiants
+d'expérience autorisés. Chaque variante doit enregistrer hypothèse, commande,
+hash de configuration et hash du manifeste de résultat avant l'ouverture.
+
+L'ouverture est unique et échoue en invalidant le protocole si le registre est
+incomplet ou si les données ont changé. Toute nouvelle optimisation, seconde
+ouverture ou mutation du registre après ouverture rend ensuite la promotion
+impossible. `validate_confirmation_for_promotion` exige l'état `opened`, le
+dataset intact et le hash exact du registre observé lors de l'ouverture.
