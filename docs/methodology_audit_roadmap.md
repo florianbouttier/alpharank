@@ -143,10 +143,10 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Fondamentaux | 4 | 1 | 1 | 2 | 0 | 0 | 0 % |
 | Boosting | 6 | 3 | 3 | 0 | 3 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
-| Simulation | 4 | 2 | 1 | 1 | 1 | 0 | 0 % |
+| Simulation | 4 | 2 | 1 | 1 | 2 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 0 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **5** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **6** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -216,7 +216,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `SIM-001` | P0 | Remplacer `renormalize_available` comme défaut par un mode `raise` ou par un rendement terminal explicitement résolu. | `test_missing_selected_return_fails_closed_by_default` : un titre sélectionné sans rendement produit une erreur qualifiée ; l'ancien replay demande explicitement `renormalize_available`. | Implémenté | `0cf79a9c5c19f2a83b47508e09b27aa885e402ac` | Nouvelle baseline si des mois réalisés sont touchés ; l'ancienne baseline reste reproductible à `2.08e-16` |
 | `SIM-002` | P1 | Calculer le turnover entre les poids dérivés après performance et les nouveaux poids cibles, avec gestion du cash et des entrées/sorties. | `test_turnover_uses_drifted_pretrade_weights` : exemples analytiques à deux actifs et comparaison indépendante. | À faire | — | Nouvelle baseline nette ; ordre de grandeur audité : environ 0,44 point cumulé sur Boosting Top 10 à 10 pb |
 | `SIM-003` | P2 | Ajouter spreads, slippage, impact, minimum de frais, change et scénarios de coûts, séparés des rendements bruts. | `test_cost_model_is_monotonic_and_reconciled` : coût nul reproduit le brut ; coût croissant ne peut améliorer le net ; somme des coûts rapproche le P&L. | À faire | — | Séries nettes nouvelles, brut inchangé |
-| `SIM-004` | P0 | Imposer la frontière causale globale décision-exécution-rendement et intégrer les événements terminaux résolus par `BST-002`. | `test_holding_return_starts_after_trade` : première observation de rendement après exécution ; aucune donnée de la période détenue dans le signal. | À faire | — | Nouvelle baseline si convention actuelle invalide |
+| `SIM-004` | P0 | Imposer la frontière causale globale décision-exécution-rendement et intégrer les événements terminaux résolus par `BST-002`. | `test_holding_return_starts_after_trade` : première observation de rendement après exécution ; aucune donnée de la période détenue dans le signal. | Implémenté | `5b96074747c94058693607bdd7b5ef828aaa4804` | Nouvelle baseline requise ; `v1` demande désormais explicitement `legacy_month_only` |
 
 ### H. Ingestion IBKR et performance du dashboard
 
@@ -338,6 +338,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `GOV-002` | Codex | Gate G0 | À faire | Validé | `3f2f8aa235329197b759f4a7d84fcc0e2700adf9` | Baseline comparée jusqu'à 2026-07 : 5 215 positions (`bdc9ddc47b48f32b2a0079c3a97b0eb2f9e7e8ee87795f8cee3ecdf8d3b3be48`) et 720 mois-stratégies (`21e6427aba921d060f3c7354d2215ae34b2107c679f249b81ca705b7b41dd833`) ; écarts maximaux nuls ; suite 273 tests | Extension future autorisée ; tolérance positive plafonnée à `1e-12` et obligatoirement justifiée |
 | 2026-08-17 | `GOV-003` | Codex | Gate G0 | À faire | Validé | `2f89e39b519355a51be569aaf118a50f9fc46d31` | 26 tests ciblés puis suite 275/275 ; capture réelle sale : diff `fc317404697bea44904aff78973db68f68196e190166b438783c2d5405e3a85c`, dépendances `507eedd23191425cd08930feb4960ffa4a0909ae70aa54d50f210344c8df6b61`, bundle `80fa8815ff21d6f0550c39349a41b55af7d526dcdd81a986169e796911612b6b` | Gate G0 franchie ; R&D sale attribuable, promotion toujours réservée à un commit propre |
 | 2026-08-17 | `BST-003` | Codex | Gate G1 | À faire | Implémenté | `34df93c7f99ff1f3961bc36b1d1b4f9422e38ce1` | Artefact audité reclassé : 84 443 évaluables, 3 008 horizons en attente, 1 497 cibles titre indisponibles ; test ciblé 25/25 ; suite 276/276 | Plus aucun drop générique : census par fold, entraînement fail-closed sur toute cible mature benchmark/titre/terminale non résolue ; replay v2 restant |
+| 2026-08-17 | `SIM-004` | Codex | Gate G1 | À faire | Implémenté | `5b96074747c94058693607bdd7b5ef828aaa4804` | 46 tests ciblés ; suite 277/277 ; test signal/exécution/première observation et événement terminal résolu | Le défaut exige cinq timestamps causaux ; tous les replays historiques déclarent explicitement le mode `legacy_month_only` non promouvable ; replay v2 restant |
 
 ## 12. Registre des baselines et publications
 
