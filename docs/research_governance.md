@@ -48,3 +48,17 @@ d'écriture après renommage atomique du package temporaire.
 `validate_baseline_package` recalcule l'inventaire et échoue si un fichier a été
 ajouté, supprimé, modifié ou rendu inscriptible. La baseline n'est valide que si
 le manifeste, son sceau détaché et l'intégralité du payload concordent.
+
+## Garde du préfixe économique
+
+`scripts/validate_economic_prefix.py` compare une référence publiée et un
+candidat de migration. Le dernier mois de la référence définit le préfixe ; les
+nouveaux mois du candidat restent hors comparaison. Les clés
+stratégie/décision/détention/ticker, les rangs et les champs de décision sont
+exacts. Les poids, rendements, turnover et coûts utilisent la tolérance absolue
+approuvée de `1e-12`, obligatoirement accompagnée de sa justification.
+
+Le rapport contient les SHA-256 canoniques, les clés manquantes ou inattendues et
+l'écart maximal de chaque colonne. Une différence sur un mois publié interdit de
+qualifier la migration de neutre ; elle doit être traitée comme correction
+économique et produire une nouvelle version.
