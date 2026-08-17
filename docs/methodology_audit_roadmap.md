@@ -141,12 +141,12 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Prix et vintages | 3 | 0 | 3 | 0 | 1 | 0 | 0 % |
 | Univers et secteurs | 4 | 1 | 3 | 0 | 0 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 0 | 0 | 0 % |
-| Boosting | 6 | 3 | 3 | 0 | 2 | 0 | 0 % |
+| Boosting | 6 | 3 | 3 | 0 | 3 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 1 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 0 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **4** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **5** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -195,7 +195,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 |---|---|---|---|---|---|---|
 | `BST-001` | P0 | Classer tous les candidats éligibles avec le score disponible à la décision, sélectionner Top N, puis seulement joindre le rendement réalisé. Ne jamais filtrer sur `future_return_1m` avant sélection. | `test_boosting_selection_ignores_future_return_availability` : rendre nuls les rendements futurs du titre et du benchmark sans changer le Top N. | Implémenté | `36ec9be79a7faa70c1ae4abb93a5bad60f766247` | Nouvelle baseline Boosting obligatoire ; validation finale après replay `v2` |
 | `BST-002` | P0 | Résoudre le rendement terminal total actionnaire pour radiations, faillites, acquisitions et changements de ticker. Dépend de `PRC-002`. | `test_terminal_return_is_included` : cas cash merger, échange d'actions, radiation à perte totale et pont de ticker ; aucun survivant implicite. | Implémenté | `a6feee33fd8fffcfa5f2255c5d55a3ddb079773b` | Nouvelle baseline Boosting obligatoire ; validation finale après replay `v2` |
-| `BST-003` | P0 | Définir la censure de la cible d'entraînement : distinguer horizon non encore réalisé, donnée manquante et événement terminal ; supprimer toute exclusion corrélée à la survie. Dépend de `BST-002`. | `test_training_target_missingness_is_not_survival_filter` : les 1 497 observations sont classées par motif, sans drop générique ; rapport de censure par fold. | À faire | — | Nouvelle baseline modèle obligatoire |
+| `BST-003` | P0 | Définir la censure de la cible d'entraînement : distinguer horizon non encore réalisé, donnée manquante et événement terminal ; supprimer toute exclusion corrélée à la survie. Dépend de `BST-002`. | `test_training_target_missingness_is_not_survival_filter` : les 1 497 observations sont classées par motif, sans drop générique ; rapport de censure par fold. | Implémenté | `34df93c7f99ff1f3961bc36b1d1b4f9422e38ce1` | Nouvelle baseline modèle obligatoire ; replay bloqué tant que les 1 497 cibles matures ne sont pas résolues |
 | `BST-004` | P1 | Corriger ou déprécier `scripts/run_backtest.py`, dont sélection sparse et médiane sont actuellement calculées sur l'échantillon complet avant les folds. | `test_preprocessing_is_fit_inside_each_outer_fold` : mutation du futur sans effet sur features, colonnes retenues et imputations du passé. | À faire | — | Nouvelle baseline pour ce chemin R&D uniquement |
 | `BST-005` | P1 | Sérialiser chaque modèle, préprocesseur, liste de features, seed et métadonnées de fold ; permettre un replay sans réentraînement. Dépend de `GOV-003`. | `test_serialized_model_reproduces_oos_predictions` : prédictions, rangs et portefeuille hors échantillon identiques après rechargement. | À faire | — | Doit rester identique pour le même run |
 | `BST-006` | P1 | Sceller un jeu de confirmation final et enregistrer toutes les variantes testées pour limiter le biais de sélection et le multiple testing. | `test_sealed_period_is_single_use` : toute lecture prématurée ou nouvelle optimisation après ouverture invalide la promotion ; registre des expériences complet. | À faire | — | Aucun recalage rétroactif autorisé |
@@ -337,6 +337,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `GOV-001` | Codex | Gate G0 | À faire | Validé | `f526a11ff1aab53e39edbfdd7c99f309e0f8d3b4` | `outputs/methodology_baselines/v1-audited-biased` ; manifeste `d8e0273e69bd588a971d1ed2c28438245d262357eb4314eba9649abaa3ec79cf` ; inventaire `ec75cc709b923cdf1292638b569ec66dcab536dbc6bca97e21967afee16227d9` ; 269 tests | Baseline auditable et immuable, explicitement non causale |
 | 2026-08-17 | `GOV-002` | Codex | Gate G0 | À faire | Validé | `3f2f8aa235329197b759f4a7d84fcc0e2700adf9` | Baseline comparée jusqu'à 2026-07 : 5 215 positions (`bdc9ddc47b48f32b2a0079c3a97b0eb2f9e7e8ee87795f8cee3ecdf8d3b3be48`) et 720 mois-stratégies (`21e6427aba921d060f3c7354d2215ae34b2107c679f249b81ca705b7b41dd833`) ; écarts maximaux nuls ; suite 273 tests | Extension future autorisée ; tolérance positive plafonnée à `1e-12` et obligatoirement justifiée |
 | 2026-08-17 | `GOV-003` | Codex | Gate G0 | À faire | Validé | `2f89e39b519355a51be569aaf118a50f9fc46d31` | 26 tests ciblés puis suite 275/275 ; capture réelle sale : diff `fc317404697bea44904aff78973db68f68196e190166b438783c2d5405e3a85c`, dépendances `507eedd23191425cd08930feb4960ffa4a0909ae70aa54d50f210344c8df6b61`, bundle `80fa8815ff21d6f0550c39349a41b55af7d526dcdd81a986169e796911612b6b` | Gate G0 franchie ; R&D sale attribuable, promotion toujours réservée à un commit propre |
+| 2026-08-17 | `BST-003` | Codex | Gate G1 | À faire | Implémenté | `34df93c7f99ff1f3961bc36b1d1b4f9422e38ce1` | Artefact audité reclassé : 84 443 évaluables, 3 008 horizons en attente, 1 497 cibles titre indisponibles ; test ciblé 25/25 ; suite 276/276 | Plus aucun drop générique : census par fold, entraînement fail-closed sur toute cible mature benchmark/titre/terminale non résolue ; replay v2 restant |
 
 ## 12. Registre des baselines et publications
 
