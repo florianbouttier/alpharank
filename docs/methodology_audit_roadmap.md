@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-17
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et douze corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et treize corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -140,13 +140,13 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Gouvernance | 5 | 2 | 3 | 0 | 0 | 3 | 60 % |
 | Prix et vintages | 3 | 0 | 3 | 0 | 1 | 0 | 0 % |
 | Univers et secteurs | 4 | 1 | 3 | 0 | 4 | 0 | 0 % |
-| Fondamentaux | 4 | 1 | 1 | 2 | 1 | 0 | 0 % |
+| Fondamentaux | 4 | 1 | 1 | 2 | 2 | 0 | 0 % |
 | Boosting | 6 | 3 | 3 | 0 | 3 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 2 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **12** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **13** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -185,7 +185,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | ID | Criticité | Changement et dépendances | Test associé et critère d'acceptation | Statut | Commit | Effet historique |
 |---|---|---|---|---|---|---|
 | `FND-001` | P1 | Définir une politique explicite pour les 3 023 ticker-mois sans données SEC et les 62 tickers concernés : fallback, exclusion ex ante ou indicateur de couverture. | `test_missing_fundamentals_policy_is_ex_ante` : la décision ne dépend ni du rendement futur ni de la survie ultérieure ; rapport de couverture par année. | Implémenté | `89ac75cce09db0c7f89691b21dd1e469aea196ab` | SEC uniquement, exclusion ex ante et statut ticker-mois ; couverture réelle à recalculer au replay v2 |
-| `FND-002` | P2 | Remplacer la moyenne glissante multipliée par quatre avec `min_samples=1` par un vrai TTM fondé sur quatre trimestres ou un état d'indisponibilité explicite. | `test_ttm_requires_four_distinct_quarters` : aucun TTM sur 1 à 3 trimestres ; somme vérifiée sur exemples de filings. | À faire | — | Nouvelle baseline possible |
+| `FND-002` | P2 | Remplacer la moyenne glissante multipliée par quatre avec `min_samples=1` par un vrai TTM fondé sur quatre trimestres ou un état d'indisponibilité explicite. | `test_ttm_requires_four_distinct_quarters` : aucun TTM sur 1 à 3 trimestres ; somme vérifiée sur exemples de filings. | Implémenté | `33f9c47fc5a619ec769d0e670c6fada4b2c319e0` | Nouvelle baseline requise : TTM partiels supprimés, lacunes trimestrielles laissées indisponibles |
 | `FND-003` | P2 | Résoudre les doublons du calendrier earnings avec une clé et une priorité de source déterministes. | `test_earnings_calendar_key_is_unique` : zéro doublon après consolidation ; les dix cas observés ont un résultat attendu fixé. | À faire | — | Aucun attendu si earnings non utilisés ; sinon à mesurer |
 | `FND-004` | P0 | Appliquer partout une disponibilité point-in-time stricte : `filing_date`, heure de publication, délai opérationnel et version du filing. | `test_feature_availability_precedes_decision` : pour chaque valeur de feature, `available_at <= decision_at`; mutations d'un filing futur sans effet sur le passé. | À faire | — | Nouvelle baseline requise si une fuite est trouvée |
 
@@ -345,6 +345,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `UNI-003` | Codex | Gate G2 | À faire | Implémenté | `3b816e4ca494d27e49c5f0bed23655abaa869ccb` | Registre actif : 10/10 événements, 17 opérations, provenance complète ; test d'acceptation fail-closed ; 5 tests ciblés ; suite 281/281 | Date source sans heure placée à 23:59:59 New York ; audit manifeste/HTML complet ; replay v2 restant |
 | 2026-08-17 | `UNI-004` | Codex | Gate G2 | À faire | Implémenté | `3690fa93ba8e6bbce51c528de4e12f8e5ca35ee4` | Changement Technology vers Health Care testé avant/après ; mutation future sans effet passé ; couverture partielle désactive toute la date ; 2 tests ciblés ; suite 282/282 | Aucun fallback vers le secteur courant ; branchement Legacy atomique sous `LEG-001` |
 | 2026-08-17 | `FND-001` | Codex | Gate G2 | À faire | Implémenté | `89ac75cce09db0c7f89691b21dd1e469aea196ab` | Mutation des rendements futurs et de la survie sans effet sur l'éligibilité ; rapport annuel contrôlé ; test ciblé 1/1 ; suite 283/283 | Politique versionnée `sec-only-exclude-ex-ante-v1` ; 3 023 ticker-mois et 62 tickers à remesurer au replay v2 |
+| 2026-08-17 | `FND-002` | Codex | Gate G2 | À faire | Implémenté | `33f9c47fc5a619ec769d0e670c6fada4b2c319e0` | Aucun TTM sur 1 à 3 trimestres ni avec un trimestre manquant ; sommes revenue 100, FCF 10 et EPS 1 contrôlées ; 2 tests ciblés ; suite 284/284 | Moyennes de bilan soumises à la même fenêtre complète ; nouvelle baseline v2 requise |
 
 ## 12. Registre des baselines et publications
 
