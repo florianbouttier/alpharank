@@ -124,3 +124,11 @@ dupliqué, si les timestamps ne sont pas zonés ou si l'observation est postéri
 à l'effet. Lorsqu'une source officielle publie seulement une date sans heure, la
 connaissance est placée conservativement à 23:59:59 `America/New_York`. Le journal
 de reconstruction propage ces champs jusqu'à chaque opération appliquée.
+
+Les secteurs suivent le même principe : une classification n'est utilisable que
+si son instant d'effet et son instant d'observation sont tous deux antérieurs à
+la décision, avec identifiant, source et confiance. Le cap sectoriel est marqué
+`sector_constraint_enabled=false` pour toute décision dont au moins un candidat
+n'a pas de secteur point-in-time complet. Une table statique de secteurs courants
+est explicitement incompatible avec ce contrat ; son branchement au moteur Legacy
+relève de `LEG-001`.
