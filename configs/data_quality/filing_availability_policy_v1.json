@@ -1,0 +1,8 @@
+{
+  "policy_id": "sec-filing-availability-v1",
+  "timezone": "America/New_York",
+  "date_only_assumption": "23:59:59",
+  "operational_delay_hours": 24,
+  "require_filing_version_id": true,
+  "rationale": "Use the SEC acceptance timestamp when available; otherwise assume the filing became observable only at the end of its filing date, then apply a 24-hour operational delay."
+}

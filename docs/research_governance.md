@@ -152,3 +152,10 @@ doublon SEC, la sélection préfère un dépôt daté après la fin de période,
 délai le plus court, puis la date et l'accession lexicographiquement. Le lineage
 conserve le nombre de candidats, toutes les accessions et l'identifiant de cette
 règle ; l'ordre d'arrivée des lignes ne peut donc pas modifier le résultat.
+
+La disponibilité des features issues d'un filing suit
+`sec-filing-availability-v1`. Le timestamp d'acceptation SEC est prioritaire ;
+s'il manque, la publication est supposée connue seulement à 23:59:59 New York
+le jour du dépôt. Un délai opérationnel de 24 heures est ensuite ajouté. Chaque
+valeur conserve son accession/version et le motif du timestamp ; le join de
+décision impose mécaniquement `available_at <= decision_at`.
