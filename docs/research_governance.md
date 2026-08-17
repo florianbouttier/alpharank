@@ -164,3 +164,9 @@ Les runners Legacy, backtest Boosting et multihorizon réservent leur dossier de
 run par une création atomique avec `exist_ok=False`. Une collision d'identifiant
 échoue avant toute lecture d'entrée ou écriture d'artefact ; aucun run existant
 ne peut être repris, complété ou écrasé implicitement.
+
+La promotion méthodologique utilise un unique pointeur JSON remplacé
+atomiquement. Il conserve l'inventaire SHA-256 de chaque version, l'approbateur,
+le motif et le journal promotion/rollback. Une version précédente devient
+`superseded` mais son dossier n'est ni déplacé ni supprimé. Un rollback recalcule
+tous ses hashes avant de la réactiver et refuse toute version modifiée.
