@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-17
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et neuf corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et dix corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -139,14 +139,14 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Gouvernance | 5 | 2 | 3 | 0 | 0 | 3 | 60 % |
 | Prix et vintages | 3 | 0 | 3 | 0 | 1 | 0 | 0 % |
-| Univers et secteurs | 4 | 1 | 3 | 0 | 2 | 0 | 0 % |
+| Univers et secteurs | 4 | 1 | 3 | 0 | 3 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 0 | 0 | 0 % |
 | Boosting | 6 | 3 | 3 | 0 | 3 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 2 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **9** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **10** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -177,7 +177,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 |---|---|---|---|---|---|---|
 | `UNI-001` | P0 | Construire l'appartenance à l'univers `as-of` à l'instant de décision à partir de la date/heure effective, sans décalage mensuel implicite. | `test_membership_effective_at_decision_time` avec VEEV, MRVL, FLEX, EA et FERG : présence exacte avant et après chaque événement. | Implémenté | `0acf0963ec94e69a234f1f82c08055027f16eecd` | Nouvelle baseline requise : les événements intra-mois ne sont plus décalés au mois suivant |
 | `UNI-002` | P1 | Imposer une clé unique documentée pour les constituants et résoudre les doublons avec une règle déterministe et auditée. | `test_constituent_snapshot_has_unique_key` : zéro doublon non résolu ; les 214 groupes historiques détectés ont une décision traçable. | Implémenté | `1c67a9801a7ccb606a6ede2107bc57fe0772f6e6` | Fichier actif : 1 067 groupes datés audités, sortie de 225 620 clés uniques ; replay v2 restant |
-| `UNI-003` | P1 | Ajouter provenance source, date d'observation, date effective, identifiant d'événement et niveau de confiance à chaque changement historique. | `test_membership_event_lineage_is_complete` : 100 % des événements utilisés par une décision ont une provenance et une date effective. | À faire | — | Aucun attendu si payload identique ; sinon nouvelle version |
+| `UNI-003` | P1 | Ajouter provenance source, date d'observation, date effective, identifiant d'événement et niveau de confiance à chaque changement historique. | `test_membership_event_lineage_is_complete` : 100 % des événements utilisés par une décision ont une provenance et une date effective. | Implémenté | `3b816e4ca494d27e49c5f0bed23655abaa869ccb` | Payload économique inchangé ; 10 événements et 17 opérations du registre actif ont une provenance complète |
 | `UNI-004` | P1 | Fournir une classification sectorielle point-in-time ; à défaut, désactiver la contrainte sectorielle sur les périodes non couvertes au lieu d'utiliser le secteur courant. | `test_sector_used_was_known_at_decision_date` : aucun secteur dont la date de disponibilité est postérieure à la décision ; scénario de changement de secteur inclus. | À faire | — | Nouvelle baseline Legacy probable |
 
 ### D. Fondamentaux SEC, disponibilité et TTM
@@ -342,6 +342,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `QA-001` | Codex | Gate G1 | À faire | Implémenté | `68a1f557aeb146b5a1f031570c67086ef86d5365` | Mutation séparée cible/prix/membership/secteur/filing ; test d'acceptation 1/1 ; suite 278/278 | Garde transversal et join PIT auditable ajoutés ; validation finale dépend du branchement de toutes les sources UNI/FND et du replay v2 |
 | 2026-08-17 | `UNI-001` | Codex | Gate G2 | À faire | Implémenté | `0acf0963ec94e69a234f1f82c08055027f16eecd` | VEEV, MRVL, FLEX, EA et FERG testés juste avant/à l'instant effectif ; 4 tests ciblés ; suite 279/279 | Heure explicite ou minuit New York ; snapshots mensuels rapprochés à la décision de fin de mois ; replay v2 restant |
 | 2026-08-17 | `UNI-002` | Codex | Gate G2 | À faire | Implémenté | `1c67a9801a7ccb606a6ede2107bc57fe0772f6e6` | Fixture d'acceptation : 214 groupes résolus et audités ; fichier actif : 1 067 groupes datés, 225 620 sorties, zéro clé dupliquée ; 4 tests ciblés ; suite 280/280 | Nom normalisé le plus fréquent, égalité lexicographique ; aucune déduplication silencieuse ; replay v2 restant |
+| 2026-08-17 | `UNI-003` | Codex | Gate G2 | À faire | Implémenté | `3b816e4ca494d27e49c5f0bed23655abaa869ccb` | Registre actif : 10/10 événements, 17 opérations, provenance complète ; test d'acceptation fail-closed ; 5 tests ciblés ; suite 281/281 | Date source sans heure placée à 23:59:59 New York ; audit manifeste/HTML complet ; replay v2 restant |
 
 ## 12. Registre des baselines et publications
 
