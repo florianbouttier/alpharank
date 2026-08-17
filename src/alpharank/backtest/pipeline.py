@@ -49,6 +49,7 @@ from alpharank.backtest.reporting import (
     write_html_report,
 )
 from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows, walk_forward_windows
+from alpharank.backtest.model_artifacts import serialize_fold_model
 from alpharank.multihorizon.preprocessing import (
     FoldPreprocessor,
     fit_fold_preprocessor,
@@ -1065,6 +1066,26 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             best_params=tuned.best_params,
             preprocessor=preprocessor,
             candidate_features=features_used,
+        )
+        serialize_fold_model(
+            fold_dir=fold_dir,
+            model=tuned.model,
+            preprocessor=preprocessor,
+            seed=config.random_seed + window.fold_index,
+            fold_metadata={
+                "fold": window.fold_index,
+                "train_month_start": str(window.train_months[0]),
+                "train_month_end": str(window.train_months[-1]),
+                "val_month_start": str(window.val_months[0]),
+                "val_month_end": str(window.val_months[-1]),
+                "test_month_start": str(window.test_months[0]),
+                "test_month_end": str(window.test_months[-1]),
+            },
+            constant_probability=(
+                float(tuned.y_test_proba[0])
+                if tuned.model is None and tuned.y_test_proba.size
+                else None
+            ),
         )
 
         fold_plot_assets: Dict[str, Any] = {"__label__": fold_label}

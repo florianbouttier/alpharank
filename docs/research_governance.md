@@ -189,3 +189,10 @@ externe. Le filtre de colonnes trop creuses et les médianes de repli sont appri
 sur le train de ce fold seulement, puis sérialisés dans
 `fold_XX/preprocessor.json`. Les lignes de validation ou test ne peuvent donc
 modifier ni la liste de features ni les valeurs d'imputation du passé.
+
+Chaque fold Boosting écrit aussi un modèle natif `model.ubj` et un
+`model_manifest.json` contenant son SHA-256, le préprocesseur, l'ordre des
+features, la seed, le nombre d'itérations retenu et les bornes temporelles du
+fold. Le cas mono-classe est sérialisé comme probabilité constante explicite.
+Le chargeur de replay vérifie le hash avant de produire scores et rangs sans
+réentraînement.
