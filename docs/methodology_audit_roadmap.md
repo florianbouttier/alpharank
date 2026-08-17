@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-17
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et vingt et une corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et vingt-deux corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -141,12 +141,12 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Prix et vintages | 3 | 0 | 3 | 0 | 1 | 0 | 0 % |
 | Univers et secteurs | 4 | 1 | 3 | 0 | 4 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 4 | 0 | 0 % |
-| Boosting | 6 | 3 | 3 | 0 | 5 | 0 | 0 % |
+| Boosting | 6 | 3 | 3 | 0 | 6 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 4 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **21** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **22** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -198,7 +198,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `BST-003` | P0 | Définir la censure de la cible d'entraînement : distinguer horizon non encore réalisé, donnée manquante et événement terminal ; supprimer toute exclusion corrélée à la survie. Dépend de `BST-002`. | `test_training_target_missingness_is_not_survival_filter` : les 1 497 observations sont classées par motif, sans drop générique ; rapport de censure par fold. | Implémenté | `34df93c7f99ff1f3961bc36b1d1b4f9422e38ce1` | Nouvelle baseline modèle obligatoire ; replay bloqué tant que les 1 497 cibles matures ne sont pas résolues |
 | `BST-004` | P1 | Corriger ou déprécier `scripts/run_backtest.py`, dont sélection sparse et médiane sont actuellement calculées sur l'échantillon complet avant les folds. | `test_preprocessing_is_fit_inside_each_outer_fold` : mutation du futur sans effet sur features, colonnes retenues et imputations du passé. | Implémenté | `d09d79ce4a1a84cfcdb4b920587bd47f84ffbfa6` | Nouvelle baseline pour ce chemin R&D ; préprocesseur sérialisé par fold externe |
 | `BST-005` | P1 | Sérialiser chaque modèle, préprocesseur, liste de features, seed et métadonnées de fold ; permettre un replay sans réentraînement. Dépend de `GOV-003`. | `test_serialized_model_reproduces_oos_predictions` : prédictions, rangs et portefeuille hors échantillon identiques après rechargement. | Implémenté | `59cc7bca89c81d758db8bd1a3d833198572713e4` | Modèle natif, hash, préprocesseur, features, seed, itérations et bornes du fold conservés ; replay `v2` du portefeuille restant |
-| `BST-006` | P1 | Sceller un jeu de confirmation final et enregistrer toutes les variantes testées pour limiter le biais de sélection et le multiple testing. | `test_sealed_period_is_single_use` : toute lecture prématurée ou nouvelle optimisation après ouverture invalide la promotion ; registre des expériences complet. | À faire | — | Aucun recalage rétroactif autorisé |
+| `BST-006` | P1 | Sceller un jeu de confirmation final et enregistrer toutes les variantes testées pour limiter le biais de sélection et le multiple testing. | `test_sealed_period_is_single_use` : toute lecture prématurée ou nouvelle optimisation après ouverture invalide la promotion ; registre des expériences complet. | Implémenté | `bb6b97aa9108e426f13b73147e132f409e212559` | Aucun recalage rétroactif : registre déclaré avant scellement, ouverture unique et promotion invalidée après toute optimisation tardive |
 
 ### F. Stratégie Legacy
 
@@ -354,6 +354,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `SIM-003` | Codex | Gate G3 | À faire | Implémenté | `0b28cdca7b4e23d68e5cb924a4dd4f985de13e86` | Scénarios nul/faible/élevé ; spread, slippage, impact, commission/minimum et FX rapprochés ; 21 tests ciblés ; suite 290/290 | Coût croissant réduit le net, brut strictement invariant ; scénarios réels à publier avec v2 |
 | 2026-08-17 | `BST-004` | Codex | Gate G4 | À faire | Implémenté | `d09d79ce4a1a84cfcdb4b920587bd47f84ffbfa6` | Colonne sparse exclue et médiane 2 apprises sur train uniquement ; mutation future sans effet sur le passé ; 2 tests ciblés ; suite 291/291 | Chaque `fold_XX/preprocessor.json` conserve features, exclusions et médianes |
 | 2026-08-17 | `BST-005` | Codex | Gate G4 | À faire | Implémenté | `59cc7bca89c81d758db8bd1a3d833198572713e4` | Modèle XGBoost rechargé après vérification SHA-256 ; scores et rangs hors échantillon strictement identiques ; 2 tests ciblés ; suite 292/292 | Chaque fold conserve `model.ubj` et un manifeste complet ; replay portefeuille `v2` restant |
+| 2026-08-17 | `BST-006` | Codex | Gate G6 | À faire | Implémenté | `bb6b97aa9108e426f13b73147e132f409e212559` | Ouverture prématurée et optimisation post-ouverture invalident la promotion ; registre exhaustif et dataset SHA-256 contrôlés ; 2 tests ciblés ; suite 293/293 | Période réelle et identifiants des expériences `v2` à sceller avant exécution |
 
 ## 12. Registre des baselines et publications
 
