@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-17
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et vingt-cinq corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et vingt-six corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -142,11 +142,11 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Univers et secteurs | 4 | 1 | 3 | 0 | 4 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 4 | 0 | 0 % |
 | Boosting | 6 | 3 | 3 | 0 | 6 | 0 | 0 % |
-| Legacy | 4 | 0 | 3 | 1 | 1 | 0 | 0 % |
+| Legacy | 4 | 0 | 3 | 1 | 2 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 4 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **25** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **26** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -205,7 +205,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | ID | Criticité | Changement et dépendances | Test associé et critère d'acceptation | Statut | Commit | Effet historique |
 |---|---|---|---|---|---|---|
 | `LEG-001` | P1 | Brancher le cap sectoriel sur `UNI-004` et déclarer le comportement lorsque le secteur PIT manque. | `test_legacy_sector_cap_uses_pit_sector` : un reclassement futur ne modifie aucune décision passée ; cap vérifié avant l'ordre. | Implémenté | `e684fc6ea113d9b4f2039953efa5da7d42b234b2` | Nouvelle baseline Legacy : cap avant sélection si couverture PIT complète, sinon désactivation datée et motivée |
-| `LEG-002` | P1 | Harmoniser l'éligibilité prix du titre et du benchmark, les ajustements dividendes/splits et le calcul d'excès de rendement. | `test_asset_and_benchmark_return_conventions_match` : même calendrier, même convention de total return, aucune interpolation asymétrique. | À faire | — | À mesurer |
+| `LEG-002` | P1 | Harmoniser l'éligibilité prix du titre et du benchmark, les ajustements dividendes/splits et le calcul d'excès de rendement. | `test_asset_and_benchmark_return_conventions_match` : même calendrier, même convention de total return, aucune interpolation asymétrique. | Implémenté | `227fbfa9c0693bc434bc10c4c90d7869729b0928` | Nouvelle baseline à mesurer : titre et SPY en `adjusted_close`, dates communes observées uniquement |
 | `LEG-003` | P1 | Déclarer l'instant exact du signal et de l'exécution ; comparer clôture, prochaine ouverture et VWAP avec données réellement disponibles. | `test_order_price_occurs_after_signal_cutoff` : timestamp d'exécution strictement postérieur au cutoff ; rapport de sensibilité obligatoire. | À faire | — | Nouvelle série de sensibilité ; convention canonique à versionner |
 | `LEG-004` | P2 | Verrouiller le protocole Optuna et les ancres : espace de recherche, seeds, période de calibration, candidats rejetés et règle de choix. | `test_legacy_search_protocol_is_locked` : même manifeste, mêmes trials et même gagnant ; aucune donnée de validation finale utilisée pour choisir. | À faire | — | Aucun retuning rétroactif autorisé |
 
@@ -358,6 +358,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `PRC-001` | Codex | Gate G2 | À faire | Implémenté | `c7ed6acd29a26e630ed628fd37e088a843fc65a6` | Payload source/promu identique octet par octet ; lignes, clés et hash canonique des séries contrôlés ; 5 tests ciblés ; suite 294/294 | Le registre persistant et son hash participent à l'identité du snapshot composé |
 | 2026-08-18 | `PRC-003` | Codex | Gate G5 | À faire | Implémenté | `9efb46f98c97e617f2e1cc0b178726c46df97c98` | Deux réponses fournisseur divergentes rejouent le premier vintage ; 34 tests ciblés ; suite Portfolio 54/54 ; validation docs verte | Cache sous `data/cache/price_vintages`, manifeste atomique par fournisseur/symboles/période |
 | 2026-08-18 | `LEG-001` | Codex | Gate G2 | À faire | Implémenté | `e684fc6ea113d9b4f2039953efa5da7d42b234b2` | Cap 1 sélectionne un titre par secteur connu ; mutation future sans effet passé ; table statique désactive le cap ; 3 tests ciblés ; suite 295/295 | Les sorties exposent état, raison, classification et timestamp sectoriels |
+| 2026-08-18 | `LEG-002` | Codex | Gate G3 | À faire | Implémenté | `227fbfa9c0693bc434bc10c4c90d7869729b0928` | Dates communes strictes, `adjusted_close` des deux côtés et absence de forward-fill vérifiés ; 5 tests ciblés ; suite 296/296 | L'ancien index Legacy en `close` est remplacé par SPY total return ; replay `v2` requis |
 
 ## 12. Registre des baselines et publications
 
