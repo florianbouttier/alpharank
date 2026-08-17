@@ -228,3 +228,12 @@ uniquement lorsque tous les candidats du mois disposent d'une classification
 complète, observée et effective avant l'ordre. Une table statique de secteurs
 courants, une classification future ou une couverture partielle désactive le
 cap pour toute la date et laisse une raison explicite dans les sorties.
+
+## Rendements Legacy et benchmark
+
+Les titres et SPY utilisent tous deux `adjusted_close`, donc une convention de
+rendement total incluant distributions et ajustements de splits. Le rendement
+relatif est calculé seulement sur des dates de marché observées simultanément
+pour le titre et le benchmark. Le benchmark n'est plus étendu par forward-fill
+sur un calendrier civil ; toute date absente d'un côté reste indisponible au
+lieu de créer une interpolation asymétrique.

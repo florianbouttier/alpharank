@@ -811,7 +811,9 @@ def run_pipeline(
     )
 
     index_data = IndexDataManager(
-        daily_prices_df=sp500_price.clone(),
+        daily_prices_df=sp500_price.with_columns(
+            pl.col("adjusted_close").alias("close")
+        ),
         components_df=eligible_historical_company.clone(),
         backend=backend,
     )
@@ -827,12 +829,14 @@ def run_pipeline(
     _write_checkpoint(monthly_return, checkpoints_dir, f"{backend}_monthly_return")
 
     print("Calculating prices vs index...")
-    sp500_price = sp500_price.rename({"close": "sp500_close"})
+    sp500_price = sp500_price.with_columns(
+        pl.col("adjusted_close").alias("sp500_adjusted_close")
+    )
     final_price_vs_index = to_polars(
         PricesDataPreprocessor.prices_vs_index(
             index=sp500_price.clone(),
             prices=final_price.clone(),
-            column_close_index="sp500_close",
+            column_close_index="sp500_adjusted_close",
             column_close_prices="adjusted_close",
             backend=backend,
         )

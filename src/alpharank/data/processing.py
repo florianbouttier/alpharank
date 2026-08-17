@@ -189,10 +189,9 @@ class PricesDataPreprocessor:
                 
         Notes:
             - If column names are identical, the index column is renamed with '_index' suffix
-            - The function adds a 'ticker' column to index data if not present
-            - Date columns are converted to datetime format for proper merging
-            - Uses left join to preserve all price data points
-            - Computes augmented price features and daily returns for relative performance
+            - Asset and benchmark are joined only on observed common dates
+            - No side is forward-filled or interpolated
+            - Callers must pass matching total-return or price-return columns
         """
         
         backend_name = ensure_backend_name(backend, default="polars")
@@ -204,21 +203,22 @@ class PricesDataPreprocessor:
             idx = idx.rename(columns={column_close_index: column_close_index + "_index"})
             column_close_index = column_close_index + "_index"
 
-        if 'ticker' not in idx.columns:
-            idx['ticker'] = 'index'
-
-        idx = PricesDataPreprocessor.augment_prices(
-            df=idx.copy(),
-            columns_to_augment=[column_close_index],
-            column_date='date',
-            backend=backend_name,
-        )
-        idx = idx.drop(['ticker'], axis=1, errors='ignore')
         require_polars()
         pl_px = to_polars(px).with_columns(pl.col("date").cast(pl.Date, strict=False))
-        pl_idx = to_polars(idx).with_columns(pl.col("date").cast(pl.Date, strict=False))
+        pl_idx = (
+            to_polars(idx)
+            .with_columns(pl.col("date").cast(pl.Date, strict=False))
+            .select("date", pl.col(column_close_index).cast(pl.Float64))
+            .filter(
+                pl.col("date").is_not_null()
+                & pl.col(column_close_index).is_not_null()
+            )
+        )
+        duplicate_dates = pl_idx.group_by("date").len().filter(pl.col("len") > 1)
+        if not duplicate_dates.is_empty():
+            raise ValueError("Benchmark prices contain duplicate dates.")
         prices_augmented = to_pandas(
-            pl_px.join(pl_idx, on="date", how="left").with_columns(
+            pl_px.join(pl_idx, on="date", how="inner").with_columns(
                 (pl.col(column_close_prices) / pl.col(column_close_index)).alias("close_vs_index")
             )
         )
