@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import Counter, defaultdict
 from datetime import date, datetime, time, timezone
 import hashlib
 import json
@@ -22,6 +23,13 @@ class ConstituentRefreshResult:
     monthly_summary: tuple[dict[str, Any], ...]
     base_month: date
     target_month: date
+    duplicate_audit: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True)
+class ConstituentDeduplicationResult:
+    frame: pl.DataFrame
+    audit: tuple[dict[str, Any], ...]
 
 
 def load_constituent_change_registry(path: Path) -> dict[str, Any]:
@@ -39,7 +47,8 @@ def refresh_monthly_constituents(
     registry: Mapping[str, Any],
     target_month: date,
 ) -> ConstituentRefreshResult:
-    normalized = _normalize_constituents(frame)
+    deduplicated = resolve_constituent_snapshot_duplicates(frame)
+    normalized = deduplicated.frame
     base_month = date.fromisoformat(str(registry["base_month"]))
     target_month = target_month.replace(day=1)
     if target_month < base_month:
@@ -152,6 +161,7 @@ def refresh_monthly_constituents(
         monthly_summary=tuple(summary),
         base_month=base_month,
         target_month=target_month,
+        duplicate_audit=deduplicated.audit,
     )
 
 
@@ -270,10 +280,18 @@ def current_constituent_price_coverage(
 
 
 def _normalize_constituents(frame: pl.DataFrame) -> pl.DataFrame:
+    return resolve_constituent_snapshot_duplicates(frame).frame
+
+
+def resolve_constituent_snapshot_duplicates(
+    frame: pl.DataFrame,
+) -> ConstituentDeduplicationResult:
+    """Resolve the canonical ``(Date, Ticker)`` key with a complete audit."""
+
     missing = set(CONSTITUENT_COLUMNS) - set(frame.columns)
     if missing:
         raise ValueError(f"Constituent frame is missing columns: {sorted(missing)}")
-    return (
+    prepared = (
         frame.select(CONSTITUENT_COLUMNS)
         .with_columns(
             pl.col("Date").cast(pl.Date, strict=False),
@@ -286,6 +304,40 @@ def _normalize_constituents(frame: pl.DataFrame) -> pl.DataFrame:
             & (pl.col("Ticker") != "")
         )
     )
+    grouped: dict[tuple[date, str], list[str]] = defaultdict(list)
+    for row in prepared.sort(["Date", "Ticker", "Name"]).to_dicts():
+        grouped[(row["Date"], row["Ticker"])].append(row["Name"] or "")
+
+    rows: list[dict[str, Any]] = []
+    audit: list[dict[str, Any]] = []
+    for (snapshot_date, ticker), names in sorted(grouped.items()):
+        counts = Counter(names)
+        maximum_count = max(counts.values())
+        selected_name = min(
+            name for name, count in counts.items() if count == maximum_count
+        )
+        rows.append(
+            {"Date": snapshot_date, "Ticker": ticker, "Name": selected_name}
+        )
+        if len(names) > 1:
+            audit.append(
+                {
+                    "snapshot_date": snapshot_date.isoformat(),
+                    "ticker": ticker,
+                    "input_rows": len(names),
+                    "distinct_names": len(counts),
+                    "candidate_name_counts": dict(sorted(counts.items())),
+                    "selected_name": selected_name,
+                    "resolution_rule": (
+                        "most_frequent_normalized_name_then_lexicographic_tie_break"
+                    ),
+                }
+            )
+    resolved = pl.DataFrame(
+        rows,
+        schema={"Date": pl.Date, "Ticker": pl.String, "Name": pl.String},
+    ).sort(["Date", "Ticker"])
+    return ConstituentDeduplicationResult(resolved, tuple(audit))
 
 
 def _json_safe_rows(frame: pl.DataFrame) -> list[dict[str, object]]:

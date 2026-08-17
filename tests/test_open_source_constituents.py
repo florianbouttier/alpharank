@@ -7,6 +7,7 @@ import polars as pl
 from alpharank.data.open_source.constituents import (
     membership_at_decision_time,
     refresh_monthly_constituents,
+    resolve_constituent_snapshot_duplicates,
 )
 
 
@@ -160,3 +161,30 @@ def test_membership_effective_at_decision_time() -> None:
     assert {"MRVL", "FLEX"}.issubset(names(decisions[3]))
     assert "EA" in names(decisions[4]) and "FERG" not in names(decisions[4])
     assert "EA" not in names(decisions[5]) and "FERG" in names(decisions[5])
+
+
+def test_constituent_snapshot_has_unique_key() -> None:
+    duplicate_groups = 214
+    rows: list[dict[str, object]] = []
+    for index in range(duplicate_groups):
+        ticker = f"T{index:03d}"
+        rows.extend(
+            [
+                {"Date": date(2020, 1, 1), "Ticker": ticker, "Name": "Zulu"},
+                {"Date": date(2020, 1, 1), "Ticker": ticker, "Name": "Alpha"},
+                {"Date": date(2020, 1, 1), "Ticker": ticker, "Name": "Zulu"},
+            ]
+        )
+
+    result = resolve_constituent_snapshot_duplicates(pl.DataFrame(rows))
+
+    assert result.frame.height == duplicate_groups
+    assert (
+        result.frame.group_by(["Date", "Ticker"])
+        .len()
+        .filter(pl.col("len") > 1)
+        .is_empty()
+    )
+    assert len(result.audit) == duplicate_groups
+    assert {row["selected_name"] for row in result.audit} == {"Zulu"}
+    assert all(row["resolution_rule"] for row in result.audit)

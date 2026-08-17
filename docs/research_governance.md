@@ -108,3 +108,11 @@ du premier jour représentent l'univers utilisable à la décision de fin de ce
 mois : un événement effectif au milieu du mois n'est donc plus décalé au mois
 suivant. Le snapshot de base est lui aussi rapproché avec les événements de son
 mois et chaque opération reste dans l'audit.
+
+La clé canonique d'un snapshot est `(Date, Ticker)`. Les doublons sont résolus
+par le nom normalisé le plus fréquent ; une égalité est tranchée
+lexicographiquement. Chaque groupe dupliqué conserve le nombre de lignes, tous
+les noms candidats et leurs fréquences, le nom retenu et l'identifiant de la
+règle. Sur le fichier actif contrôlé le 2026-08-17, 1 067 groupes à date non
+nulle sont ainsi audités et la sortie de 225 620 lignes ne contient plus aucune
+clé dupliquée.
