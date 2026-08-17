@@ -42,6 +42,11 @@ from alpharank.portfolio.benchmark import (
     monthly_benchmark_returns,
 )
 from alpharank.portfolio.comparison import reference_monthly_series
+from alpharank.portfolio.execution import (
+    build_execution_sensitivity_report,
+    build_monthly_execution_orders,
+    write_execution_sensitivity_report,
+)
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.utils.frame_backend import (
@@ -1092,6 +1097,23 @@ def run_pipeline(
     comparison_curves_long = _named_frames_to_long(models)
     detailed_returns_long = _named_frames_to_long(detailed_outputs)
     aggregated_returns_long = _named_frames_to_long(aggregated_outputs)
+    execution_holdings = detailed_returns_long.filter(
+        pl.col("portfolio_model").is_in(
+            ["Combined_Equal", "Combined_Frequency"]
+        )
+    )
+    execution_price_columns = ["ticker", "date", "open", "close"]
+    if "vwap" in final_price.columns:
+        execution_price_columns.append("vwap")
+    execution_orders = build_monthly_execution_orders(
+        execution_holdings,
+        final_price.select(execution_price_columns),
+    )
+    execution_sensitivity = build_execution_sensitivity_report(
+        execution_orders,
+        final_price.select(execution_price_columns),
+    )
+    write_execution_sensitivity_report(execution_sensitivity, run_day_dir)
     comparison_monthly_returns_long = _named_frames_to_long(
         {
             model_name: _indexed_frame_to_polars(returns_series.rename("monthly_return"))

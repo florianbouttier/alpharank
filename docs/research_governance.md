@@ -237,3 +237,14 @@ relatif est calculé seulement sur des dates de marché observées simultanémen
 pour le titre et le benchmark. Le benchmark n'est plus étendu par forward-fill
 sur un calendrier civil ; toute date absente d'un côté reste indisponible au
 lieu de créer une interpolation asymétrique.
+
+## Exécution Legacy
+
+La convention canonique est `next_session_open_v1`. Le cutoff du signal est la
+clôture de la dernière séance observée avant le mois de détention ; l'ordre est
+valorisé à la première ouverture de séance strictement postérieure. Chaque run
+Legacy doit écrire `legacy_execution_sensitivity.parquet` et
+`legacy_execution_policy.json` avec trois scénarios : clôture du signal comme
+référence non exécutable, prochaine ouverture canonique et VWAP de séance
+uniquement lorsqu'une valeur VWAP observée existe. Aucun proxy VWAP n'est
+reconstruit depuis OHLC, et l'absence du prix canonique bloque le run.

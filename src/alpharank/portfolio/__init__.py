@@ -27,6 +27,13 @@ from alpharank.portfolio.benchmark import (
 )
 from alpharank.portfolio.comparison import align_return_series, reference_monthly_series
 from alpharank.portfolio.costs import TransactionCostModel, transaction_cost_components
+from alpharank.portfolio.execution import (
+    LEGACY_NEXT_SESSION_OPEN,
+    build_execution_sensitivity_report,
+    build_monthly_execution_orders,
+    validate_execution_sensitivity_report,
+    write_execution_sensitivity_report,
+)
 from alpharank.portfolio.contracts import (
     CAUSAL_TIMING_REQUIRED_COLUMNS,
     HOLDINGS_REQUIRED_COLUMNS,
@@ -82,6 +89,9 @@ __all__ = [
     "constrained_inverse_risk_weights",
     "equal_weights",
     "legacy_report_statistics",
+    "LEGACY_NEXT_SESSION_OPEN",
+    "build_execution_sensitivity_report",
+    "build_monthly_execution_orders",
     "monthly_benchmark_returns",
     "input_hashes_from_manifest",
     "performance_statistics",
@@ -96,9 +106,11 @@ __all__ = [
     "select_ranked_candidates",
     "simulate_weighted_portfolio",
     "validate_causal_timing",
+    "validate_execution_sensitivity_report",
     "ticker_exclusions_from_manifest",
     "transaction_cost_components",
     "validate_holdings",
     "validate_monthly_returns",
     "write_common_portfolio_artifacts",
+    "write_execution_sensitivity_report",
 ]
