@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-18
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et trente-six corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et trente-sept corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -145,8 +145,8 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Legacy | 4 | 0 | 3 | 1 | 4 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 4 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 6 | 0 | 0 % |
-| Qualité et documentation | 5 | 2 | 1 | 2 | 3 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **36** | **3** | **7,3 %** |
+| Qualité et documentation | 5 | 2 | 1 | 2 | 4 | 0 | 0 % |
+| **Total** | **41** | **12** | **22** | **7** | **37** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -236,7 +236,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `QA-001` | P0 | Créer une suite de tests sémantiques par mutation du futur : cible, prix futur, membership futur, secteur futur et filing futur. | `test_future_mutations_do_not_change_past_decisions` : scores et ordres antérieurs au cutoff restent identiques pour chaque mutation. | Implémenté | `68a1f557aeb146b5a1f031570c67086ef86d5365` | Aucun ; contrat générique prêt, branchement production UNI/FND et replay v2 restants |
 | `QA-002` | P0 | Étendre les validateurs pour recalculer les sorties depuis le package, pas seulement vérifier quelques hashes de fichiers. Inclure tout le moteur commun et les règles d'éligibilité. | `test_replay_recomputes_outputs_from_sealed_inputs` : environnement neuf, sorties identiques ; échec à toute mutation de code, config, entrée ou modèle. | Implémenté | `c750254055a4fd740cf4213df879a8aae787b9cd` | Reproduit exactement la version scellée ; code moteur, éligibilité, configuration, entrée, modèle et sortie attendue sont inventoriés |
 | `QA-003` | P1 | Ajouter une matrice CI des deux dépôts : tests unitaires, tests anti-look-ahead, replay court, validation documentation et build frontend. | Pipeline : AlphaRank complet, `make test`, `npm run build`, validateurs de docs et replay smoke tous verts sur commit propre. | Implémenté | `fcecf5ab0bb187e2f5ca9e9f44d0eee24c23ab26` | Aucun ; matrice sur checkouts propres AlphaRank/Portfolio avec référence Portfolio configurable |
-| `DOC-001` | P2 | Mettre à jour les sources de vérité après chaque correction : contrat temporel, univers, prix, cible, exécution, coûts, limites et procédure de replay. | `test_documentation_structure.py` et revue croisée code/doc : chaque règle normative pointe vers son test et sa configuration. | À faire | — | Aucun attendu |
+| `DOC-001` | P2 | Mettre à jour les sources de vérité après chaque correction : contrat temporel, univers, prix, cible, exécution, coûts, limites et procédure de replay. | `test_documentation_structure.py` et revue croisée code/doc : chaque règle normative pointe vers son test et sa configuration. | Implémenté | `1ed8e66b9a8080536b20920b712ab17eceed6f13` | Aucun ; index normatif central relié aux propriétaires code, configurations et tests |
 | `DOC-002` | P2 | Afficher dans les rapports et le dashboard version méthodologique, vintage de données, commit, statut `provisional/final/superseded` et avertissements connus. | `test_report_exposes_methodology_identity` : informations présentes et cohérentes avec le manifeste ; impossible de publier sans identité complète. | À faire | — | Aucun attendu |
 
 ## 7. Protocole de validation par changement
@@ -369,6 +369,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-18 | `DASH-006` | Codex | Gate G5 | À faire | Implémenté | `1758a2d9b497fe4d6e250db3db1fe0d1448b9f3e` | Panne `OSError` simulée : source, type, cause et fallback exacts ; 10 tests ciblés ; suite Portfolio 61/61 ; aucun `except Exception` restant sous `backend/app` ; validation docs réussie | Registre borné exposé par `/portfolio/fallbacks` avec statut nominal/dégradé et compteur |
 | 2026-08-18 | `QA-002` | Codex | Gate G4 | À faire | Implémenté | `c750254055a4fd740cf4213df879a8aae787b9cd` | Replay propre recalculé exactement ; mutations code, config, entrée et modèle toutes rejetées ; test ciblé 1/1 ; suite AlphaRank 299/299 ; aide du validateur commun et validation docs réussies | Package autonome avec inventaire SHA-256, seal détaché, moteur commun complet et règles d'éligibilité ; replay causal v2 réel restant à produire |
 | 2026-08-18 | `QA-003` | Codex | Gate G5 | À faire | Implémenté | `fcecf5ab0bb187e2f5ca9e9f44d0eee24c23ab26` | Workflow YAML contrôlé ; AlphaRank 300/300, Portfolio 61/61, liens Markdown suivis des deux dépôts et build frontend réussis | Matrice `alpharank/portfolio`, smoke anti-look-ahead et replay ; secret `CROSS_REPO_TOKEN` requis si Portfolio est privé |
+| 2026-08-18 | `DOC-001` | Codex | Gate G6 | À faire | Implémenté | `1ed8e66b9a8080536b20920b712ab17eceed6f13` | Huit domaines normatifs reliés au code, aux politiques et aux tests ; 2 tests ciblés ; liens Markdown et validation documentaire réussis | `docs/research_governance.md` distingue explicitement implémentation, validation économique et promotion v2 |
 
 ## 12. Registre des baselines et publications
 
@@ -383,18 +384,24 @@ de la fuite future. La publication `v2-causal` doit montrer au minimum : rendeme
 rendement net, CAGR, volatilité, Sharpe, drawdown, turnover, concentration, couverture,
 nombre de titres sans rendement, et différences appariées contre Legacy et benchmark.
 
-## 13. Décisions qui nécessitent une validation humaine
+## 13. Décisions humaines approuvées
 
-Ces décisions ne doivent pas être prises implicitement dans le code :
+Les arbitrages suivants ont été approuvés et sont désormais matérialisés dans le
+contrat méthodologique et les tests :
 
-- fournisseur et règle de valorisation des radiations/acquisitions sans prix terminal ;
-- convention canonique d'exécution : prochaine ouverture, VWAP ou autre prix réalisable ;
-- délai opérationnel appliqué après publication des filings ;
-- source historique des secteurs et traitement des périodes non couvertes ;
-- modèle de coûts canonique et scénarios de sensibilité ;
-- période scellée de confirmation et règle d'ouverture ;
-- seuil de blocage du rapprochement ledger/positions ;
-- tolérance numérique autorisée pour une migration déclarée sans effet économique.
+- rendement terminal : échec fermé, sauf événement officiel sourcé, daté et connu
+  pendant la période détenue ;
+- exécution canonique : prochaine ouverture observée strictement après le cutoff ;
+  VWAP seulement observé comme scénario de sensibilité ;
+- disponibilité des filings : timestamp SEC, ou fin de journée New York en repli,
+  puis délai opérationnel de 24 heures ;
+- secteurs : classification point-in-time et désactivation du cap pour tout mois à
+  couverture incomplète ;
+- coûts : scénario nommé et décomposé, paramètres et sensibilités scellés dans le run ;
+- confirmation : période et registre d'expériences scellés avant une ouverture unique ;
+- rapprochement ledger/positions : publication bloquée au-delà de `1e-8` ;
+- migration sans effet économique : tolérance numérique maximale `1e-12`, et
+  identité SHA-256 pour les fichiers seulement transportés.
 
-Une décision validée doit être ajoutée au contrat méthodologique, couverte par un test et
-référencée dans le journal de suivi avec son commit.
+Ces décisions sont implémentées. Leur statut ne devient `Validé` qu'avec le replay
+causal `v2`, son rapprochement économique et sa promotion atomique.
