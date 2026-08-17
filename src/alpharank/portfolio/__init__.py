@@ -26,6 +26,7 @@ from alpharank.portfolio.benchmark import (
     monthly_benchmark_returns,
 )
 from alpharank.portfolio.comparison import align_return_series, reference_monthly_series
+from alpharank.portfolio.costs import TransactionCostModel, transaction_cost_components
 from alpharank.portfolio.contracts import (
     CAUSAL_TIMING_REQUIRED_COLUMNS,
     HOLDINGS_REQUIRED_COLUMNS,
@@ -69,6 +70,7 @@ __all__ = [
     "TERMINAL_EVENT_COLUMNS",
     "TERMINAL_EVENT_TYPES",
     "TerminalReturnResult",
+    "TransactionCostModel",
     "align_return_series",
     "advanced_performance_statistics",
     "annual_returns",
@@ -95,6 +97,7 @@ __all__ = [
     "simulate_weighted_portfolio",
     "validate_causal_timing",
     "ticker_exclusions_from_manifest",
+    "transaction_cost_components",
     "validate_holdings",
     "validate_monthly_returns",
     "write_common_portfolio_artifacts",

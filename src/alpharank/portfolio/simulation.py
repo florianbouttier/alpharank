@@ -13,12 +13,17 @@ from alpharank.portfolio.contracts import (
     validate_holdings,
     validate_monthly_returns,
 )
+from alpharank.portfolio.costs import (
+    TransactionCostModel,
+    transaction_cost_components,
+)
 
 
 def simulate_weighted_portfolio(
     holdings: pl.DataFrame,
     *,
     transaction_cost_bps: float = 0.0,
+    transaction_cost_model: TransactionCostModel | None = None,
     missing_return_policy: str = "raise",
     causal_timing_policy: str = "require_explicit",
     validate: bool = True,
@@ -37,6 +42,10 @@ def simulate_weighted_portfolio(
 
     if transaction_cost_bps < 0.0:
         raise ValueError("transaction_cost_bps must be non-negative.")
+    if transaction_cost_model is not None and transaction_cost_bps != 0.0:
+        raise ValueError(
+            "Use either transaction_cost_bps or transaction_cost_model, not both."
+        )
     if missing_return_policy not in {"renormalize_available", "raise"}:
         raise ValueError(f"Unsupported missing_return_policy={missing_return_policy!r}.")
     if causal_timing_policy not in {"require_explicit", "legacy_month_only"}:
@@ -87,7 +96,12 @@ def simulate_weighted_portfolio(
         if not np.allclose(finite_benchmark, benchmark_return, rtol=0.0, atol=1e-12):
             raise ValueError("Benchmark return is inconsistent inside a portfolio month.")
 
-        transaction_cost = turnover * float(transaction_cost_bps) / 10_000.0
+        active_cost_model = transaction_cost_model or TransactionCostModel(
+            scenario_id=f"linear-{float(transaction_cost_bps):g}bps",
+            commission_bps=float(transaction_cost_bps),
+        )
+        cost_components = transaction_cost_components(turnover, active_cost_model)
+        transaction_cost = float(cost_components["transaction_cost"])
         net_return = gross_return - transaction_cost
         active_return = net_return - benchmark_return
         relative_return = (
@@ -111,6 +125,12 @@ def simulate_weighted_portfolio(
                 "gross_return": gross_return,
                 "turnover": turnover,
                 "transaction_cost": transaction_cost,
+                "cost_scenario_id": cost_components["cost_scenario_id"],
+                "spread_cost": cost_components["spread_cost"],
+                "slippage_cost": cost_components["slippage_cost"],
+                "impact_cost": cost_components["impact_cost"],
+                "commission_cost": cost_components["commission_cost"],
+                "fx_cost": cost_components["fx_cost"],
                 "net_return": net_return,
                 "benchmark_return": benchmark_return,
                 "active_return": active_return,

@@ -14,6 +14,7 @@ from alpharank.portfolio.allocation import (
 )
 from alpharank.portfolio.comparison import align_return_series
 from alpharank.portfolio.contracts import validate_holdings
+from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.performance import (
     advanced_performance_statistics,
     annual_returns,
@@ -425,6 +426,73 @@ def test_turnover_uses_drifted_pretrade_weights() -> None:
         holdings, causal_timing_policy="legacy_month_only"
     )
     assert monthly["turnover"].to_list() == pytest.approx([1.0, 1.0 / 6.0])
+
+
+def test_cost_model_is_monotonic_and_reconciled() -> None:
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["costed"],
+            "decision_month": [date(2020, 1, 1)],
+            "holding_month": [date(2020, 2, 1)],
+            "ticker": ["A"],
+            "target_weight": [1.0],
+            "realized_return": [0.10],
+            "benchmark_return": [0.0],
+        }
+    )
+    zero = simulate_weighted_portfolio(
+        holdings,
+        transaction_cost_model=TransactionCostModel("zero"),
+        causal_timing_policy="legacy_month_only",
+    )
+    low = simulate_weighted_portfolio(
+        holdings,
+        transaction_cost_model=TransactionCostModel(
+            "low",
+            spread_bps=2.0,
+            slippage_bps=1.0,
+            impact_bps=1.0,
+            commission_bps=0.5,
+            minimum_fee_currency=2.0,
+            portfolio_value_currency=100_000.0,
+            fx_bps=4.0,
+            fx_turnover_fraction=0.25,
+        ),
+        causal_timing_policy="legacy_month_only",
+    )
+    high = simulate_weighted_portfolio(
+        holdings,
+        transaction_cost_model=TransactionCostModel(
+            "high",
+            spread_bps=4.0,
+            slippage_bps=2.0,
+            impact_bps=2.0,
+            commission_bps=1.0,
+            minimum_fee_currency=4.0,
+            portfolio_value_currency=100_000.0,
+            fx_bps=8.0,
+            fx_turnover_fraction=0.25,
+        ),
+        causal_timing_policy="legacy_month_only",
+    )
+
+    assert zero["gross_return"][0] == zero["net_return"][0]
+    assert high["net_return"][0] < low["net_return"][0] < zero["net_return"][0]
+    for result in (low, high):
+        components = sum(
+            float(result[column][0])
+            for column in (
+                "spread_cost",
+                "slippage_cost",
+                "impact_cost",
+                "commission_cost",
+                "fx_cost",
+            )
+        )
+        assert components == pytest.approx(result["transaction_cost"][0])
+        assert result["net_return"][0] == pytest.approx(
+            result["gross_return"][0] - result["transaction_cost"][0]
+        )
 
 
 def test_common_performance_excludes_partial_years_from_worst_year() -> None:

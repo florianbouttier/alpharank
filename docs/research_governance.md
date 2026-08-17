@@ -176,3 +176,10 @@ la performance de la période précédente, et non à l'ancienne cible. Le calcu
 inclut le cash résiduel dans les deux vecteurs et traite toute entrée, sortie ou
 perte totale dans la même demi-distance L1. Le premier investissement part d'un
 portefeuille 100 % cash.
+
+Le coût de transaction est maintenant un scénario nommé et décomposé en spread,
+slippage, impact, commission/minimum de frais et change. Chaque composante est
+exprimée en fraction de NAV, leur somme rapproche exactement
+`transaction_cost`, et `net_return = gross_return - transaction_cost`. Un
+scénario nul reproduit strictement le brut ; augmenter les paramètres ne peut
+pas améliorer le net.
