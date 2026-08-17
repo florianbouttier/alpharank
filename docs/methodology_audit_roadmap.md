@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-17
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et dix-sept corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et dix-huit corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -143,10 +143,10 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Fondamentaux | 4 | 1 | 1 | 2 | 4 | 0 | 0 % |
 | Boosting | 6 | 3 | 3 | 0 | 3 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
-| Simulation | 4 | 2 | 1 | 1 | 2 | 0 | 0 % |
+| Simulation | 4 | 2 | 1 | 1 | 3 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **17** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **18** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -214,7 +214,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | ID | Criticité | Changement et dépendances | Test associé et critère d'acceptation | Statut | Commit | Effet historique |
 |---|---|---|---|---|---|---|
 | `SIM-001` | P0 | Remplacer `renormalize_available` comme défaut par un mode `raise` ou par un rendement terminal explicitement résolu. | `test_missing_selected_return_fails_closed_by_default` : un titre sélectionné sans rendement produit une erreur qualifiée ; l'ancien replay demande explicitement `renormalize_available`. | Implémenté | `0cf79a9c5c19f2a83b47508e09b27aa885e402ac` | Nouvelle baseline si des mois réalisés sont touchés ; l'ancienne baseline reste reproductible à `2.08e-16` |
-| `SIM-002` | P1 | Calculer le turnover entre les poids dérivés après performance et les nouveaux poids cibles, avec gestion du cash et des entrées/sorties. | `test_turnover_uses_drifted_pretrade_weights` : exemples analytiques à deux actifs et comparaison indépendante. | À faire | — | Nouvelle baseline nette ; ordre de grandeur audité : environ 0,44 point cumulé sur Boosting Top 10 à 10 pb |
+| `SIM-002` | P1 | Calculer le turnover entre les poids dérivés après performance et les nouveaux poids cibles, avec gestion du cash et des entrées/sorties. | `test_turnover_uses_drifted_pretrade_weights` : exemples analytiques à deux actifs et comparaison indépendante. | Implémenté | `8cac9cf96385f737960fe4d0bff417ec2058195d` | Nouvelle baseline nette ; dérive, cash, entrées, sorties et pertes totales couverts par la même formule |
 | `SIM-003` | P2 | Ajouter spreads, slippage, impact, minimum de frais, change et scénarios de coûts, séparés des rendements bruts. | `test_cost_model_is_monotonic_and_reconciled` : coût nul reproduit le brut ; coût croissant ne peut améliorer le net ; somme des coûts rapproche le P&L. | À faire | — | Séries nettes nouvelles, brut inchangé |
 | `SIM-004` | P0 | Imposer la frontière causale globale décision-exécution-rendement et intégrer les événements terminaux résolus par `BST-002`. | `test_holding_return_starts_after_trade` : première observation de rendement après exécution ; aucune donnée de la période détenue dans le signal. | Implémenté | `5b96074747c94058693607bdd7b5ef828aaa4804` | Nouvelle baseline requise ; `v1` demande désormais explicitement `legacy_month_only` |
 
@@ -350,6 +350,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `FND-004` | Codex | Gate G2 | À faire | Implémenté | `00d5f1b32c485106cfdd8a04ea8eea486e449bb6` | Deux versions de filing avant/après décision ; `available_at <= decision_at` vérifié ; mutation future sans effet passé ; 2 tests ciblés ; suite 286/286 | Politique `sec-filing-availability-v1` : acceptance SEC sinon 23:59:59 New York, puis délai de 24 h ; replay v2 restant |
 | 2026-08-17 | `GOV-004` | Codex | Gate G4 | À faire | Implémenté | `56882ad1b025cc81d3239e7f0d8a45f745a92ad5` | Collision simulée avant écriture, premier contenu intact ; 3 tests ciblés ; suite 287/287 | `exist_ok=False` centralisé pour les runners Legacy, backtest et multihorizon |
 | 2026-08-17 | `GOV-005` | Codex | Gate G4 | À faire | Implémenté | `b3c8e3741185b507ae83dac266b68fb87cfc7d2b` | Interruption avant swap : pointeur bit-à-bit intact ; promotion v2 puis rollback v1 avec inventaire SHA-256 identique ; 2 tests ciblés ; suite 288/288 | Approbateur, motif, supersession et journal d'actions conservés ; aucune version supprimée |
+| 2026-08-17 | `SIM-002` | Codex | Gate G3 | À faire | Implémenté | `8cac9cf96385f737960fe4d0bff417ec2058195d` | Dérive analytique 50/50 vers 2/3-1/3, rebalance 1/6 ; sortie/entrée 1/2 ; cash résiduel contrôlé ; 20 tests ciblés ; suite 289/289 | Premier mois depuis 100 % cash ; nouvelle baseline nette et replay v2 requis |
 
 ## 12. Registre des baselines et publications
 
