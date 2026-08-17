@@ -72,6 +72,20 @@ class RuntimeProvenanceError(RuntimeError):
     """Raised when a run manifest does not prove its runtime provenance."""
 
 
+def reserve_run_directory(run_dir: Path) -> Path:
+    """Atomically reserve a never-before-used run directory."""
+
+    destination = run_dir.resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        destination.mkdir(parents=False, exist_ok=False)
+    except FileExistsError as error:
+        raise FileExistsError(
+            f"Run directory already exists and cannot be reused: {destination}"
+        ) from error
+    return destination
+
+
 @dataclass(frozen=True)
 class _InventoryEntry:
     relative_path: str

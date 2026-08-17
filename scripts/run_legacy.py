@@ -33,7 +33,7 @@ from alpharank.data.ticker_integrity import (
     normalize_tickers,
 )
 from alpharank.features.indicators import TechnicalIndicators
-from alpharank.governance import capture_runtime_provenance
+from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.benchmark import (
@@ -591,7 +591,7 @@ def run_pipeline(
     run_instance_id = run_started_at.strftime("%Y%m%d_%H%M%S")
     run_date_dir = output_dir / run_started_at.strftime("%Y-%m-%d")
     run_day_dir = run_date_dir / "runs" / run_instance_id
-    run_day_dir.mkdir(parents=True, exist_ok=True)
+    run_day_dir = reserve_run_directory(run_day_dir)
 
     source_data_dir = data_dir.resolve()
     source_input_files = _input_files(

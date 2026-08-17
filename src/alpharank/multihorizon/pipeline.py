@@ -9,6 +9,7 @@ from typing import Any
 
 import polars as pl
 
+from alpharank.governance import reserve_run_directory
 from alpharank.multihorizon.config import MultiHorizonConfig
 from alpharank.multihorizon.data import (
     RELATIVE_EMA_PAIRS,
@@ -185,7 +186,7 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         )
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     run_dir = config.run_dir or config.output_dir / "multihorizon_boosting" / timestamp
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = reserve_run_directory(run_dir)
     exact_winner_pairs = legacy_winning_pairs(config.legacy_detailed_returns_path)
     relative_ema_pairs = (
         RELATIVE_EMA_PAIRS

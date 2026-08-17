@@ -159,3 +159,8 @@ s'il manque, la publication est supposée connue seulement à 23:59:59 New York
 le jour du dépôt. Un délai opérationnel de 24 heures est ensuite ajouté. Chaque
 valeur conserve son accession/version et le motif du timestamp ; le join de
 décision impose mécaniquement `available_at <= decision_at`.
+
+Les runners Legacy, backtest Boosting et multihorizon réservent leur dossier de
+run par une création atomique avec `exist_ok=False`. Une collision d'identifiant
+échoue avant toute lecture d'entrée ou écriture d'artefact ; aucun run existant
+ne peut être repris, complété ou écrasé implicitement.

@@ -50,7 +50,7 @@ from alpharank.backtest.reporting import (
 )
 from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows, walk_forward_windows
 from alpharank.data.lineage import load_latest_manifest, write_manifest
-from alpharank.governance import capture_runtime_provenance
+from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 
 
 @dataclass
@@ -101,8 +101,7 @@ class BacktestArtifacts:
 
 def _create_run_dir(output_dir: Path) -> Path:
     run_dir = output_dir / f"xgboost_timefold_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    run_dir.mkdir(parents=True, exist_ok=True)
-    return run_dir
+    return reserve_run_directory(run_dir)
 
 
 def _format_seconds(seconds: float) -> str:
