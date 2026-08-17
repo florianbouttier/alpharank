@@ -137,7 +137,7 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 
 | Catégorie | Total | P0 | P1 | P2 | Implémenté | Validé | Progression validée |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Gouvernance | 5 | 2 | 3 | 0 | 0 | 1 | 20 % |
+| Gouvernance | 5 | 2 | 3 | 0 | 0 | 2 | 40 % |
 | Prix et vintages | 3 | 0 | 3 | 0 | 1 | 0 | 0 % |
 | Univers et secteurs | 4 | 1 | 3 | 0 | 0 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 0 | 0 | 0 % |
@@ -146,7 +146,7 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Simulation | 4 | 2 | 1 | 1 | 1 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 0 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **4** | **1** | **2,4 %** |
+| **Total** | **41** | **12** | **22** | **7** | **4** | **2** | **4,9 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -158,7 +158,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | ID | Criticité | Changement et dépendances | Test associé et critère d'acceptation | Statut | Commit | Effet historique |
 |---|---|---|---|---|---|---|
 | `GOV-001` | P0 | Figer les artefacts actuels Legacy, Boosting et benchmark en baseline `v1-audited-biased`; inclure entrées, sorties, configuration et rapport. | `test_baseline_package_is_immutable` : toute réécriture d'un fichier scellé échoue ; inventaire et SHA-256 complets. | Validé | `f526a11ff1aab53e39edbfdd7c99f309e0f8d3b4` | Aucun ; 266 fichiers / 297 256 217 octets conservés exactement |
-| `GOV-002` | P0 | Ajouter un garde de préfixe économique commun aux migrations sans effet économique. Dépend de `GOV-001`. | `test_economic_prefix_is_bitwise_stable` : mêmes mois, tickers, poids, rendements bruts/nets et turnover ; écart maximal `0` ou tolérance explicitement justifiée pour la sérialisation. | À faire | — | Doit rester identique |
+| `GOV-002` | P0 | Ajouter un garde de préfixe économique commun aux migrations sans effet économique. Dépend de `GOV-001`. | `test_economic_prefix_is_bitwise_stable` : mêmes mois, tickers, poids, rendements bruts/nets et turnover ; écart maximal `0` ou tolérance explicitement justifiée pour la sérialisation. | Validé | `3f2f8aa235329197b759f4a7d84fcc0e2700adf9` | Identique sur la baseline : écarts maximaux nuls |
 | `GOV-003` | P1 | Étendre les manifests avec commit Git, état dirty, diff hash, dépendances, interpréteur, configuration, code critique et identifiants de données. | `test_manifest_captures_complete_runtime_provenance` : échec si un champ requis est absent ou si `git_dirty` est faux alors que le worktree est sale. | À faire | — | Aucun attendu |
 | `GOV-004` | P1 | Rendre les répertoires de run uniques et atomiques ; interdire `exist_ok=True` sur un identifiant déjà utilisé. Dépend de `GOV-003`. | `test_run_directory_cannot_be_overwritten` : un second run avec le même ID échoue avant toute écriture. | À faire | — | Aucun attendu |
 | `GOV-005` | P1 | Définir promotion, rollback et supersession : pointeur canonique atomique, ancienne version conservée, motif et approbation enregistrés. | `test_promotion_is_atomic_and_reversible` : interruption simulée sans pointeur partiel ; rollback retrouve tous les hashes précédents. | À faire | — | Aucun écrasement ; nouvelle version si méthode corrigée |
@@ -335,6 +335,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `PRC-002` | Codex | Prix et vintages | À faire | Implémenté | `30904d777eef48abcea662d1f12c34505fe46de5` | 25 tests prix ciblés ; suite complète 265/265 ; validation documentation réussie | Nouveau vintage obligatoire, preuve datée et diff SHA-256 ; aucun package de production promu |
 | 2026-08-17 | `BST-002` | Codex | Gate G1 | À faire | Implémenté | `a6feee33fd8fffcfa5f2255c5d55a3ddb079773b` | 22 tests portefeuille ciblés ; suite complète 265/265 ; replay mécanique Legacy/Boosting dans `1e-12` | Rendements terminaux après sélection ; cas non résolu conservé et fail-closed ; replay causal `v2` restant |
 | 2026-08-17 | `GOV-001` | Codex | Gate G0 | À faire | Validé | `f526a11ff1aab53e39edbfdd7c99f309e0f8d3b4` | `outputs/methodology_baselines/v1-audited-biased` ; manifeste `d8e0273e69bd588a971d1ed2c28438245d262357eb4314eba9649abaa3ec79cf` ; inventaire `ec75cc709b923cdf1292638b569ec66dcab536dbc6bca97e21967afee16227d9` ; 269 tests | Baseline auditable et immuable, explicitement non causale |
+| 2026-08-17 | `GOV-002` | Codex | Gate G0 | À faire | Validé | `3f2f8aa235329197b759f4a7d84fcc0e2700adf9` | Baseline comparée jusqu'à 2026-07 : 5 215 positions (`bdc9ddc47b48f32b2a0079c3a97b0eb2f9e7e8ee87795f8cee3ecdf8d3b3be48`) et 720 mois-stratégies (`21e6427aba921d060f3c7354d2215ae34b2107c679f249b81ca705b7b41dd833`) ; écarts maximaux nuls ; suite 273 tests | Extension future autorisée ; tolérance positive plafonnée à `1e-12` et obligatoirement justifiée |
 
 ## 12. Registre des baselines et publications
 
