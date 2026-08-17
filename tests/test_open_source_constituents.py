@@ -1,14 +1,35 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 import polars as pl
+import pytest
 
 from alpharank.data.open_source.constituents import (
     membership_at_decision_time,
     refresh_monthly_constituents,
     resolve_constituent_snapshot_duplicates,
 )
+
+
+def _lineaged_event(
+    event_id: str,
+    effective_date: str,
+    source_url: str,
+    operations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    effective_day = date.fromisoformat(effective_date)
+    observed_day = effective_day - timedelta(days=1)
+    return {
+        "event_id": event_id,
+        "observed_at": f"{observed_day.isoformat()}T23:59:59-04:00",
+        "effective_at": f"{effective_date}T00:00:00-04:00",
+        "effective_date": effective_date,
+        "source_url": source_url,
+        "confidence": "high",
+        "operations": operations,
+    }
 
 
 def test_refresh_monthly_constituents_obeys_effective_month_and_ticker_change() -> None:
@@ -22,18 +43,20 @@ def test_refresh_monthly_constituents_obeys_effective_month_and_ticker_change() 
     registry = {
         "base_month": "2026-04-01",
         "events": [
-            {
-                "effective_date": "2026-05-07",
-                "source_url": "https://example.test/add",
-                "operations": [
+            _lineaged_event(
+                "test-20260507-add",
+                "2026-05-07",
+                "https://example.test/add",
+                [
                     {"action": "add", "ticker": "NEW", "name": "New Co"},
                     {"action": "remove", "ticker": "OLD"},
                 ],
-            },
-            {
-                "effective_date": "2026-06-01",
-                "source_url": "https://example.test/rename",
-                "operations": [
+            ),
+            _lineaged_event(
+                "test-20260601-rename",
+                "2026-06-01",
+                "https://example.test/rename",
+                [
                     {
                         "action": "ticker_change",
                         "ticker": "KEEP",
@@ -41,7 +64,7 @@ def test_refresh_monthly_constituents_obeys_effective_month_and_ticker_change() 
                         "name": "Kept Co",
                     }
                 ],
-            },
+            ),
         ],
     }
 
@@ -73,10 +96,11 @@ def test_refresh_monthly_constituents_requires_explicit_noop_permission() -> Non
     registry = {
         "base_month": "2026-04-01",
         "events": [
-            {
-                "effective_date": "2026-04-09",
-                "source_url": "https://example.test",
-                "operations": [
+            _lineaged_event(
+                "test-20260409-noop",
+                "2026-04-09",
+                "https://example.test/noop",
+                [
                     {
                         "action": "add",
                         "ticker": "KEEP",
@@ -84,7 +108,7 @@ def test_refresh_monthly_constituents_requires_explicit_noop_permission() -> Non
                         "allow_existing": True,
                     }
                 ],
-            }
+            )
         ],
     }
     result = refresh_monthly_constituents(
@@ -106,31 +130,34 @@ def test_membership_effective_at_decision_time() -> None:
     registry = {
         "base_month": "2026-04-01",
         "events": [
-            {
-                "effective_date": "2026-05-07",
-                "source_url": "https://example.test/veev",
-                "operations": [
+            _lineaged_event(
+                "test-20260507-veev",
+                "2026-05-07",
+                "https://example.test/veev",
+                [
                     {"action": "add", "ticker": "VEEV", "name": "Veeva"},
                     {"action": "remove", "ticker": "CTRA"},
                 ],
-            },
-            {
-                "effective_date": "2026-06-22",
-                "source_url": "https://example.test/mrvl-flex",
-                "operations": [
+            ),
+            _lineaged_event(
+                "test-20260622-mrvl-flex",
+                "2026-06-22",
+                "https://example.test/mrvl-flex",
+                [
                     {"action": "add", "ticker": "MRVL", "name": "Marvell"},
                     {"action": "add", "ticker": "FLEX", "name": "Flex"},
                     {"action": "remove", "ticker": "POOL"},
                 ],
-            },
-            {
-                "effective_date": "2026-08-05",
-                "source_url": "https://example.test/ferg",
-                "operations": [
+            ),
+            _lineaged_event(
+                "test-20260805-ferg",
+                "2026-08-05",
+                "https://example.test/ferg",
+                [
                     {"action": "add", "ticker": "FERG", "name": "Ferguson"},
                     {"action": "remove", "ticker": "EA"},
                 ],
-            },
+            ),
         ],
     }
     effective_times = [
@@ -161,6 +188,48 @@ def test_membership_effective_at_decision_time() -> None:
     assert {"MRVL", "FLEX"}.issubset(names(decisions[3]))
     assert "EA" in names(decisions[4]) and "FERG" not in names(decisions[4])
     assert "EA" not in names(decisions[5]) and "FERG" in names(decisions[5])
+
+
+def test_membership_event_lineage_is_complete() -> None:
+    source = pl.DataFrame(
+        {"Date": [date(2026, 4, 1)], "Ticker": ["OLD"], "Name": ["Old Co"]}
+    )
+    event = _lineaged_event(
+        "test-20260507-new-old",
+        "2026-05-07",
+        "https://example.test/new-old",
+        [
+            {"action": "add", "ticker": "NEW", "name": "New Co"},
+            {"action": "remove", "ticker": "OLD"},
+        ],
+    )
+    registry = {"base_month": "2026-04-01", "events": [event]}
+
+    result = refresh_monthly_constituents(
+        source, registry=registry, target_month=date(2026, 5, 1)
+    )
+
+    assert len(result.operation_audit) == 2
+    assert all(
+        {
+            "event_id",
+            "source_url",
+            "observed_at",
+            "effective_at",
+            "effective_date",
+            "confidence",
+        }
+        <= row.keys()
+        for row in result.operation_audit
+    )
+    incomplete_event = dict(event)
+    incomplete_event.pop("observed_at")
+    with pytest.raises(ValueError, match="missing observed_at"):
+        membership_at_decision_time(
+            source,
+            registry={"base_month": "2026-04-01", "events": [incomplete_event]},
+            decision_times=[datetime(2026, 5, 31, tzinfo=timezone.utc)],
+        )
 
 
 def test_constituent_snapshot_has_unique_key() -> None:

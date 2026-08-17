@@ -14,6 +14,7 @@ import polars as pl
 
 CONSTITUENT_COLUMNS = ("Date", "Ticker", "Name")
 INDEX_EVENT_TIMEZONE = ZoneInfo("America/New_York")
+MEMBERSHIP_EVENT_CONFIDENCE_LEVELS = frozenset({"high", "medium", "low"})
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,51 @@ def load_constituent_change_registry(path: Path) -> dict[str, Any]:
         raise ValueError("The registry must explicitly target the S&P 500.")
     if not registry.get("base_month") or not isinstance(registry.get("events"), list):
         raise ValueError("The registry requires base_month and events.")
+    validate_membership_event_lineage(registry)
     return registry
+
+
+def validate_membership_event_lineage(registry: Mapping[str, Any]) -> None:
+    """Fail closed unless every membership event has complete PIT provenance."""
+
+    events = registry.get("events")
+    if not isinstance(events, list):
+        raise ValueError("The constituent registry requires an events list.")
+    seen_event_ids: set[str] = set()
+    for position, event in enumerate(events):
+        if not isinstance(event, Mapping):
+            raise ValueError(f"Membership event {position} must be an object.")
+        event_id = str(event.get("event_id") or "").strip()
+        if not event_id:
+            raise ValueError(f"Membership event {position} is missing event_id.")
+        if event_id in seen_event_ids:
+            raise ValueError(f"Duplicate membership event_id: {event_id}.")
+        seen_event_ids.add(event_id)
+
+        source_url = str(event.get("source_url") or "").strip()
+        if not source_url.startswith("https://"):
+            raise ValueError(
+                f"Membership event {event_id} requires an HTTPS source_url."
+            )
+        confidence = str(event.get("confidence") or "").strip().lower()
+        if confidence not in MEMBERSHIP_EVENT_CONFIDENCE_LEVELS:
+            raise ValueError(
+                f"Membership event {event_id} has invalid confidence={confidence!r}."
+            )
+        effective_date = date.fromisoformat(str(event.get("effective_date") or ""))
+        effective_at = _parse_aware_event_time(event, "effective_at", event_id)
+        observed_at = _parse_aware_event_time(event, "observed_at", event_id)
+        if effective_at.astimezone(INDEX_EVENT_TIMEZONE).date() != effective_date:
+            raise ValueError(
+                f"Membership event {event_id} effective_at disagrees with effective_date."
+            )
+        if observed_at > effective_at:
+            raise ValueError(
+                f"Membership event {event_id} was observed after it became effective."
+            )
+        operations = event.get("operations")
+        if not isinstance(operations, list) or not operations:
+            raise ValueError(f"Membership event {event_id} requires operations.")
 
 
 def refresh_monthly_constituents(
@@ -47,6 +92,7 @@ def refresh_monthly_constituents(
     registry: Mapping[str, Any],
     target_month: date,
 ) -> ConstituentRefreshResult:
+    validate_membership_event_lineage(registry)
     deduplicated = resolve_constituent_snapshot_duplicates(frame)
     normalized = deduplicated.frame
     base_month = date.fromisoformat(str(registry["base_month"]))
@@ -80,8 +126,7 @@ def refresh_monthly_constituents(
                 _apply_operation(
                     members,
                     operation=operation,
-                    effective_date=str(event["effective_date"]),
-                    source_url=str(event["source_url"]),
+                    event=event,
                     snapshot_month=base_month,
                 )
             )
@@ -118,8 +163,7 @@ def refresh_monthly_constituents(
                     _apply_operation(
                         members,
                         operation=operation,
-                        effective_date=str(event["effective_date"]),
-                        source_url=str(event["source_url"]),
+                        event=event,
                         snapshot_month=month,
                     )
                 )
@@ -173,6 +217,7 @@ def membership_at_decision_time(
 ) -> pl.DataFrame:
     """Replay exact effective membership for timezone-aware decisions."""
 
+    validate_membership_event_lineage(registry)
     normalized = _normalize_constituents(frame)
     base_month = date.fromisoformat(str(registry["base_month"]))
     base = normalized.filter(pl.col("Date") == base_month)
@@ -197,8 +242,7 @@ def membership_at_decision_time(
                 _apply_operation(
                     members,
                     operation=operation,
-                    effective_date=str(event["effective_date"]),
-                    source_url=str(event["source_url"]),
+                    event=event,
                     snapshot_month=decision_at.date().replace(day=1),
                 )
             event_index += 1
@@ -356,6 +400,18 @@ def _require_aware(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _parse_aware_event_time(
+    event: Mapping[str, Any], field: str, event_id: str
+) -> datetime:
+    raw = str(event.get(field) or "").strip()
+    if not raw:
+        raise ValueError(f"Membership event {event_id} is missing {field}.")
+    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError(f"Membership event {event_id} {field} must include a timezone.")
+    return parsed.astimezone(timezone.utc)
+
+
 def _event_effective_at(event: Mapping[str, Any]) -> datetime:
     explicit = event.get("effective_at")
     if explicit is not None:
@@ -391,10 +447,10 @@ def _apply_operation(
     members: dict[str, str],
     *,
     operation: Mapping[str, Any],
-    effective_date: str,
-    source_url: str,
+    event: Mapping[str, Any],
     snapshot_month: date,
 ) -> dict[str, Any]:
+    effective_date = str(event["effective_date"])
     action = str(operation["action"])
     ticker = str(operation["ticker"])
     status = "applied"
@@ -430,6 +486,9 @@ def _apply_operation(
         raise ValueError(f"Unsupported constituent operation: {action}")
 
     return {
+        "event_id": str(event["event_id"]),
+        "observed_at": str(event["observed_at"]),
+        "effective_at": str(event["effective_at"]),
         "effective_date": effective_date,
         "snapshot_month": snapshot_month.isoformat(),
         "action": action,
@@ -438,5 +497,6 @@ def _apply_operation(
         "name": operation.get("name"),
         "status": status,
         "note": operation.get("note"),
-        "source_url": source_url,
+        "source_url": str(event["source_url"]),
+        "confidence": str(event["confidence"]),
     }

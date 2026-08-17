@@ -75,6 +75,17 @@ def main() -> None:
         "base_month": result.base_month.isoformat(),
         "target_month": result.target_month.isoformat(),
         "snapshot_semantics": registry["snapshot_semantics"],
+        "membership_event_lineage_contract": {
+            "required_fields": [
+                "event_id",
+                "source_url",
+                "observed_at",
+                "effective_at",
+                "effective_date",
+                "confidence",
+            ],
+            "observation_time_policy": "known publication dates without a precise time use 23:59:59 America/New_York",
+        },
         "monthly_summary": list(result.monthly_summary),
         "operation_audit": list(result.operation_audit),
     }
@@ -107,12 +118,16 @@ def _write_html_report(path: Path, manifest: dict[str, object]) -> None:
     )
     operation_rows = "".join(
         "<tr>"
+        f"<td><code>{html.escape(str(row['event_id']))}</code></td>"
+        f"<td>{html.escape(str(row['observed_at']))}</td>"
+        f"<td>{html.escape(str(row['effective_at']))}</td>"
         f"<td>{html.escape(str(row['effective_date']))}</td>"
         f"<td>{html.escape(str(row['snapshot_month']))}</td>"
         f"<td>{html.escape(str(row['action']))}</td>"
         f"<td>{html.escape(str(row['ticker']))}</td>"
         f"<td>{html.escape(str(row.get('new_ticker') or ''))}</td>"
         f"<td>{html.escape(str(row['status']))}</td>"
+        f"<td>{html.escape(str(row['confidence']))}</td>"
         f"<td><a href=\"{html.escape(str(row['source_url']), quote=True)}\">source</a></td>"
         "</tr>"
         for row in manifest["operation_audit"]  # type: ignore[index]
@@ -136,7 +151,7 @@ code{{word-break:break-all}} .warn{{color:#8a5200;background:#fff4d8;padding:12p
 <strong>SHA registre :</strong> <code>{html.escape(str(manifest['registry_sha256']))}</code><br>
 <strong>SHA sortie :</strong> <code>{html.escape(str(manifest.get('output_sha256') or 'dry-run'))}</code></p></div>
 <div class="card"><h2>Univers par mois</h2><table><thead><tr><th>Mois</th><th>Nombre</th><th>Événements</th><th>Statut</th></tr></thead><tbody>{monthly_rows}</tbody></table></div>
-<div class="card"><h2>Journal des changements</h2><table><thead><tr><th>Effectif</th><th>Snapshot</th><th>Action</th><th>Ticker</th><th>Nouveau</th><th>Statut</th><th>Justification</th></tr></thead><tbody>{operation_rows}</tbody></table></div>
+<div class="card"><h2>Journal des changements</h2><table><thead><tr><th>Événement</th><th>Observé</th><th>Effectif à</th><th>Date</th><th>Snapshot</th><th>Action</th><th>Ticker</th><th>Nouveau</th><th>Statut</th><th>Confiance</th><th>Justification</th></tr></thead><tbody>{operation_rows}</tbody></table></div>
 </main></body></html>""",
         encoding="utf-8",
     )

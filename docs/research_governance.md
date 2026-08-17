@@ -116,3 +116,11 @@ les noms candidats et leurs fréquences, le nom retenu et l'identifiant de la
 règle. Sur le fichier actif contrôlé le 2026-08-17, 1 067 groupes à date non
 nulle sont ainsi audités et la sortie de 225 620 lignes ne contient plus aucune
 clé dupliquée.
+
+Chaque événement d'univers doit désormais fournir `event_id`, `source_url`,
+`observed_at`, `effective_at`, `effective_date` et `confidence`. Le registre est
+refusé avant toute décision si l'un de ces champs manque, si l'identifiant est
+dupliqué, si les timestamps ne sont pas zonés ou si l'observation est postérieure
+à l'effet. Lorsqu'une source officielle publie seulement une date sans heure, la
+connaissance est placée conservativement à 23:59:59 `America/New_York`. Le journal
+de reconstruction propage ces champs jusqu'à chaque opération appliquée.
