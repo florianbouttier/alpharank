@@ -64,8 +64,8 @@ def test_contract_rejects_same_month_lookahead() -> None:
         validate_holdings(invalid)
 
 
-def test_missing_legacy_return_is_renormalized_for_performance() -> None:
-    holdings = pl.DataFrame(
+def _holdings_with_one_missing_return() -> pl.DataFrame:
+    return pl.DataFrame(
         {
             "strategy": ["legacy", "legacy"],
             "decision_month": [date(2020, 1, 1)] * 2,
@@ -76,7 +76,21 @@ def test_missing_legacy_return_is_renormalized_for_performance() -> None:
             "benchmark_return": [0.02, 0.02],
         }
     )
-    monthly = simulate_weighted_portfolio(holdings)
+
+
+def test_missing_selected_return_fails_closed_by_default() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Missing realized return for strategy=legacy, decision_month=2020-01-01",
+    ):
+        simulate_weighted_portfolio(_holdings_with_one_missing_return())
+
+
+def test_missing_legacy_return_is_renormalized_only_when_explicit() -> None:
+    monthly = simulate_weighted_portfolio(
+        _holdings_with_one_missing_return(),
+        missing_return_policy="renormalize_available",
+    )
     assert monthly["gross_return"][0] == pytest.approx(0.10)
     assert monthly["n_positions"][0] == 2
 

@@ -55,7 +55,10 @@ def test_attribution_uses_effective_weights_when_return_is_missing() -> None:
             "benchmark_return": [0.01, 0.01],
         }
     )
-    monthly = simulate_weighted_portfolio(holdings)
+    monthly = simulate_weighted_portfolio(
+        holdings,
+        missing_return_policy="renormalize_available",
+    )
 
     attribution = portfolio_return_attribution(holdings, monthly)
 

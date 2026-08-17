@@ -15,14 +15,16 @@ def simulate_weighted_portfolio(
     holdings: pl.DataFrame,
     *,
     transaction_cost_bps: float = 0.0,
-    missing_return_policy: str = "renormalize_available",
+    missing_return_policy: str = "raise",
     validate: bool = True,
 ) -> pl.DataFrame:
     """Simulate monthly long-only holdings through one canonical return engine.
 
-    ``renormalize_available`` reproduces the historical Legacy convention: a
-    missing realized return is excluded and the remaining weights are scaled to
-    one for performance. Target weights remain unchanged for turnover.
+    Missing selected returns fail closed by default. Callers replaying the
+    historical Legacy convention may request ``renormalize_available``
+    explicitly; that policy excludes missing returns and scales the remaining
+    weights to one for performance while leaving target weights unchanged for
+    turnover.
     """
 
     if transaction_cost_bps < 0.0:

@@ -55,7 +55,13 @@ def validate_legacy(
             strategy=portfolio_model,
             benchmark_monthly=benchmark,
         ).filter(pl.col("benchmark_return").is_not_null())
-        replay = simulate_weighted_portfolio(holdings, transaction_cost_bps=0.0)
+        replay = simulate_weighted_portfolio(
+            holdings,
+            transaction_cost_bps=0.0,
+            # This validator reproduces the frozen historical Legacy baseline.
+            # New simulations fail closed on missing selected returns by default.
+            missing_return_policy="renormalize_available",
+        )
         joined = replay.join(expected, on="holding_month", how="inner")
         maximum_error = _maximum_absolute_error(joined, "net_return", "expected_return")
         rows.append(
