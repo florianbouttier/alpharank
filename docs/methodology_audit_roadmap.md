@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-17
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et vingt-trois corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et vingt-quatre corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -138,7 +138,7 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Catégorie | Total | P0 | P1 | P2 | Implémenté | Validé | Progression validée |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Gouvernance | 5 | 2 | 3 | 0 | 2 | 3 | 60 % |
-| Prix et vintages | 3 | 0 | 3 | 0 | 2 | 0 | 0 % |
+| Prix et vintages | 3 | 0 | 3 | 0 | 3 | 0 | 0 % |
 | Univers et secteurs | 4 | 1 | 3 | 0 | 4 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 4 | 0 | 0 % |
 | Boosting | 6 | 3 | 3 | 0 | 6 | 0 | 0 % |
@@ -146,7 +146,7 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Simulation | 4 | 2 | 1 | 1 | 4 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **23** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **24** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -169,7 +169,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 |---|---|---|---|---|---|---|
 | `PRC-001` | P1 | Recomposer le snapshot canonique avec le contrat de prix persistant récent et son registre de lineage, sans changer les octets de `US_Finalprice`. Dépend de `GOV-002`. | `test_price_registry_promotion_preserves_payload` : SHA-256 du prix, nombre de lignes, clés et séries économiques identiques avant/après. | Implémenté | `c7ed6acd29a26e630ed628fd37e088a843fc65a6` | Identique : octets, lignes, clés et séries contrôlés ; hash du registre inclus dans l'identité de composition |
 | `PRC-002` | P1 | Formaliser les révisions de prix, splits, dividendes et corrections fournisseur par vintage et date de connaissance. | `test_price_revision_requires_new_vintage` : une valeur historique modifiée ne peut pas remplacer le vintage canonique sans nouveau package et rapport de diff. | Implémenté | `30904d777eef48abcea662d1f12c34505fe46de5` | Ancien vintage immuable ; nouveau résultat versionné ; package réel à produire pour validation |
-| `PRC-003` | P1 | Construire un cache de prix du dashboard figé par date d'ingestion ; interdire qu'un appel réseau modifie implicitement une période historique déjà publiée. | `test_dashboard_history_is_stable_when_provider_changes` : deux réponses fournisseur différentes donnent le même historique pour un vintage scellé. | À faire | — | Doit rester identique pour un vintage donné |
+| `PRC-003` | P1 | Construire un cache de prix du dashboard figé par date d'ingestion ; interdire qu'un appel réseau modifie implicitement une période historique déjà publiée. | `test_dashboard_history_is_stable_when_provider_changes` : deux réponses fournisseur différentes donnent le même historique pour un vintage scellé. | Implémenté | `9efb46f98c97e617f2e1cc0b178726c46df97c98` | Identique pour un vintage : première réponse scellée avec timestamp, hash et nombre de lignes ; appels ultérieurs rejoués localement |
 
 ### C. Univers d'investissement et secteurs point-in-time
 
@@ -356,6 +356,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `BST-005` | Codex | Gate G4 | À faire | Implémenté | `59cc7bca89c81d758db8bd1a3d833198572713e4` | Modèle XGBoost rechargé après vérification SHA-256 ; scores et rangs hors échantillon strictement identiques ; 2 tests ciblés ; suite 292/292 | Chaque fold conserve `model.ubj` et un manifeste complet ; replay portefeuille `v2` restant |
 | 2026-08-17 | `BST-006` | Codex | Gate G6 | À faire | Implémenté | `bb6b97aa9108e426f13b73147e132f409e212559` | Ouverture prématurée et optimisation post-ouverture invalident la promotion ; registre exhaustif et dataset SHA-256 contrôlés ; 2 tests ciblés ; suite 293/293 | Période réelle et identifiants des expériences `v2` à sceller avant exécution |
 | 2026-08-17 | `PRC-001` | Codex | Gate G2 | À faire | Implémenté | `c7ed6acd29a26e630ed628fd37e088a843fc65a6` | Payload source/promu identique octet par octet ; lignes, clés et hash canonique des séries contrôlés ; 5 tests ciblés ; suite 294/294 | Le registre persistant et son hash participent à l'identité du snapshot composé |
+| 2026-08-18 | `PRC-003` | Codex | Gate G5 | À faire | Implémenté | `9efb46f98c97e617f2e1cc0b178726c46df97c98` | Deux réponses fournisseur divergentes rejouent le premier vintage ; 34 tests ciblés ; suite Portfolio 54/54 ; validation docs verte | Cache sous `data/cache/price_vintages`, manifeste atomique par fournisseur/symboles/période |
 
 ## 12. Registre des baselines et publications
 
