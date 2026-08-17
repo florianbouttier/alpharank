@@ -304,7 +304,15 @@ PROFILE legacy_ema_latest_common_v1
     assign equal target weights
     hold during t+1
 
-11. Convert predictions to the common holdings contract.
+11. Convert predictions to the common holdings contract, then join realized
+    returns without changing the selected names. If a selected return is absent,
+    resolve it only from a sourced terminal event in the holding month:
+    cash consideration for a cash merger; cash plus exchange ratio times the
+    successor month-end price for a stock merger; explicit recovery, including
+    zero, for bankruptcy or delisting; or a one-for-one/declared-ratio successor
+    price for a ticker change. Every event and successor price must identify the
+    same immutable price vintage. Keep an unresolved row missing so simulation
+    fails closed; never promote the next surviving ticker.
 12. Simulate gross return, turnover, 10 bps * turnover cost, and net return.
 13. Fail comparison unless all seven input hashes, both full-trajectory
     ticker-exclusion sets, and both monthly price-eligibility policies match.
@@ -354,6 +362,7 @@ src/alpharank/portfolio/
     adapters/          methodology outputs -> common holdings
     contracts.py       decision t / holding t+1 validation
     allocation.py      top-N, weights, turnover helpers
+    terminal_returns.py terminal-event total shareholder returns
     simulation.py      gross/net return and transaction costs
     benchmark.py       SPY adjusted-close total return
     performance.py     shared performance statistics

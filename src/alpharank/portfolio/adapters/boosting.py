@@ -3,6 +3,7 @@ from __future__ import annotations
 import polars as pl
 
 from alpharank.portfolio.allocation import equal_weights, select_ranked_candidates
+from alpharank.portfolio.terminal_returns import resolve_terminal_shareholder_returns
 
 
 def boosting_predictions_to_holdings(
@@ -13,6 +14,10 @@ def boosting_predictions_to_holdings(
     score_column: str = "score",
     realized_return_column: str = "future_return_1m",
     benchmark_return_column: str = "benchmark_future_return_1m",
+    terminal_events: pl.DataFrame | None = None,
+    terminal_successor_prices: pl.DataFrame | None = None,
+    terminal_price_vintage_id: str | None = None,
+    terminal_starting_price_column: str = "last_close",
 ) -> pl.DataFrame:
     """Adapt out-of-sample scores without conditioning selection on future returns.
 
@@ -57,6 +62,19 @@ def boosting_predictions_to_holdings(
                 "selection_rank": pl.Int64,
             }
         )
-    return pl.concat(parts, how="diagonal_relaxed").sort(
+    holdings = pl.concat(parts, how="diagonal_relaxed").sort(
         ["strategy", "decision_month", "selection_rank"]
     )
+    if terminal_events is not None:
+        if terminal_price_vintage_id is None:
+            raise ValueError(
+                "terminal_price_vintage_id is required with terminal events."
+            )
+        holdings = resolve_terminal_shareholder_returns(
+            holdings,
+            terminal_events=terminal_events,
+            successor_prices=terminal_successor_prices,
+            price_vintage_id=terminal_price_vintage_id,
+            starting_price_column=terminal_starting_price_column,
+        ).holdings
+    return holdings

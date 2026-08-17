@@ -168,6 +168,132 @@ def test_boosting_selection_ignores_future_return_availability() -> None:
     assert with_missing_return["benchmark_return"].to_list() == [None, 0.02]
 
 
+def test_terminal_return_is_included() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)] * 4,
+            "ticker": ["CASH", "STOCK", "BANK", "OLD"],
+            "score": [0.9, 0.8, 0.7, 0.6],
+            "last_close": [100.0, 50.0, 40.0, 20.0],
+            "future_return_1m": [None, None, None, None],
+            "benchmark_future_return_1m": [0.02] * 4,
+        }
+    )
+    terminal_events = pl.DataFrame(
+        {
+            "terminal_event_id": ["cash-1", "stock-1", "bank-1", "ticker-1"],
+            "event_type": [
+                "cash_merger",
+                "stock_merger",
+                "delisting",
+                "ticker_change",
+            ],
+            "ticker": ["CASH", "STOCK", "BANK", "OLD"],
+            "successor_ticker": [None, "BUYER", None, "NEW"],
+            "effective_date": [
+                date(2020, 2, 10),
+                date(2020, 2, 12),
+                date(2020, 2, 14),
+                date(2020, 2, 18),
+            ],
+            "known_at": ["2020-03-01T00:00:00Z"] * 4,
+            "price_vintage_id": ["prices-v2"] * 4,
+            "cash_per_share": [110.0, 5.0, None, 0.0],
+            "recovery_per_share": [None, None, 0.0, None],
+            "exchange_ratio": [None, 0.5, None, 1.0],
+            "distribution_per_share": [0.0, 0.0, 0.0, 0.0],
+            "source": ["issuer"] * 4,
+            "source_url": [
+                "https://example.com/cash",
+                "https://example.com/stock",
+                "https://example.com/bank",
+                "https://example.com/ticker",
+            ],
+        }
+    )
+    successor_prices = pl.DataFrame(
+        {
+            "ticker": ["BUYER", "NEW"],
+            "holding_month": [date(2020, 2, 1)] * 2,
+            "price_asof_date": [date(2020, 2, 28)] * 2,
+            "holding_end_price": [120.0, 25.0],
+            "price_vintage_id": ["prices-v2"] * 2,
+        }
+    )
+
+    holdings = boosting_predictions_to_holdings(
+        predictions,
+        strategy="boosting",
+        top_n=4,
+        terminal_events=terminal_events,
+        terminal_successor_prices=successor_prices,
+        terminal_price_vintage_id="prices-v2",
+    )
+
+    assert holdings["ticker"].to_list() == ["CASH", "STOCK", "BANK", "OLD"]
+    assert holdings["realized_return"].to_list() == pytest.approx(
+        [0.10, 0.30, -1.0, 0.25]
+    )
+    assert holdings["return_resolution"].to_list() == [
+        "resolved_terminal_event"
+    ] * 4
+    assert holdings["terminal_event_id"].to_list() == [
+        "cash-1",
+        "stock-1",
+        "bank-1",
+        "ticker-1",
+    ]
+    assert holdings["terminal_event_source"].unique().to_list() == ["issuer"]
+    monthly = simulate_weighted_portfolio(holdings)
+    assert monthly["gross_return"][0] == pytest.approx(-0.0875)
+
+
+def test_unresolved_terminal_return_does_not_promote_a_survivor() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2020, 1, 1)] * 3,
+            "ticker": ["MISSING", "KEPT", "LOWER"],
+            "score": [0.9, 0.8, 0.7],
+            "last_close": [10.0, 20.0, 30.0],
+            "future_return_1m": [None, 0.10, 0.20],
+            "benchmark_future_return_1m": [0.02] * 3,
+        }
+    )
+    unrelated_event = pl.DataFrame(
+        {
+            "terminal_event_id": ["other-1"],
+            "event_type": ["cash_merger"],
+            "ticker": ["OTHER"],
+            "successor_ticker": [None],
+            "effective_date": [date(2020, 2, 15)],
+            "known_at": ["2020-03-01T00:00:00Z"],
+            "price_vintage_id": ["prices-v2"],
+            "cash_per_share": [12.0],
+            "recovery_per_share": [None],
+            "exchange_ratio": [None],
+            "distribution_per_share": [0.0],
+            "source": ["issuer"],
+            "source_url": ["https://example.com/other"],
+        }
+    )
+
+    holdings = boosting_predictions_to_holdings(
+        predictions,
+        strategy="boosting",
+        top_n=2,
+        terminal_events=unrelated_event,
+        terminal_price_vintage_id="prices-v2",
+    )
+
+    assert holdings["ticker"].to_list() == ["MISSING", "KEPT"]
+    assert holdings["return_resolution"].to_list() == [
+        "unresolved_missing_return",
+        "observed_market_return",
+    ]
+    with pytest.raises(ValueError, match="Missing realized return"):
+        simulate_weighted_portfolio(holdings)
+
+
 def test_turnover_and_period_alignment_are_explicit() -> None:
     assert portfolio_turnover({"A": 0.5, "B": 0.5}, {"A": 0.5, "C": 0.5}) == pytest.approx(0.5)
     first = pl.DataFrame(

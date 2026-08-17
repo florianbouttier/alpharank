@@ -48,6 +48,13 @@ from alpharank.portfolio.lineage import (
     ticker_exclusions_from_manifest,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.portfolio.terminal_returns import (
+    SUCCESSOR_PRICE_COLUMNS,
+    TERMINAL_EVENT_COLUMNS,
+    TERMINAL_EVENT_TYPES,
+    TerminalReturnResult,
+    resolve_terminal_shareholder_returns,
+)
 
 __all__ = [
     "HOLDINGS_REQUIRED_COLUMNS",
@@ -55,6 +62,10 @@ __all__ = [
     "BENCHMARK_CONVENTIONS",
     "SPY_PRICE_RETURN",
     "SPY_TOTAL_RETURN",
+    "SUCCESSOR_PRICE_COLUMNS",
+    "TERMINAL_EVENT_COLUMNS",
+    "TERMINAL_EVENT_TYPES",
+    "TerminalReturnResult",
     "align_return_series",
     "advanced_performance_statistics",
     "annual_returns",
@@ -73,6 +84,7 @@ __all__ = [
     "portfolio_return_attribution",
     "reference_monthly_series",
     "reference_return_attribution",
+    "resolve_terminal_shareholder_returns",
     "require_matching_data_contexts",
     "require_matching_price_eligibility",
     "require_matching_ticker_exclusions",
