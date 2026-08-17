@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -44,6 +45,34 @@ def _write_price_package(root: Path) -> None:
     (root / "lineage" / "manifest.json").write_text(
         json.dumps(manifest), encoding="utf-8"
     )
+
+
+def _upgrade_price_package_to_persistent_v2(root: Path) -> None:
+    registry_path = root / "lineage" / "persistent_price_history_registry.parquet"
+    pl.DataFrame(
+        {
+            "ticker": ["AAA.US"],
+            "row_count": [1],
+            "persistence_policy_id": ["published_price_history_v1"],
+        }
+    ).write_parquet(registry_path)
+    manifest_path = root / "lineage" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["contract_version"] = 2
+    manifest["source_refresh_contract"]["persistent_price_history"] = {
+        "policy_id": "published_price_history_v1",
+        "routine_deletion_allowed": False,
+    }
+    manifest["validation"] = {
+        "all_previous_validated_inactive_history_preserved": True,
+        "open_source_only_inactive_history_persisted": True,
+    }
+    manifest["artifacts"] = {
+        "persistent_price_history_registry": {
+            "sha256": hashlib.sha256(registry_path.read_bytes()).hexdigest()
+        }
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def _write_sec_package(root: Path, *, source: str = "sec_companyfacts") -> None:
@@ -139,3 +168,38 @@ def test_composed_snapshot_rejects_v2_price_without_persistent_history(tmp_path:
             sec_package_dir=sec,
             history_root=tmp_path / "history",
         )
+
+
+def test_price_registry_promotion_preserves_payload(tmp_path: Path) -> None:
+    price = tmp_path / "price"
+    sec = tmp_path / "sec"
+    _write_price_package(price)
+    _upgrade_price_package_to_persistent_v2(price)
+    _write_sec_package(sec)
+
+    source_path = price / "US_Finalprice.parquet"
+    source_bytes = source_path.read_bytes()
+    source_frame = pl.read_parquet(source_path)
+    result = build_composed_model_snapshot(
+        price_package_dir=price,
+        sec_package_dir=sec,
+        history_root=tmp_path / "history",
+        latest_manifest_path=tmp_path / "latest.json",
+    )
+
+    promoted_path = result.snapshot_dir / "US_Finalprice.parquet"
+    promoted_frame = pl.read_parquet(promoted_path)
+    identity = result.manifest["price_payload_identity"]
+    assert promoted_path.read_bytes() == source_bytes
+    assert promoted_frame.equals(source_frame, null_equal=True)
+    assert identity["row_count"] == source_frame.height
+    assert identity["unique_key_count"] == source_frame.height
+    assert identity["duplicate_key_count"] == 0
+    assert result.manifest["validation"]["persistent_price_registry_copied"] is True
+    assert (
+        result.snapshot_dir
+        / "lineage"
+        / "prices"
+        / "persistent_price_history_registry.parquet"
+    ).is_file()
+    assert validate_composed_model_snapshot(result.snapshot_dir)["passed"] is True

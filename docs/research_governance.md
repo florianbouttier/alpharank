@@ -209,3 +209,13 @@ incomplet ou si les données ont changé. Toute nouvelle optimisation, seconde
 ouverture ou mutation du registre après ouverture rend ensuite la promotion
 impossible. `validate_confirmation_for_promotion` exige l'état `opened`, le
 dataset intact et le hash exact du registre observé lors de l'ouverture.
+
+## Promotion du snapshot de prix persistant
+
+Un snapshot composé issu du contrat de prix persistant `v2` incorpore dans son
+identifiant de composition le hash du manifeste de prix et celui du registre
+`persistent_price_history_registry.parquet`. La composition copie le registre
+avec son lineage, puis compare avant promotion le SHA-256, le nombre de lignes,
+le nombre de clés uniques et le hash canonique de toutes les séries du fichier
+`US_Finalprice.parquet`. Le validateur rejoue ces contrôles depuis le snapshot
+publié ; une différence de transport, de clé ou de valeur bloque la promotion.

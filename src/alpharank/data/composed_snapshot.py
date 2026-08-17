@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -67,6 +68,9 @@ def build_composed_model_snapshot(
         expected_through=expected_through,
     )
     sec_manifest = _validate_sec_package(sec_package_dir)
+    source_price_identity = _price_payload_identity(
+        price_package_dir / "US_Finalprice.parquet"
+    )
 
     sources = {
         **{
@@ -84,10 +88,22 @@ def build_composed_model_snapshot(
         },
     }
     composition_payload = {
-        "contract_version": 1,
+        "contract_version": 2,
         "source_files": {
             key: record["sha256"] for key, record in sorted(sources.items())
         },
+        "price_manifest_sha256": _sha256(
+            price_package_dir / "lineage" / "manifest.json"
+        ),
+        "persistent_price_registry_sha256": (
+            _sha256(
+                price_package_dir
+                / "lineage"
+                / "persistent_price_history_registry.parquet"
+            )
+            if int(price_manifest.get("contract_version", 1)) >= 2
+            else None
+        ),
         "price_run_id": price_manifest.get("run_id"),
         "sec_run_id": sec_manifest.get("run_id"),
     }
@@ -138,6 +154,28 @@ def build_composed_model_snapshot(
         }
         if output_hashes != expected_hashes:
             raise RuntimeError("Composed snapshot copy verification failed")
+        snapshot_price_identity = _price_payload_identity(
+            staging_dir / "US_Finalprice.parquet"
+        )
+        if snapshot_price_identity != source_price_identity:
+            raise RuntimeError("Composed snapshot changed the canonical price payload")
+        persistent_registry_copied = int(
+            price_manifest.get("contract_version", 1)
+        ) >= 2
+        if persistent_registry_copied:
+            source_registry = (
+                price_package_dir
+                / "lineage"
+                / "persistent_price_history_registry.parquet"
+            )
+            copied_registry = (
+                staging_dir
+                / "lineage"
+                / "prices"
+                / "persistent_price_history_registry.parquet"
+            )
+            if _sha256(copied_registry) != _sha256(source_registry):
+                raise RuntimeError("Composed snapshot changed the price registry")
 
         manifest: dict[str, Any] = {
             "contract_version": 1,
@@ -164,6 +202,7 @@ def build_composed_model_snapshot(
             "source_files": sources,
             "output_sha256": output_hashes,
             "data_freshness": price_manifest.get("data_freshness", {}),
+            "price_payload_identity": snapshot_price_identity,
             "validation": {
                 "price_contract": (
                     "full_ingestion + preceding validated published lineage + "
@@ -171,6 +210,8 @@ def build_composed_model_snapshot(
                 ),
                 "fundamental_contract": "strict SEC-only",
                 "same_snapshot_for_legacy_and_boosting": True,
+                "price_payload_preserved_exactly": True,
+                "persistent_price_registry_copied": persistent_registry_copied,
                 "passed": True,
             },
             "storage": {
@@ -228,6 +269,22 @@ def validate_composed_model_snapshot(snapshot_dir: Path) -> dict[str, Any]:
             name for name in expected if observed.get(name) != expected.get(name)
         )
         raise RuntimeError(f"Composed snapshot hash mismatch: {differing}")
+    expected_identity = manifest.get("price_payload_identity")
+    if expected_identity is not None:
+        observed_identity = _price_payload_identity(
+            snapshot_dir / "US_Finalprice.parquet"
+        )
+        if observed_identity != expected_identity:
+            raise RuntimeError("Composed snapshot price identity mismatch")
+    if manifest.get("validation", {}).get("persistent_price_registry_copied"):
+        registry = (
+            snapshot_dir
+            / "lineage"
+            / "prices"
+            / "persistent_price_history_registry.parquet"
+        )
+        if not registry.is_file():
+            raise RuntimeError("Composed snapshot lost its persistent price registry")
     return {
         "composition_id": manifest["composition_id"],
         "snapshot_dir": str(snapshot_dir),
@@ -277,6 +334,13 @@ def _validate_price_package(
         registry = package_dir / "lineage" / "persistent_price_history_registry.parquet"
         if not registry.is_file():
             raise RuntimeError("Price package is missing its persistent-history registry")
+        registry_record = manifest.get("artifacts", {}).get(
+            "persistent_price_history_registry", {}
+        )
+        if not registry_record.get("sha256"):
+            raise RuntimeError("Persistent-history registry has no manifest hash")
+        if _sha256(registry) != registry_record["sha256"]:
+            raise RuntimeError("Persistent-history registry hash mismatch")
     if expected_through is not None:
         freshness = manifest.get("data_freshness", {})
         market_date = freshness.get("prices", {}).get("max_market_date")
@@ -354,6 +418,32 @@ def _file_record(path: Path) -> dict[str, Any]:
         "path": str(path.resolve()),
         "size_bytes": path.stat().st_size,
         "sha256": _sha256(path),
+    }
+
+
+def _price_payload_identity(path: Path) -> dict[str, Any]:
+    frame = pl.read_parquet(path)
+    ticker_column = "ticker" if "ticker" in frame.columns else "Ticker"
+    date_column = "date" if "date" in frame.columns else "Date"
+    missing = [
+        column for column in (ticker_column, date_column) if column not in frame.columns
+    ]
+    if missing:
+        raise RuntimeError(f"Canonical price payload has no key columns: {missing}")
+    canonical = frame.sort(ticker_column, date_column).select(sorted(frame.columns))
+    buffer = BytesIO()
+    canonical.write_ipc(buffer, compression="uncompressed")
+    unique_key_count = frame.select(
+        pl.struct(ticker_column, date_column).n_unique()
+    ).item()
+    return {
+        "sha256": _sha256(path),
+        "size_bytes": path.stat().st_size,
+        "row_count": frame.height,
+        "key_columns": [ticker_column, date_column],
+        "unique_key_count": int(unique_key_count),
+        "duplicate_key_count": int(frame.height - unique_key_count),
+        "economic_series_sha256": hashlib.sha256(buffer.getvalue()).hexdigest(),
     }
 
 
