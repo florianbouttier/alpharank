@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-18
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et trente et une corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et trente-deux corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -144,9 +144,9 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Boosting | 6 | 3 | 3 | 0 | 6 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 4 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 4 | 0 | 0 % |
-| Dashboard et IBKR | 6 | 1 | 4 | 1 | 3 | 0 | 0 % |
+| Dashboard et IBKR | 6 | 1 | 4 | 1 | 4 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **31** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **32** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -225,7 +225,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `DASH-001` | P1 | Classer explicitement intérêts, dividendes, frais, taxes et transferts ; faire échouer ou mettre en quarantaine les descriptions cash inconnues au lieu de les transformer en dépôt/retrait. | `test_interest_cash_is_not_external_flow` : les trois exemples audités totalisant 41,45 EUR augmentent le rendement et ne sont pas neutralisés dans le TWR. | Implémenté | `c061d18be74fe4910017b0d4025f1b99bc023761` | Nouvelle baseline dashboard : 41,45 EUR d'intérêts deviennent du rendement interne ; inconnu bloqué par erreur typée |
 | `DASH-002` | P0 | Rapprocher quotidiennement ledger, corporate actions et `positions_history.parquet`, qui reste la source de vérité ; bloquer la publication si l'écart inexpliqué dépasse la tolérance. | `test_ledger_reconciles_to_position_snapshots` : quantités par compte/ticker/date identiques, avec exceptions FX typées ; splits et transferts couverts. | Implémenté | `25701925d9849506a12185a5c54694c91f49bfd2` | Nouvelle baseline si écart : publication bloquée au-delà de `1e-8`, rapport conservé, exceptions FX et soldes d'ouverture typés |
 | `DASH-003` | P1 | Exposer séparément fraîcheur positions, cash, transactions, prix, FX et valorisation ; avertissement visible et statut final/provisoire. | `test_freshness_contract_reports_each_source` : dates exactes, aucune date agrégée trompeuse, seuils de staleness testés. | Implémenté | `ffffe12dbeb97a48ffb25d6e7bf12cac358636ee` | Aucun ; chaque source conserve sa date, son seuil et son état, et toute source absente ou périmée rend le dashboard provisoire |
-| `DASH-004` | P1 | Interdire la répétition d'un `mark_price` actuel sur tout l'historique lorsqu'un prix manque ; utiliser prix versionné ou état indisponible. Dépend de `PRC-003`. | `test_current_mark_is_never_backfilled_into_history` : fournisseur indisponible et historique partiel donnent une erreur/rupture documentée, pas une série plate artificielle. | À faire | — | Nouvelle baseline possible |
+| `DASH-004` | P1 | Interdire la répétition d'un `mark_price` actuel sur tout l'historique lorsqu'un prix manque ; utiliser prix versionné ou état indisponible. Dépend de `PRC-003`. | `test_current_mark_is_never_backfilled_into_history` : fournisseur indisponible et historique partiel donnent une erreur/rupture documentée, pas une série plate artificielle. | Implémenté | `26826d7023051adc83dd1b41c77fde72862d9397` | Nouvelle baseline possible ; un historique absent reste vide même si une valorisation courante existe |
 | `DASH-005` | P2 | Décomposer `backend/app/analytics/engine.py` en modules ingestion, pricing, positions, cashflows, performance, attribution et risque, sans changement économique. Dépend de `GOV-002`. | Tests de caractérisation plus `make test` : mêmes réponses API et hashes économiques sur fixtures avant/après. | À faire | — | Doit rester identique |
 | `DASH-006` | P1 | Remplacer les `except` larges et fallbacks silencieux par erreurs typées, métriques et lineage de fallback dans l'API. | `test_fallback_is_visible_and_typed` : chaque panne simulée indique source, cause, fallback et dégradation ; aucun `except Exception: pass`. | À faire | — | Aucun attendu, sauf suppression d'un fallback invalide |
 
@@ -364,6 +364,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-18 | `DASH-001` | Codex | Gate G5 | À faire | Implémenté | `c061d18be74fe4910017b0d4025f1b99bc023761` | Trois intérêts = 41,45 EUR internes, zéro flux externe ; description inconnue bloquée ; 40 tests ciblés ; suite Portfolio 56/56 | Taxes prioritaires sur dividendes ; frais, intérêts et transferts ont des actions explicites |
 | 2026-08-18 | `DASH-002` | Codex | Gate G5 | À faire | Implémenté | `25701925d9849506a12185a5c54694c91f49bfd2` | Ledger/snapshots identiques sur achats, split et transfert ; écart de 1 titre bloqué ; FX typé ; 8 tests ciblés ; suite Portfolio 57/57 | `positions_history.parquet` reste autoritaire ; rapport écrit avant toute publication courante |
 | 2026-08-18 | `DASH-003` | Codex | Gate G5 | À faire | Implémenté | `ffffe12dbeb97a48ffb25d6e7bf12cac358636ee` | Six dates exactes et seuils indépendants contrôlés ; cash et valorisation périmés rendent le statut provisoire ; 35 tests ciblés ; suite Portfolio 58/58 ; build frontend et validation docs réussis | Endpoint et bannière exposent positions, cash, transactions, prix, FX et valorisation sans date agrégée |
+| 2026-08-18 | `DASH-004` | Codex | Gate G5 | À faire | Implémenté | `26826d7023051adc83dd1b41c77fde72862d9397` | Fournisseurs local et distants indisponibles avec `mark_price` courant : historique vide ; 2 tests ciblés ; suite Portfolio 59/59 ; validation docs réussie | La valorisation courante reste autorisée pour l'instantané, jamais comme substitut d'une série historique |
 
 ## 12. Registre des baselines et publications
 
