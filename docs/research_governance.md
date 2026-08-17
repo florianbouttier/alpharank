@@ -1,6 +1,6 @@
 # Gouvernance des résultats de recherche
 
-Dernière mise à jour : 2026-08-17.
+Dernière mise à jour : 2026-08-18.
 
 Ce document définit les règles approuvées pour conserver, comparer et promouvoir
 les résultats Legacy et Boosting. Il complète les contrats méthodologiques et de
@@ -42,6 +42,39 @@ d'écriture après renommage atomique du package temporaire.
   obligatoire. Les secrets en sont exclus.
 - Toute dérogation doit porter une approbation humaine explicite dans le
   manifeste.
+
+## Contrat normatif `v2-causal`
+
+Cette section est l'index normatif des corrections méthodologiques. Un statut
+`Implémenté` dans la roadmap signifie que le contrôle existe ; il ne devient
+`Validé` qu'après production, rapprochement et promotion du replay causal `v2`.
+Les documents spécialisés restent propriétaires des détails, mais aucune règle
+ci-dessous ne peut être contredite par un rapport ou un dashboard.
+
+| Domaine | Règle normative | Propriétaire code / configuration | Test d'acceptation |
+|---|---|---|---|
+| Temps et cible (`BST-001`, `BST-003`, `QA-001`) | Une décision utilise seulement les features disponibles au cutoff. La maturité de la cible d'entraînement ne filtre jamais les titres classables et les mutations post-cutoff ne changent aucune décision passée. | `scripts/run_backtest.py`, `src/alpharank/data/feature_availability.py`; cible et horizon résolus dans le manifeste du run | `tests/test_portfolio_engine.py::test_boosting_selection_ignores_future_return_availability`, `tests/test_future_mutation_invariance.py::test_future_mutations_do_not_change_past_decisions` |
+| Prix et vintages (`PRC-001` à `PRC-003`) | Un prix historique publié appartient à un vintage immuable. Toute révision crée un nouveau package et conserve le diff, la date de connaissance et le registre persistant ; un appel réseau ne réécrit jamais un historique scellé. | `src/alpharank/data/prices/`, `src/alpharank/data/price_revisions.py`; politiques et hashes dans les manifests de composition | `tests/test_price_revisions.py::test_price_revision_requires_new_vintage`, `tests/test_composed_snapshot.py::test_price_registry_promotion_preserves_payload` |
+| Univers, secteurs et fondamentaux (`UNI-001` à `UNI-004`, `FND-001` à `FND-004`, `LEG-001`) | Membership, secteur et filing sont joints point-in-time avec provenance complète. Une couverture sectorielle partielle désactive le cap ; une donnée fondamentale officielle est SEC-only et devient disponible après le délai opérationnel de 24 heures. | `src/alpharank/data/open_source/constituents.py`, `src/alpharank/data/sector_history.py`, `src/alpharank/data/fundamental_coverage.py`, `src/alpharank/data/feature_availability.py`; politiques `sec-only-exclude-ex-ante-v1` et `sec-filing-availability-v1` | `tests/test_open_source_constituents.py::test_membership_effective_at_decision_time`, `tests/test_sector_history.py::test_sector_used_was_known_at_decision_date`, `tests/test_strategy_legacy.py::test_legacy_sector_cap_uses_pit_sector` |
+| Événements terminaux (`BST-002`, `SIM-001`) | Une sélection sans rendement réalisé échoue par défaut. Seul un événement terminal sourcé, connu et effectif pendant la détention peut résoudre le rendement ; `renormalize_available` est réservé au replay historique nommé. | `src/alpharank/portfolio/terminal_returns.py`, `src/alpharank/portfolio/simulation.py`; `missing_return_policy=raise` | `tests/test_portfolio_engine.py::test_terminal_return_is_included`, `tests/test_portfolio_engine.py::test_unresolved_terminal_return_does_not_promote_a_survivor` |
+| Exécution (`LEG-003`, `SIM-004`) | L'ordre canonique est exécuté à la prochaine ouverture observée, strictement après le cutoff ; la première observation de rendement suit l'exécution. La clôture du signal est un scénario non exécutable et le VWAP n'est utilisé que s'il est observé. | `src/alpharank/portfolio/execution.py`, `src/alpharank/portfolio/contracts.py`; `next_session_open_v1`, `causal_timing_policy=require_explicit` | `tests/test_portfolio_engine.py::test_holding_return_starts_after_trade`, `tests/test_portfolio_execution.py::test_order_price_occurs_after_signal_cutoff` |
+| Allocation et coûts (`SIM-002`, `SIM-003`) | Le turnover part des poids dérivés pré-trade, cash inclus. Les coûts sont des scénarios nommés et rapprochent spread, slippage, impact, commission/minimum et FX avec `net = brut - coûts`. | `src/alpharank/portfolio/allocation.py`, `src/alpharank/portfolio/costs.py`; `TransactionCostModel` versionné dans le manifeste | `tests/test_portfolio_engine.py::test_turnover_uses_drifted_pretrade_weights`, `tests/test_portfolio_engine.py::test_cost_model_is_monotonic_and_reconciled` |
+| Limites, promotion et statut (`GOV-001` à `GOV-005`, `BST-006`) | `v1-audited-biased` reste immuable. Toute correction économique publie une autre version ; promotion et rollback sont atomiques, approuvés et conservent la version supersédée. Une confirmation finale est scellée avant ouverture. | `src/alpharank/governance.py`; pointeur de promotion, inventaire SHA-256 et protocole `sealed-confirmation-v1` | `tests/test_governance_baseline.py::test_baseline_package_is_immutable`, `tests/test_governance_promotion.py::test_promotion_is_atomic_and_reversible` |
+| Replay et provenance (`GOV-003`, `QA-002`, `QA-003`) | Un résultat publiable capture tout le runtime et doit être recalculé depuis ses entrées scellées. Toute mutation du code moteur, de la configuration, des entrées ou du modèle invalide le replay. | `src/alpharank/replay_validation.py`, `src/alpharank/governance.py`, `.github/workflows/methodology-validation.yml` | `tests/test_governance_runtime_provenance.py::test_manifest_captures_complete_runtime_provenance`, `tests/test_recomputable_replay.py::test_replay_recomputes_outputs_from_sealed_inputs` |
+
+Les sources de vérité détaillées sont :
+
+- signal, cible et point-in-time :
+  [`legacy_boosting_methodology.md`](./legacy_boosting_methodology.md) ;
+- simulation, benchmark, coûts et comparaison :
+  [`common_portfolio_backtest_engine.md`](./common_portfolio_backtest_engine.md) ;
+- données SEC et prix :
+  [`sec_fundamentals_contract.md`](./sec_fundamentals_contract.md) et
+  [`sec_data_robustness_plan.md`](./sec_data_robustness_plan.md) ;
+- production et replay mensuel :
+  [`monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md) ;
+- statut d'implémentation et preuves :
+  [`methodology_audit_roadmap.md`](./methodology_audit_roadmap.md).
 
 ## Validation
 
