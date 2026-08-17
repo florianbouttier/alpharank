@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-17
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : Gate G0 franchie et seize corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
+- État : Gate G0 franchie et dix-sept corrections supplémentaires implémentées ; replay causal `v2` et promotion encore à faire
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -137,7 +137,7 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 
 | Catégorie | Total | P0 | P1 | P2 | Implémenté | Validé | Progression validée |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Gouvernance | 5 | 2 | 3 | 0 | 1 | 3 | 60 % |
+| Gouvernance | 5 | 2 | 3 | 0 | 2 | 3 | 60 % |
 | Prix et vintages | 3 | 0 | 3 | 0 | 1 | 0 | 0 % |
 | Univers et secteurs | 4 | 1 | 3 | 0 | 4 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 4 | 0 | 0 % |
@@ -146,7 +146,7 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Simulation | 4 | 2 | 1 | 1 | 2 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **16** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **17** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -161,7 +161,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `GOV-002` | P0 | Ajouter un garde de préfixe économique commun aux migrations sans effet économique. Dépend de `GOV-001`. | `test_economic_prefix_is_bitwise_stable` : mêmes mois, tickers, poids, rendements bruts/nets et turnover ; écart maximal `0` ou tolérance explicitement justifiée pour la sérialisation. | Validé | `3f2f8aa235329197b759f4a7d84fcc0e2700adf9` | Identique sur la baseline : écarts maximaux nuls |
 | `GOV-003` | P1 | Étendre les manifests avec commit Git, état dirty, diff hash, dépendances, interpréteur, configuration, code critique et identifiants de données. | `test_manifest_captures_complete_runtime_provenance` : échec si un champ requis est absent ou si `git_dirty` est faux alors que le worktree est sale. | Validé | `2f89e39b519355a51be569aaf118a50f9fc46d31` | Aucun ; manifests Legacy et Boosting enrichis |
 | `GOV-004` | P1 | Rendre les répertoires de run uniques et atomiques ; interdire `exist_ok=True` sur un identifiant déjà utilisé. Dépend de `GOV-003`. | `test_run_directory_cannot_be_overwritten` : un second run avec le même ID échoue avant toute écriture. | Implémenté | `56882ad1b025cc81d3239e7f0d8a45f745a92ad5` | Aucun ; réservation atomique branchée sur Legacy, backtest et multihorizon |
-| `GOV-005` | P1 | Définir promotion, rollback et supersession : pointeur canonique atomique, ancienne version conservée, motif et approbation enregistrés. | `test_promotion_is_atomic_and_reversible` : interruption simulée sans pointeur partiel ; rollback retrouve tous les hashes précédents. | À faire | — | Aucun écrasement ; nouvelle version si méthode corrigée |
+| `GOV-005` | P1 | Définir promotion, rollback et supersession : pointeur canonique atomique, ancienne version conservée, motif et approbation enregistrés. | `test_promotion_is_atomic_and_reversible` : interruption simulée sans pointeur partiel ; rollback retrouve tous les hashes précédents. | Implémenté | `b3c8e3741185b507ae83dac266b68fb87cfc7d2b` | Aucun écrasement ; toutes les versions et leurs inventaires SHA-256 restent conservés |
 
 ### B. Prix, ajustements et vintages de données
 
@@ -349,6 +349,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `FND-003` | Codex | Gate G2 | À faire | Implémenté | `c4600c55377491c7853ba63a7ac40ad5b02c9597` | Dix groupes dupliqués résolus, zéro clé restante, inversion complète de l'entrée sans effet ; 30 tests ciblés ; suite 285/285 | Priorité dépôt post-période, délai, date, accession ; lineage des candidats conservé |
 | 2026-08-17 | `FND-004` | Codex | Gate G2 | À faire | Implémenté | `00d5f1b32c485106cfdd8a04ea8eea486e449bb6` | Deux versions de filing avant/après décision ; `available_at <= decision_at` vérifié ; mutation future sans effet passé ; 2 tests ciblés ; suite 286/286 | Politique `sec-filing-availability-v1` : acceptance SEC sinon 23:59:59 New York, puis délai de 24 h ; replay v2 restant |
 | 2026-08-17 | `GOV-004` | Codex | Gate G4 | À faire | Implémenté | `56882ad1b025cc81d3239e7f0d8a45f745a92ad5` | Collision simulée avant écriture, premier contenu intact ; 3 tests ciblés ; suite 287/287 | `exist_ok=False` centralisé pour les runners Legacy, backtest et multihorizon |
+| 2026-08-17 | `GOV-005` | Codex | Gate G4 | À faire | Implémenté | `b3c8e3741185b507ae83dac266b68fb87cfc7d2b` | Interruption avant swap : pointeur bit-à-bit intact ; promotion v2 puis rollback v1 avec inventaire SHA-256 identique ; 2 tests ciblés ; suite 288/288 | Approbateur, motif, supersession et journal d'actions conservés ; aucune version supprimée |
 
 ## 12. Registre des baselines et publications
 
