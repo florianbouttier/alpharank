@@ -139,14 +139,14 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Gouvernance | 5 | 2 | 3 | 0 | 0 | 3 | 60 % |
 | Prix et vintages | 3 | 0 | 3 | 0 | 1 | 0 | 0 % |
-| Univers et secteurs | 4 | 1 | 3 | 0 | 0 | 0 | 0 % |
+| Univers et secteurs | 4 | 1 | 3 | 0 | 1 | 0 | 0 % |
 | Fondamentaux | 4 | 1 | 1 | 2 | 0 | 0 | 0 % |
 | Boosting | 6 | 3 | 3 | 0 | 3 | 0 | 0 % |
 | Legacy | 4 | 0 | 3 | 1 | 0 | 0 | 0 % |
 | Simulation | 4 | 2 | 1 | 1 | 2 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 0 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 1 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **7** | **3** | **7,3 %** |
+| **Total** | **41** | **12** | **22** | **7** | **8** | **3** | **7,3 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -175,7 +175,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 
 | ID | Criticité | Changement et dépendances | Test associé et critère d'acceptation | Statut | Commit | Effet historique |
 |---|---|---|---|---|---|---|
-| `UNI-001` | P0 | Construire l'appartenance à l'univers `as-of` à l'instant de décision à partir de la date/heure effective, sans décalage mensuel implicite. | `test_membership_effective_at_decision_time` avec VEEV, MRVL, FLEX, EA et FERG : présence exacte avant et après chaque événement. | À faire | — | Nouvelle baseline requise si les sélections changent |
+| `UNI-001` | P0 | Construire l'appartenance à l'univers `as-of` à l'instant de décision à partir de la date/heure effective, sans décalage mensuel implicite. | `test_membership_effective_at_decision_time` avec VEEV, MRVL, FLEX, EA et FERG : présence exacte avant et après chaque événement. | Implémenté | `0acf0963ec94e69a234f1f82c08055027f16eecd` | Nouvelle baseline requise : les événements intra-mois ne sont plus décalés au mois suivant |
 | `UNI-002` | P1 | Imposer une clé unique documentée pour les constituants et résoudre les doublons avec une règle déterministe et auditée. | `test_constituent_snapshot_has_unique_key` : zéro doublon non résolu ; les 214 groupes historiques détectés ont une décision traçable. | À faire | — | À mesurer ; jamais de déduplication silencieuse |
 | `UNI-003` | P1 | Ajouter provenance source, date d'observation, date effective, identifiant d'événement et niveau de confiance à chaque changement historique. | `test_membership_event_lineage_is_complete` : 100 % des événements utilisés par une décision ont une provenance et une date effective. | À faire | — | Aucun attendu si payload identique ; sinon nouvelle version |
 | `UNI-004` | P1 | Fournir une classification sectorielle point-in-time ; à défaut, désactiver la contrainte sectorielle sur les périodes non couvertes au lieu d'utiliser le secteur courant. | `test_sector_used_was_known_at_decision_date` : aucun secteur dont la date de disponibilité est postérieure à la décision ; scénario de changement de secteur inclus. | À faire | — | Nouvelle baseline Legacy probable |
@@ -340,6 +340,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-17 | `BST-003` | Codex | Gate G1 | À faire | Implémenté | `34df93c7f99ff1f3961bc36b1d1b4f9422e38ce1` | Artefact audité reclassé : 84 443 évaluables, 3 008 horizons en attente, 1 497 cibles titre indisponibles ; test ciblé 25/25 ; suite 276/276 | Plus aucun drop générique : census par fold, entraînement fail-closed sur toute cible mature benchmark/titre/terminale non résolue ; replay v2 restant |
 | 2026-08-17 | `SIM-004` | Codex | Gate G1 | À faire | Implémenté | `5b96074747c94058693607bdd7b5ef828aaa4804` | 46 tests ciblés ; suite 277/277 ; test signal/exécution/première observation et événement terminal résolu | Le défaut exige cinq timestamps causaux ; tous les replays historiques déclarent explicitement le mode `legacy_month_only` non promouvable ; replay v2 restant |
 | 2026-08-17 | `QA-001` | Codex | Gate G1 | À faire | Implémenté | `68a1f557aeb146b5a1f031570c67086ef86d5365` | Mutation séparée cible/prix/membership/secteur/filing ; test d'acceptation 1/1 ; suite 278/278 | Garde transversal et join PIT auditable ajoutés ; validation finale dépend du branchement de toutes les sources UNI/FND et du replay v2 |
+| 2026-08-17 | `UNI-001` | Codex | Gate G2 | À faire | Implémenté | `0acf0963ec94e69a234f1f82c08055027f16eecd` | VEEV, MRVL, FLEX, EA et FERG testés juste avant/à l'instant effectif ; 4 tests ciblés ; suite 279/279 | Heure explicite ou minuit New York ; snapshots mensuels rapprochés à la décision de fin de mois ; replay v2 restant |
 
 ## 12. Registre des baselines et publications
 
