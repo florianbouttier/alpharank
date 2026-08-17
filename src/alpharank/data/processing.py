@@ -309,6 +309,40 @@ class FundamentalProcessor :
         return [pl.col(col).sort_by(sort_exprs).last().alias(col) for col in columns]
 
     @staticmethod
+    def _four_distinct_quarters_ready() -> "pl.Expr":
+        quarter_index = (
+            pl.col("quarter_end").dt.year() * 4
+            + ((pl.col("quarter_end").dt.month() - 1) // 3)
+        )
+        return (quarter_index - quarter_index.shift(3)).over("ticker") == 3
+
+    @staticmethod
+    def _four_quarter_sum(column: str, alias: str) -> "pl.Expr":
+        return (
+            pl.when(FundamentalProcessor._four_distinct_quarters_ready())
+            .then(
+                pl.col(column)
+                .rolling_sum(window_size=4, min_samples=4)
+                .over("ticker")
+            )
+            .otherwise(None)
+            .alias(alias)
+        )
+
+    @staticmethod
+    def _four_quarter_mean(column: str, alias: str) -> "pl.Expr":
+        return (
+            pl.when(FundamentalProcessor._four_distinct_quarters_ready())
+            .then(
+                pl.col(column)
+                .rolling_mean(window_size=4, min_samples=4)
+                .over("ticker")
+            )
+            .otherwise(None)
+            .alias(alias)
+        )
+
+    @staticmethod
     def calculate_fundamental_ratios(
         balance: pd.DataFrame, 
         cashflow: pd.DataFrame, 
@@ -377,7 +411,9 @@ class FundamentalProcessor :
             .sort(['ticker', 'quarter_end'])
         )
         pl_balance = pl_balance.with_columns([
-            pl.col(col).rolling_mean(window_size=4, min_samples=1).over('ticker').alias(f"{col.lower()}_rolling")
+            FundamentalProcessor._four_quarter_mean(
+                col, f"{col.lower()}_rolling"
+            )
             for col in balance_cols_to_roll
         ])
 
@@ -396,7 +432,9 @@ class FundamentalProcessor :
             .filter(pl.col('epsActual').is_not_null())
             .sort(['ticker', 'quarter_end'])
             .with_columns(
-                (pl.col('epsActual').rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias('epsactual_rolling')
+                FundamentalProcessor._four_quarter_sum(
+                    'epsActual', 'epsactual_rolling'
+                )
             )
         )
 
@@ -418,7 +456,9 @@ class FundamentalProcessor :
             for col in income_cols_to_annualize
         ])
         pl_income = pl_income.with_columns([
-            (pl.col(col).rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias(f"{col.lower()}_rolling")
+            FundamentalProcessor._four_quarter_sum(
+                col, f"{col.lower()}_rolling"
+            )
             for col in income_cols_to_annualize
         ])
 
@@ -436,7 +476,9 @@ class FundamentalProcessor :
             .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_cash', 'freeCashFlow'], cash_order_cols))
             .sort(['ticker', 'quarter_end'])
             .with_columns(
-                (pl.col('freeCashFlow').rolling_mean(window_size=4, min_samples=1).over('ticker') * 4.0).alias('freecashflow_rolling')
+                FundamentalProcessor._four_quarter_sum(
+                    'freeCashFlow', 'freecashflow_rolling'
+                )
             )
         )
 

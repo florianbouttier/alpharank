@@ -140,3 +140,9 @@ n'est autorisé. L'exclusion ne reçoit ni rendement futur ni statut de survie e
 produit un statut par ticker-mois ainsi qu'un rapport de couverture par année.
 Les 3 023 ticker-mois et 62 tickers constatés dans la baseline auditée doivent
 être recalculés par le replay `v2`, pas copiés comme une constante de décision.
+
+Les métriques de flux TTM (`revenue`, résultats, EBITDA, FCF et EPS) sont des
+sommes de quatre trimestres fiscaux distincts et contigus. Les moyennes de bilan
+utilisées par les ratios exigent la même fenêtre complète. Une fenêtre de un à
+trois trimestres, ou quatre observations séparées par un trimestre manquant,
+reste indisponible : elle n'est jamais extrapolée en la multipliant par quatre.

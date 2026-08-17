@@ -133,8 +133,80 @@ def test_pe_ratios_are_deterministic_for_same_day_fundamental_filings() -> None:
 
     pd.testing.assert_frame_equal(forward, reversed_input)
 
-    assert forward["ticker"].to_list() == ["AAA.US"]
-    row = forward.iloc[0]
-    assert row["year_month"] == "2020-05"
-    assert row["market_cap"] == pytest.approx(150.0)
-    assert row["pe"] == pytest.approx(2.5)
+    assert forward.empty
+
+
+def test_ttm_requires_four_distinct_quarters() -> None:
+    dates = ["2020-03-31", "2020-06-30", "2020-09-30", "2020-12-31"]
+    filing_dates = ["2020-05-01", "2020-08-01", "2020-11-01", "2021-02-01"]
+    base = {
+        "ticker": ["AAA.US"] * 4,
+        "date": dates,
+        "filing_date": filing_dates,
+    }
+    balance = pd.DataFrame(
+        base
+        | {
+            "commonStockSharesOutstanding": [10.0] * 4,
+            "totalStockholderEquity": [100.0] * 4,
+            "netDebt": [0.0] * 4,
+            "totalAssets": [100.0] * 4,
+            "cashAndShortTermInvestments": [0.0] * 4,
+        }
+    )
+    income = pd.DataFrame(
+        base
+        | {
+            "totalRevenue": [10.0, 20.0, 30.0, 40.0],
+            "grossProfit": [5.0, 10.0, 15.0, 20.0],
+            "operatingIncome": [1.0, 2.0, 3.0, 4.0],
+            "incomeBeforeTax": [1.0, 2.0, 3.0, 4.0],
+            "netIncome": [1.0, 2.0, 3.0, 4.0],
+            "ebit": [1.0, 2.0, 3.0, 4.0],
+            "ebitda": [1.0, 2.0, 3.0, 4.0],
+        }
+    )
+    cashflow = pd.DataFrame(base | {"freeCashFlow": [1.0, 2.0, 3.0, 4.0]})
+    earnings = pd.DataFrame(
+        {
+            "ticker": ["AAA.US"] * 4,
+            "date": dates,
+            "reportDate": filing_dates,
+            "epsActual": [0.1, 0.2, 0.3, 0.4],
+        }
+    )
+
+    result = FundamentalProcessor.calculate_fundamental_ratios(
+        balance=balance,
+        cashflow=cashflow,
+        income=income,
+        earnings=earnings,
+        list_kpi_toincrease=[],
+        list_ratios_toincrease=[],
+        list_kpi_toaccelerate=[],
+        list_lag_increase=[],
+        list_ratios_to_augment=[],
+        list_date_to_maximise=["filing_date_income", "filing_date_balance"],
+        backend="polars",
+    ).sort_values("quarter_end")
+
+    assert result["totalrevenue_rolling"].iloc[:3].isna().all()
+    assert result["totalrevenue_rolling"].iloc[3] == pytest.approx(100.0)
+    assert result["freecashflow_rolling"].iloc[3] == pytest.approx(10.0)
+    assert result["epsactual_rolling"].iloc[3] == pytest.approx(1.0)
+
+    missing_quarter = income[income["date"] != "2020-09-30"]
+    incomplete = FundamentalProcessor.calculate_fundamental_ratios(
+        balance=balance[balance["date"] != "2020-09-30"],
+        cashflow=cashflow[cashflow["date"] != "2020-09-30"],
+        income=missing_quarter,
+        earnings=earnings[earnings["date"] != "2020-09-30"],
+        list_kpi_toincrease=[],
+        list_ratios_toincrease=[],
+        list_kpi_toaccelerate=[],
+        list_lag_increase=[],
+        list_ratios_to_augment=[],
+        list_date_to_maximise=["filing_date_income", "filing_date_balance"],
+        backend="polars",
+    )
+    assert incomplete["totalrevenue_rolling"].isna().all()
