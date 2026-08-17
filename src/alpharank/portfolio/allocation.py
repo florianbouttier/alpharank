@@ -6,16 +6,58 @@ import numpy as np
 import polars as pl
 
 
-def portfolio_turnover(previous: Mapping[str, float], current: Mapping[str, float]) -> float:
-    """One-way turnover using half the L1 change in portfolio weights."""
+CASH_WEIGHT_KEY = "__CASH__"
 
-    if not previous:
-        return 1.0 if current else 0.0
-    names = set(previous) | set(current)
+
+def portfolio_turnover(previous: Mapping[str, float], current: Mapping[str, float]) -> float:
+    """One-way turnover using half the L1 change, including residual cash."""
+
+    previous_complete = _weights_with_residual_cash(previous, empty_is_cash=True)
+    current_complete = _weights_with_residual_cash(current, empty_is_cash=False)
+    names = set(previous_complete) | set(current_complete)
     return 0.5 * sum(
-        abs(float(current.get(name, 0.0)) - float(previous.get(name, 0.0)))
+        abs(
+            float(current_complete.get(name, 0.0))
+            - float(previous_complete.get(name, 0.0))
+        )
         for name in names
     )
+
+
+def drifted_weights_after_returns(
+    target_weights: Mapping[str, float],
+    realized_returns: Mapping[str, float],
+) -> dict[str, float]:
+    """Derive end-of-period weights before the next rebalance."""
+
+    complete = _weights_with_residual_cash(target_weights, empty_is_cash=False)
+    values: dict[str, float] = {}
+    for name, weight in complete.items():
+        realized = 0.0 if name == CASH_WEIGHT_KEY else float(realized_returns[name])
+        if not np.isfinite(realized) or realized < -1.0:
+            raise ValueError(f"Invalid realized return for drifted weight: {name}={realized}")
+        values[name] = float(weight) * (1.0 + realized)
+    total = sum(values.values())
+    if not np.isfinite(total) or total <= 0.0:
+        raise ValueError("Portfolio wealth must remain positive after realized returns.")
+    return {name: value / total for name, value in values.items() if value != 0.0}
+
+
+def _weights_with_residual_cash(
+    weights: Mapping[str, float], *, empty_is_cash: bool
+) -> dict[str, float]:
+    normalized = {str(name): float(weight) for name, weight in weights.items()}
+    if not normalized and empty_is_cash:
+        return {CASH_WEIGHT_KEY: 1.0}
+    if any(not np.isfinite(weight) or weight < 0.0 for weight in normalized.values()):
+        raise ValueError("Portfolio weights must be finite and non-negative.")
+    invested = sum(normalized.values())
+    if invested > 1.0 + 1e-9:
+        raise ValueError("Portfolio weights cannot exceed one including cash.")
+    normalized[CASH_WEIGHT_KEY] = normalized.get(CASH_WEIGHT_KEY, 0.0) + max(
+        0.0, 1.0 - invested
+    )
+    return normalized
 
 
 def equal_weights(size: int) -> np.ndarray:

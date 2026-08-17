@@ -8,7 +8,10 @@ import pytest
 
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
-from alpharank.portfolio.allocation import portfolio_turnover
+from alpharank.portfolio.allocation import (
+    drifted_weights_after_returns,
+    portfolio_turnover,
+)
 from alpharank.portfolio.comparison import align_return_series
 from alpharank.portfolio.contracts import validate_holdings
 from alpharank.portfolio.performance import (
@@ -390,6 +393,38 @@ def test_turnover_and_period_alignment_are_explicit() -> None:
     assert aligned.to_dicts() == [
         {"holding_month": date(2020, 2, 1), "alpha": 0.02, "legacy": 0.03}
     ]
+
+
+def test_turnover_uses_drifted_pretrade_weights() -> None:
+    drifted = drifted_weights_after_returns(
+        {"A": 0.5, "B": 0.5}, {"A": 1.0, "B": 0.0}
+    )
+    assert drifted == pytest.approx({"A": 2.0 / 3.0, "B": 1.0 / 3.0})
+    assert portfolio_turnover(drifted, {"A": 0.5, "B": 0.5}) == pytest.approx(
+        1.0 / 6.0
+    )
+    assert portfolio_turnover(drifted, {"A": 0.5, "C": 0.5}) == pytest.approx(
+        0.5
+    )
+    assert portfolio_turnover({"A": 0.8}, {"A": 0.8}) == pytest.approx(0.0)
+
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["alpha"] * 4,
+            "decision_month": [date(2020, 1, 1)] * 2
+            + [date(2020, 2, 1)] * 2,
+            "holding_month": [date(2020, 2, 1)] * 2
+            + [date(2020, 3, 1)] * 2,
+            "ticker": ["A", "B", "A", "B"],
+            "target_weight": [0.5, 0.5, 0.5, 0.5],
+            "realized_return": [1.0, 0.0, 0.0, 0.0],
+            "benchmark_return": [0.0] * 4,
+        }
+    )
+    monthly = simulate_weighted_portfolio(
+        holdings, causal_timing_policy="legacy_month_only"
+    )
+    assert monthly["turnover"].to_list() == pytest.approx([1.0, 1.0 / 6.0])
 
 
 def test_common_performance_excludes_partial_years_from_worst_year() -> None:

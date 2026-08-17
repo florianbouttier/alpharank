@@ -170,3 +170,9 @@ atomiquement. Il conserve l'inventaire SHA-256 de chaque version, l'approbateur,
 le motif et le journal promotion/rollback. Une version précédente devient
 `superseded` mais son dossier n'est ni déplacé ni supprimé. Un rollback recalcule
 tous ses hashes avant de la réactiver et refuse toute version modifiée.
+
+Le turnover commun compare la nouvelle cible aux poids de pré-trade dérivés de
+la performance de la période précédente, et non à l'ancienne cible. Le calcul
+inclut le cash résiduel dans les deux vecteurs et traite toute entrée, sortie ou
+perte totale dans la même demi-distance L1. Le premier investissement part d'un
+portefeuille 100 % cash.

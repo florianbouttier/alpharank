@@ -3,7 +3,10 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from alpharank.portfolio.allocation import portfolio_turnover
+from alpharank.portfolio.allocation import (
+    drifted_weights_after_returns,
+    portfolio_turnover,
+)
 from alpharank.portfolio.contracts import (
     empty_monthly_returns,
     validate_causal_timing,
@@ -48,7 +51,7 @@ def simulate_weighted_portfolio(
             validate_causal_timing(holdings)
 
     rows: list[dict[str, object]] = []
-    previous_by_strategy: dict[str, dict[str, float]] = {}
+    pretrade_by_strategy: dict[str, dict[str, float]] = {}
     ordered = holdings.sort(["strategy", "decision_month", "ticker"])
     for month in ordered.partition_by(
         ["strategy", "decision_month", "holding_month"],
@@ -58,7 +61,7 @@ def simulate_weighted_portfolio(
         target_weights = month["target_weight"].to_numpy().astype(float)
         tickers = month["ticker"].to_list()
         current = dict(zip(tickers, target_weights, strict=True))
-        turnover = portfolio_turnover(previous_by_strategy.get(strategy, {}), current)
+        turnover = portfolio_turnover(pretrade_by_strategy.get(strategy, {}), current)
 
         realized = month["realized_return"].to_numpy().astype(float)
         available = np.isfinite(realized)
@@ -118,7 +121,15 @@ def simulate_weighted_portfolio(
                 "sector_count": sector_count,
             }
         )
-        previous_by_strategy[strategy] = current
+        drift_returns = {
+            ticker: float(realized_return) if is_available else 0.0
+            for ticker, realized_return, is_available in zip(
+                tickers, realized, available, strict=True
+            )
+        }
+        pretrade_by_strategy[strategy] = drifted_weights_after_returns(
+            current, drift_returns
+        )
 
     result = pl.DataFrame(rows).sort(["strategy", "decision_month"])
     if validate:
