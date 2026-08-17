@@ -219,3 +219,12 @@ avec son lineage, puis compare avant promotion le SHA-256, le nombre de lignes,
 le nombre de clés uniques et le hash canonique de toutes les séries du fichier
 `US_Finalprice.parquet`. Le validateur rejoue ces contrôles depuis le snapshot
 publié ; une différence de transport, de clé ou de valeur bloque la promotion.
+
+## Cap sectoriel Legacy point-in-time
+
+Legacy résout désormais la classification de chaque candidat à l'instant de
+décision via le contrat `UNI-004`. Le cap est appliqué avant la sélection finale
+uniquement lorsque tous les candidats du mois disposent d'une classification
+complète, observée et effective avant l'ordre. Une table statique de secteurs
+courants, une classification future ou une couverture partielle désactive le
+cap pour toute la date et laisse une raison explicite dans les sorties.

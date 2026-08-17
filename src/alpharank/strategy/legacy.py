@@ -3,6 +3,10 @@ import numpy as np
 #from .data_preprocessing import DataPreprocessor
 #from .fundamentals import FundamentalAnalyzer
 from alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
+from alpharank.data.sector_history import (
+    SECTOR_HISTORY_LINEAGE_COLUMNS,
+    resolve_point_in_time_sectors,
+)
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
@@ -31,6 +35,57 @@ except Exception:  # pragma: no cover - optional dependency
     pl = None
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+
+def _attach_legacy_sector_policy(
+    candidates: "pl.DataFrame", sector: pd.DataFrame
+) -> "pl.DataFrame":
+    """Attach only sectors that were known before the Legacy order boundary."""
+
+    decision_candidates = candidates.with_columns(
+        pl.col("year_month")
+        .cast(pl.Datetime)
+        .dt.replace_time_zone("UTC")
+        .alias("decision_at")
+    )
+    required_history = {
+        "ticker",
+        "Sector",
+        *SECTOR_HISTORY_LINEAGE_COLUMNS,
+    }
+    if required_history.issubset(sector.columns):
+        decisions = decision_candidates.select("ticker", "decision_at").unique()
+        resolved = resolve_point_in_time_sectors(
+            decisions,
+            to_polars(sector),
+        ).select(
+            "ticker",
+            "decision_at",
+            "Sector",
+            "sector_constraint_enabled",
+            "sector_constraint_reason",
+            "sector_known_at_selected",
+            "classification_id",
+        )
+        return decision_candidates.join(
+            resolved,
+            on=["ticker", "decision_at"],
+            how="left",
+        )
+
+    return decision_candidates.with_columns(
+        pl.lit(None).cast(pl.String).alias("Sector"),
+        pl.lit(False).alias("sector_constraint_enabled"),
+        pl.lit("disabled_no_point_in_time_sector_history").alias(
+            "sector_constraint_reason"
+        ),
+        pl.lit(None)
+        .cast(pl.Datetime(time_zone="UTC"))
+        .alias("sector_known_at_selected"),
+        pl.lit(None).cast(pl.String).alias("classification_id"),
+    )
+
+
 # %%
 class StrategyLearner:
     """Apprentissage et backtest des stratégies techniques et fondamentales."""
@@ -211,18 +266,21 @@ class StrategyLearner:
         index_monthly = normalize_year_month_to_timestamp(index.monthly_returns[['year_month', 'monthly_return']], col="year_month")
         pl_fit = to_polars(fit_df)
         pl_filter = to_polars(filter_df)
-        pl_sector = to_polars(sector[['ticker', 'Sector']])
+        candidates = pl_fit.join(pl_filter, on=['year_month', 'ticker'], how='inner')
+        candidates = _attach_legacy_sector_policy(candidates, sector)
 
         selected = (
-            pl_fit.join(pl_filter, on=['year_month', 'ticker'], how='inner')
-            .join(pl_sector, on='ticker', how='left')
+            candidates
             .sort(['year_month', 'n_long', 'n_short', 'n_asset', 'Sector', 'quantile_mtr', 'ticker'], descending=[False, False, False, False, False, True, False])
             .with_columns(
                 pl.col('quantile_mtr').rank(method='ordinal', descending=True).over(
                     ['year_month', 'n_long', 'n_short', 'n_asset', 'Sector']
                 ).alias('_rk_sector')
             )
-            .filter(pl.col('_rk_sector') <= int(params['n_max_per_sector']))
+            .filter(
+                (~pl.col('sector_constraint_enabled'))
+                | (pl.col('_rk_sector') <= int(params['n_max_per_sector']))
+            )
             .sort(['year_month', 'n_long', 'n_short', 'n_asset', 'quantile_mtr', 'ticker'], descending=[False, False, False, False, True, False])
             .with_columns(
                 pl.col('quantile_mtr').rank(method='ordinal', descending=True).over(
@@ -262,6 +320,8 @@ class StrategyLearner:
             .agg(
                 pl.col('dr').mean().alias('dr'),
                 pl.col('dr').len().alias('n'),
+                pl.col('sector_constraint_enabled').first(),
+                pl.col('sector_constraint_reason').first(),
             )
             .join(to_polars(index_monthly), on='year_month', how='left')
             .with_columns([
@@ -280,6 +340,8 @@ class StrategyLearner:
             'n',
             'monthly_return_index',
             'monthly_return_vs_index',
+            'sector_constraint_enabled',
+            'sector_constraint_reason',
         ).filter(pl.col('monthly_return_vs_index').is_not_null())
 
         if summary.height == 0:
