@@ -97,6 +97,9 @@ def empty_earnings_lineage_frame() -> pl.DataFrame:
             "form": pl.String,
             "fiscal_period": pl.String,
             "fiscal_year": pl.Int64,
+            "calendar_duplicate_count": pl.UInt32,
+            "calendar_candidate_accessions": pl.List(pl.String),
+            "calendar_resolution_rule": pl.String,
             "candidate_sources": pl.String,
             "calendar_source": pl.String,
             "actual_source": pl.String,
@@ -115,6 +118,79 @@ def empty_earnings_lineage_frame() -> pl.DataFrame:
             "selected_epsEstimate": pl.Float64,
             "selected_surprisePercent": pl.Float64,
         }
+    )
+
+
+def resolve_earnings_calendar_duplicates(
+    sec_calendar: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Enforce the canonical calendar key and retain every duplicate decision."""
+
+    if sec_calendar.is_empty():
+        audit = pl.DataFrame(
+            schema={
+                "ticker": pl.String,
+                "period_end": pl.String,
+                "calendar_duplicate_count": pl.UInt32,
+                "calendar_candidate_accessions": pl.List(pl.String),
+                "calendar_resolution_rule": pl.String,
+            }
+        )
+        return sec_calendar, audit
+    required = {"ticker", "period_end", "reportDate", "accession_number"}
+    missing = sorted(required - set(sec_calendar.columns))
+    if missing:
+        raise ValueError("SEC earnings calendar is missing: " + ", ".join(missing))
+
+    rule = "valid_post_period_report_then_shortest_lag_then_accession"
+    prioritized = sec_calendar.with_columns(
+        pl.col("period_end").cast(pl.Date, strict=False).alias("_period_end_dt"),
+        pl.col("reportDate").cast(pl.Date, strict=False).alias("_report_date_dt"),
+    ).with_columns(
+        pl.when(
+            pl.col("_period_end_dt").is_not_null()
+            & pl.col("_report_date_dt").is_not_null()
+            & (pl.col("_report_date_dt") >= pl.col("_period_end_dt"))
+        )
+        .then(pl.lit(0))
+        .otherwise(pl.lit(1))
+        .alias("_timing_penalty"),
+        pl.when(
+            pl.col("_period_end_dt").is_not_null()
+            & pl.col("_report_date_dt").is_not_null()
+            & (pl.col("_report_date_dt") >= pl.col("_period_end_dt"))
+        )
+        .then((pl.col("_report_date_dt") - pl.col("_period_end_dt")).dt.total_days())
+        .otherwise(pl.lit(99999))
+        .alias("_lag_days"),
+    )
+    audit_all = prioritized.group_by(["ticker", "period_end"]).agg(
+        pl.len().cast(pl.UInt32).alias("calendar_duplicate_count"),
+        pl.col("accession_number")
+        .drop_nulls()
+        .unique()
+        .sort()
+        .alias("calendar_candidate_accessions"),
+        pl.lit(rule).alias("calendar_resolution_rule"),
+    )
+    selected = (
+        prioritized.sort(
+            [
+                "ticker",
+                "period_end",
+                "_timing_penalty",
+                "_lag_days",
+                "reportDate",
+                "accession_number",
+            ]
+        )
+        .unique(subset=["ticker", "period_end"], keep="first", maintain_order=True)
+        .drop("_period_end_dt", "_report_date_dt", "_timing_penalty", "_lag_days")
+        .join(audit_all, on=["ticker", "period_end"], how="left")
+        .sort(["ticker", "period_end"])
+    )
+    return selected, audit_all.filter(pl.col("calendar_duplicate_count") > 1).sort(
+        ["ticker", "period_end"]
     )
 
 
@@ -439,10 +515,8 @@ def consolidate_earnings(
         empty = empty_earnings_consolidated_frame()
         return empty, empty_earnings_lineage_frame(), empty_earnings_long_frame()
 
-    calendar = (
-        sec_calendar.sort(["ticker", "period_end", "reportDate", "accession_number"])
-        .unique(subset=["ticker", "period_end"], keep="first", maintain_order=True)
-        .sort(["ticker", "period_end"])
+    calendar, _calendar_duplicate_audit = resolve_earnings_calendar_duplicates(
+        sec_calendar
     )
     yahoo_matches = _match_yahoo_to_sec_calendar(sec_calendar=calendar, yahoo_earnings=yahoo_earnings, tolerance_days=match_tolerance_days)
     calendar = calendar.rename({"reportDate": "sec_reportDate", "earningsDatetime": "sec_earningsDatetime"})
@@ -639,6 +713,9 @@ def consolidate_earnings(
                 "form",
                 "fiscal_period",
                 "fiscal_year",
+                "calendar_duplicate_count",
+                "calendar_candidate_accessions",
+                "calendar_resolution_rule",
                 "candidate_sources",
                 "calendar_source",
                 "actual_source",

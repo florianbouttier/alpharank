@@ -146,3 +146,9 @@ sommes de quatre trimestres fiscaux distincts et contigus. Les moyennes de bilan
 utilisées par les ratios exigent la même fenêtre complète. Une fenêtre de un à
 trois trimestres, ou quatre observations séparées par un trimestre manquant,
 reste indisponible : elle n'est jamais extrapolée en la multipliant par quatre.
+
+Le calendrier earnings a pour clé canonique `(ticker, period_end)`. En cas de
+doublon SEC, la sélection préfère un dépôt daté après la fin de période, puis le
+délai le plus court, puis la date et l'accession lexicographiquement. Le lineage
+conserve le nombre de candidats, toutes les accessions et l'identifiant de cette
+règle ; l'ordre d'arrivée des lignes ne peut donc pas modifier le résultat.

@@ -10,6 +10,7 @@ from alpharank.data.open_source.earnings import (
     build_sec_companyfacts_earnings_actuals,
     consolidate_earnings,
     empty_earnings_calendar_frame,
+    resolve_earnings_calendar_duplicates,
 )
 from alpharank.data.open_source.ingestion import (
     _canonicalize_price_tickers,
@@ -31,6 +32,56 @@ from alpharank.data.open_source.sec_filing import (
     _infer_fiscal_period,
     _parse_atom_filings,
 )
+
+
+def test_earnings_calendar_key_is_unique() -> None:
+    rows: list[dict[str, object]] = []
+    for index in range(10):
+        ticker = f"T{index:02d}.US"
+        period_end = f"2025-{index + 1:02d}-15"
+        rows.extend(
+            [
+                {
+                    "ticker": ticker,
+                    "period_end": period_end,
+                    "reportDate": "2025-01-01",
+                    "earningsDatetime": "2025-01-01 00:00:00",
+                    "accession_number": f"bad-{index:02d}",
+                    "form": "10-Q",
+                    "fiscal_period": "Q1",
+                    "fiscal_year": 2025,
+                    "source": "sec_submissions",
+                    "source_label": "invalid_pre_period",
+                },
+                {
+                    "ticker": ticker,
+                    "period_end": period_end,
+                    "reportDate": f"2025-{index + 1:02d}-20",
+                    "earningsDatetime": f"2025-{index + 1:02d}-20 00:00:00",
+                    "accession_number": f"good-{index:02d}",
+                    "form": "10-Q",
+                    "fiscal_period": "Q1",
+                    "fiscal_year": 2025,
+                    "source": "sec_submissions",
+                    "source_label": "valid_post_period",
+                },
+            ]
+        )
+
+    selected, audit = resolve_earnings_calendar_duplicates(pl.DataFrame(rows))
+    reversed_selected, reversed_audit = resolve_earnings_calendar_duplicates(
+        pl.DataFrame(list(reversed(rows)))
+    )
+
+    assert selected.height == 10
+    assert selected.select("ticker", "period_end").n_unique() == 10
+    assert selected["accession_number"].to_list() == [
+        f"good-{index:02d}" for index in range(10)
+    ]
+    assert audit.height == 10
+    assert set(audit["calendar_duplicate_count"]) == {2}
+    assert selected.equals(reversed_selected)
+    assert audit.equals(reversed_audit)
 
 
 def test_consolidate_earnings_prefers_sec_calendar_and_yahoo_market_fields() -> None:
