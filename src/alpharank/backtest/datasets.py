@@ -201,18 +201,8 @@ def build_model_frame(
         ]
     )
 
-    frame, kept_features, dropped_features = _drop_sparse_features(
-        frame,
-        candidate_features,
-        max_missing_ratio=missing_feature_threshold,
-    )
-
-    if not kept_features:
-        raise ValueError(
-            "All candidate features were dropped due to missing ratio. "
-            "Increase --missing-feature-threshold or adjust feature engineering."
-        )
-
-    frame = _impute_feature_nulls(frame, kept_features)
-
-    return frame, kept_features, dropped_features
+    # Sparse filtering and imputation are intentionally deferred to each outer
+    # fold. Using the full frame here would let validation/test availability
+    # influence both the retained columns and their fallback medians.
+    _ = missing_feature_threshold
+    return frame, candidate_features, []

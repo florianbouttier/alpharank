@@ -183,3 +183,9 @@ exprimée en fraction de NAV, leur somme rapproche exactement
 `transaction_cost`, et `net_return = gross_return - transaction_cost`. Un
 scénario nul reproduit strictement le brut ; augmenter les paramètres ne peut
 pas améliorer le net.
+
+Le chemin R&D `run_backtest` conserve désormais la matrice brute jusqu'au fold
+externe. Le filtre de colonnes trop creuses et les médianes de repli sont appris
+sur le train de ce fold seulement, puis sérialisés dans
+`fold_XX/preprocessor.json`. Les lignes de validation ou test ne peuvent donc
+modifier ni la liste de features ni les valeurs d'imputation du passé.

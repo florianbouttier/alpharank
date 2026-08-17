@@ -49,6 +49,10 @@ from alpharank.backtest.reporting import (
     write_html_report,
 )
 from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows, walk_forward_windows
+from alpharank.multihorizon.preprocessing import (
+    FoldPreprocessor,
+    fit_fold_preprocessor,
+)
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 
@@ -125,6 +129,19 @@ def _feature_matrix(df: pl.DataFrame, feature_cols: List[str]) -> np.ndarray:
     return df.select(feature_cols).to_numpy()
 
 
+def _fit_outer_fold_preprocessor(
+    train_df: pl.DataFrame,
+    candidate_features: List[str],
+    *,
+    max_missing_ratio: float,
+) -> FoldPreprocessor:
+    return fit_fold_preprocessor(
+        train_df,
+        candidate_features,
+        max_missing_ratio=max_missing_ratio,
+    )
+
+
 def _positive_rate(y: np.ndarray) -> float:
     if y.size == 0:
         return 0.0
@@ -140,6 +157,8 @@ def _save_fold_learning_outputs(
     fold_predictions: pl.DataFrame,
     trials_rows: List[Dict[str, Any]],
     best_params: Dict[str, Any],
+    preprocessor: FoldPreprocessor,
+    candidate_features: List[str],
 ) -> None:
     fold_dir.mkdir(parents=True, exist_ok=True)
     fold_predictions.write_parquet(fold_dir / "predictions.parquet")
@@ -150,6 +169,22 @@ def _save_fold_learning_outputs(
         pl.DataFrame({"trial_number": [], "objective": []}).write_csv(fold_dir / "optuna_trials.csv")
 
     (fold_dir / "best_params.json").write_text(json.dumps(best_params, indent=2), encoding="utf-8")
+    (fold_dir / "preprocessor.json").write_text(
+        json.dumps(
+            {
+                "fit_scope": "outer_train_only",
+                "features": list(preprocessor.features),
+                "dropped_features": sorted(
+                    set(candidate_features) - set(preprocessor.features)
+                ),
+                "global_medians": preprocessor.global_medians,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _empty_predictions() -> pl.DataFrame:
@@ -809,6 +844,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     fold_index_rows: List[Dict[str, Any]] = []
     best_param_rows: List[Dict[str, Any]] = []
     fold_assets: List[Dict[str, Any]] = []
+    fold_features_seen: set[str] = set()
     shap_explanations: List[ShapFoldExplanation] = []
     warm_start_params = _load_warm_start_params(config)
     if config.verbose and warm_start_params:
@@ -922,9 +958,16 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 )
             continue
 
-        X_train = _feature_matrix(train_df, features_used)
-        X_val = _feature_matrix(val_df, features_used)
-        X_test = _feature_matrix(test_df, features_used)
+        preprocessor = _fit_outer_fold_preprocessor(
+            train_df,
+            features_used,
+            max_missing_ratio=config.missing_feature_threshold,
+        )
+        fold_features = list(preprocessor.features)
+        fold_features_seen.update(fold_features)
+        train_df, X_train = preprocessor.transform(train_df)
+        val_df, X_val = preprocessor.transform(val_df)
+        test_df, X_test = preprocessor.transform(test_df)
 
         y_train = _binary_target(train_df, config.outperformance_threshold)
         y_val = _binary_target(val_df, config.outperformance_threshold)
@@ -1020,6 +1063,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             fold_predictions=fold_predictions,
             trials_rows=tuned.trials_df,
             best_params=tuned.best_params,
+            preprocessor=preprocessor,
+            candidate_features=features_used,
         )
 
         fold_plot_assets: Dict[str, Any] = {"__label__": fold_label}
@@ -1104,7 +1149,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         shap_artifacts = collect_shap_explanation(
             model=tuned.model,
             X_test=X_test,
-            feature_names=features_used,
+            feature_names=fold_features,
             out_dir=fold_dir,
             fold_label=fold_label,
             max_samples=config.shap_sample_size,
@@ -1168,6 +1213,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     fold_index = pl.DataFrame(fold_index_rows) if fold_index_rows else _empty_fold_index()
     best_params = pl.DataFrame(best_param_rows) if best_param_rows else pl.DataFrame(schema={"fold": pl.Int64})
 
+    retained_features = sorted(fold_features_seen)
+    fold_dropped_features = sorted(set(features_used) - fold_features_seen)
     return LearningArtifacts(
         run_dir=run_dir,
         figures_dir=figures_dir,
@@ -1176,8 +1223,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         fold_metrics=fold_metrics,
         fold_index=fold_index,
         best_params=best_params,
-        features_used=features_used,
-        dropped_features=dropped_features,
+        features_used=retained_features,
+        dropped_features=sorted(set(dropped_features) | set(fold_dropped_features)),
         fold_assets=fold_assets,
         shap_explanations=shap_explanations,
         total_windows=total_windows,
