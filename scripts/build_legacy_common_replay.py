@@ -70,7 +70,11 @@ def build_replay(
         ).filter(pl.col("benchmark_return").is_not_null())
         holdings_parts.append(holdings)
         monthly_parts.append(
-            simulate_weighted_portfolio(holdings, transaction_cost_bps=0.0)
+            simulate_weighted_portfolio(
+                holdings,
+                transaction_cost_bps=0.0,
+                causal_timing_policy="legacy_month_only",
+            )
         )
     holdings = pl.concat(holdings_parts, how="diagonal_relaxed")
     monthly = pl.concat(monthly_parts, how="diagonal_relaxed")

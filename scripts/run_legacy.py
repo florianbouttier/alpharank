@@ -1015,6 +1015,7 @@ def run_pipeline(
             simulate_weighted_portfolio(
                 strategy_holdings,
                 transaction_cost_bps=0.0,
+                causal_timing_policy="legacy_month_only",
             )
             for strategy_holdings in common_holdings.partition_by(
                 "strategy",

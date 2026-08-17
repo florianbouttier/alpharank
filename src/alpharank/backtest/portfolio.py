@@ -52,6 +52,7 @@ def compute_monthly_portfolio_returns(selections: pl.DataFrame) -> pl.DataFrame:
             "benchmark_return",
         ),
         transaction_cost_bps=0.0,
+        causal_timing_policy="legacy_month_only",
     )
     hit_rate = selections.group_by("holding_month").agg(
         pl.mean("target_label").fill_null(0.0).alias("hit_rate")

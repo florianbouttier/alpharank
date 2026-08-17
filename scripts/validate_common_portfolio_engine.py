@@ -61,6 +61,7 @@ def validate_legacy(
             # This validator reproduces the frozen historical Legacy baseline.
             # New simulations fail closed on missing selected returns by default.
             missing_return_policy="renormalize_available",
+            causal_timing_policy="legacy_month_only",
         )
         joined = replay.join(expected, on="holding_month", how="inner")
         maximum_error = _maximum_absolute_error(joined, "net_return", "expected_return")
@@ -155,6 +156,7 @@ def validate_alpha(
     replay = simulate_weighted_portfolio(
         holdings,
         transaction_cost_bps=transaction_cost_bps,
+        causal_timing_policy="legacy_month_only",
     )
     expected = pl.read_csv(monthly_path, try_parse_dates=True).select(
         "strategy",

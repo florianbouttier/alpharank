@@ -27,9 +27,11 @@ from alpharank.portfolio.benchmark import (
 )
 from alpharank.portfolio.comparison import align_return_series, reference_monthly_series
 from alpharank.portfolio.contracts import (
+    CAUSAL_TIMING_REQUIRED_COLUMNS,
     HOLDINGS_REQUIRED_COLUMNS,
     MONTHLY_REQUIRED_COLUMNS,
     validate_holdings,
+    validate_causal_timing,
     validate_monthly_returns,
 )
 from alpharank.portfolio.performance import (
@@ -57,6 +59,7 @@ from alpharank.portfolio.terminal_returns import (
 )
 
 __all__ = [
+    "CAUSAL_TIMING_REQUIRED_COLUMNS",
     "HOLDINGS_REQUIRED_COLUMNS",
     "MONTHLY_REQUIRED_COLUMNS",
     "BENCHMARK_CONVENTIONS",
@@ -90,6 +93,7 @@ __all__ = [
     "require_matching_ticker_exclusions",
     "select_ranked_candidates",
     "simulate_weighted_portfolio",
+    "validate_causal_timing",
     "ticker_exclusions_from_manifest",
     "validate_holdings",
     "validate_monthly_returns",

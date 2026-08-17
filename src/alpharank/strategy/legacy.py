@@ -824,6 +824,7 @@ class StrategyLearner:
             engine_monthly = simulate_weighted_portfolio(
                 engine_holdings,
                 transaction_cost_bps=0.0,
+                causal_timing_policy="legacy_month_only",
                 # Missing Legacy returns are excluded and remaining weights are
                 # renormalized exactly as in the historical implementation.
                 validate=False,

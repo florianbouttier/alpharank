@@ -85,6 +85,16 @@ The validator rejects duplicate ticker/month rows, negative or non-finite
 weights, weights that do not sum to one, and any holding month that is not
 exactly one month after the decision month.
 
+New simulations additionally require `feature_max_asof_at`,
+`signal_cutoff_at`, `execution_at`, `first_return_observation_at` and
+`holding_return_end_at`. Their strict order is feature availability at or before
+the signal, then signal before execution, then the first return observation
+strictly after execution, with the return ending inside `holding_month`.
+Terminal returns resolved from an event must identify an event effective inside
+that same holding interval. `causal_timing_policy="legacy_month_only"` is an
+explicit reproduction escape hatch for the immutable `v1-audited-biased`
+baseline; it is not admissible for promotion of a corrected methodology.
+
 ## Canonical Monthly Contract
 
 The common simulator writes one row per strategy and holding month:

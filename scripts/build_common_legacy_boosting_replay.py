@@ -129,6 +129,7 @@ def build_comparison(
             simulate_weighted_portfolio(
                 frame,
                 transaction_cost_bps=transaction_cost_bps,
+                causal_timing_policy="legacy_month_only",
             )
             for frame in boosting_holdings.partition_by("strategy", maintain_order=True)
         ],
@@ -155,6 +156,7 @@ def build_comparison(
     legacy_monthly = simulate_weighted_portfolio(
         legacy_holdings,
         transaction_cost_bps=transaction_cost_bps,
+        causal_timing_policy="legacy_month_only",
     )
     references = pl.concat(
         [

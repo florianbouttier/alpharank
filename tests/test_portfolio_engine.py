@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 import numpy as np
 import polars as pl
@@ -40,12 +40,64 @@ def test_shared_simulator_uses_decision_t_and_holding_t_plus_one() -> None:
             "sector": ["Tech", "Health"],
         }
     )
-    monthly = simulate_weighted_portfolio(holdings, transaction_cost_bps=10.0)
+    monthly = simulate_weighted_portfolio(
+        holdings,
+        transaction_cost_bps=10.0,
+        causal_timing_policy="legacy_month_only",
+    )
     assert monthly["gross_return"][0] == pytest.approx(0.04)
     assert monthly["turnover"][0] == pytest.approx(1.0)
     assert monthly["net_return"][0] == pytest.approx(0.039)
     assert monthly["active_return"][0] == pytest.approx(0.019)
     assert monthly["relative_return"][0] == pytest.approx(1.039 / 1.02 - 1.0)
+
+
+def test_holding_return_starts_after_trade() -> None:
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["causal"],
+            "decision_month": [date(2020, 1, 1)],
+            "holding_month": [date(2020, 2, 1)],
+            "ticker": ["A"],
+            "target_weight": [1.0],
+            "realized_return": [0.10],
+            "benchmark_return": [0.02],
+            "feature_max_asof_at": [
+                datetime(2020, 1, 31, 20, 59, tzinfo=timezone.utc)
+            ],
+            "signal_cutoff_at": [
+                datetime(2020, 1, 31, 21, 0, tzinfo=timezone.utc)
+            ],
+            "execution_at": [
+                datetime(2020, 2, 3, 21, 0, tzinfo=timezone.utc)
+            ],
+            "first_return_observation_at": [
+                datetime(2020, 2, 4, 21, 0, tzinfo=timezone.utc)
+            ],
+            "holding_return_end_at": [
+                datetime(2020, 2, 28, 21, 0, tzinfo=timezone.utc)
+            ],
+        }
+    )
+
+    monthly = simulate_weighted_portfolio(holdings)
+    assert monthly["gross_return"][0] == pytest.approx(0.10)
+
+    return_before_trade = holdings.with_columns(
+        pl.lit(datetime(2020, 2, 3, 20, 0, tzinfo=timezone.utc)).alias(
+            "first_return_observation_at"
+        )
+    )
+    with pytest.raises(ValueError, match="signal < execution < first return"):
+        simulate_weighted_portfolio(return_before_trade)
+
+    holding_data_in_signal = holdings.with_columns(
+        pl.lit(datetime(2020, 2, 5, 21, 0, tzinfo=timezone.utc)).alias(
+            "feature_max_asof_at"
+        )
+    )
+    with pytest.raises(ValueError, match="feature <= signal"):
+        simulate_weighted_portfolio(holding_data_in_signal)
 
 
 def test_contract_rejects_same_month_lookahead() -> None:
@@ -83,13 +135,17 @@ def test_missing_selected_return_fails_closed_by_default() -> None:
         ValueError,
         match="Missing realized return for strategy=legacy, decision_month=2020-01-01",
     ):
-        simulate_weighted_portfolio(_holdings_with_one_missing_return())
+        simulate_weighted_portfolio(
+            _holdings_with_one_missing_return(),
+            causal_timing_policy="legacy_month_only",
+        )
 
 
 def test_missing_legacy_return_is_renormalized_only_when_explicit() -> None:
     monthly = simulate_weighted_portfolio(
         _holdings_with_one_missing_return(),
         missing_return_policy="renormalize_available",
+        causal_timing_policy="legacy_month_only",
     )
     assert monthly["gross_return"][0] == pytest.approx(0.10)
     assert monthly["n_positions"][0] == 2
@@ -124,9 +180,12 @@ def test_legacy_adapter_and_boosting_adapter_share_the_same_contract() -> None:
         strategy="same",
         top_n=2,
     )
-    legacy_monthly = simulate_weighted_portfolio(legacy)
+    legacy_monthly = simulate_weighted_portfolio(
+        legacy, causal_timing_policy="legacy_month_only"
+    )
     boosting_monthly = simulate_weighted_portfolio(
-        boosting.select(legacy.columns)
+        boosting.select(legacy.columns),
+        causal_timing_policy="legacy_month_only",
     )
     assert legacy_monthly["net_return"][0] == pytest.approx(
         boosting_monthly["net_return"][0]
@@ -244,6 +303,23 @@ def test_terminal_return_is_included() -> None:
         "ticker-1",
     ]
     assert holdings["terminal_event_source"].unique().to_list() == ["issuer"]
+    holdings = holdings.with_columns(
+        pl.lit(datetime(2020, 1, 31, 20, 59, tzinfo=timezone.utc)).alias(
+            "feature_max_asof_at"
+        ),
+        pl.lit(datetime(2020, 1, 31, 21, 0, tzinfo=timezone.utc)).alias(
+            "signal_cutoff_at"
+        ),
+        pl.lit(datetime(2020, 2, 3, 21, 0, tzinfo=timezone.utc)).alias(
+            "execution_at"
+        ),
+        pl.lit(datetime(2020, 2, 4, 21, 0, tzinfo=timezone.utc)).alias(
+            "first_return_observation_at"
+        ),
+        pl.lit(datetime(2020, 2, 28, 21, 0, tzinfo=timezone.utc)).alias(
+            "holding_return_end_at"
+        ),
+    )
     monthly = simulate_weighted_portfolio(holdings)
     assert monthly["gross_return"][0] == pytest.approx(-0.0875)
 
@@ -291,7 +367,9 @@ def test_unresolved_terminal_return_does_not_promote_a_survivor() -> None:
         "observed_market_return",
     ]
     with pytest.raises(ValueError, match="Missing realized return"):
-        simulate_weighted_portfolio(holdings)
+        simulate_weighted_portfolio(
+            holdings, causal_timing_policy="legacy_month_only"
+        )
 
 
 def test_turnover_and_period_alignment_are_explicit() -> None:

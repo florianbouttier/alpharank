@@ -16,6 +16,14 @@ HOLDINGS_REQUIRED_COLUMNS = (
     "benchmark_return",
 )
 
+CAUSAL_TIMING_REQUIRED_COLUMNS = (
+    "feature_max_asof_at",
+    "signal_cutoff_at",
+    "execution_at",
+    "first_return_observation_at",
+    "holding_return_end_at",
+)
+
 MONTHLY_REQUIRED_COLUMNS = (
     "strategy",
     "decision_month",
@@ -74,6 +82,107 @@ def validate_holdings(frame: pl.DataFrame, *, weight_tolerance: float = 1e-9) ->
     )
     if invalid_timing.height:
         raise ValueError("Every holding_month must equal decision_month + one month.")
+
+
+def validate_causal_timing(frame: pl.DataFrame) -> None:
+    """Enforce feature -> signal -> trade -> realized-return chronology."""
+
+    missing = _missing(CAUSAL_TIMING_REQUIRED_COLUMNS, frame.columns)
+    if missing:
+        raise ValueError(
+            "Missing causal timing columns: " + ", ".join(missing)
+        )
+    if frame.is_empty():
+        return
+    timing = frame.with_columns(
+        [
+            pl.col(column)
+            .cast(pl.Datetime(time_zone="UTC"), strict=False)
+            .alias(column)
+            for column in CAUSAL_TIMING_REQUIRED_COLUMNS
+        ]
+    )
+    null_timing = timing.filter(
+        pl.any_horizontal(
+            [pl.col(column).is_null() for column in CAUSAL_TIMING_REQUIRED_COLUMNS]
+        )
+    )
+    if not null_timing.is_empty():
+        raise ValueError("Causal timing columns cannot contain null values.")
+    invalid_order = timing.filter(
+        ~(
+            (pl.col("feature_max_asof_at") <= pl.col("signal_cutoff_at"))
+            & (pl.col("signal_cutoff_at") < pl.col("execution_at"))
+            & (pl.col("execution_at") < pl.col("first_return_observation_at"))
+            & (
+                pl.col("first_return_observation_at")
+                <= pl.col("holding_return_end_at")
+            )
+        )
+    )
+    if not invalid_order.is_empty():
+        raise ValueError(
+            "Causal timing must satisfy feature <= signal < execution < "
+            "first return observation <= holding end."
+        )
+    wrong_signal_month = timing.filter(
+        pl.col("signal_cutoff_at").dt.date().dt.truncate("1mo")
+        != pl.col("decision_month")
+    )
+    if not wrong_signal_month.is_empty():
+        raise ValueError("Signal cutoff must occur inside decision_month.")
+    wrong_holding_month = timing.filter(
+        (pl.col("execution_at").dt.date().dt.truncate("1mo") != pl.col("holding_month"))
+        | (
+            pl.col("holding_return_end_at").dt.date().dt.truncate("1mo")
+            != pl.col("holding_month")
+        )
+    )
+    if not wrong_holding_month.is_empty():
+        raise ValueError(
+            "Execution and holding-return end must occur inside holding_month."
+        )
+
+    if "return_resolution" in timing.columns:
+        terminal = timing.filter(
+            pl.col("return_resolution") == "resolved_terminal_event"
+        )
+        if not terminal.is_empty():
+            terminal_required = (
+                "terminal_event_id",
+                "terminal_effective_date",
+                "terminal_event_known_at",
+            )
+            missing_terminal = _missing(terminal_required, timing.columns)
+            if missing_terminal:
+                raise ValueError(
+                    "Resolved terminal returns lack timing lineage: "
+                    + ", ".join(missing_terminal)
+                )
+            terminal = terminal.with_columns(
+                pl.col("terminal_effective_date").cast(pl.Date, strict=False),
+                pl.col("terminal_event_known_at").cast(
+                    pl.Datetime(time_zone="UTC"), strict=False
+                ),
+            )
+            invalid_terminal = terminal.filter(
+                pl.col("terminal_event_id").is_null()
+                | pl.col("terminal_effective_date").is_null()
+                | pl.col("terminal_event_known_at").is_null()
+                | (
+                    pl.col("terminal_effective_date")
+                    < pl.col("execution_at").dt.date()
+                )
+                | (
+                    pl.col("terminal_effective_date")
+                    > pl.col("holding_return_end_at").dt.date()
+                )
+            )
+            if not invalid_terminal.is_empty():
+                raise ValueError(
+                    "Resolved terminal event must be sourced and effective during "
+                    "the holding period."
+                )
 
 
 def validate_monthly_returns(frame: pl.DataFrame) -> None:

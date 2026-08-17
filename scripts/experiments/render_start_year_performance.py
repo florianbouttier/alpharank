@@ -159,6 +159,7 @@ def render(
     legacy_net = simulate_weighted_portfolio(
         legacy_holdings,
         transaction_cost_bps=transaction_cost_bps,
+        causal_timing_policy="legacy_month_only",
     ).with_columns(pl.lit("Combined_Frequency").alias("strategy"))
     legacy_monthly = pl.concat(
         [

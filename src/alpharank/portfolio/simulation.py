@@ -6,6 +6,7 @@ import polars as pl
 from alpharank.portfolio.allocation import portfolio_turnover
 from alpharank.portfolio.contracts import (
     empty_monthly_returns,
+    validate_causal_timing,
     validate_holdings,
     validate_monthly_returns,
 )
@@ -16,6 +17,7 @@ def simulate_weighted_portfolio(
     *,
     transaction_cost_bps: float = 0.0,
     missing_return_policy: str = "raise",
+    causal_timing_policy: str = "require_explicit",
     validate: bool = True,
 ) -> pl.DataFrame:
     """Simulate monthly long-only holdings through one canonical return engine.
@@ -24,17 +26,26 @@ def simulate_weighted_portfolio(
     historical Legacy convention may request ``renormalize_available``
     explicitly; that policy excludes missing returns and scales the remaining
     weights to one for performance while leaving target weights unchanged for
-    turnover.
+    turnover. New runs also fail unless their feature, signal, execution and
+    return-observation timestamps prove causal ordering. The explicit
+    ``legacy_month_only`` escape hatch exists only to reproduce a named audited
+    non-causal baseline.
     """
 
     if transaction_cost_bps < 0.0:
         raise ValueError("transaction_cost_bps must be non-negative.")
     if missing_return_policy not in {"renormalize_available", "raise"}:
         raise ValueError(f"Unsupported missing_return_policy={missing_return_policy!r}.")
+    if causal_timing_policy not in {"require_explicit", "legacy_month_only"}:
+        raise ValueError(
+            f"Unsupported causal_timing_policy={causal_timing_policy!r}."
+        )
     if holdings.is_empty():
         return empty_monthly_returns()
     if validate:
         validate_holdings(holdings)
+        if causal_timing_policy == "require_explicit":
+            validate_causal_timing(holdings)
 
     rows: list[dict[str, object]] = []
     previous_by_strategy: dict[str, dict[str, float]] = {}

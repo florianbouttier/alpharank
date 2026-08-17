@@ -37,6 +37,7 @@ def build_monthly_top_n_returns(
             "benchmark_return",
         ),
         transaction_cost_bps=transaction_cost_bps,
+        causal_timing_policy="legacy_month_only",
     )
     return monthly.select(
         "decision_month",

@@ -22,7 +22,11 @@ def test_attribution_reconciles_securities_costs_and_cagr() -> None:
             "benchmark_return": [0.01] * 4,
         }
     )
-    monthly = simulate_weighted_portfolio(holdings, transaction_cost_bps=10.0)
+    monthly = simulate_weighted_portfolio(
+        holdings,
+        transaction_cost_bps=10.0,
+        causal_timing_policy="legacy_month_only",
+    )
 
     attribution = portfolio_return_attribution(holdings, monthly)
     reconciled = attribution.group_by("holding_month").agg(
@@ -58,6 +62,7 @@ def test_attribution_uses_effective_weights_when_return_is_missing() -> None:
     monthly = simulate_weighted_portfolio(
         holdings,
         missing_return_policy="renormalize_available",
+        causal_timing_policy="legacy_month_only",
     )
 
     attribution = portfolio_return_attribution(holdings, monthly)

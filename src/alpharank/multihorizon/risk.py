@@ -434,6 +434,7 @@ def build_risk_weighted_backtest(
             "sector",
         ),
         transaction_cost_bps=transaction_cost_bps,
+        causal_timing_policy="legacy_month_only",
     ).select(
         "strategy",
         "decision_month",

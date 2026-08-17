@@ -1373,6 +1373,7 @@ def _finalize_backtest_run(
                 "benchmark_return",
             ),
             transaction_cost_bps=0.0,
+            causal_timing_policy="legacy_month_only",
         )
         common_monthly = pl.concat(
             [
