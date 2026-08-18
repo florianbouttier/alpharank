@@ -9,6 +9,7 @@ from pathlib import Path
 import polars as pl
 
 from alpharank.common_v2 import (
+    gate_boosting_predictions_for_execution_open,
     gate_boosting_predictions_for_holding_membership,
     standard_v2_cost_model,
     validate_common_v2_replay,
@@ -95,6 +96,27 @@ def test_boosting_common_replay_gates_holding_membership_before_ranking() -> Non
         predictions,
         membership,
     )
+
+    assert gated["ticker"].to_list() == ["CI.US"]
+
+
+def test_boosting_common_replay_requires_first_session_execution_open() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2018, 12, 1)] * 2,
+            "ticker": ["SCG.US", "CI.US"],
+            "score": [2.0, 1.0],
+        }
+    )
+    prices = pl.DataFrame(
+        {
+            "ticker": ["SCG.US", "CI.US", "CI.US"],
+            "date": [date(2018, 12, 31), date(2019, 1, 2), date(2019, 1, 31)],
+            "open": [47.0, 190.0, 195.0],
+        }
+    )
+
+    gated = gate_boosting_predictions_for_execution_open(predictions, prices)
 
     assert gated["ticker"].to_list() == ["CI.US"]
 

@@ -58,6 +58,51 @@ def gate_boosting_predictions_for_holding_membership(
     ).rename({"year_month": "decision_month"})
 
 
+def gate_boosting_predictions_for_execution_open(
+    predictions: pl.DataFrame,
+    daily_prices: pl.DataFrame,
+) -> pl.DataFrame:
+    """Keep candidates executable at the first market session of holding."""
+
+    required_prices = {"ticker", "date", "open"}
+    missing = sorted(required_prices - set(daily_prices.columns))
+    if missing:
+        raise ValueError(f"Execution-open gate lacks price fields: {missing}")
+    valid = daily_prices.select(
+        pl.col("ticker").cast(pl.String),
+        pl.col("date").cast(pl.Date, strict=False),
+        pl.col("open").cast(pl.Float64, strict=False),
+    ).filter(
+        pl.col("date").is_not_null()
+        & pl.col("open").is_finite()
+        & (pl.col("open") > 0.0)
+    ).with_columns(
+        pl.col("date").dt.truncate("1mo").alias("holding_month")
+    )
+    market_open = valid.group_by("holding_month").agg(
+        pl.col("date").min().alias("market_first_session")
+    )
+    executable = (
+        valid.group_by("ticker", "holding_month")
+        .agg(pl.col("date").min().alias("ticker_first_session"))
+        .join(market_open, on="holding_month", how="inner", validate="m:1")
+        .filter(pl.col("ticker_first_session") == pl.col("market_first_session"))
+        .select(
+            "ticker",
+            pl.col("holding_month")
+            .dt.offset_by("-1mo")
+            .alias("decision_month"),
+        )
+        .unique()
+    )
+    return predictions.join(
+        executable,
+        on=["decision_month", "ticker"],
+        how="inner",
+        validate="m:1",
+    ).sort(["decision_month", "ticker"])
+
+
 def build_common_v2_comparison(
     *,
     legacy_run_dir: Path,
@@ -121,6 +166,12 @@ def build_common_v2_comparison(
         monthly_membership,
     )
     membership_rows_removed = predictions_before_membership_gate - predictions.height
+    predictions_before_execution_gate = predictions.height
+    predictions = gate_boosting_predictions_for_execution_open(
+        predictions,
+        prices.select(["ticker", "date", "open"]),
+    )
+    execution_rows_removed = predictions_before_execution_gate - predictions.height
     complete_decisions = (
         predictions.group_by("decision_month")
         .agg(
@@ -258,6 +309,13 @@ def build_common_v2_comparison(
             "candidate_rows_before": predictions_before_membership_gate,
             "candidate_rows_after": predictions.height,
             "candidate_rows_removed": membership_rows_removed,
+        },
+        "first_session_execution_gate": {
+            "policy_id": "first_holding_session_open_before_ranking_v1",
+            "uses_holding_return_or_month_end_price": False,
+            "candidate_rows_before": predictions_before_execution_gate,
+            "candidate_rows_after": predictions.height,
+            "candidate_rows_removed": execution_rows_removed,
         },
         "calendar": calendar.to_dicts(),
         "provisional_terminal_observations": {
