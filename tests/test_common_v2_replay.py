@@ -9,6 +9,7 @@ from pathlib import Path
 import polars as pl
 
 from alpharank.common_v2 import (
+    gate_boosting_predictions_for_holding_membership,
     standard_v2_cost_model,
     validate_common_v2_replay,
 )
@@ -73,6 +74,29 @@ def test_common_v2_replay_is_comparison_eligible(tmp_path: Path) -> None:
     assert report["comparison_eligible"] is True
     assert report["maximum_absolute_reconciliation_error"] == 0.0
     assert report["strategy_count"] == 3
+
+
+def test_boosting_common_replay_gates_holding_membership_before_ranking() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2018, 12, 1)] * 2,
+            "ticker": ["SCG.US", "CI.US"],
+            "score": [2.0, 1.0],
+        }
+    )
+    membership = pl.DataFrame(
+        {
+            "year_month": [date(2018, 12, 1), date(2019, 1, 1)],
+            "ticker": ["SCG.US", "CI.US"],
+        }
+    )
+
+    gated = gate_boosting_predictions_for_holding_membership(
+        predictions,
+        membership,
+    )
+
+    assert gated["ticker"].to_list() == ["CI.US"]
 
 
 def _holdings() -> pl.DataFrame:

@@ -13,6 +13,10 @@ import polars as pl
 from alpharank.boosting_v2 import validate_boosting_v2_replay
 from alpharank.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.governance import reserve_run_directory
+from alpharank.legacy_v2 import (
+    HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
+    require_holding_month_membership,
+)
 from alpharank.legacy_v2 import validate_legacy_v2_replay
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
 from alpharank.portfolio.attribution import provisional_return_cagr_attribution
@@ -22,6 +26,7 @@ from alpharank.portfolio.contracts import validate_causal_timing, validate_holdi
 from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.execution import apply_next_session_open_holding_returns
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.backtest.datasets import prepare_constituents_monthly
 
 
 COMMON_V2_TOLERANCE = 1e-12
@@ -37,6 +42,20 @@ def standard_v2_cost_model() -> TransactionCostModel:
         fx_bps=1.0,
         fx_turnover_fraction=1.0,
     )
+
+
+def gate_boosting_predictions_for_holding_membership(
+    predictions: pl.DataFrame,
+    membership: pl.DataFrame,
+) -> pl.DataFrame:
+    """Apply the same pre-ranking execution-universe gate as Legacy v2."""
+
+    if "decision_month" not in predictions.columns:
+        raise ValueError("Boosting predictions require decision_month")
+    return require_holding_month_membership(
+        predictions.rename({"decision_month": "year_month"}),
+        membership,
+    ).rename({"year_month": "decision_month"})
 
 
 def build_common_v2_comparison(
@@ -93,6 +112,15 @@ def build_common_v2_comparison(
     predictions = pl.read_parquet(
         boosting_run_dir / "classification_h06" / "predictions.parquet"
     )
+    monthly_membership = prepare_constituents_monthly(
+        pl.read_csv(snapshot / "SP500_Constituents.csv")
+    ).select("year_month", "ticker")
+    predictions_before_membership_gate = predictions.height
+    predictions = gate_boosting_predictions_for_holding_membership(
+        predictions,
+        monthly_membership,
+    )
+    membership_rows_removed = predictions_before_membership_gate - predictions.height
     complete_decisions = (
         predictions.group_by("decision_month")
         .agg(
@@ -224,6 +252,13 @@ def build_common_v2_comparison(
         "transaction_cost_model": asdict(cost_model),
         "benchmark_cost_policy": "no simulated trading cost",
         "top_n_values": list(top_n_values),
+        "holding_month_membership_gate": {
+            "policy_id": HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
+            "uses_holding_prices_or_returns": False,
+            "candidate_rows_before": predictions_before_membership_gate,
+            "candidate_rows_after": predictions.height,
+            "candidate_rows_removed": membership_rows_removed,
+        },
         "calendar": calendar.to_dicts(),
         "provisional_terminal_observations": {
             "policy_id": "provisional_last_observation_v1",
