@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "registry_id": "terminal_shareholder_events_v1",
+  "status": "reviewed_selected_portfolio_events",
+  "currency": "USD",
+  "retrieved_at": "2026-08-18T20:34:43Z",
+  "source_hash_scope": "sha256 of the HTTP response body after content decoding",
+  "events": [
+    {
+      "event_id": "KRFT-2015-07-02-KHC",
+      "ticker": "KRFT.US",
+      "issuer_name": "Kraft Foods Group, Inc.",
+      "event_type": "stock_and_cash_merger",
+      "effective_date": "2015-07-02",
+      "known_at": "2015-07-02T16:36:11-04:00",
+      "known_at_basis": "SEC acceptance of the issuer completion announcement",
+      "last_primary_trading_date": "2015-07-02",
+      "successor_first_trading_date": "2015-07-06",
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 0.0,
+        "successor_ticker": "KHC.US",
+        "exchange_ratio": 1.0,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": true,
+        "distributions": [
+          {
+            "kind": "merger_special_cash_dividend",
+            "amount_per_share": 16.5,
+            "record_date": "2015-07-02",
+            "payment_date": null
+          },
+          {
+            "kind": "successor_ordinary_cash_dividend",
+            "amount_per_share": 0.55,
+            "record_date": "2015-07-27",
+            "payment_date": "2015-07-31"
+          }
+        ],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-khc-2015-07-02-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K exhibit 99.1",
+          "url": "https://www.sec.gov/Archives/edgar/data/1637459/000119312515244356/d38420dex991.htm",
+          "published_or_accepted_at": "2015-07-02T16:36:11-04:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "0768cb92cb2c7100a3fc73563ef86e593669fb00ca1aac3c6f1b1d095cc1c033",
+          "supports": [
+            "completion date",
+            "last KRFT trading date",
+            "first KHC trading date",
+            "0.55 successor dividend"
+          ]
+        },
+        {
+          "source_id": "sec-brk-2015-q3-kraft-heinz-terms",
+          "authority": "SEC registrant filing",
+          "document_type": "Form 10-Q",
+          "url": "https://www.sec.gov/Archives/edgar/data/1067983/000119312515370187/d52687d10q.htm",
+          "published_or_accepted_at": "2015-11-06T16:17:04-05:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "fa14a33f7fca61d5347759bd8735b9aa01857eab7561211e7852a2a719898378",
+          "supports": [
+            "one KHC share per KRFT share",
+            "16.50 special cash dividend per KRFT share"
+          ]
+        }
+      ],
+      "review_note": "A July holding receives the merger cash, one KHC share, and the KHC dividend because the successor share is held on the July 27 record date."
+    },
+    {
+      "event_id": "HSP-2015-09-03-PFE",
+      "ticker": "HSP.US",
+      "issuer_name": "Hospira, Inc.",
+      "event_type": "cash_merger",
+      "effective_date": "2015-09-03",
+      "known_at": "2015-09-03T12:53:52-04:00",
+      "known_at_basis": "SEC acceptance of Pfizer's completion filing",
+      "last_primary_trading_date": "2015-09-02",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 90.0,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-pfe-2015-09-03-hospira-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/78003/000007800315000038/n8kp93.htm",
+          "published_or_accepted_at": "2015-09-03T12:53:52-04:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "4d3c34214c68749468709b4778a74a19203f837df994382d5e9a87daf6aa24ab",
+          "supports": [
+            "September 3 effective date",
+            "90.00 cash per HSP share"
+          ]
+        }
+      ],
+      "review_note": "The September holding is valued at the contractual 90.00 cash consideration, not the September 2 final quote."
+    },
+    {
+      "event_id": "WFM-2017-08-28-AMZN",
+      "ticker": "WFM.US",
+      "issuer_name": "Whole Foods Market, Inc.",
+      "event_type": "cash_merger",
+      "effective_date": "2017-08-28",
+      "known_at": "2017-08-28T06:02:19-04:00",
+      "known_at_basis": "SEC acceptance of Amazon's completion filing before market open",
+      "last_primary_trading_date": "2017-08-25",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 42.0,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-amzn-2017-08-28-wfm-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1018724/000119312517269093/d448689d8k.htm",
+          "published_or_accepted_at": "2017-08-28T06:02:19-04:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "9de6b87a5aeac60470a9139c299162452fdf0bfc958a6bad0c0dee4113e92089",
+          "supports": [
+            "August 28 effective date",
+            "42.00 cash per WFM share"
+          ]
+        }
+      ],
+      "review_note": "The August holding is valued at 42.00 cash after the August 25 final listed session."
+    },
+    {
+      "event_id": "ESRX-2018-12-20-CI",
+      "ticker": "ESRX.US",
+      "issuer_name": "Express Scripts Holding Company",
+      "event_type": "stock_and_cash_merger",
+      "effective_date": "2018-12-20",
+      "known_at": "2018-12-20T16:30:49-05:00",
+      "known_at_basis": "SEC acceptance of Express Scripts' completion filing",
+      "last_primary_trading_date": "2018-12-20",
+      "successor_first_trading_date": "2018-12-21",
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 48.75,
+        "successor_ticker": "CI.US",
+        "exchange_ratio": 0.2434,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": true,
+        "distributions": [],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-esrx-2018-12-20-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1532063/000114036118045477/form8k.htm",
+          "published_or_accepted_at": "2018-12-20T16:30:49-05:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "14e4a9c76efce5308d0fe068464ee14b4c999eab7ab93357d2d8cfcade8c997f",
+          "supports": [
+            "December 20 effective date",
+            "48.75 cash per ESRX share",
+            "0.2434 CI shares per ESRX share",
+            "CI successor trading date"
+          ]
+        }
+      ],
+      "review_note": "The December holding keeps the mixed consideration and values 0.2434 CI shares at the common holding-period end."
+    },
+    {
+      "event_id": "NFX-2019-02-13-ECA",
+      "ticker": "NFX.US",
+      "issuer_name": "Newfield Exploration Company",
+      "event_type": "stock_merger",
+      "effective_date": "2019-02-13",
+      "known_at": "2019-02-19T18:52:02-05:00",
+      "known_at_basis": "SEC acceptance of Encana's completion filing; the event itself was effective after the February 13 close",
+      "last_primary_trading_date": "2019-02-13",
+      "successor_first_trading_date": "2019-02-14",
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 0.0,
+        "successor_ticker": "ECA.US",
+        "exchange_ratio": 2.6719,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": true,
+        "distributions": [],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-eca-2019-02-13-nfx-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1157806/000119312519044440/d701379d8k.htm",
+          "published_or_accepted_at": "2019-02-19T18:52:02-05:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "a03042e07aa57eb67a95bbc6f7d6db90ed0590e220e5bcd5863343bc01149833",
+          "supports": [
+            "February 13 effective date",
+            "2.6719 ECA shares per NFX share"
+          ]
+        }
+      ],
+      "review_note": "The event terms are complete. The causal price snapshot does not contain ECA.US, so the eventual replay still needs a versioned ECA holding-end price before this return can be final."
+    },
+    {
+      "event_id": "NLSN-2022-10-11-PRIVATE",
+      "ticker": "NLSN.US",
+      "issuer_name": "Nielsen Holdings plc",
+      "event_type": "cash_merger",
+      "effective_date": "2022-10-11",
+      "known_at": "2022-10-11T16:02:09-04:00",
+      "known_at_basis": "SEC acceptance of Nielsen's completion filing",
+      "last_primary_trading_date": "2022-10-11",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 28.0,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-nlsn-2022-10-11-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1492633/000119312522260583/d407513d8k.htm",
+          "published_or_accepted_at": "2022-10-11T16:02:09-04:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "885ab14ca762a713c8c209108e9615a758fa2f41bf6cbfa5d5a2376d07575c78",
+          "supports": [
+            "October 11 effective date",
+            "28.00 cash per NLSN share",
+            "suspension before the October 12 open"
+          ]
+        }
+      ],
+      "review_note": "The October holding is valued at 28.00 cash; the flat October 12 source row is not treated as an exchange trade."
+    },
+    {
+      "event_id": "FRC-2023-05-01-FDIC",
+      "ticker": "FRC.US",
+      "issuer_name": "First Republic Bank",
+      "event_type": "receivership_and_pre_open_suspension",
+      "effective_date": "2023-05-01",
+      "known_at": "2023-05-01T03:26:00-04:00",
+      "known_at_basis": "timestamp of the FDIC public bulletin before the regular market open",
+      "last_primary_trading_date": "2023-04-28",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "pre_execution_trading_suspension",
+        "allow_entry": false,
+        "cash_per_share": null,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "not_applicable_no_execution"
+      },
+      "source_documents": [
+        {
+          "source_id": "fdic-2023-05-01-first-republic-receivership",
+          "authority": "Federal Deposit Insurance Corporation",
+          "document_type": "public bulletin",
+          "url": "https://content.govdelivery.com/accounts/USFDIC/bulletins/3580652",
+          "published_or_accepted_at": "2023-05-01T03:26:00-04:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "1c10bcbccf6aa467b27ecdb57da88db5d835ed8894773369e77cf3796115f0eb",
+          "supports": [
+            "receivership before market open",
+            "JPMorgan acquisition of deposits and substantially all assets"
+          ]
+        },
+        {
+          "source_id": "nyse-2023-05-01-frc-suspension",
+          "authority": "New York Stock Exchange",
+          "document_type": "news release",
+          "url": "https://s2.q4cdn.com/154085107/files/doc_news/NYSE-to-Suspend-Trading-Immediately-in-First-Republic-Bank-FRC-and-Commence-Delisting-Proceedings-2023.pdf",
+          "published_or_accepted_at": "2023-05-01T00:00:00-04:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "91822910fe49197687bd17a85832a29ed4394cb9f88aff2cc202b7ccb11cca0f",
+          "supports": [
+            "immediate suspension of FRC trading",
+            "delisting proceeding"
+          ]
+        },
+        {
+          "source_id": "sec-jpm-2023-05-01-first-republic-assets",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K exhibit 99.1",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000304/jpmc2023exhibit99.htm",
+          "published_or_accepted_at": "2023-05-01T00:00:00-04:00",
+          "retrieved_at": "2026-08-18T20:34:43Z",
+          "sha256": "0132d53fca602a4c42cc5ee8858a5dd03f0f3cd415d0cd3abead5147196d6571",
+          "supports": [
+            "scope of acquired assets and assumed liabilities",
+            "preferred stock and corporate debt not assumed"
+          ]
+        }
+      ],
+      "review_note": "The strategy could not buy FRC at the May 1 regular-session open. The 3.51 rows dated May 1 and May 2 are not treated as NYSE executions, and no zero recovery is invented for a position that should never have been filled."
+    }
+  ]
+}
