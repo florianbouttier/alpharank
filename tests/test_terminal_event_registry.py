@@ -1,0 +1,180 @@
+from __future__ import annotations
+
+from copy import deepcopy
+from datetime import date, datetime, timezone
+import json
+from pathlib import Path
+
+import polars as pl
+import pytest
+
+from alpharank.portfolio.terminal_event_registry import (
+    DEFAULT_TERMINAL_EVENT_REGISTRY,
+    load_terminal_event_registry,
+)
+from alpharank.portfolio.terminal_returns import (
+    resolve_terminal_shareholder_returns,
+)
+
+
+def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
+    registry = load_terminal_event_registry()
+
+    assert registry.path == DEFAULT_TERMINAL_EVENT_REGISTRY.resolve()
+    assert len(registry.sha256) == 64
+    assert len(registry.events) == 7
+    assert sum(len(event["source_documents"]) for event in registry.events) == 10
+
+    terminal = registry.terminal_consideration_events(
+        price_vintage_id="prices-v2"
+    )
+    assert terminal.height == 6
+    assert terminal["terminal_event_id"].n_unique() == 6
+    assert terminal["price_vintage_id"].unique().to_list() == ["prices-v2"]
+
+    kraft = terminal.filter(terminal["ticker"] == "KRFT.US").row(0, named=True)
+    assert kraft["event_type"] == "stock_merger"
+    assert kraft["successor_ticker"] == "KHC.US"
+    assert kraft["exchange_ratio"] == 1.0
+    assert kraft["distribution_per_share"] == pytest.approx(17.05)
+
+    express_scripts = terminal.filter(terminal["ticker"] == "ESRX.US").row(
+        0, named=True
+    )
+    assert express_scripts["cash_per_share"] == 48.75
+    assert express_scripts["successor_ticker"] == "CI.US"
+    assert express_scripts["exchange_ratio"] == 0.2434
+
+    blocks = registry.pre_execution_blocks()
+    assert blocks.height == 1
+    frc = blocks.row(0, named=True)
+    assert frc["ticker"] == "FRC.US"
+    assert frc["effective_date"] == date(2023, 5, 1)
+    assert frc["known_at"] == datetime(
+        2023, 5, 1, 7, 26, tzinfo=timezone.utc
+    )
+    assert frc["entry_allowed"] is False
+
+
+def test_reviewed_registry_projects_to_terminal_return_contract() -> None:
+    registry = load_terminal_event_registry()
+    holdings = pl.DataFrame(
+        {
+            "ticker": [
+                "KRFT.US",
+                "HSP.US",
+                "WFM.US",
+                "ESRX.US",
+                "NFX.US",
+                "NLSN.US",
+            ],
+            "holding_month": [
+                date(2015, 7, 1),
+                date(2015, 9, 1),
+                date(2017, 8, 1),
+                date(2018, 12, 1),
+                date(2019, 2, 1),
+                date(2022, 10, 1),
+            ],
+            "realized_return": [None] * 6,
+            "last_close": [85.49, 89.97, 41.80, 101.51, 18.38, 27.86],
+        }
+    )
+    successor_prices = pl.DataFrame(
+        {
+            "ticker": ["KHC.US", "CI.US", "ECA.US"],
+            "holding_month": [
+                date(2015, 7, 1),
+                date(2018, 12, 1),
+                date(2019, 2, 1),
+            ],
+            "price_asof_date": [
+                date(2015, 7, 31),
+                date(2018, 12, 31),
+                date(2019, 2, 28),
+            ],
+            "holding_end_price": [79.47, 189.92, 7.25],
+            "price_vintage_id": ["prices-v2"] * 3,
+        }
+    )
+
+    result = resolve_terminal_shareholder_returns(
+        holdings,
+        terminal_events=registry.terminal_consideration_events(
+            price_vintage_id="prices-v2"
+        ),
+        successor_prices=successor_prices,
+        price_vintage_id="prices-v2",
+    )
+
+    expected_values = [
+        79.47 + 17.05,
+        90.0,
+        42.0,
+        48.75 + 0.2434 * 189.92,
+        2.6719 * 7.25,
+        28.0,
+    ]
+    expected_returns = [
+        value / start - 1.0
+        for value, start in zip(
+            expected_values,
+            [85.49, 89.97, 41.80, 101.51, 18.38, 27.86],
+            strict=True,
+        )
+    ]
+    assert result.holdings["realized_return"].to_list() == pytest.approx(
+        expected_returns
+    )
+    assert result.report["resolved_terminal_returns"] == 6
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (
+            lambda payload: payload["events"][1]["portfolio_resolution"].update(
+                {"cash_per_share": None}
+            ),
+            "requires positive cash",
+        ),
+        (
+            lambda payload: payload["events"][4]["portfolio_resolution"].update(
+                {"successor_ticker": None}
+            ),
+            "successor_ticker must be a non-empty string",
+        ),
+        (
+            lambda payload: payload["events"][6]["portfolio_resolution"].update(
+                {"allow_entry": True}
+            ),
+            "must reject the fill",
+        ),
+        (
+            lambda payload: payload["events"][6].update(
+                {"known_at": "2023-05-01T10:00:00-04:00"}
+            ),
+            "was not known before open",
+        ),
+        (
+            lambda payload: payload["events"][0]["source_documents"][0].update(
+                {"sha256": "not-a-hash"}
+            ),
+            "invalid SHA-256",
+        ),
+    ],
+)
+def test_terminal_event_registry_rejects_ambiguous_records(
+    tmp_path: Path,
+    mutation,
+    message: str,
+) -> None:
+    payload = deepcopy(
+        json.loads(DEFAULT_TERMINAL_EVENT_REGISTRY.read_text(encoding="utf-8"))
+    )
+    mutation(payload)
+    path = tmp_path / "terminal_events.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_terminal_event_registry(path)
