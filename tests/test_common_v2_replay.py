@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+from dataclasses import asdict
+from datetime import date, datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+
+import polars as pl
+
+from alpharank.common_v2 import (
+    standard_v2_cost_model,
+    validate_common_v2_replay,
+)
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
+
+
+def test_common_v2_replay_is_comparison_eligible(tmp_path: Path) -> None:
+    holdings = _holdings()
+    model = standard_v2_cost_model()
+    investable = pl.concat(
+        [
+            simulate_weighted_portfolio(
+                frame,
+                transaction_cost_model=model,
+                causal_timing_policy="require_explicit",
+            )
+            for frame in holdings.partition_by("strategy", maintain_order=True)
+        ]
+    )
+    spy = reference_monthly_series(
+        investable.filter(pl.col("strategy") == "Legacy"),
+        strategy="SPY total return",
+        return_column="benchmark_return",
+    )
+    monthly = pl.concat([investable, spy], how="diagonal_relaxed")
+    artifacts = write_common_portfolio_artifacts(
+        output_dir=tmp_path,
+        holdings=holdings,
+        monthly_returns=monthly,
+        prefix="common_v2",
+    )
+    composition_id = "c" * 64
+    manifest = {
+        "scope": "alpharank_common_v2_replay",
+        "comparison_eligible": True,
+        "composition_id": composition_id,
+        "execution_policy_id": "next_session_open_v1",
+        "missing_return_policy": "raise",
+        "transaction_cost_model": asdict(model),
+        "source_validation": {
+            "snapshot": {"passed": True},
+            "legacy": {"passed": True},
+            "boosting": {"passed": True},
+        },
+        "artifacts": {
+            label: {
+                "path": str(path),
+                "sha256": _sha256(path),
+            }
+            for label, path in artifacts.items()
+        },
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_common_v2_replay(
+        tmp_path, expected_composition_id=composition_id
+    )
+
+    assert report["passed"] is True
+    assert report["comparison_eligible"] is True
+    assert report["maximum_absolute_reconciliation_error"] == 0.0
+    assert report["strategy_count"] == 3
+
+
+def _holdings() -> pl.DataFrame:
+    rows = []
+    for strategy, ticker, realized in (
+        ("Legacy", "A", 0.10),
+        ("Boosting Top 5", "B", 0.12),
+    ):
+        rows.append(
+            {
+                "strategy": strategy,
+                "decision_month": date(2024, 1, 1),
+                "holding_month": date(2024, 2, 1),
+                "ticker": ticker,
+                "target_weight": 1.0,
+                "realized_return": realized,
+                "benchmark_return": 0.05,
+                "feature_max_asof_at": datetime(
+                    2024, 1, 31, 21, tzinfo=timezone.utc
+                ),
+                "signal_cutoff_at": datetime(
+                    2024, 1, 31, 21, tzinfo=timezone.utc
+                ),
+                "execution_at": datetime(
+                    2024, 2, 1, 14, 30, tzinfo=timezone.utc
+                ),
+                "first_return_observation_at": datetime(
+                    2024, 2, 1, 14, 30, 0, 1, tzinfo=timezone.utc
+                ),
+                "holding_return_end_at": datetime(
+                    2024, 2, 29, 21, tzinfo=timezone.utc
+                ),
+                "execution_policy_id": "next_session_open_v1",
+            }
+        )
+    return pl.DataFrame(rows)
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
