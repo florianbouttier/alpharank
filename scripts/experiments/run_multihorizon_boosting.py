@@ -33,6 +33,14 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument(
+        "--methodology-manifest",
+        type=Path,
+        help=(
+            "Sealed causal-v2 snapshot manifest; --data-dir must reference its "
+            "input_snapshot."
+        ),
+    )
+    parser.add_argument(
         "--latest-common-comparison-profile",
         action="store_true",
         help=(
@@ -119,6 +127,7 @@ def main() -> None:
         legacy_monthly_returns_path=args.legacy_monthly,
         output_dir=args.output_dir,
         run_dir=args.run_dir,
+        methodology_manifest=args.methodology_manifest,
         run_profile=run_profile,
         horizons=args.horizons,
         methods=args.methods,

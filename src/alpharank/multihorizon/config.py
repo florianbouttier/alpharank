@@ -79,6 +79,7 @@ class MultiHorizonConfig:
     legacy_monthly_returns_path: Path
     output_dir: Path = Path("outputs")
     run_dir: Path | None = None
+    methodology_manifest: Path | None = None
     run_profile: str | None = None
     horizons: Tuple[int, ...] = (1, 3, 6, 12, 24, 36)
     methods: Tuple[str, ...] = ("classification", "regression", "ranking", "teacher")

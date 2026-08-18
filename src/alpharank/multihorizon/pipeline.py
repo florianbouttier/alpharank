@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import json
 import hashlib
+import sys
 from dataclasses import asdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import polars as pl
+import numpy as np
 
-from alpharank.governance import reserve_run_directory
+from alpharank.causal_snapshot import validate_causal_v2_snapshot
+from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.multihorizon.config import MultiHorizonConfig
 from alpharank.multihorizon.data import (
     RELATIVE_EMA_PAIRS,
@@ -179,6 +182,12 @@ def _score_only_panel(
 
 
 def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
+    # Imported lazily to avoid the backtest/multihorizon package init cycle.
+    from alpharank.backtest.model_artifacts import (
+        load_serialized_fold_predictor,
+        serialize_fold_model,
+    )
+
     if config.feature_mode.startswith("legacy_winners_pit") and config.n_trials > 1:
         raise ValueError(
             "Point-in-time winner modes currently require n_trials <= 1: "
@@ -187,6 +196,46 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     run_dir = config.run_dir or config.output_dir / "multihorizon_boosting" / timestamp
     run_dir = reserve_run_directory(run_dir)
+    project_root = Path(__file__).resolve().parents[3]
+    methodology_identity: dict[str, Any] | None = None
+    if config.methodology_manifest is not None:
+        methodology_manifest = config.methodology_manifest.resolve()
+        causal_package = methodology_manifest.parent
+        methodology_identity = {
+            **validate_causal_v2_snapshot(causal_package),
+            "methodology_version": "v2-causal",
+            "methodology_manifest": str(methodology_manifest),
+            "methodology_manifest_sha256": _sha256(methodology_manifest),
+        }
+        if config.data_dir.resolve() != (causal_package / "input_snapshot").resolve():
+            raise ValueError(
+                "A causal methodology manifest requires data_dir to reference "
+                "its sealed input_snapshot."
+            )
+    runtime_provenance = capture_runtime_provenance(
+        project_root=project_root,
+        entrypoint="scripts/experiments/run_multihorizon_boosting.py",
+        command_argv=[sys.executable, *sys.argv],
+        resolved_config=_jsonable_config(config),
+        seeds={"random_seed": config.random_seed},
+        critical_files=(
+            "scripts/experiments/run_multihorizon_boosting.py",
+            "src/alpharank/multihorizon/pipeline.py",
+            "src/alpharank/multihorizon/data.py",
+            "src/alpharank/multihorizon/modeling.py",
+            "src/alpharank/multihorizon/preprocessing.py",
+            "src/alpharank/multihorizon/splits.py",
+            "src/alpharank/backtest/model_artifacts.py",
+            "src/alpharank/portfolio/simulation.py",
+        ),
+        data_identifiers={
+            "methodology_identity": methodology_identity or {"version": "research"},
+            "data_dir": str(config.data_dir.resolve()),
+            "legacy_detailed_sha256": _sha256(config.legacy_detailed_returns_path),
+            "legacy_monthly_sha256": _sha256(config.legacy_monthly_returns_path),
+        },
+        patch_path=run_dir / "runtime_git_patch.json",
+    )
     exact_winner_pairs = legacy_winning_pairs(config.legacy_detailed_returns_path)
     relative_ema_pairs = (
         RELATIVE_EMA_PAIRS
@@ -290,6 +339,8 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                 "the current decision month"
             ),
         },
+        "methodology_identity": methodology_identity,
+        "runtime_provenance": runtime_provenance,
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
 
@@ -357,6 +408,7 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             portfolio_parts: list[pl.DataFrame] = []
             fold_rows: list[dict] = []
             feature_manifest_rows: list[dict] = []
+            model_manifest_rows: list[dict] = []
             shap_parts: list[pl.DataFrame] = []
             for window in windows:
                 train_population = censoring_panel.filter(
@@ -479,6 +531,59 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                         fold=window.fold, method=method, horizon=horizon,
                     ),
                 }
+                fold_dir = combination_dir / f"fold_{window.fold:02d}"
+                serialized = serialize_fold_model(
+                    fold_dir=fold_dir,
+                    model=fitted.model,
+                    preprocessor=preprocessor,
+                    seed=config.random_seed + window.fold,
+                    fold_metadata={
+                        "fold": window.fold,
+                        "train_start": str(min(train["decision_month"])),
+                        "train_cutoff": str(train_cutoff),
+                        "validation_start": str(min(validation["decision_month"])),
+                        "validation_end": str(max(validation["decision_month"])),
+                        "test_start": str(min(test["decision_month"])),
+                        "test_end": str(max(test["decision_month"])),
+                    },
+                )
+                replay_frame = test.select(
+                    "decision_month",
+                    "ticker",
+                    *preprocessor.features,
+                ).with_columns(
+                    pl.Series(
+                        "expected_raw_score",
+                        split_predictions["test"]["score"],
+                    )
+                )
+                replay_path = fold_dir / "oos_replay.parquet"
+                replay_frame.write_parquet(replay_path)
+                replayed_scores = load_serialized_fold_predictor(fold_dir).predict(
+                    replay_frame
+                )
+                expected_scores = replay_frame["expected_raw_score"].to_numpy()
+                if not np.array_equal(replayed_scores, expected_scores):
+                    maximum_error = float(
+                        np.max(np.abs(replayed_scores - expected_scores))
+                    )
+                    raise RuntimeError(
+                        "Serialized fold model changed OOS scores: "
+                        f"fold={window.fold}, max_error={maximum_error}"
+                    )
+                replay_manifest = {
+                    "fold": window.fold,
+                    "rows": replay_frame.height,
+                    "oos_replay_file": replay_path.name,
+                    "oos_replay_sha256": _sha256(replay_path),
+                    "model_sha256": serialized["model_sha256"],
+                    "score_replay_maximum_absolute_error": 0.0,
+                }
+                (fold_dir / "oos_replay_manifest.json").write_text(
+                    json.dumps(replay_manifest, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                model_manifest_rows.append(replay_manifest)
                 predictions = split_predictions["test"]
                 target_column = (
                     "legacy_selected"
@@ -606,6 +711,9 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             fold_metrics.write_csv(combination_dir / "fold_metrics.csv")
             pl.DataFrame(feature_manifest_rows).write_csv(
                 combination_dir / "fold_feature_manifest.csv"
+            )
+            pl.DataFrame(model_manifest_rows).write_csv(
+                combination_dir / "fold_model_manifest.csv"
             )
             if shap_parts:
                 write_shap_outputs(
