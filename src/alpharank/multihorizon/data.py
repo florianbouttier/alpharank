@@ -33,13 +33,14 @@ RELATIVE_EMA_PAIRS = tuple(
 TARGET_STATUS_VALUES = (
     "evaluable",
     "terminal_event_resolved",
+    "provisional_last_observation",
     "horizon_pending",
     "benchmark_target_unavailable",
     "ticker_target_unavailable",
     "terminal_event_unresolved",
 )
 TRAINABLE_TARGET_STATUSES = frozenset(
-    {"evaluable", "terminal_event_resolved"}
+    {"evaluable", "terminal_event_resolved", "provisional_last_observation"}
 )
 
 
@@ -206,7 +207,15 @@ def _add_multihorizon_targets(
     horizons: Iterable[int],
     *,
     target_prices: pl.DataFrame | None = None,
+    mature_target_gap_policy: str = "fail_closed",
 ) -> pl.DataFrame:
+    if mature_target_gap_policy not in {
+        "fail_closed",
+        "provisional_last_observation_v1",
+    }:
+        raise ValueError(
+            f"Unsupported mature target gap policy: {mature_target_gap_policy!r}"
+        )
     benchmark = index_monthly.select(
         pl.col("year_month").alias("decision_month"),
         pl.col("index_close").alias("_benchmark_close"),
@@ -222,6 +231,11 @@ def _add_multihorizon_targets(
         price_panel.select(
             pl.col("ticker").cast(pl.String),
             pl.col(price_month_column).cast(pl.Date).alias("decision_month"),
+            (
+                pl.col("date").cast(pl.Date, strict=False)
+                if "date" in price_panel.columns
+                else pl.col(price_month_column).cast(pl.Date)
+            ).alias("price_observed_date"),
             pl.col("last_close").cast(pl.Float64),
             pl.col("monthly_return").cast(pl.Float64),
         )
@@ -272,8 +286,92 @@ def _add_multihorizon_targets(
                 f"future_return_{horizon}m",
                 f"future_volatility_{horizon}m",
                 f"future_downside_{horizon}m",
+                pl.when(valid_stock)
+                .then(
+                    pl.col("price_observed_date")
+                    .shift(-horizon)
+                    .over("ticker")
+                )
+                .otherwise(None)
+                .alias(f"future_return_observed_end_date_{horizon}m"),
             )
         )
+        if mature_target_gap_policy == "provisional_last_observation_v1":
+            requests = target_panel.select(
+                "ticker",
+                "decision_month",
+                pl.col("last_close").alias("_provisional_start_close"),
+                pl.col("decision_month")
+                .dt.offset_by(f"{horizon}mo")
+                .alias("_provisional_scheduled_month"),
+            ).sort(["ticker", "_provisional_scheduled_month"])
+            observations = target_panel.select(
+                "ticker",
+                pl.col("decision_month").alias("_provisional_observed_month"),
+                pl.col("price_observed_date").alias("_provisional_observed_date"),
+                pl.col("last_close").alias("_provisional_observed_close"),
+            ).sort(["ticker", "_provisional_observed_month"])
+            provisional = (
+                requests.join_asof(
+                    observations,
+                    left_on="_provisional_scheduled_month",
+                    right_on="_provisional_observed_month",
+                    by="ticker",
+                    strategy="backward",
+                    check_sortedness=False,
+                )
+                .with_columns(
+                    pl.when(
+                        pl.col("_provisional_observed_month")
+                        < pl.col("_provisional_scheduled_month")
+                    )
+                    .then(
+                        pl.col("_provisional_observed_close")
+                        / pl.col("_provisional_start_close")
+                        - 1.0
+                    )
+                    .otherwise(None)
+                    .alias("_provisional_return")
+                )
+                .select(
+                    "ticker",
+                    "decision_month",
+                    "_provisional_return",
+                    "_provisional_observed_date",
+                )
+            )
+            stock_targets = (
+                stock_targets.join(
+                    provisional,
+                    on=["ticker", "decision_month"],
+                    how="left",
+                    validate="1:1",
+                )
+                .with_columns(
+                    pl.coalesce(
+                        f"future_return_{horizon}m",
+                        "_provisional_return",
+                    ).alias(f"future_return_{horizon}m"),
+                    pl.coalesce(
+                        f"future_return_observed_end_date_{horizon}m",
+                        "_provisional_observed_date",
+                    ).alias(f"future_return_observed_end_date_{horizon}m"),
+                    pl.when(pl.col(f"future_return_{horizon}m").is_not_null())
+                    .then(pl.lit("observed_horizon_return"))
+                    .when(pl.col("_provisional_return").is_not_null())
+                    .then(pl.lit("provisional_last_observation"))
+                    .otherwise(pl.lit("unresolved_missing_return"))
+                    .alias(f"return_resolution_{horizon}m"),
+                )
+                .drop("_provisional_return", "_provisional_observed_date")
+            )
+        else:
+            stock_targets = stock_targets.with_columns(
+                pl.when(pl.col(f"future_return_{horizon}m").is_not_null())
+                .then(pl.lit("observed_horizon_return"))
+                .otherwise(pl.lit("unresolved_missing_return"))
+                .alias(f"return_resolution_{horizon}m")
+            )
         result = result.join(
             stock_targets,
             on=["ticker", "decision_month"],
@@ -387,6 +485,11 @@ def classify_training_target_status(
                 & (resolution == pl.lit("resolved_terminal_event"))
             )
             .then(pl.lit("terminal_event_resolved"))
+            .when(
+                pl.col(target).is_not_null()
+                & (resolution == pl.lit("provisional_last_observation"))
+            )
+            .then(pl.lit("provisional_last_observation"))
             .when(pl.col(target).is_not_null())
             .then(pl.lit("evaluable"))
             .when(event_id.is_not_null())
@@ -410,6 +513,7 @@ def target_censoring_counts(
         return {
             "evaluable": evaluable,
             "terminal_event_resolved": 0,
+            "provisional_last_observation": 0,
             "horizon_pending": 0,
             "benchmark_target_unavailable": 0,
             "ticker_target_unavailable": frame.height - evaluable,
@@ -426,6 +530,69 @@ def target_censoring_counts(
     if unknown:
         raise ValueError(f"Unknown target censoring statuses: {unknown}")
     return {status: observed.get(status, 0) for status in TARGET_STATUS_VALUES}
+
+
+def provisional_target_journal(
+    frame: pl.DataFrame,
+    *,
+    horizons: Iterable[int],
+) -> pl.DataFrame:
+    """List every carried-last-observation target for manual event review."""
+
+    parts: list[pl.DataFrame] = []
+    for horizon in sorted(set(horizons)):
+        status = f"target_status_{horizon}m"
+        if status not in frame.columns:
+            continue
+        rows = frame.filter(
+            pl.col(status) == "provisional_last_observation"
+        ).select(
+            "ticker",
+            "decision_month",
+            "decision_asof_date",
+            pl.lit(horizon).cast(pl.Int32).alias("horizon_months"),
+            pl.col("decision_month")
+            .dt.offset_by(f"{horizon}mo")
+            .alias("scheduled_target_end_month"),
+            pl.col(f"future_return_observed_end_date_{horizon}m").alias(
+                "last_observed_price_date"
+            ),
+            pl.col(f"future_return_{horizon}m").alias("provisional_stock_return"),
+            pl.col(f"benchmark_future_return_{horizon}m").alias(
+                "benchmark_horizon_return"
+            ),
+            pl.col(f"future_excess_return_{horizon}m").alias(
+                "provisional_excess_return"
+            ),
+            pl.lit("price_series_ended_before_scheduled_horizon").alias(
+                "audit_reason"
+            ),
+            pl.lit("pending_manual_terminal_event_review").alias(
+                "manual_review_status"
+            ),
+            pl.lit("provisional_last_observation_v1").alias("resolution_policy"),
+        )
+        parts.append(rows)
+    if not parts:
+        return pl.DataFrame(
+            schema={
+                "ticker": pl.String,
+                "decision_month": pl.Date,
+                "decision_asof_date": pl.Date,
+                "horizon_months": pl.Int32,
+                "scheduled_target_end_month": pl.Date,
+                "last_observed_price_date": pl.Date,
+                "provisional_stock_return": pl.Float64,
+                "benchmark_horizon_return": pl.Float64,
+                "provisional_excess_return": pl.Float64,
+                "audit_reason": pl.String,
+                "manual_review_status": pl.String,
+                "resolution_policy": pl.String,
+            }
+        )
+    return pl.concat(parts, how="diagonal_relaxed").sort(
+        ["decision_month", "ticker", "horizon_months"]
+    )
 
 
 def require_resolved_training_targets(
@@ -520,6 +687,7 @@ def build_research_frame(
     minimum_monthly_price_observations: int = 1,
     minimum_monthly_median_dollar_volume: float = 0.0,
     maximum_monthly_ohlc_violation_rate: float = 1.0,
+    mature_target_gap_policy: str = "fail_closed",
 ) -> ResearchFrame:
     """Build the raw, non-imputed, point-in-time multi-horizon panel."""
 
@@ -603,6 +771,7 @@ def build_research_frame(
         index_monthly,
         horizons,
         target_prices=monthly_prices,
+        mature_target_gap_policy=mature_target_gap_policy,
     )
     frame = _append_legacy_labels(frame, legacy_detailed_returns_path)
     identity = {

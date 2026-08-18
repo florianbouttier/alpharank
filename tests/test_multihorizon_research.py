@@ -126,6 +126,57 @@ def test_future_target_does_not_require_future_index_membership() -> None:
     )
 
 
+def test_mature_target_can_continue_with_logged_last_observation() -> None:
+    decision_universe = pl.DataFrame(
+        {
+            "ticker": ["EXIT.US"],
+            "decision_month": [date(2020, 1, 1)],
+            "decision_asof_date": [date(2020, 1, 31)],
+            "last_close": [100.0],
+            "monthly_return": [0.0],
+        }
+    )
+    price_panel = pl.DataFrame(
+        {
+            "ticker": ["EXIT.US", "EXIT.US"],
+            "year_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "date": [date(2020, 1, 31), date(2020, 2, 11)],
+            "last_close": [100.0, 90.0],
+            "monthly_return": [0.0, -0.10],
+        }
+    )
+    index = pl.DataFrame(
+        {
+            "year_month": [date(2020, month, 1) for month in range(1, 8)],
+            "index_close": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0],
+            "index_monthly_return": [0.0, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+        }
+    )
+
+    result = _add_multihorizon_targets(
+        decision_universe,
+        index,
+        [6],
+        target_prices=price_panel,
+        mature_target_gap_policy="provisional_last_observation_v1",
+    )
+    result = classify_training_target_status(
+        result,
+        horizons=[6],
+        completed_through_month=date(2020, 7, 1),
+    )
+
+    assert result["future_return_6m"].item() == pytest.approx(-0.10)
+    assert result["future_return_observed_end_date_6m"].item() == date(2020, 2, 11)
+    assert result["target_status_6m"].item() == "provisional_last_observation"
+    assert require_resolved_training_targets(
+        result,
+        method="classification",
+        horizon=6,
+        context="test",
+    )["provisional_last_observation"] == 1
+
+
 def test_price_eligibility_is_month_local_and_rejects_bad_ohlc() -> None:
     prices = pl.DataFrame(
         {
@@ -492,6 +543,7 @@ def test_training_target_missingness_is_not_survival_filter() -> None:
     assert counts == {
         "evaluable": 1,
         "terminal_event_resolved": 1,
+        "provisional_last_observation": 0,
         "horizon_pending": 1,
         "benchmark_target_unavailable": 1,
         "ticker_target_unavailable": 1_497,

@@ -277,6 +277,15 @@ def apply_next_session_open_holding_returns(
         str(key[0] if isinstance(key, tuple) else key): frame
         for key, frame in normalized_prices.partition_by("ticker", as_dict=True).items()
     }
+    market_month_ends = {
+        row["holding_month"]: row["scheduled_end_date"]
+        for row in normalized_prices.with_columns(
+            pl.col("date").dt.truncate("1mo").alias("holding_month")
+        )
+        .group_by("holding_month")
+        .agg(pl.col("date").max().alias("scheduled_end_date"))
+        .to_dicts()
+    }
     keys = holdings.select(
         "ticker",
         pl.col("decision_month").cast(pl.Date),
@@ -301,9 +310,14 @@ def apply_next_session_open_holding_returns(
         signal_date = before_holding["date"][-1]
         entry = inside_holding.row(0, named=True)
         ending = inside_holding.row(-1, named=True)
+        scheduled_end_date = market_month_ends[holding_month]
+        is_partial_observation = ending["date"] < scheduled_end_date
         signal_at = datetime.combine(signal_date, time(16, 0), tzinfo=NEW_YORK)
         execution_at = datetime.combine(entry["date"], time(9, 30), tzinfo=NEW_YORK)
         end_at = datetime.combine(ending["date"], time(16, 0), tzinfo=NEW_YORK)
+        scheduled_end_at = datetime.combine(
+            scheduled_end_date, time(16, 0), tzinfo=NEW_YORK
+        )
         if execution_at <= signal_at or end_at <= execution_at:
             raise RuntimeError(
                 f"Invalid next-open holding chronology for {ticker} {holding_month}"
@@ -325,8 +339,28 @@ def apply_next_session_open_holding_returns(
                     execution_at + timedelta(microseconds=1)
                 ).astimezone(ZoneInfo("UTC")),
                 "holding_return_end_at": end_at.astimezone(ZoneInfo("UTC")),
+                "scheduled_holding_end_at": scheduled_end_at.astimezone(
+                    ZoneInfo("UTC")
+                ),
+                "holding_observation_gap_calendar_days": (
+                    scheduled_end_date - ending["date"]
+                ).days,
                 "execution_policy_id": policy.identifier,
-                "return_resolution": "observed_market_next_open_to_month_end",
+                "return_resolution": (
+                    "provisional_last_observation"
+                    if is_partial_observation
+                    else "observed_market_next_open_to_month_end"
+                ),
+                "return_resolution_reason": (
+                    "ticker_price_series_ended_before_market_month_end"
+                    if is_partial_observation
+                    else None
+                ),
+                "manual_review_status": (
+                    "pending_manual_terminal_event_review"
+                    if is_partial_observation
+                    else None
+                ),
             }
         )
     resolved = pl.from_dicts(rows)

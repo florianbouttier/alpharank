@@ -20,6 +20,7 @@ from alpharank.multihorizon.data import (
     build_research_frame,
     classify_training_target_status,
     mask_targets_after_completed_month,
+    provisional_target_journal,
     require_resolved_training_targets,
     target_censoring_counts,
 )
@@ -258,6 +259,7 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         maximum_monthly_ohlc_violation_rate=(
             config.maximum_monthly_ohlc_violation_rate
         ),
+        mature_target_gap_policy=config.mature_target_gap_policy,
     )
     frame = research.frame
     completed_through_month = None
@@ -277,6 +279,14 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         horizons=tuple(sorted(set(config.horizons) | {1})),
         completed_through_month=completed_through_month,
     )
+    target_journal = provisional_target_journal(
+        frame,
+        horizons=tuple(sorted(set(config.horizons) | {1})),
+    )
+    target_journal_path = run_dir / "provisional_target_journal.parquet"
+    target_journal_csv_path = run_dir / "provisional_target_journal.csv"
+    target_journal.write_parquet(target_journal_path)
+    target_journal.write_csv(target_journal_csv_path)
     oracle_features: tuple[str, ...] = ()
     if config.feature_mode == "legacy_active_oracle":
         frame, oracle_features = add_active_legacy_oracle_features(
@@ -341,6 +351,24 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         },
         "methodology_identity": methodology_identity,
         "runtime_provenance": runtime_provenance,
+        "provisional_target_policy": {
+            "policy_id": config.mature_target_gap_policy,
+            "status": (
+                "pending_manual_review"
+                if target_journal.height
+                else "no_provisional_target"
+            ),
+            "journal_rows": target_journal.height,
+            "journal_tickers": target_journal["ticker"].n_unique(),
+            "journal_parquet": {
+                "path": str(target_journal_path.resolve()),
+                "sha256": _sha256(target_journal_path),
+            },
+            "journal_csv": {
+                "path": str(target_journal_csv_path.resolve()),
+                "sha256": _sha256(target_journal_csv_path),
+            },
+        },
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
 

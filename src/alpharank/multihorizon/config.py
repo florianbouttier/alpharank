@@ -16,7 +16,7 @@ DEFAULT_HISTORICAL_EXCLUDED_TICKERS = (
     load_ticker_exclusion_registry().excluded_tickers
 )
 
-LATEST_COMMON_COMPARISON_PROFILE_NAME = "legacy_ema_latest_common_v1"
+LATEST_COMMON_COMPARISON_PROFILE_NAME = "legacy_ema_latest_common_v2"
 LATEST_COMMON_COMPARISON_PROFILE = {
     "horizons": (6,),
     "methods": ("classification",),
@@ -43,6 +43,7 @@ LATEST_COMMON_COMPARISON_PROFILE = {
         STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate
     ),
     "random_seed": 42,
+    "mature_target_gap_policy": "provisional_last_observation_v1",
 }
 
 
@@ -109,6 +110,7 @@ class MultiHorizonConfig:
     maximum_monthly_ohlc_violation_rate: float = 1.0
     random_seed: int = 42
     num_boost_round: int = 160
+    mature_target_gap_policy: str = "fail_closed"
     verbose: bool = True
 
     def __post_init__(self) -> None:
@@ -176,3 +178,13 @@ class MultiHorizonConfig:
                 self.maximum_monthly_ohlc_violation_rate
             ),
         )
+        allowed_target_gap_policies = {
+            "fail_closed",
+            "provisional_last_observation_v1",
+        }
+        if self.mature_target_gap_policy not in allowed_target_gap_policies:
+            raise ValueError(
+                "Unsupported mature_target_gap_policy="
+                f"{self.mature_target_gap_policy!r}; expected one of "
+                f"{sorted(allowed_target_gap_policies)}."
+            )

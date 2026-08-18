@@ -43,6 +43,13 @@ def validate_boosting_v2_replay(
     maximum_score_error = 0.0
     portfolio_rows = 0
     unresolved_mature_rows = 0
+    provisional_mature_rows = 0
+    provisional_policy = manifest.get("provisional_target_policy", {})
+    for journal_key in ("journal_parquet", "journal_csv"):
+        record = provisional_policy.get(journal_key, {})
+        journal_path = Path(record.get("path", ""))
+        if not journal_path.is_file() or _sha256(journal_path) != record.get("sha256"):
+            raise RuntimeError(f"Boosting provisional target {journal_key} hash mismatch")
     combinations = manifest.get("results", {}).get("combinations", [])
     if not combinations:
         raise RuntimeError("Boosting v2 manifest has no completed combination")
@@ -123,6 +130,11 @@ def validate_boosting_v2_replay(
         )
         if unresolved_mature_rows:
             raise RuntimeError("Boosting v2 contains unresolved mature train/validation targets")
+        provisional_mature_rows += int(
+            censoring.filter(pl.col("split").is_in(["train", "validation"]))
+            .select(pl.col("provisional_last_observation_rows").sum())
+            .item()
+        )
 
         for fold_dir in sorted(combination_dir.glob("fold_[0-9][0-9]")):
             replay_manifest = _read_json(fold_dir / "oos_replay_manifest.json")
@@ -162,6 +174,10 @@ def validate_boosting_v2_replay(
         "oos_replay_rows": replay_rows,
         "portfolio_rows": portfolio_rows,
         "unresolved_mature_rows": unresolved_mature_rows,
+        "provisional_mature_rows": provisional_mature_rows,
+        "provisional_target_journal_rows": int(
+            provisional_policy.get("journal_rows", 0)
+        ),
         "maximum_absolute_score_replay_error": maximum_score_error,
     }
 

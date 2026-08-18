@@ -85,6 +85,7 @@ def test_boosting_v2_replay_is_serialized_and_causal(tmp_path: Path) -> None:
             "trainable_rows": [3, 3, 3],
             "evaluable_rows": [3, 3, 3],
             "terminal_event_resolved_rows": [0, 0, 0],
+            "provisional_last_observation_rows": [0, 0, 0],
             "horizon_pending_rows": [0, 0, 0],
             "benchmark_target_unavailable_rows": [0, 0, 0],
             "ticker_target_unavailable_rows": [0, 0, 0],
@@ -97,6 +98,13 @@ def test_boosting_v2_replay_is_serialized_and_causal(tmp_path: Path) -> None:
         "top_n_values": [5, 10, 20],
         "score_only_end_month": "2024-01",
     }
+    journal = pl.DataFrame(
+        schema={"ticker": pl.String, "decision_month": pl.Date}
+    )
+    journal_parquet = run_dir / "provisional_target_journal.parquet"
+    journal_csv = run_dir / "provisional_target_journal.csv"
+    journal.write_parquet(journal_parquet)
+    journal.write_csv(journal_csv)
     manifest = {
         "config": config,
         "methodology_identity": {
@@ -104,6 +112,17 @@ def test_boosting_v2_replay_is_serialized_and_causal(tmp_path: Path) -> None:
             "composition_id": composition_id,
         },
         "runtime_provenance": {"git": {"dirty": False}},
+        "provisional_target_policy": {
+            "journal_rows": 0,
+            "journal_parquet": {
+                "path": str(journal_parquet),
+                "sha256": _sha256(journal_parquet),
+            },
+            "journal_csv": {
+                "path": str(journal_csv),
+                "sha256": _sha256(journal_csv),
+            },
+        },
         "results": {"combinations": [{"method": "classification", "horizon": 6}]},
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")

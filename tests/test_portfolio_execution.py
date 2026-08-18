@@ -50,6 +50,44 @@ def test_next_session_open_returns_are_causal_and_adjusted() -> None:
     )
 
 
+def test_early_final_quote_is_kept_and_flagged_for_manual_review() -> None:
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["Boosting"],
+            "decision_month": [date(2024, 1, 1)],
+            "holding_month": [date(2024, 2, 1)],
+            "ticker": ["EXIT.US"],
+            "target_weight": [1.0],
+            "realized_return": [None],
+            "benchmark_return": [0.0],
+        }
+    )
+    prices = pl.DataFrame(
+        {
+            "ticker": ["EXIT.US", "EXIT.US", "EXIT.US", "MARKET.US"],
+            "date": [
+                date(2024, 1, 31),
+                date(2024, 2, 1),
+                date(2024, 2, 11),
+                date(2024, 2, 29),
+            ],
+            "open": [100.0, 100.0, 90.0, 100.0],
+            "close": [100.0, 99.0, 90.0, 100.0],
+            "adjusted_close": [100.0, 99.0, 90.0, 100.0],
+        }
+    )
+
+    resolved = apply_next_session_open_holding_returns(holdings, prices)
+
+    assert resolved["realized_return"].item() == pytest.approx(-0.10)
+    assert resolved["holding_return_end_at"].item().date() == date(2024, 2, 11)
+    assert resolved["scheduled_holding_end_at"].item().date() == date(2024, 2, 29)
+    assert resolved["return_resolution"].item() == "provisional_last_observation"
+    assert resolved["manual_review_status"].item() == (
+        "pending_manual_terminal_event_review"
+    )
+
+
 def test_order_price_occurs_after_signal_cutoff(tmp_path: Path) -> None:
     holdings = pl.DataFrame(
         {

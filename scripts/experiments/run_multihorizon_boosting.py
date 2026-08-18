@@ -110,6 +110,16 @@ def main() -> None:
         default=1.0,
     )
     parser.add_argument("--save-research-frame", action="store_true")
+    parser.add_argument(
+        "--mature-target-gap-policy",
+        choices=("fail_closed", "provisional_last_observation_v1"),
+        default="fail_closed",
+        help=(
+            "How to handle a mature target whose price series ends before its "
+            "scheduled horizon. The provisional policy carries the last observed "
+            "share value flat and writes every use to the audit journal."
+        ),
+    )
     args = parser.parse_args()
     run_profile = None
     if args.latest_common_comparison_profile:
@@ -155,6 +165,7 @@ def main() -> None:
             args.maximum_monthly_ohlc_violation_rate
         ),
         save_research_frame=args.save_research_frame,
+        mature_target_gap_policy=args.mature_target_gap_policy,
     )
     run_dir = run_multihorizon_research(config)
     print(run_dir)
