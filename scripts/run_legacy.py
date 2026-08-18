@@ -35,6 +35,10 @@ from alpharank.data.ticker_integrity import (
 )
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
+from alpharank.legacy_v2 import (
+    HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
+    require_holding_month_membership,
+)
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.benchmark import (
@@ -966,6 +970,21 @@ def run_pipeline(
             on=["ticker", "year_month"],
         )
     )
+    membership_gate_summary: dict[str, object] | None = None
+    if methodology_identity is not None:
+        candidates_before_gate = stocks_selections.height
+        stocks_selections = require_holding_month_membership(
+            stocks_selections,
+            us_historical_company.select("year_month", "ticker"),
+        )
+        membership_gate_summary = {
+            "policy_id": HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
+            "effective_boundary": "start_of_holding_month_before_first_execution",
+            "uses_holding_prices_or_returns": False,
+            "candidate_rows_before": candidates_before_gate,
+            "candidate_rows_after": stocks_selections.height,
+            "candidate_rows_removed": candidates_before_gate - stocks_selections.height,
+        }
     _write_checkpoint(stocks_selections, checkpoints_dir, f"{backend}_stocks_selections")
 
     print("Running strategy learning (Optuna)...")
@@ -1173,6 +1192,7 @@ def run_pipeline(
             },
             "cost_scenarios": [asdict(model) for model in LEGACY_V2_COST_SCENARIOS],
             "canonical_cost_scenario_id": "standard_10bps",
+            "candidate_membership_policy": membership_gate_summary,
             "holdings_rows": legacy_v2_holdings.height,
             "monthly_rows": legacy_v2_monthly.height,
             "strategies": sorted(legacy_v2_holdings["strategy"].unique().to_list()),

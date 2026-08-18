@@ -15,6 +15,58 @@ from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
 LEGACY_V2_TOLERANCE = 1e-12
+HOLDING_MONTH_MEMBERSHIP_POLICY_ID = "holding_month_membership_before_ranking_v1"
+
+
+def require_holding_month_membership(
+    signal_candidates: pl.DataFrame,
+    monthly_membership: pl.DataFrame,
+) -> pl.DataFrame:
+    """Keep only candidates that belong to the index for the holding month.
+
+    Legacy candidate features are dated in the signal month and shifted one
+    month by ``StrategyLearner`` before ranking.  The monthly constituent file
+    is effective at the start of its named month, so the execution universe
+    must be joined to signal rows with a one-month offset before that shift.
+    This gate uses membership only; it never observes holding-period prices or
+    returns.
+    """
+
+    required_candidates = {"year_month", "ticker"}
+    required_membership = {"year_month", "ticker"}
+    missing_candidates = sorted(required_candidates - set(signal_candidates.columns))
+    missing_membership = sorted(required_membership - set(monthly_membership.columns))
+    if missing_candidates:
+        raise ValueError(
+            f"Legacy v2 candidates lack membership keys: {missing_candidates}"
+        )
+    if missing_membership:
+        raise ValueError(
+            f"Legacy v2 membership lacks required keys: {missing_membership}"
+        )
+    execution_membership = (
+        monthly_membership.select(
+            pl.col("ticker").cast(pl.String),
+            pl.col("year_month")
+            .cast(pl.Date, strict=False)
+            .dt.offset_by("-1mo")
+            .alias("year_month"),
+        )
+        .unique()
+    )
+    return (
+        signal_candidates.with_columns(
+            pl.col("year_month").cast(pl.Date, strict=False),
+            pl.col("ticker").cast(pl.String),
+        )
+        .join(
+            execution_membership,
+            on=["year_month", "ticker"],
+            how="inner",
+            validate="m:1",
+        )
+        .sort(["year_month", "ticker"])
+    )
 
 
 def validate_legacy_v2_replay(
@@ -51,6 +103,11 @@ def validate_legacy_v2_replay(
         raise RuntimeError("Legacy v2 missing returns do not fail closed")
     if replay_manifest.get("canonical_cost_scenario_id") != "standard_10bps":
         raise RuntimeError("Legacy v2 canonical cost scenario drifted")
+    if (
+        replay_manifest.get("candidate_membership_policy", {}).get("policy_id")
+        != HOLDING_MONTH_MEMBERSHIP_POLICY_ID
+    ):
+        raise RuntimeError("Legacy v2 holding-month membership gate drifted")
 
     holdings_path = Path(replay_manifest["artifacts"]["holdings"]["path"])
     monthly_path = Path(replay_manifest["artifacts"]["monthly"]["path"])

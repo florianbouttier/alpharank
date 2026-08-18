@@ -9,7 +9,11 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.legacy_v2 import validate_legacy_v2_replay
+from alpharank.legacy_v2 import (
+    HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
+    require_holding_month_membership,
+    validate_legacy_v2_replay,
+)
 from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
@@ -60,6 +64,9 @@ def test_legacy_v2_run_is_replayable(tmp_path: Path) -> None:
         "execution_policy": {"identifier": "next_session_open_v1"},
         "missing_return_policy": "raise",
         "canonical_cost_scenario_id": "standard_10bps",
+        "candidate_membership_policy": {
+            "policy_id": HOLDING_MONTH_MEMBERSHIP_POLICY_ID
+        },
         "cost_scenarios": [asdict(model) for model in models],
         "artifacts": {
             "holdings": {"path": str(holdings_path), "sha256": _sha256(holdings_path)},
@@ -82,6 +89,26 @@ def test_legacy_v2_run_is_replayable(tmp_path: Path) -> None:
     )
     with pytest.raises(RuntimeError, match="hash mismatch"):
         validate_legacy_v2_replay(run_dir, expected_composition_id=composition_id)
+
+
+def test_legacy_v2_ranks_only_holding_month_members() -> None:
+    candidates = pl.DataFrame(
+        {
+            "year_month": [date(2018, 12, 1)] * 2,
+            "ticker": ["ESRX.US", "CI.US"],
+            "score": [2.0, 1.0],
+        }
+    )
+    membership = pl.DataFrame(
+        {
+            "year_month": [date(2018, 12, 1), date(2019, 1, 1)],
+            "ticker": ["ESRX.US", "CI.US"],
+        }
+    )
+
+    gated = require_holding_month_membership(candidates, membership)
+
+    assert gated["ticker"].to_list() == ["CI.US"]
 
 
 def _holdings() -> pl.DataFrame:
