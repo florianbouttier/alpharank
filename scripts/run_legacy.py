@@ -9,7 +9,7 @@ import platform
 import re
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from calendar import monthrange
 from pathlib import Path
@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 import polars as pl
 
+from alpharank.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
 from alpharank.data.price_eligibility import (
@@ -43,10 +44,12 @@ from alpharank.portfolio.benchmark import (
 )
 from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.execution import (
+    apply_next_session_open_holding_returns,
     build_execution_sensitivity_report,
     build_monthly_execution_orders,
     write_execution_sensitivity_report,
 )
+from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.strategy.search_protocol import write_legacy_search_audit
@@ -69,6 +72,28 @@ INPUT_PACKAGE_FILENAMES: Dict[str, str] = {
     "sp500_constituents": "SP500_Constituents.csv",
     "sp500_price": "SP500Price.parquet",
 }
+
+LEGACY_V2_COST_SCENARIOS = (
+    TransactionCostModel("zero"),
+    TransactionCostModel(
+        "standard_10bps",
+        spread_bps=3.0,
+        slippage_bps=2.0,
+        impact_bps=2.0,
+        commission_bps=2.0,
+        fx_bps=1.0,
+        fx_turnover_fraction=1.0,
+    ),
+    TransactionCostModel(
+        "stress_30bps",
+        spread_bps=8.0,
+        slippage_bps=7.0,
+        impact_bps=8.0,
+        commission_bps=5.0,
+        fx_bps=2.0,
+        fx_turnover_fraction=1.0,
+    ),
+)
 
 
 @dataclass
@@ -179,6 +204,24 @@ def _read_json_if_exists(path: Path) -> Dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _snapshot_identifier(data_dir: Path) -> str | None:
+    """Resolve a stable identity from composed or historical snapshot metadata."""
+
+    for relative in (
+        "snapshot_manifest.json",
+        "lineage/manifest.json",
+        "latest_snapshot.json",
+    ):
+        payload = _read_json_if_exists(data_dir / relative)
+        if not isinstance(payload, dict):
+            continue
+        for key in ("snapshot_id", "composition_id", "run_id"):
+            value = str(payload.get(key) or "").strip()
+            if value:
+                return value
+    return None
 
 
 def _resolve_published_output_snapshot(official_dir: str | None, published_snapshot: str | None) -> Path | None:
@@ -578,6 +621,7 @@ def run_pipeline(
     checkpoints_dir: Optional[Path] = None,
     final_price_path: Optional[Path] = None,
     sp500_price_path: Optional[Path] = None,
+    methodology_manifest: Optional[Path] = None,
     ticker_exclusion_registry: Optional[Path] = DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     price_eligibility_policy_id: str = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.policy_id,
     minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
@@ -593,6 +637,23 @@ def run_pipeline(
     else:
         data_dir = data_dir if data_dir is not None else project_root / "data"
     output_dir = output_dir if output_dir is not None else project_root / "outputs"
+    methodology_identity: Dict[str, Any] | None = None
+    if methodology_manifest is not None:
+        methodology_manifest = methodology_manifest.resolve()
+        causal_package = methodology_manifest.parent
+        validation = validate_causal_v2_snapshot(causal_package)
+        expected_data_dir = (causal_package / "input_snapshot").resolve()
+        if data_dir is None or data_dir.resolve() != expected_data_dir:
+            raise ValueError(
+                "A causal methodology manifest requires --data-dir to reference "
+                "its sealed input_snapshot."
+            )
+        methodology_identity = {
+            **validation,
+            "methodology_version": "v2-causal",
+            "methodology_manifest": str(methodology_manifest),
+            "methodology_manifest_sha256": _sha256_path(methodology_manifest),
+        }
     run_started_at = datetime.now()
     run_instance_id = run_started_at.strftime("%Y%m%d_%H%M%S")
     run_date_dir = output_dir / run_started_at.strftime("%Y-%m-%d")
@@ -676,6 +737,7 @@ def run_pipeline(
             "exclude the latest observed calendar month from model inputs; "
             "retain it only as snapshot freshness evidence"
         ),
+        "methodology_identity": methodology_identity,
     }
     runtime_provenance = capture_runtime_provenance(
         project_root=project_root,
@@ -690,9 +752,12 @@ def run_pipeline(
         },
         critical_files=(
             "scripts/run_legacy.py",
+            "src/alpharank/causal_snapshot.py",
             "src/alpharank/data/processing.py",
             "src/alpharank/strategy/legacy.py",
             "src/alpharank/portfolio/simulation.py",
+            "src/alpharank/portfolio/execution.py",
+            "src/alpharank/portfolio/costs.py",
             "src/alpharank/data/price_eligibility.py",
             "src/alpharank/governance.py",
         ),
@@ -1027,6 +1092,106 @@ def run_pipeline(
             ).filter(pl.col("benchmark_return").is_not_null())
         )
     common_holdings = pl.concat(common_holdings_parts, how="diagonal_relaxed")
+    legacy_v2_holdings_file: Path | None = None
+    legacy_v2_monthly_file: Path | None = None
+    legacy_v2_manifest_file: Path | None = None
+    legacy_v2_holdings: pl.DataFrame | None = None
+    if methodology_identity is not None:
+        price_columns = [
+            "ticker",
+            "date",
+            "open",
+            "close",
+            "adjusted_close",
+        ]
+        benchmark_tickers = sp500_price.get_column("ticker").drop_nulls().unique()
+        if benchmark_tickers.len() != 1:
+            raise RuntimeError("Causal Legacy replay requires exactly one SPY ticker.")
+        benchmark_seed = (
+            common_holdings.select("decision_month", "holding_month")
+            .unique()
+            .with_columns(
+                pl.lit("SPY_Total_Return").alias("strategy"),
+                pl.lit(str(benchmark_tickers.item())).alias("ticker"),
+                pl.lit(1.0).alias("target_weight"),
+                pl.lit(0.0).alias("realized_return"),
+                pl.lit(0.0).alias("benchmark_return"),
+            )
+        )
+        benchmark_next_open = apply_next_session_open_holding_returns(
+            benchmark_seed,
+            sp500_price.select(price_columns),
+        ).select(
+            "holding_month",
+            pl.col("realized_return").alias("benchmark_return_next_open"),
+        )
+        legacy_v2_holdings = (
+            apply_next_session_open_holding_returns(
+                common_holdings,
+                final_price.select(price_columns),
+            )
+            .drop("benchmark_return")
+            .join(
+                benchmark_next_open,
+                on="holding_month",
+                how="left",
+                validate="m:1",
+            )
+            .rename({"benchmark_return_next_open": "benchmark_return"})
+        )
+        scenario_monthly: list[pl.DataFrame] = []
+        for scenario in LEGACY_V2_COST_SCENARIOS:
+            for strategy_holdings in legacy_v2_holdings.partition_by(
+                "strategy", maintain_order=True
+            ):
+                scenario_monthly.append(
+                    simulate_weighted_portfolio(
+                        strategy_holdings,
+                        transaction_cost_model=scenario,
+                        missing_return_policy="raise",
+                        causal_timing_policy="require_explicit",
+                    )
+                )
+        legacy_v2_monthly = pl.concat(scenario_monthly, how="diagonal_relaxed")
+        legacy_v2_holdings_file = run_day_dir / "legacy_v2_holdings.parquet"
+        legacy_v2_monthly_file = run_day_dir / "legacy_v2_monthly.parquet"
+        legacy_v2_holdings.write_parquet(legacy_v2_holdings_file)
+        legacy_v2_monthly.write_parquet(legacy_v2_monthly_file)
+        legacy_v2_monthly.write_csv(run_day_dir / "legacy_v2_monthly.csv")
+        legacy_v2_manifest = {
+            "contract_version": 1,
+            "scope": "alpharank_legacy_v2_replay",
+            "methodology_identity": methodology_identity,
+            "execution_policy": {
+                "identifier": "next_session_open_v1",
+                "return_window": "adjusted_open_to_last_adjusted_close_in_holding_month",
+            },
+            "missing_return_policy": "raise",
+            "benchmark": {
+                "ticker": str(benchmark_tickers.item()),
+                "return_window": "adjusted_open_to_last_adjusted_close_in_holding_month",
+            },
+            "cost_scenarios": [asdict(model) for model in LEGACY_V2_COST_SCENARIOS],
+            "canonical_cost_scenario_id": "standard_10bps",
+            "holdings_rows": legacy_v2_holdings.height,
+            "monthly_rows": legacy_v2_monthly.height,
+            "strategies": sorted(legacy_v2_holdings["strategy"].unique().to_list()),
+            "artifacts": {
+                "holdings": {
+                    "path": str(legacy_v2_holdings_file.resolve()),
+                    "sha256": _sha256_path(legacy_v2_holdings_file),
+                },
+                "monthly": {
+                    "path": str(legacy_v2_monthly_file.resolve()),
+                    "sha256": _sha256_path(legacy_v2_monthly_file),
+                },
+            },
+        }
+        legacy_v2_manifest_file = run_day_dir / "legacy_v2_replay_manifest.json"
+        legacy_v2_manifest_file.write_text(
+            json.dumps(legacy_v2_manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     common_monthly = pl.concat(
         [
             simulate_weighted_portfolio(
@@ -1105,9 +1270,17 @@ def run_pipeline(
     comparison_curves_long = _named_frames_to_long(models)
     detailed_returns_long = _named_frames_to_long(detailed_outputs)
     aggregated_returns_long = _named_frames_to_long(aggregated_outputs)
-    execution_holdings = detailed_returns_long.filter(
-        pl.col("portfolio_model").is_in(
-            ["Combined_Equal", "Combined_Frequency"]
+    execution_holdings = (
+        legacy_v2_holdings.select(
+            pl.col("strategy").alias("portfolio_model"),
+            pl.col("holding_month").alias("year_month"),
+            "ticker",
+        )
+        if legacy_v2_holdings is not None
+        else detailed_returns_long.filter(
+            pl.col("portfolio_model").is_in(
+                ["Combined_Equal", "Combined_Frequency"]
+            )
         )
     )
     execution_price_columns = ["ticker", "date", "open", "close"]
@@ -1327,6 +1500,15 @@ def run_pipeline(
             "data_input_manifest": run_day_dir / "data_input_manifest.json",
             "input_snapshot_dir": input_snapshot_dir,
             "monthly_price_eligibility": monthly_price_eligibility_file,
+            **(
+                {
+                    "legacy_v2_holdings": legacy_v2_holdings_file,
+                    "legacy_v2_monthly": legacy_v2_monthly_file,
+                    "legacy_v2_manifest": legacy_v2_manifest_file,
+                }
+                if legacy_v2_manifest_file is not None
+                else {}
+            ),
             "latest_run_pointer": latest_pointer_file,
             **monthly_snapshot_files,
         },
@@ -1344,6 +1526,7 @@ def main(
     checkpoints_dir: str | Path | None = "outputs/checkpoints",
     final_price_path: str | Path | None = None,
     sp500_price_path: str | Path | None = None,
+    methodology_manifest: str | Path | None = None,
     ticker_exclusion_registry: str | Path | None = DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     price_eligibility_policy_id: str = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.policy_id,
     minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
@@ -1359,6 +1542,11 @@ def main(
     output_dir = Path(output_dir).expanduser().resolve() if output_dir else None
     final_price_path = Path(final_price_path).expanduser().resolve() if final_price_path else None
     sp500_price_path = Path(sp500_price_path).expanduser().resolve() if sp500_price_path else None
+    methodology_manifest = (
+        Path(methodology_manifest).expanduser().resolve()
+        if methodology_manifest
+        else None
+    )
     ticker_exclusion_registry = (
         Path(ticker_exclusion_registry).expanduser().resolve()
         if ticker_exclusion_registry
@@ -1375,6 +1563,7 @@ def main(
         checkpoints_dir=checkpoints_dir,
         final_price_path=final_price_path,
         sp500_price_path=sp500_price_path,
+        methodology_manifest=methodology_manifest,
         ticker_exclusion_registry=ticker_exclusion_registry,
         price_eligibility_policy_id=price_eligibility_policy_id,
         minimum_monthly_price_observations=minimum_monthly_price_observations,
@@ -1433,6 +1622,13 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--final-price-path")
     parser.add_argument("--sp500-price-path")
+    parser.add_argument(
+        "--methodology-manifest",
+        help=(
+            "Sealed causal-v2 manifest; requires --data-dir to be that package's "
+            "input_snapshot and emits next-open/cost-scenario artifacts."
+        ),
+    )
     ticker_registry_group = parser.add_mutually_exclusive_group()
     ticker_registry_group.add_argument(
         "--ticker-exclusion-registry",
@@ -1484,6 +1680,7 @@ def _run_cli() -> None:
         "checkpoints_dir": None if args.no_checkpoints else args.checkpoints_dir,
         "final_price_path": args.final_price_path,
         "sp500_price_path": args.sp500_price_path,
+        "methodology_manifest": args.methodology_manifest,
         "ticker_exclusion_registry": (
             None
             if args.no_ticker_exclusion_registry

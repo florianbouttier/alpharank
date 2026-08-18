@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 import json
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -209,6 +209,129 @@ def write_execution_sensitivity_report(
         encoding="utf-8",
     )
     return manifest
+
+
+def apply_next_session_open_holding_returns(
+    holdings: pl.DataFrame,
+    daily_prices: pl.DataFrame,
+    *,
+    policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+) -> pl.DataFrame:
+    """Replace monthly close returns with adjusted-open to month-end returns.
+
+    The entry is the first observed regular-session open strictly after the
+    decision cutoff. The exit is the last observed adjusted close inside the
+    holding month. Adjustment factors are applied to the entry open so splits
+    and distributions remain represented without using future availability to
+    select a holding.
+    """
+
+    required_holdings = {
+        "strategy",
+        "decision_month",
+        "holding_month",
+        "ticker",
+        "realized_return",
+    }
+    required_prices = {"ticker", "date", "open", "close", "adjusted_close"}
+    missing_holdings = sorted(required_holdings - set(holdings.columns))
+    missing_prices = sorted(required_prices - set(daily_prices.columns))
+    if missing_holdings:
+        raise ValueError(f"Holdings are missing execution fields: {missing_holdings}")
+    if missing_prices:
+        raise ValueError(f"Prices are missing execution fields: {missing_prices}")
+
+    normalized_prices = (
+        daily_prices.select(
+            pl.col("ticker").cast(pl.String),
+            pl.col("date").cast(pl.Date, strict=False),
+            pl.col("open").cast(pl.Float64),
+            pl.col("close").cast(pl.Float64),
+            pl.col("adjusted_close").cast(pl.Float64),
+        )
+        .filter(
+            pl.col("date").is_not_null()
+            & pl.col("open").is_finite()
+            & (pl.col("open") > 0.0)
+            & pl.col("close").is_finite()
+            & (pl.col("close") > 0.0)
+            & pl.col("adjusted_close").is_finite()
+            & (pl.col("adjusted_close") > 0.0)
+        )
+        .with_columns(
+            (
+                pl.col("open") * pl.col("adjusted_close") / pl.col("close")
+            ).alias("adjusted_open")
+        )
+        .sort(["ticker", "date"])
+    )
+    prices_by_ticker = {
+        str(key[0] if isinstance(key, tuple) else key): frame
+        for key, frame in normalized_prices.partition_by("ticker", as_dict=True).items()
+    }
+    keys = holdings.select(
+        "ticker",
+        pl.col("decision_month").cast(pl.Date),
+        pl.col("holding_month").cast(pl.Date),
+    ).unique()
+    rows: list[dict[str, object]] = []
+    for row in keys.sort(["holding_month", "ticker"]).to_dicts():
+        ticker = str(row["ticker"])
+        decision_month = row["decision_month"]
+        holding_month = row["holding_month"]
+        ticker_prices = prices_by_ticker.get(ticker)
+        if ticker_prices is None:
+            raise RuntimeError(f"No execution price history for {ticker}")
+        before_holding = ticker_prices.filter(pl.col("date") < holding_month)
+        inside_holding = ticker_prices.filter(
+            pl.col("date").dt.truncate("1mo") == holding_month
+        )
+        if before_holding.is_empty() or inside_holding.is_empty():
+            raise RuntimeError(
+                f"Incomplete next-open holding window for {ticker} {holding_month}"
+            )
+        signal_date = before_holding["date"][-1]
+        entry = inside_holding.row(0, named=True)
+        ending = inside_holding.row(-1, named=True)
+        signal_at = datetime.combine(signal_date, time(16, 0), tzinfo=NEW_YORK)
+        execution_at = datetime.combine(entry["date"], time(9, 30), tzinfo=NEW_YORK)
+        end_at = datetime.combine(ending["date"], time(16, 0), tzinfo=NEW_YORK)
+        if execution_at <= signal_at or end_at <= execution_at:
+            raise RuntimeError(
+                f"Invalid next-open holding chronology for {ticker} {holding_month}"
+            )
+        rows.append(
+            {
+                "ticker": ticker,
+                "decision_month": decision_month,
+                "holding_month": holding_month,
+                "realized_return_next_open": (
+                    float(ending["adjusted_close"])
+                    / float(entry["adjusted_open"])
+                    - 1.0
+                ),
+                "feature_max_asof_at": signal_at.astimezone(ZoneInfo("UTC")),
+                "signal_cutoff_at": signal_at.astimezone(ZoneInfo("UTC")),
+                "execution_at": execution_at.astimezone(ZoneInfo("UTC")),
+                "first_return_observation_at": (
+                    execution_at + timedelta(microseconds=1)
+                ).astimezone(ZoneInfo("UTC")),
+                "holding_return_end_at": end_at.astimezone(ZoneInfo("UTC")),
+                "execution_policy_id": policy.identifier,
+                "return_resolution": "observed_market_next_open_to_month_end",
+            }
+        )
+    resolved = pl.from_dicts(rows)
+    return (
+        holdings.drop("realized_return")
+        .join(
+            resolved,
+            on=["ticker", "decision_month", "holding_month"],
+            how="left",
+            validate="m:1",
+        )
+        .rename({"realized_return_next_open": "realized_return"})
+    )
 
 
 def _session_record(row: dict[str, object]) -> dict[str, object]:
