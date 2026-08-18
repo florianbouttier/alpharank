@@ -204,24 +204,81 @@ def _add_multihorizon_targets(
     frame: pl.DataFrame,
     index_monthly: pl.DataFrame,
     horizons: Iterable[int],
+    *,
+    target_prices: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     benchmark = index_monthly.select(
         pl.col("year_month").alias("decision_month"),
         pl.col("index_close").alias("_benchmark_close"),
         pl.col("index_monthly_return").alias("_benchmark_monthly_return"),
     )
-    result = frame.join(benchmark, on="decision_month", how="left").sort(["ticker", "decision_month"])
+    result = frame.sort(["ticker", "decision_month"])
     benchmark_by_month = benchmark.sort("decision_month")
+    price_panel = target_prices if target_prices is not None else frame
+    price_month_column = (
+        "year_month" if "year_month" in price_panel.columns else "decision_month"
+    )
+    target_panel = (
+        price_panel.select(
+            pl.col("ticker").cast(pl.String),
+            pl.col(price_month_column).cast(pl.Date).alias("decision_month"),
+            pl.col("last_close").cast(pl.Float64),
+            pl.col("monthly_return").cast(pl.Float64),
+        )
+        .join(benchmark, on="decision_month", how="left")
+        .sort(["ticker", "decision_month"])
+    )
     for horizon in horizons:
         end_month = pl.col("decision_month").shift(-horizon).over("ticker")
         stock_return = pl.col("last_close").shift(-horizon).over("ticker") / pl.col("last_close") - 1.0
         valid_stock = (_month_number("_target_end_month") - _month_number("decision_month")) == horizon
-        result = result.with_columns(end_month.alias("_target_end_month")).with_columns(
+        stock_targets = target_panel.with_columns(
+            end_month.alias("_target_end_month")
+        ).with_columns(
             pl.when(valid_stock).then(stock_return).otherwise(None).alias(f"future_return_{horizon}m"),
             pl.when(valid_stock)
             .then(_future_list("monthly_return", horizon).list.std() * (12.0**0.5))
             .otherwise(None)
             .alias(f"future_volatility_{horizon}m"),
+        )
+        future_excess_monthly = pl.concat_list(
+            [
+                (
+                    pl.col("monthly_return").shift(-step).over("ticker")
+                    - pl.col("_benchmark_monthly_return").shift(-step).over("ticker")
+                )
+                for step in range(1, horizon + 1)
+            ]
+        )
+        stock_targets = (
+            stock_targets.with_columns(
+                pl.when(valid_stock)
+                .then(
+                    future_excess_monthly.list.eval(
+                        pl.when(pl.element() < 0.0)
+                        .then(pl.element() ** 2)
+                        .otherwise(0.0)
+                    )
+                    .list.mean()
+                    .sqrt()
+                    .mul(12.0**0.5)
+                )
+                .otherwise(None)
+                .alias(f"future_downside_{horizon}m")
+            )
+            .select(
+                "ticker",
+                "decision_month",
+                f"future_return_{horizon}m",
+                f"future_volatility_{horizon}m",
+                f"future_downside_{horizon}m",
+            )
+        )
+        result = result.join(
+            stock_targets,
+            on=["ticker", "decision_month"],
+            how="left",
+            validate="1:1",
         )
         benchmark_h = benchmark_by_month.with_columns(
             (
@@ -244,29 +301,7 @@ def _add_multihorizon_targets(
             .cast(pl.Int8)
             .alias(f"future_positive_label_{horizon}m"),
         )
-        future_excess_monthly = pl.concat_list(
-            [
-                (
-                    pl.col("monthly_return").shift(-step).over("ticker")
-                    - pl.col("_benchmark_monthly_return").shift(-step).over("ticker")
-                )
-                for step in range(1, horizon + 1)
-            ]
-        )
-        result = result.with_columns(
-            pl.when(valid_stock)
-            .then(
-                future_excess_monthly.list.eval(
-                    pl.when(pl.element() < 0.0).then(pl.element() ** 2).otherwise(0.0)
-                )
-                .list.mean()
-                .sqrt()
-                .mul(12.0**0.5)
-            )
-            .otherwise(None)
-            .alias(f"future_downside_{horizon}m")
-        ).drop("_target_end_month")
-    return result.drop(["_benchmark_close", "_benchmark_monthly_return"])
+    return result
 
 
 def mask_targets_after_completed_month(
@@ -563,7 +598,12 @@ def build_research_frame(
     )
     frame, relative_features = _add_cross_sectional_relative_ema_features(frame, relative_base)
     frame, regime_features = _add_regime_features(frame, index_monthly)
-    frame = _add_multihorizon_targets(frame, index_monthly, horizons)
+    frame = _add_multihorizon_targets(
+        frame,
+        index_monthly,
+        horizons,
+        target_prices=monthly_prices,
+    )
     frame = _append_legacy_labels(frame, legacy_detailed_returns_path)
     identity = {
         "ticker",

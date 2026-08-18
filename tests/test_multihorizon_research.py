@@ -88,6 +88,44 @@ def test_future_target_requires_an_exact_calendar_gap() -> None:
     assert result["future_return_1m"].to_list()[1:] == [None, None]
 
 
+def test_future_target_does_not_require_future_index_membership() -> None:
+    decision_universe = pl.DataFrame(
+        {
+            "ticker": ["EXIT.US"],
+            "decision_month": [date(2020, 1, 1)],
+            "last_close": [100.0],
+            "monthly_return": [0.0],
+        }
+    )
+    full_price_panel = pl.DataFrame(
+        {
+            "ticker": ["EXIT.US", "EXIT.US"],
+            "year_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "last_close": [100.0, 110.0],
+            "monthly_return": [0.0, 0.1],
+        }
+    )
+    index = pl.DataFrame(
+        {
+            "year_month": [date(2020, 1, 1), date(2020, 2, 1)],
+            "index_close": [100.0, 102.0],
+            "index_monthly_return": [0.0, 0.02],
+        }
+    )
+
+    result = _add_multihorizon_targets(
+        decision_universe,
+        index,
+        [1],
+        target_prices=full_price_panel,
+    )
+
+    assert result["future_return_1m"].item() == pytest.approx(0.1)
+    assert result["future_excess_return_1m"].item() == pytest.approx(
+        1.1 / 1.02 - 1.0
+    )
+
+
 def test_price_eligibility_is_month_local_and_rejects_bad_ohlc() -> None:
     prices = pl.DataFrame(
         {
