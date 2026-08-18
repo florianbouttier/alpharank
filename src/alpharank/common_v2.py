@@ -165,13 +165,19 @@ def build_common_v2_comparison(
         predictions,
         monthly_membership,
     )
-    membership_rows_removed = predictions_before_membership_gate - predictions.height
+    predictions_after_membership_gate = predictions.height
+    membership_rows_removed = (
+        predictions_before_membership_gate - predictions_after_membership_gate
+    )
     predictions_before_execution_gate = predictions.height
     predictions = gate_boosting_predictions_for_execution_open(
         predictions,
         prices.select(["ticker", "date", "open"]),
     )
-    execution_rows_removed = predictions_before_execution_gate - predictions.height
+    predictions_after_execution_gate = predictions.height
+    execution_rows_removed = (
+        predictions_before_execution_gate - predictions_after_execution_gate
+    )
     complete_decisions = (
         predictions.group_by("decision_month")
         .agg(
@@ -257,6 +263,14 @@ def build_common_v2_comparison(
     )
     provisional_attribution_path = destination / "provisional_cagr_attribution.csv"
     provisional_attribution.write_csv(provisional_attribution_path)
+    provisional_report_path = destination / "provisional_terminal_impact_report.md"
+    provisional_report_path.write_text(
+        _render_provisional_terminal_report(
+            provisional_attribution,
+            provisional_journal,
+        ),
+        encoding="utf-8",
+    )
     legacy_monthly = investable_monthly.filter(pl.col("strategy") == "Legacy")
     spy = reference_monthly_series(
         legacy_monthly,
@@ -307,14 +321,14 @@ def build_common_v2_comparison(
             "policy_id": HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
             "uses_holding_prices_or_returns": False,
             "candidate_rows_before": predictions_before_membership_gate,
-            "candidate_rows_after": predictions.height,
+            "candidate_rows_after": predictions_after_membership_gate,
             "candidate_rows_removed": membership_rows_removed,
         },
         "first_session_execution_gate": {
             "policy_id": "first_holding_session_open_before_ranking_v1",
             "uses_holding_return_or_month_end_price": False,
             "candidate_rows_before": predictions_before_execution_gate,
-            "candidate_rows_after": predictions.height,
+            "candidate_rows_after": predictions_after_execution_gate,
             "candidate_rows_removed": execution_rows_removed,
         },
         "calendar": calendar.to_dicts(),
@@ -346,6 +360,7 @@ def build_common_v2_comparison(
                 "provisional_holding_journal": provisional_journal_path,
                 "provisional_holding_journal_csv": provisional_journal_csv_path,
                 "provisional_cagr_attribution": provisional_attribution_path,
+                "provisional_terminal_impact_report": provisional_report_path,
             }.items()
         },
     }
@@ -486,6 +501,52 @@ def _file_record(path: Path) -> dict[str, Any]:
         "sha256": _sha256(resolved),
         "size_bytes": resolved.stat().st_size,
     }
+
+
+def _render_provisional_terminal_report(
+    attribution: pl.DataFrame,
+    journal: pl.DataFrame,
+) -> str:
+    lines = [
+        "# Impact des fins de cotation provisoires",
+        "",
+        "Les positions ci-dessous restent dans le portefeuille. Leur rendement est "
+        "mesuré de la première ouverture du mois à la dernière cotation observée, "
+        "puis la valeur est portée à rendement nul jusqu'à la fin prévue. Chaque "
+        "cas reste en revue manuelle jusqu'à résolution de l'événement terminal.",
+        "",
+        "Les contributions en log annualisé sont additives. L'impact marginal sur "
+        "le CAGR est exact pour ce groupe, mais ne doit pas être additionné à "
+        "d'autres impacts marginaux indépendants.",
+        "",
+        "| Stratégie | CAGR provisoire | Contribution log ann. | CAGR sans ce groupe | Impact CAGR marginal | Positions |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for row in attribution.to_dicts():
+        lines.append(
+            f"| {row['strategy']} | {100 * row['cagr']:.4f} % | "
+            f"{100 * row['provisional_annualized_log_contribution']:.4f} pt | "
+            f"{100 * row['cagr_without_provisional_component']:.4f} % | "
+            f"{100 * row['provisional_marginal_cagr_impact']:.4f} pt | "
+            f"{row['provisional_holding_rows']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Journal à résoudre",
+            "",
+            "| Stratégie | Achat | Titre | Dernière cotation | Fin prévue | Rendement retenu |",
+            "|---|---|---|---|---|---:|",
+        ]
+    )
+    for row in journal.to_dicts():
+        lines.append(
+            f"| {row['strategy']} | {row['holding_month']} | {row['ticker']} | "
+            f"{row['holding_return_end_at'].date()} | "
+            f"{row['scheduled_holding_end_at'].date()} | "
+            f"{100 * row['realized_return']:.4f} % |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 def _read_json(path: Path) -> dict[str, Any]:
