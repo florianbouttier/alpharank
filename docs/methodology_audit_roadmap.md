@@ -2,7 +2,7 @@
 
 - Dernière mise à jour : 2026-08-18
 - Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : les 41 actions sont traitées (3 validées, 38 implémentées) ; replay causal `v2`, rapprochement et promotion encore à faire
+- État : les 41 actions initiales sont traitées (3 validées, 38 implémentées) ; cinq actions d'exécution `RUN-001` à `RUN-005` sont ajoutées pour produire et rapprocher le replay causal `v2`
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -130,6 +130,8 @@ tâche qui n'y est pas effectivement implémentée.
 6. **Gate G5 — Production Portfolio** : `DASH-001` à `DASH-006`, `QA-003`.
 7. **Gate G6 — Publication** : `DOC-001`, `DOC-002`, puis comparaison scellée
    Legacy/Boosting.
+8. **Gate G7 — Exécution causale v2** : `RUN-001` à `RUN-005`, puis revue
+   humaine et promotion atomique via `GOV-005`.
 
 Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 
@@ -146,7 +148,8 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Simulation | 4 | 2 | 1 | 1 | 4 | 0 | 0 % |
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 6 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 5 | 0 | 0 % |
-| **Total** | **41** | **12** | **22** | **7** | **38** | **3** | **7,3 %** |
+| Exécution causale v2 | 5 | 5 | 0 | 0 | 0 | 0 | 0 % |
+| **Total** | **46** | **17** | **22** | **7** | **38** | **3** | **6,5 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -238,6 +241,16 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `QA-003` | P1 | Ajouter une matrice CI des deux dépôts : tests unitaires, tests anti-look-ahead, replay court, validation documentation et build frontend. | Pipeline : AlphaRank complet, `make test`, `npm run build`, validateurs de docs et replay smoke tous verts sur commit propre. | Implémenté | `fcecf5ab0bb187e2f5ca9e9f44d0eee24c23ab26` | Aucun ; matrice sur checkouts propres AlphaRank/Portfolio avec référence Portfolio configurable |
 | `DOC-001` | P2 | Mettre à jour les sources de vérité après chaque correction : contrat temporel, univers, prix, cible, exécution, coûts, limites et procédure de replay. | `test_documentation_structure.py` et revue croisée code/doc : chaque règle normative pointe vers son test et sa configuration. | Implémenté | `1ed8e66b9a8080536b20920b712ab17eceed6f13` | Aucun ; index normatif central relié aux propriétaires code, configurations et tests |
 | `DOC-002` | P2 | Afficher dans les rapports et le dashboard version méthodologique, vintage de données, commit, statut `provisional/final/superseded` et avertissements connus. | `test_report_exposes_methodology_identity` : informations présentes et cohérentes avec le manifeste ; impossible de publier sans identité complète. | Implémenté | `52c93e272d12d8ceac9026bd3f1780af33f6f92e` | Aucun ; identité fail-closed exposée par l'API et bannière globale sur dashboard, documentation et rapports intégrés |
+
+### J. Exécution, replay et rapprochement causal v2
+
+| ID | Criticité | Changement et dépendances | Test associé et critère d'acceptation | Statut | Commit | Effet historique |
+|---|---|---|---|---|---|---|
+| `RUN-001` | P0 | Construire et sceller le snapshot causal `v2` réel depuis la dernière composition de production admissible : prix versionnés, univers historique, secteurs PIT, fondamentaux SEC disponibles à la décision, hashes et provenance complète. Dépend de `PRC-001`, `PRC-002`, `UNI-001` à `UNI-004` et `FND-001` à `FND-004`. | `test_causal_v2_snapshot_is_sealed_and_complete` : scope de production, sources autorisées, inventaire SHA-256, politiques PIT et registre de prix présents ; toute mutation invalide le package. | À faire | — | Aucun rendement calculé à cette étape ; nouveau vintage immuable sans écrasement du snapshot précédent |
+| `RUN-002` | P0 | Exécuter Legacy `v2` depuis le snapshot `RUN-001` avec secteur PIT, benchmark total return, exécution `next_session_open_v1`, turnover dérivé et scénarios de coûts ; valider le package de replay strict. | `test_legacy_v2_run_is_replayable` : run terminé, manifeste complet, première sélection dérivée recalculable, replay strict et moteur commun verts. | À faire | — | Nouvelle série Legacy attendue ; `v1` reste inchangée et toute rupture est réservée au rapprochement `RUN-005` |
+| `RUN-003` | P0 | Entraîner et rejouer Boosting `v2` en walk-forward strict depuis le même snapshot : préprocesseur par fold, modèles sérialisés, censure qualifiée et rendements terminaux résolus ou bloqués. Dépend de `RUN-001`, `BST-001` à `BST-006`. | `test_boosting_v2_replay_is_serialized_and_causal` : folds complets, hashes modèle/préprocesseur, prédictions OOS reproductibles, zéro sélection filtrée par rendement réalisé et rapport exhaustif des cibles matures manquantes. | À faire | — | Nouvelle série Boosting attendue ; aucune promotion si une cible mature sélectionnée reste non résolue |
+| `RUN-004` | P0 | Recalculer le portefeuille commun Legacy/Boosting/SPY avec le même snapshot, calendrier, exclusions, politique de rendement manquant, turnover, coûts et benchmark. Dépend de `RUN-002` et `RUN-003`. | `test_common_v2_replay_is_comparison_eligible` : hashes d'entrée et exclusions identiques, `comparison_eligible=true`, calendrier commun, rapprochement mensuel et final à `1e-12`. | À faire | — | Séries comparables nouvelles ; aucune modification des artefacts `v1-audited-biased` |
+| `RUN-005` | P0 | Produire le rapprochement économique scellé `v1-audited-biased` versus `v2-causal` : sélections, poids, rendements, turnover, coûts, CAGR, Sharpe et drawdown, avec attribution de chaque rupture aux corrections UNI/FND/BST/LEG/SIM. Dépend de `RUN-004`. | `test_v1_v2_reconciliation_is_complete` : chaque mois et chaque différence économique ont un statut et une cause ; métriques recalculées depuis les séries ; aucun mois divergent sans explication. | À faire | — | Rapport explicatif seulement ; la promotion reste une décision humaine distincte et atomique |
 
 ## 7. Protocole de validation par changement
 
