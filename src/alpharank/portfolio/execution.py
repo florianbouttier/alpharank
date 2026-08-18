@@ -363,7 +363,7 @@ def apply_next_session_open_holding_returns(
                 ),
             }
         )
-    resolved = pl.from_dicts(rows)
+    resolved = pl.from_dicts(rows, infer_schema_length=None)
     return (
         holdings.drop("realized_return")
         .join(
