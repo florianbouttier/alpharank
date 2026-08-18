@@ -50,7 +50,11 @@ def build_monthly_execution_orders(
     if missing:
         raise ValueError(f"Legacy holdings are missing execution fields: {missing}")
     price_dates: dict[str, list[date]] = {}
-    for row in daily_prices.select("ticker", "date").unique().to_dicts():
+    normalized_dates = daily_prices.select(
+        pl.col("ticker").cast(pl.String),
+        pl.col("date").cast(pl.Date, strict=False),
+    ).filter(pl.col("date").is_not_null())
+    for row in normalized_dates.unique().to_dicts():
         value = row["date"]
         if isinstance(value, datetime):
             value = value.date()
@@ -108,7 +112,11 @@ def build_execution_sensitivity_report(
         raise ValueError(f"Prices are missing execution fields: {missing_prices}")
 
     by_ticker: dict[str, list[dict[str, object]]] = {}
-    for row in daily_prices.sort(["ticker", "date"]).to_dicts():
+    normalized_prices = daily_prices.with_columns(
+        pl.col("ticker").cast(pl.String),
+        pl.col("date").cast(pl.Date, strict=False),
+    ).filter(pl.col("date").is_not_null())
+    for row in normalized_prices.sort(["ticker", "date"]).to_dicts():
         by_ticker.setdefault(str(row["ticker"]), []).append(row)
 
     output: list[dict[str, object]] = []

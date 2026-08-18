@@ -61,7 +61,7 @@ def test_order_price_occurs_after_signal_cutoff(tmp_path: Path) -> None:
     prices = pl.DataFrame(
         {
             "ticker": ["AAA.US", "AAA.US"],
-            "date": [date(2025, 1, 31), date(2025, 2, 3)],
+            "date": ["2025-01-31", "2025-02-03"],
             "open": [99.0, 101.0],
             "close": [100.0, 103.0],
             "vwap": [99.5, 102.0],
