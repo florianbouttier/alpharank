@@ -15,6 +15,7 @@ from alpharank.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.governance import reserve_run_directory
 from alpharank.legacy_v2 import validate_legacy_v2_replay
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
+from alpharank.portfolio.attribution import provisional_return_cagr_attribution
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.contracts import validate_causal_timing, validate_holdings
@@ -69,6 +70,25 @@ def build_common_v2_comparison(
         "holding_month", "benchmark_return"
     ).unique()
     legacy_months = legacy_holdings.select("holding_month").unique()
+    execution_columns = {
+        "feature_max_asof_at",
+        "signal_cutoff_at",
+        "execution_at",
+        "first_return_observation_at",
+        "holding_return_end_at",
+        "scheduled_holding_end_at",
+        "holding_observation_gap_calendar_days",
+        "execution_policy_id",
+        "return_resolution",
+        "return_resolution_reason",
+        "manual_review_status",
+    }
+    legacy_holdings = apply_next_session_open_holding_returns(
+        legacy_holdings.drop(
+            *[column for column in execution_columns if column in legacy_holdings.columns]
+        ),
+        prices.select(["ticker", "date", "open", "close", "adjusted_close"]),
+    )
 
     predictions = pl.read_parquet(
         boosting_run_dir / "classification_h06" / "predictions.parquet"
@@ -130,6 +150,34 @@ def build_common_v2_comparison(
         )
     ]
     investable_monthly = pl.concat(monthly_parts, how="diagonal_relaxed")
+    provisional_journal = holdings.filter(
+        pl.col("return_resolution") == "provisional_last_observation"
+    ).select(
+        "strategy",
+        "decision_month",
+        "holding_month",
+        "ticker",
+        "selection_rank",
+        "target_weight",
+        "realized_return",
+        "execution_at",
+        "holding_return_end_at",
+        "scheduled_holding_end_at",
+        "holding_observation_gap_calendar_days",
+        "return_resolution",
+        "return_resolution_reason",
+        "manual_review_status",
+    ).sort(["holding_month", "strategy", "selection_rank"])
+    provisional_journal_path = destination / "provisional_holding_journal.parquet"
+    provisional_journal_csv_path = destination / "provisional_holding_journal.csv"
+    provisional_journal.write_parquet(provisional_journal_path)
+    provisional_journal.write_csv(provisional_journal_csv_path)
+    provisional_attribution = provisional_return_cagr_attribution(
+        holdings,
+        investable_monthly,
+    )
+    provisional_attribution_path = destination / "provisional_cagr_attribution.csv"
+    provisional_attribution.write_csv(provisional_attribution_path)
     legacy_monthly = investable_monthly.filter(pl.col("strategy") == "Legacy")
     spy = reference_monthly_series(
         legacy_monthly,
@@ -163,8 +211,12 @@ def build_common_v2_comparison(
     manifest = {
         "contract_version": 1,
         "scope": "alpharank_common_v2_replay",
-        "status": "canonical_common_strategy_replay",
-        "comparison_eligible": True,
+        "status": (
+            "provisional_manual_terminal_review"
+            if provisional_journal.height
+            else "canonical_common_strategy_replay"
+        ),
+        "comparison_eligible": provisional_journal.is_empty(),
         "methodology_version": "v2-causal",
         "composition_id": composition_id,
         "execution_policy_id": "next_session_open_v1",
@@ -173,6 +225,16 @@ def build_common_v2_comparison(
         "benchmark_cost_policy": "no simulated trading cost",
         "top_n_values": list(top_n_values),
         "calendar": calendar.to_dicts(),
+        "provisional_terminal_observations": {
+            "policy_id": "provisional_last_observation_v1",
+            "holding_rows": provisional_journal.height,
+            "tickers": provisional_journal["ticker"].n_unique(),
+            "manual_review_status": (
+                "pending_manual_terminal_event_review"
+                if provisional_journal.height
+                else "not_applicable"
+            ),
+        },
         "source_validation": {
             "causal_snapshot": causal,
             "legacy": legacy_validation,
@@ -185,7 +247,13 @@ def build_common_v2_comparison(
             "boosting_manifest": _file_record(boosting_run_dir / "manifest.json"),
         },
         "artifacts": {
-            label: _file_record(path) for label, path in artifacts.items()
+            label: _file_record(path)
+            for label, path in {
+                **artifacts,
+                "provisional_holding_journal": provisional_journal_path,
+                "provisional_holding_journal_csv": provisional_journal_csv_path,
+                "provisional_cagr_attribution": provisional_attribution_path,
+            }.items()
         },
     }
     (destination / "manifest.json").write_text(
@@ -193,7 +261,9 @@ def build_common_v2_comparison(
         encoding="utf-8",
     )
     return validate_common_v2_replay(
-        destination, expected_composition_id=composition_id
+        destination,
+        expected_composition_id=composition_id,
+        allow_provisional=not provisional_journal.is_empty(),
     )
 
 
@@ -202,6 +272,7 @@ def validate_common_v2_replay(
     *,
     expected_composition_id: str,
     tolerance: float = COMMON_V2_TOLERANCE,
+    allow_provisional: bool = False,
 ) -> dict[str, Any]:
     """Recalculate monthly rows and require one exact common calendar."""
 
@@ -209,8 +280,13 @@ def validate_common_v2_replay(
     manifest = _read_json(root / "manifest.json")
     if manifest.get("scope") != "alpharank_common_v2_replay":
         raise RuntimeError("Invalid common v2 replay scope")
-    if manifest.get("comparison_eligible") is not True:
+    comparison_eligible = manifest.get("comparison_eligible") is True
+    if not comparison_eligible and not allow_provisional:
         raise RuntimeError("Common v2 replay is not comparison eligible")
+    if not comparison_eligible and manifest.get("status") != (
+        "provisional_manual_terminal_review"
+    ):
+        raise RuntimeError("Common v2 replay has an unsupported provisional status")
     if manifest.get("composition_id") != expected_composition_id:
         raise RuntimeError("Common v2 composition differs from the causal snapshot")
     if manifest.get("execution_policy_id") != "next_session_open_v1":
@@ -294,7 +370,11 @@ def validate_common_v2_replay(
         raise RuntimeError("Common v2 strategies have different holding calendars")
     return {
         "passed": True,
-        "comparison_eligible": True,
+        "comparison_eligible": comparison_eligible,
+        "status": manifest.get("status", "canonical_common_strategy_replay"),
+        "provisional_holding_rows": manifest.get(
+            "provisional_terminal_observations", {}
+        ).get("holding_rows", 0),
         "composition_id": expected_composition_id,
         "strategy_count": monthly["strategy"].n_unique(),
         "months_per_strategy": int(calendar_counts["len"][0]),

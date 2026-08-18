@@ -173,3 +173,79 @@ def reference_return_attribution(
         )
         .sort(["strategy", "decision_month"])
     )
+
+
+def provisional_return_cagr_attribution(
+    holdings: pl.DataFrame,
+    monthly_returns: pl.DataFrame,
+    *,
+    provisional_resolution: str = "provisional_last_observation",
+) -> pl.DataFrame:
+    """Quantify the exact log and marginal CAGR impact of provisional returns.
+
+    Annualized log contributions are additive. The marginal CAGR impact is
+    useful for plain-language reporting but is deliberately not presented as
+    additive across independent categories because CAGR is nonlinear.
+    """
+
+    attribution = portfolio_return_attribution(holdings, monthly_returns)
+    lineage = holdings.select(
+        "strategy",
+        "decision_month",
+        "holding_month",
+        pl.col("ticker").cast(pl.String).alias("component"),
+        (
+            pl.col("return_resolution").cast(pl.String)
+            if "return_resolution" in holdings.columns
+            else pl.lit(None, dtype=pl.String)
+        ).alias("return_resolution"),
+    )
+    attributed = attribution.join(
+        lineage,
+        on=["strategy", "decision_month", "holding_month", "component"],
+        how="left",
+        validate="m:1",
+    )
+    rows: list[dict[str, object]] = []
+    for strategy_frame in monthly_returns.partition_by(
+        "strategy", maintain_order=True
+    ):
+        strategy = str(strategy_frame["strategy"][0])
+        strategy_attribution = attributed.filter(pl.col("strategy") == strategy)
+        months = strategy_frame.height
+        scale = 12.0 / months
+        total_log = float(strategy_attribution["log_return_contribution"].sum())
+        provisional = strategy_attribution.filter(
+            pl.col("return_resolution") == provisional_resolution
+        )
+        provisional_log = float(provisional["log_return_contribution"].sum())
+        annualized_log = total_log * scale
+        provisional_annualized_log = provisional_log * scale
+        cagr = math.expm1(annualized_log)
+        cagr_without_provisional = math.expm1(
+            annualized_log - provisional_annualized_log
+        )
+        rows.append(
+            {
+                "strategy": strategy,
+                "months": months,
+                "cagr": cagr,
+                "annualized_log_return": annualized_log,
+                "compound_effect_bridge": cagr - annualized_log,
+                "provisional_holding_rows": provisional.height,
+                "provisional_tickers": provisional["component"].n_unique(),
+                "provisional_annualized_log_contribution": (
+                    provisional_annualized_log
+                ),
+                "cagr_without_provisional_component": cagr_without_provisional,
+                "provisional_marginal_cagr_impact": (
+                    cagr - cagr_without_provisional
+                ),
+                "manual_review_status": (
+                    "pending_manual_terminal_event_review"
+                    if provisional.height
+                    else "not_applicable"
+                ),
+            }
+        )
+    return pl.DataFrame(rows).sort("strategy")

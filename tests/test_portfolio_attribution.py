@@ -6,7 +6,10 @@ import math
 import polars as pl
 import pytest
 
-from alpharank.portfolio.attribution import portfolio_return_attribution
+from alpharank.portfolio.attribution import (
+    portfolio_return_attribution,
+    provisional_return_cagr_attribution,
+)
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
@@ -71,3 +74,38 @@ def test_attribution_uses_effective_weights_when_return_is_missing() -> None:
     assert attribution["component"][0] == "A"
     assert attribution["effective_weight"][0] == pytest.approx(1.0)
     assert attribution["simple_return_contribution"][0] == pytest.approx(0.10)
+
+
+def test_provisional_return_cagr_impact_is_reconciled_in_log_space() -> None:
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["alpha", "alpha"],
+            "decision_month": [date(2020, 1, 1)] * 2,
+            "holding_month": [date(2020, 2, 1)] * 2,
+            "ticker": ["EXIT", "LIVE"],
+            "target_weight": [0.5, 0.5],
+            "realized_return": [-0.10, 0.20],
+            "benchmark_return": [0.01, 0.01],
+            "return_resolution": [
+                "provisional_last_observation",
+                "observed_market_next_open_to_month_end",
+            ],
+        }
+    )
+    monthly = simulate_weighted_portfolio(
+        holdings,
+        causal_timing_policy="legacy_month_only",
+    )
+
+    result = provisional_return_cagr_attribution(holdings, monthly).row(
+        0, named=True
+    )
+
+    assert result["cagr"] == pytest.approx((1.05**12) - 1.0)
+    assert result["provisional_holding_rows"] == 1
+    assert result["provisional_tickers"] == 1
+    assert result["provisional_annualized_log_contribution"] < 0.0
+    assert result["provisional_marginal_cagr_impact"] < 0.0
+    assert math.expm1(result["annualized_log_return"]) == pytest.approx(
+        result["cagr"]
+    )
