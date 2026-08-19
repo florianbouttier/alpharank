@@ -76,6 +76,7 @@ def build_definitive_prices(
     staged_current: pl.DataFrame,
     previous_definitive: pl.DataFrame,
     requested_tickers: Sequence[str],
+    freeze_previous_prefix_tickers: Sequence[str] = (),
 ) -> DefinitivePriceResult:
     """Resolve exact ticker/date keys while retaining the selected RAW origin."""
 
@@ -84,7 +85,18 @@ def build_definitive_prices(
     requested = sorted(
         {f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in requested_tickers}
     )
+    frozen_prefix_tickers = sorted(
+        {
+            f"{str(ticker).upper().removesuffix('.US')}.US"
+            for ticker in freeze_previous_prefix_tickers
+        }
+    )
     previous = previous.filter(pl.col("ticker").is_in(requested))
+    previous_prefix_ends = (
+        previous.filter(pl.col("ticker").is_in(frozen_prefix_tickers))
+        .group_by("ticker")
+        .agg(pl.col("date").max().alias("__previous_prefix_end"))
+    )
 
     current = current.with_columns(pl.lit(True).alias("__current_present")).rename(
         {column: f"current__{column}" for column in (*PRICE_VALUE_COLUMNS, *PRICE_METADATA_COLUMNS)}
@@ -97,6 +109,10 @@ def build_definitive_prices(
         on=["ticker", "date"],
         how="full",
         coalesce=True,
+    ).join(
+        previous_prefix_ends,
+        on="ticker",
+        how="left",
     ).with_columns(
         pl.col("__current_present").fill_null(False),
         pl.col("__previous_present").fill_null(False),
@@ -111,11 +127,23 @@ def build_definitive_prices(
         & pl.col("previous__adjusted_close").is_not_null()
         & (pl.col("previous__adjusted_close") > 0.0)
     )
+    frozen_previous_prefix = (
+        pl.col("ticker").is_in(frozen_prefix_tickers)
+        & pl.col("__previous_prefix_end").is_not_null()
+        & (pl.col("date") <= pl.col("__previous_prefix_end"))
+    )
+    current_selectable = current_valid & ~frozen_previous_prefix
     joined = joined.with_columns(
         current_valid.alias("__current_valid"),
         previous_valid.alias("__previous_valid"),
+        frozen_previous_prefix.alias("__frozen_previous_prefix"),
+        current_selectable.alias("__current_selectable"),
     ).with_columns(
-        pl.when(pl.col("__current_valid"))
+        pl.when(pl.col("__frozen_previous_prefix") & pl.col("__previous_valid"))
+        .then(pl.lit("carried_forward_incomplete_ticker_prefix"))
+        .when(pl.col("__frozen_previous_prefix") & ~pl.col("__previous_valid"))
+        .then(pl.lit("unresolved_new_key_in_incomplete_ticker_prefix"))
+        .when(pl.col("__current_selectable"))
         .then(pl.lit("current_raw"))
         .when(~pl.col("__current_present") & pl.col("__previous_valid"))
         .then(pl.lit("carried_forward_missing_current_raw"))
@@ -127,11 +155,13 @@ def build_definitive_prices(
         .alias("selection_reason")
     )
 
-    resolved = joined.filter(pl.col("__current_valid") | pl.col("__previous_valid"))
+    resolved = joined.filter(
+        pl.col("__current_selectable") | pl.col("__previous_valid")
+    )
     frame_expressions: list[pl.Expr] = [pl.col("date"), pl.col("ticker")]
     for column in (*PRICE_VALUE_COLUMNS, *PRICE_METADATA_COLUMNS):
         frame_expressions.append(
-            pl.when(pl.col("__current_valid"))
+            pl.when(pl.col("__current_selectable"))
             .then(pl.col(f"current__{column}"))
             .otherwise(pl.col(f"previous__{column}"))
             .alias(column)

@@ -2407,6 +2407,11 @@ def _complete_yahoo_history_against_validated(
         ).item(),
         "provider_complete": gaps.is_empty(),
     }
+    incomplete_provider_tickers = (
+        gaps.select(pl.col("ticker").unique().sort()).to_series().to_list()
+        if not gaps.is_empty()
+        else []
+    )
     provider_candidate = candidate
     if raw_archive_dir is not None:
         if run_id is None or ingested_at is None:
@@ -2458,6 +2463,7 @@ def _complete_yahoo_history_against_validated(
             )
         ),
         requested_tickers=active_tickers,
+        freeze_previous_prefix_tickers=incomplete_provider_tickers,
     )
     definitive_gaps = _historical_yahoo_key_gaps(
         previous_validated_lineage=previous_validated_lineage,
@@ -2471,6 +2477,11 @@ def _complete_yahoo_history_against_validated(
         "current_row_count": definitive.current_row_count,
         "carried_forward_row_count": definitive.carried_forward_row_count,
         "unresolved_row_count": definitive.unresolved_row_count,
+        "frozen_previous_prefix_tickers": incomplete_provider_tickers,
+        "frozen_previous_prefix_row_count": definitive.audit.filter(
+            pl.col("selection_reason")
+            == "carried_forward_incomplete_ticker_prefix"
+        ).height,
         "remaining_previous_validated_key_count": definitive_gaps.height,
         "passed": definitive_gaps.is_empty(),
     }

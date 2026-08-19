@@ -125,3 +125,59 @@ def test_bootstrap_def_keeps_existing_raw_origin() -> None:
         observed_at="2026-08-19T02:15:00Z",
     )
     assert bootstrap_definitive_prices(previous)["ingestion_run_id"].to_list() == ["raw01"]
+
+
+def test_def_freezes_validated_prefix_when_current_ticker_vintage_is_incomplete() -> None:
+    previous = stage_yahoo_prices(
+        _raw(
+            [
+                ("AAPL.US", "2026-08-17", 230.0),
+                ("AAPL.US", "2026-08-18", 232.0),
+            ]
+        ),
+        run_id="raw01",
+        observed_at="2026-08-19T02:15:00Z",
+    )
+    current = stage_yahoo_prices(
+        _raw(
+            [
+                ("AAPL.US", "2026-08-16", 229.0),
+                ("AAPL.US", "2026-08-18", 999.0),
+                ("AAPL.US", "2026-08-19", 233.0),
+            ]
+        ),
+        run_id="raw02",
+        observed_at="2026-08-20T02:15:00Z",
+    )
+
+    result = build_definitive_prices(
+        staged_current=current,
+        previous_definitive=previous,
+        requested_tickers=("AAPL",),
+        freeze_previous_prefix_tickers=("AAPL.US",),
+    )
+
+    assert result.frame.select(
+        "date", "adjusted_close", "ingestion_run_id"
+    ).to_dicts() == [
+        {"date": "2026-08-17", "adjusted_close": 230.0, "ingestion_run_id": "raw01"},
+        {"date": "2026-08-18", "adjusted_close": 232.0, "ingestion_run_id": "raw01"},
+        {"date": "2026-08-19", "adjusted_close": 233.0, "ingestion_run_id": "raw02"},
+    ]
+    assert result.audit.select("date", "selection_reason").to_dicts() == [
+        {
+            "date": "2026-08-16",
+            "selection_reason": "unresolved_new_key_in_incomplete_ticker_prefix",
+        },
+        {
+            "date": "2026-08-17",
+            "selection_reason": "carried_forward_incomplete_ticker_prefix",
+        },
+        {
+            "date": "2026-08-18",
+            "selection_reason": "carried_forward_incomplete_ticker_prefix",
+        },
+    ]
+    assert result.current_row_count == 1
+    assert result.carried_forward_row_count == 2
+    assert result.unresolved_row_count == 1

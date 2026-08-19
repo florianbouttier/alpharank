@@ -345,9 +345,13 @@ def test_yahoo_gap_keeps_raw_evidence_and_def_carries_exact_previous_key(tmp_pat
     assert live_report == report
     assert definitive["adjusted_close"].to_list() == [100.0]
     assert definitive["ingestion_run_id"].to_list() == ["previous_validated_price_lineage"]
+    assert report["definitive_resolution"]["frozen_previous_prefix_tickers"] == [
+        "AAPL.US"
+    ]
+    assert report["definitive_resolution"]["frozen_previous_prefix_row_count"] == 1
     def_audit = pl.read_parquet(tmp_path / "def_price_selection_audit.parquet")
     assert def_audit["selection_reason"].to_list() == [
-        "carried_forward_invalid_current_raw"
+        "carried_forward_incomplete_ticker_prefix"
     ]
     raw_manifest = json.loads(
         (
