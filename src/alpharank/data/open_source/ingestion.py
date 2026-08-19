@@ -62,6 +62,7 @@ from alpharank.data.open_source.price_quality import (
     find_extreme_adjusted_price_moves,
     repair_confirmed_split_discontinuities,
 )
+from alpharank.data.open_source.raw_archive import RAW_DELTA_CONTRACT, archive_raw_frame_delta
 from alpharank.data.open_source.refresh_policy import (
     PRODUCTION_SOURCE_REFRESH_POLICY,
     SourceRefreshPolicy,
@@ -84,6 +85,7 @@ from alpharank.data.open_source.storage import (
     write_run_manifest,
 )
 from alpharank.data.open_source.yahoo import YahooFinanceClient
+from alpharank.data.warehouse import WarehousePaths
 from alpharank.data.prices import (
     audit_price_candidate,
     build_persistent_price_history_registry,
@@ -1136,6 +1138,9 @@ def _run_open_source_ingestion_in_place(
         run_dir=paths.run_dir(run_id),
         run_id=run_id,
         ingested_at=ingested_at,
+        raw_archive_dir=(
+            WarehousePaths(project_root / "data" / "warehouse").raw / "yahoo" / "prices"
+        ),
     )
     source_refresh_contract["source_semantics"]["yfinance_prices"][
         "validated_key_coverage"
@@ -2336,6 +2341,7 @@ def _complete_yahoo_history_against_validated(
     run_dir: Path | None = None,
     run_id: str | None = None,
     ingested_at: str | None = None,
+    raw_archive_dir: Path | None = None,
 ) -> tuple[pl.DataFrame, dict[str, object]]:
     """Retry active Yahoo histories until every old validated key is present."""
 
@@ -2393,6 +2399,39 @@ def _complete_yahoo_history_against_validated(
         ).item(),
         "passed": gaps.is_empty(),
     }
+    if raw_archive_dir is not None:
+        if run_id is None or ingested_at is None:
+            raise ValueError("run_id and ingested_at are required for the immutable raw archive")
+        raw_archive = archive_raw_frame_delta(
+            archive_dir=raw_archive_dir,
+            run_id=run_id,
+            frame=candidate,
+            key_columns=("ticker", "date"),
+            source="yahoo",
+            dataset="prices",
+            observed_at=ingested_at,
+            request={
+                "start_date": start_date,
+                "end_date": end_date,
+                "active_ticker_count": len(active_tickers),
+                "repair_round_count": max_repair_rounds,
+                "retried_ticker_count": len(retried_tickers),
+            },
+        )
+        report["raw_archive"] = {
+            "contract": RAW_DELTA_CONTRACT,
+            "run_id": raw_archive.run_id,
+            "manifest_path": str(raw_archive.manifest_path),
+            "parent_run_id": raw_archive.parent_run_id,
+            "input_row_count": raw_archive.input_row_count,
+            "stored_content_row_count": raw_archive.stored_content_row_count,
+            "unchanged_row_count": raw_archive.unchanged_row_count,
+            "inserted_row_count": raw_archive.inserted_row_count,
+            "updated_row_count": raw_archive.updated_row_count,
+            "restored_row_count": raw_archive.restored_row_count,
+            "missing_row_count": raw_archive.missing_row_count,
+            "snapshot_sha256": raw_archive.snapshot_sha256,
+        }
     if run_dir is not None:
         _write_yahoo_attempt_audit(
             run_dir=run_dir,

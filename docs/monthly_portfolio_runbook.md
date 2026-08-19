@@ -76,6 +76,13 @@ the same run id even when the run fails. This makes it possible to explain a
 provider failure without filling a missing price, inventing a delisting, or
 altering the last validated publication.
 
+The durable target layout is `RAW -> STG -> DEF -> MART`. The Yahoo RAW archive
+stores a full logical observation for every ingestion but writes only inserted
+or changed row content. Missing and restored ticker/date keys are events, and
+an identical ingestion adds only a manifest with zero new price rows. Network
+download still occurs because Yahoo does not provide a reliable change feed;
+deduplication happens before durable storage, not before the request.
+
 Fallback financial rows produced by this command are for R&D/audit only. The
 composed model snapshot must replace every fundamental file with its SEC-only
 counterpart and validate allowed lineage sources.

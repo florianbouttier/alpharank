@@ -224,6 +224,42 @@ Code ownership is explicit:
 - `src/alpharank/data/open_source/ingestion.py`: transactional orchestration
   before any target or output publication.
 
+## Canonical RAW / STG / DEF / MART Layers
+
+The long-term data contract is split into four explicit layers under
+`data/warehouse/`. Existing published paths remain readable during migration;
+they must not be moved or deleted merely to adopt the new names.
+
+| Layer | Responsibility | Mutation rule |
+| --- | --- | --- |
+| `raw/` | Provider observations and immutable local source files, including EODHD | Append-only; never corrected or overwritten |
+| `stg/` | Type, ticker, date and column normalization for one ingestion | Rebuildable from RAW; never a production input |
+| `def/` | Canonical point-in-time tables after source selection, correction overlays and carried-forward decisions | New version for every economic change |
+| `mart/` | Exact model-ready AlphaRank composition used by Legacy, Boosting and reports | Immutable composition with hashes and one promoted pointer |
+
+Yahoo price RAW uses `alpharank_raw_delta_archive_v1`. A full provider response
+is still downloaded because equality cannot be known in advance, but an
+unchanged business row is not stored twice. Each run has an immutable manifest
+and an event parquet:
+
+- `inserted`: a new ticker/date and its content;
+- `updated`: the same ticker/date with changed content and both content hashes;
+- `missing`: a key present in the parent provider response but absent now;
+- `restored`: a previously missing row returned; identical historical content
+  is referenced by hash instead of stored again;
+- unchanged rows create no event, while the run manifest still records their
+  count and the complete reconstructed-state hash.
+
+The chain is exactly reconstructible from its parent manifests. RAW records
+what the provider returned; it does not silently carry a missing value forward.
+That business decision belongs in DEF, where any reused prior ticker/date must
+retain the original source run id and an explicit carried-forward reason.
+
+Existing EODHD files are registered through
+`alpharank_immutable_raw_file_v1`: the local paid archive is never redownloaded
+or rewritten, and byte-identical source ids share one content-addressed object
+while keeping separate manifests.
+
 ## Core Rules
 
 1. Raw source tables are the canonical store.

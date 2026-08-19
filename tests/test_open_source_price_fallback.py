@@ -329,6 +329,7 @@ def test_failed_yahoo_coverage_keeps_run_scoped_raw_attempt_and_gaps(tmp_path) -
             run_dir=tmp_path,
             run_id="20260819_120000",
             ingested_at="2026-08-19T12:00:00+00:00",
+            raw_archive_dir=tmp_path / "warehouse" / "raw" / "yahoo" / "prices",
         )
 
     attempted = pl.read_parquet(tmp_path / "raw" / "prices_yfinance_attempted.parquet")
@@ -341,3 +342,18 @@ def test_failed_yahoo_coverage_keeps_run_scoped_raw_attempt_and_gaps(tmp_path) -
     ]
     assert report["run_id"] == "20260819_120000"
     assert report["passed"] is False
+    raw_manifest = json.loads(
+        (
+            tmp_path
+            / "warehouse"
+            / "raw"
+            / "yahoo"
+            / "prices"
+            / "runs"
+            / "20260819_120000"
+            / "manifest.json"
+        ).read_text()
+    )
+    assert raw_manifest["input_row_count"] == 1
+    assert raw_manifest["stored_content_row_count"] == 1
+    assert raw_manifest["missing_row_count"] == 0
