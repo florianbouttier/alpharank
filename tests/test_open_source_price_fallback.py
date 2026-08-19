@@ -3,6 +3,7 @@ from __future__ import annotations
 import polars as pl
 
 from alpharank.data.open_source.ingestion import (
+    _confirmed_terminal_price_tickers,
     _complete_yahoo_history_against_validated,
     _consolidate_price_sources,
     _download_yahoo_price_history,
@@ -235,3 +236,68 @@ def test_full_yahoo_vintage_repairs_missing_validated_keys() -> None:
     assert report["initial_missing_key_count"] == 2
     assert report["remaining_missing_key_count"] == 0
     assert report["passed"] is True
+
+
+def test_full_yahoo_vintage_retries_null_adjusted_close_key() -> None:
+    previous = _price_frame(ticker="AAPL.US", adjusted_close=100.0).with_columns(
+        pl.lit("2025-01-03").alias("date")
+    )
+    initial = previous.with_columns(pl.lit(None).cast(pl.Float64).alias("adjusted_close"))
+
+    class Client:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, ...]] = []
+
+        def download_prices(self, tickers, start_date, end_date):
+            self.calls.append(tuple(tickers))
+            return previous
+
+    client = Client()
+    completed, report = _complete_yahoo_history_against_validated(
+        client,
+        initial_prices=initial,
+        previous_validated_lineage=previous,
+        active_tickers=("AAPL",),
+        start_date="2025-01-01",
+        end_date="2025-02-01",
+    )
+
+    assert client.calls == [("AAPL",)]
+    assert completed.filter(pl.col("adjusted_close").is_not_null()).height == 1
+    assert report["initial_missing_key_count"] == 1
+    assert report["remaining_missing_key_count"] == 0
+
+
+def test_confirmed_terminal_price_tickers_use_sourced_effective_removal(tmp_path) -> None:
+    registry_path = tmp_path / "constituents.json"
+    registry_path.write_text(
+        """{
+  "index": "S&P 500",
+  "base_month": "2026-08-01",
+  "events": [{
+    "event_id": "sp500-20260805-ferg-ea",
+    "observed_at": "2026-07-31T23:59:59-04:00",
+    "effective_at": "2026-08-05T00:00:00-04:00",
+    "effective_date": "2026-08-05",
+    "confidence": "high",
+    "source_url": "https://example.com/sourced-event",
+    "operations": [
+      {"action": "add", "ticker": "FERG"},
+      {"action": "remove", "ticker": "EA"}
+    ]
+  }]
+}
+""",
+        encoding="utf-8",
+    )
+
+    assert _confirmed_terminal_price_tickers(
+        registry_path=registry_path,
+        active_tickers=("EA", "AAPL"),
+        expected_through="2026-08-04",
+    ) == ()
+    assert _confirmed_terminal_price_tickers(
+        registry_path=registry_path,
+        active_tickers=("EA", "AAPL"),
+        expected_through="2026-08-05",
+    ) == ("EA.US",)

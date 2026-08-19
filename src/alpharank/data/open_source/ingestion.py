@@ -32,6 +32,7 @@ from alpharank.data.open_source.consolidation import (
     consolidate_financial_sources,
     consolidate_financial_sources_with_share_quality,
 )
+from alpharank.data.open_source.constituents import load_constituent_change_registry
 from alpharank.data.open_source.config import GENERAL_COLUMNS, METRIC_SPECS, PRICE_COLUMNS
 from alpharank.data.open_source.earnings import (
     build_sec_companyfacts_earnings_actuals,
@@ -913,8 +914,23 @@ def _run_open_source_ingestion_in_place(
         ticker_list = tuple(tickers)
         current_sp500 = set(_load_latest_sp500_tickers(reference_data_dir))
     price_quality_tickers = tuple(sorted(current_sp500.intersection(ticker_list))) or ticker_list
+    constituent_registry_path = (
+        project_root / "configs" / "data_quality" / "sp500_constituent_changes_2026.json"
+    )
+    terminal_price_tickers = _confirmed_terminal_price_tickers(
+        registry_path=constituent_registry_path,
+        active_tickers=price_quality_tickers,
+        expected_through=end_date,
+    )
+    terminal_price_roots = {
+        ticker.upper().removesuffix(".US") for ticker in terminal_price_tickers
+    }
     price_refresh_tickers = (
-        price_quality_tickers
+        tuple(
+            ticker
+            for ticker in price_quality_tickers
+            if ticker.upper().removesuffix(".US") not in terminal_price_roots
+        )
         if source_refresh_policy.refresh_full_price_history
         else ticker_list
     )
@@ -969,6 +985,15 @@ def _run_open_source_ingestion_in_place(
         "ticker_count": len(price_quality_tickers),
         "mutable_yahoo_layers": ["prices", "earnings", "general_reference", "financial_fallback"],
         "inactive_history": "retained in official raw; SEC full-company payloads still refreshed when a CIK resolves",
+    }
+    source_refresh_contract["source_semantics"]["terminal_price_history"] = {
+        "tickers": list(terminal_price_tickers),
+        "constituent_registry": str(constituent_registry_path),
+        "semantics": (
+            "A ticker still present in the latest monthly constituent snapshot but "
+            "covered by a sourced removal event effective by the price cutoff keeps "
+            "its preceding validated price history byte-stable."
+        ),
     }
 
     yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
@@ -1296,6 +1321,7 @@ def _run_open_source_ingestion_in_place(
         latest_composed_manifest_path=(
             project_root / "data" / "model_inputs" / "manifests" / "latest.json"
         ),
+        preserved_terminal_tickers=terminal_price_tickers,
     )
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", yahoo_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
@@ -2274,10 +2300,15 @@ def _historical_yahoo_key_gaps(
         .unique()
     )
     fresh_keys = (
-        fresh_prices.select(
+        fresh_prices.filter(
+            pl.col("adjusted_close").cast(pl.Float64, strict=False).is_not_null()
+            & (pl.col("adjusted_close").cast(pl.Float64, strict=False) > 0.0)
+        )
+        .select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
             pl.col("date").cast(pl.Date, strict=False),
-        ).unique()
+        )
+        .unique()
         if not fresh_prices.is_empty()
         else pl.DataFrame(schema={"ticker": pl.String, "date": pl.Date})
     )
@@ -2360,6 +2391,30 @@ def _complete_yahoo_history_against_validated(
             "No package was published."
         )
     return candidate, report
+
+
+def _confirmed_terminal_price_tickers(
+    *,
+    registry_path: Path,
+    active_tickers: Sequence[str],
+    expected_through: str,
+) -> tuple[str, ...]:
+    """Resolve sourced removals that post-date the latest monthly snapshot."""
+
+    registry = load_constituent_change_registry(registry_path)
+    active = {
+        str(ticker).upper().removesuffix(".US") for ticker in active_tickers
+    }
+    cutoff = date.fromisoformat(expected_through)
+    confirmed = {
+        str(operation["ticker"]).upper().removesuffix(".US")
+        for event in registry["events"]
+        if date.fromisoformat(str(event["effective_date"])) <= cutoff
+        for operation in event.get("operations", [])
+        if operation.get("action") == "remove"
+        and str(operation.get("ticker", "")).upper().removesuffix(".US") in active
+    }
+    return tuple(sorted(f"{ticker}.US" for ticker in confirmed))
 
 
 def _identify_stockanalysis_price_fallback_tickers(
@@ -2509,6 +2564,7 @@ def _prepare_canonical_hybrid_price_merge(
     source_refresh_policy: SourceRefreshPolicy,
     source_refresh_contract: dict[str, object],
     latest_composed_manifest_path: Path | None = None,
+    preserved_terminal_tickers: Sequence[str] = (),
 ) -> tuple[
     pl.DataFrame,
     pl.DataFrame,
@@ -2536,6 +2592,7 @@ def _prepare_canonical_hybrid_price_merge(
             previous_validated_lineage=previous_lineage,
             active_yahoo_vintage=yahoo_delta,
             active_tickers=active_tickers,
+            preserved_terminal_tickers=preserved_terminal_tickers,
         )
         source_refresh_contract["previous_validated_price_lineage"] = {
             "path": str(previous_source.lineage_path),
@@ -2566,6 +2623,7 @@ def _prepare_canonical_hybrid_price_merge(
     persistent_registry = build_persistent_price_history_registry(
         hybrid.lineage,
         active_tickers=active_tickers,
+        preserved_terminal_tickers=preserved_terminal_tickers,
     )
     persistent_summary = persistent_history_summary(persistent_registry)
     source_refresh_contract["persistent_price_history"] = {
@@ -2582,7 +2640,15 @@ def _prepare_canonical_hybrid_price_merge(
         previous_prices=previous_prices,
         candidate_prices=hybrid.prices,
         candidate_lineage=hybrid.lineage,
-        active_tickers=active_tickers,
+        active_tickers=tuple(
+            ticker
+            for ticker in active_tickers
+            if f"{str(ticker).upper().removesuffix('.US')}.US"
+            not in {
+                f"{str(terminal).upper().removesuffix('.US')}.US"
+                for terminal in preserved_terminal_tickers
+            }
+        ),
         expected_eodhd_keys=seed.frame.select("ticker", "date"),
         expected_through=expected_through,
         policy=price_policy,
@@ -2608,8 +2674,15 @@ def _prepare_canonical_hybrid_price_merge(
     )
     validate_price_candidate(gate)
 
+    terminal_set = {
+        f"{str(ticker).upper().removesuffix('.US')}.US"
+        for ticker in preserved_terminal_tickers
+    }
     quality_tickers = [
-        f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in active_tickers
+        normalized
+        for ticker in active_tickers
+        if (normalized := f"{str(ticker).upper().removesuffix('.US')}.US")
+        not in terminal_set
     ]
     assert_no_extreme_adjusted_price_moves(
         hybrid.prices,
