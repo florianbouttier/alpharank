@@ -25,6 +25,7 @@ def publish_open_source_output_package(
     constituents_source_path: Path,
     prices_frame: pl.DataFrame,
     prices_lineage: pl.DataFrame | None = None,
+    persistent_price_history_registry: pl.DataFrame | None = None,
     benchmark_prices: pl.DataFrame,
     general_reference: pl.DataFrame,
     general_reference_lineage: pl.DataFrame,
@@ -73,6 +74,10 @@ def publish_open_source_output_package(
         "financials_open_source_lineage.parquet": consolidated_lineage,
         "financials_open_source_source_summary.parquet": source_summary,
     }
+    if persistent_price_history_registry is not None:
+        lineage_outputs["persistent_price_history_registry.parquet"] = (
+            persistent_price_history_registry
+        )
     staging_lineage_paths: dict[str, Path] = {}
     legacy_parent_dirs = {path.parent for path in legacy_paths.values()}
     if len(legacy_parent_dirs) == 1:

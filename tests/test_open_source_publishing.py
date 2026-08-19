@@ -50,6 +50,12 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
     output_dir = tmp_path / "output"
     history_root = tmp_path / "history"
     frame = pl.DataFrame({"ticker": ["AAPL.US"], "date": ["2025-01-01"], "value": [1.0]})
+    persistent_registry = pl.DataFrame(
+        {
+            "ticker": ["AAPL.US"],
+            "persistence_class": ["active_refreshed"],
+        }
+    )
     constituents_path = tmp_path / "SP500_Constituents.csv"
     constituents_path.write_text("Date,Ticker,Name\n2025-01-01,AAPL,Apple\n", encoding="utf-8")
 
@@ -58,6 +64,7 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
         legacy_paths=legacy_paths,
         constituents_source_path=constituents_path,
         prices_frame=frame,
+        persistent_price_history_registry=persistent_registry,
         benchmark_prices=frame,
         general_reference=pl.DataFrame({"ticker": ["AAPL.US"], "name": ["Apple"], "exchange": ["NASDAQ"], "cik": ["1"], "source": ["sec_mapping"]}),
         general_reference_lineage=pl.DataFrame({"ticker": ["AAPL.US"], "name": ["Apple"], "exchange": ["NASDAQ"], "cik": ["1"], "source": ["sec_mapping"]}),
@@ -77,6 +84,9 @@ def test_publish_open_source_output_package_writes_exact_outputs_and_lineage(tmp
     assert (output_dir / "lineage" / "financials_open_source_lineage.parquet").exists()
     assert (output_dir / "lineage" / "earnings_open_source_consolidated.parquet").exists()
     assert (output_dir / "lineage" / "general_reference_lineage.parquet").exists()
+    assert (
+        output_dir / "lineage" / "persistent_price_history_registry.parquet"
+    ).exists()
     assert (output_dir / "lineage" / "legacy_share_semantics.parquet").exists()
     assert (output_dir / "lineage" / "manifest.json").exists()
     assert "lineage/financials_open_source_lineage.parquet" in published.published_paths

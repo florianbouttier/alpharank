@@ -85,10 +85,14 @@ from alpharank.data.open_source.storage import (
 from alpharank.data.open_source.yahoo import YahooFinanceClient
 from alpharank.data.prices import (
     audit_price_candidate,
+    build_persistent_price_history_registry,
     combine_stock_split_evidence,
     compose_hybrid_price_history,
     load_eodhd_seed,
     load_confirmed_stock_splits,
+    persistent_history_summary,
+    resolve_previous_validated_price_lineage,
+    roll_forward_validated_price_history,
     validate_price_candidate,
 )
 
@@ -1259,6 +1263,7 @@ def _run_open_source_ingestion_in_place(
         raw_stockanalysis_prices,
         clean_prices,
         clean_price_lineage,
+        persistent_price_history_registry,
     ) = _prepare_canonical_hybrid_price_merge(
         paths=paths,
         yahoo_delta=yahoo_prices_delta,
@@ -1273,6 +1278,9 @@ def _run_open_source_ingestion_in_place(
         run_id=run_id,
         source_refresh_policy=source_refresh_policy,
         source_refresh_contract=source_refresh_contract,
+        latest_composed_manifest_path=(
+            project_root / "data" / "model_inputs" / "manifests" / "latest.json"
+        ),
     )
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", yahoo_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
@@ -1575,6 +1583,9 @@ def _run_open_source_ingestion_in_place(
 
     clean_prices.write_parquet(paths.clean_dir / "prices_open_source.parquet")
     clean_price_lineage.write_parquet(paths.clean_dir / "prices_open_source_lineage.parquet")
+    persistent_price_history_registry.write_parquet(
+        paths.clean_dir / "persistent_price_history_registry.parquet"
+    )
     clean_benchmark_prices.write_parquet(paths.clean_dir / "benchmark_prices_open_source.parquet")
     clean_earnings.write_parquet(paths.clean_dir / "earnings_open_source_consolidated.parquet")
     clean_earnings_lineage.write_parquet(paths.clean_dir / "earnings_open_source_lineage.parquet")
@@ -1619,6 +1630,7 @@ def _run_open_source_ingestion_in_place(
         constituents_source_path=reference_data_dir / "SP500_Constituents.csv",
         prices_frame=clean_prices,
         prices_lineage=clean_price_lineage,
+        persistent_price_history_registry=persistent_price_history_registry,
         benchmark_prices=clean_benchmark_prices,
         general_reference=general_reference,
         general_reference_lineage=general_reference_lineage,
@@ -1692,6 +1704,7 @@ def _run_open_source_ingestion_in_place(
         "clean_outputs": {
             "prices_open_source": "target/prices_open_source.parquet",
             "prices_open_source_lineage": "target/prices_open_source_lineage.parquet",
+            "persistent_price_history_registry": "target/persistent_price_history_registry.parquet",
             "benchmark_prices_open_source": "target/benchmark_prices_open_source.parquet",
             "general_reference": "target/general_reference.parquet",
             "general_reference_lineage": "target/general_reference_lineage.parquet",
@@ -2364,7 +2377,15 @@ def _prepare_canonical_hybrid_price_merge(
     run_id: str,
     source_refresh_policy: SourceRefreshPolicy,
     source_refresh_contract: dict[str, object],
-) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    latest_composed_manifest_path: Path | None = None,
+) -> tuple[
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+]:
     prospective = _merge_prospective_price_sources(
         paths=paths,
         yahoo_delta=yahoo_delta,
@@ -2372,24 +2393,60 @@ def _prepare_canonical_hybrid_price_merge(
         stockanalysis_delta=stockanalysis_delta,
         ticker_list=ticker_list,
     )
-    retained_open_history = _load_retained_open_price_vintages(
-        paths=paths,
-        prospective=prospective,
-        active_tickers=active_tickers,
-        ticker_list=ticker_list,
-    )
     seed = load_eodhd_seed(eodhd_seed_path, start_date=start_date)
     price_policy = source_refresh_policy.price_gate_policy()
-    hybrid = compose_hybrid_price_history(
-        eodhd_seed=seed.frame,
-        active_yahoo_vintage=yahoo_delta,
-        retained_open_history=retained_open_history,
-        active_tickers=active_tickers,
-        policy=price_policy,
-    )
+    if latest_composed_manifest_path is not None:
+        previous_source = resolve_previous_validated_price_lineage(
+            latest_composed_manifest_path
+        )
+        previous_lineage = pl.read_parquet(previous_source.lineage_path)
+        previous_prices = previous_lineage.select(list(PRICE_COLUMNS))
+        hybrid = roll_forward_validated_price_history(
+            previous_validated_lineage=previous_lineage,
+            active_yahoo_vintage=yahoo_delta,
+            active_tickers=active_tickers,
+        )
+        source_refresh_contract["previous_validated_price_lineage"] = {
+            "path": str(previous_source.lineage_path),
+            "price_manifest_path": str(previous_source.price_manifest_path),
+            "snapshot_dir": str(previous_source.snapshot_dir),
+            "composition_id": previous_source.composition_id,
+            "resolution": "latest_composed_model_snapshot",
+        }
+    else:
+        previous_path = paths.output_dir / "US_Finalprice.parquet"
+        previous_prices = (
+            pl.read_parquet(previous_path) if previous_path.exists() else None
+        )
+        retained_open_history = _load_retained_open_price_vintages(
+            paths=paths,
+            prospective=prospective,
+            active_tickers=active_tickers,
+            ticker_list=ticker_list,
+        )
+        hybrid = compose_hybrid_price_history(
+            eodhd_seed=seed.frame,
+            active_yahoo_vintage=yahoo_delta,
+            retained_open_history=retained_open_history,
+            active_tickers=active_tickers,
+            policy=price_policy,
+        )
 
-    previous_path = paths.output_dir / "US_Finalprice.parquet"
-    previous_prices = pl.read_parquet(previous_path) if previous_path.exists() else None
+    persistent_registry = build_persistent_price_history_registry(
+        hybrid.lineage,
+        active_tickers=active_tickers,
+    )
+    persistent_summary = persistent_history_summary(persistent_registry)
+    source_refresh_contract["persistent_price_history"] = {
+        **persistent_summary,
+        "semantics": (
+            "Every ticker/date in the preceding validated lineage is retained "
+            "when the ticker leaves the active refresh universe, including "
+            "histories first acquired from Yahoo and absent from EODHD."
+        ),
+        "routine_deletion_allowed": False,
+    }
+
     gate = audit_price_candidate(
         previous_prices=previous_prices,
         candidate_prices=hybrid.prices,
@@ -2406,6 +2463,9 @@ def _prepare_canonical_hybrid_price_merge(
     run_dir = paths.run_dir(run_id)
     write_json(run_dir / "price_composition.json", hybrid.composition_report)
     write_json(run_dir / "price_revision_guard.json", gate.report)
+    persistent_registry.write_parquet(
+        run_dir / "persistent_price_history_registry.parquet"
+    )
     gate.daily_return_revisions.write_parquet(
         run_dir / "price_daily_return_revisions.parquet"
     )
@@ -2431,6 +2491,7 @@ def _prepare_canonical_hybrid_price_merge(
         prospective[2],
         hybrid.prices,
         hybrid.lineage,
+        persistent_registry,
     )
 
 

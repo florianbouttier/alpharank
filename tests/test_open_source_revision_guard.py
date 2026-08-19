@@ -122,3 +122,4 @@ def test_full_ingestion_guards_historical_revisions_before_publication() -> None
 
     assert price_guard_position < publish_position
     assert guard_position < publish_position
+    assert "latest_composed_manifest_path" in source
