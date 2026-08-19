@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Sequence
 
 import polars as pl
 
@@ -13,8 +13,13 @@ def build_data_freshness_summary(
     financials: pl.DataFrame,
     earnings_sec_calendar: pl.DataFrame,
     constituents: pl.DataFrame,
+    terminal_tickers: Sequence[str] = (),
 ) -> dict[str, Any]:
-    current_member_coverage = _current_member_price_coverage(prices, constituents)
+    current_member_coverage = _current_member_price_coverage(
+        prices,
+        constituents,
+        terminal_tickers=terminal_tickers,
+    )
     return {
         "prices": {
             "max_market_date": _max_date(prices, "date"),
@@ -109,10 +114,15 @@ def _parse_required_date(value: object, field: str) -> date:
 def _current_member_price_coverage(
     prices: pl.DataFrame,
     constituents: pl.DataFrame,
+    *,
+    terminal_tickers: Sequence[str] = (),
 ) -> dict[str, Any]:
     if prices.is_empty() or constituents.is_empty() or not {"Date", "Ticker"}.issubset(constituents.columns):
         return {
             "current_member_count": 0,
+            "current_member_refreshable_count": 0,
+            "current_member_terminal_exclusion_count": 0,
+            "current_member_terminal_exclusion_examples": [],
             "current_member_missing_count": 0,
             "current_member_missing_examples": [],
             "current_member_latest_common_market_date": None,
@@ -122,7 +132,23 @@ def _current_member_price_coverage(
         (pl.col("Ticker").cast(pl.String).str.to_uppercase() + pl.lit(".US")).alias("ticker"),
     )
     latest_month = normalized_constituents.select(pl.col("Date").max()).item()
-    members = normalized_constituents.filter(pl.col("Date") == latest_month).select("ticker").unique()
+    all_members = (
+        normalized_constituents.filter(pl.col("Date") == latest_month)
+        .select("ticker")
+        .unique()
+    )
+    normalized_terminal_tickers = sorted(
+        {
+            f"{str(ticker).upper().removesuffix('.US')}.US"
+            for ticker in terminal_tickers
+        }
+    )
+    terminal_members = all_members.filter(
+        pl.col("ticker").is_in(normalized_terminal_tickers)
+    )
+    members = all_members.filter(
+        ~pl.col("ticker").is_in(normalized_terminal_tickers)
+    )
     coverage = (
         prices.select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
@@ -137,7 +163,12 @@ def _current_member_price_coverage(
     missing = joined.filter(pl.col("max_date").is_null())
     latest_common = joined.select(pl.col("max_date").min()).item()
     return {
-        "current_member_count": members.height,
+        "current_member_count": all_members.height,
+        "current_member_refreshable_count": members.height,
+        "current_member_terminal_exclusion_count": terminal_members.height,
+        "current_member_terminal_exclusion_examples": (
+            terminal_members.get_column("ticker").sort().head(20).to_list()
+        ),
         "current_member_missing_count": missing.height,
         "current_member_missing_examples": missing.get_column("ticker").head(20).to_list(),
         "current_member_latest_common_market_date": (

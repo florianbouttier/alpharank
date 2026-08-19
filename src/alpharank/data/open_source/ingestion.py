@@ -1667,6 +1667,7 @@ def _run_open_source_ingestion_in_place(
         financials=consolidated_financials,
         earnings_sec_calendar=raw_earnings_sec_calendar,
         constituents=constituents_frame,
+        terminal_tickers=terminal_price_tickers,
     )
     validate_data_freshness(data_freshness, expected_through=end_date)
 
