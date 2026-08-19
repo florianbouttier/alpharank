@@ -99,6 +99,7 @@ def build_execution_sensitivity_report(
     daily_prices: pl.DataFrame,
     *,
     policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+    require_canonical_available: bool = True,
 ) -> pl.DataFrame:
     """Build mandatory close/open/VWAP rows without inventing unavailable prices."""
 
@@ -167,7 +168,11 @@ def build_execution_sensitivity_report(
         pl.col("execution_at").cast(pl.Datetime(time_zone="UTC")),
         pl.col("price").cast(pl.Float64),
     )
-    validate_execution_sensitivity_report(report, policy=policy)
+    validate_execution_sensitivity_report(
+        report,
+        policy=policy,
+        require_canonical_available=require_canonical_available,
+    )
     return report.sort(["order_id", "scenario"])
 
 
@@ -175,6 +180,7 @@ def validate_execution_sensitivity_report(
     report: pl.DataFrame,
     *,
     policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+    require_canonical_available: bool = True,
 ) -> None:
     """Require every scenario and a causal canonical execution for every order."""
 
@@ -191,7 +197,7 @@ def validate_execution_sensitivity_report(
         | pl.col("execution_at").is_null()
         | (pl.col("execution_at") <= pl.col("signal_cutoff_at"))
     )
-    if canonical.is_empty() or not invalid.is_empty():
+    if canonical.is_empty() or (require_canonical_available and not invalid.is_empty()):
         raise RuntimeError("Canonical execution is unavailable or not after the signal.")
 
 
@@ -200,14 +206,30 @@ def write_execution_sensitivity_report(
     output_dir: Path,
     *,
     policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+    require_canonical_available: bool = True,
 ) -> dict[str, object]:
     """Persist the mandatory sensitivity table and its versioned policy."""
 
-    validate_execution_sensitivity_report(report, policy=policy)
+    validate_execution_sensitivity_report(
+        report,
+        policy=policy,
+        require_canonical_available=require_canonical_available,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     report.write_parquet(output_dir / "legacy_execution_sensitivity.parquet")
+    canonical_unavailable_count = report.filter(
+        (pl.col("scenario") == policy.canonical_scenario)
+        & (pl.col("status") != "available")
+    ).height
     manifest = {
         "execution_policy": policy.to_manifest(),
+        "require_canonical_available": require_canonical_available,
+        "canonical_unavailable_count": canonical_unavailable_count,
+        "validation_status": (
+            "strict_causal"
+            if require_canonical_available
+            else "historical_compatibility_with_logged_unavailable"
+        ),
         "scenario_count": len(EXECUTION_SCENARIOS),
         "order_count": report["order_id"].n_unique(),
         "row_count": report.height,

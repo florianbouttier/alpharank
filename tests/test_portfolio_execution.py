@@ -139,3 +139,43 @@ def test_order_price_occurs_after_signal_cutoff(tmp_path: Path) -> None:
         (tmp_path / "legacy_execution_policy.json").read_text(encoding="utf-8")
     )
     assert persisted["row_count"] == 3
+
+
+def test_historical_execution_report_logs_terminal_unavailability(tmp_path: Path) -> None:
+    holdings = pl.DataFrame(
+        {
+            "portfolio_model": ["Combined_Equal"],
+            "year_month": [date(2019, 1, 1)],
+            "ticker": ["ESRX.US"],
+        }
+    )
+    prices = pl.DataFrame(
+        {
+            "ticker": ["ESRX.US"],
+            "date": ["2018-12-21"],
+            "open": [95.0],
+            "close": [96.0],
+        }
+    )
+    orders = build_monthly_execution_orders(holdings, prices)
+
+    with pytest.raises(RuntimeError, match="Canonical execution is unavailable"):
+        build_execution_sensitivity_report(orders, prices)
+
+    report = build_execution_sensitivity_report(
+        orders,
+        prices,
+        require_canonical_available=False,
+    )
+    manifest = write_execution_sensitivity_report(
+        report,
+        tmp_path,
+        require_canonical_available=False,
+    )
+
+    canonical = report.filter(pl.col("scenario") == "next_session_open")
+    assert canonical["status"].item() == "unavailable_no_future_open"
+    assert manifest["canonical_unavailable_count"] == 1
+    assert manifest["validation_status"] == (
+        "historical_compatibility_with_logged_unavailable"
+    )

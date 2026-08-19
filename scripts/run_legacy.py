@@ -765,6 +765,9 @@ def run_pipeline(
         "historical_legacy_missing_return_policy": (
             HISTORICAL_LEGACY_MISSING_RETURN_POLICY
         ),
+        "execution_sensitivity_require_canonical_available": (
+            methodology_identity is not None
+        ),
         "methodology_identity": methodology_identity,
     }
     runtime_provenance = capture_runtime_provenance(
@@ -1322,11 +1325,17 @@ def run_pipeline(
         execution_holdings,
         final_price.select(execution_price_columns),
     )
+    require_canonical_execution = methodology_identity is not None
     execution_sensitivity = build_execution_sensitivity_report(
         execution_orders,
         final_price.select(execution_price_columns),
+        require_canonical_available=require_canonical_execution,
     )
-    write_execution_sensitivity_report(execution_sensitivity, run_day_dir)
+    write_execution_sensitivity_report(
+        execution_sensitivity,
+        run_day_dir,
+        require_canonical_available=require_canonical_execution,
+    )
     comparison_monthly_returns_long = _named_frames_to_long(
         {
             model_name: _indexed_frame_to_polars(returns_series.rename("monthly_return"))
