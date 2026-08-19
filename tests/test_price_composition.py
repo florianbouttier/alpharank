@@ -192,6 +192,45 @@ def test_roll_forward_preserves_inactive_and_replaces_active() -> None:
     assert summary["non_eodhd_persisted_tickers"] == ["CI.US"]
 
 
+def test_roll_forward_accepts_only_exact_audited_prior_active_keys() -> None:
+    previous = _lineage(
+        "A.US",
+        ["2026-08-12", "2026-08-13"],
+        [10.0, 10.5],
+        source="yfinance",
+        vintage="old",
+    )
+    current = _lineage(
+        "A.US",
+        ["2026-08-13", "2026-08-14"],
+        [10.6, 11.0],
+        source="yfinance",
+        vintage="fresh",
+    )
+    carried = previous.filter(pl.col("date") == "2026-08-12")
+
+    result = roll_forward_validated_price_history(
+        previous_validated_lineage=previous,
+        active_yahoo_vintage=pl.concat([carried, current]),
+        active_tickers=["A"],
+        active_resolution_vintage_id="fresh",
+    )
+
+    assert result.lineage.height == 3
+    assert result.composition_report["active_yahoo_vintage_id"] == "fresh"
+    assert result.composition_report["audited_carried_active_rows"] == 1
+    assert result.composition_report["audited_carried_active_tickers"] == 1
+
+    changed_carried = carried.with_columns(pl.lit(9.9).alias("adjusted_close"))
+    with pytest.raises(RuntimeError, match="preceding validated lineage"):
+        roll_forward_validated_price_history(
+            previous_validated_lineage=previous,
+            active_yahoo_vintage=pl.concat([changed_carried, current]),
+            active_tickers=["A"],
+            active_resolution_vintage_id="fresh",
+        )
+
+
 def test_roll_forward_preserves_confirmed_terminal_active_ticker() -> None:
     previous = pl.concat(
         [

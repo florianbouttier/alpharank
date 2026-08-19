@@ -2723,6 +2723,7 @@ def _prepare_canonical_hybrid_price_merge(
             active_yahoo_vintage=yahoo_delta,
             active_tickers=active_tickers,
             preserved_terminal_tickers=preserved_terminal_tickers,
+            active_resolution_vintage_id=run_id,
         )
         source_refresh_contract["previous_validated_price_lineage"] = {
             "path": str(previous_source.lineage_path),
@@ -2782,6 +2783,7 @@ def _prepare_canonical_hybrid_price_merge(
         expected_eodhd_keys=seed.frame.select("ticker", "date"),
         expected_through=expected_through,
         policy=price_policy,
+        active_resolution_vintage_id=run_id,
     )
 
     source_refresh_contract["eodhd_price_seed"] = seed.manifest()

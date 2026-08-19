@@ -71,6 +71,32 @@ def test_microsoft_mixed_vintage_seam_is_rejected() -> None:
         validate_price_candidate(result)
 
 
+def test_audited_resolution_allows_exact_prior_active_rows() -> None:
+    previous = _prices([100.0, 101.0])
+    candidate = _prices([100.0, 101.0])
+    lineage = _lineage(
+        candidate["adjusted_close"].to_list(),
+        ["old", "fresh"],
+        [100.0, 101.0],
+    )
+
+    result = audit_price_candidate(
+        previous_prices=previous,
+        candidate_prices=candidate,
+        candidate_lineage=lineage,
+        active_tickers=["MSFT"],
+        expected_through="2026-08-10",
+        active_resolution_vintage_id="fresh",
+    )
+
+    assert result.report["audited_carried_active_rows"] == 1
+    assert result.report["audited_carried_active_tickers"] == 1
+    assert result.report[
+        "active_tickers_without_current_resolution_observation"
+    ] == []
+    assert result.report["passed"] is True
+
+
 def test_missing_inactive_eodhd_key_is_rejected() -> None:
     candidate = _prices([100.0, 101.0])
     lineage = _lineage([100.0, 101.0], ["full", "full"], [100.0, 101.0])

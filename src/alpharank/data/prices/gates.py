@@ -26,6 +26,7 @@ def audit_price_candidate(
     expected_eodhd_keys: pl.DataFrame | None = None,
     expected_through: str,
     policy: PriceGatePolicy = PRODUCTION_PRICE_GATE_POLICY,
+    active_resolution_vintage_id: str | None = None,
 ) -> PriceGateResult:
     candidate = _normalize_prices(candidate_prices)
     lineage = _normalize_lineage(candidate_lineage)
@@ -55,6 +56,25 @@ def audit_price_candidate(
         .to_list()
     )
     mixed_active = active_vintages.filter(pl.col("vintage_count") != 1)
+    current_resolution_tickers: set[str] = set()
+    carried_active_rows = 0
+    carried_active_tickers = 0
+    if active_resolution_vintage_id is not None:
+        current_resolution = active_yahoo_lineage.filter(
+            pl.col("source_vintage_id") == active_resolution_vintage_id
+        )
+        current_resolution_tickers = set(
+            current_resolution.get_column("ticker").unique().to_list()
+        )
+        carried_active = active_yahoo_lineage.filter(
+            pl.col("source_vintage_id") != active_resolution_vintage_id
+        )
+        carried_active_rows = carried_active.height
+        carried_active_tickers = (
+            carried_active.select(pl.col("ticker").n_unique()).item()
+            if carried_active.height
+            else 0
+        )
     refreshed_active = set(active_vintages.get_column("ticker").to_list()) if not active_vintages.is_empty() else set()
     missing_active = sorted(set(active) - refreshed_active)
 
@@ -108,10 +128,17 @@ def audit_price_candidate(
     blocking_reasons: list[str] = []
     if missing_active:
         blocking_reasons.append("missing_active_full_yahoo_vintage")
-    if mixed_active.height:
+    missing_current_resolution = (
+        sorted(set(active) - current_resolution_tickers)
+        if active_resolution_vintage_id is not None
+        else []
+    )
+    if active_resolution_vintage_id is None and mixed_active.height:
         blocking_reasons.append("mixed_active_yahoo_vintages")
-    if len(active_global_vintages) != 1:
+    if active_resolution_vintage_id is None and len(active_global_vintages) != 1:
         blocking_reasons.append("active_universe_not_one_global_yahoo_vintage")
+    if active_resolution_vintage_id is not None and missing_current_resolution:
+        blocking_reasons.append("active_ticker_without_current_resolution_observation")
     if active_non_yahoo_rows:
         blocking_reasons.append("active_universe_contains_non_yahoo_rows")
     if transition_findings.height:
@@ -134,6 +161,10 @@ def audit_price_candidate(
         "missing_active_yahoo_tickers": missing_active,
         "mixed_active_yahoo_vintage_tickers": mixed_active.get_column("ticker").to_list() if mixed_active.height else [],
         "active_global_yahoo_vintage_ids": active_global_vintages,
+        "active_resolution_vintage_id": active_resolution_vintage_id,
+        "active_tickers_without_current_resolution_observation": missing_current_resolution,
+        "audited_carried_active_rows": carried_active_rows,
+        "audited_carried_active_tickers": carried_active_tickers,
         "active_non_yahoo_rows": active_non_yahoo_rows,
         "transition_factor_findings": transition_findings.height,
         "historical_daily_return_revisions_over_threshold": material_old_revisions.height,

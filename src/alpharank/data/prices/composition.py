@@ -124,8 +124,9 @@ def roll_forward_validated_price_history(
     active_yahoo_vintage: pl.DataFrame,
     active_tickers: Sequence[str],
     preserved_terminal_tickers: Sequence[str] = (),
+    active_resolution_vintage_id: str | None = None,
 ) -> HybridPriceResult:
-    """Keep validated inactive history unchanged and replace every active name."""
+    """Keep validated history while resolving active rows from one audited run."""
 
     active = {_normalize_ticker(ticker) for ticker in active_tickers}
     terminal = {_normalize_ticker(ticker) for ticker in preserved_terminal_tickers}
@@ -147,11 +148,53 @@ def roll_forward_validated_price_history(
             f"{missing_active[:20]}"
         )
     vintages = yahoo.select(pl.col("source_vintage_id").drop_nulls().unique())
-    if vintages.height != 1:
-        raise RuntimeError(
-            "Fresh active universe must use exactly one Yahoo vintage; "
-            f"found={vintages.height}"
+    carried = pl.DataFrame(schema=yahoo.schema)
+    if active_resolution_vintage_id is None:
+        if vintages.height != 1:
+            raise RuntimeError(
+                "Fresh active universe must use exactly one Yahoo vintage; "
+                f"found={vintages.height}"
+            )
+        active_resolution_vintage_id = str(vintages.item())
+    else:
+        current = yahoo.filter(
+            pl.col("source_vintage_id") == active_resolution_vintage_id
         )
+        current_tickers = set(current.get_column("ticker").unique().to_list())
+        missing_current = sorted(refreshable_active - current_tickers)
+        if missing_current:
+            raise RuntimeError(
+                "Active Yahoo resolution contains no current-run observation for: "
+                f"{missing_current[:20]}"
+            )
+        carried = yahoo.filter(
+            pl.col("source_vintage_id") != active_resolution_vintage_id
+        )
+        if carried.height:
+            comparison_columns = [
+                *PRICE_VALUE_COLUMNS,
+                "source",
+                "dataset",
+                "ingestion_run_id",
+                "ingested_at",
+            ]
+            carried_keys = carried.select("ticker", "date")
+            previous_carried = (
+                previous.join(carried_keys, on=["ticker", "date"], how="inner")
+                .select(comparison_columns)
+                .sort(["ticker", "date"])
+            )
+            observed_carried = carried.select(comparison_columns).sort(
+                ["ticker", "date"]
+            )
+            if previous_carried.height != carried.height or not previous_carried.equals(
+                observed_carried,
+                null_equal=True,
+            ):
+                raise RuntimeError(
+                    "Carried active Yahoo rows are not byte-equivalent values from "
+                    "the preceding validated lineage"
+                )
     non_yahoo = yahoo.filter(pl.col("source") != "yfinance").height
     if non_yahoo:
         raise RuntimeError(f"Fresh active universe contains {non_yahoo} non-Yahoo rows")
@@ -200,7 +243,16 @@ def roll_forward_validated_price_history(
             "preserved_terminal_tickers": sorted(terminal),
             "active_yahoo_rows": yahoo.height,
             "active_yahoo_ticker_count": len(yahoo_tickers),
-            "active_yahoo_vintage_id": vintages.item(),
+            "active_yahoo_vintage_id": active_resolution_vintage_id,
+            "active_yahoo_origin_vintage_ids": sorted(
+                str(value) for value in vintages.get_column("source_vintage_id").to_list()
+            ),
+            "audited_carried_active_rows": carried.height,
+            "audited_carried_active_tickers": (
+                carried.select(pl.col("ticker").n_unique()).item()
+                if carried.height
+                else 0
+            ),
             "candidate_rows": lineage.height,
             "candidate_tickers": lineage.select(pl.col("ticker").n_unique()).item(),
             "missing_active_yahoo_tickers": [],
