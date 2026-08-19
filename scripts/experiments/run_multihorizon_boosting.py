@@ -112,12 +112,17 @@ def main() -> None:
     parser.add_argument("--save-research-frame", action="store_true")
     parser.add_argument(
         "--mature-target-gap-policy",
-        choices=("fail_closed", "provisional_last_observation_v1"),
+        choices=(
+            "fail_closed",
+            "provisional_last_observation_v1",
+            "approved_last_observation_censoring_v1",
+        ),
         default="fail_closed",
         help=(
             "How to handle a mature target whose price series ends before its "
-            "scheduled horizon. The provisional policy carries the last observed "
-            "share value flat and writes every use to the audit journal."
+            "scheduled horizon. Last-observation policies carry the final observed "
+            "share value flat and write every use to the audit journal; the approved "
+            "variant also binds the owner-approved methodology policy."
         ),
     )
     args = parser.parse_args()

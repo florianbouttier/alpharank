@@ -13,7 +13,11 @@ import numpy as np
 
 from alpharank.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
-from alpharank.multihorizon.config import MultiHorizonConfig
+from alpharank.multihorizon.config import (
+    APPROVED_TARGET_CENSORING_POLICY_ID,
+    MultiHorizonConfig,
+    load_approved_target_censoring_policy,
+)
 from alpharank.multihorizon.data import (
     RELATIVE_EMA_PAIRS,
     TRAINABLE_TARGET_STATUSES,
@@ -283,8 +287,16 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         frame,
         horizons=tuple(sorted(set(config.horizons) | {1})),
     )
-    target_journal_path = run_dir / "provisional_target_journal.parquet"
-    target_journal_csv_path = run_dir / "provisional_target_journal.csv"
+    target_policy_approved = (
+        config.mature_target_gap_policy == APPROVED_TARGET_CENSORING_POLICY_ID
+    )
+    target_journal_stem = (
+        "approved_censored_target_journal"
+        if target_policy_approved
+        else "provisional_target_journal"
+    )
+    target_journal_path = run_dir / f"{target_journal_stem}.parquet"
+    target_journal_csv_path = run_dir / f"{target_journal_stem}.csv"
     target_journal.write_parquet(target_journal_path)
     target_journal.write_csv(target_journal_csv_path)
     oracle_features: tuple[str, ...] = ()
@@ -351,12 +363,21 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
         },
         "methodology_identity": methodology_identity,
         "runtime_provenance": runtime_provenance,
-        "provisional_target_policy": {
+        "terminal_target_policy": {
             "policy_id": config.mature_target_gap_policy,
             "status": (
-                "pending_manual_review"
-                if target_journal.height
-                else "no_provisional_target"
+                "approved_methodology_censoring"
+                if target_policy_approved
+                else (
+                    "pending_manual_review"
+                    if target_journal.height
+                    else "no_censored_target"
+                )
+            ),
+            "methodology_approval": (
+                load_approved_target_censoring_policy()
+                if target_policy_approved
+                else None
             ),
             "journal_rows": target_journal.height,
             "journal_tickers": target_journal["ticker"].n_unique(),

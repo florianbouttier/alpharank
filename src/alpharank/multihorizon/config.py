@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Mapping, Tuple
+import hashlib
+import json
 
 from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.data.price_eligibility import (
@@ -16,7 +18,16 @@ DEFAULT_HISTORICAL_EXCLUDED_TICKERS = (
     load_ticker_exclusion_registry().excluded_tickers
 )
 
-LATEST_COMMON_COMPARISON_PROFILE_NAME = "legacy_ema_latest_common_v2"
+APPROVED_TARGET_CENSORING_POLICY_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "configs"
+    / "research"
+    / "approved_terminal_target_censoring_v1.json"
+)
+APPROVED_TARGET_CENSORING_POLICY_ID = "approved_last_observation_censoring_v1"
+LATEST_COMMON_COMPARISON_PROFILE_NAME = (
+    "legacy_ema_latest_common_v2_approved_censoring"
+)
 LATEST_COMMON_COMPARISON_PROFILE = {
     "horizons": (6,),
     "methods": ("classification",),
@@ -43,8 +54,28 @@ LATEST_COMMON_COMPARISON_PROFILE = {
         STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate
     ),
     "random_seed": 42,
-    "mature_target_gap_policy": "provisional_last_observation_v1",
+    "mature_target_gap_policy": APPROVED_TARGET_CENSORING_POLICY_ID,
 }
+
+
+def load_approved_target_censoring_policy() -> dict[str, object]:
+    """Load and validate the owner-approved terminal target convention."""
+
+    raw = APPROVED_TARGET_CENSORING_POLICY_PATH.read_bytes()
+    payload = json.loads(raw)
+    if payload.get("schema_version") != 1:
+        raise ValueError("Unsupported approved target-censoring schema.")
+    if payload.get("policy_id") != APPROVED_TARGET_CENSORING_POLICY_ID:
+        raise ValueError("Approved target-censoring policy identity drifted.")
+    if payload.get("status") != "approved_methodology_policy":
+        raise ValueError("Terminal target-censoring policy is not approved.")
+    if not payload.get("approval_basis") or not payload.get("limitations"):
+        raise ValueError("Approved target-censoring policy lacks its audit limits.")
+    return {
+        **payload,
+        "path": str(APPROVED_TARGET_CENSORING_POLICY_PATH.resolve()),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }
 
 
 def validate_latest_common_comparison_profile(
@@ -181,6 +212,7 @@ class MultiHorizonConfig:
         allowed_target_gap_policies = {
             "fail_closed",
             "provisional_last_observation_v1",
+            APPROVED_TARGET_CENSORING_POLICY_ID,
         }
         if self.mature_target_gap_policy not in allowed_target_gap_policies:
             raise ValueError(

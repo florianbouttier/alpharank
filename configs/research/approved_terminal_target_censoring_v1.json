@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "policy_id": "approved_last_observation_censoring_v1",
+  "status": "approved_methodology_policy",
+  "approved_at_utc": "2026-08-19T00:00:00Z",
+  "approved_by_role": "methodology_owner",
+  "approval_basis": "Explicit instruction to retain performance through the last observed quotation, continue the replay, journal every early price-series endpoint and report its economic contribution.",
+  "target_semantics": {
+    "scope": "mature Boosting training targets whose security price series ends before the scheduled horizon",
+    "value_rule": "compute the stock return from the decision close through the final observed close and carry that terminal observed value flat through the scheduled target horizon",
+    "benchmark_rule": "retain the complete benchmark return through the scheduled target horizon",
+    "selection_rule": "never remove or promote a security because its future price series ends early",
+    "journal_rule": "retain ticker, decision date, scheduled horizon, final observed price date, stock return, benchmark return and excess return for every use"
+  },
+  "limitations": [
+    "This is an explicitly approved censoring convention, not a reconstruction of cash, stock, dividend or bankruptcy consideration.",
+    "Portfolio holdings selected in the common replay must still use sourced shareholder consideration or a causal pre-execution block.",
+    "Reports must show the approved-censored target count separately from event-resolved targets."
+  ]
+}

@@ -44,12 +44,30 @@ def validate_boosting_v2_replay(
     portfolio_rows = 0
     unresolved_mature_rows = 0
     provisional_mature_rows = 0
-    provisional_policy = manifest.get("provisional_target_policy", {})
+    approved_censored_mature_rows = 0
+    target_policy = manifest.get(
+        "terminal_target_policy",
+        manifest.get("provisional_target_policy", {}),
+    )
+    target_policy_status = target_policy.get("status")
+    target_policy_approved = (
+        target_policy_status == "approved_methodology_censoring"
+    )
+    if target_policy_approved:
+        approval = target_policy.get("methodology_approval", {})
+        approval_path = Path(approval.get("path", ""))
+        if (
+            approval.get("policy_id")
+            != "approved_last_observation_censoring_v1"
+            or not approval_path.is_file()
+            or _sha256(approval_path) != approval.get("sha256")
+        ):
+            raise RuntimeError("Boosting approved target-censoring policy drifted")
     for journal_key in ("journal_parquet", "journal_csv"):
-        record = provisional_policy.get(journal_key, {})
+        record = target_policy.get(journal_key, {})
         journal_path = Path(record.get("path", ""))
         if not journal_path.is_file() or _sha256(journal_path) != record.get("sha256"):
-            raise RuntimeError(f"Boosting provisional target {journal_key} hash mismatch")
+            raise RuntimeError(f"Boosting terminal target {journal_key} hash mismatch")
     combinations = manifest.get("results", {}).get("combinations", [])
     if not combinations:
         raise RuntimeError("Boosting v2 manifest has no completed combination")
@@ -135,6 +153,16 @@ def validate_boosting_v2_replay(
             .select(pl.col("provisional_last_observation_rows").sum())
             .item()
         )
+        if "approved_censored_last_observation_rows" in censoring.columns:
+            approved_censored_mature_rows += int(
+                censoring.filter(
+                    pl.col("split").is_in(["train", "validation"])
+                )
+                .select(
+                    pl.col("approved_censored_last_observation_rows").sum()
+                )
+                .item()
+            )
 
         for fold_dir in sorted(combination_dir.glob("fold_[0-9][0-9]")):
             replay_manifest = _read_json(fold_dir / "oos_replay_manifest.json")
@@ -175,9 +203,18 @@ def validate_boosting_v2_replay(
         "portfolio_rows": portfolio_rows,
         "unresolved_mature_rows": unresolved_mature_rows,
         "provisional_mature_rows": provisional_mature_rows,
-        "provisional_target_journal_rows": int(
-            provisional_policy.get("journal_rows", 0)
+        "approved_censored_mature_rows": approved_censored_mature_rows,
+        "provisional_target_journal_rows": (
+            0
+            if target_policy_approved
+            else int(target_policy.get("journal_rows", 0))
         ),
+        "approved_censored_target_journal_rows": (
+            int(target_policy.get("journal_rows", 0))
+            if target_policy_approved
+            else 0
+        ),
+        "terminal_target_policy_approved": target_policy_approved,
         "maximum_absolute_score_replay_error": maximum_score_error,
     }
 

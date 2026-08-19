@@ -20,6 +20,7 @@ from alpharank.data.price_eligibility import (
     MonthlyPriceEligibilityPolicy,
     build_monthly_price_eligibility,
 )
+from alpharank.multihorizon.config import APPROVED_TARGET_CENSORING_POLICY_ID
 
 
 RELATIVE_EMA_SHORT_SPANS = (5, 10, 20, 40, 60, 80, 100)
@@ -34,13 +35,19 @@ TARGET_STATUS_VALUES = (
     "evaluable",
     "terminal_event_resolved",
     "provisional_last_observation",
+    "approved_censored_last_observation",
     "horizon_pending",
     "benchmark_target_unavailable",
     "ticker_target_unavailable",
     "terminal_event_unresolved",
 )
 TRAINABLE_TARGET_STATUSES = frozenset(
-    {"evaluable", "terminal_event_resolved", "provisional_last_observation"}
+    {
+        "evaluable",
+        "terminal_event_resolved",
+        "provisional_last_observation",
+        "approved_censored_last_observation",
+    }
 )
 
 
@@ -212,6 +219,7 @@ def _add_multihorizon_targets(
     if mature_target_gap_policy not in {
         "fail_closed",
         "provisional_last_observation_v1",
+        APPROVED_TARGET_CENSORING_POLICY_ID,
     }:
         raise ValueError(
             f"Unsupported mature target gap policy: {mature_target_gap_policy!r}"
@@ -296,7 +304,15 @@ def _add_multihorizon_targets(
                 .alias(f"future_return_observed_end_date_{horizon}m"),
             )
         )
-        if mature_target_gap_policy == "provisional_last_observation_v1":
+        if mature_target_gap_policy in {
+            "provisional_last_observation_v1",
+            APPROVED_TARGET_CENSORING_POLICY_ID,
+        }:
+            censored_resolution = (
+                "approved_censored_last_observation"
+                if mature_target_gap_policy == APPROVED_TARGET_CENSORING_POLICY_ID
+                else "provisional_last_observation"
+            )
             requests = target_panel.select(
                 "ticker",
                 "decision_month",
@@ -359,7 +375,7 @@ def _add_multihorizon_targets(
                     pl.when(pl.col(f"future_return_{horizon}m").is_not_null())
                     .then(pl.lit("observed_horizon_return"))
                     .when(pl.col("_provisional_return").is_not_null())
-                    .then(pl.lit("provisional_last_observation"))
+                    .then(pl.lit(censored_resolution))
                     .otherwise(pl.lit("unresolved_missing_return"))
                     .alias(f"return_resolution_{horizon}m"),
                 )
@@ -490,6 +506,14 @@ def classify_training_target_status(
                 & (resolution == pl.lit("provisional_last_observation"))
             )
             .then(pl.lit("provisional_last_observation"))
+            .when(
+                pl.col(target).is_not_null()
+                & (
+                    resolution
+                    == pl.lit("approved_censored_last_observation")
+                )
+            )
+            .then(pl.lit("approved_censored_last_observation"))
             .when(pl.col(target).is_not_null())
             .then(pl.lit("evaluable"))
             .when(event_id.is_not_null())
@@ -545,7 +569,12 @@ def provisional_target_journal(
         if status not in frame.columns:
             continue
         rows = frame.filter(
-            pl.col(status) == "provisional_last_observation"
+            pl.col(status).is_in(
+                [
+                    "provisional_last_observation",
+                    "approved_censored_last_observation",
+                ]
+            )
         ).select(
             "ticker",
             "decision_month",
@@ -567,10 +596,19 @@ def provisional_target_journal(
             pl.lit("price_series_ended_before_scheduled_horizon").alias(
                 "audit_reason"
             ),
-            pl.lit("pending_manual_terminal_event_review").alias(
-                "manual_review_status"
-            ),
-            pl.lit("provisional_last_observation_v1").alias("resolution_policy"),
+            pl.when(
+                pl.col(status) == "approved_censored_last_observation"
+            )
+            .then(pl.lit("approved_methodology_censoring"))
+            .otherwise(pl.lit("pending_manual_terminal_event_review"))
+            .alias("manual_review_status"),
+            pl.when(
+                pl.col(status) == "approved_censored_last_observation"
+            )
+            .then(pl.lit(APPROVED_TARGET_CENSORING_POLICY_ID))
+            .otherwise(pl.lit("provisional_last_observation_v1"))
+            .alias("resolution_policy"),
+            pl.col(status).alias("target_censoring_status"),
         )
         parts.append(rows)
     if not parts:
@@ -588,6 +626,7 @@ def provisional_target_journal(
                 "audit_reason": pl.String,
                 "manual_review_status": pl.String,
                 "resolution_policy": pl.String,
+                "target_censoring_status": pl.String,
             }
         )
     return pl.concat(parts, how="diagonal_relaxed").sort(

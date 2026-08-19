@@ -453,7 +453,20 @@ def build_common_v2_comparison(
     provisional_training_targets = int(
         boosting_validation.get("provisional_target_journal_rows", 0)
     )
-    promotion_eligible = comparison_eligible and provisional_training_targets == 0
+    approved_censored_training_targets = int(
+        boosting_validation.get("approved_censored_target_journal_rows", 0)
+    )
+    target_policy_approved = bool(
+        boosting_validation.get("terminal_target_policy_approved", False)
+    )
+    promotion_eligible = (
+        comparison_eligible
+        and provisional_training_targets == 0
+        and (
+            approved_censored_training_targets == 0
+            or target_policy_approved
+        )
+    )
     manifest = {
         "contract_version": 1,
         "scope": "alpharank_common_v2_replay",
@@ -471,7 +484,15 @@ def build_common_v2_comparison(
         "promotion_blockers": (
             ["boosting_training_terminal_targets_provisional"]
             if provisional_training_targets
-            else []
+            else (
+                ["boosting_training_terminal_target_policy_unapproved"]
+                if approved_censored_training_targets and not target_policy_approved
+                else (
+                    ["selected_portfolio_terminal_observations_provisional"]
+                    if not comparison_eligible
+                    else []
+                )
+            )
         ),
         "methodology_version": "v2-causal",
         "composition_id": composition_id,
@@ -515,10 +536,18 @@ def build_common_v2_comparison(
         },
         "boosting_training_terminal_targets": {
             "provisional_target_journal_rows": provisional_training_targets,
+            "approved_censored_target_journal_rows": (
+                approved_censored_training_targets
+            ),
+            "terminal_target_policy_approved": target_policy_approved,
             "status": (
                 "pending_event_level_resolution_or_explicit_methodology_approval"
                 if provisional_training_targets
-                else "resolved"
+                else (
+                    "approved_methodology_censoring"
+                    if approved_censored_training_targets
+                    else "resolved"
+                )
             ),
         },
         "reviewed_terminal_resolutions": {
