@@ -99,6 +99,8 @@ LEGACY_V2_COST_SCENARIOS = (
     ),
 )
 
+HISTORICAL_LEGACY_MISSING_RETURN_POLICY = "renormalize_available"
+
 
 @dataclass
 class PipelineOutput:
@@ -392,6 +394,25 @@ def _package_version(name: str) -> str | None:
         return importlib.metadata.version(name)
     except importlib.metadata.PackageNotFoundError:
         return None
+
+
+def _simulate_historical_legacy_common(common_holdings: pl.DataFrame) -> pl.DataFrame:
+    """Replay the frozen Legacy convention without weakening causal-v2 runs."""
+
+    return pl.concat(
+        [
+            simulate_weighted_portfolio(
+                strategy_holdings,
+                transaction_cost_bps=0.0,
+                missing_return_policy=HISTORICAL_LEGACY_MISSING_RETURN_POLICY,
+                causal_timing_policy="legacy_month_only",
+            )
+            for strategy_holdings in common_holdings.partition_by(
+                "strategy",
+                maintain_order=True,
+            )
+        ]
+    )
 
 
 def _code_context(project_root: Path) -> Dict[str, Any]:
@@ -740,6 +761,9 @@ def run_pipeline(
         "partial_price_month_policy": (
             "exclude the latest observed calendar month from model inputs; "
             "retain it only as snapshot freshness evidence"
+        ),
+        "historical_legacy_missing_return_policy": (
+            HISTORICAL_LEGACY_MISSING_RETURN_POLICY
         ),
         "methodology_identity": methodology_identity,
     }
@@ -1212,19 +1236,7 @@ def run_pipeline(
             json.dumps(legacy_v2_manifest, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-    common_monthly = pl.concat(
-        [
-            simulate_weighted_portfolio(
-                strategy_holdings,
-                transaction_cost_bps=0.0,
-                causal_timing_policy="legacy_month_only",
-            )
-            for strategy_holdings in common_holdings.partition_by(
-                "strategy",
-                maintain_order=True,
-            )
-        ]
-    )
+    common_monthly = _simulate_historical_legacy_common(common_holdings)
     common_monthly = pl.concat(
         [
             common_monthly,

@@ -1,9 +1,11 @@
 import hashlib
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import polars as pl
 
 from scripts.run_legacy import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
@@ -14,6 +16,7 @@ from scripts.run_legacy import (
     _input_files,
     _manifest_extra_context,
     _resolve_open_source_output_by_run_id,
+    _simulate_historical_legacy_common,
     _snapshot_input_package,
     normalize_year_month_to_timestamp,
 )
@@ -30,6 +33,25 @@ def test_run_legacy_exposes_common_holdings_month_normalizer() -> None:
     frame = pd.DataFrame({"year_month": [pd.Period("2026-06", freq="M")]})
     normalized = normalize_year_month_to_timestamp(frame)
     assert normalized["year_month"].iloc[0] == pd.Timestamp("2026-06-01")
+
+
+def test_historical_legacy_common_explicitly_preserves_missing_return_compatibility() -> None:
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["Combined_Equal", "Combined_Equal"],
+            "decision_month": [date(2018, 12, 1), date(2018, 12, 1)],
+            "holding_month": [date(2019, 1, 1), date(2019, 1, 1)],
+            "ticker": ["AAA.US", "BBB.US"],
+            "target_weight": [0.5, 0.5],
+            "realized_return": [0.10, None],
+            "benchmark_return": [0.01, 0.01],
+        }
+    )
+
+    monthly = _simulate_historical_legacy_common(holdings)
+
+    assert monthly["gross_return"].item() == 0.10
+    assert monthly["n_positions"].item() == 2
 
 
 def test_run_legacy_cli_enables_versioned_ticker_registry_by_default(
