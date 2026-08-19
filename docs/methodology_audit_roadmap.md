@@ -1,8 +1,10 @@
 # Roadmap de remédiation — données, Legacy, Boosting et portefeuille
 
 - Dernière mise à jour : 2026-08-19
-- Périmètre : dépôt `alpharank` et dashboard du dépôt frère `../portfolio`
-- État : les 41 actions initiales sont traitées (3 validées, 38 implémentées) et les 13 actions d'exécution causale ont toutes une implémentation ou une preuve conservée. `RUN-010` à `RUN-012` ont scellé les prix successeurs, refusé FRC avant classement et résolu les 7 positions sélectionnées ; `RUN-013` formalise l'arbitrage humain sur les 656 cibles d'apprentissage terminales. Le replay `common_v2_approved_censoring1` est comparable et promouvable, sans position ni cible mature provisoire ; `RUN-005` est scellé et l'écart économique avec `v1` est entièrement expliqué. Les artefacts diagnostiques `RUN-006`/`RUN-007` restent conservés, volontairement provisoires, comme historique de la décision. Six actions de go-live et publication sont ajoutées sans supprimer l'historique : la couverture Yahoo fail-closed, l'étude v2 et le contrat KPI permanent sont validés ; le go-live mensuel reste bloqué par 260 clés Yahoo non récupérées sur 126 tickers et par l'indisponibilité du relevé IBKR, sans publication partielle ni override.
+- Périmètre principal : dépôt `alpharank`. Les anciennes actions du dashboard
+  `../portfolio` restent conservées comme historique, mais IBKR et Portfolio ne
+  sont ni une source de vérité ni une gate de production AlphaRank.
+- État : les 41 actions initiales sont traitées (3 validées, 38 implémentées) et les 13 actions d'exécution causale ont toutes une implémentation ou une preuve conservée. `RUN-010` à `RUN-012` ont scellé les prix successeurs, refusé FRC avant classement et résolu les 7 positions sélectionnées ; `RUN-013` formalise l'arbitrage humain sur les 656 cibles d'apprentissage terminales. Le replay `common_v2_approved_censoring1` est comparable et promouvable, sans position ni cible mature provisoire ; `RUN-005` est scellé et l'écart économique avec `v1` est entièrement expliqué. Les artefacts diagnostiques `RUN-006`/`RUN-007` restent conservés, volontairement provisoires, comme historique de la décision. Sept actions de go-live et publication sont désormais suivies sans supprimer l'historique : la couverture Yahoo fail-closed, la conservation des essais rejetés, l'étude v2 et le contrat KPI permanent sont validés. Le go-live mensuel AlphaRank reste bloqué uniquement par 260 clés Yahoo non récupérées sur 126 tickers, sans publication partielle ni override ; IBKR est explicitement hors gate AlphaRank.
 - Commit de création du document : `bafe06ba1afbbebb6e64657fae85db4422d5abc9`
 
 ## 1. Objectif et règle de non-réécriture
@@ -132,9 +134,11 @@ tâche qui n'y est pas effectivement implémentée.
    Legacy/Boosting.
 8. **Gate G7 — Exécution causale v2** : `RUN-001` à `RUN-005`, puis revue
    humaine et promotion atomique via `GOV-005`.
-9. **Gate G8 — Go-live mensuel et publication** : `LIVE-001` à `LIVE-004`,
-   `SITE-001` et `DOC-003`. Le signal de trading reste bloqué tant que le nouveau
-   snapshot composé, le replay Legacy strict et les positions/cash IBKR ne sont pas frais.
+9. **Gate G8 — Go-live mensuel et publication AlphaRank** : `LIVE-001` à
+   `LIVE-003`, `LIVE-005`, `SITE-001` et `DOC-003`. Le signal de trading reste
+   bloqué tant que le nouveau snapshot composé et le replay Legacy strict ne
+   sont pas frais. `LIVE-004` reste dans l'historique, mais IBKR/Portfolio ne
+   bloque plus cette gate.
 
 Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 
@@ -152,8 +156,8 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 6 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 5 | 0 | 0 % |
 | Exécution causale v2 | 13 | 13 | 0 | 0 | 2 | 11 | 84,6 % |
-| Go-live et publication | 6 | 3 | 2 | 1 | 1 | 3 | 50 % |
-| **Total** | **60** | **28** | **24** | **8** | **41** | **17** | **28,3 %** |
+| Go-live et publication | 7 | 4 | 2 | 1 | 1 | 4 | 57,1 % |
+| **Total** | **61** | **29** | **24** | **8** | **41** | **18** | **29,5 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -271,7 +275,8 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `LIVE-001` | P0 | Faire partir chaque ingestion mensuelle du dernier lineage prix composé et validé, en conservant intégralement les historiques devenus inactifs et leur registre persistant. | 20 tests ciblés prix/publication : résolution par `latest.json`, historique inactif inchangé, registre publié et garde de révision comparé à la bonne baseline. | Implémenté | `1be1bce9c6b9a417868ebbce7ea85c2dc5c9e72a` | Aucun effacement silencieux ; le premier run antérieur au chargement du correctif reste conservé comme échec fermé |
 | `LIVE-002` | P0 | Exiger qu'un millésime Yahoo actif contienne toutes les clés historiques déjà validées et un `adjusted_close` utilisable ; retenter les lacunes par lots puis ticker par ticker, et conserver les sorties terminales sourcées, avant composition. Dépend de `LIVE-001`. | 47 tests prix/composition/publication ; run réel `20260819_113839` : 408 lacunes détectées, 148 réparées, les 260 restantes bloquent avant composition et publication. | Validé | `d41de9d42d79123b51b51c0231fba93d4622328d`; `7a646bc748ae9e2291a3f5c6d11191c7000fb919` | Aucun override ; les lignes nulles ne comptent plus comme couvertes et EA est conservé depuis le lineage validé sur la foi de l'événement S&P sourcé du 5 août |
 | `LIVE-003` | P0 | Exécuter l'ingestion complète, construire les packages prix gardé et SEC-only, composer le snapshot, lancer Legacy depuis un worktree propre puis valider le replay strict avant le rééquilibrage. | Manifests de fraîcheur et de lineage verts, zéro clé prix retirée, scope `full_ingestion`, cutoff de mois complet, replay strict et comparaison avec le dernier portefeuille publié. | Bloqué — fournisseur prix | — | Run `20260819_113839` arrêté avec 260 clés manquantes / 126 tickers après retries ; aucun package publié. Le job LaunchAgent reste programmé à 02:15 ; le panier d'août de secours vient exclusivement du package validé du 16 août |
-| `LIVE-004` | P1 | Rafraîchir positions, cash et transactions IBKR avant de calculer les quantités d'ordres avec `scripts/portfolio_allocation.py`; interdire un plan final depuis le dashboard provisoire. | Endpoint fraîcheur nominal ou avertissements explicitement levés ; quantités, devises, quotes, FX et cash résiduel rapprochés. | Bloqué — fournisseur IBKR | — | Tentatives du 2026-08-19 : relevé non générable puis timeouts TLS ; les positions du 30 juillet, le cash du 6 mai et les transactions du 7 juillet restent visibles mais non utilisables comme vérité live |
+| `LIVE-004` | P1 | Ancien suivi Portfolio : rafraîchir positions, cash et transactions IBKR avant un éventuel calcul de quantités dans cet autre projet. | Contrôles propres au projet Portfolio ; aucune incidence sur la production AlphaRank. | Supersédé pour la gate AlphaRank — suivi externe | — | Historique conservé : les tentatives du 2026-08-19 ont échoué, mais IBKR n'est plus une dépendance du signal, de l'ingestion ou du go-live AlphaRank |
+| `LIVE-005` | P0 | Conserver, avant toute décision de publication, l'identifiant du run, toutes les lignes Yahoo reçues même nulles et les listes de clés manquantes avant/après retries. Les fichiers d'un run rejeté restent des preuves et ne deviennent jamais une entrée modèle. | Échec Yahoo synthétique : même identifiant dans le statut et le dossier de run, ligne nulle conservée, listes initiale/restante conservées, publication refusée et dernier store validé restauré ; 59 tests ingestion/prix/publication verts. | Validé | `2814e19a75f35379b995e127f88ba3c86ca2ea4d` | Aucun changement de série publiée ; ferme un angle mort d'audit des échecs précoces. L'essai réel `20260819_113839`, antérieur au correctif, ne peut pas être reconstruit octet par octet |
 | `SITE-001` | P1 | Générer et exposer sur le site l'étude causale v2 complète : KPI, courbes, positions mensuelles, ledger, modèle, cas terminaux, rapprochement et CSV. | 2 tests générateur, build Vite, HTTP 200 public et QA navigateur bureau/mobile sans erreur console ni débordement. | Validé | AlphaRank `2e47035bb8ce95d51363a79404b163eff6b0a1ef`; Portfolio `de16a5064a1f9c562de3857a26fd18b8e6daab02` | Étude publiée sur `https://alpharank.net/research/methodology_v2_study.html` ; aucun changement économique et séparation explicite du signal live mensuel |
 | `DOC-003` | P2 | Pérenniser la liste des KPI classiques et leur contexte obligatoire dans `AGENT.md` et `AGENTS.md`, avec motif explicite pour toute métrique indisponible. | Diff documentaire isolé ; présence des familles performance, risque relatif, queue, implémentation et qualité modèle. | Validé | `39fbce48146d77cd44dc1b0605bfa13b0b2c1a93` | Aucun ; contrat de réponse permanent afin que la liste ne doive plus être redemandée |
 
@@ -360,6 +365,7 @@ diff devient large, créer plusieurs commits sans mélanger les catégories.
 | 12 | `QA-003`, `DOC-001`, `DOC-002` | `docs: publish methodology identity and validation gates` |
 | 13 | `LIVE-001`, `LIVE-002`, `LIVE-003`, `LIVE-004` | `fix: validate the monthly go-live package end to end` |
 | 14 | `SITE-001`, `DOC-003` | `feat: publish the causal study and permanent KPI contract` |
+| 15 | `LIVE-005` | `feat(LIVE-005): retain rejected ingestion evidence` |
 
 ## 11. Journal de suivi
 
@@ -437,6 +443,8 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-19 | `LIVE-003` | Codex | Gate G8 | En cours | Bloqué — fournisseur prix | — | Run `20260819_113839`, overrides tous faux : 260 clés / 126 tickers encore absentes après les retries ciblés ; aucun package publié | Le job automatique chargé réessaie à 02:15 ; aucun package SEC/composé ni replay Legacy n'est lancé avant un gate prix vert |
 | 2026-08-19 | `LIVE-004` | Codex | Gate G8 | En cours — fournisseur indisponible | Bloqué — fournisseur IBKR | — | Nouvelle tentative `make ibkr-sync` : timeout TLS IBKR Flex avant téléchargement | Les quantités d'ordres restent interdites ; seul le panier cible et ses poids peuvent être préparés |
 | 2026-08-19 | `SITE-001` | Codex | Gate G8 | Validé localement | Validé public | AlphaRank `2e47035bb8ce95d51363a79404b163eff6b0a1ef`; Portfolio `de16a5064a1f9c562de3857a26fd18b8e6daab02` | `https://alpharank.net/research/methodology_v2_study.html` HTTP 200 ; 12 957 473 octets ; QA bureau 1265×720 et mobile 375×844 | 4 stratégies, 178 mois, 6 305 positions, 7 événements terminaux et 8 CSV téléchargeables |
+| 2026-08-19 | `LIVE-004` | Codex | Gate G8 | Bloqué — fournisseur IBKR | Supersédé pour la gate AlphaRank — suivi externe | — | Décision utilisateur : IBKR et le dépôt Portfolio appartiennent à un autre projet | L'historique de la tâche reste visible, mais il ne bloque plus ingestion, signal ou go-live AlphaRank |
+| 2026-08-19 | `LIVE-005` | Codex | Gate G8 | À faire | Validé | `2814e19a75f35379b995e127f88ba3c86ca2ea4d` | 59 tests ingestion/prix/publication verts ; test d'échec : identifiant stable, essai Yahoo brut avec valeur nulle et lacunes avant/après conservés | Aucun package rejeté ne déplace le pointeur de production ; l'essai réel du matin reste documenté par ses comptes, mais ses octets reçus n'étaient pas encore persistés |
 
 ## 12. Registre des baselines et publications
 
