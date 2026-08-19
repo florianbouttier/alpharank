@@ -12,6 +12,7 @@ import polars as pl
 from alpharank.common_v2 import validate_common_v2_replay
 from alpharank.governance import reserve_run_directory, validate_baseline_package
 from alpharank.portfolio.performance import legacy_report_statistics
+from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
 
 
 RECONCILIATION_TOLERANCE = 1e-12
@@ -41,11 +42,60 @@ def build_v1_v2_reconciliation(
     v1_monthly = pl.read_parquet(v1_monthly_path)
     v2_holdings = pl.read_parquet(v2_holdings_path)
     v2_monthly = pl.read_parquet(v2_monthly_path)
+    terminal_registry = load_terminal_event_registry()
+    reviewed_terminal_months = {
+        (str(row["strategy"]), row["holding_month"])
+        for row in v2_holdings.filter(
+            pl.col("terminal_event_id").is_not_null()
+            if "terminal_event_id" in v2_holdings.columns
+            else pl.lit(False)
+        ).select("strategy", "holding_month").unique().to_dicts()
+    }
+    block_rows = terminal_registry.pre_execution_blocks().select(
+        "ticker",
+        pl.col("effective_date").dt.truncate("1mo").alias("holding_month"),
+    )
+    blocked_ticker_months = {
+        (str(row["ticker"]), row["holding_month"])
+        for row in block_rows.to_dicts()
+    }
+    v2_security_keys = {
+        (
+            str(row["strategy"]),
+            row["decision_month"],
+            row["holding_month"],
+            str(row["ticker"]),
+        )
+        for row in v2_holdings.select(
+            "strategy", "decision_month", "holding_month", "ticker"
+        ).to_dicts()
+    }
+    reviewed_pre_execution_blocks = {
+        (
+            str(row["strategy"]),
+            row["decision_month"],
+            row["holding_month"],
+            str(row["ticker"]),
+        )
+        for row in v1_holdings.select(
+            "strategy", "decision_month", "holding_month", "ticker"
+        ).to_dicts()
+        if (str(row["ticker"]), row["holding_month"]) in blocked_ticker_months
+        and (
+            str(row["strategy"]),
+            row["decision_month"],
+            row["holding_month"],
+            str(row["ticker"]),
+        )
+        not in v2_security_keys
+    }
     frames = reconcile_economic_frames(
         v1_holdings=v1_holdings,
         v1_monthly=v1_monthly,
         v2_holdings=v2_holdings,
         v2_monthly=v2_monthly,
+        reviewed_terminal_months=reviewed_terminal_months,
+        reviewed_pre_execution_blocks=reviewed_pre_execution_blocks,
     )
     artifact_paths = {
         "selection_reconciliation": destination / "selection_reconciliation.parquet",
@@ -77,6 +127,11 @@ def build_v1_v2_reconciliation(
             ],
             "return_and_benchmark": ["SIM-001", "LEG-002", "LEG-003"],
             "allocation_and_costs": ["SIM-002", "SIM-003"],
+            "reviewed_terminal_events": [
+                "RUN-010",
+                "RUN-011",
+                "RUN-012",
+            ],
         },
         "source_validation": {"baseline": {"passed": True}, "common_v2": common},
         "sources": {
@@ -84,6 +139,7 @@ def build_v1_v2_reconciliation(
             "v1_monthly": _file_record(v1_monthly_path),
             "v2_holdings": _file_record(v2_holdings_path),
             "v2_monthly": _file_record(v2_monthly_path),
+            "terminal_event_registry": _file_record(terminal_registry.path),
         },
         "artifacts": {
             label: _file_record(path) for label, path in artifact_paths.items()
@@ -98,7 +154,19 @@ def build_v1_v2_reconciliation(
                 pl.col("status") != "unchanged"
             ).height,
             "strategy_count": frames["monthly"]["strategy"].n_unique(),
+            "reviewed_terminal_month_rows": frames["monthly"].filter(
+                pl.col("cause_codes").str.contains("RUN-012", literal=True)
+            ).height,
+            "reviewed_pre_execution_block_month_rows": frames["monthly"].filter(
+                pl.col("cause_codes").str.contains("RUN-011", literal=True)
+            ).height,
         },
+        "promotion_eligible": common.get("promotion_eligible") is True,
+        "promotion_blockers": (
+            []
+            if common.get("promotion_eligible") is True
+            else ["boosting_training_terminal_targets_provisional"]
+        ),
     }
     manifest_path = destination / "manifest.json"
     manifest_path.write_text(
@@ -119,10 +187,19 @@ def reconcile_economic_frames(
     v2_holdings: pl.DataFrame,
     v2_monthly: pl.DataFrame,
     tolerance: float = RECONCILIATION_TOLERANCE,
+    reviewed_terminal_months: set[tuple[str, object]] | None = None,
+    reviewed_pre_execution_blocks: set[tuple[object, ...]] | None = None,
 ) -> dict[str, pl.DataFrame]:
     """Return selection, month and recalculated metric reconciliation frames."""
 
-    selection = _selection_reconciliation(v1_holdings, v2_holdings, tolerance)
+    terminal_months = reviewed_terminal_months or set()
+    blocked_securities = reviewed_pre_execution_blocks or set()
+    selection = _selection_reconciliation(
+        v1_holdings,
+        v2_holdings,
+        tolerance,
+        reviewed_pre_execution_blocks=blocked_securities,
+    )
     selection_changes = {
         (str(row["strategy"]), row["holding_month"]): int(row["changed"])
         for row in selection.group_by("strategy", "holding_month").agg(
@@ -170,6 +247,13 @@ def reconcile_economic_frames(
             status = "v1_only"
             causes.append("calendar_reduction")
         else:
+            if key in terminal_months:
+                causes.append("RUN-010+RUN-012+BST-002+SIM-004")
+            if any(
+                security_key[0] == key[0] and security_key[2] == key[1]
+                for security_key in blocked_securities
+            ):
+                causes.append("RUN-011+BST-001")
             if selection_changes.get(key, 0):
                 causes.append(
                     "UNI-001/002/003/004+FND-001/002/003/004+"
@@ -272,7 +356,11 @@ def validate_v1_v2_reconciliation(output_dir: Path) -> dict[str, Any]:
 
 
 def _selection_reconciliation(
-    v1: pl.DataFrame, v2: pl.DataFrame, tolerance: float
+    v1: pl.DataFrame,
+    v2: pl.DataFrame,
+    tolerance: float,
+    *,
+    reviewed_pre_execution_blocks: set[tuple[object, ...]],
 ) -> pl.DataFrame:
     keys = ("strategy", "decision_month", "holding_month", "ticker")
     before = {
@@ -290,7 +378,12 @@ def _selection_reconciliation(
         if left is None:
             status, cause = "added_v2", "UNI/FND/BST/LEG signal corrections"
         elif right is None:
-            status, cause = "removed_v2", "UNI/FND/BST/LEG signal corrections"
+            status = "removed_v2"
+            cause = (
+                "RUN-011 reviewed pre-execution suspension"
+                if key in reviewed_pre_execution_blocks
+                else "UNI/FND/BST/LEG signal corrections"
+            )
         elif abs(right - left) > tolerance:
             status, cause = "weight_changed", "SIM-002 allocation correction"
         else:
@@ -375,6 +468,8 @@ def _render_report(frames: dict[str, pl.DataFrame]) -> str:
             "- UNI/FND/BST/LEG : univers, disponibilité fondamentale, sélection et secteurs causaux.",
             "- SIM-001 + LEG-002/003 : rendement terminal, benchmark total return et ouverture suivante.",
             "- SIM-002/003 : turnover dérivé et coûts de transaction décomposés.",
+            "- RUN-010/012 : prix successeurs scellés et contreparties actionnariales revues.",
+            "- RUN-011 : suspension publique avant ouverture et refus de l'ordre avant Top-N.",
             "",
         ]
     )
