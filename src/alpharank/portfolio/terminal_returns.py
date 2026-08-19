@@ -35,6 +35,19 @@ SUCCESSOR_PRICE_COLUMNS = (
     "holding_end_price",
     "price_vintage_id",
 )
+TERMINAL_RESOLUTION_COLUMNS = (
+    "return_resolution",
+    "terminal_event_id",
+    "terminal_event_type",
+    "terminal_effective_date",
+    "terminal_event_known_at",
+    "terminal_event_source",
+    "terminal_event_source_url",
+    "terminal_price_vintage_id",
+    "terminal_value_per_share",
+    "terminal_successor_ticker",
+    "terminal_successor_end_price",
+)
 
 
 @dataclass(frozen=True)
@@ -205,6 +218,120 @@ def resolve_terminal_shareholder_returns(
         "terminal_event_ids": sorted(
             result.get_column("terminal_event_id").drop_nulls().unique().to_list()
         ),
+    }
+    return TerminalReturnResult(result, report)
+
+
+def resolve_provisional_terminal_shareholder_returns(
+    holdings: pl.DataFrame,
+    *,
+    terminal_events: pl.DataFrame,
+    price_vintage_id: str,
+    successor_prices: pl.DataFrame | None = None,
+    provisional_resolution: str = "provisional_last_observation",
+    starting_price_column: str = "execution_price_unadjusted",
+) -> TerminalReturnResult:
+    """Replace reviewed provisional exits without touching complete market rows."""
+
+    required = {
+        "ticker",
+        "holding_month",
+        "realized_return",
+        "return_resolution",
+        starting_price_column,
+    }
+    missing = sorted(required - set(holdings.columns))
+    if missing:
+        raise ValueError(f"Reviewed terminal resolution lacks fields: {missing}")
+    indexed = holdings.with_row_index("_reviewed_terminal_row_id")
+    targets = indexed.filter(
+        pl.col("return_resolution") == provisional_resolution
+    )
+    if targets.is_empty():
+        return TerminalReturnResult(
+            holdings,
+            {
+                "terminal_return_policy_version": 1,
+                "price_vintage_id": price_vintage_id,
+                "reviewed_provisional_rows": 0,
+                "resolved_terminal_returns": 0,
+                "terminal_event_ids": [],
+            },
+        )
+    replaceable_columns = {
+        *TERMINAL_RESOLUTION_COLUMNS,
+        "return_resolution_reason",
+        "manual_review_status",
+    }
+    terminal_input = targets.drop(
+        *[column for column in replaceable_columns if column in targets.columns]
+    ).with_columns(pl.lit(None, dtype=pl.Float64).alias("realized_return"))
+    resolution = resolve_terminal_shareholder_returns(
+        terminal_input,
+        terminal_events=terminal_events,
+        price_vintage_id=price_vintage_id,
+        successor_prices=successor_prices,
+        starting_price_column=starting_price_column,
+    )
+    unresolved = resolution.holdings.filter(
+        pl.col("return_resolution") != "resolved_terminal_event"
+    )
+    if not unresolved.is_empty():
+        examples = unresolved.select("ticker", "holding_month").head(5).to_dicts()
+        raise ValueError(
+            "Every reviewed provisional holding requires terminal consideration: "
+            f"examples={examples!r}."
+        )
+    updates = resolution.holdings.select(
+        "_reviewed_terminal_row_id",
+        "realized_return",
+        *TERMINAL_RESOLUTION_COLUMNS,
+    ).with_columns(
+        pl.lit("reviewed_shareholder_consideration").alias(
+            "return_resolution_reason"
+        ),
+        pl.lit("reviewed_terminal_event_resolved").alias("manual_review_status"),
+    )
+    if "scheduled_holding_end_at" in holdings.columns:
+        updates = updates.join(
+            targets.select(
+                "_reviewed_terminal_row_id",
+                pl.col("scheduled_holding_end_at").alias("holding_return_end_at"),
+            ),
+            on="_reviewed_terminal_row_id",
+            how="left",
+            validate="1:1",
+        )
+    update_columns = [
+        column for column in updates.columns if column != "_reviewed_terminal_row_id"
+    ]
+    joined = indexed.join(
+        updates,
+        on="_reviewed_terminal_row_id",
+        how="left",
+        suffix="_terminal_update",
+        validate="1:1",
+    )
+    expressions: list[pl.Expr] = []
+    for column in update_columns:
+        update_column = (
+            f"{column}_terminal_update" if column in indexed.columns else column
+        )
+        if column in indexed.columns:
+            expressions.append(
+                pl.coalesce([pl.col(update_column), pl.col(column)]).alias(column)
+            )
+    result = joined.with_columns(*expressions)
+    drop_columns = [
+        f"{column}_terminal_update"
+        for column in update_columns
+        if column in indexed.columns
+    ]
+    result = result.drop("_reviewed_terminal_row_id", *drop_columns)
+    report = {
+        **resolution.report,
+        "reviewed_provisional_rows": targets.height,
+        "unresolved_reviewed_rows": 0,
     }
     return TerminalReturnResult(result, report)
 

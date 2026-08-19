@@ -332,6 +332,8 @@ def apply_next_session_open_holding_returns(
                     / float(entry["adjusted_open"])
                     - 1.0
                 ),
+                "execution_price_unadjusted": float(entry["open"]),
+                "execution_price_adjusted": float(entry["adjusted_open"]),
                 "feature_max_asof_at": signal_at.astimezone(ZoneInfo("UTC")),
                 "signal_cutoff_at": signal_at.astimezone(ZoneInfo("UTC")),
                 "execution_at": execution_at.astimezone(ZoneInfo("UTC")),

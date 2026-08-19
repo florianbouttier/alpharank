@@ -29,6 +29,12 @@ from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_event_registry import (
     load_terminal_event_registry,
 )
+from alpharank.portfolio.terminal_price_registry import (
+    load_terminal_price_registry,
+)
+from alpharank.portfolio.terminal_returns import (
+    resolve_provisional_terminal_shareholder_returns,
+)
 from alpharank.backtest.datasets import prepare_constituents_monthly
 
 
@@ -184,6 +190,13 @@ def build_common_v2_comparison(
     snapshot = causal_snapshot_dir / "input_snapshot"
     prices = pl.read_parquet(snapshot / "US_Finalprice.parquet")
     terminal_registry = load_terminal_event_registry()
+    terminal_price_registry = load_terminal_price_registry()
+    terminal_successor_prices = terminal_price_registry.successor_prices(
+        prices,
+        snapshot_id=causal["snapshot_id"],
+        composition_id=composition_id,
+        price_artifact_sha256=_sha256(snapshot / "US_Finalprice.parquet"),
+    )
     legacy_manifest = _read_json(legacy_run_dir / "legacy_v2_replay_manifest.json")
     legacy_holdings = pl.read_parquet(
         Path(legacy_manifest["artifacts"]["holdings"]["path"])
@@ -203,6 +216,8 @@ def build_common_v2_comparison(
         "scheduled_holding_end_at",
         "holding_observation_gap_calendar_days",
         "execution_policy_id",
+        "execution_price_unadjusted",
+        "execution_price_adjusted",
         "return_resolution",
         "return_resolution_reason",
         "manual_review_status",
@@ -292,6 +307,15 @@ def build_common_v2_comparison(
     holdings = pl.concat(
         [legacy_holdings, boosting_holdings], how="diagonal_relaxed"
     )
+    terminal_resolution = resolve_provisional_terminal_shareholder_returns(
+        holdings,
+        terminal_events=terminal_registry.terminal_consideration_events(
+            price_vintage_id=terminal_price_registry.price_vintage_id
+        ),
+        successor_prices=terminal_successor_prices,
+        price_vintage_id=terminal_price_registry.price_vintage_id,
+    )
+    holdings = terminal_resolution.holdings
     cost_model = standard_v2_cost_model()
     monthly_parts = [
         simulate_weighted_portfolio(
@@ -327,12 +351,66 @@ def build_common_v2_comparison(
     provisional_journal_csv_path = destination / "provisional_holding_journal.csv"
     provisional_journal.write_parquet(provisional_journal_path)
     provisional_journal.write_csv(provisional_journal_csv_path)
+    terminal_journal = holdings.filter(
+        pl.col("return_resolution") == "resolved_terminal_event"
+    ).select(
+        "strategy",
+        "decision_month",
+        "holding_month",
+        "ticker",
+        "selection_rank",
+        "target_weight",
+        "execution_price_unadjusted",
+        "realized_return",
+        "terminal_event_id",
+        "terminal_event_type",
+        "terminal_effective_date",
+        "terminal_value_per_share",
+        "terminal_successor_ticker",
+        "terminal_successor_end_price",
+        "terminal_event_source",
+        "terminal_event_source_url",
+        "terminal_price_vintage_id",
+        "return_resolution_reason",
+        "manual_review_status",
+    ).sort(["holding_month", "strategy", "selection_rank"])
+    terminal_journal_path = destination / "terminal_resolution_journal.parquet"
+    terminal_journal_csv_path = destination / "terminal_resolution_journal.csv"
+    terminal_journal.write_parquet(terminal_journal_path)
+    terminal_journal.write_csv(terminal_journal_csv_path)
     provisional_attribution = provisional_return_cagr_attribution(
         holdings,
         investable_monthly,
     )
     provisional_attribution_path = destination / "provisional_cagr_attribution.csv"
     provisional_attribution.write_csv(provisional_attribution_path)
+    terminal_attribution = provisional_return_cagr_attribution(
+        holdings,
+        investable_monthly,
+        provisional_resolution="resolved_terminal_event",
+    ).rename(
+        {
+            "provisional_holding_rows": "terminal_holding_rows",
+            "provisional_tickers": "terminal_tickers",
+            "provisional_annualized_log_contribution": (
+                "terminal_annualized_log_contribution"
+            ),
+            "cagr_without_provisional_component": (
+                "cagr_without_terminal_component"
+            ),
+            "provisional_marginal_cagr_impact": "terminal_marginal_cagr_impact",
+            "manual_review_status": "terminal_review_status",
+        }
+    ).with_columns(
+        pl.lit("reviewed_terminal_event_resolved").alias("terminal_review_status")
+    )
+    terminal_attribution_path = destination / "terminal_cagr_attribution.csv"
+    terminal_attribution.write_csv(terminal_attribution_path)
+    terminal_report_path = destination / "resolved_terminal_impact_report.md"
+    terminal_report_path.write_text(
+        _render_resolved_terminal_report(terminal_attribution, terminal_journal),
+        encoding="utf-8",
+    )
     provisional_report_path = destination / "provisional_terminal_impact_report.md"
     provisional_report_path.write_text(
         _render_provisional_terminal_report(
@@ -371,15 +449,30 @@ def build_common_v2_comparison(
     )
     if calendar["months"].n_unique() != 1:
         raise RuntimeError("Common v2 strategies do not share one calendar")
+    comparison_eligible = provisional_journal.is_empty()
+    provisional_training_targets = int(
+        boosting_validation.get("provisional_target_journal_rows", 0)
+    )
+    promotion_eligible = comparison_eligible and provisional_training_targets == 0
     manifest = {
         "contract_version": 1,
         "scope": "alpharank_common_v2_replay",
         "status": (
             "provisional_manual_terminal_review"
             if provisional_journal.height
-            else "canonical_common_strategy_replay"
+            else (
+                "comparison_eligible_training_targets_provisional"
+                if provisional_training_targets
+                else "canonical_common_strategy_replay"
+            )
         ),
-        "comparison_eligible": provisional_journal.is_empty(),
+        "comparison_eligible": comparison_eligible,
+        "promotion_eligible": promotion_eligible,
+        "promotion_blockers": (
+            ["boosting_training_terminal_targets_provisional"]
+            if provisional_training_targets
+            else []
+        ),
         "methodology_version": "v2-causal",
         "composition_id": composition_id,
         "execution_policy_id": "next_session_open_v1",
@@ -420,6 +513,24 @@ def build_common_v2_comparison(
                 else "not_applicable"
             ),
         },
+        "boosting_training_terminal_targets": {
+            "provisional_target_journal_rows": provisional_training_targets,
+            "status": (
+                "pending_event_level_resolution_or_explicit_methodology_approval"
+                if provisional_training_targets
+                else "resolved"
+            ),
+        },
+        "reviewed_terminal_resolutions": {
+            "policy_id": "reviewed_shareholder_consideration_v1",
+            "terminal_event_registry_sha256": terminal_registry.sha256,
+            "terminal_price_registry_sha256": terminal_price_registry.sha256,
+            "price_vintage_id": terminal_price_registry.price_vintage_id,
+            "holding_rows": terminal_journal.height,
+            "tickers": terminal_journal["ticker"].n_unique(),
+            "resolution_report": terminal_resolution.report,
+            "manual_review_status": "reviewed_terminal_event_resolved",
+        },
         "source_validation": {
             "causal_snapshot": causal,
             "legacy": legacy_validation,
@@ -431,6 +542,7 @@ def build_common_v2_comparison(
             ),
             "boosting_manifest": _file_record(boosting_run_dir / "manifest.json"),
             "terminal_event_registry": _file_record(terminal_registry.path),
+            "terminal_price_registry": _file_record(terminal_price_registry.path),
         },
         "artifacts": {
             label: _file_record(path)
@@ -440,6 +552,10 @@ def build_common_v2_comparison(
                 "provisional_holding_journal_csv": provisional_journal_csv_path,
                 "provisional_cagr_attribution": provisional_attribution_path,
                 "provisional_terminal_impact_report": provisional_report_path,
+                "terminal_resolution_journal": terminal_journal_path,
+                "terminal_resolution_journal_csv": terminal_journal_csv_path,
+                "terminal_cagr_attribution": terminal_attribution_path,
+                "resolved_terminal_impact_report": terminal_report_path,
             }.items()
         },
     }
@@ -558,6 +674,7 @@ def validate_common_v2_replay(
     return {
         "passed": True,
         "comparison_eligible": comparison_eligible,
+        "promotion_eligible": manifest.get("promotion_eligible") is True,
         "status": manifest.get("status", "canonical_common_strategy_replay"),
         "provisional_holding_rows": manifest.get(
             "provisional_terminal_observations", {}
@@ -623,6 +740,47 @@ def _render_provisional_terminal_report(
             f"| {row['strategy']} | {row['holding_month']} | {row['ticker']} | "
             f"{row['holding_return_end_at'].date()} | "
             f"{row['scheduled_holding_end_at'].date()} | "
+            f"{100 * row['realized_return']:.4f} % |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_resolved_terminal_report(
+    attribution: pl.DataFrame,
+    journal: pl.DataFrame,
+) -> str:
+    lines = [
+        "# Impact des événements terminaux résolus",
+        "",
+        "Chaque rendement ci-dessous remplace une dernière cotation provisoire "
+        "par la contrepartie actionnariale sourcée. Les prix successeurs sont "
+        "rattachés au vintage terminal et les contributions en log annualisé "
+        "se rapprochent exactement au rendement mensuel.",
+        "",
+        "| Stratégie | CAGR recalculé | Contribution log ann. | CAGR sans ce groupe | Impact CAGR marginal | Positions |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for row in attribution.to_dicts():
+        lines.append(
+            f"| {row['strategy']} | {100 * row['cagr']:.4f} % | "
+            f"{100 * row['terminal_annualized_log_contribution']:.4f} pt | "
+            f"{100 * row['cagr_without_terminal_component']:.4f} % | "
+            f"{100 * row['terminal_marginal_cagr_impact']:.4f} pt | "
+            f"{row['terminal_holding_rows']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Journal sourcé",
+            "",
+            "| Stratégie | Achat | Titre | Événement | Valeur finale/action | Rendement résolu |",
+            "|---|---|---|---|---:|---:|",
+        ]
+    )
+    for row in journal.to_dicts():
+        lines.append(
+            f"| {row['strategy']} | {row['holding_month']} | {row['ticker']} | "
+            f"{row['terminal_event_id']} | {row['terminal_value_per_share']:.6f} USD | "
             f"{100 * row['realized_return']:.4f} % |"
         )
     return "\n".join(lines) + "\n"

@@ -13,6 +13,7 @@ from alpharank.portfolio.terminal_event_registry import (
     load_terminal_event_registry,
 )
 from alpharank.portfolio.terminal_returns import (
+    resolve_provisional_terminal_shareholder_returns,
     resolve_terminal_shareholder_returns,
 )
 
@@ -127,6 +128,61 @@ def test_reviewed_registry_projects_to_terminal_return_contract() -> None:
         expected_returns
     )
     assert result.report["resolved_terminal_returns"] == 6
+
+
+def test_reviewed_registry_replaces_only_provisional_terminal_returns() -> None:
+    registry = load_terminal_event_registry()
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["Legacy", "Legacy"],
+            "ticker": ["HSP.US", "OTHER.US"],
+            "holding_month": [date(2015, 9, 1), date(2015, 9, 1)],
+            "realized_return": [-0.001, 0.10],
+            "return_resolution": [
+                "provisional_last_observation",
+                "observed_market_next_open_to_month_end",
+            ],
+            "return_resolution_reason": [
+                "ticker_price_series_ended_before_market_month_end",
+                None,
+            ],
+            "manual_review_status": [
+                "pending_manual_terminal_event_review",
+                None,
+            ],
+            "execution_price_unadjusted": [89.97, 100.0],
+            "holding_return_end_at": [
+                datetime(2015, 9, 2, 20, tzinfo=timezone.utc),
+                datetime(2015, 9, 30, 20, tzinfo=timezone.utc),
+            ],
+            "scheduled_holding_end_at": [
+                datetime(2015, 9, 30, 20, tzinfo=timezone.utc),
+                datetime(2015, 9, 30, 20, tzinfo=timezone.utc),
+            ],
+        }
+    )
+
+    result = resolve_provisional_terminal_shareholder_returns(
+        holdings,
+        terminal_events=registry.terminal_consideration_events(
+            price_vintage_id="prices-v2"
+        ),
+        price_vintage_id="prices-v2",
+    )
+
+    hsp = result.holdings.filter(pl.col("ticker") == "HSP.US").row(0, named=True)
+    other = result.holdings.filter(pl.col("ticker") == "OTHER.US").row(
+        0, named=True
+    )
+    assert hsp["realized_return"] == pytest.approx(90.0 / 89.97 - 1.0)
+    assert hsp["return_resolution"] == "resolved_terminal_event"
+    assert hsp["manual_review_status"] == "reviewed_terminal_event_resolved"
+    assert hsp["holding_return_end_at"] == hsp["scheduled_holding_end_at"]
+    assert other["realized_return"] == 0.10
+    assert other["return_resolution"] == (
+        "observed_market_next_open_to_month_end"
+    )
+    assert result.report["reviewed_provisional_rows"] == 1
 
 
 @pytest.mark.parametrize(

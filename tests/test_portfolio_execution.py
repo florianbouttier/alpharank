@@ -42,6 +42,8 @@ def test_next_session_open_returns_are_causal_and_adjusted() -> None:
 
     assert resolved["realized_return"].item() == pytest.approx(0.2)
     assert resolved["execution_policy_id"].item() == "next_session_open_v1"
+    assert resolved["execution_price_unadjusted"].item() == 100.0
+    assert resolved["execution_price_adjusted"].item() == 50.0
     assert resolved["signal_cutoff_at"].item() < resolved["execution_at"].item()
     assert (
         resolved["execution_at"].item()
