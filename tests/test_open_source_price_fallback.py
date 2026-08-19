@@ -3,6 +3,7 @@ from __future__ import annotations
 import polars as pl
 
 from alpharank.data.open_source.ingestion import (
+    _complete_yahoo_history_against_validated,
     _consolidate_price_sources,
     _download_yahoo_price_history,
     _identify_simfin_price_fallback_tickers,
@@ -189,3 +190,48 @@ def test_yahoo_history_retries_only_missing_network_tickers() -> None:
 
     assert client.calls == [("AAPL", "MSFT"), ("MSFT",)]
     assert set(prices["ticker"].to_list()) == {"AAPL.US", "MSFT.US"}
+
+
+def test_full_yahoo_vintage_repairs_missing_validated_keys() -> None:
+    previous = pl.concat(
+        [
+            _price_frame(ticker="AAPL.US", adjusted_close=100.0),
+            _price_frame(ticker="MSFT.US", adjusted_close=200.0),
+        ],
+        how="vertical",
+    ).with_columns(pl.lit("2025-01-03").alias("date"))
+    previous = pl.concat(
+        [
+            previous,
+            previous.with_columns(pl.lit("2025-01-02").alias("date")),
+        ],
+        how="vertical",
+    )
+    initial = previous.filter(pl.col("date") == "2025-01-02")
+
+    class Client:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, ...]] = []
+
+        def download_prices(self, tickers, start_date, end_date):
+            self.calls.append(tuple(tickers))
+            return previous.filter(
+                pl.col("ticker").str.replace(r"\.US$", "").is_in(list(tickers))
+                & (pl.col("date") == "2025-01-03")
+            )
+
+    client = Client()
+    completed, report = _complete_yahoo_history_against_validated(
+        client,
+        initial_prices=initial,
+        previous_validated_lineage=previous,
+        active_tickers=("AAPL", "MSFT"),
+        start_date="2025-01-01",
+        end_date="2025-02-01",
+    )
+
+    assert client.calls == [("AAPL", "MSFT")]
+    assert completed.height == 4
+    assert report["initial_missing_key_count"] == 2
+    assert report["remaining_missing_key_count"] == 0
+    assert report["passed"] is True

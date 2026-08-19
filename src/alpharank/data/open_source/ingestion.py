@@ -1089,14 +1089,29 @@ def _run_open_source_ingestion_in_place(
         general_reference_lineage,
     )
 
+    previous_price_source = resolve_previous_validated_price_lineage(
+        project_root / "data" / "model_inputs" / "manifests" / "latest.json"
+    )
+    previous_validated_price_lineage = pl.read_parquet(previous_price_source.lineage_path)
+    yahoo_full_history, yahoo_key_coverage = _complete_yahoo_history_against_validated(
+        yahoo_client,
+        initial_prices=_download_yahoo_price_history(
+            yahoo_client,
+            tickers=price_refresh_tickers,
+            start_date=price_start,
+            end_date=end_date,
+        ),
+        previous_validated_lineage=previous_validated_price_lineage,
+        active_tickers=price_refresh_tickers,
+        start_date=price_start,
+        end_date=end_date,
+    )
+    source_refresh_contract["source_semantics"]["yfinance_prices"][
+        "validated_key_coverage"
+    ] = yahoo_key_coverage
     yahoo_price_deltas = [
         _with_price_ingestion_metadata(
-            _download_yahoo_price_history(
-                yahoo_client,
-                tickers=price_refresh_tickers,
-                start_date=price_start,
-                end_date=end_date,
-            ),
+            yahoo_full_history,
             dataset="prices_yfinance",
             run_id=run_id,
             ingested_at=ingested_at,
@@ -2229,6 +2244,122 @@ def _download_yahoo_price_history(
         .unique(subset=["ticker", "date"], keep="last", maintain_order=True)
         .sort(["ticker", "date"])
     )
+
+
+def _historical_yahoo_key_gaps(
+    *,
+    previous_validated_lineage: pl.DataFrame,
+    fresh_prices: pl.DataFrame,
+    active_tickers: Sequence[str],
+    start_date: str,
+    end_date: str,
+    recent_mutable_calendar_days: int = 7,
+) -> pl.DataFrame:
+    """Return validated active keys absent from a purported full Yahoo vintage."""
+
+    active = sorted(
+        {f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in active_tickers}
+    )
+    cutoff = date.fromisoformat(end_date) - timedelta(days=recent_mutable_calendar_days)
+    previous_keys = (
+        previous_validated_lineage.select(
+            pl.col("ticker").cast(pl.String).str.to_uppercase(),
+            pl.col("date").cast(pl.Date, strict=False),
+        )
+        .filter(
+            pl.col("ticker").is_in(active)
+            & (pl.col("date") >= pl.lit(date.fromisoformat(start_date)))
+            & (pl.col("date") < pl.lit(cutoff))
+        )
+        .unique()
+    )
+    fresh_keys = (
+        fresh_prices.select(
+            pl.col("ticker").cast(pl.String).str.to_uppercase(),
+            pl.col("date").cast(pl.Date, strict=False),
+        ).unique()
+        if not fresh_prices.is_empty()
+        else pl.DataFrame(schema={"ticker": pl.String, "date": pl.Date})
+    )
+    return previous_keys.join(fresh_keys, on=["ticker", "date"], how="anti").sort(
+        ["ticker", "date"]
+    )
+
+
+def _complete_yahoo_history_against_validated(
+    yahoo_client: YahooFinanceClient,
+    *,
+    initial_prices: pl.DataFrame,
+    previous_validated_lineage: pl.DataFrame,
+    active_tickers: Sequence[str],
+    start_date: str,
+    end_date: str,
+    max_repair_rounds: int = 2,
+    first_round_chunk_size: int = 10,
+) -> tuple[pl.DataFrame, dict[str, object]]:
+    """Retry active Yahoo histories until every old validated key is present."""
+
+    frames = [initial_prices] if not initial_prices.is_empty() else []
+    candidate = initial_prices
+    initial_gaps = _historical_yahoo_key_gaps(
+        previous_validated_lineage=previous_validated_lineage,
+        fresh_prices=candidate,
+        active_tickers=active_tickers,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    gaps = initial_gaps
+    retried_tickers: set[str] = set()
+    for repair_round in range(max_repair_rounds):
+        if gaps.is_empty():
+            break
+        missing_tickers = gaps.select(
+            pl.col("ticker").str.replace(r"\.US$", "").unique().sort()
+        ).to_series().to_list()
+        retried_tickers.update(missing_tickers)
+        chunk_size = first_round_chunk_size if repair_round == 0 else 1
+        for start_index in range(0, len(missing_tickers), chunk_size):
+            chunk = tuple(missing_tickers[start_index : start_index + chunk_size])
+            fetched = yahoo_client.download_prices(chunk, start_date, end_date)
+            if not fetched.is_empty():
+                frames.append(fetched)
+        candidate = (
+            pl.concat(frames, how="diagonal_relaxed")
+            .sort(["ticker", "date"])
+            .unique(subset=["ticker", "date"], keep="last", maintain_order=True)
+            .sort(["ticker", "date"])
+            if frames
+            else pl.DataFrame()
+        )
+        gaps = _historical_yahoo_key_gaps(
+            previous_validated_lineage=previous_validated_lineage,
+            fresh_prices=candidate,
+            active_tickers=active_tickers,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    report = {
+        "contract": "complete_active_yahoo_vintage_against_previous_validated_keys_v1",
+        "initial_missing_key_count": initial_gaps.height,
+        "initial_missing_ticker_count": initial_gaps.select(
+            pl.col("ticker").n_unique()
+        ).item(),
+        "retried_ticker_count": len(retried_tickers),
+        "remaining_missing_key_count": gaps.height,
+        "remaining_missing_ticker_count": gaps.select(
+            pl.col("ticker").n_unique()
+        ).item(),
+        "passed": gaps.is_empty(),
+    }
+    if not gaps.is_empty():
+        examples = gaps.head(20).with_columns(pl.col("date").cast(pl.String)).to_dicts()
+        raise RuntimeError(
+            "Full active-universe Yahoo history is missing previously validated "
+            f"keys after targeted retries; report={report}; examples={examples}. "
+            "No package was published."
+        )
+    return candidate, report
 
 
 def _identify_stockanalysis_price_fallback_tickers(
