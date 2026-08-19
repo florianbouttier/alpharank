@@ -12,7 +12,13 @@ import polars as pl
 from alpharank.data.open_source import run_open_source_ingestion
 from alpharank.data.open_source.ingestion import _load_latest_sp500_tickers
 from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
-from alpharank.data.open_source.storage import read_json, release_json_lock, try_acquire_json_lock, write_json
+from alpharank.data.open_source.storage import (
+    new_run_id,
+    read_json,
+    release_json_lock,
+    try_acquire_json_lock,
+    write_json,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -86,8 +92,10 @@ def main() -> None:
     existing_live = load_existing_live_tickers(LIVE_DIR)
     active_tickers = TICKERS or default_nightly_tickers(reference_data_dir=REFERENCE_DATA_DIR, live_dir=LIVE_DIR)
     started_at = datetime.now().isoformat(timespec="seconds")
+    run_id = new_run_id()
     lock_payload = {
         "pid": os.getpid(),
+        "run_id": run_id,
         "started_at": started_at,
         "script": str(Path(__file__).resolve()),
         "live_dir": str(LIVE_DIR),
@@ -122,6 +130,7 @@ def main() -> None:
         {
             "status": "running",
             "started_at": started_at,
+            "run_id": run_id,
             "pid": os.getpid(),
             "lock_path": str(LOCK_PATH),
             "live_dir": str(LIVE_DIR),
@@ -162,6 +171,7 @@ def main() -> None:
                     ALLOW_HISTORICAL_PRICE_KEY_REMOVALS
                 ),
             ),
+            run_id=run_id,
         )
     except BaseException as exc:
         finished_at = datetime.now().isoformat(timespec="seconds")
@@ -173,6 +183,7 @@ def main() -> None:
                 "started_at": started_at,
                 "finished_at": finished_at,
                 "pid": os.getpid(),
+                "run_id": run_id,
                 "lock_path": str(LOCK_PATH),
                 "error": str(exc),
                 "traceback": traceback.format_exc(),

@@ -843,6 +843,7 @@ def run_open_source_ingestion(
     threshold_pct: float = 0.5,
     source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
     eodhd_price_seed_path: Path | None = None,
+    run_id: str | None = None,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     official_dir = (
@@ -867,6 +868,7 @@ def run_open_source_ingestion(
                 threshold_pct=threshold_pct,
                 source_refresh_policy=source_refresh_policy,
                 eodhd_price_seed_path=eodhd_price_seed_path,
+                run_id=run_id,
             )
     finally:
         transport_cache = official_dir.parent / "_cache"
@@ -890,6 +892,7 @@ def _run_open_source_ingestion_in_place(
     threshold_pct: float = 0.5,
     source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
     eodhd_price_seed_path: Path | None = None,
+    run_id: str | None = None,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or (project_root / "data")
@@ -903,7 +906,7 @@ def _run_open_source_ingestion_in_place(
     )
     paths.ensure()
 
-    run_id = new_run_id()
+    run_id = run_id or new_run_id()
     ingested_at = utc_now_iso()
     end_date = end_date or date.today().strftime("%Y-%m-%d")
     if tickers is None:
@@ -1130,6 +1133,9 @@ def _run_open_source_ingestion_in_place(
         active_tickers=price_refresh_tickers,
         start_date=price_start,
         end_date=end_date,
+        run_dir=paths.run_dir(run_id),
+        run_id=run_id,
+        ingested_at=ingested_at,
     )
     source_refresh_contract["source_semantics"]["yfinance_prices"][
         "validated_key_coverage"
@@ -2327,6 +2333,9 @@ def _complete_yahoo_history_against_validated(
     end_date: str,
     max_repair_rounds: int = 2,
     first_round_chunk_size: int = 10,
+    run_dir: Path | None = None,
+    run_id: str | None = None,
+    ingested_at: str | None = None,
 ) -> tuple[pl.DataFrame, dict[str, object]]:
     """Retry active Yahoo histories until every old validated key is present."""
 
@@ -2372,6 +2381,7 @@ def _complete_yahoo_history_against_validated(
 
     report = {
         "contract": "complete_active_yahoo_vintage_against_previous_validated_keys_v1",
+        "run_id": run_id,
         "initial_missing_key_count": initial_gaps.height,
         "initial_missing_ticker_count": initial_gaps.select(
             pl.col("ticker").n_unique()
@@ -2383,6 +2393,16 @@ def _complete_yahoo_history_against_validated(
         ).item(),
         "passed": gaps.is_empty(),
     }
+    if run_dir is not None:
+        _write_yahoo_attempt_audit(
+            run_dir=run_dir,
+            candidate=candidate,
+            initial_gaps=initial_gaps,
+            remaining_gaps=gaps,
+            report=report,
+            run_id=run_id,
+            ingested_at=ingested_at,
+        )
     if not gaps.is_empty():
         examples = gaps.head(20).with_columns(pl.col("date").cast(pl.String)).to_dicts()
         raise RuntimeError(
@@ -2391,6 +2411,32 @@ def _complete_yahoo_history_against_validated(
             "No package was published."
         )
     return candidate, report
+
+
+def _write_yahoo_attempt_audit(
+    *,
+    run_dir: Path,
+    candidate: pl.DataFrame,
+    initial_gaps: pl.DataFrame,
+    remaining_gaps: pl.DataFrame,
+    report: dict[str, object],
+    run_id: str | None,
+    ingested_at: str | None,
+) -> None:
+    """Persist an immutable run-scoped record before any publication decision."""
+
+    raw_dir = run_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    attempted = _with_price_ingestion_metadata(
+        candidate,
+        dataset="prices_yfinance_attempted",
+        run_id=run_id or "unknown",
+        ingested_at=ingested_at or utc_now_iso(),
+    )
+    attempted.write_parquet(raw_dir / "prices_yfinance_attempted.parquet")
+    initial_gaps.write_parquet(run_dir / "price_validated_key_gaps_initial.parquet")
+    remaining_gaps.write_parquet(run_dir / "price_validated_key_gaps_remaining.parquet")
+    write_json(run_dir / "price_validated_key_coverage.json", report)
 
 
 def _confirmed_terminal_price_tickers(

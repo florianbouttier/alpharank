@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+from datetime import date
+
 import polars as pl
+import pytest
 
 from alpharank.data.open_source.ingestion import (
     _confirmed_terminal_price_tickers,
@@ -301,3 +305,39 @@ def test_confirmed_terminal_price_tickers_use_sourced_effective_removal(tmp_path
         active_tickers=("EA", "AAPL"),
         expected_through="2026-08-05",
     ) == ("EA.US",)
+
+
+def test_failed_yahoo_coverage_keeps_run_scoped_raw_attempt_and_gaps(tmp_path) -> None:
+    previous = _price_frame(ticker="AAPL.US", adjusted_close=100.0).with_columns(
+        pl.lit("2025-01-03").alias("date")
+    )
+    initial = previous.with_columns(pl.lit(None).cast(pl.Float64).alias("adjusted_close"))
+
+    class Client:
+        def download_prices(self, tickers, start_date, end_date):
+            return pl.DataFrame(schema=initial.schema)
+
+    with pytest.raises(RuntimeError, match="No package was published"):
+        _complete_yahoo_history_against_validated(
+            Client(),
+            initial_prices=initial,
+            previous_validated_lineage=previous,
+            active_tickers=("AAPL",),
+            start_date="2025-01-01",
+            end_date="2025-02-01",
+            max_repair_rounds=1,
+            run_dir=tmp_path,
+            run_id="20260819_120000",
+            ingested_at="2026-08-19T12:00:00+00:00",
+        )
+
+    attempted = pl.read_parquet(tmp_path / "raw" / "prices_yfinance_attempted.parquet")
+    remaining = pl.read_parquet(tmp_path / "price_validated_key_gaps_remaining.parquet")
+    report = json.loads((tmp_path / "price_validated_key_coverage.json").read_text())
+    assert attempted["ingestion_run_id"].unique().to_list() == ["20260819_120000"]
+    assert attempted["adjusted_close"].null_count() == 1
+    assert remaining.select("ticker", "date").to_dicts() == [
+        {"ticker": "AAPL.US", "date": date(2025, 1, 3)}
+    ]
+    assert report["run_id"] == "20260819_120000"
+    assert report["passed"] is False

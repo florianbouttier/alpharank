@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import polars as pl
+import pytest
 
+from scripts.open_source import nightly_ingestion
 from scripts.open_source.install_nightly_launchd import build_plist
 from scripts.open_source.nightly_ingestion import LIVE_DIR, START_DATE, default_nightly_tickers, load_existing_live_tickers
 
@@ -46,3 +49,34 @@ def test_default_nightly_tickers_preserves_existing_live_tickers_outside_current
 
     tickers = default_nightly_tickers(reference_data_dir=reference_data_dir, live_dir=tmp_path)
     assert tickers == ("AAPL", "MSFT", "ZZZ")
+
+
+def test_failed_nightly_status_keeps_the_run_id(tmp_path: Path, monkeypatch) -> None:
+    live_dir = tmp_path / "official"
+    manifests_dir = live_dir / "manifests"
+    lock_path = manifests_dir / "nightly.lock.json"
+    status_path = manifests_dir / "nightly_status.json"
+    captured: dict[str, object] = {}
+
+    def fail_ingestion(**kwargs):
+        captured.update(kwargs)
+        raise RuntimeError("provider failure")
+
+    monkeypatch.setattr(nightly_ingestion, "LIVE_DIR", live_dir)
+    monkeypatch.setattr(nightly_ingestion, "REFERENCE_DATA_DIR", tmp_path / "reference")
+    monkeypatch.setattr(nightly_ingestion, "LOCK_PATH", lock_path)
+    monkeypatch.setattr(nightly_ingestion, "STATUS_PATH", status_path)
+    monkeypatch.setattr(nightly_ingestion, "TICKERS", ("AAPL",))
+    monkeypatch.setattr(nightly_ingestion, "new_run_id", lambda: "20260819_120000")
+    monkeypatch.setattr(nightly_ingestion, "_load_latest_sp500_tickers", lambda path: ("AAPL",))
+    monkeypatch.setattr(nightly_ingestion, "load_existing_live_tickers", lambda path: ())
+    monkeypatch.setattr(nightly_ingestion, "run_open_source_ingestion", fail_ingestion)
+
+    with pytest.raises(RuntimeError, match="provider failure"):
+        nightly_ingestion.main()
+
+    status = json.loads(status_path.read_text())
+    assert captured["run_id"] == "20260819_120000"
+    assert status["run_id"] == "20260819_120000"
+    assert status["status"] == "failed"
+    assert not lock_path.exists()

@@ -50,6 +50,32 @@ payloads including historical revisions, fresh SEC submissions, and refreshed
 fallback bulk/history sources. HTTP payloads are not replay data;
 `official/raw`, run deltas, and immutable snapshots are retained.
 
+### What happens to a nightly download
+
+The pipeline deliberately separates receiving data from making it usable by the
+model:
+
+1. it assigns one run id before contacting a provider;
+2. it saves the Yahoo price rows actually received in that run's folder,
+   including rows whose adjusted price is empty;
+3. it lists every previously validated ticker/date pair that is missing, retries
+   those gaps, and saves both the initial and remaining lists;
+4. if any required old price is still missing, it rejects the run and restores
+   the previously published store;
+5. only a successful run rebuilds the cleaned tables from the retained raw
+   history and creates a versioned publication;
+6. price and SEC-only packages are then composed into a new immutable model
+   input, whose files are checked by hash before the `latest.json` pointer moves;
+7. Legacy copies that immutable model input into its own `input_snapshot/` and
+   calculates from the copy.
+
+A rejected Yahoo attempt is audit evidence, not a model input. Its folder keeps
+`raw/prices_yfinance_attempted.parquet`, the initial and remaining gap Parquets,
+and `price_validated_key_coverage.json`. The stable nightly status file carries
+the same run id even when the run fails. This makes it possible to explain a
+provider failure without filling a missing price, inventing a delisting, or
+altering the last validated publication.
+
 Fallback financial rows produced by this command are for R&D/audit only. The
 composed model snapshot must replace every fundamental file with its SEC-only
 counterpart and validate allowed lineage sources.

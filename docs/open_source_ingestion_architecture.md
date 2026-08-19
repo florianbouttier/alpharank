@@ -247,6 +247,10 @@ Code ownership is explicit:
     the other.
 14. Routine runs may not enable either historical-price override. A migration
     review must record return revisions and key removals separately.
+15. Before Yahoo coverage can fail the run, the run folder retains the attempted
+    price rows, including null adjusted prices, plus the initial and remaining
+    ticker/date gaps. These files are evidence only and never enter the official
+    raw store or a model snapshot unless every publication gate later passes.
 
 Important consequence:
 
@@ -570,6 +574,11 @@ Status:
 
 - immutable run artifact
 - if a run fails before manifest write, the partial run folder may exist without becoming the latest successful run
+- a failed Yahoo coverage check retains
+  `raw/prices_yfinance_attempted.parquet`,
+  `price_validated_key_gaps_initial.parquet`,
+  `price_validated_key_gaps_remaining.parquet`, and
+  `price_validated_key_coverage.json`; all carry or belong to the same run id
 
 ### `manifests/nightly.lock.json`
 
@@ -589,6 +598,7 @@ Purpose:
 
 - expose the latest nightly execution state in one stable JSON file
 - make it easy to inspect whether the current run is `running`, `success`, `failed`, or `skipped_locked`
+- expose the run id before download starts and preserve that same id on failure
 
 Status:
 
