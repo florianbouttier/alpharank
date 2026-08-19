@@ -44,6 +44,11 @@ def main() -> None:
         previous_lineage_path = previous_source.lineage_path
     previous_lineage = pl.read_parquet(previous_lineage_path)
     fresh_yahoo = pl.read_parquet(args.fresh_yahoo_vintage.resolve())
+    base_manifest = _read_json(base_dir / "lineage" / "manifest.json")
+    active_resolution_vintage_id = _resolve_active_resolution_vintage_id(
+        base_manifest=base_manifest,
+        fresh_yahoo=fresh_yahoo,
+    )
     active_tickers = _latest_constituents(base_dir / "SP500_Constituents.csv")
     terminal_tickers = _validated_terminal_tickers(
         requested=args.preserve_terminal_tickers,
@@ -61,6 +66,7 @@ def main() -> None:
         active_yahoo_vintage=fresh_yahoo,
         active_tickers=active_tickers,
         preserved_terminal_tickers=terminal_tickers,
+        active_resolution_vintage_id=active_resolution_vintage_id,
     )
     seed = load_eodhd_seed(args.eodhd_seed.resolve(), start_date=args.start_date)
     gate = audit_price_candidate(
@@ -71,6 +77,7 @@ def main() -> None:
         expected_eodhd_keys=seed.frame.select("ticker", "date"),
         expected_through=args.expected_through,
         policy=PRODUCTION_PRICE_GATE_POLICY,
+        active_resolution_vintage_id=active_resolution_vintage_id,
     )
     history_registry = build_persistent_price_history_registry(
         result.lineage,
@@ -103,7 +110,6 @@ def main() -> None:
     _write_json(output_dir / "audit" / "price_revision_guard.json", gate.report)
     _write_json(output_dir / "audit" / "price_composition.json", result.composition_report)
 
-    base_manifest = _read_json(base_dir / "lineage" / "manifest.json")
     source_contract = dict(base_manifest["source_refresh_contract"])
     source_contract["contract_version"] = 2
     source_contract["price_composition"] = result.composition_report
@@ -232,6 +238,42 @@ def _latest_constituents(path: Path) -> tuple[str, ...]:
         .sort()
         .to_list()
     )
+
+
+def _resolve_active_resolution_vintage_id(
+    *,
+    base_manifest: dict[str, object],
+    fresh_yahoo: pl.DataFrame,
+) -> str:
+    """Bind audited carried rows to the full-ingestion run that selected them."""
+
+    run_id = str(base_manifest.get("run_id") or "").strip()
+    if not run_id:
+        raise RuntimeError("Full-ingestion manifest does not declare a run_id")
+    vintage_column = (
+        "source_vintage_id"
+        if "source_vintage_id" in fresh_yahoo.columns
+        else "ingestion_run_id"
+        if "ingestion_run_id" in fresh_yahoo.columns
+        else None
+    )
+    if vintage_column is None:
+        raise RuntimeError(
+            "Fresh Yahoo vintage does not carry a source or ingestion run id"
+        )
+    observed_vintages = {
+        str(value)
+        for value in fresh_yahoo.get_column(vintage_column)
+        .drop_nulls()
+        .unique()
+        .to_list()
+    }
+    if run_id not in observed_vintages:
+        raise RuntimeError(
+            "Fresh Yahoo vintage has no observation from the full-ingestion run; "
+            f"run_id={run_id}"
+        )
+    return run_id
 
 
 def _validated_terminal_tickers(
