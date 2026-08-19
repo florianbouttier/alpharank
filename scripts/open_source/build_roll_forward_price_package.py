@@ -163,7 +163,13 @@ def main() -> None:
             "inactive_history_byte_preserved": True,
             "all_previous_validated_inactive_history_preserved": True,
             "open_source_only_inactive_history_persisted": True,
-            "active_history_single_fresh_yahoo_vintage": True,
+            "active_history_single_fresh_yahoo_vintage": (
+                result.composition_report["audited_carried_active_rows"] == 0
+            ),
+            "active_history_audited_resolution_run": True,
+            "active_history_audited_carried_rows": result.composition_report[
+                "audited_carried_active_rows"
+            ],
             "price_revision_guard_passed": gate.report["passed"],
         },
         "artifacts": {
