@@ -81,6 +81,25 @@ procedure changes.
 - Cross-method performance comparisons must resimulate every investable
   strategy with the same transaction-cost policy; a standalone production
   convention may be shown separately but cannot be mixed into the comparison.
+- The permanent performance KPI contract is mandatory in user handoffs and
+  public reports. Always show the run/snapshot/composition id, code commit,
+  methodology status, requested and effective period, decision/holding-month
+  convention, benchmark, transaction-cost policy and gross-versus-net basis.
+  For every investable strategy and SPY, report total return, CAGR, annualized
+  volatility, Legacy-convention Sharpe, Sortino, Calmar, maximum drawdown with
+  peak/trough/recovery dates and duration, positive-month rate, best and worst
+  realized month, worst complete calendar year, all calendar-year returns and
+  CAGR from January 1 of every year from 2010 through the current year. Against
+  SPY also report annualized excess return, alpha, beta, correlation,
+  information ratio, tracking error, benchmark hit rate and up/down capture.
+  Report VaR 95%, CVaR 95%, skewness and excess kurtosis; turnover, transaction
+  costs, average/maximum position count, average/maximum single-name weight,
+  concentration/HHI, cash exposure, return-coverage or missing-return counts,
+  and logged terminal-event contribution. Keep model-quality metrics separate:
+  OOS rows/folds, IC/Spearman, NDCG@5/10/20, ROC AUC, PR AUC and lift, Brier,
+  log-loss, calibration error and SHAP row count/sampling status when relevant.
+  If a KPI is unavailable, print `unavailable` with the reason; never silently
+  omit it or substitute a different convention.
 - Every delegated research update should record, in the relevant central doc, the hypothesis, data used, command/run id, primary metric, result, and next decision.
 - Prefer project-visible memory in `AGENTS.md`, `AGENT.md`, and relevant docs over relying on chat history.
 

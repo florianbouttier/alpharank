@@ -39,6 +39,20 @@ This repository is organized around two active workflows:
 - Performance answers must name the snapshot and benchmark convention. Use `SPY total return` from `adjusted_close`; old Legacy `SP500` rows are price returns from `close` and cannot be reported as the standard benchmark. Standalone Legacy uses the latest validated replay, while Legacy/Boosting comparisons require one shared snapshot.
 - CAGR decompositions must use `src/alpharank/portfolio/attribution.py`, keep transaction costs separate, and reconcile monthly returns plus final CAGR within `1e-12`; do not add ordinary percentage-point CAGR contributions.
 - Cross-method performance comparisons must resimulate every investable strategy with the same transaction-cost policy; show any standalone production convention separately.
+- Permanent KPI contract: every user handoff and public performance report must
+  identify run/snapshot/composition, code commit, methodology status, requested
+  and effective period, timing, benchmark, cost policy and gross/net basis. For
+  every strategy and SPY show total return, CAGR, annualized volatility,
+  Legacy-convention Sharpe, Sortino, Calmar, max drawdown with dates/duration,
+  positive-month rate, best/worst month, worst full year, every calendar-year
+  return and CAGR from each January 1 since 2010. Against SPY show excess
+  return, alpha, beta, correlation, information ratio, tracking error, hit rate
+  and up/down capture. Also show VaR/CVaR 95%, skewness, excess kurtosis,
+  turnover, costs, position counts, weights/concentration/HHI, cash, return
+  coverage, missing-return counts and terminal-event contribution. Keep model
+  metrics separate: OOS rows/folds, IC, NDCG@5/10/20, ROC AUC, PR AUC/lift,
+  Brier, log-loss, calibration error and SHAP coverage. Mark unavailable KPIs
+  with a reason instead of silently omitting or replacing them.
 - `src/alpharank/portfolio/`: methodology-neutral holdings contract, allocation primitives, simulator, metrics, comparison, and artifacts shared after signal generation
 - `src/alpharank/data/`: shared data processing/services used by legacy and utilities
 - `src/alpharank/strategy/`: legacy strategy implementation
