@@ -277,6 +277,56 @@ Existing EODHD files are registered through
 or rewritten, and byte-identical source ids share one content-addressed object
 while keeping separate manifests.
 
+### LIVE-008 definitive MART promotion
+
+The first structural migration was executed on 2026-08-19 from the last
+validated composition, without refreshing or altering its business data:
+
+- source composition:
+  `2a01288bab06102fce4f18cfd66c04e416fb4b3236aa5edf4c46a0ea213be9be`;
+- 49 retained EODHD file paths registered by hash as 24 unique immutable
+  content objects (1,011,901,141 logical bytes; 722,937,780 unique bytes);
+- 3,709,695 unique `(ticker,date)` price-lineage rows in both STG and DEF;
+- nine model files byte-identical from the source snapshot through DEF and
+  MART, including `US_Finalprice.parquet` at
+  `10777e4e…bea3efd0`;
+- production pointer replaced atomically, from the historical snapshot path to
+  `data/warehouse/mart/alpharank_input_2a01288bab06102fce4f18cfd66c04e416fb4b3236aa5edf4c46a0ea213be9be`;
+- previous pointer bytes retained beside the promotion manifest and an exact
+  rollback/restore exercised before acceptance.
+
+The canonical evidence is under
+`data/warehouse/manifests/migrations/live008_2a01288bab06/` and
+`data/warehouse/manifests/promotions/20260819T144950.210202+0000_live008_2a01288bab06/`.
+The end-to-end structural replay is
+`outputs/live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/` and passes
+the strict replay-package validator. It intentionally uses one Optuna trial per
+split to validate lineage, snapshot capture and report generation; it is not a
+replacement for the 30-trial economic production run required after a new
+successful ingestion.
+
+Historical standalone Legacy replay keeps its frozen
+`renormalize_available` return policy explicitly and may log a missing
+canonical execution rather than abort. The causal-v2 path remains fail-closed.
+The execution log must distinguish a known terminal security from an order at
+the unobservable tail of the current snapshot. Neither compatibility rule is a
+permission to promote incomplete current data.
+
+The migration command is:
+
+```bash
+./.venv/bin/python scripts/open_source/promote_definitive_mart.py \
+  --migration-id live008_2a01288bab06 \
+  --eodhd-root data/eodhd \
+  --source-pointer data/model_inputs/manifests/latest.json \
+  --warehouse-root data/warehouse \
+  --promote
+```
+
+`LIVE-003` remains the independent production-freshness gate: a new monthly
+snapshot may be promoted only after a real full ingestion passes provider
+coverage, revision, SEC-only composition and strict replay checks.
+
 ## Core Rules
 
 1. Raw source tables are the canonical store.
