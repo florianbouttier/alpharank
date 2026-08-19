@@ -65,6 +65,7 @@ from alpharank.data.open_source.price_quality import (
     assert_no_extreme_adjusted_price_moves,
     build_split_detection_prices,
     find_extreme_adjusted_price_moves,
+    load_reviewed_extreme_price_moves,
     repair_confirmed_split_discontinuities,
 )
 from alpharank.data.open_source.raw_archive import RAW_DELTA_CONTRACT, archive_raw_frame_delta
@@ -1338,6 +1339,12 @@ def _run_open_source_ingestion_in_place(
             project_root / "data" / "model_inputs" / "manifests" / "latest.json"
         ),
         preserved_terminal_tickers=terminal_price_tickers,
+        reviewed_extreme_price_move_registry_path=(
+            project_root
+            / "configs"
+            / "data_quality"
+            / "reviewed_extreme_price_moves.json"
+        ),
     )
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_yfinance.parquet", yahoo_prices_delta)
     append_run_delta(paths.run_dir(run_id) / "raw" / "prices_simfin.parquet", simfin_prices_delta)
@@ -2706,6 +2713,7 @@ def _prepare_canonical_hybrid_price_merge(
     source_refresh_contract: dict[str, object],
     latest_composed_manifest_path: Path | None = None,
     preserved_terminal_tickers: Sequence[str] = (),
+    reviewed_extreme_price_move_registry_path: Path | None = None,
 ) -> tuple[
     pl.DataFrame,
     pl.DataFrame,
@@ -2827,11 +2835,28 @@ def _prepare_canonical_hybrid_price_merge(
         if (normalized := f"{str(ticker).upper().removesuffix('.US')}.US")
         not in terminal_set
     ]
-    assert_no_extreme_adjusted_price_moves(
+    reviewed_moves = None
+    reviewed_move_manifest: dict[str, object] | None = None
+    if reviewed_extreme_price_move_registry_path is not None:
+        reviewed_moves, reviewed_move_manifest = load_reviewed_extreme_price_moves(
+            reviewed_extreme_price_move_registry_path
+        )
+    reviewed_findings = assert_no_extreme_adjusted_price_moves(
         hybrid.prices,
         event_since=event_since,
         tickers=quality_tickers,
+        reviewed_moves=reviewed_moves,
     )
+    if reviewed_move_manifest is not None:
+        reviewed_move_report = {
+            **reviewed_move_manifest,
+            "matched_count": reviewed_findings.height,
+            "matched_events": reviewed_findings.with_columns(
+                pl.col("date").cast(pl.String)
+            ).to_dicts(),
+        }
+        source_refresh_contract["reviewed_extreme_price_moves"] = reviewed_move_report
+        write_json(run_dir / "reviewed_extreme_price_moves.json", reviewed_move_report)
     return (
         prospective[0],
         prospective[1],

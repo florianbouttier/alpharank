@@ -1,12 +1,24 @@
 from __future__ import annotations
 
 from datetime import date
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
 
 import polars as pl
 
 
 EXTREME_ADJUSTED_RETURN_THRESHOLD = 0.40
 SPLIT_RATIO_RELATIVE_TOLERANCE = 0.15
+REVIEWED_MOVE_BOUND_COLUMNS = (
+    "prior_adjusted_close_min",
+    "prior_adjusted_close_max",
+    "adjusted_close_min",
+    "adjusted_close_max",
+    "one_day_return_min",
+    "one_day_return_max",
+)
 
 
 def build_split_detection_prices(
@@ -104,6 +116,7 @@ def assert_no_extreme_adjusted_price_moves(
     event_since: date | str,
     tickers: tuple[str, ...] | list[str] | None = None,
     threshold: float = EXTREME_ADJUSTED_RETURN_THRESHOLD,
+    reviewed_moves: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     findings = find_extreme_adjusted_price_moves(
         prices,
@@ -111,13 +124,153 @@ def assert_no_extreme_adjusted_price_moves(
         tickers=tickers,
         threshold=threshold,
     )
-    if not findings.is_empty():
-        examples = findings.head(10).to_dicts()
+    unreviewed, reviewed = split_reviewed_extreme_price_moves(
+        findings,
+        reviewed_moves=reviewed_moves,
+    )
+    if not unreviewed.is_empty():
+        examples = unreviewed.head(10).to_dicts()
         raise RuntimeError(
             "Recent adjusted-close discontinuities require review before publication: "
-            f"count={findings.height}, threshold={threshold:.0%}, examples={examples}"
+            f"count={unreviewed.height}, threshold={threshold:.0%}, examples={examples}"
         )
-    return findings
+    return reviewed
+
+
+def load_reviewed_extreme_price_moves(
+    path: Path,
+) -> tuple[pl.DataFrame, dict[str, Any]]:
+    """Load a hash-bound registry of real market moves reviewed outside prices."""
+
+    payload_bytes = path.read_bytes()
+    payload = json.loads(payload_bytes)
+    if not isinstance(payload, dict) or not str(payload.get("registry_id", "")).strip():
+        raise ValueError("Reviewed price-move registry requires registry_id")
+    events = payload.get("events")
+    if not isinstance(events, list):
+        raise ValueError("Reviewed price-move registry requires an events list")
+    required = {
+        "review_id",
+        "ticker",
+        "date",
+        "known_at",
+        "reason",
+        "source_urls",
+        *REVIEWED_MOVE_BOUND_COLUMNS,
+    }
+    normalized: list[dict[str, Any]] = []
+    for event in events:
+        if not isinstance(event, dict):
+            raise ValueError("Reviewed price-move events must be JSON objects")
+        missing = sorted(required - set(event))
+        if missing:
+            raise ValueError(f"Reviewed price-move event is missing fields: {missing}")
+        source_urls = event["source_urls"]
+        if not isinstance(source_urls, list) or not source_urls or not all(
+            str(url).startswith("https://") for url in source_urls
+        ):
+            raise ValueError("Reviewed price-move source_urls must be non-empty HTTPS URLs")
+        row = {
+            **event,
+            "review_id": str(event["review_id"]).strip(),
+            "ticker": f"{str(event['ticker']).upper().removesuffix('.US')}.US",
+            "date": event["date"],
+            "known_at": str(event["known_at"]).strip(),
+            "reason": str(event["reason"]).strip(),
+            "source_urls": [str(url) for url in source_urls],
+        }
+        if not row["review_id"] or not row["known_at"] or not row["reason"]:
+            raise ValueError("Reviewed price-move identity, known_at, and reason are required")
+        for lower, upper in (
+            ("prior_adjusted_close_min", "prior_adjusted_close_max"),
+            ("adjusted_close_min", "adjusted_close_max"),
+            ("one_day_return_min", "one_day_return_max"),
+        ):
+            row[lower] = float(row[lower])
+            row[upper] = float(row[upper])
+            if row[lower] > row[upper]:
+                raise ValueError(f"Reviewed price-move bounds are inverted: {lower}/{upper}")
+        normalized.append(row)
+    frame = (
+        pl.DataFrame(normalized)
+        .with_columns(pl.col("date").cast(pl.Date, strict=False))
+        .sort(["ticker", "date"])
+        if normalized
+        else _empty_reviewed_move_frame()
+    )
+    if frame.select(pl.struct(["ticker", "date"]).is_duplicated().sum()).item():
+        raise ValueError("Reviewed price-move registry has duplicate ticker/date keys")
+    return frame, {
+        "registry_id": payload["registry_id"],
+        "path": str(path.resolve()),
+        "sha256": hashlib.sha256(payload_bytes).hexdigest(),
+        "event_count": frame.height,
+    }
+
+
+def split_reviewed_extreme_price_moves(
+    findings: pl.DataFrame,
+    *,
+    reviewed_moves: pl.DataFrame | None,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Separate exact, bounded reviewed moves from findings that still block."""
+
+    if findings.is_empty() or reviewed_moves is None or reviewed_moves.is_empty():
+        return findings, pl.DataFrame(schema={**findings.schema, "review_id": pl.String})
+    required = {"review_id", "ticker", "date", *REVIEWED_MOVE_BOUND_COLUMNS}
+    missing = sorted(required - set(reviewed_moves.columns))
+    if missing:
+        raise ValueError(f"Reviewed price-move frame is missing columns: {missing}")
+    registry = reviewed_moves.with_columns(
+        pl.col("ticker").cast(pl.String).str.to_uppercase(),
+        pl.col("date").cast(pl.Date, strict=False),
+    )
+    if registry.select(pl.struct(["ticker", "date"]).is_duplicated().sum()).item():
+        raise ValueError("Reviewed price-move frame has duplicate ticker/date keys")
+    joined = findings.join(registry, on=["ticker", "date"], how="left")
+    within_bounds = (
+        pl.col("review_id").is_not_null()
+        & pl.col("prior_adjusted_close").is_between(
+            pl.col("prior_adjusted_close_min"),
+            pl.col("prior_adjusted_close_max"),
+            closed="both",
+        )
+        & pl.col("adjusted_close").is_between(
+            pl.col("adjusted_close_min"),
+            pl.col("adjusted_close_max"),
+            closed="both",
+        )
+        & pl.col("one_day_return").is_between(
+            pl.col("one_day_return_min"),
+            pl.col("one_day_return_max"),
+            closed="both",
+        )
+    )
+    finding_columns = findings.columns
+    reviewed_columns = [
+        *finding_columns,
+        "review_id",
+        "known_at",
+        "reason",
+        "source_urls",
+    ]
+    reviewed = joined.filter(within_bounds).select(reviewed_columns)
+    unreviewed = joined.filter(~within_bounds).select(finding_columns)
+    return unreviewed, reviewed
+
+
+def _empty_reviewed_move_frame() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "review_id": pl.String,
+            "ticker": pl.String,
+            "date": pl.Date,
+            "known_at": pl.String,
+            "reason": pl.String,
+            "source_urls": pl.List(pl.String),
+            **{column: pl.Float64 for column in REVIEWED_MOVE_BOUND_COLUMNS},
+        }
+    )
 
 
 def repair_confirmed_split_discontinuities(

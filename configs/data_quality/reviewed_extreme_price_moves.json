@@ -1,0 +1,24 @@
+{
+  "registry_id": "reviewed_extreme_price_moves_v1",
+  "description": "News-driven market moves above the automatic discontinuity threshold. Each event is bounded to the reviewed prices and return; any drift remains blocking.",
+  "events": [
+    {
+      "review_id": "mrna-20260819-interpath001-phase3-v1",
+      "ticker": "MRNA.US",
+      "date": "2026-08-19",
+      "prior_adjusted_close_min": 62.95,
+      "prior_adjusted_close_max": 62.97,
+      "adjusted_close_min": 174.37,
+      "adjusted_close_max": 174.39,
+      "one_day_return_min": 1.769,
+      "one_day_return_max": 1.771,
+      "known_at": "2026-08-19T22:03:28Z",
+      "reason": "MRNA's approximately 177% session was a real market move following positive Phase 3 INTerpath-001 melanoma results, not a split or a price-scale discontinuity. Yahoo RAW close 174.380005 and volume 185077360 are consistent with same-day market reporting.",
+      "source_urls": [
+        "https://news.modernatx.com/merck-and-moderna-announce-phase-3-interpath-001-trial-of-intismeran-plus-keytruda-met-endpoints-of-rfs-and-dmfs-in-melanoma",
+        "https://www.merck.com/news/merck-and-moderna-announce-phase-3-interpath-001-trial-of-intismeran-autogene-plus-keytruda-met-endpoints-of-recurrence-free-survival-rfs-and-distant-metastasis-free-survival-dmfs-in-patient/",
+        "https://apnews.com/article/2330dce708b0af215b68570b19d025df"
+      ]
+    }
+  ]
+}

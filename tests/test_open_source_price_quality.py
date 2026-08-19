@@ -9,6 +9,7 @@ from alpharank.data.open_source.price_quality import (
     assert_no_extreme_adjusted_price_moves,
     build_split_detection_prices,
     find_extreme_adjusted_price_moves,
+    load_reviewed_extreme_price_moves,
     repair_confirmed_split_discontinuities,
 )
 from alpharank.data.open_source.storage import merge_upsert_frames
@@ -53,6 +54,67 @@ def test_price_quality_ignores_moves_before_refresh_window() -> None:
     )
     findings = find_extreme_adjusted_price_moves(prices, event_since="2026-08-01")
     assert findings.is_empty()
+
+
+def test_price_quality_accepts_only_exact_bounded_reviewed_move(tmp_path) -> None:
+    registry_path = tmp_path / "reviewed_moves.json"
+    registry_path.write_text(
+        """{
+  "registry_id": "reviewed_extreme_price_moves_test_v1",
+  "events": [{
+    "review_id": "mrna-20260819-phase3",
+    "ticker": "MRNA",
+    "date": "2026-08-19",
+    "prior_adjusted_close_min": 62.95,
+    "prior_adjusted_close_max": 62.97,
+    "adjusted_close_min": 174.37,
+    "adjusted_close_max": 174.39,
+    "one_day_return_min": 1.769,
+    "one_day_return_max": 1.771,
+    "known_at": "2026-08-19T22:03:28Z",
+    "reason": "Independent market reporting confirms a real news-driven move.",
+    "source_urls": ["https://example.com/market-evidence"]
+  }]
+}
+""",
+        encoding="utf-8",
+    )
+    reviewed_moves, manifest = load_reviewed_extreme_price_moves(registry_path)
+    prices = pl.DataFrame(
+        {
+            "ticker": ["MRNA.US", "MRNA.US"],
+            "date": [date(2026, 8, 18), date(2026, 8, 19)],
+            "adjusted_close": [62.96, 174.38],
+        }
+    )
+
+    reviewed = assert_no_extreme_adjusted_price_moves(
+        prices,
+        event_since="2026-08-19",
+        reviewed_moves=reviewed_moves,
+    )
+
+    assert manifest["registry_id"] == "reviewed_extreme_price_moves_test_v1"
+    assert len(manifest["sha256"]) == 64
+    assert reviewed.select("ticker", "date", "review_id").to_dicts() == [
+        {
+            "ticker": "MRNA.US",
+            "date": date(2026, 8, 19),
+            "review_id": "mrna-20260819-phase3",
+        }
+    ]
+
+    with pytest.raises(RuntimeError, match="require review"):
+        assert_no_extreme_adjusted_price_moves(
+            prices.with_columns(
+                pl.when(pl.col("date") == date(2026, 8, 19))
+                .then(pl.lit(180.0))
+                .otherwise(pl.col("adjusted_close"))
+                .alias("adjusted_close")
+            ),
+            event_since="2026-08-19",
+            reviewed_moves=reviewed_moves,
+        )
 
 
 def test_full_refresh_split_detection_cannot_be_masked_by_old_adjusted_vintage() -> None:
