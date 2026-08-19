@@ -83,6 +83,13 @@ an identical ingestion adds only a manifest with zero new price rows. Network
 download still occurs because Yahoo does not provide a reliable change feed;
 deduplication happens before durable storage, not before the request.
 
+DEF resolves the exact `ticker,date` key after STG normalization. A missing or
+null current Yahoo value may reuse the last validated value for that same key;
+the selected row keeps its original ingestion id and the run writes
+`def_price_selection_audit.parquet`. It is forbidden to carry a quote from one
+date to another. Provider completeness remains reported separately, and the
+resolved table still has to pass every price-revision and continuity gate.
+
 Fallback financial rows produced by this command are for R&D/audit only. The
 composed model snapshot must replace every fundamental file with its SEC-only
 counterpart and validate allowed lineage sources.

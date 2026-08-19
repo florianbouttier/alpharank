@@ -255,6 +255,23 @@ what the provider returned; it does not silently carry a missing value forward.
 That business decision belongs in DEF, where any reused prior ticker/date must
 retain the original source run id and an explicit carried-forward reason.
 
+Yahoo price STG casts the provider columns and normalizes ticker/date fields but
+does not drop, fill or select observations. DEF then resolves only the exact
+`ticker,date` key:
+
+1. select the current RAW row when its adjusted close is positive;
+2. otherwise select the last validated row for that same key and retain its
+   original `ingestion_run_id`;
+3. write `carried_forward_missing_current_raw` or
+   `carried_forward_invalid_current_raw` to the DEF selection audit;
+4. leave a new invalid key unresolved; never copy a price from another date;
+5. run the existing split, adjustment-continuity, historical-revision and key
+   removal gates on the resolved DEF candidate before MART publication.
+
+Provider completeness and DEF completeness are separate fields in the run
+report. A partial Yahoo response may therefore be reconstructible from reviewed
+prior exact keys, but it is never described as a complete current download.
+
 Existing EODHD files are registered through
 `alpharank_immutable_raw_file_v1`: the local paid archive is never redownloaded
 or rewritten, and byte-identical source ids share one content-addressed object

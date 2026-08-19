@@ -43,6 +43,11 @@ from alpharank.data.open_source.earnings import (
     empty_earnings_lineage_frame,
     empty_earnings_long_frame,
 )
+from alpharank.data.open_source.definitive_prices import (
+    bootstrap_definitive_prices,
+    build_definitive_prices,
+    stage_yahoo_prices,
+)
 from alpharank.data.open_source.general_reference import (
     build_general_reference,
     empty_general_reference_frame,
@@ -1968,14 +1973,17 @@ def _with_price_ingestion_metadata(
 ) -> pl.DataFrame:
     if frame.is_empty():
         return _empty_raw_price_frame()
-    return frame.with_columns(
-        [
-            pl.lit(source).alias("source"),
-            pl.lit(dataset).alias("dataset"),
-            pl.lit(run_id).alias("ingestion_run_id"),
-            pl.lit(ingested_at).alias("ingested_at"),
-        ]
-    ).select(list(RAW_PRICE_SCHEMA))
+    metadata = {
+        "source": source,
+        "dataset": dataset,
+        "ingestion_run_id": run_id,
+        "ingested_at": ingested_at,
+    }
+    expressions = [
+        pl.col(column) if column in frame.columns else pl.lit(value).alias(column)
+        for column, value in metadata.items()
+    ]
+    return frame.with_columns(expressions).select(list(RAW_PRICE_SCHEMA))
 
 
 def _with_financial_ingestion_metadata(frame: pl.DataFrame, *, dataset: str, run_id: str, ingested_at: str) -> pl.DataFrame:
@@ -2397,8 +2405,9 @@ def _complete_yahoo_history_against_validated(
         "remaining_missing_ticker_count": gaps.select(
             pl.col("ticker").n_unique()
         ).item(),
-        "passed": gaps.is_empty(),
+        "provider_complete": gaps.is_empty(),
     }
+    provider_candidate = candidate
     if raw_archive_dir is not None:
         if run_id is None or ingested_at is None:
             raise ValueError("run_id and ingested_at are required for the immutable raw archive")
@@ -2432,21 +2441,57 @@ def _complete_yahoo_history_against_validated(
             "missing_row_count": raw_archive.missing_row_count,
             "snapshot_sha256": raw_archive.snapshot_sha256,
         }
+    staged_current = stage_yahoo_prices(
+        provider_candidate,
+        run_id=run_id or "unknown",
+        observed_at=ingested_at or utc_now_iso(),
+    )
+    definitive = build_definitive_prices(
+        staged_current=staged_current,
+        previous_definitive=bootstrap_definitive_prices(
+            _with_price_ingestion_metadata(
+                previous_validated_lineage,
+                dataset="previous_validated_price_lineage",
+                source="validated_price_lineage",
+                run_id="previous_validated_price_lineage",
+                ingested_at="unknown",
+            )
+        ),
+        requested_tickers=active_tickers,
+    )
+    definitive_gaps = _historical_yahoo_key_gaps(
+        previous_validated_lineage=previous_validated_lineage,
+        fresh_prices=definitive.frame,
+        active_tickers=active_tickers,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    report["definitive_resolution"] = {
+        "contract": "exact_key_last_valid_raw_v1",
+        "current_row_count": definitive.current_row_count,
+        "carried_forward_row_count": definitive.carried_forward_row_count,
+        "unresolved_row_count": definitive.unresolved_row_count,
+        "remaining_previous_validated_key_count": definitive_gaps.height,
+        "passed": definitive_gaps.is_empty(),
+    }
+    report["passed"] = definitive_gaps.is_empty()
+    candidate = definitive.frame
     if run_dir is not None:
+        definitive.audit.write_parquet(run_dir / "def_price_selection_audit.parquet")
         _write_yahoo_attempt_audit(
             run_dir=run_dir,
-            candidate=candidate,
+            candidate=provider_candidate,
             initial_gaps=initial_gaps,
             remaining_gaps=gaps,
             report=report,
             run_id=run_id,
             ingested_at=ingested_at,
         )
-    if not gaps.is_empty():
-        examples = gaps.head(20).with_columns(pl.col("date").cast(pl.String)).to_dicts()
+    if not definitive_gaps.is_empty():
+        examples = definitive_gaps.head(20).with_columns(pl.col("date").cast(pl.String)).to_dicts()
         raise RuntimeError(
-            "Full active-universe Yahoo history is missing previously validated "
-            f"keys after targeted retries; report={report}; examples={examples}. "
+            "DEF price resolution is missing previously validated exact ticker/date "
+            f"keys after RAW retries and prior-value resolution; report={report}; examples={examples}. "
             "No package was published."
         )
     return candidate, report

@@ -307,7 +307,7 @@ def test_confirmed_terminal_price_tickers_use_sourced_effective_removal(tmp_path
     ) == ("EA.US",)
 
 
-def test_failed_yahoo_coverage_keeps_run_scoped_raw_attempt_and_gaps(tmp_path) -> None:
+def test_yahoo_gap_keeps_raw_evidence_and_def_carries_exact_previous_key(tmp_path) -> None:
     previous = _price_frame(ticker="AAPL.US", adjusted_close=100.0).with_columns(
         pl.lit("2025-01-03").alias("date")
     )
@@ -317,20 +317,19 @@ def test_failed_yahoo_coverage_keeps_run_scoped_raw_attempt_and_gaps(tmp_path) -
         def download_prices(self, tickers, start_date, end_date):
             return pl.DataFrame(schema=initial.schema)
 
-    with pytest.raises(RuntimeError, match="No package was published"):
-        _complete_yahoo_history_against_validated(
-            Client(),
-            initial_prices=initial,
-            previous_validated_lineage=previous,
-            active_tickers=("AAPL",),
-            start_date="2025-01-01",
-            end_date="2025-02-01",
-            max_repair_rounds=1,
-            run_dir=tmp_path,
-            run_id="20260819_120000",
-            ingested_at="2026-08-19T12:00:00+00:00",
-            raw_archive_dir=tmp_path / "warehouse" / "raw" / "yahoo" / "prices",
-        )
+    definitive, live_report = _complete_yahoo_history_against_validated(
+        Client(),
+        initial_prices=initial,
+        previous_validated_lineage=previous,
+        active_tickers=("AAPL",),
+        start_date="2025-01-01",
+        end_date="2025-02-01",
+        max_repair_rounds=1,
+        run_dir=tmp_path,
+        run_id="20260819_120000",
+        ingested_at="2026-08-19T12:00:00+00:00",
+        raw_archive_dir=tmp_path / "warehouse" / "raw" / "yahoo" / "prices",
+    )
 
     attempted = pl.read_parquet(tmp_path / "raw" / "prices_yfinance_attempted.parquet")
     remaining = pl.read_parquet(tmp_path / "price_validated_key_gaps_remaining.parquet")
@@ -341,7 +340,15 @@ def test_failed_yahoo_coverage_keeps_run_scoped_raw_attempt_and_gaps(tmp_path) -
         {"ticker": "AAPL.US", "date": date(2025, 1, 3)}
     ]
     assert report["run_id"] == "20260819_120000"
-    assert report["passed"] is False
+    assert report["provider_complete"] is False
+    assert report["passed"] is True
+    assert live_report == report
+    assert definitive["adjusted_close"].to_list() == [100.0]
+    assert definitive["ingestion_run_id"].to_list() == ["previous_validated_price_lineage"]
+    def_audit = pl.read_parquet(tmp_path / "def_price_selection_audit.parquet")
+    assert def_audit["selection_reason"].to_list() == [
+        "carried_forward_invalid_current_raw"
+    ]
     raw_manifest = json.loads(
         (
             tmp_path
@@ -357,3 +364,30 @@ def test_failed_yahoo_coverage_keeps_run_scoped_raw_attempt_and_gaps(tmp_path) -
     assert raw_manifest["input_row_count"] == 1
     assert raw_manifest["stored_content_row_count"] == 1
     assert raw_manifest["missing_row_count"] == 0
+
+
+def test_yahoo_gap_still_fails_when_no_valid_exact_previous_key_exists(tmp_path) -> None:
+    previous = _price_frame(ticker="AAPL.US", adjusted_close=100.0).with_columns(
+        pl.lit("2025-01-03").alias("date"),
+        pl.lit(None).cast(pl.Float64).alias("adjusted_close"),
+    )
+    initial = previous
+
+    class Client:
+        def download_prices(self, tickers, start_date, end_date):
+            return pl.DataFrame(schema=initial.schema)
+
+    with pytest.raises(RuntimeError, match="DEF price resolution"):
+        _complete_yahoo_history_against_validated(
+            Client(),
+            initial_prices=initial,
+            previous_validated_lineage=previous,
+            active_tickers=("AAPL",),
+            start_date="2025-01-01",
+            end_date="2025-02-01",
+            max_repair_rounds=1,
+            run_dir=tmp_path,
+            run_id="20260819_120001",
+            ingested_at="2026-08-19T12:00:01+00:00",
+            raw_archive_dir=tmp_path / "warehouse" / "raw" / "yahoo" / "prices",
+        )
