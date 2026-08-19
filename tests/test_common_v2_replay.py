@@ -11,6 +11,7 @@ import polars as pl
 from alpharank.common_v2 import (
     gate_boosting_predictions_for_execution_open,
     gate_boosting_predictions_for_holding_membership,
+    gate_boosting_predictions_for_pre_execution_blocks,
     standard_v2_cost_model,
     validate_common_v2_replay,
 )
@@ -119,6 +120,32 @@ def test_boosting_common_replay_requires_first_session_execution_open() -> None:
     gated = gate_boosting_predictions_for_execution_open(predictions, prices)
 
     assert gated["ticker"].to_list() == ["CI.US"]
+
+
+def test_boosting_common_replay_rejects_known_pre_open_suspension() -> None:
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [date(2023, 4, 1)] * 2,
+            "ticker": ["FRC.US", "JPM.US"],
+            "score": [2.0, 1.0],
+        }
+    )
+    blocks = pl.DataFrame(
+        {
+            "terminal_event_id": ["FRC-2023-05-01-FDIC"],
+            "ticker": ["FRC.US"],
+            "effective_date": [date(2023, 5, 1)],
+            "known_at": [datetime(2023, 5, 1, 7, 26, tzinfo=timezone.utc)],
+            "entry_allowed": [False],
+        }
+    )
+
+    gated = gate_boosting_predictions_for_pre_execution_blocks(
+        predictions,
+        blocks,
+    )
+
+    assert gated["ticker"].to_list() == ["JPM.US"]
 
 
 def _holdings() -> pl.DataFrame:

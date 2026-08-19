@@ -26,6 +26,9 @@ from alpharank.portfolio.contracts import validate_causal_timing, validate_holdi
 from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.execution import apply_next_session_open_holding_returns
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.portfolio.terminal_event_registry import (
+    load_terminal_event_registry,
+)
 from alpharank.backtest.datasets import prepare_constituents_monthly
 
 
@@ -103,6 +106,62 @@ def gate_boosting_predictions_for_execution_open(
     ).sort(["decision_month", "ticker"])
 
 
+def gate_boosting_predictions_for_pre_execution_blocks(
+    predictions: pl.DataFrame,
+    pre_execution_blocks: pl.DataFrame,
+) -> pl.DataFrame:
+    """Reject publicly suspended candidates before Top-N ranking."""
+
+    required_predictions = {"decision_month", "ticker"}
+    missing_predictions = sorted(required_predictions - set(predictions.columns))
+    if missing_predictions:
+        raise ValueError(
+            f"Pre-execution gate lacks prediction fields: {missing_predictions}"
+        )
+    if pre_execution_blocks.is_empty():
+        return predictions.sort(["decision_month", "ticker"])
+    required_blocks = {
+        "terminal_event_id",
+        "ticker",
+        "effective_date",
+        "known_at",
+        "entry_allowed",
+    }
+    missing_blocks = sorted(required_blocks - set(pre_execution_blocks.columns))
+    if missing_blocks:
+        raise ValueError(f"Pre-execution gate lacks event fields: {missing_blocks}")
+    normalized_blocks = pre_execution_blocks.select(
+        pl.col("terminal_event_id").cast(pl.String),
+        pl.col("ticker").cast(pl.String),
+        pl.col("effective_date").cast(pl.String).str.to_date(strict=False),
+        pl.col("known_at"),
+        pl.col("entry_allowed").cast(pl.Boolean, strict=False),
+    )
+    if normalized_blocks.filter(
+        pl.col("effective_date").is_null()
+        | pl.col("known_at").is_null()
+        | (pl.col("entry_allowed") != False)  # noqa: E712
+    ).height:
+        raise ValueError("Pre-execution blocks must be dated, sourced rejections.")
+    blocked_keys = normalized_blocks.select(
+        "ticker",
+        pl.col("effective_date")
+        .dt.truncate("1mo")
+        .dt.offset_by("-1mo")
+        .alias("decision_month"),
+    ).unique()
+    normalized_predictions = predictions.with_columns(
+        pl.col("decision_month").cast(pl.String).str.to_date(strict=False)
+    )
+    if normalized_predictions.select(pl.col("decision_month").is_null().any()).item():
+        raise ValueError("Pre-execution gate requires valid decision months.")
+    return normalized_predictions.join(
+        blocked_keys,
+        on=["decision_month", "ticker"],
+        how="anti",
+    ).sort(["decision_month", "ticker"])
+
+
 def build_common_v2_comparison(
     *,
     legacy_run_dir: Path,
@@ -124,6 +183,7 @@ def build_common_v2_comparison(
     )
     snapshot = causal_snapshot_dir / "input_snapshot"
     prices = pl.read_parquet(snapshot / "US_Finalprice.parquet")
+    terminal_registry = load_terminal_event_registry()
     legacy_manifest = _read_json(legacy_run_dir / "legacy_v2_replay_manifest.json")
     legacy_holdings = pl.read_parquet(
         Path(legacy_manifest["artifacts"]["holdings"]["path"])
@@ -177,6 +237,16 @@ def build_common_v2_comparison(
     predictions_after_execution_gate = predictions.height
     execution_rows_removed = (
         predictions_before_execution_gate - predictions_after_execution_gate
+    )
+    predictions_before_pre_execution_block_gate = predictions.height
+    predictions = gate_boosting_predictions_for_pre_execution_blocks(
+        predictions,
+        terminal_registry.pre_execution_blocks(),
+    )
+    predictions_after_pre_execution_block_gate = predictions.height
+    pre_execution_block_rows_removed = (
+        predictions_before_pre_execution_block_gate
+        - predictions_after_pre_execution_block_gate
     )
     complete_decisions = (
         predictions.group_by("decision_month")
@@ -331,6 +401,14 @@ def build_common_v2_comparison(
             "candidate_rows_after": predictions_after_execution_gate,
             "candidate_rows_removed": execution_rows_removed,
         },
+        "reviewed_pre_execution_block_gate": {
+            "policy_id": "reviewed_pre_execution_block_before_ranking_v1",
+            "uses_holding_return_or_month_end_price": False,
+            "terminal_event_registry_sha256": terminal_registry.sha256,
+            "candidate_rows_before": predictions_before_pre_execution_block_gate,
+            "candidate_rows_after": predictions_after_pre_execution_block_gate,
+            "candidate_rows_removed": pre_execution_block_rows_removed,
+        },
         "calendar": calendar.to_dicts(),
         "provisional_terminal_observations": {
             "policy_id": "provisional_last_observation_v1",
@@ -352,6 +430,7 @@ def build_common_v2_comparison(
                 legacy_run_dir / "legacy_v2_replay_manifest.json"
             ),
             "boosting_manifest": _file_record(boosting_run_dir / "manifest.json"),
+            "terminal_event_registry": _file_record(terminal_registry.path),
         },
         "artifacts": {
             label: _file_record(path)
