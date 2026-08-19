@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "registry_id": "terminal_successor_prices_v1",
+  "status": "reviewed_selected_portfolio_successor_prices",
+  "retrieved_at": "2026-08-19T07:25:58Z",
+  "price_vintage_id": "terminal-successors-v1__2975e65156b0",
+  "base_snapshot": {
+    "snapshot_id": "v2-causal-2975e65156b0-20260818T085346Z",
+    "composition_id": "2975e65156b05df6ad9fe331fe5468b7576510b26fee6d68a8fa122823acb40b",
+    "price_artifact": "input_snapshot/US_Finalprice.parquet",
+    "price_artifact_sha256": "10777e4e4d5c97cf9ea61750f581bd687ed9031ff8125c67da5e912cbea3efd0",
+    "price_column": "close",
+    "price_basis": "unadjusted_usd_per_contemporaneous_share"
+  },
+  "observations": [
+    {
+      "observation_id": "KHC-2015-07-31-CLOSE",
+      "ticker": "KHC.US",
+      "holding_month": "2015-07-01",
+      "price_asof_date": "2015-07-31",
+      "holding_end_price": 79.47000122070312,
+      "currency": "USD",
+      "source_kind": "sealed_snapshot",
+      "source_reference": "base_snapshot.price_artifact",
+      "review_note": "Unadjusted KHC close from the sealed causal snapshot; the 0.55 USD July dividend is carried separately by the shareholder-event registry."
+    },
+    {
+      "observation_id": "CI-2018-12-31-CLOSE",
+      "ticker": "CI.US",
+      "holding_month": "2018-12-01",
+      "price_asof_date": "2018-12-31",
+      "holding_end_price": 189.9199981689453,
+      "currency": "USD",
+      "source_kind": "sealed_snapshot",
+      "source_reference": "base_snapshot.price_artifact",
+      "review_note": "Unadjusted CI close from the sealed causal snapshot, in the same share units as the 0.2434 CI exchange ratio."
+    },
+    {
+      "observation_id": "ECA-2019-02-28-CLOSE",
+      "ticker": "ECA.US",
+      "holding_month": "2019-02-01",
+      "price_asof_date": "2019-02-28",
+      "holding_end_price": 7.25,
+      "currency": "USD",
+      "source_kind": "sec_issuer_filing",
+      "source_reference": "sec-eca-2019-proxy-market-price",
+      "review_note": "The issuer's SEC-filed NYSE table reports February 2019 high 7.375 USD, low 5.95 USD and closing price 7.25 USD. The value is retained in contemporaneous ECA share units; it is not multiplied by the later one-for-five consolidation.",
+      "source_documents": [
+        {
+          "source_id": "sec-eca-2019-proxy-market-price",
+          "authority": "SEC issuer filing",
+          "document_type": "Proxy statement/prospectus exhibit",
+          "url": "https://www.sec.gov/Archives/edgar/data/1157806/000119312519285223/d804212dex991.htm",
+          "published_or_accepted_at": "2019-12-11T00:00:00-05:00",
+          "retrieved_at": "2026-08-19T07:25:58Z",
+          "sha256": "e3a0a16cb2b1a4b7be01bd093a2ece0fa91f63a61640c126695d11e51e37f5a5",
+          "supports": [
+            "ECA NYSE listing",
+            "February 2019 closing price 7.25 USD",
+            "February 2019 high and low bounds"
+          ]
+        },
+        {
+          "source_id": "sec-ovv-2020-reorganization",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K12B",
+          "url": "https://www.sec.gov/Archives/edgar/data/1792580/000119312520014164/d860981d8k12b.htm",
+          "published_or_accepted_at": "2020-01-24T00:00:00-05:00",
+          "retrieved_at": "2026-08-19T07:25:58Z",
+          "sha256": "04e652ec708a5c62f17b1951629ea6efa47e1b4e30a6011710307dad34adc7ae",
+          "supports": [
+            "one OVV share for five pre-consolidation ECA shares",
+            "OVV succession to ECA",
+            "January 27 2020 first OVV trading date"
+          ]
+        }
+      ]
+    }
+  ]
+}
