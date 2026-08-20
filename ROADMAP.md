@@ -37,7 +37,7 @@ découplé ces lecteurs ; son rôle est déjà clarifié dès maintenant.
 | Ordre | TASK-ID maître | Travail | Détail lié | Statut |
 | ---: | --- | --- | --- | --- |
 | 1 | `GIT-001` | publier chaque commit directement depuis `main` et conserver `main-save` | lot GIT ci-dessous | en cours |
-| 2 | `DOC-014` | consolider `AGENTS.md` comme source unique et réduire `AGENT.md` à un pointeur | — | prêt à committer |
+| 2 | `DOC-014` | consolider `AGENTS.md` comme source unique et réduire `AGENT.md` à un pointeur | — | fait |
 | 3 | `DOC-015` | imposer le contrat Git une tâche = un commit documenté | — | fait |
 | 4 | `DOC-009` | découper le catalogue Boosting de 3 899 lignes | lot DOC ci-dessous | à faire |
 | 5 | `DOC-010` | découpler les tests des chemins documentaires historiques | lot DOC ci-dessous | à faire |
@@ -131,7 +131,7 @@ La carte détaillée se trouve dans
 | `DOC-011` | formaliser le standard Python détaillé | prêt à committer | règles et checklist dans `docs/standards/python.md` |
 | `DOC-012` | formaliser le standard data détaillé | prêt à committer | contrats et checklist dans `docs/standards/data.md` |
 | `DOC-013` | formaliser l'organisation cible et les dépendances autorisées | prêt à committer | règles dans `docs/standards/repository.md` |
-| `DOC-014` | consolider les instructions agents dans le seul fichier réellement chargé | prêt à committer | `AGENTS.md` court, ancien contenu archivé, `AGENT.md` simple pointeur |
+| `DOC-014` | consolider les instructions agents dans le seul fichier réellement chargé | fait | `AGENTS.md` court, ancien contenu archivé, `AGENT.md` simple pointeur |
 | `DOC-015` | formaliser le contrat Git tâche/commit/preuves | fait | `docs/standards/git.md` et liens normatifs |
 | `DOC-016` | clarifier roadmap maître et registre méthodologique | fait | une seule liste de priorités actives, historique intégral conservé |
 
