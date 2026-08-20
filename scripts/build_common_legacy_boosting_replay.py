@@ -180,7 +180,7 @@ def build_comparison(
             "missing_return_policy": "raise_after_selection",
             "benchmark": "SPY total return from adjusted_close",
         },
-        seeds={},
+        seeds={"replay_randomness": "none_deterministic_inputs_only"},
         critical_files=(
             "scripts/build_common_legacy_boosting_replay.py",
             "src/alpharank/data/terminal_eligibility.py",
