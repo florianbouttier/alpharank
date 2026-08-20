@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 460,
+  "node_count": 462,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -384,6 +384,8 @@
     "test_run_legacy_open_source_lineage.py::test_validate_legacy_replay_package_rejects_open_source_lineage_mismatch",
     "test_run_legacy_open_source_lineage.py::test_validate_legacy_replay_package_requires_retained_snapshot",
     "test_run_legacy_open_source_lineage.py::test_validate_project_root_resolution_finds_repo_from_nested_manifest",
+    "test_run_retention.py::test_retention_report_measures_exact_duplicates_without_deletion",
+    "test_run_retention.py::test_same_size_different_bytes_are_not_duplicates",
     "test_run_root_inventory.py::test_canonical_run_path_has_family_and_utc_run_id",
     "test_run_root_inventory.py::test_canonical_run_path_rejects_free_form_or_nested_names",
     "test_run_root_inventory.py::test_latest_pointer_detects_changed_result_bytes",
@@ -463,7 +465,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "0dbe7851e0df150d2975a606666faa65b66e0b18bcf4792013542b1e1253a05f",
+  "node_ids_sha256": "787982441be8ccb2a9a504ba12470c315108607864722b611000db0d3170c8c0",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

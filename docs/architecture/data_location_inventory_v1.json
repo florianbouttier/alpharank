@@ -4,7 +4,7 @@
     {
       "current_role": "mixed_generation_root",
       "exists": true,
-      "file_count": 16272,
+      "file_count": 16273,
       "kind": "package",
       "location_id": "data_root",
       "migration_status": "observed",
@@ -58,7 +58,7 @@
         "src/alpharank/replay/causal_snapshot.py",
         "src/alpharank/replay/validation.py"
       ],
-      "size_bytes": 35993206602,
+      "size_bytes": 35996776377,
       "target_role": "routing_only"
     },
     {
@@ -591,7 +591,7 @@
     {
       "current_role": "canonical_transformation_root",
       "exists": true,
-      "file_count": 175,
+      "file_count": 176,
       "kind": "package",
       "location_id": "warehouse",
       "migration_status": "target",
@@ -602,7 +602,7 @@
         "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
-      "size_bytes": 2391423766,
+      "size_bytes": 2394993541,
       "target_role": "warehouse"
     },
     {
@@ -658,13 +658,13 @@
     {
       "current_role": "migration_and_promotion_evidence",
       "exists": true,
-      "file_count": 14,
+      "file_count": 15,
       "kind": "package",
       "location_id": "warehouse_manifests",
       "migration_status": "target",
       "path": "data/warehouse/manifests",
       "readers": [],
-      "size_bytes": 6320865,
+      "size_bytes": 9890640,
       "target_role": "warehouse/manifests"
     },
     {

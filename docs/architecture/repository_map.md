@@ -169,6 +169,11 @@ Le `latest.json` d'une famille référence uniquement un run `published`, avec l
 hash du manifeste et de tout l'arbre. Son remplacement est atomique et ne copie
 aucun résultat ; la version immuable du pointeur permet de retrouver la cible.
 
+La rétention reste une proposition : le rapport
+[`run_retention_report_v1.json`](run_retention_report_v1.json) mesure uniquement
+les doublons SHA-256 exacts, désigne une source de récupération et interdit
+toute suppression automatique.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

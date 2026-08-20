@@ -1097,6 +1097,17 @@
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
+      "path": "tests/unit/test_run_retention.py",
+      "suite": "unit",
+      "test_case_count": 2
+    },
+    {
+      "domain": "data",
+      "duration_class": "fast",
+      "duration_seconds": 0.001,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
       "path": "tests/unit/test_run_root_inventory.py",
       "suite": "unit",
       "test_case_count": 10
@@ -1322,27 +1333,27 @@
     "domain_counts": {
       "backtest": 7,
       "boosting": 5,
-      "data": 56,
+      "data": 57,
       "legacy": 6,
       "portfolio": 9,
       "quality_tooling": 15,
       "replay_governance": 15,
       "reporting": 6
     },
-    "duration_seconds": 94.036,
+    "duration_seconds": 94.037,
     "failure_count": 3,
-    "file_count": 119,
+    "file_count": 120,
     "outcome_counts": {
       "failed_missing_local_artifacts": 2,
-      "passed": 117
+      "passed": 118
     },
     "suite_counts": {
       "integration": 37,
       "network": 3,
       "production": 4,
       "replay": 9,
-      "unit": 66
+      "unit": 67
     },
-    "test_case_count": 460
+    "test_case_count": 462
   }
 }

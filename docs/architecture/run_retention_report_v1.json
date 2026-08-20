@@ -1,0 +1,1187 @@
+{
+  "contract": "alpharank_run_retention_summary_v1",
+  "duplicate_file_count": 10404,
+  "duplicate_group_count": 3866,
+  "file_count": 24070,
+  "generated_at": "2026-08-20",
+  "measurement": "exact_sha256_after_size_grouping",
+  "reclaimable_bytes": 11317912491,
+  "report_id": "472416a6fd41cf8c9385c2a4cbf546600510cd4a83ca9a9206066d8cdb5ae1db",
+  "report_path": "/Users/florianbouttier/alpharank/data/warehouse/manifests/run_retention/472416a6fd41cf8c9385c2a4cbf546600510cd4a83ca9a9206066d8cdb5ae1db/manifest.json",
+  "report_sha256": "99a92e8a5cef29a52455fb69ea622906d463703560bdc65bab1a3d009705e495",
+  "retention_proposal": {
+    "automatic_deletion": false,
+    "deletion_count": 0,
+    "preconditions": [
+      "Close the observation window and obtain a separate owner decision.",
+      "Rehash each candidate and its recovery source immediately before action.",
+      "Exclude every path referenced by a run manifest, latest pointer or rollback record.",
+      "Move candidates to a reversible quarantine before any later deletion decision."
+    ],
+    "rollback": "Restore the quarantined path from recovery_source and verify the recorded SHA-256.",
+    "rule": "Keep every published target and one verified recovery source per exact SHA-256 group.",
+    "state": "proposal_only"
+  },
+  "size_collision_file_count": 17521,
+  "top_duplicate_groups": [
+    {
+      "copy_count": 22,
+      "paths": [
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_001/price_package_registry_v2/lineage/prices_open_source_lineage.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v2/lineage/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v3_persistent/lineage/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v4_persistent_contract/lineage/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v5_persistent_contract/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 1584900870,
+      "recovery_source": "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_001/price_package_registry_v2/lineage/prices_open_source_lineage.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v2/lineage/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v3_persistent/lineage/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v4_persistent_contract/lineage/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v5_persistent_contract/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "d48a4219166ad17456c0a86f54359e260e209124b1f28521c3dc4a2ba12239d6",
+      "size_bytes": 75471470
+    },
+    {
+      "copy_count": 22,
+      "paths": [
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/US_Finalprice.parquet",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/US_Finalprice.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/US_Finalprice.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/US_Finalprice.parquet",
+        "methodology_v2/run_001/price_package_registry_v2/US_Finalprice.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/US_Finalprice.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v2/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v3_persistent/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v4_persistent_contract/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v5_persistent_contract/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 1580783673,
+      "recovery_source": "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/US_Finalprice.parquet",
+      "retention_candidates": [
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/US_Finalprice.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/US_Finalprice.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/US_Finalprice.parquet",
+        "methodology_v2/run_001/price_package_registry_v2/US_Finalprice.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/US_Finalprice.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/US_Finalprice.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v2/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v3_persistent/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v4_persistent_contract/US_Finalprice.parquet",
+        "production_refresh_20260816/price_package_roll_forward_v5_persistent_contract/US_Finalprice.parquet"
+      ],
+      "sha256": "10777e4e4d5c97cf9ea61750f581bd687ed9031ff8125c67da5e912cbea3efd0",
+      "size_bytes": 75275413
+    },
+    {
+      "copy_count": 5,
+      "paths": [
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_041319/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_045653/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/legacy_runs_live021/2026-08-20/runs/20260820_055245/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/legacy_smoke_live018/2026-08-20/runs/20260820_045159/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/price_package_roll_forward/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 302572940,
+      "recovery_source": "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_041319/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_045653/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/legacy_runs_live021/2026-08-20/runs/20260820_055245/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/legacy_smoke_live018/2026-08-20/runs/20260820_045159/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/price_package_roll_forward/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "f002fd1774ec975d52d8a6c6b26c295783f139d3051de19b86d670b8ddf12c48",
+      "size_bytes": 75643235
+    },
+    {
+      "copy_count": 5,
+      "paths": [
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_041319/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_045653/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/legacy_runs_live021/2026-08-20/runs/20260820_055245/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/legacy_smoke_live018/2026-08-20/runs/20260820_045159/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/price_package_roll_forward/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 301788692,
+      "recovery_source": "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_041319/input_snapshot/US_Finalprice.parquet",
+      "retention_candidates": [
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_045653/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/legacy_runs_live021/2026-08-20/runs/20260820_055245/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/legacy_smoke_live018/2026-08-20/runs/20260820_045159/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/price_package_roll_forward/US_Finalprice.parquet"
+      ],
+      "sha256": "85807f3583279c2985b8eff64644b0b2978ebfb733d5b5fcc3c0cf883a27f570",
+      "size_bytes": 75447173
+    },
+    {
+      "copy_count": 5,
+      "paths": [
+        "hybrid_price_candidate_20260815_final/lineage/prices_open_source_lineage.parquet",
+        "hybrid_price_candidate_20260815_replay/lineage/prices_open_source_lineage.parquet",
+        "hybrid_price_candidate_20260815_v3/prices_open_source_lineage.parquet",
+        "hybrid_price_candidate_20260815_v4/prices_open_source_lineage.parquet",
+        "hybrid_price_candidate_20260815_v5/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 301671612,
+      "recovery_source": "hybrid_price_candidate_20260815_final/lineage/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "hybrid_price_candidate_20260815_replay/lineage/prices_open_source_lineage.parquet",
+        "hybrid_price_candidate_20260815_v3/prices_open_source_lineage.parquet",
+        "hybrid_price_candidate_20260815_v4/prices_open_source_lineage.parquet",
+        "hybrid_price_candidate_20260815_v5/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "7f064855e8da0438e6ddaa300fcce4e7604f66223f8185a67d53884d8e4ff205",
+      "size_bytes": 75417903
+    },
+    {
+      "copy_count": 5,
+      "paths": [
+        "hybrid_price_candidate_20260815_final/US_Finalprice.parquet",
+        "hybrid_price_candidate_20260815_replay/US_Finalprice.parquet",
+        "hybrid_price_candidate_20260815_v3/US_Finalprice.parquet",
+        "hybrid_price_candidate_20260815_v4/US_Finalprice.parquet",
+        "hybrid_price_candidate_20260815_v5/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 300887808,
+      "recovery_source": "hybrid_price_candidate_20260815_final/US_Finalprice.parquet",
+      "retention_candidates": [
+        "hybrid_price_candidate_20260815_replay/US_Finalprice.parquet",
+        "hybrid_price_candidate_20260815_v3/US_Finalprice.parquet",
+        "hybrid_price_candidate_20260815_v4/US_Finalprice.parquet",
+        "hybrid_price_candidate_20260815_v5/US_Finalprice.parquet"
+      ],
+      "sha256": "5f216dc374f4a20fc40922f72054f1b0fcd4fa0d355b741f3e8ed802f6e4ccce",
+      "size_bytes": 75221952
+    },
+    {
+      "copy_count": 44,
+      "paths": [
+        "data_revision_portfolios_20260813/legacy_new/2026-08-13/runs/20260813_154243/input_snapshot/SP500_Constituents.csv",
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/SP500_Constituents.csv",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/SP500_Constituents.csv",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/SP500_Constituents.csv",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/SP500_Constituents.csv",
+        "methodology_v2/run_001/price_package_registry_v2/SP500_Constituents.csv",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/SP500_Constituents.csv",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/SP500_Constituents.csv",
+        "production_refresh_20260816/history/output/sec_output_20260816_114319/SP500_Constituents.csv",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/SP500_Constituents.csv",
+        "production_refresh_20260816/open_source/output/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v2/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v3_persistent/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v4_persistent_contract/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v5_persistent_contract/SP500_Constituents.csv",
+        "production_refresh_20260816/sec_candidate_code_1dfe9af/SP500_Constituents.csv",
+        "production_refresh_20260816/sec_candidate_pit_review/SP500_Constituents.csv",
+        "production_refresh_20260816/sec_package_pit_validated/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_021207/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_140648/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_141359/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_141647/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_142014/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_142243/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_041319/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_045653/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_runs_live021/2026-08-20/runs/20260820_055245/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_smoke_live018/2026-08-20/runs/20260820_045159/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/price_package_roll_forward/SP500_Constituents.csv",
+        "production_refresh_20260820/sec_package_identity_v1/SP500_Constituents.csv",
+        "production_refresh_20260820/sec_package_pit_validated/SP500_Constituents.csv"
+      ],
+      "reclaimable_bytes": 293729130,
+      "recovery_source": "data_revision_portfolios_20260813/legacy_new/2026-08-13/runs/20260813_154243/input_snapshot/SP500_Constituents.csv",
+      "retention_candidates": [
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/SP500_Constituents.csv",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/SP500_Constituents.csv",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/SP500_Constituents.csv",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/SP500_Constituents.csv",
+        "methodology_v2/run_001/price_package_registry_v2/SP500_Constituents.csv",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/SP500_Constituents.csv",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/SP500_Constituents.csv",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/SP500_Constituents.csv",
+        "production_refresh_20260816/history/output/sec_output_20260816_114319/SP500_Constituents.csv",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/SP500_Constituents.csv",
+        "production_refresh_20260816/open_source/output/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v2/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v3_persistent/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v4_persistent_contract/SP500_Constituents.csv",
+        "production_refresh_20260816/price_package_roll_forward_v5_persistent_contract/SP500_Constituents.csv",
+        "production_refresh_20260816/sec_candidate_code_1dfe9af/SP500_Constituents.csv",
+        "production_refresh_20260816/sec_candidate_pit_review/SP500_Constituents.csv",
+        "production_refresh_20260816/sec_package_pit_validated/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_021207/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_140648/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_141359/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_141647/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_142014/SP500_Constituents.csv",
+        "production_refresh_20260820/history/output/sec_output_20260820_142243/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_041319/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_runs/2026-08-20/runs/20260820_045653/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_runs_live021/2026-08-20/runs/20260820_055245/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/legacy_smoke_live018/2026-08-20/runs/20260820_045159/input_snapshot/SP500_Constituents.csv",
+        "production_refresh_20260820/price_package_roll_forward/SP500_Constituents.csv",
+        "production_refresh_20260820/sec_package_identity_v1/SP500_Constituents.csv",
+        "production_refresh_20260820/sec_package_pit_validated/SP500_Constituents.csv"
+      ],
+      "sha256": "d72223c0c0ae034fff6f9ad216e653152cb40060b25df1c15e63eda308ff9b9f",
+      "size_bytes": 6830910
+    },
+    {
+      "copy_count": 5,
+      "paths": [
+        "hybrid_price_candidate_20260815_final/audit/price_daily_return_revisions.parquet",
+        "hybrid_price_candidate_20260815_replay/audit/price_daily_return_revisions.parquet",
+        "hybrid_price_candidate_20260815_v3/price_daily_return_revisions.parquet",
+        "hybrid_price_candidate_20260815_v4/price_daily_return_revisions.parquet",
+        "hybrid_price_candidate_20260815_v5/audit/price_daily_return_revisions.parquet"
+      ],
+      "reclaimable_bytes": 286883580,
+      "recovery_source": "hybrid_price_candidate_20260815_final/audit/price_daily_return_revisions.parquet",
+      "retention_candidates": [
+        "hybrid_price_candidate_20260815_replay/audit/price_daily_return_revisions.parquet",
+        "hybrid_price_candidate_20260815_v3/price_daily_return_revisions.parquet",
+        "hybrid_price_candidate_20260815_v4/price_daily_return_revisions.parquet",
+        "hybrid_price_candidate_20260815_v5/audit/price_daily_return_revisions.parquet"
+      ],
+      "sha256": "22688f7267c3b3d9e55d8098322d8f2af76051c2ab36e1167dd862bbc99c11b7",
+      "size_bytes": 71720895
+    },
+    {
+      "copy_count": 39,
+      "paths": [
+        "2026-06-09/runs/20260609_134342/input_snapshot/SP500_Constituents.csv",
+        "2026-06-10/runs/20260610_125505/input_snapshot/SP500_Constituents.csv",
+        "2026-06-10/runs/20260610_131322/input_snapshot/SP500_Constituents.csv",
+        "2026-06-10/runs/20260610_133845/input_snapshot/SP500_Constituents.csv",
+        "2026-07-06/runs/20260706_122316/input_snapshot/SP500_Constituents.csv",
+        "2026-07-07/runs/20260707_084316/input_snapshot/SP500_Constituents.csv",
+        "2026-07-11/runs/20260711_160522/input_snapshot/SP500_Constituents.csv",
+        "2026-07-13/runs/20260713_201639/input_snapshot/SP500_Constituents.csv",
+        "2026-07-19/runs/20260719_194418/input_snapshot/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_132355/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_133006/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_185711/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_193432/SP500_Constituents.csv",
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/SP500_Constituents.csv",
+        "open_source_retest_20260426/output/SP500_Constituents.csv",
+        "sec_candidate_fix10_output/SP500_Constituents.csv",
+        "sec_candidate_fix1_output/SP500_Constituents.csv",
+        "sec_candidate_fix2_output/SP500_Constituents.csv",
+        "sec_candidate_fix3_output/SP500_Constituents.csv",
+        "sec_candidate_fix4_output/SP500_Constituents.csv",
+        "sec_candidate_fix5_output/SP500_Constituents.csv",
+        "sec_candidate_fix6_output/SP500_Constituents.csv",
+        "sec_candidate_fix7_output/SP500_Constituents.csv",
+        "sec_candidate_fix8_output/SP500_Constituents.csv",
+        "sec_candidate_fix9_output/SP500_Constituents.csv",
+        "sec_candidate_share_noise_fix_output/SP500_Constituents.csv",
+        "sec_kpi_hybrid_output_latest/SP500_Constituents.csv",
+        "sec_overlay_fix1_output/SP500_Constituents.csv",
+        "sec_overlay_fix2_output/SP500_Constituents.csv",
+        "sec_overlay_fix3_output/SP500_Constituents.csv",
+        "sec_overlay_multi_history_output/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_combo_output_20260524_230946/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_combo_output_20260524_231500/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_combo_output_latest/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_probe_output_20260524_230946/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_probe_output_20260524_231500/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_probe_output_latest/SP500_Constituents.csv",
+        "sec_q4_fix2_combo_output/SP500_Constituents.csv",
+        "sec_q4_probe_output/SP500_Constituents.csv"
+      ],
+      "reclaimable_bytes": 257246700,
+      "recovery_source": "2026-06-09/runs/20260609_134342/input_snapshot/SP500_Constituents.csv",
+      "retention_candidates": [
+        "2026-06-10/runs/20260610_125505/input_snapshot/SP500_Constituents.csv",
+        "2026-06-10/runs/20260610_131322/input_snapshot/SP500_Constituents.csv",
+        "2026-06-10/runs/20260610_133845/input_snapshot/SP500_Constituents.csv",
+        "2026-07-06/runs/20260706_122316/input_snapshot/SP500_Constituents.csv",
+        "2026-07-07/runs/20260707_084316/input_snapshot/SP500_Constituents.csv",
+        "2026-07-11/runs/20260711_160522/input_snapshot/SP500_Constituents.csv",
+        "2026-07-13/runs/20260713_201639/input_snapshot/SP500_Constituents.csv",
+        "2026-07-19/runs/20260719_194418/input_snapshot/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_132355/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_133006/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_185711/SP500_Constituents.csv",
+        "history/output/sec_output_20260524_193432/SP500_Constituents.csv",
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/SP500_Constituents.csv",
+        "open_source_retest_20260426/output/SP500_Constituents.csv",
+        "sec_candidate_fix10_output/SP500_Constituents.csv",
+        "sec_candidate_fix1_output/SP500_Constituents.csv",
+        "sec_candidate_fix2_output/SP500_Constituents.csv",
+        "sec_candidate_fix3_output/SP500_Constituents.csv",
+        "sec_candidate_fix4_output/SP500_Constituents.csv",
+        "sec_candidate_fix5_output/SP500_Constituents.csv",
+        "sec_candidate_fix6_output/SP500_Constituents.csv",
+        "sec_candidate_fix7_output/SP500_Constituents.csv",
+        "sec_candidate_fix8_output/SP500_Constituents.csv",
+        "sec_candidate_fix9_output/SP500_Constituents.csv",
+        "sec_candidate_share_noise_fix_output/SP500_Constituents.csv",
+        "sec_kpi_hybrid_output_latest/SP500_Constituents.csv",
+        "sec_overlay_fix1_output/SP500_Constituents.csv",
+        "sec_overlay_fix2_output/SP500_Constituents.csv",
+        "sec_overlay_fix3_output/SP500_Constituents.csv",
+        "sec_overlay_multi_history_output/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_combo_output_20260524_230946/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_combo_output_20260524_231500/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_combo_output_latest/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_probe_output_20260524_230946/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_probe_output_20260524_231500/SP500_Constituents.csv",
+        "sec_q4_fix2_candidate_probe_output_latest/SP500_Constituents.csv",
+        "sec_q4_fix2_combo_output/SP500_Constituents.csv",
+        "sec_q4_probe_output/SP500_Constituents.csv"
+      ],
+      "sha256": "d991f9710bc0ea72d8e704f4b28717651c24c38a3ce5706776d2dcec7722acfe",
+      "size_bytes": 6769650
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/price_package_identity_v1/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 151289560,
+      "recovery_source": "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/lineage/prices/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/lineage/prices/prices_open_source_lineage.parquet",
+        "production_refresh_20260820/price_package_identity_v1/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "0ed47b58415c64fbb76b562fe7792993b614acc900fa87b923af197cfb963a83",
+      "size_bytes": 75644780
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/US_Finalprice.parquet",
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/price_package_identity_v1/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 150897436,
+      "recovery_source": "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/US_Finalprice.parquet",
+      "retention_candidates": [
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/US_Finalprice.parquet",
+        "production_refresh_20260820/price_package_identity_v1/US_Finalprice.parquet"
+      ],
+      "sha256": "7e12d6d2b8ba9599de906b57d048f91ba767a015a4f59cb06dd827e58ae285f5",
+      "size_bytes": 75448718
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "open_source_legacy/checkpoints/polars_final_price_vs_index.parquet",
+        "open_source_legacy_recent/checkpoints/polars_final_price_vs_index.parquet",
+        "open_source_legacy_recent_probe/checkpoints/polars_final_price_vs_index.parquet"
+      ],
+      "reclaimable_bytes": 148581566,
+      "recovery_source": "open_source_legacy/checkpoints/polars_final_price_vs_index.parquet",
+      "retention_candidates": [
+        "open_source_legacy_recent/checkpoints/polars_final_price_vs_index.parquet",
+        "open_source_legacy_recent_probe/checkpoints/polars_final_price_vs_index.parquet"
+      ],
+      "sha256": "a4db64191a9cf2ce90ff3149955a9d94e500a0a5b44aaaf2084acce91c3314df",
+      "size_bytes": 74290783
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "2026-08-11/runs/20260811_035522/input_snapshot/lineage/prices_open_source_lineage.parquet",
+        "2026-08-12/runs/20260812_165121/input_snapshot/lineage/prices_open_source_lineage.parquet",
+        "2026-08-12/runs/20260812_171646/input_snapshot/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 128367838,
+      "recovery_source": "2026-08-11/runs/20260811_035522/input_snapshot/lineage/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "2026-08-12/runs/20260812_165121/input_snapshot/lineage/prices_open_source_lineage.parquet",
+        "2026-08-12/runs/20260812_171646/input_snapshot/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "bbbb9bf44db1f01993f97cd06d41989733df2b298c0ab570dfff8e39c2fd49e4",
+      "size_bytes": 64183919
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "2026-08-11/runs/20260811_035522/input_snapshot/lineage/prices_open_source.parquet",
+        "2026-08-12/runs/20260812_165121/input_snapshot/lineage/prices_open_source.parquet",
+        "2026-08-12/runs/20260812_171646/input_snapshot/lineage/prices_open_source.parquet"
+      ],
+      "reclaimable_bytes": 128217868,
+      "recovery_source": "2026-08-11/runs/20260811_035522/input_snapshot/lineage/prices_open_source.parquet",
+      "retention_candidates": [
+        "2026-08-12/runs/20260812_165121/input_snapshot/lineage/prices_open_source.parquet",
+        "2026-08-12/runs/20260812_171646/input_snapshot/lineage/prices_open_source.parquet"
+      ],
+      "sha256": "743a6ea0cd1c9ebaf31bf8785388344ced7491cb580422300a82edf4dec6ce6c",
+      "size_bytes": 64108934
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "2026-08-11/runs/20260811_035522/input_snapshot/US_Finalprice.parquet",
+        "2026-08-12/runs/20260812_165121/input_snapshot/US_Finalprice.parquet",
+        "2026-08-12/runs/20260812_171646/input_snapshot/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 128217860,
+      "recovery_source": "2026-08-11/runs/20260811_035522/input_snapshot/US_Finalprice.parquet",
+      "retention_candidates": [
+        "2026-08-12/runs/20260812_165121/input_snapshot/US_Finalprice.parquet",
+        "2026-08-12/runs/20260812_171646/input_snapshot/US_Finalprice.parquet"
+      ],
+      "sha256": "b4f81b5d491f230f6e04a2d0db3067ef2126bbc850118119e10120f8a2130ac8",
+      "size_bytes": 64108930
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "checkpoints_open_source_20260811_latest_common/polars_final_price_vs_index.parquet",
+        "checkpoints_open_source_20260811_latest_common_rerun/polars_final_price_vs_index.parquet"
+      ],
+      "reclaimable_bytes": 76142833,
+      "recovery_source": "checkpoints_open_source_20260811_latest_common/polars_final_price_vs_index.parquet",
+      "retention_candidates": [
+        "checkpoints_open_source_20260811_latest_common_rerun/polars_final_price_vs_index.parquet"
+      ],
+      "sha256": "77f9fac1a6207d0e620b8752c4344aaa94d21a405dc0d0121d06fcf5156cf642",
+      "size_bytes": 76142833
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "checkpoints_open_source_20260810_comparable/polars_final_price_vs_index.parquet",
+        "checkpoints_open_source_20260810_comparable_retry/polars_final_price_vs_index.parquet"
+      ],
+      "reclaimable_bytes": 76008123,
+      "recovery_source": "checkpoints_open_source_20260810_comparable/polars_final_price_vs_index.parquet",
+      "retention_candidates": [
+        "checkpoints_open_source_20260810_comparable_retry/polars_final_price_vs_index.parquet"
+      ],
+      "sha256": "b4c465f33f3423eb1afc18d643083442e78e4a291c1b23edeae56588438af15b",
+      "size_bytes": 76008123
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/lineage/prices_open_source_lineage.parquet",
+        "production_refresh_20260816/open_source/output/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 74859936,
+      "recovery_source": "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/lineage/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "production_refresh_20260816/open_source/output/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "04e892172cc57d0a7e886794aafab6bca66eee13b8cf0870614e0ce7def4900f",
+      "size_bytes": 74859936
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/lineage/prices_open_source.parquet",
+        "production_refresh_20260816/open_source/output/lineage/prices_open_source.parquet"
+      ],
+      "reclaimable_bytes": 74703371,
+      "recovery_source": "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/lineage/prices_open_source.parquet",
+      "retention_candidates": [
+        "production_refresh_20260816/open_source/output/lineage/prices_open_source.parquet"
+      ],
+      "sha256": "ccde55939eaeb3073f0c2fb29330bea1ae05e7f06f6bcde8fd8950a4077698a9",
+      "size_bytes": 74703371
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/US_Finalprice.parquet",
+        "production_refresh_20260816/open_source/output/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 74695115,
+      "recovery_source": "production_refresh_20260816/open_source/history/output/open_source_output_20260816_112848/US_Finalprice.parquet",
+      "retention_candidates": [
+        "production_refresh_20260816/open_source/output/US_Finalprice.parquet"
+      ],
+      "sha256": "6ed23e928a64ee0deabf37c56e3c56408b79ce0e49377ba02dce44aa4fdf1358",
+      "size_bytes": 74695115
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "checkpoints_open_source_20260607/polars_final_price_vs_index.parquet",
+        "checkpoints_open_source_20260609/polars_final_price_vs_index.parquet"
+      ],
+      "reclaimable_bytes": 74425069,
+      "recovery_source": "checkpoints_open_source_20260607/polars_final_price_vs_index.parquet",
+      "retention_candidates": [
+        "checkpoints_open_source_20260609/polars_final_price_vs_index.parquet"
+      ],
+      "sha256": "49bde8e1eb6c04102cc5908be11c52ae63159103ad6bedab9b7a3ba7ea216666",
+      "size_bytes": 74425069
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "legacy_db_compare_20260401_202333/aligned_data/eodhd/US_Finalprice.parquet",
+        "legacy_open_quickcheck_20260401_205738/aligned_data/eodhd/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 71035399,
+      "recovery_source": "legacy_db_compare_20260401_202333/aligned_data/eodhd/US_Finalprice.parquet",
+      "retention_candidates": [
+        "legacy_open_quickcheck_20260401_205738/aligned_data/eodhd/US_Finalprice.parquet"
+      ],
+      "sha256": "51723de2652607a0188077bd4f4363ea36b4eda474c8418f2b6db90fd31f407d",
+      "size_bytes": 71035399
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "legacy_open_quickcheck_20260401_205738/checkpoints/open_source_recheck/polars_final_price_vs_index.parquet",
+        "share_semantics_counterfactual_20260401/checkpoints/polars_final_price_vs_index.parquet"
+      ],
+      "reclaimable_bytes": 70076331,
+      "recovery_source": "legacy_open_quickcheck_20260401_205738/checkpoints/open_source_recheck/polars_final_price_vs_index.parquet",
+      "retention_candidates": [
+        "share_semantics_counterfactual_20260401/checkpoints/polars_final_price_vs_index.parquet"
+      ],
+      "sha256": "f0e44ef617a3fd02de1ad51dd117c0fae50cd9cf81671e864d0168c3bc98578d",
+      "size_bytes": 70076331
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "2026-07-13/runs/20260713_201639/input_snapshot/lineage/prices_open_source_lineage.parquet",
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 63937273,
+      "recovery_source": "2026-07-13/runs/20260713_201639/input_snapshot/lineage/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "9c601ddc09e7083c225bd66f172be30fd0368c4cdc87db4fac90689cff150f43",
+      "size_bytes": 63937273
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "2026-07-13/runs/20260713_201639/input_snapshot/lineage/prices_open_source.parquet",
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/lineage/prices_open_source.parquet"
+      ],
+      "reclaimable_bytes": 63876848,
+      "recovery_source": "2026-07-13/runs/20260713_201639/input_snapshot/lineage/prices_open_source.parquet",
+      "retention_candidates": [
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/lineage/prices_open_source.parquet"
+      ],
+      "sha256": "58e979fd4c6f7af7d74bb5be7dea55228b453ca4f56a71b98120880351e785db",
+      "size_bytes": 63876848
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "2026-07-13/runs/20260713_201639/input_snapshot/US_Finalprice.parquet",
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 63876841,
+      "recovery_source": "2026-07-13/runs/20260713_201639/input_snapshot/US_Finalprice.parquet",
+      "retention_candidates": [
+        "legacy_ticker_quarantine_v1/2026-07-26/runs/20260726_161928/input_snapshot/US_Finalprice.parquet"
+      ],
+      "sha256": "fe2544b0ae229915e22afed62093f875b6b5dce06723f23bf14cfd0b38c25ad6",
+      "size_bytes": 63876841
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "2026-06-09/runs/20260609_134342/input_snapshot/lineage/prices_open_source_lineage.parquet",
+        "2026-06-10/runs/20260610_125505/input_snapshot/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 63109298,
+      "recovery_source": "2026-06-09/runs/20260609_134342/input_snapshot/lineage/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "2026-06-10/runs/20260610_125505/input_snapshot/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "fd19d41e9e667c4013180ba4b0ff504ae06f25a4b19a448d9245f978defa1a78",
+      "size_bytes": 63109298
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "2026-06-09/runs/20260609_134342/input_snapshot/lineage/prices_open_source.parquet",
+        "2026-06-10/runs/20260610_125505/input_snapshot/lineage/prices_open_source.parquet"
+      ],
+      "reclaimable_bytes": 63053898,
+      "recovery_source": "2026-06-09/runs/20260609_134342/input_snapshot/lineage/prices_open_source.parquet",
+      "retention_candidates": [
+        "2026-06-10/runs/20260610_125505/input_snapshot/lineage/prices_open_source.parquet"
+      ],
+      "sha256": "884c49c2c23418187f93fc386de9d239731963c6341dc60ee2df1803b1a8285c",
+      "size_bytes": 63053898
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "2026-06-09/runs/20260609_134342/input_snapshot/US_Finalprice.parquet",
+        "2026-06-10/runs/20260610_125505/input_snapshot/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 63053894,
+      "recovery_source": "2026-06-09/runs/20260609_134342/input_snapshot/US_Finalprice.parquet",
+      "retention_candidates": [
+        "2026-06-10/runs/20260610_125505/input_snapshot/US_Finalprice.parquet"
+      ],
+      "sha256": "f3aef3ecc2f7a6030ad9dfc3d322c21659da3e1cbd567c07755c57a462203bc1",
+      "size_bytes": 63053894
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "open_source_retest_20260426/official/target/prices_open_source_lineage.parquet",
+        "open_source_retest_20260426/output/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 60223495,
+      "recovery_source": "open_source_retest_20260426/official/target/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "open_source_retest_20260426/output/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "41afd0823415012aedf97bc23d5ea39c7f86fd8c28005bccd490eda85b09cbcf",
+      "size_bytes": 60223495
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "open_source_retest_20260426/official/target/prices_open_source.parquet",
+        "open_source_retest_20260426/output/lineage/prices_open_source.parquet"
+      ],
+      "reclaimable_bytes": 60182820,
+      "recovery_source": "open_source_retest_20260426/official/target/prices_open_source.parquet",
+      "retention_candidates": [
+        "open_source_retest_20260426/output/lineage/prices_open_source.parquet"
+      ],
+      "sha256": "d3ec2e61fe1fb528bdeca5a0dcb2aa56576262fa06e5202f7b342cf67b61dd93",
+      "size_bytes": 60182820
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "open_source_retest_20260426/official/target/legacy_compatible/US_Finalprice.parquet",
+        "open_source_retest_20260426/output/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 60182817,
+      "recovery_source": "open_source_retest_20260426/official/target/legacy_compatible/US_Finalprice.parquet",
+      "retention_candidates": [
+        "open_source_retest_20260426/output/US_Finalprice.parquet"
+      ],
+      "sha256": "42862a799488957f0e8dfd7b12922a07703efae71ff3abffd0cf88a3ffe834a6",
+      "size_bytes": 60182817
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "open_source_retest_20260426/official/raw/prices_yfinance.parquet",
+        "open_source_retest_20260426/official/runs/20260426_134445/raw/prices_yfinance.parquet"
+      ],
+      "reclaimable_bytes": 59983191,
+      "recovery_source": "open_source_retest_20260426/official/raw/prices_yfinance.parquet",
+      "retention_candidates": [
+        "open_source_retest_20260426/official/runs/20260426_134445/raw/prices_yfinance.parquet"
+      ],
+      "sha256": "1b386f79db979d259699465c0a31d8542459c599ce84bcfa9160446a9c41adad",
+      "size_bytes": 59983191
+    },
+    {
+      "copy_count": 19,
+      "paths": [
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/lineage/financials_sec_lineage.parquet"
+      ],
+      "reclaimable_bytes": 59301108,
+      "recovery_source": "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+      "retention_candidates": [
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/lineage/financials_sec_lineage.parquet"
+      ],
+      "sha256": "aa67420c9abee924a5e2be22f3f41f7166bac91209b2c16088f5ccfab6eaec05",
+      "size_bytes": 3294506
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "legacy_db_compare_20260401_202333/aligned_data/open_source/US_Finalprice.parquet",
+        "legacy_open_quickcheck_20260401_205738/aligned_data/open_source/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 59262263,
+      "recovery_source": "legacy_db_compare_20260401_202333/aligned_data/open_source/US_Finalprice.parquet",
+      "retention_candidates": [
+        "legacy_open_quickcheck_20260401_205738/aligned_data/open_source/US_Finalprice.parquet"
+      ],
+      "sha256": "e33a3b98c76a12eac78ed408223d326364573b188733564fee649aeb4a584840",
+      "size_bytes": 59262263
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "methodology_v2/run_003/boosting_v2_approved_censoring2/classification_h06/shap_samples.parquet",
+        "methodology_v2/run_003/boosting_v2_provisional_clean2/classification_h06/shap_samples.parquet",
+        "methodology_v2/run_003/boosting_v2_provisional_smoke/classification_h06/shap_samples.parquet"
+      ],
+      "reclaimable_bytes": 52736620,
+      "recovery_source": "methodology_v2/run_003/boosting_v2_approved_censoring2/classification_h06/shap_samples.parquet",
+      "retention_candidates": [
+        "methodology_v2/run_003/boosting_v2_provisional_clean2/classification_h06/shap_samples.parquet",
+        "methodology_v2/run_003/boosting_v2_provisional_smoke/classification_h06/shap_samples.parquet"
+      ],
+      "sha256": "b1be9464241de2941f902195e1ddded49769d53c74ee6e5672bb8221dad3f762",
+      "size_bytes": 26368310
+    },
+    {
+      "copy_count": 19,
+      "paths": [
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/lineage/financials_sec_consolidated.parquet"
+      ],
+      "reclaimable_bytes": 52375518,
+      "recovery_source": "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+      "retention_candidates": [
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/lineage/financials_sec_consolidated.parquet"
+      ],
+      "sha256": "d48811bbf3699751deab39febc603214afa163fe205dcf7751efb310f2bab058",
+      "size_bytes": 2909751
+    },
+    {
+      "copy_count": 3,
+      "paths": [
+        "methodology_baselines/v1-audited-biased/payload/boosting/classification_h06/shap_samples.parquet",
+        "production_refresh_20260816/boosting_latest_common_v2/classification_h06/shap_samples.parquet",
+        "production_refresh_20260816/boosting_latest_common_v3/classification_h06/shap_samples.parquet"
+      ],
+      "reclaimable_bytes": 47499168,
+      "recovery_source": "methodology_baselines/v1-audited-biased/payload/boosting/classification_h06/shap_samples.parquet",
+      "retention_candidates": [
+        "production_refresh_20260816/boosting_latest_common_v2/classification_h06/shap_samples.parquet",
+        "production_refresh_20260816/boosting_latest_common_v3/classification_h06/shap_samples.parquet"
+      ],
+      "sha256": "630372f7659f3170ec75b3c7f97406f95af83aef854aec95008ef2a0cea8c64e",
+      "size_bytes": 23749584
+    },
+    {
+      "copy_count": 6,
+      "paths": [
+        "2026-07-27/runs/20260727_221253/input_snapshot/SP500_Constituents.csv",
+        "2026-08-10/runs/20260810_222200/input_snapshot/SP500_Constituents.csv",
+        "2026-08-11/runs/20260811_030547/input_snapshot/SP500_Constituents.csv",
+        "2026-08-11/runs/20260811_035522/input_snapshot/SP500_Constituents.csv",
+        "2026-08-12/runs/20260812_165121/input_snapshot/SP500_Constituents.csv",
+        "2026-08-12/runs/20260812_171646/input_snapshot/SP500_Constituents.csv"
+      ],
+      "reclaimable_bytes": 34078005,
+      "recovery_source": "2026-07-27/runs/20260727_221253/input_snapshot/SP500_Constituents.csv",
+      "retention_candidates": [
+        "2026-08-10/runs/20260810_222200/input_snapshot/SP500_Constituents.csv",
+        "2026-08-11/runs/20260811_030547/input_snapshot/SP500_Constituents.csv",
+        "2026-08-11/runs/20260811_035522/input_snapshot/SP500_Constituents.csv",
+        "2026-08-12/runs/20260812_165121/input_snapshot/SP500_Constituents.csv",
+        "2026-08-12/runs/20260812_171646/input_snapshot/SP500_Constituents.csv"
+      ],
+      "sha256": "93ee7b178e8f4b54bb5313510f572432c016cd9924039368e98a3b83af030f87",
+      "size_bytes": 6815601
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "production_refresh_20260820/boosting_latest_common_live018/classification_h06/shap_samples.parquet",
+        "production_refresh_20260820/boosting_latest_common_live021_final_r2/classification_h06/shap_samples.parquet"
+      ],
+      "reclaimable_bytes": 27369827,
+      "recovery_source": "production_refresh_20260820/boosting_latest_common_live018/classification_h06/shap_samples.parquet",
+      "retention_candidates": [
+        "production_refresh_20260820/boosting_latest_common_live021_final_r2/classification_h06/shap_samples.parquet"
+      ],
+      "sha256": "3d46087ccd7219391d6be3cd73f2df001d8c62594e60241344769f5d6cd45330",
+      "size_bytes": 27369827
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "multihorizon_boosting/legacy_ema_latest_common_shared_eligibility_20260812/classification_h06/shap_samples.parquet",
+        "multihorizon_boosting/legacy_ema_latest_common_shared_eligibility_final_20260812/classification_h06/shap_samples.parquet"
+      ],
+      "reclaimable_bytes": 24080890,
+      "recovery_source": "multihorizon_boosting/legacy_ema_latest_common_shared_eligibility_20260812/classification_h06/shap_samples.parquet",
+      "retention_candidates": [
+        "multihorizon_boosting/legacy_ema_latest_common_shared_eligibility_final_20260812/classification_h06/shap_samples.parquet"
+      ],
+      "sha256": "293dad247e2fb656a09b03d52ec434415fb470d6803417d9a506b496f4b29a0a",
+      "size_bytes": 24080890
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "methodology_baselines/v1-audited-biased/payload/dashboard/html/alpharank_research_center.html",
+        "research_dashboard/alpharank_common_20260816_pit_validated/html/alpharank_research_center.html"
+      ],
+      "reclaimable_bytes": 23711686,
+      "recovery_source": "methodology_baselines/v1-audited-biased/payload/dashboard/html/alpharank_research_center.html",
+      "retention_candidates": [
+        "research_dashboard/alpharank_common_20260816_pit_validated/html/alpharank_research_center.html"
+      ],
+      "sha256": "6aa2e7785b7eb8415845788676509f379156a8e89ca4a2831a381f545a4ebf91",
+      "size_bytes": 23711686
+    },
+    {
+      "copy_count": 7,
+      "paths": [
+        "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_141359/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_141647/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142014/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142243/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260820/sec_package_identity_v1/lineage/financials_sec_lineage.parquet"
+      ],
+      "reclaimable_bytes": 21412866,
+      "recovery_source": "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/lineage/sec/financials_sec_lineage.parquet",
+      "retention_candidates": [
+        "production_refresh_20260820/history/output/sec_output_20260820_141359/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_141647/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142014/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142243/lineage/financials_sec_lineage.parquet",
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/lineage/sec/financials_sec_lineage.parquet",
+        "production_refresh_20260820/sec_package_identity_v1/lineage/financials_sec_lineage.parquet"
+      ],
+      "sha256": "786b65c605e273e833fdfe5dc84f0bd3bec7600f9f5a8d44e1886aca15b503eb",
+      "size_bytes": 3568811
+    },
+    {
+      "copy_count": 19,
+      "paths": [
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/lineage/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/lineage/earnings_sec_lineage.parquet"
+      ],
+      "reclaimable_bytes": 20652048,
+      "recovery_source": "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+      "retention_candidates": [
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/lineage/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/lineage/sec/earnings_sec_lineage.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/lineage/earnings_sec_lineage.parquet"
+      ],
+      "sha256": "dcd97d9885619acf2a8e33a1edb6e2939bc53959f0ab86bb081b9cabd526853b",
+      "size_bytes": 1147336
+    },
+    {
+      "copy_count": 7,
+      "paths": [
+        "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_141359/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_141647/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142014/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142243/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/sec_package_identity_v1/lineage/financials_sec_consolidated.parquet"
+      ],
+      "reclaimable_bytes": 20416086,
+      "recovery_source": "production_refresh_20260820/composed_history_identity_v1/alpharank_input_20260820_142249_5ce3d4544046/lineage/sec/financials_sec_consolidated.parquet",
+      "retention_candidates": [
+        "production_refresh_20260820/history/output/sec_output_20260820_141359/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_141647/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142014/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/history/output/sec_output_20260820_142243/lineage/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/legacy_runs_live022/2026-08-20/runs/20260820_162343/input_snapshot/lineage/sec/financials_sec_consolidated.parquet",
+        "production_refresh_20260820/sec_package_identity_v1/lineage/financials_sec_consolidated.parquet"
+      ],
+      "sha256": "84eb4f3fc7e15411fd3b49bcea7284972eacc536dcacffb86179c3a0bf0097e8",
+      "size_bytes": 3402681
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "open_source_financial_backfill_2020/target/prices_open_source_lineage.parquet",
+        "output/lineage/prices_open_source_lineage.parquet"
+      ],
+      "reclaimable_bytes": 20269992,
+      "recovery_source": "open_source_financial_backfill_2020/target/prices_open_source_lineage.parquet",
+      "retention_candidates": [
+        "output/lineage/prices_open_source_lineage.parquet"
+      ],
+      "sha256": "0eb2cdc080921e98d3c45fcc055b8281adca4d17250b47b6fd3e0f101a3d45b8",
+      "size_bytes": 20269992
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "open_source_financial_backfill_2020/target/prices_open_source.parquet",
+        "output/lineage/prices_open_source.parquet"
+      ],
+      "reclaimable_bytes": 20255839,
+      "recovery_source": "open_source_financial_backfill_2020/target/prices_open_source.parquet",
+      "retention_candidates": [
+        "output/lineage/prices_open_source.parquet"
+      ],
+      "sha256": "2ff6ada5da3bf85bc95e1924b9bdb6d713148e647020e2cb694bc67a539b9b0e",
+      "size_bytes": 20255839
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "open_source_financial_backfill_2020/target/legacy_compatible/US_Finalprice.parquet",
+        "output/US_Finalprice.parquet"
+      ],
+      "reclaimable_bytes": 20255831,
+      "recovery_source": "open_source_financial_backfill_2020/target/legacy_compatible/US_Finalprice.parquet",
+      "retention_candidates": [
+        "output/US_Finalprice.parquet"
+      ],
+      "sha256": "98678e988242ebe37c8322c12de6633ba48d02a290237a2545dc8e9bace729d8",
+      "size_bytes": 20255831
+    },
+    {
+      "copy_count": 20,
+      "paths": [
+        "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/US_Balance_sheet.parquet",
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/US_Balance_sheet.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/US_Balance_sheet.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/._staging_sec_output_package_20260816_114458_810757/US_Balance_sheet.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/US_Balance_sheet.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/US_Balance_sheet.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/US_Balance_sheet.parquet"
+      ],
+      "reclaimable_bytes": 19913387,
+      "recovery_source": "live008_mart_replay/2026-08-19/runs/20260819_165012/input_snapshot/US_Balance_sheet.parquet",
+      "retention_candidates": [
+        "live008_mart_replay/2026-08-19/runs/20260819_171347/input_snapshot/US_Balance_sheet.parquet",
+        "live008_mart_replay_smoke/2026-08-19/runs/20260819_173944/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_baselines/v1-audited-biased/payload/legacy/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_001/composed_history/alpharank_input_20260818_085336_2975e65156b0/US_Balance_sheet.parquet",
+        "methodology_v2/run_001/v2-causal-snapshot/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_110719/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_113340/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002/2026-08-18/runs/20260818_115710/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110123/input_snapshot/US_Balance_sheet.parquet",
+        "methodology_v2/run_002_smoke/2026-08-18/runs/20260818_110147/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/._staging_sec_output_package_20260816_114458_810757/US_Balance_sheet.parquet",
+        "production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06/US_Balance_sheet.parquet",
+        "production_refresh_20260816/composed_persistence_contract_test/alpharank_input_20260816_165858_2a01288bab06/US_Balance_sheet.parquet",
+        "production_refresh_20260816/history/output/sec_output_20260816_115301/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs/2026-08-16/runs/20260816_135441/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142610/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs_v2/2026-08-16/runs/20260816_142631/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810/input_snapshot/US_Balance_sheet.parquet",
+        "production_refresh_20260816/sec_package_pit_validated/US_Balance_sheet.parquet"
+      ],
+      "sha256": "59316de808c5f407f999c515e4b858cbc9e3c4cdf24a18eefc97678f1bceb2e1",
+      "size_bytes": 1048073
+    },
+    {
+      "copy_count": 2,
+      "paths": [
+        "sec_overlay_combo_probe_quality/quarterly_presence.csv",
+        "sec_overlay_multi_history_quality/quarterly_presence.csv"
+      ],
+      "reclaimable_bytes": 19810842,
+      "recovery_source": "sec_overlay_combo_probe_quality/quarterly_presence.csv",
+      "retention_candidates": [
+        "sec_overlay_multi_history_quality/quarterly_presence.csv"
+      ],
+      "sha256": "6799cb7da8a843c61f8bead19ce1d53c06076b012fc7d13dffafb3cdc2d0f1f7",
+      "size_bytes": 19810842
+    }
+  ],
+  "total_bytes": 33822819619,
+  "unique_content_count": 13666,
+  "validation": {
+    "exact_content_hash": true,
+    "passed": true,
+    "payload_copied": false,
+    "payload_deleted": false,
+    "payload_moved": false
+  }
+}

@@ -44,6 +44,8 @@ dupliquer les contrats métier :
   gel, archivage par référence et procédure de retour arrière des anciennes racines.
 - [`architecture/run_root_inventory_v1.json`](architecture/run_root_inventory_v1.json) :
   registre consultable des anciennes racines de résultats.
+- [`architecture/run_retention_report_v1.json`](architecture/run_retention_report_v1.json) :
+  espace dupliqué exact et proposition de rétention réversible.
 
 ## Standards de développement
 

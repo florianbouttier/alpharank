@@ -64,4 +64,14 @@ Sa validation relit la cible et recalcule l'empreinte ; un run encore
 `candidate` ou `validated`, un manifeste modifié ou un octet de résultat changé
 font échouer la résolution.
 
-Les règles de rétention sont ajoutées par RUNORG-006 dans ce même contrat.
+## Rétention réversible
+
+Le rapport `architecture/run_retention_report_v1.json` mesure les doublons par
+taille puis par SHA-256 exact. Une taille identique ne suffit jamais. La
+proposition conserve une source de récupération par groupe et exclut avant
+toute action les chemins référencés par un manifeste, un pointeur ou un retour
+arrière.
+
+Cette proposition ne supprime rien. Une décision ultérieure devra fermer la
+fenêtre d'observation, rehasher chaque paire, placer d'abord les candidats en
+quarantaine récupérable et faire l'objet d'une tâche de roadmap séparée.

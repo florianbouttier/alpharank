@@ -19,6 +19,8 @@ runs ni redécrire les deux modèles.
   statut explicite disponible et volume des 346 racines historiques de `outputs/`.
 - [`../run_organization.md`](../run_organization.md) : contrat des nouveaux
   chemins `outputs/<famille>/<run_id>/`.
+- [`run_retention_report_v1.json`](run_retention_report_v1.json) : mesure des
+  doublons exacts et proposition de rétention sans suppression automatique.
 - [`test_catalog_v1.json`](test_catalog_v1.json) : domaine, suite, durée et
   résultat observé de chaque fichier de test suivi.
 - [`test_collection_v1.json`](test_collection_v1.json) : collecte Pytest
