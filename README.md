@@ -61,6 +61,11 @@ MART, les neuf hashes de fichiers et la parité DEF/source avant de créer son
 `input_snapshot/`. Un `--data-dir` explicite reste réservé aux replays décrits
 par le runbook.
 
+Une publication snapshot ne recopie pas ce MART : son manifeste immuable
+inventorie et hashe l'arbre complet, puis `latest.json` référence ce manifeste
+et le même dossier MART. Le pointeur est mutable ; le contenu publié ne l'est
+pas.
+
 L'explication de `raw -> stg -> def -> mart -> snapshot` est dans
 [`docs/architecture/data_lifecycle.md`](docs/architecture/data_lifecycle.md).
 

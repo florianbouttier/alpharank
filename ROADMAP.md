@@ -201,7 +201,7 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 | `DATA-004` | normaliser uniquement dans `stg` | fait | contrat STG sans priorité ni sélection ; conflits fournisseur conservés comme observations distinctes |
 | `DATA-005` | rendre `def` responsable du choix de valeur et de sa provenance | fait | règle versionnée, cutoff causal, reçu choisi et motif explicite pour chaque clé résolue ou non |
 | `DATA-006` | construire les entrées AlphaRank uniquement depuis `mart` | fait | Legacy résout par défaut un mart canonique ; neuf hashes DEF, mart et snapshot source sont identiques |
-| `DATA-007` | définir le snapshot comme publication immuable du mart, pas comme couche concurrente | à faire | manifeste et hashes complets |
+| `DATA-007` | définir le snapshot comme publication immuable du mart, pas comme couche concurrente | fait | publication par référence sans copie, inventaire exhaustif hashé et pointeur atomique validé |
 | `DATA-008` | migrer les racines historiques par référence/hash avant toute copie | à faire | aucun nouveau téléchargement, aucune clé perdue |
 | `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | à faire | ancien et nouveau chemins comparés |
 | `DATA-010` | rendre les anciennes racines en lecture seule puis les archiver | à faire | période d'observation et procédure de retour arrière |

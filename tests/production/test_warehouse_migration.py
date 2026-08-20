@@ -8,6 +8,7 @@ import polars as pl
 import pytest
 
 from alpharank.data.mart import resolve_mart_model_input
+from alpharank.data.snapshot_publication import validate_snapshot_publication
 from alpharank.data.warehouse_migration import (
     catalog_existing_eodhd,
     migrate_validated_snapshot_to_warehouse,
@@ -167,7 +168,15 @@ def test_mart_pointer_promotion_is_atomic_and_rollback_restores_exact_bytes(tmp_
         migration_id=result.migration_id,
         generated_at="2026-08-19T20:01:00+00:00",
     )
-    assert json.loads(pointer.read_text())["snapshot_dir"] == str(result.mart_dir)
+    published = json.loads(pointer.read_text())
+    publication_validation = validate_snapshot_publication(pointer)
+    assert published["snapshot_dir"] == str(result.mart_dir)
+    assert publication_validation["payload_copy_count"] == 0
+    assert publication_validation["file_count"] == len(
+        [path for path in result.mart_dir.rglob("*") if path.is_file()]
+    )
+    publication_dir = Path(published["publication_manifest_path"]).parent
+    assert [path.name for path in publication_dir.iterdir()] == ["manifest.json"]
 
     rollback_mart_pointer(pointer_path=pointer, promotion_manifest_path=promotion)
     assert pointer.read_bytes() == before
@@ -219,3 +228,21 @@ def test_mart_input_resolution_rejects_changed_model_bytes(tmp_path: Path) -> No
             pointer,
             warehouse_root=tmp_path / "data" / "warehouse",
         )
+
+
+def test_snapshot_publication_detects_any_later_mart_file(tmp_path: Path) -> None:
+    _, pointer = _seed_composed_snapshot(tmp_path / "data")
+    eodhd = tmp_path / "data" / "eodhd" / "output"
+    eodhd.mkdir(parents=True)
+    (eodhd / "seed.json").write_text('{"source":"eodhd"}')
+    migrated = migrate_validated_snapshot_to_warehouse(
+        project_root=tmp_path,
+        latest_pointer_path=pointer,
+        warehouse_root=tmp_path / "data" / "warehouse",
+        promote=True,
+        generated_at="2026-08-20T12:00:00+00:00",
+    )
+    (migrated.mart_dir / "unexpected.txt").write_text("late mutation")
+
+    with pytest.raises(RuntimeError, match="file inventory differs"):
+        validate_snapshot_publication(pointer)

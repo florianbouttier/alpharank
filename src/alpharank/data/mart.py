@@ -38,6 +38,16 @@ class MartInputResolution:
         }
 
 
+@dataclass(frozen=True)
+class ValidatedMart:
+    composition_id: str
+    mart_dir: Path
+    composed_manifest_path: Path
+    warehouse_manifest_path: Path
+    source_snapshot_dir: Path
+    model_file_sha256: dict[str, str]
+
+
 def resolve_mart_model_input(
     pointer_path: Path,
     *,
@@ -57,9 +67,41 @@ def resolve_mart_model_input(
     if not mart_dir.is_relative_to(canonical_mart_root):
         raise RuntimeError(f"Model input is outside canonical MART: {mart_dir}")
 
-    validation = validate_composed_model_snapshot(mart_dir)
-    if validation.get("composition_id") != composition_id:
+    validated = validate_mart_model_input(
+        mart_dir,
+        warehouse_root=resolved_warehouse_root,
+    )
+    if validated.composition_id != composition_id:
         raise RuntimeError("MART pointer and composed manifest identities differ")
+
+    return MartInputResolution(
+        composition_id=composition_id,
+        mart_dir=mart_dir,
+        composed_manifest_path=validated.composed_manifest_path,
+        warehouse_manifest_path=validated.warehouse_manifest_path,
+        source_pointer_path=pointer_path,
+        source_pointer_sha256=_sha256(pointer_path),
+        source_snapshot_dir=validated.source_snapshot_dir,
+        model_file_sha256=validated.model_file_sha256,
+    )
+
+
+def validate_mart_model_input(
+    mart_dir: Path,
+    *,
+    warehouse_root: Path,
+) -> ValidatedMart:
+    """Validate one MART without relying on a mutable publication pointer."""
+
+    mart_dir = mart_dir.resolve()
+    warehouse_root = warehouse_root.resolve()
+    canonical_mart_root = (warehouse_root / "mart").resolve()
+    if not mart_dir.is_relative_to(canonical_mart_root):
+        raise RuntimeError(f"Model input is outside canonical MART: {mart_dir}")
+    validation = validate_composed_model_snapshot(mart_dir)
+    composition_id = _non_empty_string(
+        validation.get("composition_id"), "composition_id"
+    )
     composed_manifest_path = mart_dir / "lineage" / "manifest.json"
     composed = _read_json(composed_manifest_path)
     warehouse_lineage = composed.get("warehouse")
@@ -82,7 +124,9 @@ def resolve_mart_model_input(
         raise RuntimeError("Unsupported MART model-input contract")
     if warehouse_manifest.get("composition_id") != composition_id:
         raise RuntimeError("MART warehouse manifest identity mismatch")
-    if _recorded_path(warehouse_manifest.get("snapshot_dir"), warehouse_manifest_path) != mart_dir:
+    if _recorded_path(
+        warehouse_manifest.get("snapshot_dir"), warehouse_manifest_path
+    ) != mart_dir:
         raise RuntimeError("MART warehouse manifest points to another directory")
     parity = warehouse_manifest.get("validation")
     if not isinstance(parity, Mapping) or not all(
@@ -101,14 +145,11 @@ def resolve_mart_model_input(
     observed_hashes = {name: _sha256(mart_dir / name) for name in expected_hashes}
     if observed_hashes != expected_hashes:
         raise RuntimeError("MART model-file bytes differ from its validated manifest")
-
-    return MartInputResolution(
+    return ValidatedMart(
         composition_id=composition_id,
         mart_dir=mart_dir,
         composed_manifest_path=composed_manifest_path,
         warehouse_manifest_path=warehouse_manifest_path,
-        source_pointer_path=pointer_path,
-        source_pointer_sha256=_sha256(pointer_path),
         source_snapshot_dir=source_snapshot_dir,
         model_file_sha256=observed_hashes,
     )

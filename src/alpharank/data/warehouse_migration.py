@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping
 
 import polars as pl
 
 from alpharank.data.composed_snapshot import validate_composed_model_snapshot
 from alpharank.data.open_source.raw_archive import register_immutable_raw_file
+from alpharank.data.snapshot_publication import publish_mart_snapshot
 from alpharank.data.snapshot_storage import copy_snapshot_file
 from alpharank.data.warehouse import WarehousePaths
-
 
 EODHD_CATALOG_CONTRACT = "alpharank_eodhd_raw_catalog_v1"
 STG_BOOTSTRAP_CONTRACT = "alpharank_stg_price_bootstrap_v1"
@@ -305,7 +305,7 @@ def promote_mart_pointer(
 
     pointer_path = pointer_path.resolve()
     mart_dir = mart_dir.resolve()
-    validation = validate_composed_model_snapshot(mart_dir)
+    validate_composed_model_snapshot(mart_dir)
     before_bytes = pointer_path.read_bytes()
     before = json.loads(before_bytes)
     promotion_id = f"{generated_at.replace(':', '').replace('-', '')}_{migration_id}"
@@ -315,19 +315,19 @@ def promote_mart_pointer(
     promotion_dir.mkdir(parents=True, exist_ok=False)
     before_path = promotion_dir / "before.json"
     before_path.write_bytes(before_bytes)
-    after = {
-        "composition_id": validation["composition_id"],
-        "snapshot_dir": str(mart_dir),
-        "manifest_path": str(mart_dir / "lineage" / "manifest.json"),
-        "generated_at": generated_at,
-        "warehouse_migration_id": migration_id,
-    }
-    _write_json_atomic(promotion_dir / "after.json", after)
     try:
-        _write_json_atomic(pointer_path, after)
+        publication = publish_mart_snapshot(
+            mart_dir=mart_dir,
+            warehouse_root=mart_dir.parents[1],
+            pointer_path=pointer_path,
+            publication_root=promotion_root.resolve().parent
+            / "snapshot_publications",
+            publication_id=promotion_id,
+            migration_id=migration_id,
+            generated_at=generated_at,
+        )
         promoted = _read_json(pointer_path)
-        if promoted != after:
-            raise RuntimeError("Atomic MART pointer verification failed")
+        _write_json_atomic(promotion_dir / "after.json", promoted)
         validate_composed_model_snapshot(_recorded_path(promoted["snapshot_dir"], pointer_path))
     except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         _write_bytes_atomic(pointer_path, before_bytes)
@@ -350,8 +350,12 @@ def promote_mart_pointer(
             "after": {
                 "path": str(promotion_dir / "after.json"),
                 "sha256": _sha256(promotion_dir / "after.json"),
-                "composition_id": after["composition_id"],
-                "snapshot_dir": after["snapshot_dir"],
+                "composition_id": promoted["composition_id"],
+                "snapshot_dir": promoted["snapshot_dir"],
+                "publication_id": publication.publication_id,
+                "publication_manifest": _file_record(
+                    publication.publication_manifest_path
+                ),
             },
             "validation": {"passed": True, "atomic_replace": True},
         },

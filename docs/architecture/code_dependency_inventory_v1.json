@@ -2374,6 +2374,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/snapshot_publication.py",
+      "target": "src/alpharank/data/mart.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/warehouse_migration.py",
       "target": "src/alpharank/data/composed_snapshot.py"
     },
@@ -2381,6 +2386,11 @@
       "kind": "import",
       "source": "src/alpharank/data/warehouse_migration.py",
       "target": "src/alpharank/data/open_source/raw_archive.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/warehouse_migration.py",
+      "target": "src/alpharank/data/snapshot_publication.py"
     },
     {
       "kind": "import",
@@ -2961,6 +2971,11 @@
       "kind": "import",
       "source": "src/alpharank/production/legacy_pipeline.py",
       "target": "src/alpharank/data/processing.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/snapshot_publication.py"
     },
     {
       "kind": "import",
@@ -5863,6 +5878,7 @@
       "module": "alpharank.data.mart",
       "path": "src/alpharank/data/mart.py",
       "readers": [
+        "src/alpharank/data/snapshot_publication.py",
         "src/alpharank/production/legacy_pipeline.py"
       ]
     },
@@ -6812,6 +6828,22 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/mart.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.snapshot_publication",
+      "path": "src/alpharank/data/snapshot_publication.py",
+      "readers": [
+        "src/alpharank/data/warehouse_migration.py",
+        "src/alpharank/production/legacy_pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [],
       "invokes": [],
       "layer": "library",
@@ -6899,6 +6931,7 @@
       "imports": [
         "src/alpharank/data/composed_snapshot.py",
         "src/alpharank/data/open_source/raw_archive.py",
+        "src/alpharank/data/snapshot_publication.py",
         "src/alpharank/data/snapshot_storage.py",
         "src/alpharank/data/warehouse.py"
       ],
@@ -7875,6 +7908,7 @@
         "src/alpharank/data/mart.py",
         "src/alpharank/data/price_eligibility.py",
         "src/alpharank/data/processing.py",
+        "src/alpharank/data/snapshot_publication.py",
         "src/alpharank/data/snapshot_storage.py",
         "src/alpharank/data/ticker_integrity.py",
         "src/alpharank/features/indicators.py",
@@ -8620,9 +8654,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 115,
-    "internal_edge_count": 690,
-    "library_count": 176,
-    "python_file_count": 298,
+    "internal_edge_count": 693,
+    "library_count": 177,
+    "python_file_count": 299,
     "script_count": 122,
     "unread_node_count": 116
   }

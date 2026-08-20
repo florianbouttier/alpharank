@@ -33,3 +33,7 @@ la clé reste irrésolue.
 `mart.py` résout l'entrée modèle canonique. Il refuse une cible hors de
 `warehouse/mart`, exige les preuves de parité DEF/source et revérifie le hash de
 chaque fichier modèle avant de rendre le dossier au consommateur.
+
+`snapshot_publication.py` publie ce MART par référence, sans seconde copie de
+données. Son manifeste immuable contient chaque chemin, taille et SHA-256 ; le
+pointeur atomique conserve le hash du manifeste et de l'inventaire complet.

@@ -128,6 +128,14 @@ Le pointeur de production actuel est
 `data/model_inputs/manifests/latest.json`. Le mot `latest` désigne seulement le
 pointeur ; sa cible est immuable.
 
+Le contrat `alpharank_mart_snapshot_publication_v1` ne crée pas un second jeu
+de tables : il référence le MART validé, inventorie tous ses fichiers avec leur
+taille et SHA-256, puis hashe cet inventaire. Le répertoire de publication ne
+contient que ce manifeste. Le pointeur atomique
+`alpharank_mart_snapshot_pointer_v1` enregistre le hash du manifeste et de
+l'inventaire ; toute apparition ou modification ultérieure d'un fichier MART
+invalide la publication.
+
 ## 7. RUN — le calcul et ses résultats
 
 Un run consomme une cible de snapshot résolue au démarrage. Il écrit sous

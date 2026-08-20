@@ -25,6 +25,10 @@ from alpharank.data.price_eligibility import (
     monthly_price_eligibility_policy,
 )
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
+from alpharank.data.snapshot_publication import (
+    SNAPSHOT_POINTER_CONTRACT,
+    validate_snapshot_publication,
+)
 from alpharank.data.snapshot_storage import copy_snapshot_file
 from alpharank.data.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
@@ -678,8 +682,20 @@ def run_pipeline(
         data_dir = _resolve_open_source_output_by_run_id(project_root, open_source_run_id)
     else:
         if data_dir is None:
+            mart_pointer_path = (
+                project_root
+                / "data"
+                / "model_inputs"
+                / "manifests"
+                / "latest.json"
+            )
+            pointer_payload = _read_json_if_exists(mart_pointer_path)
+            if pointer_payload is not None and pointer_payload.get("contract") is not None:
+                if pointer_payload.get("contract") != SNAPSHOT_POINTER_CONTRACT:
+                    raise RuntimeError("Unsupported production snapshot pointer contract")
+                validate_snapshot_publication(mart_pointer_path)
             mart_input = resolve_mart_model_input(
-                project_root / "data" / "model_inputs" / "manifests" / "latest.json",
+                mart_pointer_path,
                 warehouse_root=project_root / "data" / "warehouse",
             )
             data_dir = mart_input.mart_dir
