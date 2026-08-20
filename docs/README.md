@@ -65,6 +65,7 @@ code et aux nouvelles données :
 | Méthodes Legacy et Boosting | [`legacy_boosting_methodology.md`](legacy_boosting_methodology.md) |
 | Simulation, KPI et comparaison | [`common_portfolio_backtest_engine.md`](common_portfolio_backtest_engine.md) |
 | Gouvernance des résultats | [`research_governance.md`](research_governance.md) |
+| Organisation des chemins de runs | [`run_organization.md`](run_organization.md) |
 | Référence des features | [`backtest_feature_reference.md`](backtest_feature_reference.md) |
 | Ingestion open source | [`open_source_ingestion_architecture.md`](open_source_ingestion_architecture.md) |
 | Fondamentaux SEC | [`sec_fundamentals_contract.md`](sec_fundamentals_contract.md) |

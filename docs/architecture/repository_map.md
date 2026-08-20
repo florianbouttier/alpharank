@@ -151,6 +151,12 @@ mais ils sont maintenant consultables dans
 statut manifesté et volume. Le registre n'invente pas un statut à partir d'un
 nom libre : l'absence de manifeste conforme reste `legacy_unclassified`.
 
+Tout nouveau résultat suit le contrat
+[`../run_organization.md`](../run_organization.md) : exactement
+`outputs/<famille>/<run_id>/`, avec une famille `lower_snake_case` et un
+identifiant UTC immuable `YYYYMMDDTHHMMSSZ_<slug>`. Les racines historiques ne
+sont pas déplacées implicitement.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

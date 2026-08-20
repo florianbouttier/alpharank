@@ -11,9 +11,44 @@ from pathlib import Path
 from typing import Mapping
 
 RUN_ROOT_INVENTORY_CONTRACT = "alpharank_run_root_inventory_v1"
+RUN_PATH_CONTRACT = "alpharank_run_path_v1"
 RUN_STATUSES = {"candidate", "validated", "published", "failed"}
 _COMPACT_DATE = re.compile(r"(?<!\d)(20\d{6})(?!\d)")
 _DASHED_DATE = re.compile(r"(?<!\d)(20\d{2}-\d{2}-\d{2})(?!\d)")
+_FAMILY = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
+_RUN_ID = re.compile(r"20\d{6}T\d{6}Z_[a-z0-9][a-z0-9_]*")
+
+
+def canonical_run_dir(outputs_root: Path, *, family: str, run_id: str) -> Path:
+    """Return the only valid directory shape for a newly created run."""
+
+    if _FAMILY.fullmatch(family) is None:
+        raise ValueError(f"Invalid run family: {family!r}")
+    if _RUN_ID.fullmatch(run_id) is None:
+        raise ValueError(f"Invalid run id: {run_id!r}")
+    return outputs_root.resolve() / family / run_id
+
+
+def validate_canonical_run_dir(outputs_root: Path, run_dir: Path) -> dict[str, str]:
+    """Validate one path as exactly outputs/<family>/<run_id>."""
+
+    outputs_root = outputs_root.resolve()
+    run_dir = run_dir.resolve()
+    if not run_dir.is_relative_to(outputs_root):
+        raise ValueError(f"Run directory is outside outputs: {run_dir}")
+    relative = run_dir.relative_to(outputs_root)
+    if len(relative.parts) != 2:
+        raise ValueError(f"Run directory must have exactly two parts: {relative}")
+    family, run_id = relative.parts
+    expected = canonical_run_dir(outputs_root, family=family, run_id=run_id)
+    if expected != run_dir:
+        raise ValueError(f"Run directory is not canonical: {run_dir}")
+    return {
+        "contract": RUN_PATH_CONTRACT,
+        "family": family,
+        "run_id": run_id,
+        "run_dir": run_dir.as_posix(),
+    }
 
 
 def build_run_root_inventory(
