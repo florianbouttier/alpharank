@@ -130,7 +130,7 @@ La carte détaillée se trouve dans
 | `DOC-010` | retirer les chemins documentaires de la logique des tests avant le classement final par thème | à faire | les tests valident le contenu, pas un ancien emplacement |
 | `DOC-011` | formaliser le standard Python détaillé | fait | règles et checklist dans `docs/standards/python.md` |
 | `DOC-012` | formaliser le standard data détaillé | fait | contrats et checklist dans `docs/standards/data.md` |
-| `DOC-013` | formaliser l'organisation cible et les dépendances autorisées | prêt à committer | règles dans `docs/standards/repository.md` |
+| `DOC-013` | formaliser l'organisation cible et les dépendances autorisées | fait | règles dans `docs/standards/repository.md` |
 | `DOC-014` | consolider les instructions agents dans le seul fichier réellement chargé | fait | `AGENTS.md` court, ancien contenu archivé, `AGENT.md` simple pointeur |
 | `DOC-015` | formaliser le contrat Git tâche/commit/preuves | fait | `docs/standards/git.md` et liens normatifs |
 | `DOC-016` | clarifier roadmap maître et registre méthodologique | fait | une seule liste de priorités actives, historique intégral conservé |
