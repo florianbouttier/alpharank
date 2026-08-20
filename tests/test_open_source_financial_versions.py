@@ -4,7 +4,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion import _upsert_financial_dataset
+from alpharank.data.open_source.ingestion_reference import _upsert_financial_dataset
 from alpharank.data.open_source.storage import OpenSourceLivePaths
 
 

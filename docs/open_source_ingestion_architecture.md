@@ -4,6 +4,12 @@ This document describes the open-source ingestion contract for AlphaRank.
 
 The goal is not just to fetch data. The goal is to make the data store auditable, correctable, and safe for historical research.
 
+The implementation follows the same stages: `ingestion.py` owns transactional
+orchestration, `ingestion_frames.py` owns shared schemas, `ingestion_prices.py`
+owns the price stage, and `ingestion_reference.py` owns reference, earnings and
+fundamental acquisition. Stage modules do not import the orchestrator; the
+historical `ingestion.py` private names remain aliases during reader migration.
+
 Important scope note:
 
 - this document describes the multi-source open-source store under `data/open_source/`

@@ -852,7 +852,17 @@
     {
       "kind": "import",
       "source": "scripts/open_source/backfill_sec_core_history.py",
-      "target": "src/alpharank/data/open_source/ingestion.py"
+      "target": "src/alpharank/data/open_source/ingestion_frames.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/backfill_sec_core_history.py",
+      "target": "src/alpharank/data/open_source/ingestion_prices.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/backfill_sec_core_history.py",
+      "target": "src/alpharank/data/open_source/ingestion_reference.py"
     },
     {
       "kind": "import",
@@ -892,7 +902,7 @@
     {
       "kind": "import",
       "source": "scripts/open_source/build_hybrid_price_candidate.py",
-      "target": "src/alpharank/data/open_source/ingestion.py"
+      "target": "src/alpharank/data/open_source/ingestion_prices.py"
     },
     {
       "kind": "import",
@@ -1067,7 +1077,7 @@
     {
       "kind": "import",
       "source": "scripts/open_source/nightly_ingestion.py",
-      "target": "src/alpharank/data/open_source/ingestion.py"
+      "target": "src/alpharank/data/open_source/ingestion_prices.py"
     },
     {
       "kind": "import",
@@ -1152,7 +1162,12 @@
     {
       "kind": "import",
       "source": "scripts/open_source/refresh_current_constituent_prices.py",
-      "target": "src/alpharank/data/open_source/ingestion.py"
+      "target": "src/alpharank/data/open_source/ingestion_frames.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/refresh_current_constituent_prices.py",
+      "target": "src/alpharank/data/open_source/ingestion_prices.py"
     },
     {
       "kind": "import",
@@ -1207,7 +1222,7 @@
     {
       "kind": "import",
       "source": "scripts/open_source/restore_price_tickers_from_snapshot.py",
-      "target": "src/alpharank/data/open_source/ingestion.py"
+      "target": "src/alpharank/data/open_source/ingestion_frames.py"
     },
     {
       "kind": "import",
@@ -2082,16 +2097,6 @@
     {
       "kind": "import",
       "source": "src/alpharank/data/open_source/ingestion.py",
-      "target": "src/alpharank/data/open_source/constituents.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/data/open_source/ingestion.py",
-      "target": "src/alpharank/data/open_source/definitive_prices.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/data/open_source/ingestion.py",
       "target": "src/alpharank/data/open_source/earnings.py"
     },
     {
@@ -2112,6 +2117,21 @@
     {
       "kind": "import",
       "source": "src/alpharank/data/open_source/ingestion.py",
+      "target": "src/alpharank/data/open_source/ingestion_frames.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion.py",
+      "target": "src/alpharank/data/open_source/ingestion_prices.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion.py",
+      "target": "src/alpharank/data/open_source/ingestion_reference.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion.py",
       "target": "src/alpharank/data/open_source/legacy_export.py"
     },
     {
@@ -2127,17 +2147,7 @@
     {
       "kind": "import",
       "source": "src/alpharank/data/open_source/ingestion.py",
-      "target": "src/alpharank/data/open_source/raw_archive.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/data/open_source/ingestion.py",
       "target": "src/alpharank/data/open_source/refresh_policy.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/data/open_source/ingestion.py",
-      "target": "src/alpharank/data/open_source/revision_guard.py"
     },
     {
       "kind": "import",
@@ -2188,6 +2198,111 @@
       "kind": "import",
       "source": "src/alpharank/data/open_source/ingestion.py",
       "target": "src/alpharank/data/warehouse.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_frames.py",
+      "target": "src/alpharank/data/open_source/general_reference.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_frames.py",
+      "target": "src/alpharank/data/open_source/refresh_policy.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_frames.py",
+      "target": "src/alpharank/data/open_source/revision_guard.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_frames.py",
+      "target": "src/alpharank/data/open_source/storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/config.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/constituents.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/definitive_prices.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/ingestion_frames.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/price_quality.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/raw_archive.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/refresh_policy.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/open_source/yahoo.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_prices.py",
+      "target": "src/alpharank/data/prices/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/data/open_source/config.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/data/open_source/earnings.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/data/open_source/ingestion_frames.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/data/open_source/sec.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/data/open_source/sec_filing.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/data/open_source/storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/data/open_source/yahoo.py"
     },
     {
       "kind": "import",
@@ -3844,7 +3959,9 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/sec.py",
         "src/alpharank/data/open_source/sec_filing.py",
         "src/alpharank/data/open_source/sec_mapping.py",
@@ -3888,7 +4005,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
         "src/alpharank/data/open_source/storage.py",
         "src/alpharank/data/prices/__init__.py",
         "src/alpharank/data/prices/contracts.py"
@@ -4102,7 +4219,7 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/data/open_source/__init__.py",
-        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
         "src/alpharank/data/open_source/refresh_policy.py",
         "src/alpharank/data/open_source/storage.py"
       ],
@@ -4193,7 +4310,8 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/data/open_source/constituents.py",
-        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/price_quality.py",
         "src/alpharank/data/open_source/publishing.py",
@@ -4266,7 +4384,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
         "src/alpharank/data/open_source/storage.py"
       ],
       "invokes": [],
@@ -5330,6 +5448,8 @@
         "src/alpharank/data/open_source/financial_audit.py",
         "src/alpharank/data/open_source/general_reference.py",
         "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/sec.py",
@@ -5368,7 +5488,7 @@
       "readers": [
         "scripts/open_source/refresh_current_constituent_prices.py",
         "scripts/open_source/refresh_sp500_constituents.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion_prices.py"
       ]
     },
     {
@@ -5381,7 +5501,7 @@
       "module": "alpharank.data.open_source.definitive_prices",
       "path": "src/alpharank/data/open_source/definitive_prices.py",
       "readers": [
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion_prices.py"
       ]
     },
     {
@@ -5401,6 +5521,7 @@
         "scripts/open_source/probe_sec_sp500_history_sample.py",
         "scripts/open_source/refresh_sec_companyfacts_from_cache.py",
         "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/sec_filing.py",
         "src/alpharank/data/open_source/sec_only.py"
@@ -5462,6 +5583,7 @@
       "path": "src/alpharank/data/open_source/general_reference.py",
       "readers": [
         "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/sec_only.py"
       ]
@@ -5473,18 +5595,17 @@
         "src/alpharank/data/open_source/benchmark.py",
         "src/alpharank/data/open_source/config.py",
         "src/alpharank/data/open_source/consolidation.py",
-        "src/alpharank/data/open_source/constituents.py",
-        "src/alpharank/data/open_source/definitive_prices.py",
         "src/alpharank/data/open_source/earnings.py",
         "src/alpharank/data/open_source/freshness.py",
         "src/alpharank/data/open_source/fundamental_quality.py",
         "src/alpharank/data/open_source/general_reference.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/price_quality.py",
         "src/alpharank/data/open_source/publishing.py",
-        "src/alpharank/data/open_source/raw_archive.py",
         "src/alpharank/data/open_source/refresh_policy.py",
-        "src/alpharank/data/open_source/revision_guard.py",
         "src/alpharank/data/open_source/sec.py",
         "src/alpharank/data/open_source/sec_filing.py",
         "src/alpharank/data/open_source/sec_mapping.py",
@@ -5502,12 +5623,80 @@
       "module": "alpharank.data.open_source.ingestion",
       "path": "src/alpharank/data/open_source/ingestion.py",
       "readers": [
+        "src/alpharank/data/open_source/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/open_source/general_reference.py",
+        "src/alpharank/data/open_source/refresh_policy.py",
+        "src/alpharank/data/open_source/revision_guard.py",
+        "src/alpharank/data/open_source/storage.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.open_source.ingestion_frames",
+      "path": "src/alpharank/data/open_source/ingestion_frames.py",
+      "readers": [
+        "scripts/open_source/backfill_sec_core_history.py",
+        "scripts/open_source/refresh_current_constituent_prices.py",
+        "scripts/open_source/restore_price_tickers_from_snapshot.py",
+        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
+        "src/alpharank/data/open_source/ingestion_reference.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/open_source/config.py",
+        "src/alpharank/data/open_source/constituents.py",
+        "src/alpharank/data/open_source/definitive_prices.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
+        "src/alpharank/data/open_source/price_quality.py",
+        "src/alpharank/data/open_source/raw_archive.py",
+        "src/alpharank/data/open_source/refresh_policy.py",
+        "src/alpharank/data/open_source/storage.py",
+        "src/alpharank/data/open_source/yahoo.py",
+        "src/alpharank/data/prices/__init__.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.open_source.ingestion_prices",
+      "path": "src/alpharank/data/open_source/ingestion_prices.py",
+      "readers": [
         "scripts/open_source/backfill_sec_core_history.py",
         "scripts/open_source/build_hybrid_price_candidate.py",
         "scripts/open_source/nightly_ingestion.py",
         "scripts/open_source/refresh_current_constituent_prices.py",
-        "scripts/open_source/restore_price_tickers_from_snapshot.py",
-        "src/alpharank/data/open_source/__init__.py"
+        "src/alpharank/data/open_source/ingestion.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/open_source/config.py",
+        "src/alpharank/data/open_source/earnings.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
+        "src/alpharank/data/open_source/sec.py",
+        "src/alpharank/data/open_source/sec_filing.py",
+        "src/alpharank/data/open_source/storage.py",
+        "src/alpharank/data/open_source/yahoo.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.open_source.ingestion_reference",
+      "path": "src/alpharank/data/open_source/ingestion_reference.py",
+      "readers": [
+        "scripts/open_source/backfill_sec_core_history.py",
+        "src/alpharank/data/open_source/ingestion.py"
       ]
     },
     {
@@ -5571,7 +5760,8 @@
       "path": "src/alpharank/data/open_source/price_quality.py",
       "readers": [
         "scripts/open_source/refresh_current_constituent_prices.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py"
       ]
     },
     {
@@ -5605,7 +5795,7 @@
       "module": "alpharank.data.open_source.raw_archive",
       "path": "src/alpharank/data/open_source/raw_archive.py",
       "readers": [
-        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
         "src/alpharank/data/warehouse_migration.py"
       ]
     },
@@ -5623,7 +5813,9 @@
       "readers": [
         "scripts/open_source/nightly_ingestion.py",
         "scripts/open_source/run_ingestion.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
+        "src/alpharank/data/open_source/ingestion_prices.py"
       ]
     },
     {
@@ -5637,7 +5829,7 @@
       "path": "src/alpharank/data/open_source/revision_guard.py",
       "readers": [
         "scripts/open_source/build_sec_output_package.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion_frames.py"
       ]
     },
     {
@@ -5660,6 +5852,7 @@
         "scripts/open_source/refresh_sec_companyfacts_from_cache.py",
         "src/alpharank/data/open_source/earnings.py",
         "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/sec_filing.py"
       ]
@@ -5683,6 +5876,7 @@
         "scripts/open_source/probe_sec_earnings_tickers.py",
         "scripts/open_source/probe_sec_sp500_history_sample.py",
         "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/pipeline.py"
       ]
     },
@@ -5787,6 +5981,9 @@
         "scripts/open_source/refresh_current_constituent_prices.py",
         "scripts/open_source/restore_price_tickers_from_snapshot.py",
         "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_frames.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/publishing.py"
       ]
@@ -5836,6 +6033,8 @@
       "readers": [
         "scripts/open_source/refresh_current_constituent_prices.py",
         "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/transition.py"
       ]
@@ -5909,7 +6108,8 @@
       "readers": [
         "scripts/open_source/build_hybrid_price_candidate.py",
         "scripts/open_source/build_roll_forward_price_package.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_prices.py"
       ]
     },
     {
@@ -7303,9 +7503,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 117,
-    "internal_edge_count": 574,
-    "library_count": 140,
-    "python_file_count": 258,
+    "internal_edge_count": 597,
+    "library_count": 143,
+    "python_file_count": 261,
     "script_count": 118,
     "unread_node_count": 105
   }

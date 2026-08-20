@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from datetime import date, datetime, timedelta
-from pathlib import Path
 import shutil
-import time
-from typing import Any, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+from typing import Sequence
 
 import polars as pl
 
@@ -19,7 +17,6 @@ from alpharank.data.open_source.benchmark import (
     build_financial_alignment,
     build_price_alignment,
     load_eodhd_prices,
-    load_eodhd_prices_between,
     load_sp500_tickers_for_year,
     normalize_eodhd_earnings,
     normalize_eodhd_financials,
@@ -27,197 +24,248 @@ from alpharank.data.open_source.benchmark import (
     write_detail_reports,
     write_html_report,
 )
+from alpharank.data.open_source.config import PRICE_COLUMNS
 from alpharank.data.open_source.consolidation import (
     FinancialSourceInput,
-    consolidate_financial_sources,
     consolidate_financial_sources_with_share_quality,
 )
-from alpharank.data.open_source.constituents import load_constituent_change_registry
-from alpharank.data.open_source.config import GENERAL_COLUMNS, METRIC_SPECS, PRICE_COLUMNS
 from alpharank.data.open_source.earnings import (
-    build_sec_companyfacts_earnings_actuals,
-    consolidate_earnings,
     empty_earnings_actuals_frame,
     empty_earnings_calendar_frame,
-    empty_earnings_consolidated_frame,
-    empty_earnings_lineage_frame,
-    empty_earnings_long_frame,
 )
-from alpharank.data.open_source.definitive_prices import (
-    bootstrap_definitive_prices,
-    build_definitive_prices,
-    stage_yahoo_prices,
+from alpharank.data.open_source.freshness import (
+    build_data_freshness_summary,
+    validate_data_freshness,
+)
+from alpharank.data.open_source.fundamental_quality import (
+    audit_fundamental_quality,
+    quarantine_implausible_share_candidates,
+    validate_fundamental_quality,
 )
 from alpharank.data.open_source.general_reference import (
     build_general_reference,
     empty_general_reference_frame,
     empty_general_reference_lineage_frame,
 )
-from alpharank.data.open_source.freshness import build_data_freshness_summary, validate_data_freshness
-from alpharank.data.open_source.fundamental_quality import (
-    audit_fundamental_quality,
-    quarantine_implausible_share_candidates,
-    validate_fundamental_quality,
+from alpharank.data.open_source.ingestion_frames import (
+    RAW_EARNINGS_SCHEMA as RAW_EARNINGS_SCHEMA,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    RAW_FINANCIAL_SCHEMA as RAW_FINANCIAL_SCHEMA,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    RAW_GENERAL_SCHEMA as RAW_GENERAL_SCHEMA,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    RAW_PRICE_SCHEMA as RAW_PRICE_SCHEMA,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _audit_and_validate_historical_revisions as _audit_and_validate_historical_revisions,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _clean_financial_columns as _clean_financial_columns,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _concat_or_empty as _concat_or_empty,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _empty_raw_earnings_frame as _empty_raw_earnings_frame,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _empty_raw_financial_base as _empty_raw_financial_base,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _empty_raw_price_frame as _empty_raw_price_frame,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _empty_sec_profile_frame as _empty_sec_profile_frame,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _filter_financial_year as _filter_financial_year,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _filter_financial_years as _filter_financial_years,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _with_earnings_ingestion_metadata as _with_earnings_ingestion_metadata,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _with_financial_ingestion_metadata as _with_financial_ingestion_metadata,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _with_general_ingestion_metadata as _with_general_ingestion_metadata,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _with_general_lineage_ingestion_metadata as _with_general_lineage_ingestion_metadata,
+)
+from alpharank.data.open_source.ingestion_frames import (
+    _with_price_ingestion_metadata as _with_price_ingestion_metadata,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _canonicalize_price_tickers as _canonicalize_price_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _complete_yahoo_history_against_validated as _complete_yahoo_history_against_validated,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _confirmed_terminal_price_tickers as _confirmed_terminal_price_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _consolidate_price_sources as _consolidate_price_sources,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _download_yahoo_price_history as _download_yahoo_price_history,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _drop_refreshed_partitions as _drop_refreshed_partitions,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _historical_yahoo_key_gaps as _historical_yahoo_key_gaps,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _identify_general_reference_refresh_tickers as _identify_general_reference_refresh_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _identify_price_history_backfill_tickers as _identify_price_history_backfill_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _identify_simfin_price_fallback_tickers as _identify_simfin_price_fallback_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _identify_stockanalysis_price_fallback_tickers as _identify_stockanalysis_price_fallback_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _load_existing_open_source_tickers as _load_existing_open_source_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _load_existing_price_history_frame as _load_existing_price_history_frame,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _load_existing_price_tickers as _load_existing_price_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _load_latest_sp500_tickers as _load_latest_sp500_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _load_reference_tickers as _load_reference_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _load_retained_open_price_vintages as _load_retained_open_price_vintages,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _merge_prospective_price_sources as _merge_prospective_price_sources,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _network_price_refresh_coverage as _network_price_refresh_coverage,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _prepare_canonical_hybrid_price_merge as _prepare_canonical_hybrid_price_merge,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _prepare_validated_stock_price_merge as _prepare_validated_stock_price_merge,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _price_source_priority_expr as _price_source_priority_expr,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _required_failure_tickers as _required_failure_tickers,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _resolve_price_start as _resolve_price_start,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _resolve_refreshed_years as _resolve_refreshed_years,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _resolve_sec_mapping_coverage as _resolve_sec_mapping_coverage,
+)
+from alpharank.data.open_source.ingestion_prices import (
+    _write_yahoo_attempt_audit as _write_yahoo_attempt_audit,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _build_clean_earnings as _build_clean_earnings,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _canonicalize_general_outputs as _canonicalize_general_outputs,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _extract_sec_companyfacts_earnings_actuals as _extract_sec_companyfacts_earnings_actuals,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _fetch_sec_company_profiles as _fetch_sec_company_profiles,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _fetch_sec_companyfacts_bundle as _fetch_sec_companyfacts_bundle,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _fetch_sec_earnings_actuals as _fetch_sec_earnings_actuals,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _fetch_sec_earnings_calendar as _fetch_sec_earnings_calendar,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _fetch_sec_filing_earnings_actuals as _fetch_sec_filing_earnings_actuals,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _fetch_sec_filing_financials as _fetch_sec_filing_financials,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _fetch_sec_financials as _fetch_sec_financials,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _filter_earnings_years as _filter_earnings_years,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _identify_metric_gap_tickers as _identify_metric_gap_tickers,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _identify_sec_filing_fallback_tickers as _identify_sec_filing_fallback_tickers,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _identify_yahoo_earnings_repair_tickers as _identify_yahoo_earnings_repair_tickers,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _identify_yfinance_financial_fallback_tickers as _identify_yfinance_financial_fallback_tickers,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _repair_yahoo_earnings as _repair_yahoo_earnings,
+)
+from alpharank.data.open_source.ingestion_reference import (
+    _upsert_financial_dataset as _upsert_financial_dataset,
 )
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
-from alpharank.data.open_source.publishing import publish_open_source_output_package
 from alpharank.data.open_source.price_quality import (
-    assert_no_extreme_adjusted_price_moves,
     build_split_detection_prices,
     find_extreme_adjusted_price_moves,
-    load_reviewed_extreme_price_moves,
     repair_confirmed_split_discontinuities,
 )
-from alpharank.data.open_source.raw_archive import RAW_DELTA_CONTRACT, archive_raw_frame_delta
+from alpharank.data.open_source.publishing import publish_open_source_output_package
 from alpharank.data.open_source.refresh_policy import (
     PRODUCTION_SOURCE_REFRESH_POLICY,
     SourceRefreshPolicy,
 )
-from alpharank.data.open_source.revision_guard import audit_historical_revisions
 from alpharank.data.open_source.sec import SecCompanyFactsClient
-from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
+from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
 from alpharank.data.open_source.simfin import SimFinClient
 from alpharank.data.open_source.stockanalysis import StockAnalysisClient
-from alpharank.data.open_source.transaction import OpenSourceStoreTransaction
 from alpharank.data.open_source.storage import (
     OpenSourceLivePaths,
     append_run_delta,
-    merge_upsert_frames,
     new_run_id,
     upsert_parquet,
     utc_now_iso,
     write_json,
     write_run_manifest,
 )
+from alpharank.data.open_source.transaction import OpenSourceStoreTransaction
 from alpharank.data.open_source.yahoo import YahooFinanceClient
-from alpharank.data.warehouse import WarehousePaths
 from alpharank.data.prices import (
-    audit_price_candidate,
-    build_persistent_price_history_registry,
     combine_stock_split_evidence,
-    compose_hybrid_price_history,
-    load_eodhd_seed,
     load_confirmed_stock_splits,
-    persistent_history_summary,
     resolve_previous_validated_price_lineage,
-    roll_forward_validated_price_history,
-    validate_price_candidate,
 )
-
-
-RAW_PRICE_SCHEMA = {
-    "date": pl.String,
-    "open": pl.Float64,
-    "high": pl.Float64,
-    "low": pl.Float64,
-    "close": pl.Float64,
-    "volume": pl.Float64,
-    "adjusted_close": pl.Float64,
-    "ticker": pl.String,
-    "source": pl.String,
-    "dataset": pl.String,
-    "ingestion_run_id": pl.String,
-    "ingested_at": pl.String,
-}
-
-
-def _audit_and_validate_historical_revisions(
-    *,
-    paths: OpenSourceLivePaths,
-    run_id: str,
-    legacy_paths: Mapping[str, Path],
-    expected_through: str,
-    source_refresh_policy: SourceRefreshPolicy,
-    source_refresh_contract: dict[str, object],
-) -> dict[str, object]:
-    report = audit_historical_revisions(
-        previous_output_dir=paths.output_dir,
-        candidate_paths={path.name: path for path in legacy_paths.values()},
-        expected_through=expected_through,
-        guard_days=source_refresh_policy.historical_revision_guard_days,
-    )
-    review_note = (source_refresh_policy.historical_revision_review_note or "").strip()
-    report["override_enabled"] = source_refresh_policy.allow_historical_revisions
-    report["revision_review_note"] = review_note or None
-    report["approval_recorded"] = bool(
-        source_refresh_policy.allow_historical_revisions and review_note
-    )
-    source_refresh_contract["historical_revision_guard"] = report
-    write_json(paths.run_dir(run_id) / "historical_revision_guard.json", report)
-    if (
-        report["historical_revisions_detected"]
-        and not source_refresh_policy.allow_historical_revisions
-    ):
-        raise RuntimeError(
-            "Historical fundamental revisions require explicit review; "
-            f"blocked_datasets={report['blocked_datasets']}. "
-            "No package was published."
-        )
-    if report["historical_revisions_detected"] and not review_note:
-        raise RuntimeError(
-            "Historical fundamental revision approval requires a non-empty "
-            "review note. No package was published."
-        )
-    return report
-
-RAW_FINANCIAL_SCHEMA = {
-    "ticker": pl.String,
-    "statement": pl.String,
-    "metric": pl.String,
-    "date": pl.String,
-    "filing_date": pl.String,
-    "value": pl.Float64,
-    "source": pl.String,
-    "source_label": pl.String,
-    "accession_number": pl.String,
-    "form": pl.String,
-    "fiscal_period": pl.String,
-    "fiscal_year": pl.Int64,
-    "dataset": pl.String,
-    "ingestion_run_id": pl.String,
-    "ingested_at": pl.String,
-}
-
-RAW_EARNINGS_SCHEMA = {
-    "ticker": pl.String,
-    "period_end": pl.String,
-    "reportDate": pl.String,
-    "earningsDatetime": pl.String,
-    "epsEstimate": pl.Float64,
-    "epsActual": pl.Float64,
-    "surprisePercent": pl.Float64,
-    "source": pl.String,
-    "source_label": pl.String,
-    "calendar_source": pl.String,
-    "actual_source": pl.String,
-    "estimate_source": pl.String,
-    "accession_number": pl.String,
-    "form": pl.String,
-    "fiscal_period": pl.String,
-    "fiscal_year": pl.Int64,
-    "dataset": pl.String,
-    "ingestion_run_id": pl.String,
-    "ingested_at": pl.String,
-}
-
-RAW_GENERAL_SCHEMA = {
-    "ticker": pl.String,
-    "name": pl.String,
-    "exchange": pl.String,
-    "cik": pl.String,
-    "source": pl.String,
-    "Sector": pl.String,
-    "industry": pl.String,
-    "sector_source": pl.String,
-    "sector_raw_value": pl.String,
-    "sic": pl.String,
-    "sic_description": pl.String,
-    "mapping_rule": pl.String,
-    "dataset": pl.String,
-    "ingestion_run_id": pl.String,
-    "ingested_at": pl.String,
-}
+from alpharank.data.warehouse import WarehousePaths
 
 
 @dataclass(frozen=True)
@@ -2023,1586 +2071,3 @@ def _write_live_audit(
         price_ticker_metric_summary=price_ticker_metric_summary,
     )
     return output_dir
-
-
-def _with_price_ingestion_metadata(
-    frame: pl.DataFrame,
-    *,
-    dataset: str,
-    run_id: str,
-    ingested_at: str,
-    source: str = "yfinance",
-) -> pl.DataFrame:
-    if frame.is_empty():
-        return _empty_raw_price_frame()
-    metadata = {
-        "source": source,
-        "dataset": dataset,
-        "ingestion_run_id": run_id,
-        "ingested_at": ingested_at,
-    }
-    expressions = [
-        pl.col(column) if column in frame.columns else pl.lit(value).alias(column)
-        for column, value in metadata.items()
-    ]
-    return frame.with_columns(expressions).select(list(RAW_PRICE_SCHEMA))
-
-
-def _with_financial_ingestion_metadata(frame: pl.DataFrame, *, dataset: str, run_id: str, ingested_at: str) -> pl.DataFrame:
-    if frame.is_empty():
-        return pl.DataFrame(schema=RAW_FINANCIAL_SCHEMA)
-    expressions: list[pl.Expr] = [
-        pl.lit(dataset).alias("dataset"),
-        pl.lit(run_id).alias("ingestion_run_id"),
-        pl.lit(ingested_at).alias("ingested_at"),
-    ]
-    for column, dtype in RAW_FINANCIAL_SCHEMA.items():
-        if column in frame.columns or column in {"dataset", "ingestion_run_id", "ingested_at"}:
-            continue
-        expressions.append(pl.lit(None).cast(dtype).alias(column))
-    return frame.with_columns(expressions).select(list(RAW_FINANCIAL_SCHEMA))
-
-
-def _with_earnings_ingestion_metadata(frame: pl.DataFrame, *, dataset: str, run_id: str, ingested_at: str) -> pl.DataFrame:
-    if frame.is_empty():
-        return pl.DataFrame(schema=RAW_EARNINGS_SCHEMA)
-    expressions: list[pl.Expr] = [
-        pl.lit(dataset).alias("dataset"),
-        pl.lit(run_id).alias("ingestion_run_id"),
-        pl.lit(ingested_at).alias("ingested_at"),
-    ]
-    for column, dtype in RAW_EARNINGS_SCHEMA.items():
-        if column in frame.columns or column in {"dataset", "ingestion_run_id", "ingested_at"}:
-            continue
-        expressions.append(pl.lit(None).cast(dtype).alias(column))
-    return frame.with_columns(expressions).select(list(RAW_EARNINGS_SCHEMA))
-
-
-def _with_general_ingestion_metadata(frame: pl.DataFrame, *, run_id: str, ingested_at: str) -> pl.DataFrame:
-    if frame.is_empty():
-        return pl.DataFrame(schema=RAW_GENERAL_SCHEMA)
-    return frame.with_columns(
-        [
-            pl.col("cik").cast(pl.Utf8, strict=False),
-            pl.lit("general_reference").alias("dataset"),
-            pl.lit(run_id).alias("ingestion_run_id"),
-            pl.lit(ingested_at).alias("ingested_at"),
-        ]
-    ).select(list(RAW_GENERAL_SCHEMA))
-
-
-def _with_general_lineage_ingestion_metadata(frame: pl.DataFrame, *, run_id: str, ingested_at: str) -> pl.DataFrame:
-    schema = {column: pl.String for column in empty_general_reference_lineage_frame().columns}
-    schema.update({"dataset": pl.String, "ingestion_run_id": pl.String, "ingested_at": pl.String})
-    if frame.is_empty():
-        return pl.DataFrame(schema=schema)
-    return frame.with_columns(
-        [
-            pl.lit("general_reference_lineage").alias("dataset"),
-            pl.lit(run_id).alias("ingestion_run_id"),
-            pl.lit(ingested_at).alias("ingested_at"),
-        ]
-    ).select(list(schema))
-
-
-def _resolve_price_start(
-    *,
-    mode: str,
-    explicit_start_date: str,
-    raw_price_path: Path,
-    lookback_days: int,
-    existing_prices: pl.DataFrame | None = None,
-) -> str:
-    if mode == "bootstrap":
-        return explicit_start_date
-    if existing_prices is not None:
-        existing = existing_prices
-    elif raw_price_path.exists():
-        existing = pl.read_parquet(raw_price_path)
-    else:
-        return explicit_start_date
-    if existing.is_empty():
-        return explicit_start_date
-    max_date = existing.select(pl.col("date").max()).item()
-    if max_date is None:
-        return explicit_start_date
-    start = datetime.strptime(str(max_date), "%Y-%m-%d").date() - timedelta(days=lookback_days)
-    return max(start.isoformat(), explicit_start_date)
-
-
-def _identify_price_history_backfill_tickers(
-    *,
-    requested_tickers: Sequence[str],
-    existing_prices: pl.DataFrame,
-    explicit_start_date: str,
-    mode: str,
-    recent_first_date_window_days: int = 365,
-) -> tuple[str, ...]:
-    if mode == "bootstrap" or existing_prices.is_empty():
-        return ()
-
-    max_date = existing_prices.select(pl.col("date").max()).item()
-    if max_date is None:
-        return tuple(sorted(set(requested_tickers)))
-
-    recent_cutoff = (
-        datetime.strptime(str(max_date), "%Y-%m-%d").date() - timedelta(days=recent_first_date_window_days)
-    ).isoformat()
-    coverage = (
-        existing_prices.select(
-            [
-                pl.col("ticker").cast(pl.Utf8),
-                pl.col("date").cast(pl.Utf8),
-            ]
-        )
-        .group_by("ticker")
-        .agg(
-            [
-                pl.col("date").min().alias("first_date"),
-                pl.col("date").max().alias("last_date"),
-                pl.len().alias("row_count"),
-            ]
-        )
-    )
-
-    backfill: list[str] = []
-    for ticker in requested_tickers:
-        full_ticker = f"{ticker}.US"
-        row = coverage.filter(pl.col("ticker") == full_ticker)
-        if row.is_empty():
-            backfill.append(ticker)
-            continue
-        first_date = row.select(pl.col("first_date")).item()
-        if first_date is None:
-            backfill.append(ticker)
-            continue
-        if str(first_date) > explicit_start_date and str(first_date) >= recent_cutoff:
-            backfill.append(ticker)
-    return tuple(sorted(set(backfill)))
-
-
-def _identify_general_reference_refresh_tickers(
-    *,
-    requested_tickers: Sequence[str],
-    existing_general_reference: pl.DataFrame,
-    mode: str,
-) -> tuple[str, ...]:
-    if mode == "bootstrap" or existing_general_reference.is_empty():
-        return tuple(requested_tickers)
-    sort_cols = [column for column in ["ticker", "ingested_at"] if column in existing_general_reference.columns]
-    existing = existing_general_reference.select(
-        [
-            pl.col("ticker").cast(pl.Utf8),
-            pl.col("Sector").cast(pl.Utf8, strict=False).alias("Sector"),
-            pl.col("industry").cast(pl.Utf8, strict=False).alias("industry"),
-            *([pl.col("ingested_at").cast(pl.Utf8, strict=False)] if "ingested_at" in existing_general_reference.columns else []),
-        ]
-    )
-    if sort_cols:
-        existing = existing.sort(sort_cols)
-    existing = existing.unique(subset=["ticker"], keep="last", maintain_order=True)
-    missing: list[str] = []
-    for ticker in requested_tickers:
-        full_ticker = f"{ticker}.US"
-        row = existing.filter(pl.col("ticker") == full_ticker)
-        if row.is_empty():
-            missing.append(ticker)
-            continue
-        sector = row.select(pl.col("Sector")).head(1).item()
-        industry = row.select(pl.col("industry")).head(1).item()
-        if sector in {None, "", "Unknown"} or industry in {None, ""}:
-            missing.append(ticker)
-    return tuple(sorted(set(missing)))
-
-
-def _identify_simfin_price_fallback_tickers(
-    *,
-    requested_tickers: Sequence[str],
-    yahoo_prices_delta: pl.DataFrame,
-    backfill_tickers: Sequence[str],
-) -> tuple[str, ...]:
-    if yahoo_prices_delta.is_empty():
-        return tuple(sorted(set(requested_tickers)))
-    yahoo_covered = set(
-        yahoo_prices_delta.select(pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"))
-        .unique()
-        .to_series()
-        .to_list()
-    )
-    fallback = set(backfill_tickers)
-    fallback.update(ticker for ticker in requested_tickers if ticker not in yahoo_covered)
-    return tuple(sorted(fallback))
-
-
-def _network_price_refresh_coverage(
-    prices_delta: pl.DataFrame,
-    *,
-    requested_tickers: Sequence[str],
-) -> tuple[set[str], tuple[str, ...]]:
-    refreshed = (
-        set(
-            prices_delta.select(
-                pl.col("ticker")
-                .cast(pl.String)
-                .str.replace(r"\.US$", "")
-                .str.to_uppercase()
-            )
-            .unique()
-            .to_series()
-            .to_list()
-        )
-        if not prices_delta.is_empty()
-        else set()
-    )
-    requested = {str(ticker).upper().removesuffix(".US") for ticker in requested_tickers}
-    return refreshed, tuple(sorted(requested - refreshed))
-
-
-def _drop_refreshed_partitions(
-    path: Path,
-    *,
-    tickers: Sequence[str],
-    date_column: str,
-    start_date: str,
-    end_date: str,
-) -> None:
-    """Remove only the partitions a successful full network fetch will replace."""
-    if not path.exists() or not tickers:
-        return
-    frame = pl.read_parquet(path)
-    if frame.is_empty():
-        return
-    ticker_roots = sorted(
-        {str(ticker).upper().removesuffix(".US") for ticker in tickers}
-    )
-    ticker_root = (
-        pl.col("ticker")
-        .cast(pl.String)
-        .str.to_uppercase()
-        .str.replace(r"\.US$", "")
-    )
-    normalized_date = pl.col(date_column).cast(pl.String, strict=False).str.slice(0, 10)
-    replaced_partition = (
-        ticker_root.is_in(ticker_roots)
-        & (normalized_date >= start_date)
-        & (normalized_date <= end_date)
-    )
-    frame.filter(replaced_partition.not_()).write_parquet(path)
-
-
-def _required_failure_tickers(
-    failures: Sequence[dict[str, str]],
-    *,
-    required_tickers: Sequence[str],
-) -> tuple[str, ...]:
-    required = {
-        str(ticker).upper().removesuffix(".US") for ticker in required_tickers
-    }
-    failed = {
-        str(item["ticker"]).upper().removesuffix(".US")
-        for item in failures
-        if item.get("ticker")
-    }
-    return tuple(sorted(required.intersection(failed)))
-
-
-def _resolve_sec_mapping_coverage(
-    *,
-    sec_mapping: pl.DataFrame,
-    required_tickers: Sequence[str],
-) -> tuple[set[str], set[str], tuple[str, ...]]:
-    mapped = {
-        str(ticker).upper().removesuffix(".US")
-        for ticker in sec_mapping.get_column("ticker").to_list()
-    }
-    required = {
-        str(ticker).upper().removesuffix(".US") for ticker in required_tickers
-    }
-    return mapped, required, tuple(sorted(required - mapped))
-
-
-def _download_yahoo_price_history(
-    yahoo_client: YahooFinanceClient,
-    *,
-    tickers: Sequence[str],
-    start_date: str,
-    end_date: str,
-    max_attempts: int = 3,
-) -> pl.DataFrame:
-    remaining = tuple(sorted({str(ticker).upper().removesuffix(".US") for ticker in tickers}))
-    frames: list[pl.DataFrame] = []
-    for attempt in range(max_attempts):
-        if not remaining:
-            break
-        fetched = yahoo_client.download_prices(remaining, start_date, end_date)
-        frames.append(fetched)
-        refreshed, _ = _network_price_refresh_coverage(
-            _concat_or_empty(frames, empty=fetched),
-            requested_tickers=tickers,
-        )
-        remaining = tuple(sorted(set(remaining) - refreshed))
-        if remaining and attempt + 1 < max_attempts:
-            time.sleep(min(4.0, 2.0**attempt))
-    if not frames:
-        return pl.DataFrame()
-    return (
-        pl.concat(frames, how="diagonal_relaxed")
-        .sort(["ticker", "date"])
-        .unique(subset=["ticker", "date"], keep="last", maintain_order=True)
-        .sort(["ticker", "date"])
-    )
-
-
-def _historical_yahoo_key_gaps(
-    *,
-    previous_validated_lineage: pl.DataFrame,
-    fresh_prices: pl.DataFrame,
-    active_tickers: Sequence[str],
-    start_date: str,
-    end_date: str,
-    recent_mutable_calendar_days: int = 7,
-) -> pl.DataFrame:
-    """Return validated active keys absent from a purported full Yahoo vintage."""
-
-    active = sorted(
-        {f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in active_tickers}
-    )
-    cutoff = date.fromisoformat(end_date) - timedelta(days=recent_mutable_calendar_days)
-    previous_keys = (
-        previous_validated_lineage.select(
-            pl.col("ticker").cast(pl.String).str.to_uppercase(),
-            pl.col("date").cast(pl.Date, strict=False),
-        )
-        .filter(
-            pl.col("ticker").is_in(active)
-            & (pl.col("date") >= pl.lit(date.fromisoformat(start_date)))
-            & (pl.col("date") < pl.lit(cutoff))
-        )
-        .unique()
-    )
-    fresh_keys = (
-        fresh_prices.filter(
-            pl.col("adjusted_close").cast(pl.Float64, strict=False).is_not_null()
-            & (pl.col("adjusted_close").cast(pl.Float64, strict=False) > 0.0)
-        )
-        .select(
-            pl.col("ticker").cast(pl.String).str.to_uppercase(),
-            pl.col("date").cast(pl.Date, strict=False),
-        )
-        .unique()
-        if not fresh_prices.is_empty()
-        else pl.DataFrame(schema={"ticker": pl.String, "date": pl.Date})
-    )
-    return previous_keys.join(fresh_keys, on=["ticker", "date"], how="anti").sort(
-        ["ticker", "date"]
-    )
-
-
-def _complete_yahoo_history_against_validated(
-    yahoo_client: YahooFinanceClient,
-    *,
-    initial_prices: pl.DataFrame,
-    previous_validated_lineage: pl.DataFrame,
-    active_tickers: Sequence[str],
-    start_date: str,
-    end_date: str,
-    max_repair_rounds: int = 2,
-    first_round_chunk_size: int = 10,
-    run_dir: Path | None = None,
-    run_id: str | None = None,
-    ingested_at: str | None = None,
-    raw_archive_dir: Path | None = None,
-) -> tuple[pl.DataFrame, dict[str, object]]:
-    """Retry active Yahoo histories until every old validated key is present."""
-
-    frames = [initial_prices] if not initial_prices.is_empty() else []
-    candidate = initial_prices
-    initial_gaps = _historical_yahoo_key_gaps(
-        previous_validated_lineage=previous_validated_lineage,
-        fresh_prices=candidate,
-        active_tickers=active_tickers,
-        start_date=start_date,
-        end_date=end_date,
-    )
-    gaps = initial_gaps
-    retried_tickers: set[str] = set()
-    for repair_round in range(max_repair_rounds):
-        if gaps.is_empty():
-            break
-        missing_tickers = gaps.select(
-            pl.col("ticker").str.replace(r"\.US$", "").unique().sort()
-        ).to_series().to_list()
-        retried_tickers.update(missing_tickers)
-        chunk_size = first_round_chunk_size if repair_round == 0 else 1
-        for start_index in range(0, len(missing_tickers), chunk_size):
-            chunk = tuple(missing_tickers[start_index : start_index + chunk_size])
-            fetched = yahoo_client.download_prices(chunk, start_date, end_date)
-            if not fetched.is_empty():
-                frames.append(fetched)
-        candidate = (
-            pl.concat(frames, how="diagonal_relaxed")
-            .sort(["ticker", "date"])
-            .unique(subset=["ticker", "date"], keep="last", maintain_order=True)
-            .sort(["ticker", "date"])
-            if frames
-            else pl.DataFrame()
-        )
-        gaps = _historical_yahoo_key_gaps(
-            previous_validated_lineage=previous_validated_lineage,
-            fresh_prices=candidate,
-            active_tickers=active_tickers,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-    report = {
-        "contract": "complete_active_yahoo_vintage_against_previous_validated_keys_v1",
-        "run_id": run_id,
-        "initial_missing_key_count": initial_gaps.height,
-        "initial_missing_ticker_count": initial_gaps.select(
-            pl.col("ticker").n_unique()
-        ).item(),
-        "retried_ticker_count": len(retried_tickers),
-        "remaining_missing_key_count": gaps.height,
-        "remaining_missing_ticker_count": gaps.select(
-            pl.col("ticker").n_unique()
-        ).item(),
-        "provider_complete": gaps.is_empty(),
-    }
-    incomplete_provider_tickers = (
-        gaps.select(pl.col("ticker").unique().sort()).to_series().to_list()
-        if not gaps.is_empty()
-        else []
-    )
-    provider_candidate = candidate
-    if raw_archive_dir is not None:
-        if run_id is None or ingested_at is None:
-            raise ValueError("run_id and ingested_at are required for the immutable raw archive")
-        raw_archive = archive_raw_frame_delta(
-            archive_dir=raw_archive_dir,
-            run_id=run_id,
-            frame=candidate,
-            key_columns=("ticker", "date"),
-            source="yahoo",
-            dataset="prices",
-            observed_at=ingested_at,
-            request={
-                "start_date": start_date,
-                "end_date": end_date,
-                "active_ticker_count": len(active_tickers),
-                "repair_round_count": max_repair_rounds,
-                "retried_ticker_count": len(retried_tickers),
-            },
-        )
-        report["raw_archive"] = {
-            "contract": RAW_DELTA_CONTRACT,
-            "run_id": raw_archive.run_id,
-            "manifest_path": str(raw_archive.manifest_path),
-            "parent_run_id": raw_archive.parent_run_id,
-            "input_row_count": raw_archive.input_row_count,
-            "stored_content_row_count": raw_archive.stored_content_row_count,
-            "unchanged_row_count": raw_archive.unchanged_row_count,
-            "inserted_row_count": raw_archive.inserted_row_count,
-            "updated_row_count": raw_archive.updated_row_count,
-            "restored_row_count": raw_archive.restored_row_count,
-            "missing_row_count": raw_archive.missing_row_count,
-            "snapshot_sha256": raw_archive.snapshot_sha256,
-        }
-    staged_current = stage_yahoo_prices(
-        provider_candidate,
-        run_id=run_id or "unknown",
-        observed_at=ingested_at or utc_now_iso(),
-    )
-    definitive = build_definitive_prices(
-        staged_current=staged_current,
-        previous_definitive=bootstrap_definitive_prices(
-            _with_price_ingestion_metadata(
-                previous_validated_lineage,
-                dataset="previous_validated_price_lineage",
-                source="validated_price_lineage",
-                run_id="previous_validated_price_lineage",
-                ingested_at="unknown",
-            )
-        ),
-        requested_tickers=active_tickers,
-        freeze_previous_prefix_tickers=incomplete_provider_tickers,
-    )
-    definitive_gaps = _historical_yahoo_key_gaps(
-        previous_validated_lineage=previous_validated_lineage,
-        fresh_prices=definitive.frame,
-        active_tickers=active_tickers,
-        start_date=start_date,
-        end_date=end_date,
-    )
-    report["definitive_resolution"] = {
-        "contract": "exact_key_last_valid_raw_v1",
-        "current_row_count": definitive.current_row_count,
-        "carried_forward_row_count": definitive.carried_forward_row_count,
-        "unresolved_row_count": definitive.unresolved_row_count,
-        "frozen_previous_prefix_tickers": incomplete_provider_tickers,
-        "frozen_previous_prefix_row_count": definitive.audit.filter(
-            pl.col("selection_reason")
-            == "carried_forward_incomplete_ticker_prefix"
-        ).height,
-        "remaining_previous_validated_key_count": definitive_gaps.height,
-        "passed": definitive_gaps.is_empty(),
-    }
-    report["passed"] = definitive_gaps.is_empty()
-    candidate = definitive.frame
-    if run_dir is not None:
-        definitive.audit.write_parquet(run_dir / "def_price_selection_audit.parquet")
-        _write_yahoo_attempt_audit(
-            run_dir=run_dir,
-            candidate=provider_candidate,
-            initial_gaps=initial_gaps,
-            remaining_gaps=gaps,
-            report=report,
-            run_id=run_id,
-            ingested_at=ingested_at,
-        )
-    if not definitive_gaps.is_empty():
-        examples = definitive_gaps.head(20).with_columns(pl.col("date").cast(pl.String)).to_dicts()
-        raise RuntimeError(
-            "DEF price resolution is missing previously validated exact ticker/date "
-            f"keys after RAW retries and prior-value resolution; report={report}; examples={examples}. "
-            "No package was published."
-        )
-    return candidate, report
-
-
-def _write_yahoo_attempt_audit(
-    *,
-    run_dir: Path,
-    candidate: pl.DataFrame,
-    initial_gaps: pl.DataFrame,
-    remaining_gaps: pl.DataFrame,
-    report: dict[str, object],
-    run_id: str | None,
-    ingested_at: str | None,
-) -> None:
-    """Persist an immutable run-scoped record before any publication decision."""
-
-    raw_dir = run_dir / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    attempted = _with_price_ingestion_metadata(
-        candidate,
-        dataset="prices_yfinance_attempted",
-        run_id=run_id or "unknown",
-        ingested_at=ingested_at or utc_now_iso(),
-    )
-    attempted.write_parquet(raw_dir / "prices_yfinance_attempted.parquet")
-    initial_gaps.write_parquet(run_dir / "price_validated_key_gaps_initial.parquet")
-    remaining_gaps.write_parquet(run_dir / "price_validated_key_gaps_remaining.parquet")
-    write_json(run_dir / "price_validated_key_coverage.json", report)
-
-
-def _confirmed_terminal_price_tickers(
-    *,
-    registry_path: Path,
-    active_tickers: Sequence[str],
-    expected_through: str,
-) -> tuple[str, ...]:
-    """Resolve sourced removals that post-date the latest monthly snapshot."""
-
-    registry = load_constituent_change_registry(registry_path)
-    active = {
-        str(ticker).upper().removesuffix(".US") for ticker in active_tickers
-    }
-    cutoff = date.fromisoformat(expected_through)
-    confirmed = {
-        str(operation["ticker"]).upper().removesuffix(".US")
-        for event in registry["events"]
-        if date.fromisoformat(str(event["effective_date"])) <= cutoff
-        for operation in event.get("operations", [])
-        if operation.get("action") == "remove"
-        and str(operation.get("ticker", "")).upper().removesuffix(".US") in active
-    }
-    return tuple(sorted(f"{ticker}.US" for ticker in confirmed))
-
-
-def _identify_stockanalysis_price_fallback_tickers(
-    *,
-    requested_tickers: Sequence[str],
-    covered_prices_delta: pl.DataFrame,
-    backfill_tickers: Sequence[str],
-) -> tuple[str, ...]:
-    if covered_prices_delta.is_empty():
-        return tuple(sorted(set(requested_tickers)))
-    covered = set(
-        covered_prices_delta.select(pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"))
-        .unique()
-        .to_series()
-        .to_list()
-    )
-    fallback = set(backfill_tickers)
-    fallback.update(ticker for ticker in requested_tickers if ticker not in covered)
-    return tuple(sorted(fallback))
-
-
-def _resolve_refreshed_years(*, mode: str, start_date: str, end_date: str, lookback_years: int) -> tuple[int, ...]:
-    start_year = int(start_date[:4])
-    end_year = int(end_date[:4])
-    if mode == "bootstrap":
-        return tuple(range(start_year, end_year + 1))
-    first_year = max(start_year, end_year - lookback_years + 1)
-    return tuple(range(first_year, end_year + 1))
-
-
-def _load_reference_tickers(reference_data_dir: Path, *, start_date: str) -> tuple[str, ...]:
-    start_date_value = date.fromisoformat(start_date)
-    return tuple(
-        pl.read_parquet(reference_data_dir / "US_Finalprice.parquet")
-        .filter(pl.col("date").cast(pl.Date, strict=False) >= pl.lit(start_date_value))
-        .select(pl.col("ticker").str.replace(r"\.US$", "").alias("ticker"))
-        .unique()
-        .sort("ticker")
-        .to_series()
-        .to_list()
-    )
-
-
-def _load_latest_sp500_tickers(reference_data_dir: Path) -> tuple[str, ...]:
-    constituents = pl.read_csv(reference_data_dir / "SP500_Constituents.csv", try_parse_dates=True).select(
-        pl.col("Date").cast(pl.Date, strict=False),
-        pl.col("Ticker").cast(pl.String).str.to_uppercase(),
-    )
-    latest_month = constituents.select(pl.col("Date").max()).item()
-    return tuple(
-        constituents.filter(pl.col("Date") == latest_month)
-        .select(pl.col("Ticker").unique().sort())
-        .to_series()
-        .to_list()
-    )
-
-
-def _load_existing_open_source_tickers(paths: OpenSourceLivePaths, reference_data_dir: Path) -> tuple[str, ...]:
-    candidate_paths = (
-        paths.output_dir / "US_Finalprice.parquet",
-        paths.clean_dir / "prices_open_source.parquet",
-        paths.raw_dir / "prices_yfinance.parquet",
-        paths.raw_dir / "prices_simfin.parquet",
-        paths.raw_dir / "prices_stockanalysis.parquet",
-        reference_data_dir / "US_Finalprice.parquet",
-    )
-    for path in candidate_paths:
-        if not path.exists():
-            continue
-        frame = pl.read_parquet(path)
-        if frame.is_empty() or "ticker" not in frame.columns:
-            continue
-        return tuple(
-            frame.select(pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"))
-            .unique()
-            .sort("ticker")
-            .to_series()
-            .to_list()
-        )
-    return ()
-
-
-def _load_existing_price_history_frame(paths: OpenSourceLivePaths) -> pl.DataFrame:
-    clean_candidates = (
-        paths.clean_dir / "prices_open_source.parquet",
-        paths.output_dir / "US_Finalprice.parquet",
-    )
-    for path in clean_candidates:
-        if path.exists():
-            frame = pl.read_parquet(path)
-            if not frame.is_empty():
-                return frame.select(list(PRICE_COLUMNS))
-
-    raw_frames: list[pl.DataFrame] = []
-    for path in (
-        paths.raw_dir / "prices_yfinance.parquet",
-        paths.raw_dir / "prices_simfin.parquet",
-        paths.raw_dir / "prices_stockanalysis.parquet",
-    ):
-        if path.exists():
-            frame = pl.read_parquet(path)
-            if not frame.is_empty():
-                raw_frames.append(frame)
-    if not raw_frames:
-        return _empty_raw_price_frame().select(list(PRICE_COLUMNS))
-    clean_prices, _ = _consolidate_price_sources(raw_frames, ticker_list=())
-    return clean_prices
-
-
-def _load_existing_price_tickers(paths: OpenSourceLivePaths) -> tuple[str, ...]:
-    candidate_paths = (
-        paths.output_dir / "US_Finalprice.parquet",
-        paths.clean_dir / "prices_open_source.parquet",
-        paths.raw_dir / "prices_yfinance.parquet",
-        paths.raw_dir / "prices_simfin.parquet",
-        paths.raw_dir / "prices_stockanalysis.parquet",
-    )
-    for path in candidate_paths:
-        if not path.exists():
-            continue
-        frame = pl.read_parquet(path)
-        if frame.is_empty() or "ticker" not in frame.columns:
-            continue
-        return tuple(
-            frame.select(pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"))
-            .unique()
-            .sort("ticker")
-            .to_series()
-            .to_list()
-        )
-    return ()
-
-
-def _prepare_canonical_hybrid_price_merge(
-    *,
-    paths: OpenSourceLivePaths,
-    yahoo_delta: pl.DataFrame,
-    simfin_delta: pl.DataFrame,
-    stockanalysis_delta: pl.DataFrame,
-    ticker_list: Sequence[str],
-    active_tickers: Sequence[str],
-    event_since: str,
-    start_date: str,
-    expected_through: str,
-    eodhd_seed_path: Path,
-    run_id: str,
-    source_refresh_policy: SourceRefreshPolicy,
-    source_refresh_contract: dict[str, object],
-    latest_composed_manifest_path: Path | None = None,
-    preserved_terminal_tickers: Sequence[str] = (),
-    reviewed_extreme_price_move_registry_path: Path | None = None,
-) -> tuple[
-    pl.DataFrame,
-    pl.DataFrame,
-    pl.DataFrame,
-    pl.DataFrame,
-    pl.DataFrame,
-    pl.DataFrame,
-]:
-    prospective = _merge_prospective_price_sources(
-        paths=paths,
-        yahoo_delta=yahoo_delta,
-        simfin_delta=simfin_delta,
-        stockanalysis_delta=stockanalysis_delta,
-        ticker_list=ticker_list,
-    )
-    seed = load_eodhd_seed(eodhd_seed_path, start_date=start_date)
-    price_policy = source_refresh_policy.price_gate_policy()
-    if latest_composed_manifest_path is not None:
-        previous_source = resolve_previous_validated_price_lineage(
-            latest_composed_manifest_path
-        )
-        previous_lineage = pl.read_parquet(previous_source.lineage_path)
-        previous_prices = previous_lineage.select(list(PRICE_COLUMNS))
-        hybrid = roll_forward_validated_price_history(
-            previous_validated_lineage=previous_lineage,
-            active_yahoo_vintage=yahoo_delta,
-            active_tickers=active_tickers,
-            preserved_terminal_tickers=preserved_terminal_tickers,
-            active_resolution_vintage_id=run_id,
-        )
-        source_refresh_contract["previous_validated_price_lineage"] = {
-            "path": str(previous_source.lineage_path),
-            "price_manifest_path": str(previous_source.price_manifest_path),
-            "snapshot_dir": str(previous_source.snapshot_dir),
-            "composition_id": previous_source.composition_id,
-            "resolution": "latest_composed_model_snapshot",
-        }
-    else:
-        previous_path = paths.output_dir / "US_Finalprice.parquet"
-        previous_prices = (
-            pl.read_parquet(previous_path) if previous_path.exists() else None
-        )
-        retained_open_history = _load_retained_open_price_vintages(
-            paths=paths,
-            prospective=prospective,
-            active_tickers=active_tickers,
-            ticker_list=ticker_list,
-        )
-        hybrid = compose_hybrid_price_history(
-            eodhd_seed=seed.frame,
-            active_yahoo_vintage=yahoo_delta,
-            retained_open_history=retained_open_history,
-            active_tickers=active_tickers,
-            policy=price_policy,
-        )
-
-    persistent_registry = build_persistent_price_history_registry(
-        hybrid.lineage,
-        active_tickers=active_tickers,
-        preserved_terminal_tickers=preserved_terminal_tickers,
-    )
-    persistent_summary = persistent_history_summary(persistent_registry)
-    source_refresh_contract["persistent_price_history"] = {
-        **persistent_summary,
-        "semantics": (
-            "Every ticker/date in the preceding validated lineage is retained "
-            "when the ticker leaves the active refresh universe, including "
-            "histories first acquired from Yahoo and absent from EODHD."
-        ),
-        "routine_deletion_allowed": False,
-    }
-
-    gate = audit_price_candidate(
-        previous_prices=previous_prices,
-        candidate_prices=hybrid.prices,
-        candidate_lineage=hybrid.lineage,
-        active_tickers=tuple(
-            ticker
-            for ticker in active_tickers
-            if f"{str(ticker).upper().removesuffix('.US')}.US"
-            not in {
-                f"{str(terminal).upper().removesuffix('.US')}.US"
-                for terminal in preserved_terminal_tickers
-            }
-        ),
-        expected_eodhd_keys=seed.frame.select("ticker", "date"),
-        expected_through=expected_through,
-        policy=price_policy,
-        active_resolution_vintage_id=run_id,
-    )
-
-    source_refresh_contract["eodhd_price_seed"] = seed.manifest()
-    source_refresh_contract["price_composition"] = hybrid.composition_report
-    source_refresh_contract["price_revision_guard"] = gate.report
-    run_dir = paths.run_dir(run_id)
-    write_json(run_dir / "price_composition.json", hybrid.composition_report)
-    write_json(run_dir / "price_revision_guard.json", gate.report)
-    persistent_registry.write_parquet(
-        run_dir / "persistent_price_history_registry.parquet"
-    )
-    gate.daily_return_revisions.write_parquet(
-        run_dir / "price_daily_return_revisions.parquet"
-    )
-    gate.transition_factor_findings.write_parquet(
-        run_dir / "price_transition_factor_findings.parquet"
-    )
-    gate.historical_key_removals.write_parquet(
-        run_dir / "price_historical_key_removals.parquet"
-    )
-    validate_price_candidate(gate)
-
-    terminal_set = {
-        f"{str(ticker).upper().removesuffix('.US')}.US"
-        for ticker in preserved_terminal_tickers
-    }
-    quality_tickers = [
-        normalized
-        for ticker in active_tickers
-        if (normalized := f"{str(ticker).upper().removesuffix('.US')}.US")
-        not in terminal_set
-    ]
-    reviewed_moves = None
-    reviewed_move_manifest: dict[str, object] | None = None
-    if reviewed_extreme_price_move_registry_path is not None:
-        reviewed_moves, reviewed_move_manifest = load_reviewed_extreme_price_moves(
-            reviewed_extreme_price_move_registry_path
-        )
-    reviewed_findings = assert_no_extreme_adjusted_price_moves(
-        hybrid.prices,
-        event_since=event_since,
-        tickers=quality_tickers,
-        reviewed_moves=reviewed_moves,
-    )
-    if reviewed_move_manifest is not None:
-        reviewed_move_report = {
-            **reviewed_move_manifest,
-            "matched_count": reviewed_findings.height,
-            "matched_events": reviewed_findings.with_columns(
-                pl.col("date").cast(pl.String)
-            ).to_dicts(),
-        }
-        source_refresh_contract["reviewed_extreme_price_moves"] = reviewed_move_report
-        write_json(run_dir / "reviewed_extreme_price_moves.json", reviewed_move_report)
-    return (
-        prospective[0],
-        prospective[1],
-        prospective[2],
-        hybrid.prices,
-        hybrid.lineage,
-        persistent_registry,
-    )
-
-
-def _prepare_validated_stock_price_merge(
-    *,
-    paths: OpenSourceLivePaths,
-    yahoo_delta: pl.DataFrame,
-    simfin_delta: pl.DataFrame,
-    stockanalysis_delta: pl.DataFrame,
-    ticker_list: Sequence[str],
-    quality_tickers: Sequence[str] | None = None,
-    event_since: str,
-) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    prospective = _merge_prospective_price_sources(
-        paths=paths,
-        yahoo_delta=yahoo_delta,
-        simfin_delta=simfin_delta,
-        stockanalysis_delta=stockanalysis_delta,
-        ticker_list=ticker_list,
-    )
-
-    clean, lineage = _consolidate_price_sources(prospective, ticker_list=ticker_list)
-    quality_tickers = [
-        f"{str(ticker).upper().removesuffix('.US')}.US"
-        for ticker in (quality_tickers if quality_tickers is not None else ticker_list)
-    ]
-    assert_no_extreme_adjusted_price_moves(
-        clean,
-        event_since=event_since,
-        tickers=quality_tickers,
-    )
-    return prospective[0], prospective[1], prospective[2], clean, lineage
-
-
-def _merge_prospective_price_sources(
-    *,
-    paths: OpenSourceLivePaths,
-    yahoo_delta: pl.DataFrame,
-    simfin_delta: pl.DataFrame,
-    stockanalysis_delta: pl.DataFrame,
-    ticker_list: Sequence[str],
-) -> list[pl.DataFrame]:
-    sources = (
-        ("prices_yfinance.parquet", yahoo_delta),
-        ("prices_simfin.parquet", simfin_delta),
-        ("prices_stockanalysis.parquet", stockanalysis_delta),
-    )
-    prospective: list[pl.DataFrame] = []
-    for file_name, delta in sources:
-        path = paths.raw_dir / file_name
-        existing = pl.read_parquet(path) if path.exists() else _empty_raw_price_frame()
-        merged = merge_upsert_frames(
-            existing,
-            delta,
-            key_cols=["ticker", "date", "source"],
-            order_cols=["ingested_at"],
-        )
-        prospective.append(_canonicalize_price_tickers(merged, ticker_list=ticker_list))
-    return prospective
-
-
-def _load_retained_open_price_vintages(
-    *,
-    paths: OpenSourceLivePaths,
-    prospective: Sequence[pl.DataFrame],
-    active_tickers: Sequence[str],
-    ticker_list: Sequence[str],
-) -> pl.DataFrame:
-    active = [
-        f"{str(ticker).upper().removesuffix('.US')}.US" for ticker in active_tickers
-    ]
-    archived_paths = sorted(
-        paths.runs_dir.glob("*/raw/prices_yfinance.parquet")
-    )
-    archived = (
-        pl.concat(
-            [pl.scan_parquet(path) for path in archived_paths],
-            how="diagonal_relaxed",
-        )
-        .filter(~pl.col("ticker").cast(pl.String).str.to_uppercase().is_in(active))
-        .collect()
-        if archived_paths
-        else _empty_raw_price_frame()
-    )
-    current = _concat_or_empty(
-        list(prospective),
-        empty=_empty_raw_price_frame(),
-    ).filter(~pl.col("ticker").cast(pl.String).str.to_uppercase().is_in(active))
-    return _canonicalize_price_tickers(
-        _concat_or_empty([archived, current], empty=_empty_raw_price_frame()),
-        ticker_list=ticker_list,
-    )
-
-
-def _consolidate_price_sources(
-    frames: Sequence[pl.DataFrame],
-    *,
-    ticker_list: Sequence[str],
-) -> tuple[pl.DataFrame, pl.DataFrame]:
-    combined = _concat_or_empty(list(frames), empty=_empty_raw_price_frame())
-    if combined.is_empty():
-        empty = _empty_raw_price_frame()
-        return empty.select(list(PRICE_COLUMNS)), empty
-    combined = _canonicalize_price_tickers(combined, ticker_list=ticker_list)
-    prioritized = combined.with_columns(_price_source_priority_expr().alias("source_priority"))
-    lineage = (
-        prioritized.sort(
-            ["ticker", "date", "source_priority", "ingested_at"],
-            descending=[False, False, False, True],
-        )
-        .unique(subset=["ticker", "date"], keep="first", maintain_order=True)
-        .drop("source_priority")
-        .sort(["ticker", "date"])
-    )
-    clean = lineage.select(list(PRICE_COLUMNS)).sort(["ticker", "date"])
-    return clean, lineage
-
-
-def _canonicalize_price_tickers(frame: pl.DataFrame, *, ticker_list: Sequence[str]) -> pl.DataFrame:
-    alias_map = {
-        f"{ticker.replace('.', '-')}.US": f"{ticker}.US"
-        for ticker in ticker_list
-        if "." in ticker
-    }
-    if frame.is_empty() or not alias_map:
-        return frame
-    return (
-        frame.with_columns(pl.col("ticker").replace_strict(alias_map, default=pl.col("ticker")).alias("ticker"))
-        .sort(["ticker", "date", "source", "dataset", "ingested_at"])
-        .unique(subset=["ticker", "date", "source"], keep="last", maintain_order=True)
-        .sort(["ticker", "date"])
-    )
-
-
-def _price_source_priority_expr() -> pl.Expr:
-    return (
-        pl.when(pl.col("source") == "yfinance")
-        .then(pl.lit(1))
-        .when(pl.col("source") == "simfin")
-        .then(pl.lit(2))
-        .when(pl.col("source") == "stockanalysis")
-        .then(pl.lit(3))
-        .otherwise(pl.lit(99))
-    )
-
-
-def _canonicalize_general_outputs(
-    general_reference: pl.DataFrame,
-    general_reference_lineage: pl.DataFrame,
-) -> tuple[pl.DataFrame, pl.DataFrame]:
-    lineage = general_reference_lineage
-    if not lineage.is_empty():
-        sort_cols = [column for column in ["ticker", "ingested_at"] if column in lineage.columns]
-        if sort_cols:
-            lineage = lineage.sort(sort_cols)
-        lineage = lineage.unique(subset=["ticker"], keep="last", maintain_order=True).sort("ticker")
-        return lineage.select(list(GENERAL_COLUMNS)), lineage
-
-    general = general_reference
-    if general.is_empty():
-        return general, lineage
-    sort_cols = [column for column in ["ticker", "ingested_at"] if column in general.columns]
-    if sort_cols:
-        general = general.sort(sort_cols)
-    general = general.unique(subset=["ticker"], keep="last", maintain_order=True).sort("ticker")
-    return general.select(list(GENERAL_COLUMNS)), lineage
-
-
-def _build_clean_earnings(
-    *,
-    raw_yahoo_earnings: pl.DataFrame,
-    raw_earnings_sec_calendar: pl.DataFrame,
-    raw_earnings_sec_actuals: pl.DataFrame,
-) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    return consolidate_earnings(
-        sec_calendar=raw_earnings_sec_calendar.select(
-            [
-                "ticker",
-                "period_end",
-                "reportDate",
-                "earningsDatetime",
-                "accession_number",
-                "form",
-                "fiscal_period",
-                "fiscal_year",
-                "source",
-                "source_label",
-            ]
-        ),
-        yahoo_earnings=raw_yahoo_earnings.select(
-            [
-                "ticker",
-                "period_end",
-                "reportDate",
-                "earningsDatetime",
-                "epsEstimate",
-                "epsActual",
-                "surprisePercent",
-                "source",
-            ]
-        ),
-        sec_actuals=raw_earnings_sec_actuals.select(
-            [
-                "ticker",
-                "period_end",
-                "reportDate",
-                "epsActual",
-                "source",
-                "source_label",
-                "form",
-                "fiscal_period",
-                "fiscal_year",
-            ]
-        ),
-    )
-
-
-def _repair_yahoo_earnings(
-    *,
-    paths: OpenSourceLivePaths,
-    run_id: str,
-    ingested_at: str,
-    yahoo_client: YahooFinanceClient,
-    raw_yahoo_earnings: pl.DataFrame,
-    raw_earnings_sec_calendar: pl.DataFrame,
-    raw_earnings_sec_actuals: pl.DataFrame,
-    candidate_tickers: Sequence[str],
-    years: Sequence[int],
-) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, tuple[str, ...]]:
-    clean_earnings, clean_earnings_lineage, clean_earnings_long = _build_clean_earnings(
-        raw_yahoo_earnings=raw_yahoo_earnings,
-        raw_earnings_sec_calendar=raw_earnings_sec_calendar,
-        raw_earnings_sec_actuals=raw_earnings_sec_actuals,
-    )
-    repair_tickers = _identify_yahoo_earnings_repair_tickers(
-        clean_earnings_lineage=clean_earnings_lineage,
-        raw_yahoo_earnings=raw_yahoo_earnings,
-        candidate_tickers=candidate_tickers,
-        years=years,
-    )
-    if not repair_tickers:
-        return raw_yahoo_earnings, clean_earnings, clean_earnings_lineage, clean_earnings_long, ()
-
-    repaired = yahoo_client.fetch_earnings_dates(repair_tickers, limit=100)
-    if repaired.is_empty():
-        return raw_yahoo_earnings, clean_earnings, clean_earnings_lineage, clean_earnings_long, repair_tickers
-
-    repair_delta = _with_earnings_ingestion_metadata(
-        repaired,
-        dataset="earnings_yfinance_repair",
-        run_id=run_id,
-        ingested_at=ingested_at,
-    )
-    append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_yfinance_repair.parquet", repair_delta)
-    repaired_raw = upsert_parquet(
-        paths.raw_dir / "earnings_yfinance.parquet",
-        repair_delta,
-        key_cols=["ticker", "reportDate", "source"],
-        order_cols=["ingested_at"],
-    )
-    clean_earnings, clean_earnings_lineage, clean_earnings_long = _build_clean_earnings(
-        raw_yahoo_earnings=repaired_raw,
-        raw_earnings_sec_calendar=raw_earnings_sec_calendar,
-        raw_earnings_sec_actuals=raw_earnings_sec_actuals,
-    )
-    return repaired_raw, clean_earnings, clean_earnings_lineage, clean_earnings_long, repair_tickers
-
-
-def _identify_yahoo_earnings_repair_tickers(
-    *,
-    clean_earnings_lineage: pl.DataFrame,
-    raw_yahoo_earnings: pl.DataFrame,
-    candidate_tickers: Sequence[str],
-    years: Sequence[int],
-) -> tuple[str, ...]:
-    requested = [f"{ticker}.US" if not str(ticker).endswith(".US") else str(ticker) for ticker in candidate_tickers]
-    if not requested:
-        return ()
-
-    base = pl.DataFrame({"ticker": requested})
-    filtered_lineage = _filter_earnings_years(clean_earnings_lineage, years)
-    if filtered_lineage.is_empty():
-        latest_lineage = base.with_columns(
-            [
-                pl.lit(None).cast(pl.Utf8).alias("yahoo_reportDate"),
-                pl.lit(None).cast(pl.Utf8).alias("actual_source"),
-                pl.lit(None).cast(pl.Utf8).alias("estimate_source"),
-                pl.lit(None).cast(pl.Utf8).alias("surprise_source"),
-            ]
-        )
-    else:
-        latest_lineage = (
-            filtered_lineage.sort(["ticker", "period_end", "reportDate", "sec_reportDate"])
-            .group_by("ticker")
-            .tail(1)
-            .select(["ticker", "yahoo_reportDate", "actual_source", "estimate_source", "surprise_source"])
-        )
-
-    filtered_raw = _filter_earnings_years(raw_yahoo_earnings, years)
-    if filtered_raw.is_empty():
-        raw_stats = base.with_columns(pl.lit(0).alias("yahoo_recent_count"))
-    else:
-        raw_stats = filtered_raw.group_by("ticker").agg(pl.len().alias("yahoo_recent_count"))
-
-    candidates = (
-        base.join(latest_lineage, on="ticker", how="left", coalesce=True)
-        .join(raw_stats, on="ticker", how="left", coalesce=True)
-        .with_columns(pl.col("yahoo_recent_count").fill_null(0))
-        .filter(
-            (pl.col("yahoo_recent_count") == 0)
-            | pl.col("yahoo_reportDate").is_null()
-            | (pl.col("actual_source") != "yfinance")
-            | pl.col("estimate_source").is_null()
-            | pl.col("surprise_source").is_null()
-        )
-        .select("ticker")
-        .unique()
-        .sort("ticker")
-        .to_series()
-        .to_list()
-    )
-    return tuple(ticker[:-3] if ticker.endswith(".US") else ticker for ticker in candidates)
-
-
-def _filter_earnings_years(frame: pl.DataFrame, years: Sequence[int]) -> pl.DataFrame:
-    if frame.is_empty():
-        return _empty_raw_earnings_frame()
-    prefixes = [str(year) for year in years]
-    period_or_report = pl.coalesce(
-        [
-            pl.col("period_end").cast(pl.Utf8, strict=False),
-            pl.col("reportDate").cast(pl.Utf8, strict=False),
-        ]
-    )
-    return frame.filter(
-        pl.any_horizontal(
-            [period_or_report.str.starts_with(prefix) for prefix in prefixes]
-        )
-    )
-
-
-def _upsert_financial_dataset(
-    *,
-    paths: OpenSourceLivePaths,
-    run_id: str,
-    file_name: str,
-    deltas: Sequence[pl.DataFrame],
-) -> pl.DataFrame:
-    delta = _concat_or_empty(deltas)
-    append_run_delta(paths.run_dir(run_id) / "raw" / file_name, delta)
-    return upsert_parquet(
-        paths.raw_dir / file_name,
-        delta,
-        key_cols=[
-            "ticker",
-            "statement",
-            "metric",
-            "date",
-            "filing_date",
-            "source",
-        ],
-        order_cols=["ingested_at"],
-    )
-
-
-def _concat_or_empty(frames: Sequence[pl.DataFrame], *, empty: pl.DataFrame | None = None) -> pl.DataFrame:
-    non_empty = [frame for frame in frames if not frame.is_empty()]
-    if not non_empty:
-        return empty if empty is not None else _empty_raw_financial_base()
-    return pl.concat(non_empty, how="vertical")
-
-
-def _empty_raw_financial_base() -> pl.DataFrame:
-    return pl.DataFrame(
-        schema={
-            "ticker": pl.String,
-            "statement": pl.String,
-            "metric": pl.String,
-            "date": pl.String,
-            "filing_date": pl.String,
-            "value": pl.Float64,
-            "source": pl.String,
-            "source_label": pl.String,
-            "form": pl.String,
-            "fiscal_period": pl.String,
-            "fiscal_year": pl.Int64,
-        }
-    )
-
-
-def _empty_raw_earnings_frame() -> pl.DataFrame:
-    return pl.DataFrame(schema=RAW_EARNINGS_SCHEMA)
-
-
-def _empty_raw_price_frame() -> pl.DataFrame:
-    return pl.DataFrame(schema=RAW_PRICE_SCHEMA)
-
-
-def _empty_sec_profile_frame() -> pl.DataFrame:
-    return pl.DataFrame(
-        schema={
-            "ticker": pl.String,
-            "cik": pl.String,
-            "sic": pl.String,
-            "sic_description": pl.String,
-        }
-    )
-
-
-def _clean_financial_columns() -> list[str]:
-    return ["ticker", "statement", "metric", "date", "filing_date", "value", "source", "source_label", "form", "fiscal_period", "fiscal_year"]
-
-
-def _filter_financial_year(frame: pl.DataFrame, *, year: int) -> pl.DataFrame:
-    if frame.is_empty():
-        return _empty_raw_financial_base()
-    return frame.filter(pl.col("date").str.starts_with(str(year)))
-
-
-def _filter_financial_years(frame: pl.DataFrame, *, years: Sequence[int]) -> pl.DataFrame:
-    if frame.is_empty():
-        return _empty_raw_financial_base()
-    year_values = tuple(str(year) for year in years)
-    return frame.filter(pl.col("date").str.slice(0, 4).is_in(year_values))
-
-
-def _fetch_sec_financials(
-    sec_client: SecCompanyFactsClient,
-    sec_mapping: pl.DataFrame,
-    max_workers: int = 1,
-) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
-    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
-    frames: list[pl.DataFrame] = []
-    failures: list[dict[str, str]] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(sec_client.extract_financials, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
-            for row in rows
-        }
-        for future in as_completed(futures):
-            ticker = futures[future]
-            try:
-                frames.append(future.result())
-            except Exception as exc:
-                failures.append({"ticker": ticker, "error": str(exc)})
-    return frames, failures
-
-
-def _fetch_sec_companyfacts_bundle(
-    sec_client: SecCompanyFactsClient,
-    sec_mapping: pl.DataFrame,
-    max_workers: int = 1,
-) -> tuple[list[pl.DataFrame], list[pl.DataFrame], list[dict[str, str]]]:
-    """Derive all companyfacts outputs while each network payload is resident once."""
-    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
-    financial_frames: list[pl.DataFrame] = []
-    earnings_frames: list[pl.DataFrame] = []
-    failures: list[dict[str, str]] = []
-
-    def fetch_one(ticker: str, cik: str) -> tuple[pl.DataFrame, pl.DataFrame]:
-        try:
-            financials = sec_client.extract_financials(ticker, cik)
-            earnings = _extract_sec_companyfacts_earnings_actuals(sec_client, ticker, cik)
-            return financials, earnings
-        finally:
-            sec_client.discard_company_facts(cik)
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(fetch_one, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
-            for row in rows
-        }
-        for completed, future in enumerate(as_completed(futures), start=1):
-            ticker = futures[future]
-            try:
-                financials, earnings = future.result()
-                financial_frames.append(financials)
-                earnings_frames.append(earnings)
-            except Exception as exc:
-                failures.append(
-                    {
-                        "ticker": ticker,
-                        "error": str(exc),
-                        "dataset": "sec_companyfacts_bundle",
-                    }
-                )
-            if completed % 100 == 0:
-                print(f"SEC companyfacts progress: {completed}/{len(futures)}")
-    return financial_frames, earnings_frames, failures
-
-
-def _fetch_sec_earnings_actuals(
-    sec_client: SecCompanyFactsClient,
-    sec_mapping: pl.DataFrame,
-    max_workers: int = 1,
-) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
-    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
-    frames: list[pl.DataFrame] = []
-    failures: list[dict[str, str]] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(_extract_sec_companyfacts_earnings_actuals, sec_client, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
-            for row in rows
-        }
-        for future in as_completed(futures):
-            ticker = futures[future]
-            try:
-                frames.append(future.result())
-            except Exception as exc:
-                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
-    return frames, failures
-
-
-def _fetch_sec_filing_earnings_actuals(
-    sec_client: SecFilingFactsClient,
-    sec_mapping: pl.DataFrame,
-    *,
-    years: Sequence[int],
-    max_workers: int = 1,
-) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
-    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
-    frames: list[pl.DataFrame] = []
-    failures: list[dict[str, str]] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(sec_client.extract_earnings_actuals, str(row["ticker"]), str(row["cik"]), list(years)): str(row["ticker"])
-            for row in rows
-        }
-        for completed, future in enumerate(as_completed(futures), start=1):
-            ticker = futures[future]
-            try:
-                frames.append(future.result())
-            except Exception as exc:
-                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals_filing"})
-            finally:
-                sec_client.clear_memory_cache()
-            if completed % 100 == 0:
-                print(f"SEC filing earnings progress: {completed}/{len(futures)}")
-    return frames, failures
-
-
-def _fetch_sec_earnings_calendar(
-    sec_client: SecFilingFactsClient,
-    sec_mapping: pl.DataFrame,
-    *,
-    years: Sequence[int],
-    max_workers: int = 1,
-) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
-    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
-    frames: list[pl.DataFrame] = []
-    failures: list[dict[str, str]] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(sec_client.extract_earnings_calendar, str(row["ticker"]), str(row["cik"]), list(years)): str(row["ticker"])
-            for row in rows
-        }
-        for completed, future in enumerate(as_completed(futures), start=1):
-            ticker = futures[future]
-            try:
-                frames.append(future.result())
-            except Exception as exc:
-                failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
-            finally:
-                sec_client.clear_memory_cache()
-            if completed % 100 == 0:
-                print(f"SEC submissions progress: {completed}/{len(futures)}")
-    return frames, failures
-
-
-def _fetch_sec_company_profiles(
-    sec_client: SecFilingFactsClient,
-    sec_mapping: pl.DataFrame,
-    max_workers: int = 1,
-) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
-    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
-    frames: list[pl.DataFrame] = []
-    failures: list[dict[str, str]] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(sec_client.extract_company_profile, str(row["ticker"]), str(row["cik"])): str(row["ticker"])
-            for row in rows
-        }
-        for future in as_completed(futures):
-            ticker = futures[future]
-            try:
-                frames.append(future.result())
-            except Exception as exc:
-                failures.append({"ticker": ticker, "error": str(exc), "dataset": "general_reference"})
-            finally:
-                sec_client.clear_memory_cache()
-    return frames, failures
-
-
-def _fetch_sec_filing_financials(
-    sec_client: SecFilingFactsClient,
-    sec_mapping: pl.DataFrame,
-    *,
-    year: int,
-    max_workers: int = 1,
-) -> tuple[list[pl.DataFrame], list[dict[str, str]]]:
-    rows = sec_mapping.select(["ticker", "cik"]).iter_rows(named=True)
-    frames: list[pl.DataFrame] = []
-    failures: list[dict[str, str]] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(sec_client.extract_financials, str(row["ticker"]), str(row["cik"]), year): str(row["ticker"])
-            for row in rows
-        }
-        for future in as_completed(futures):
-            ticker = futures[future]
-            try:
-                frames.append(future.result())
-            except Exception as exc:
-                failures.append({"ticker": ticker, "error": str(exc)})
-            finally:
-                sec_client.clear_memory_cache()
-    return frames, failures
-
-
-def _extract_sec_companyfacts_earnings_actuals(
-    sec_client: SecCompanyFactsClient,
-    ticker: str,
-    cik: str,
-) -> pl.DataFrame:
-    payload = sec_client.fetch_company_facts(cik)
-    return build_sec_companyfacts_earnings_actuals(ticker=ticker, facts_payload=payload)
-
-
-def _identify_sec_filing_fallback_tickers(
-    *,
-    tickers: tuple[str, ...],
-    sec_companyfacts: pl.DataFrame,
-) -> tuple[str, ...]:
-    requested = {str(ticker).upper().removesuffix(".US") for ticker in tickers}
-    covered = (
-        {
-            str(ticker).upper().removesuffix(".US")
-            for ticker in sec_companyfacts.get_column("ticker").unique().to_list()
-        }
-        if not sec_companyfacts.is_empty()
-        else set()
-    )
-    return tuple(sorted(requested - covered))
-
-
-def _identify_yfinance_financial_fallback_tickers(
-    *,
-    tickers: tuple[str, ...],
-    sec_companyfacts: pl.DataFrame,
-    sec_filing: pl.DataFrame,
-) -> tuple[str, ...]:
-    required_columns = ["ticker", "statement", "metric", "date"]
-    sec_frames = [frame.select(required_columns) for frame in (sec_companyfacts, sec_filing) if not frame.is_empty()]
-    sec_combined = pl.concat(sec_frames, how="vertical") if sec_frames else pl.DataFrame(schema={column: pl.Utf8 for column in required_columns})
-    return _identify_metric_gap_tickers(
-        tickers=tickers,
-        financials=sec_combined,
-        supported_metrics={
-            (spec.statement, spec.metric)
-            for spec in METRIC_SPECS
-            if spec.statement != "earnings" and spec.yfinance_rows
-        },
-    )
-
-
-def _identify_metric_gap_tickers(
-    *,
-    tickers: tuple[str, ...],
-    financials: pl.DataFrame,
-    supported_metrics: set[tuple[str, str]],
-) -> tuple[str, ...]:
-    if not supported_metrics:
-        return ()
-    expected_metrics = [{"statement": statement, "metric": metric} for statement, metric in sorted(supported_metrics)]
-    expectation_grid = pl.DataFrame({"ticker": [f"{ticker}.US" for ticker in tickers]}).join(pl.DataFrame(expected_metrics), how="cross")
-    counts = financials.group_by(["ticker", "statement", "metric"]).agg(pl.col("date").n_unique().alias("quarter_count"))
-    fallback = (
-        expectation_grid.join(counts, on=["ticker", "statement", "metric"], how="left")
-        .with_columns(pl.col("quarter_count").fill_null(0))
-        .filter(pl.col("quarter_count") < 4)
-        .select("ticker")
-        .unique()
-        .sort("ticker")
-        .get_column("ticker")
-        .to_list()
-    )
-    return tuple(ticker.removesuffix(".US") for ticker in fallback)

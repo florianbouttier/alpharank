@@ -8,7 +8,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion import _load_latest_sp500_tickers
+from alpharank.data.open_source.ingestion_prices import _load_latest_sp500_tickers
 from alpharank.data.open_source.storage import write_json
 from alpharank.data.prices import (
     audit_price_candidate,
@@ -17,7 +17,6 @@ from alpharank.data.prices import (
     validate_price_candidate,
 )
 from alpharank.data.prices.contracts import PRODUCTION_PRICE_GATE_POLICY
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

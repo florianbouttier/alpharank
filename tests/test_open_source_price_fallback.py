@@ -6,15 +6,15 @@ from datetime import date
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.ingestion import (
-    _confirmed_terminal_price_tickers,
+from alpharank.data.open_source.ingestion_frames import _with_price_ingestion_metadata
+from alpharank.data.open_source.ingestion_prices import (
     _complete_yahoo_history_against_validated,
+    _confirmed_terminal_price_tickers,
     _consolidate_price_sources,
     _download_yahoo_price_history,
     _identify_simfin_price_fallback_tickers,
     _identify_stockanalysis_price_fallback_tickers,
     _network_price_refresh_coverage,
-    _with_price_ingestion_metadata,
 )
 
 

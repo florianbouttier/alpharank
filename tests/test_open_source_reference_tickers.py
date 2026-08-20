@@ -5,8 +5,12 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion import _load_reference_tickers as load_ingestion_reference_tickers
-from alpharank.data.open_source.transition import _load_reference_tickers as load_transition_reference_tickers
+from alpharank.data.open_source.ingestion_prices import (
+    _load_reference_tickers as load_ingestion_reference_tickers,
+)
+from alpharank.data.open_source.transition import (
+    _load_reference_tickers as load_transition_reference_tickers,
+)
 
 
 def test_load_reference_tickers_accepts_date_typed_price_column(tmp_path: Path) -> None:

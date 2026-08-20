@@ -5,13 +5,13 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
-from alpharank.data.open_source.ingestion import (
+from alpharank.data.open_source.ingestion_prices import (
     _drop_refreshed_partitions,
-    _fetch_sec_companyfacts_bundle,
     _required_failure_tickers,
     _resolve_sec_mapping_coverage,
 )
+from alpharank.data.open_source.ingestion_reference import _fetch_sec_companyfacts_bundle
+from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.stockanalysis import StockAnalysisClient
@@ -142,7 +142,7 @@ def test_companyfacts_bundle_discards_each_company_payload(monkeypatch) -> None:
 
     client = Client()
     monkeypatch.setattr(
-        "alpharank.data.open_source.ingestion._extract_sec_companyfacts_earnings_actuals",
+        "alpharank.data.open_source.ingestion_reference._extract_sec_companyfacts_earnings_actuals",
         lambda sec_client, ticker, cik: pl.DataFrame({"ticker": [ticker], "cik": [cik]}),
     )
     mapping = pl.DataFrame({"ticker": ["AAPL", "MSFT"], "cik": ["1", "2"]})

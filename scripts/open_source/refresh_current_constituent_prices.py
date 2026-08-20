@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date
 import html
-from pathlib import Path
 import json
+from datetime import date
+from pathlib import Path
 
 import polars as pl
 
@@ -13,17 +13,17 @@ from alpharank.data.open_source.constituents import (
     current_constituent_price_coverage,
     sha256_file,
 )
-from alpharank.data.open_source.ingestion import (
+from alpharank.data.open_source.ingestion_frames import _with_price_ingestion_metadata
+from alpharank.data.open_source.ingestion_prices import (
     _canonicalize_price_tickers,
     _consolidate_price_sources,
-    _with_price_ingestion_metadata,
 )
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_outputs
-from alpharank.data.open_source.publishing import publish_open_source_output_package
 from alpharank.data.open_source.price_quality import (
     EXTREME_ADJUSTED_RETURN_THRESHOLD,
     assert_no_extreme_adjusted_price_moves,
 )
+from alpharank.data.open_source.publishing import publish_open_source_output_package
 from alpharank.data.open_source.storage import (
     OpenSourceLivePaths,
     acquire_process_json_lock,
@@ -36,7 +36,6 @@ from alpharank.data.open_source.storage import (
     write_run_manifest,
 )
 from alpharank.data.open_source.yahoo import YahooFinanceClient
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OFFICIAL_DIR = PROJECT_ROOT / "data" / "open_source" / "official"

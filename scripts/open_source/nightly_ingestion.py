@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from datetime import datetime
-from dataclasses import replace
 import os
-from pathlib import Path
 import traceback
+from dataclasses import replace
+from datetime import datetime
+from pathlib import Path
 
 import polars as pl
 
 from alpharank.data.open_source import run_open_source_ingestion
-from alpharank.data.open_source.ingestion import _load_latest_sp500_tickers
+from alpharank.data.open_source.ingestion_prices import _load_latest_sp500_tickers
 from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
 from alpharank.data.open_source.storage import (
     new_run_id,
@@ -19,7 +19,6 @@ from alpharank.data.open_source.storage import (
     try_acquire_json_lock,
     write_json,
 )
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

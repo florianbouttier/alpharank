@@ -6,7 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion import _with_price_ingestion_metadata
+from alpharank.data.open_source.ingestion_frames import _with_price_ingestion_metadata
 from alpharank.data.open_source.storage import (
     OpenSourceLivePaths,
     acquire_process_json_lock,
@@ -16,7 +16,6 @@ from alpharank.data.open_source.storage import (
     utc_now_iso,
     write_json,
 )
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OFFICIAL_DIR = PROJECT_ROOT / "data" / "open_source" / "official"
