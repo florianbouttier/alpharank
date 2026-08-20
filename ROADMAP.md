@@ -158,6 +158,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-007` | choisir `pyproject.toml` comme source des dépendances et générer ou vérifier les autres fichiers | à faire | absence de dérive entre les trois installations |
 | `QUAL-008` | rendre la CI AlphaRank autonome et isoler le contrôle Portfolio dans un job inter-projets explicite | à faire | AlphaRank validable sans checkout Portfolio |
 | `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | à faire | erreurs de clé refusées avant le run |
+| `QUAL-010` | corriger la gate CI pour un checkout sans artefacts locaux | fait | `--group ci` statique et huit tests ciblés verts depuis un dépôt temporaire propre |
 
 ## 9. Lot CODE — découper sans changer les résultats
 

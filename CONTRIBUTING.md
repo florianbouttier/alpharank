@@ -325,7 +325,14 @@ La politique ordonnée et ses exceptions sont versionnées dans
 `configs/quality/test_suites_v1.json`. Un nouveau fichier non reconnu rejoint
 explicitement `unit` jusqu'à ce qu'une dépendance plus large soit déclarée.
 
-La gate AlphaRank complète, identique à celle appelée par la CI, est :
+La gate d'un checkout CI propre, sans dépendance aux artefacts locaux, est :
+
+```bash
+python scripts/quality/run_ci_checks.py --group ci
+```
+
+La gate locale complète, incluant les suites qui consomment des artefacts de
+replay présents dans le dépôt de travail, est :
 
 ```bash
 python scripts/quality/run_ci_checks.py --group all
