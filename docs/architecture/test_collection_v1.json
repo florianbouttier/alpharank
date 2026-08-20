@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 424,
+  "node_count": 427,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -338,6 +338,9 @@
     "test_raw_archive.py::test_raw_archive_rejects_duplicate_business_keys",
     "test_raw_archive.py::test_raw_archive_traces_changed_new_and_missing_rows",
     "test_raw_archive.py::test_restored_identical_row_references_old_raw_content",
+    "test_raw_provider_contracts.py::test_eodhd_is_catalogued_without_authorizing_a_new_download",
+    "test_raw_provider_contracts.py::test_every_raw_provider_targets_its_own_warehouse_root",
+    "test_raw_provider_contracts.py::test_warehouse_provider_paths_fail_closed_on_invalid_ids",
     "test_recomputable_replay.py::test_replay_recomputes_outputs_from_sealed_inputs",
     "test_reconciliation_v2.py::test_v1_v2_reconciliation_is_complete",
     "test_reconciliation_v2.py::test_v1_v2_reconciliation_names_reviewed_terminal_causes",
@@ -427,7 +430,7 @@
     "test_warehouse_migration.py::test_mart_pointer_promotion_is_atomic_and_rollback_restores_exact_bytes",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "7afd3a0b0e2c2737cb915ada6cf1572795ce99567fe3c716b5e6bb16b6151828",
+  "node_ids_sha256": "8e487fbfdbf8b447b1a10a7c664f551a1bce6de9fa868ea5620722bce6840e4d",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

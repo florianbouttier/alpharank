@@ -43,6 +43,7 @@ TARGETED_CI_TESTS = (
         "tests/unit/test_observability.py",
         "tests/replay/test_recomputable_replay.py",
         "tests/unit/test_replay_package_api.py",
+        "tests/unit/test_raw_provider_contracts.py",
         "tests/unit/test_root_module_ownership.py",
         "tests/unit/test_ruff_baseline.py",
         "tests/unit/test_script_path_independence.py",

@@ -16,8 +16,8 @@ def test_every_repository_json_config_has_a_strict_versioned_schema() -> None:
     report = validate_config_schema_registry(ROOT, REGISTRY)
 
     assert report["passed"] is True
-    assert report["family_count"] == 14
-    assert report["config_file_count"] == 18
+    assert report["family_count"] == 15
+    assert report["config_file_count"] == 19
 
 
 def test_structural_schema_rejects_unknown_nested_key() -> None:

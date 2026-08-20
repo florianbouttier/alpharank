@@ -11,3 +11,7 @@ Services partagés pour charger, transformer, figer et valider les entrées.
 Les modules racine gèrent les datasets Legacy, snapshots composés, stockage,
 lignée, intégrité ticker et éligibilité mensuelle. Aucun consommateur ne doit
 résoudre plusieurs fois un pointeur mutable pendant un run.
+
+`raw_contracts.py` valide le registre fournisseur et résout chaque cible RAW en
+cas de doute en arrêtant l'exécution ; `warehouse.py` construit uniquement des
+identifiants fournisseur `lower_snake_case` sous `warehouse/raw`.

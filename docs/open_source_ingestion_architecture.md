@@ -243,6 +243,12 @@ they must not be moved or deleted merely to adopt the new names.
 | `def/` | Canonical point-in-time tables after source selection, correction overlays and carried-forward decisions | New version for every economic change |
 | `mart/` | Exact model-ready AlphaRank composition used by Legacy, Boosting and reports | Immutable composition with hashes and one promoted pointer |
 
+Les cibles RAW par fournisseur ne sont plus implicites : le registre
+`configs/data_contracts/raw_provider_contracts_v1.json` impose une racine
+`data/warehouse/raw/<provider_id>`, les grains/requêtes de chaque dataset et les
+champs obligatoires de reçu et manifeste. `data/open_source/official/raw` reste
+lisible pendant la transition mais n'est plus la cible d'une nouvelle source.
+
 Yahoo price RAW uses `alpharank_raw_delta_archive_v1`. A full provider response
 is still downloaded because equality cannot be known in advance, but an
 unchanged business row is not stored twice. Each run has an immutable manifest

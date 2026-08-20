@@ -10,6 +10,10 @@ from typing import Mapping, Sequence
 CONFIG_SCHEMA_REGISTRY_VERSION = 1
 CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
+        "raw_provider_contracts",
+        ("configs/data_contracts/raw_provider_contracts_v1.json",),
+    ),
+    (
         "confirmed_corporate_actions",
         ("configs/data_quality/confirmed_corporate_actions.json",),
     ),
@@ -60,7 +64,12 @@ CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("configs/research/locked_legacy_ema_challenger_v1.json",),
     ),
 )
-CONFIG_SEARCH_ROOTS = ("configs/data_quality", "configs/quality", "configs/research")
+CONFIG_SEARCH_ROOTS = (
+    "configs/data_contracts",
+    "configs/data_quality",
+    "configs/quality",
+    "configs/research",
+)
 
 
 def build_config_schema_registry(root: Path) -> dict[str, object]:
@@ -275,6 +284,8 @@ def _discover_config_files(root: Path) -> tuple[dict[str, list[Path]], list[str]
     for search_root in CONFIG_SEARCH_ROOTS:
         for path in sorted((root / search_root).glob("*.json")):
             relative = path.relative_to(root).as_posix()
+            if relative == "configs/data_contracts/config_schema_registry_v1.json":
+                continue
             matches = [
                 family_id
                 for family_id, patterns in CONFIG_FAMILY_PATTERNS

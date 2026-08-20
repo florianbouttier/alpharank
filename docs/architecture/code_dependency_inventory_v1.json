@@ -6694,6 +6694,17 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.raw_contracts",
+      "path": "src/alpharank/data/raw_contracts.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [
         "src/alpharank/data/point_in_time.py"
       ],
@@ -8538,9 +8549,9 @@
   "summary": {
     "active_entrypoint_count": 115,
     "internal_edge_count": 685,
-    "library_count": 172,
-    "python_file_count": 294,
+    "library_count": 173,
+    "python_file_count": 295,
     "script_count": 122,
-    "unread_node_count": 115
+    "unread_node_count": 116
   }
 }

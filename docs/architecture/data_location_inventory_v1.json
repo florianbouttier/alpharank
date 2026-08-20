@@ -57,7 +57,7 @@
         "src/alpharank/replay/causal_snapshot.py",
         "src/alpharank/replay/validation.py"
       ],
-      "size_bytes": 35986894617,
+      "size_bytes": 35986894818,
       "target_role": "routing_only"
     },
     {
@@ -600,7 +600,9 @@
       "location_id": "warehouse_raw",
       "migration_status": "target",
       "path": "data/warehouse/raw",
-      "readers": [],
+      "readers": [
+        "src/alpharank/data/raw_contracts.py"
+      ],
       "size_bytes": 1573530412,
       "target_role": "warehouse/raw"
     },
@@ -994,6 +996,11 @@
       "location_id": "warehouse",
       "reader_count": "1",
       "reference": "data/warehouse"
+    },
+    {
+      "location_id": "warehouse_raw",
+      "reader_count": "1",
+      "reference": "data/warehouse/raw"
     }
   ],
   "summary": {
@@ -1001,7 +1008,7 @@
     "file_location_count": 10,
     "location_count": 35,
     "package_location_count": 25,
-    "reader_edge_count": 260,
-    "static_reference_count": 57
+    "reader_edge_count": 261,
+    "static_reference_count": 58
   }
 }

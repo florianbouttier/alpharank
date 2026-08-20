@@ -28,6 +28,14 @@ Règles :
 - un cache réseau jetable n'est pas une preuve `raw` ;
 - aucune préférence entre fournisseurs n'est appliquée ici.
 
+Le registre strict
+[`../../configs/data_contracts/raw_provider_contracts_v1.json`](../../configs/data_contracts/raw_provider_contracts_v1.json)
+attribue EODHD, yfinance, SEC Companyfacts, SEC Submissions, les documents de
+filing, SimFin, StockAnalysis et les preuves de composition S&P 500 à une racine
+unique `data/warehouse/raw/<provider_id>`. Il définit aussi les champs communs
+des reçus et manifestes ; déclarer une cible ne déplace ni ne publie encore un
+payload.
+
 Ainsi, « ne pas stocker deux fois les mêmes octets » et « conserver tout
 l'historique des téléchargements » sont compatibles : on garde chaque reçu et
 on référence un payload déjà présent lorsque son hash est identique.

@@ -1,0 +1,203 @@
+{
+  "contract_id": "alpharank_raw_provider_contracts_v1",
+  "manifest_contract": "alpharank_raw_provider_manifest_v1",
+  "provider_manifest_required_fields": [
+    "contract",
+    "provider_id",
+    "dataset_id",
+    "receipt_count",
+    "latest_receipt_id",
+    "payload_object_count",
+    "generated_at",
+    "receipts_sha256",
+    "validation"
+  ],
+  "providers": [
+    {
+      "catalog_evidence": {
+        "catalog_id": "5a1bb6261807f01c08ac3635e9d40363004e8be1428e180ef1cd186e140522a5",
+        "catalog_manifest_sha256": "fd9f96abf7630aad121b3155390631576042093981e7f64719d5bda05559425b",
+        "source_file_count": 49,
+        "unique_object_count": 24
+      },
+      "current_locations": [
+        "data/eodhd",
+        "data/US_Finalprice.parquet",
+        "data/SP500Price.parquet",
+        "data/SP500_Constituents.csv",
+        "data/US_General.parquet",
+        "data/US_Income_statement.parquet",
+        "data/US_Balance_sheet.parquet",
+        "data/US_Cash_flow.parquet",
+        "data/US_Earnings.parquet",
+        "data/US_share.parquet"
+      ],
+      "datasets": [
+        {
+          "business_key": ["original_path", "payload_sha256"],
+          "dataset_id": "retained_model_input_files",
+          "formats": ["parquet", "csv", "json"],
+          "grain": "one immutable retained local file per original path and content hash",
+          "request_identity_fields": ["original_path", "observed_at"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/warehouse_migration.py"],
+      "live_download_allowed": false,
+      "migration_status": "catalogued_by_hash",
+      "provider_id": "eodhd",
+      "source_kind": "immutable_local_archive",
+      "target_manifest_path": "data/warehouse/raw/eodhd/manifests/latest.json",
+      "target_root": "data/warehouse/raw/eodhd"
+    },
+    {
+      "current_locations": ["data/open_source/official/raw", "data/open_source/_cache/yfinance"],
+      "datasets": [
+        {
+          "business_key": ["ticker", "event_date", "retrieved_at"],
+          "dataset_id": "prices_actions_earnings_financials_metadata",
+          "formats": ["json", "csv", "parquet"],
+          "grain": "one Yahoo provider observation per request, security, event date and retrieval",
+          "request_identity_fields": ["ticker_scope", "start_date", "end_date", "endpoint"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/open_source/yahoo.py", "src/alpharank/data/open_source/ingestion.py"],
+      "live_download_allowed": true,
+      "migration_status": "price_delta_archive_active_other_datasets_declared",
+      "provider_id": "yfinance",
+      "source_kind": "network_library",
+      "target_manifest_path": "data/warehouse/raw/yfinance/manifests/latest.json",
+      "target_root": "data/warehouse/raw/yfinance"
+    },
+    {
+      "current_locations": ["data/open_source/_cache/sec", "data/open_source/official/raw", "data/sec"],
+      "datasets": [
+        {
+          "business_key": ["cik", "request_url", "retrieved_at"],
+          "dataset_id": "companyfacts_and_company_mapping",
+          "formats": ["json"],
+          "grain": "one unmodified SEC Companyfacts or company-mapping response per request and retrieval",
+          "request_identity_fields": ["cik", "request_url"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/open_source/sec.py"],
+      "live_download_allowed": true,
+      "migration_status": "declared_pending_receipt_migration",
+      "provider_id": "sec_companyfacts",
+      "source_kind": "official_api",
+      "target_manifest_path": "data/warehouse/raw/sec_companyfacts/manifests/latest.json",
+      "target_root": "data/warehouse/raw/sec_companyfacts"
+    },
+    {
+      "current_locations": ["data/open_source/_cache/sec_filings", "data/open_source/official/raw", "data/sec"],
+      "datasets": [
+        {
+          "business_key": ["cik", "request_url", "retrieved_at"],
+          "dataset_id": "issuer_submissions",
+          "formats": ["json"],
+          "grain": "one unmodified SEC submissions response per issuer request and retrieval",
+          "request_identity_fields": ["cik", "request_url"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/open_source/sec_filing.py"],
+      "live_download_allowed": true,
+      "migration_status": "declared_pending_receipt_migration",
+      "provider_id": "sec_submissions",
+      "source_kind": "official_api",
+      "target_manifest_path": "data/warehouse/raw/sec_submissions/manifests/latest.json",
+      "target_root": "data/warehouse/raw/sec_submissions"
+    },
+    {
+      "current_locations": ["data/open_source/_cache/sec_filings", "data/open_source/official/raw", "data/sec"],
+      "datasets": [
+        {
+          "business_key": ["cik", "accession_number", "document_name", "payload_sha256"],
+          "dataset_id": "filing_documents_and_xbrl_facts",
+          "formats": ["xml", "html", "json"],
+          "grain": "one unmodified SEC filing document per issuer, accession, document and content hash",
+          "request_identity_fields": ["cik", "accession_number", "document_name", "request_url"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/open_source/sec_filing.py"],
+      "live_download_allowed": true,
+      "migration_status": "declared_pending_receipt_migration",
+      "provider_id": "sec_filings",
+      "source_kind": "official_filing_archive",
+      "target_manifest_path": "data/warehouse/raw/sec_filings/manifests/latest.json",
+      "target_root": "data/warehouse/raw/sec_filings"
+    },
+    {
+      "current_locations": ["data/open_source/_cache/simfin", "data/open_source/official/raw"],
+      "datasets": [
+        {
+          "business_key": ["dataset_name", "market", "variant", "retrieved_at"],
+          "dataset_id": "quarterly_statements_and_daily_prices",
+          "formats": ["csv"],
+          "grain": "one unmodified SimFin dataset export per dataset, market, variant and retrieval",
+          "request_identity_fields": ["dataset_name", "market", "variant"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/open_source/simfin.py"],
+      "live_download_allowed": true,
+      "migration_status": "declared_pending_receipt_migration",
+      "provider_id": "simfin",
+      "source_kind": "download_library",
+      "target_manifest_path": "data/warehouse/raw/simfin/manifests/latest.json",
+      "target_root": "data/warehouse/raw/simfin"
+    },
+    {
+      "current_locations": ["data/open_source/_cache/stockanalysis", "data/open_source/official/raw"],
+      "datasets": [
+        {
+          "business_key": ["ticker", "request_url", "retrieved_at"],
+          "dataset_id": "daily_price_history",
+          "formats": ["html", "json"],
+          "grain": "one unmodified StockAnalysis response per security request and retrieval",
+          "request_identity_fields": ["ticker", "request_url"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/open_source/stockanalysis.py"],
+      "live_download_allowed": true,
+      "migration_status": "declared_pending_receipt_migration",
+      "provider_id": "stockanalysis",
+      "source_kind": "web_source",
+      "target_manifest_path": "data/warehouse/raw/stockanalysis/manifests/latest.json",
+      "target_root": "data/warehouse/raw/stockanalysis"
+    },
+    {
+      "current_locations": ["configs/data_quality/sp500_constituent_changes_2026.json", "data/SP500_Constituents.csv"],
+      "datasets": [
+        {
+          "business_key": ["event_id", "source_url", "observed_at"],
+          "dataset_id": "sp500_membership_events",
+          "formats": ["json", "csv"],
+          "grain": "one sourced S&P 500 membership event or retained base observation per evidence timestamp",
+          "request_identity_fields": ["event_id", "source_url", "observed_at"]
+        }
+      ],
+      "ingestion_modules": ["src/alpharank/data/open_source/constituents.py"],
+      "live_download_allowed": false,
+      "migration_status": "reviewed_registry_declared_pending_raw_reference",
+      "provider_id": "sp500_membership",
+      "source_kind": "reviewed_evidence_registry",
+      "target_manifest_path": "data/warehouse/raw/sp500_membership/manifests/latest.json",
+      "target_root": "data/warehouse/raw/sp500_membership"
+    }
+  ],
+  "receipt_contract": {
+    "contract_id": "alpharank_raw_receipt_v1",
+    "required_fields": [
+      "source_name",
+      "dataset_name",
+      "request_id",
+      "retrieved_at",
+      "response_status",
+      "payload_sha256",
+      "size_bytes",
+      "payload_format",
+      "requested_scope",
+      "payload_object_path",
+      "ingester_version"
+    ]
+  },
+  "schema_version": 1
+}

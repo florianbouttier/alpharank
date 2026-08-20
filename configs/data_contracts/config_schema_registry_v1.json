@@ -3,6 +3,177 @@
   "families": [
     {
       "example_files": [
+        "configs/data_contracts/raw_provider_contracts_v1.json"
+      ],
+      "family_id": "raw_provider_contracts",
+      "patterns": [
+        "configs/data_contracts/raw_provider_contracts_v1.json"
+      ],
+      "schema": {
+        "additional_properties": false,
+        "properties": {
+          "contract_id": {
+            "type": "string"
+          },
+          "manifest_contract": {
+            "type": "string"
+          },
+          "provider_manifest_required_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "providers": {
+            "items": {
+              "additional_properties": false,
+              "properties": {
+                "catalog_evidence": {
+                  "additional_properties": false,
+                  "properties": {
+                    "catalog_id": {
+                      "type": "string"
+                    },
+                    "catalog_manifest_sha256": {
+                      "type": "string"
+                    },
+                    "source_file_count": {
+                      "type": "integer"
+                    },
+                    "unique_object_count": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "catalog_id",
+                    "catalog_manifest_sha256",
+                    "source_file_count",
+                    "unique_object_count"
+                  ],
+                  "type": "object"
+                },
+                "current_locations": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "datasets": {
+                  "items": {
+                    "additional_properties": false,
+                    "properties": {
+                      "business_key": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "dataset_id": {
+                        "type": "string"
+                      },
+                      "formats": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "grain": {
+                        "type": "string"
+                      },
+                      "request_identity_fields": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "business_key",
+                      "dataset_id",
+                      "formats",
+                      "grain",
+                      "request_identity_fields"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "ingestion_modules": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "live_download_allowed": {
+                  "type": "boolean"
+                },
+                "migration_status": {
+                  "type": "string"
+                },
+                "provider_id": {
+                  "type": "string"
+                },
+                "source_kind": {
+                  "type": "string"
+                },
+                "target_manifest_path": {
+                  "type": "string"
+                },
+                "target_root": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "current_locations",
+                "datasets",
+                "ingestion_modules",
+                "live_download_allowed",
+                "migration_status",
+                "provider_id",
+                "source_kind",
+                "target_manifest_path",
+                "target_root"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "receipt_contract": {
+            "additional_properties": false,
+            "properties": {
+              "contract_id": {
+                "type": "string"
+              },
+              "required_fields": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "contract_id",
+              "required_fields"
+            ],
+            "type": "object"
+          },
+          "schema_version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contract_id",
+          "manifest_contract",
+          "provider_manifest_required_fields",
+          "providers",
+          "receipt_contract",
+          "schema_version"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "example_files": [
         "configs/data_quality/confirmed_corporate_actions.json"
       ],
       "family_id": "confirmed_corporate_actions",

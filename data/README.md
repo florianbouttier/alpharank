@@ -49,6 +49,9 @@ warehouse/raw -> warehouse/stg -> warehouse/def -> warehouse/mart
 - `model_inputs/history/` conserve les snapshots immuables publiés à partir des
   marts. Un snapshot est une release, pas une transformation concurrente.
 
+Les huit racines fournisseur autorisées et leurs manifestes sont définis dans
+[`../configs/data_contracts/raw_provider_contracts_v1.json`](../configs/data_contracts/raw_provider_contracts_v1.json).
+
 Le contrat complet est dans
 [`../docs/architecture/data_lifecycle.md`](../docs/architecture/data_lifecycle.md).
 
