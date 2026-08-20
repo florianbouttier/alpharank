@@ -1,27 +1,25 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence
 
 import polars as pl
-
-from alpharank.backtest.application import compare_backtest_curves
-from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
-
-sys.path.insert(0, str(Path(__file__).parent))
-
 from run_ema_anchor_residual_strategy import EmaAnchorResidualConfig, _load_frame  # noqa: E402
-from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402
+from run_ema_rich_future_target_models import (  # noqa: E402
+    _recomposition_by_month,
+    _recomposition_summary,
+)
 from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
     DEFAULT_LEGACY_MONTHLY_RETURNS,
     build_spy_curve,
     load_legacy_curves,
 )
 
+from alpharank.backtest.application import compare_backtest_curves
+from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
 
 DEFAULT_PREDICTION_RUN = Path("outputs/ema_anchor_residual_strategy_20260628_194954")
 DEFAULT_LEGACY_DETAILED_RETURNS = Path("outputs/2026-06-07/legacy_detailed_returns_polars.parquet")

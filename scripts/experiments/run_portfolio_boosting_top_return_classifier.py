@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +11,22 @@ import numpy as np
 import optuna
 import polars as pl
 from optuna.samplers import TPESampler
+from run_signal_copy_models import (  # noqa: E402
+    DEFAULT_LEGACY_PATH,
+    DEFAULT_SOURCE_RUN,
+    _append_legacy,
+    _load_legacy_labels,
+)
+from run_tradable_ema_regression_optuna import (  # noqa: E402
+    _add_cross_sectional_features,
+    _base_features_for_set,
+)
+from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
+    DEFAULT_LEGACY_MONTHLY_RETURNS,
+    LEGACY_MODELS,
+    build_spy_curve,
+    load_legacy_curves,
+)
 
 from alpharank.backtest.application import compare_backtest_curves
 from alpharank.backtest.kpis import compute_backtest_kpis
@@ -22,17 +37,6 @@ from alpharank.backtest.mlcraft_adapter import (
 )
 from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
 from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN, _append_legacy, _load_legacy_labels  # noqa: E402
-from run_tradable_ema_regression_optuna import _add_cross_sectional_features, _base_features_for_set  # noqa: E402
-from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
-    DEFAULT_LEGACY_MONTHLY_RETURNS,
-    LEGACY_MODELS,
-    build_spy_curve,
-    load_legacy_curves,
-)
 
 
 @dataclass(frozen=True)

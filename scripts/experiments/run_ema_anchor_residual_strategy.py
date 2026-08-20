@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,22 +9,25 @@ from typing import Any, Sequence
 
 import numpy as np
 import polars as pl
-
-from alpharank.backtest.application import compare_backtest_curves
-from alpharank.backtest.mlcraft_adapter import ensure_mlcraft_importable, to_mlcraft_model_and_fit_params
-from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
-from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
-from alpharank.utils.xgboost_runtime import load_xgboost
-
-sys.path.insert(0, str(Path(__file__).parent))
-
 from run_signal_copy_models import DEFAULT_SOURCE_RUN  # noqa: E402
-from run_tradable_ema_regression_optuna import _add_cross_sectional_features, _ema_base_features  # noqa: E402
+from run_tradable_ema_regression_optuna import (  # noqa: E402
+    _add_cross_sectional_features,
+    _ema_base_features,
+)
 from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
     DEFAULT_LEGACY_MONTHLY_RETURNS,
     build_spy_curve,
     load_legacy_curves,
 )
+
+from alpharank.backtest.application import compare_backtest_curves
+from alpharank.backtest.mlcraft_adapter import (
+    ensure_mlcraft_importable,
+    to_mlcraft_model_and_fit_params,
+)
+from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
+from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
+from alpharank.utils.xgboost_runtime import load_xgboost
 
 DEFAULT_LEGACY_DETAILED_RETURNS = Path("outputs/2026-06-07/legacy_detailed_returns_polars.parquet")
 DEFAULT_PRICE_VS_INDEX = Path("outputs/checkpoints_open_source_20260607/polars_final_price_vs_index.parquet")

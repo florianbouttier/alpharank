@@ -2,15 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import polars as pl
-
-sys.path.insert(0, str(Path(__file__).parent))
-
 from build_generalized_ema_expert_frame import (  # noqa: E402
     DEFAULT_LEGACY_PATH,
     DEFAULT_SOURCE_RUN,
@@ -21,7 +17,10 @@ from build_generalized_ema_expert_frame import (  # noqa: E402
     _load_model_frame,
     _ticker_features,
 )
-from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402
+from run_ema_rich_future_target_models import (  # noqa: E402
+    _recomposition_by_month,
+    _recomposition_summary,
+)
 
 
 @dataclass(frozen=True)

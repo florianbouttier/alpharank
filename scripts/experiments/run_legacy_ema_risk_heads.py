@@ -5,7 +5,6 @@ import argparse
 import hashlib
 import json
 import subprocess
-import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -13,9 +12,6 @@ import numpy as np
 import polars as pl
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "src"))
-
 from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.multihorizon.confirmation import paired_block_bootstrap
 from alpharank.multihorizon.data import build_research_frame
@@ -32,12 +28,12 @@ from alpharank.multihorizon.risk import (
     score_risk_predictions,
 )
 from alpharank.multihorizon.splits import horizon_walk_forward_windows
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.performance import (
     legacy_report_statistics,
     performance_statistics,
 )
-from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
-from alpharank.portfolio.comparison import reference_monthly_series
 
 
 def _sha256(path: Path) -> str:

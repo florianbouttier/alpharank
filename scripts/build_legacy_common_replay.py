@@ -6,15 +6,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 import polars as pl
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts

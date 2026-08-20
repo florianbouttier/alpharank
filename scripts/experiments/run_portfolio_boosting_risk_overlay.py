@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,17 +9,14 @@ from typing import Any, Iterable
 
 import numpy as np
 import polars as pl
-
-from alpharank.backtest.application import compare_backtest_curves
-from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
-
-sys.path.insert(0, str(Path(__file__).parent))
-
 from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
     DEFAULT_LEGACY_MONTHLY_RETURNS,
     build_spy_curve,
     load_legacy_curves,
 )
+
+from alpharank.backtest.application import compare_backtest_curves
+from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
 
 
 @dataclass(frozen=True)

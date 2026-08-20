@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,13 +9,16 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 import polars as pl
-
-from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402
-from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN, _append_legacy, _load_legacy_labels  # noqa: E402
+from run_ema_rich_future_target_models import (  # noqa: E402
+    _recomposition_by_month,
+    _recomposition_summary,
+)
+from run_signal_copy_models import (  # noqa: E402
+    DEFAULT_LEGACY_PATH,
+    DEFAULT_SOURCE_RUN,
+    _append_legacy,
+    _load_legacy_labels,
+)
 from run_tradable_ema_regression_optuna import (  # noqa: E402
     _add_cross_sectional_features,
     _ema_base_features,
@@ -27,6 +29,7 @@ from run_tradable_ema_regression_optuna import (  # noqa: E402
     _technical_base_features,
 )
 
+from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
 
 DEFAULT_BASE_WARM_START_JSON = Path("outputs/tradable_ema_regression_optuna_20260621_003954/warm_start_candidates.json")
 BASE_FALLBACK_PARAMS: dict[str, Any] = {

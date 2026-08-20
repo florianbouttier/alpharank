@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import importlib
 import os
-import sys
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import numpy as np
 
+from alpharank.utils.module_loading import load_module_from_path
 
 LEGACY_PARAM_ALIASES = {
     "n_estimators": ("num_boost_round", "fit"),
@@ -39,9 +39,14 @@ def ensure_mlcraft_importable() -> Path | None:
     )
 
     for candidate in candidates:
-        if (candidate / "mlcraft" / "__init__.py").exists():
-            sys.path.insert(0, str(candidate))
-            importlib.import_module("mlcraft")
+        package_directory = candidate / "mlcraft"
+        package_init = package_directory / "__init__.py"
+        if package_init.exists():
+            load_module_from_path(
+                "mlcraft",
+                package_init,
+                package_directory=package_directory,
+            )
             _patch_numpy_compat()
             return candidate
 

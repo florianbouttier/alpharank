@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -12,15 +11,6 @@ import numpy as np
 import optuna
 import polars as pl
 from optuna.samplers import TPESampler
-
-from alpharank.backtest.application import compare_backtest_curves
-from alpharank.backtest.mlcraft_adapter import to_mlcraft_search_space
-from alpharank.backtest.portfolio import select_top_n
-from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
-from alpharank.utils.xgboost_runtime import load_xgboost
-
-sys.path.insert(0, str(Path(__file__).parent))
-
 from run_portfolio_boosting_exact_ema_rank import (  # noqa: E402
     PortfolioBoostingExactEmaRankConfig,
     _load_exact_ema_rank_frame,
@@ -28,7 +18,11 @@ from run_portfolio_boosting_exact_ema_rank import (  # noqa: E402
 )
 from run_portfolio_boosting_rank_regression import (  # noqa: E402
     BASE_PARAMS as RANK_BASE_PARAMS,
+)
+from run_portfolio_boosting_rank_regression import (
     SEARCH_SPACE as RANK_SEARCH_SPACE,
+)
+from run_portfolio_boosting_rank_regression import (
     _base_trial_params,
     _fit_mlcraft_regressor,
     _matrix,
@@ -40,6 +34,8 @@ from run_portfolio_boosting_rank_regression import (  # noqa: E402
 )
 from run_portfolio_boosting_top_return_classifier import (  # noqa: E402
     BASE_PARAMS as CLASSIFIER_BASE_PARAMS,
+)
+from run_portfolio_boosting_top_return_classifier import (
     _fit_mlcraft_classifier,
 )
 from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
@@ -47,6 +43,12 @@ from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
     build_spy_curve,
     load_legacy_curves,
 )
+
+from alpharank.backtest.application import compare_backtest_curves
+from alpharank.backtest.mlcraft_adapter import to_mlcraft_search_space
+from alpharank.backtest.portfolio import select_top_n
+from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
+from alpharank.utils.xgboost_runtime import load_xgboost
 
 
 @dataclass(frozen=True)

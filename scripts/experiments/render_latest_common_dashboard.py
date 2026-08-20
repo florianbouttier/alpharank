@@ -8,7 +8,6 @@ import gzip
 import hashlib
 import json
 import math
-import sys
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -17,8 +16,6 @@ import polars as pl
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from alpharank.portfolio.attribution import (  # noqa: E402
     portfolio_return_attribution,

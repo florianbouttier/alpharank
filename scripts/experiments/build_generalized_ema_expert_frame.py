@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
 import polars as pl
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402
+from run_ema_rich_future_target_models import (  # noqa: E402
+    _recomposition_by_month,
+    _recomposition_summary,
+)
 from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN  # noqa: E402
-
 
 DEFAULT_PRICE_PATH = Path("outputs/checkpoints_open_source_20260607/polars_final_price_vs_index.parquet")
 DEFAULT_STOCK_FILTER_PATH = Path("outputs/checkpoints_open_source_20260607/polars_stocks_selections.parquet")

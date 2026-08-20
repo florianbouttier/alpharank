@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import sys
+
 from alpharank.backtest.mlcraft_adapter import (
+    ensure_mlcraft_importable,
     to_mlcraft_model_and_fit_params,
     to_mlcraft_search_space,
 )
@@ -40,3 +43,19 @@ def test_translates_legacy_optuna_space_to_mlcraft_space() -> None:
     assert converted["num_boost_round"] == {"type": "int", "low": 100, "high": 500, "target": "fit"}
     assert converted["learning_rate"] == {"type": "float", "low": 0.001, "high": 0.1, "log": True}
     assert converted["lambda"] == {"type": "float", "low": 0.0, "high": 5.0}
+
+
+def test_loads_local_mlcraft_without_mutating_import_path(tmp_path, monkeypatch) -> None:
+    package = tmp_path / "src" / "mlcraft"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("LOCAL_FIXTURE = True\n", encoding="utf-8")
+    monkeypatch.setenv("MLCRAFT_SRC", str(tmp_path / "src"))
+    monkeypatch.delitem(sys.modules, "mlcraft", raising=False)
+    original_path = list(sys.path)
+
+    loaded_from = ensure_mlcraft_importable()
+
+    assert loaded_from == tmp_path / "src"
+    assert sys.path == original_path
+    assert sys.modules["mlcraft"].LOCAL_FIXTURE is True
+    sys.modules.pop("mlcraft", None)

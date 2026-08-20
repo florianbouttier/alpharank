@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,13 +9,6 @@ from typing import Any, Sequence
 
 import optuna
 import polars as pl
-
-from alpharank.backtest.application import compare_backtest_curves
-from alpharank.backtest.portfolio import select_top_n
-from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
-
-sys.path.insert(0, str(Path(__file__).parent))
-
 from run_ema_anchor_residual_strategy import EmaAnchorResidualConfig, _load_frame  # noqa: E402
 from run_portfolio_boosting_rank_regression import (  # noqa: E402
     _fit_mlcraft_regressor,
@@ -30,12 +22,20 @@ from run_portfolio_boosting_rank_regression import (  # noqa: E402
     _tune_fold,
     _write_warm_start_candidates,
 )
-from run_signal_copy_models import DEFAULT_LEGACY_PATH, _append_legacy, _load_legacy_labels  # noqa: E402
+from run_signal_copy_models import (  # noqa: E402
+    DEFAULT_LEGACY_PATH,
+    _append_legacy,
+    _load_legacy_labels,
+)
 from run_tradable_ema_regression_trading_backtest import (  # noqa: E402
     DEFAULT_LEGACY_MONTHLY_RETURNS,
     build_spy_curve,
     load_legacy_curves,
 )
+
+from alpharank.backtest.application import compare_backtest_curves
+from alpharank.backtest.portfolio import select_top_n
+from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
 
 
 @dataclass(frozen=True)

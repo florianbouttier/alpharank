@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
 import polars as pl
 
+from alpharank.utils.module_loading import load_module_from_path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts" / "open_source"
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-
-from build_sec_metric_hybrid_package import merge_earnings_prefer_non_null_actuals
+_HYBRID_PACKAGE_MODULE = load_module_from_path(
+    "alpharank_test_build_sec_metric_hybrid_package",
+    SCRIPT_DIR / "build_sec_metric_hybrid_package.py",
+)
+merge_earnings_prefer_non_null_actuals = (
+    _HYBRID_PACKAGE_MODULE.merge_earnings_prefer_non_null_actuals
+)
 
 
 def test_merge_earnings_prefer_non_null_actuals_replaces_null_primary_quarter() -> None:

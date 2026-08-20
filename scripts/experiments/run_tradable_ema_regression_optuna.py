@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +11,16 @@ import numpy as np
 import optuna
 import polars as pl
 from optuna.samplers import TPESampler
+from run_ema_rich_future_target_models import (  # noqa: E402
+    _recomposition_by_month,
+    _recomposition_summary,
+)
+from run_signal_copy_models import (  # noqa: E402
+    DEFAULT_LEGACY_PATH,
+    DEFAULT_SOURCE_RUN,
+    _append_legacy,
+    _load_legacy_labels,
+)
 
 from alpharank.backtest.mlcraft_adapter import (
     ensure_mlcraft_importable,
@@ -19,11 +28,6 @@ from alpharank.backtest.mlcraft_adapter import (
     to_mlcraft_search_space,
 )
 from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402
-from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN, _append_legacy, _load_legacy_labels  # noqa: E402
 
 
 @dataclass(frozen=True)

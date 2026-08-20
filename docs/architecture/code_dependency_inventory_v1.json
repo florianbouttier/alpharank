@@ -940,6 +940,16 @@
       "target": "src/alpharank/data/security_identity.py"
     },
     {
+      "kind": "command",
+      "source": "scripts/open_source/build_sec_metric_hybrid_package.py",
+      "target": "scripts/open_source/build_sec_output_package.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/open_source/build_sec_metric_hybrid_package.py",
+      "target": "scripts/open_source/build_sec_overlay_package.py"
+    },
+    {
       "kind": "import",
       "source": "scripts/open_source/build_sec_metric_hybrid_package.py",
       "target": "src/alpharank/data/open_source/legacy_export.py"
@@ -948,6 +958,11 @@
       "kind": "import",
       "source": "scripts/open_source/build_sec_metric_hybrid_package.py",
       "target": "src/alpharank/data/open_source/storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/build_sec_metric_hybrid_package.py",
+      "target": "src/alpharank/utils/module_loading.py"
     },
     {
       "kind": "import",
@@ -1010,6 +1025,11 @@
       "target": "src/alpharank/data/output_history.py"
     },
     {
+      "kind": "command",
+      "source": "scripts/open_source/build_sec_overlay_package.py",
+      "target": "scripts/open_source/build_sec_output_package.py"
+    },
+    {
       "kind": "import",
       "source": "scripts/open_source/build_sec_overlay_package.py",
       "target": "src/alpharank/data/open_source/legacy_export.py"
@@ -1018,6 +1038,11 @@
       "kind": "import",
       "source": "scripts/open_source/build_sec_overlay_package.py",
       "target": "src/alpharank/data/open_source/storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/build_sec_overlay_package.py",
+      "target": "src/alpharank/utils/module_loading.py"
     },
     {
       "kind": "import",
@@ -1648,6 +1673,11 @@
       "kind": "import",
       "source": "src/alpharank/backtest/kpis.py",
       "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/backtest/mlcraft_adapter.py",
+      "target": "src/alpharank/utils/module_loading.py"
     },
     {
       "kind": "import",
@@ -3940,9 +3970,13 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/storage.py"
+        "src/alpharank/data/open_source/storage.py",
+        "src/alpharank/utils/module_loading.py"
       ],
-      "invokes": [],
+      "invokes": [
+        "scripts/open_source/build_sec_output_package.py",
+        "scripts/open_source/build_sec_overlay_package.py"
+      ],
       "layer": "script",
       "lifecycle": "active",
       "module": "scripts.open_source.build_sec_metric_hybrid_package",
@@ -3969,6 +4003,8 @@
       "module": "scripts.open_source.build_sec_output_package",
       "path": "scripts/open_source/build_sec_output_package.py",
       "readers": [
+        "scripts/open_source/build_sec_metric_hybrid_package.py",
+        "scripts/open_source/build_sec_overlay_package.py",
         "scripts/open_source/run_sec_q4_fix2_candidate.py"
       ]
     },
@@ -3994,14 +4030,18 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/storage.py"
+        "src/alpharank/data/open_source/storage.py",
+        "src/alpharank/utils/module_loading.py"
       ],
-      "invokes": [],
+      "invokes": [
+        "scripts/open_source/build_sec_output_package.py"
+      ],
       "layer": "script",
       "lifecycle": "active",
       "module": "scripts.open_source.build_sec_overlay_package",
       "path": "scripts/open_source/build_sec_overlay_package.py",
       "readers": [
+        "scripts/open_source/build_sec_metric_hybrid_package.py",
         "scripts/open_source/run_sec_q4_fix2_candidate.py"
       ]
     },
@@ -4891,7 +4931,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/utils/module_loading.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -7155,6 +7197,21 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.utils.module_loading",
+      "path": "src/alpharank/utils/module_loading.py",
+      "readers": [
+        "scripts/open_source/build_sec_metric_hybrid_package.py",
+        "scripts/open_source/build_sec_overlay_package.py",
+        "src/alpharank/backtest/mlcraft_adapter.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [
         "src/alpharank/utils/frame_backend.py"
       ],
@@ -7246,9 +7303,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 117,
-    "internal_edge_count": 568,
-    "library_count": 139,
-    "python_file_count": 257,
+    "internal_edge_count": 574,
+    "library_count": 140,
+    "python_file_count": 258,
     "script_count": 118,
     "unread_node_count": 105
   }

@@ -2,20 +2,28 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import shutil
-import sys
+from pathlib import Path
 
 import polars as pl
 
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_fundamental_outputs
 from alpharank.data.open_source.storage import utc_now_iso
+from alpharank.utils.module_loading import load_module_from_path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-from build_sec_output_package import publish_sec_output_package
-from build_sec_overlay_package import _load_lineage_frames, merge_earnings_long, merge_financials
+_OUTPUT_PACKAGE_MODULE = load_module_from_path(
+    "alpharank_local_build_sec_output_package",
+    SCRIPT_DIR / "build_sec_output_package.py",
+)
+_OVERLAY_PACKAGE_MODULE = load_module_from_path(
+    "alpharank_local_build_sec_overlay_package",
+    SCRIPT_DIR / "build_sec_overlay_package.py",
+)
+publish_sec_output_package = _OUTPUT_PACKAGE_MODULE.publish_sec_output_package
+_load_lineage_frames = _OVERLAY_PACKAGE_MODULE._load_lineage_frames
+merge_earnings_long = _OVERLAY_PACKAGE_MODULE.merge_earnings_long
+merge_financials = _OVERLAY_PACKAGE_MODULE.merge_financials
 
 
 DEFAULT_FINANCIAL_METRIC_SOURCES: tuple[tuple[str, str], ...] = (

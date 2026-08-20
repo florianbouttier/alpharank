@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Sequence
 
 import polars as pl
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN, _append_legacy, _load_legacy_labels  # noqa: E402
-from run_tradable_ema_regression_optuna import _add_cross_sectional_features, _base_features_for_set  # noqa: E402
+from run_signal_copy_models import (  # noqa: E402
+    DEFAULT_LEGACY_PATH,
+    DEFAULT_SOURCE_RUN,
+    _append_legacy,
+    _load_legacy_labels,
+)
+from run_tradable_ema_regression_optuna import (  # noqa: E402
+    _add_cross_sectional_features,
+    _base_features_for_set,
+)
 
 
 @dataclass(frozen=True)

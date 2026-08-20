@@ -6,23 +6,16 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import sys
 from datetime import date
 from pathlib import Path
 
 import polars as pl
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from alpharank.portfolio.performance import (  # noqa: E402
     advanced_performance_statistics,
     annual_returns,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio  # noqa: E402
-
 
 STRATEGIES = ("Boosting Top 5", "Boosting Top 10", "Legacy", "SPY total return")
 

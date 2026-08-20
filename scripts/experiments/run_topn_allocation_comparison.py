@@ -8,17 +8,11 @@ import hashlib
 import html
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import polars as pl
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from alpharank.multihorizon.confirmation import paired_block_bootstrap  # noqa: E402
 from alpharank.multihorizon.risk import build_risk_weighted_backtest  # noqa: E402
@@ -26,9 +20,12 @@ from alpharank.portfolio.artifacts import write_common_portfolio_artifacts  # no
 from alpharank.portfolio.comparison import reference_monthly_series  # noqa: E402
 from alpharank.portfolio.performance import (  # noqa: E402
     annual_returns as common_annual_returns,
+)
+from alpharank.portfolio.performance import (
     legacy_report_statistics,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_SPEC = Path(
     "configs/research/legacy_ema_top5_vs_top10_quarantine_v7.json"

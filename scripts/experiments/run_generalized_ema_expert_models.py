@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,21 +9,22 @@ from typing import Sequence
 
 import numpy as np
 import polars as pl
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402
+from run_ema_rich_future_target_models import (  # noqa: E402
+    _recomposition_by_month,
+    _recomposition_summary,
+)
 from run_signal_copy_models import (  # noqa: E402
     _binary_target,
     _classifier_params,
     _group_sizes,
     _matrix,
     _month_rank_target,
+    _predict_xgb,
     _rank_params,
     _regression_params,
     _train_xgb,
-    _predict_xgb,
 )
+
 from alpharank.backtest.time_folds import filter_by_months, walk_forward_windows  # noqa: E402
 from alpharank.utils.xgboost_runtime import load_xgboost  # noqa: E402
 

@@ -5,7 +5,6 @@ import argparse
 import hashlib
 import html
 import json
-import sys
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Iterable
@@ -13,17 +12,11 @@ from typing import Any, Iterable
 import numpy as np
 import polars as pl
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "src"))
-
 from alpharank.data.ticker_integrity import (  # noqa: E402
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     load_ticker_exclusion_registry,
 )
 from alpharank.portfolio.performance import legacy_report_statistics  # noqa: E402
-
 
 DEFAULT_SNAPSHOT = Path(
     "outputs/2026-07-13/runs/20260713_201639/input_snapshot"
