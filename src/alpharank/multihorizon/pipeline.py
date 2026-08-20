@@ -232,6 +232,10 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             "src/alpharank/multihorizon/splits.py",
             "src/alpharank/backtest/model_artifacts.py",
             "src/alpharank/portfolio/simulation.py",
+            "src/alpharank/governance.py",
+            "src/alpharank/governance_contracts/common.py",
+            "src/alpharank/governance_contracts/contracts.py",
+            "src/alpharank/governance_contracts/runtime_provenance.py",
         ),
         data_identifiers={
             "methodology_identity": methodology_identity or {"version": "research"},

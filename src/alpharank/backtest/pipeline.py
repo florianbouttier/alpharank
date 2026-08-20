@@ -432,6 +432,9 @@ def _write_run_data_input_manifest(
             "src/alpharank/backtest/tuning.py",
             "src/alpharank/portfolio/simulation.py",
             "src/alpharank/governance.py",
+            "src/alpharank/governance_contracts/common.py",
+            "src/alpharank/governance_contracts/contracts.py",
+            "src/alpharank/governance_contracts/runtime_provenance.py",
         ),
         data_identifiers={
             "source_snapshot_id": (

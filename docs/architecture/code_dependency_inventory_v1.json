@@ -177,6 +177,21 @@
     {
       "kind": "command",
       "source": "scripts/build_common_legacy_boosting_replay.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/build_common_legacy_boosting_replay.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/build_common_legacy_boosting_replay.py",
+      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/build_common_legacy_boosting_replay.py",
       "target": "src/alpharank/multihorizon/config.py"
     },
     {
@@ -1635,6 +1650,21 @@
       "target": "src/alpharank/governance.py"
     },
     {
+      "kind": "command",
+      "source": "src/alpharank/backtest/pipeline.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/backtest/pipeline.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/backtest/pipeline.py",
+      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
+    },
+    {
       "kind": "import",
       "source": "src/alpharank/backtest/pipeline.py",
       "target": "src/alpharank/multihorizon/preprocessing.py"
@@ -1745,9 +1775,29 @@
       "target": "src/alpharank/data/snapshot_storage.py"
     },
     {
+      "kind": "command",
+      "source": "src/alpharank/causal_snapshot.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
       "kind": "import",
       "source": "src/alpharank/causal_snapshot.py",
       "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/causal_snapshot.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/causal_snapshot.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/causal_snapshot.py",
+      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
     },
     {
       "kind": "command",
@@ -2412,7 +2462,82 @@
     {
       "kind": "import",
       "source": "src/alpharank/governance.py",
+      "target": "src/alpharank/governance_contracts/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/__init__.py",
+      "target": "src/alpharank/governance_contracts/baseline.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/__init__.py",
+      "target": "src/alpharank/governance_contracts/confirmation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/__init__.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/__init__.py",
+      "target": "src/alpharank/governance_contracts/economic_prefix.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/__init__.py",
+      "target": "src/alpharank/governance_contracts/promotion.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/__init__.py",
+      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/baseline.py",
       "target": "src/alpharank/data/snapshot_storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/baseline.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/baseline.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/confirmation.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/confirmation.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/economic_prefix.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/promotion.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/runtime_provenance.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/governance_contracts/runtime_provenance.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
     },
     {
       "kind": "import",
@@ -2560,9 +2685,29 @@
       "target": "src/alpharank/causal_snapshot.py"
     },
     {
+      "kind": "command",
+      "source": "src/alpharank/multihorizon/pipeline.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
       "kind": "import",
       "source": "src/alpharank/multihorizon/pipeline.py",
       "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/multihorizon/pipeline.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/multihorizon/pipeline.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/multihorizon/pipeline.py",
+      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
     },
     {
       "kind": "import",
@@ -2893,6 +3038,21 @@
       "kind": "import",
       "source": "src/alpharank/production/legacy_pipeline.py",
       "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
     },
     {
       "kind": "import",
@@ -3246,6 +3406,9 @@
         "scripts/build_common_legacy_boosting_replay.py",
         "src/alpharank/data/terminal_eligibility.py",
         "src/alpharank/governance.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
         "src/alpharank/multihorizon/config.py",
         "src/alpharank/portfolio/adapters/boosting.py",
         "src/alpharank/portfolio/artifacts.py",
@@ -5137,6 +5300,9 @@
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/backtest/tuning.py",
         "src/alpharank/governance.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
         "src/alpharank/portfolio/simulation.py"
       ],
       "layer": "library",
@@ -5269,6 +5435,10 @@
         "src/alpharank/data/price_eligibility.py",
         "src/alpharank/data/prices/history.py",
         "src/alpharank/data/sector_history.py",
+        "src/alpharank/governance.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
         "src/alpharank/portfolio/execution.py",
         "src/alpharank/portfolio/simulation.py",
         "src/alpharank/portfolio/terminal_returns.py"
@@ -6339,7 +6509,7 @@
         "src/alpharank/data/open_source/transaction.py",
         "src/alpharank/data/output_history.py",
         "src/alpharank/data/warehouse_migration.py",
-        "src/alpharank/governance.py",
+        "src/alpharank/governance_contracts/baseline.py",
         "src/alpharank/production/legacy_pipeline.py"
       ]
     },
@@ -6430,7 +6600,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/data/snapshot_storage.py"
+        "src/alpharank/governance_contracts/__init__.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -6447,6 +6617,153 @@
         "src/alpharank/multihorizon/pipeline.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/reconciliation_v2.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/baseline.py",
+        "src/alpharank/governance_contracts/confirmation.py",
+        "src/alpharank/governance_contracts/contracts.py",
+        "src/alpharank/governance_contracts/economic_prefix.py",
+        "src/alpharank/governance_contracts/promotion.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts",
+      "path": "src/alpharank/governance_contracts/__init__.py",
+      "readers": [
+        "src/alpharank/governance.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/snapshot_storage.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.baseline",
+      "path": "src/alpharank/governance_contracts/baseline.py",
+      "readers": [
+        "src/alpharank/governance_contracts/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.common",
+      "path": "src/alpharank/governance_contracts/common.py",
+      "readers": [
+        "scripts/build_common_legacy_boosting_replay.py",
+        "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/governance_contracts/baseline.py",
+        "src/alpharank/governance_contracts/confirmation.py",
+        "src/alpharank/governance_contracts/promotion.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
+        "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.confirmation",
+      "path": "src/alpharank/governance_contracts/confirmation.py",
+      "readers": [
+        "src/alpharank/governance_contracts/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.contracts",
+      "path": "src/alpharank/governance_contracts/contracts.py",
+      "readers": [
+        "scripts/build_common_legacy_boosting_replay.py",
+        "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/governance_contracts/__init__.py",
+        "src/alpharank/governance_contracts/baseline.py",
+        "src/alpharank/governance_contracts/confirmation.py",
+        "src/alpharank/governance_contracts/economic_prefix.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
+        "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/contracts.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.economic_prefix",
+      "path": "src/alpharank/governance_contracts/economic_prefix.py",
+      "readers": [
+        "src/alpharank/governance_contracts/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.promotion",
+      "path": "src/alpharank/governance_contracts/promotion.py",
+      "readers": [
+        "src/alpharank/governance_contracts/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.runtime_provenance",
+      "path": "src/alpharank/governance_contracts/runtime_provenance.py",
+      "readers": [
+        "scripts/build_common_legacy_boosting_replay.py",
+        "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/governance_contracts/__init__.py",
+        "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6692,6 +7009,10 @@
       "invokes": [
         "scripts/experiments/run_multihorizon_boosting.py",
         "src/alpharank/backtest/model_artifacts.py",
+        "src/alpharank/governance.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
         "src/alpharank/multihorizon/data.py",
         "src/alpharank/multihorizon/modeling.py",
         "src/alpharank/multihorizon/pipeline.py",
@@ -7207,6 +7528,9 @@
         "src/alpharank/data/processing.py",
         "src/alpharank/data/terminal_eligibility.py",
         "src/alpharank/governance.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
         "src/alpharank/portfolio/costs.py",
         "src/alpharank/portfolio/execution.py",
         "src/alpharank/portfolio/simulation.py",
@@ -7644,9 +7968,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 117,
-    "internal_edge_count": 608,
-    "library_count": 148,
-    "python_file_count": 266,
+    "internal_edge_count": 640,
+    "library_count": 156,
+    "python_file_count": 274,
     "script_count": 118,
     "unread_node_count": 106
   }

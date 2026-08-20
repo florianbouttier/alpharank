@@ -7,6 +7,9 @@
 - `backtest/` : pipeline Boosting historique et composants génériques.
 - `portfolio/` : contrat de holdings, simulation et KPI partagés.
 - `production/` : orchestration testable des commandes canoniques.
+- `governance_contracts/` : implémentations des contrats de baseline,
+  promotion, confirmation, parité économique et provenance runtime ;
+  `governance.py` reste leur façade publique stable.
 - `data/` : chargement, snapshots, lignée, prix et ingestion open source.
 - `features/` : indicateurs communs de bas niveau.
 - `models/` : wrappers historiques XGBoost/SHAP.

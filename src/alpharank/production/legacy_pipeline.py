@@ -807,6 +807,9 @@ def run_pipeline(
             "src/alpharank/portfolio/terminal_event_registry.py",
             "configs/data_quality/terminal_shareholder_events_v1.json",
             "src/alpharank/governance.py",
+            "src/alpharank/governance_contracts/common.py",
+            "src/alpharank/governance_contracts/contracts.py",
+            "src/alpharank/governance_contracts/runtime_provenance.py",
         ),
         data_identifiers={
             "input_snapshot_id": (

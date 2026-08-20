@@ -47,6 +47,10 @@ REQUIRED_CRITICAL_FILES = (
     "src/alpharank/portfolio/execution.py",
     "src/alpharank/portfolio/simulation.py",
     "src/alpharank/portfolio/terminal_returns.py",
+    "src/alpharank/governance.py",
+    "src/alpharank/governance_contracts/common.py",
+    "src/alpharank/governance_contracts/contracts.py",
+    "src/alpharank/governance_contracts/runtime_provenance.py",
 )
 
 
