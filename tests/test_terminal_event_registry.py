@@ -23,14 +23,14 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
 
     assert registry.path == DEFAULT_TERMINAL_EVENT_REGISTRY.resolve()
     assert len(registry.sha256) == 64
-    assert len(registry.events) == 7
-    assert sum(len(event["source_documents"]) for event in registry.events) == 10
+    assert len(registry.events) == 8
+    assert sum(len(event["source_documents"]) for event in registry.events) == 12
 
     terminal = registry.terminal_consideration_events(
         price_vintage_id="prices-v2"
     )
-    assert terminal.height == 6
-    assert terminal["terminal_event_id"].n_unique() == 6
+    assert terminal.height == 7
+    assert terminal["terminal_event_id"].n_unique() == 7
     assert terminal["price_vintage_id"].unique().to_list() == ["prices-v2"]
 
     kraft = terminal.filter(terminal["ticker"] == "KRFT.US").row(0, named=True)
@@ -57,12 +57,13 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
     assert frc["entry_allowed"] is False
 
     entry_blocks = registry.terminal_entry_blocks()
-    assert entry_blocks.height == 7
+    assert entry_blocks.height == 8
     expected_months = {
         "KRFT.US": date(2015, 8, 1),
         "HSP.US": date(2015, 10, 1),
         "WFM.US": date(2017, 9, 1),
         "ESRX.US": date(2019, 1, 1),
+        "SCG.US": date(2019, 1, 1),
         "NFX.US": date(2019, 3, 1),
         "NLSN.US": date(2022, 11, 1),
         "FRC.US": date(2023, 5, 1),
@@ -217,13 +218,13 @@ def test_reviewed_registry_replaces_only_provisional_terminal_returns() -> None:
             "successor_ticker must be a non-empty string",
         ),
         (
-            lambda payload: payload["events"][6]["portfolio_resolution"].update(
+            lambda payload: payload["events"][7]["portfolio_resolution"].update(
                 {"allow_entry": True}
             ),
             "must reject the fill",
         ),
         (
-            lambda payload: payload["events"][6].update(
+            lambda payload: payload["events"][7].update(
                 {"known_at": "2023-05-01T10:00:00-04:00"}
             ),
             "was not known before open",

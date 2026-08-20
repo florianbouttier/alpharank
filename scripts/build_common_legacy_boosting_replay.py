@@ -27,7 +27,12 @@ from alpharank.portfolio.lineage import (
 )
 from alpharank.portfolio.maturity import split_completed_portfolio_months
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
 from alpharank.multihorizon.config import validate_latest_common_comparison_profile
+from alpharank.data.terminal_eligibility import (
+    TERMINAL_ENTRY_POLICY_ID,
+    apply_terminal_entry_gate_to_decisions,
+)
 
 
 def _hash(path: Path) -> str:
@@ -49,6 +54,47 @@ def _reference_series(source: pl.DataFrame, *, source_strategy: str, strategy: s
         strategy=strategy,
         return_column="net_return",
     )
+
+
+def _gate_boosting_terminal_entries(
+    predictions: pl.DataFrame,
+    *,
+    entry_blocks: pl.DataFrame,
+    prediction_partition: str,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    if predictions.is_empty():
+        return predictions.clone(), pl.DataFrame(
+            schema={
+                "prediction_partition": pl.String,
+                "decision_month": pl.Date,
+                "holding_month": pl.Date,
+                "ticker": pl.String,
+                "score": pl.Float64,
+                "target_status_1m": pl.String,
+                "terminal_event_id": pl.String,
+                "blocked_from_holding_month": pl.Date,
+                "entry_block_rule": pl.String,
+            }
+        )
+    gate = apply_terminal_entry_gate_to_decisions(predictions, entry_blocks)
+    eligible = gate.eligible.drop("holding_month")
+    journal = gate.blocked.select(
+        pl.lit(prediction_partition).alias("prediction_partition"),
+        "decision_month",
+        "holding_month",
+        "ticker",
+        *[
+            column
+            for column in ("score", "target_status_1m")
+            if column in gate.blocked.columns
+        ],
+        "terminal_event_id",
+        pl.col("_terminal_blocked_from_month").alias(
+            "blocked_from_holding_month"
+        ),
+        "entry_block_rule",
+    )
+    return eligible, journal
 
 
 def build_comparison(
@@ -115,7 +161,25 @@ def build_comparison(
 
     all_predictions = pl.read_parquet(predictions_path)
     portfolio_maturity = split_completed_portfolio_months(all_predictions)
-    predictions = portfolio_maturity.completed_predictions
+    terminal_registry = load_terminal_event_registry()
+    completed_predictions_before_gate = portfolio_maturity.completed_predictions.height
+    score_only_predictions_before_gate = portfolio_maturity.score_only_predictions.height
+    predictions, completed_terminal_blocks = _gate_boosting_terminal_entries(
+        portfolio_maturity.completed_predictions,
+        entry_blocks=terminal_registry.terminal_entry_blocks(),
+        prediction_partition="completed_replay",
+    )
+    score_only_predictions, score_only_terminal_blocks = (
+        _gate_boosting_terminal_entries(
+            portfolio_maturity.score_only_predictions,
+            entry_blocks=terminal_registry.terminal_entry_blocks(),
+            prediction_partition="score_only_live",
+        )
+    )
+    terminal_entry_journal = pl.concat(
+        [completed_terminal_blocks, score_only_terminal_blocks],
+        how="diagonal_relaxed",
+    ).sort(["holding_month", "prediction_partition", "ticker"])
     boosting_holdings = pl.concat(
         [
             boosting_predictions_to_holdings(
@@ -126,6 +190,32 @@ def build_comparison(
             for top_n in (5, 10)
         ],
         how="diagonal_relaxed",
+    )
+    censored_selected = boosting_holdings.filter(
+        pl.col("target_status_1m") == "approved_censored_last_observation"
+    )
+    if censored_selected.height:
+        examples = censored_selected.select(
+            "strategy", "decision_month", "holding_month", "ticker"
+        ).head(10).to_dicts()
+        raise ValueError(
+            "Selected Boosting holdings still use censored zero-return targets "
+            f"after the terminal entry gate: {examples}"
+        )
+    live_holdings_parts: list[pl.DataFrame] = []
+    if not score_only_predictions.is_empty():
+        for top_n in (5, 10):
+            live_holdings_parts.append(
+                boosting_predictions_to_holdings(
+                    score_only_predictions,
+                    strategy=f"Boosting Top {top_n}",
+                    top_n=top_n,
+                )
+            )
+    live_score_holdings = (
+        pl.concat(live_holdings_parts, how="diagonal_relaxed")
+        if live_holdings_parts
+        else pl.DataFrame()
     )
     boosting_monthly = pl.concat(
         [
@@ -195,6 +285,19 @@ def build_comparison(
             "includes_distributions": True,
         },
     )
+    terminal_entry_journal_path = output_dir / "terminal_entry_journal.parquet"
+    terminal_entry_journal_csv_path = output_dir / "terminal_entry_journal.csv"
+    terminal_entry_journal.write_parquet(terminal_entry_journal_path)
+    terminal_entry_journal.write_csv(terminal_entry_journal_csv_path)
+    artifacts["terminal_entry_journal"] = terminal_entry_journal_path
+    artifacts["terminal_entry_journal_csv"] = terminal_entry_journal_csv_path
+    if not live_score_holdings.is_empty():
+        live_score_holdings_path = output_dir / "boosting_live_score_holdings.parquet"
+        live_score_holdings_csv_path = output_dir / "boosting_live_score_holdings.csv"
+        live_score_holdings.write_parquet(live_score_holdings_path)
+        live_score_holdings.write_csv(live_score_holdings_csv_path)
+        artifacts["boosting_live_score_holdings"] = live_score_holdings_path
+        artifacts["boosting_live_score_holdings_csv"] = live_score_holdings_csv_path
 
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(
@@ -237,6 +340,19 @@ def build_comparison(
                     ),
                     "portfolio_maturity": portfolio_maturity.manifest,
                     "results": boosting_manifest.get("results"),
+                },
+                "terminal_entry_gate": {
+                    "policy_id": TERMINAL_ENTRY_POLICY_ID,
+                    "registry_id": terminal_registry.payload["registry_id"],
+                    "registry_sha256": terminal_registry.sha256,
+                    "registry_path": str(terminal_registry.path),
+                    "completed_predictions_before_gate": completed_predictions_before_gate,
+                    "completed_predictions_after_gate": predictions.height,
+                    "completed_predictions_blocked": completed_terminal_blocks.height,
+                    "score_only_predictions_before_gate": score_only_predictions_before_gate,
+                    "score_only_predictions_after_gate": score_only_predictions.height,
+                    "score_only_predictions_blocked": score_only_terminal_blocks.height,
+                    "selected_censored_zero_return_rows": 0,
                 },
                 "artifacts": {
                     name: {"path": str(path.resolve()), "sha256": _hash(path)}

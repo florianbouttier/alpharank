@@ -14,6 +14,44 @@ class TerminalEntryGateResult:
     blocked: pl.DataFrame
 
 
+def apply_terminal_entry_gate_to_decisions(
+    candidates: pl.DataFrame,
+    entry_blocks: pl.DataFrame,
+    *,
+    decision_month_column: str = "decision_month",
+    ticker_column: str = "ticker",
+    holding_month_column: str = "holding_month",
+) -> TerminalEntryGateResult:
+    """Map decision month to holding month and reject impossible entries.
+
+    The returned frames retain ``holding_month_column`` so callers can persist
+    a candidate-level journal before dropping it from score inputs.
+    """
+
+    if decision_month_column not in candidates.columns:
+        raise ValueError(
+            "Terminal entry decisions are missing column: "
+            f"{decision_month_column!r}"
+        )
+    if holding_month_column in candidates.columns:
+        raise ValueError(
+            "Terminal entry decisions already contain holding-month column: "
+            f"{holding_month_column!r}"
+        )
+    prepared = candidates.with_columns(
+        pl.col(decision_month_column)
+        .cast(pl.Date, strict=False)
+        .dt.offset_by("1mo")
+        .alias(holding_month_column)
+    )
+    return apply_terminal_entry_gate(
+        prepared,
+        entry_blocks,
+        holding_month_column=holding_month_column,
+        ticker_column=ticker_column,
+    )
+
+
 def apply_terminal_entry_gate(
     candidates: pl.DataFrame,
     entry_blocks: pl.DataFrame,

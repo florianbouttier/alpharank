@@ -128,9 +128,10 @@ class TerminalEventRegistry:
 
         A merger or acquisition that occurs during an already-open holding
         month is resolved through shareholder consideration. It blocks new
-        entry from the following month. A pre-open trading suspension blocks
-        entry in its effective month because no regular-session execution is
-        possible.
+        entry from the following month. When the final primary-market session
+        was already in the preceding month, the security cannot be bought in
+        the effective month and is blocked immediately. A pre-open trading
+        suspension follows the same effective-month rule.
         """
 
         rows: list[dict[str, Any]] = []
@@ -139,10 +140,17 @@ class TerminalEventRegistry:
             effective_date = _parse_date(
                 event["effective_date"], field="effective_date"
             )
+            last_primary_trading_date = _parse_date(
+                event["last_primary_trading_date"],
+                field="last_primary_trading_date",
+            )
             effective_month = effective_date.replace(day=1)
             if resolution["mode"] == "pre_execution_trading_suspension":
                 blocked_from_holding_month = effective_month
                 rule = "pre_open_suspension_blocks_effective_month"
+            elif last_primary_trading_date < effective_month:
+                blocked_from_holding_month = effective_month
+                rule = "no_primary_session_blocks_effective_month"
             else:
                 blocked_from_holding_month = _next_month(effective_month)
                 rule = "terminal_consideration_blocks_following_month"

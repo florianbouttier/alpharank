@@ -3,7 +3,7 @@
   "registry_id": "terminal_shareholder_events_v1",
   "status": "reviewed_selected_portfolio_events",
   "currency": "USD",
-  "retrieved_at": "2026-08-18T20:34:43Z",
+  "retrieved_at": "2026-08-20T03:33:08Z",
   "source_hash_scope": "sha256 of the HTTP response body after content decoding",
   "events": [
     {
@@ -187,6 +187,57 @@
         }
       ],
       "review_note": "The December holding keeps the mixed consideration and values 0.2434 CI shares at the common holding-period end."
+    },
+    {
+      "event_id": "SCG-2019-01-01-D",
+      "ticker": "SCG.US",
+      "issuer_name": "SCANA Corporation",
+      "event_type": "stock_merger",
+      "effective_date": "2019-01-01",
+      "known_at": "2019-01-02T16:19:05-05:00",
+      "known_at_basis": "SEC acceptance of Dominion Energy's completion filing",
+      "last_primary_trading_date": "2018-12-31",
+      "successor_first_trading_date": "2019-01-02",
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 0.0,
+        "successor_ticker": "D.US",
+        "exchange_ratio": 0.669,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": true,
+        "distributions": [],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-d-2019-01-02-scana-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/715957/000119312519000622/d681735d8k.htm",
+          "published_or_accepted_at": "2019-01-02T16:19:05-05:00",
+          "retrieved_at": "2026-08-20T03:33:08Z",
+          "sha256": "685015d20b409104c7588349d4abf4b02f9d7313be5ab3b5a240011aeaa2ea4a",
+          "supports": [
+            "January 1 effective date",
+            "0.6690 Dominion Energy shares per SCANA share"
+          ]
+        },
+        {
+          "source_id": "sec-d-2019-01-02-scana-press-release",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K exhibit 99.1",
+          "url": "https://www.sec.gov/Archives/edgar/data/715957/000119312519000622/d681735dex991.htm",
+          "published_or_accepted_at": "2019-01-02T16:19:05-05:00",
+          "retrieved_at": "2026-08-20T03:33:08Z",
+          "sha256": "9c1af85871c97bc4e023c18d750bc580f60bfd7d128510ba421eb8d0ced7900c",
+          "supports": [
+            "SCANA common stock ceased NYSE trading",
+            "0.6690 Dominion Energy shares per SCANA share"
+          ]
+        }
+      ],
+      "review_note": "A position opened before January receives Dominion consideration. No January SCG entry is executable because the final SCG session was December 31 and the merger became effective January 1, before the first January market session."
     },
     {
       "event_id": "NFX-2019-02-13-ECA",
