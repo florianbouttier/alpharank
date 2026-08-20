@@ -135,7 +135,7 @@ tâche qui n'y est pas effectivement implémentée.
 8. **Gate G7 — Exécution causale v2** : `RUN-001` à `RUN-005`, puis revue
    humaine et promotion atomique via `GOV-005`.
 9. **Gate G8 — Go-live mensuel et publication AlphaRank** : `LIVE-001` à
-   `LIVE-003`, `LIVE-005` à `LIVE-018`, `SITE-001` et `DOC-003`. Le signal de trading reste
+   `LIVE-003`, `LIVE-005` à `LIVE-019`, `SITE-001` et `DOC-003`. Le signal de trading reste
    bloqué tant que le nouveau snapshot composé et le replay Legacy strict ne
    sont pas frais. `LIVE-004` reste dans l'historique, mais IBKR/Portfolio ne
    bloque plus cette gate.
@@ -156,8 +156,8 @@ Une gate n'est franchie que lorsque toutes ses tâches P0 et P1 sont `Validé`.
 | Dashboard et IBKR | 6 | 1 | 4 | 1 | 6 | 0 | 0 % |
 | Qualité et documentation | 5 | 2 | 1 | 2 | 5 | 0 | 0 % |
 | Exécution causale v2 | 13 | 13 | 0 | 0 | 2 | 11 | 84,6 % |
-| Go-live et publication | 20 | 16 | 3 | 1 | 8 | 7 | 35 % |
-| **Total** | **74** | **41** | **25** | **8** | **48** | **21** | **28,4 %** |
+| Go-live et publication | 21 | 16 | 4 | 1 | 8 | 7 | 33,3 % |
+| **Total** | **75** | **41** | **26** | **8** | **48** | **21** | **28 %** |
 
 Mettre ce tableau à jour dans le commit documentaire de suivi immédiatement après
 chaque commit d'action. Le total des criticités doit toujours égaler le total des tâches.
@@ -290,6 +290,7 @@ chaque commit d'action. Le total des criticités doit toujours égaler le total 
 | `LIVE-016` | P0 | Revoir puis publier une seule fois le premier package SEC-only construit après le correctif causal `995386b` : première version de filing sélectionnée dans le store brut complet et ordre explicite par date de filing dans l'export Legacy. Conserver le package SEC-only `20260816_103942`, le candidat refusé et le rapport exhaustif. | Le garde compare le paquet du 16 août au candidat `20260820_011146` et journalise cinq familles : income `+450/-454/246 modifiées`, balance `+3/-7/1 645`, cash-flow `+1/-25/1`, shares `+0/-11/1 640`, earnings `+49/-59/195`. Revue d'exemples AAP, AAPL, ABBV, EQR et ADM ; note non vide obligatoire ; aucun fichier brut ou paquet précédent supprimé. | À faire | — | Migration causale attendue : les dates et valeurs peuvent légitimement changer parce que le paquet précédent a été généré avant le code causal commité. Aucun résultat économique n'est promu avant le replay et le rapprochement de `LIVE-003`. |
 | `LIVE-017` | P0 | Séparer dans le même run Boosting les décisions récentes encore sans rendement complet et le replay économique. Conserver toutes les prédictions et positions du mois courant pour le rééquilibrage, mais n'autoriser dans les KPI que les mois dont le rendement mensuel de SPY est complet ; une absence individuelle après classement doit toujours bloquer. | Cas synthétiques : mois complet accepté, mois entièrement en attente conservé hors performance, disponibilité partielle ou valeurs SPY incohérentes refusées. Run réel du 20 août : décision de juillet conservée pour le portefeuille d'août, comparaison arrêtée à la décision de juin et au rendement réalisé de juillet. | À faire | — | Aucun rendement n'est inventé ni supprimé. Les données et scores de juillet restent dans le run Boosting ; seule la tentative de mesurer un mois d'août encore ouvert est exclue des statistiques. |
 | `LIVE-018` | P0 | Interdire avant classement toute nouvelle entrée dont le mois de détention commence après un événement terminal déjà connu. Une fusion intervenue pendant un mois de détention reste traitée par sa contrepartie actionnariale ; une suspension connue avant l'ouverture bloque dès le mois courant. | Registre versionné : KRFT/HSP/WFM/ESRX/NFX/NLSN deviennent inéligibles le mois suivant leur événement et FRC dès mai 2023. Test Legacy : ESRX reste autorisé pour décembre 2018 mais disparaît des candidats de janvier 2019 avant le rang ; le candidat suivant le remplace et aucun rendement sélectionné ne manque. | À faire | — | Corrige une entrée économiquement impossible dans le nouveau replay : le run `20260820_041319` sélectionne ESRX pour janvier 2019 alors que la fusion avec Cigna est effective et publique depuis le 20 décembre 2018. Le run rejeté reste conservé. |
+| `LIVE-019` | P1 | Permettre à l'audit entre deux snapshots de comparer les colonnes économiques communes lorsqu'un nouveau run ajoute des colonnes explicatives, sans accepter la disparition d'une colonne existante. Journaliser les colonnes ajoutées, retirées et effectivement comparées. | Tests : le mode strict refuse tout changement de schéma ; le mode d'extension accepte uniquement des colonnes ajoutées, les liste et compare toutes les anciennes valeurs ; une colonne retirée ou une valeur historique modifiée reste bloquante. Run réel : les cinq nouvelles composantes de coût Legacy sont signalées et l'audit du snapshot du 20 août est produit. | À faire | — | Aucun calcul économique ne change. Le premier audit a échoué avant d'écrire son rapport parce que le nouveau fichier mensuel décompose les coûts, contrairement au fichier du 16 août. |
 | `SITE-001` | P1 | Générer et exposer sur le site l'étude causale v2 complète : KPI, courbes, positions mensuelles, ledger, modèle, cas terminaux, rapprochement et CSV. | 2 tests générateur, build Vite, HTTP 200 public et QA navigateur bureau/mobile sans erreur console ni débordement. | Validé | AlphaRank `2e47035bb8ce95d51363a79404b163eff6b0a1ef`; Portfolio `de16a5064a1f9c562de3857a26fd18b8e6daab02` | Étude publiée sur `https://alpharank.net/research/methodology_v2_study.html` ; aucun changement économique et séparation explicite du signal live mensuel |
 | `DOC-003` | P2 | Pérenniser la liste des KPI classiques et leur contexte obligatoire dans `AGENT.md` et `AGENTS.md`, avec motif explicite pour toute métrique indisponible. | Diff documentaire isolé ; présence des familles performance, risque relatif, queue, implémentation et qualité modèle. | Validé | `39fbce48146d77cd44dc1b0605bfa13b0b2c1a93` | Aucun ; contrat de réponse permanent afin que la liste ne doive plus être redemandée |
 
@@ -392,6 +393,7 @@ diff devient large, créer plusieurs commits sans mélanger les catégories.
 | 26 | `LIVE-016` | `docs(LIVE-016): approve causal SEC-only package migration` |
 | 27 | `LIVE-017` | `fix(LIVE-017): separate live scores from realized replay` |
 | 28 | `LIVE-018` | `fix(LIVE-018): reject entries after terminal events` |
+| 29 | `LIVE-019` | `fix(LIVE-019): audit additive replay schemas` |
 
 ## 11. Journal de suivi
 
@@ -491,6 +493,7 @@ Ajouter une ligne à chaque changement de statut. Ne pas modifier les anciennes 
 | 2026-08-20 | `LIVE-016` | Codex | Gate G8 | — | À faire | — | Candidat refusé `._staging_sec_output_package_20260820_020622_273084` comparé au package SEC-only `20260816_103942` ; cinq familles historiques et exemples réels revus avant toute exception | Le paquet du 16 août a été généré avant le commit causal `995386b`; le candidat et l'ancien paquet restent conservés, et aucune donnée brute n'est supprimée. |
 | 2026-08-20 | `LIVE-017` | Codex | Gate G8 | — | À faire | — | Le run Boosting `boosting_latest_common_r2` contient une décision de juillet pour le portefeuille d'août, dont le rendement est logiquement nul parce qu'août est encore ouvert ; le constructeur commun a refusé de l'inclure. | Le refus empêche une performance partielle ou inventée. La correction doit conserver ce signal live séparément et calculer les KPI jusqu'au dernier mois entièrement réalisé. |
 | 2026-08-20 | `LIVE-018` | Codex | Gate G8 | — | À faire | — | Après exclusion du mois d'août encore ouvert, le replay commun refuse ESRX sélectionné par Legacy pour janvier 2019 avec un rendement absent. Le registre revu prouve une fusion effective et publique le 20 décembre 2018. | La bonne correction se situe avant le classement : ESRX ne pouvait plus être acheté en janvier. Le rendement manquant ne sera ni ignoré, ni mis à zéro, ni utilisé pour faire entrer rétroactivement un autre titre. |
+| 2026-08-20 | `LIVE-019` | Codex | Gate G8 | — | À faire | — | L'audit du snapshot `9a2058c9…` s'arrête sur cinq colonnes de ventilation des coûts ajoutées au fichier Legacy mensuel ; les fichiers et backtests sont conservés. | L'audit doit accepter une extension documentée du schéma tout en continuant à refuser une colonne supprimée ou une valeur historique changée. |
 
 ## 12. Registre des baselines et publications
 
