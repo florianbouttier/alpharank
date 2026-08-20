@@ -10,9 +10,11 @@ from alpharank.governance_contracts.run_organization import (
     canonical_log_path,
     canonical_run_dir,
     initialize_run_manifest,
+    publish_latest_run_pointer,
     register_run_log,
     transition_run_status,
     validate_canonical_run_dir,
+    validate_latest_run_pointer,
     validate_run_log_links,
     validate_run_manifest,
     validate_run_root_inventory,
@@ -186,3 +188,79 @@ def test_run_log_registration_detects_changed_bytes(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="bytes differ"):
         validate_run_log_links(tmp_path, manifest_path)
+
+
+def test_latest_pointer_is_atomic_reference_to_published_run(tmp_path: Path) -> None:
+    outputs = tmp_path / "outputs"
+    manifest_path = initialize_run_manifest(
+        outputs,
+        family="monthly_legacy",
+        run_id="20260820T194000Z_monthly",
+        created_at="2026-08-20T19:40:00Z",
+    )
+    artifact = manifest_path.parent / "portfolio.parquet"
+    artifact.write_bytes(b"portfolio bytes")
+    candidate = json.loads(manifest_path.read_text(encoding="utf-8"))
+    validated = transition_run_status(
+        candidate,
+        new_status="validated",
+        changed_at="2026-08-20T19:41:00Z",
+        reason="gates passed",
+    )
+    published = transition_run_status(
+        validated,
+        new_status="published",
+        changed_at="2026-08-20T19:42:00Z",
+        reason="owner promotion",
+    )
+    write_run_manifest(manifest_path, published)
+
+    pointer_path = publish_latest_run_pointer(
+        tmp_path,
+        manifest_path=manifest_path,
+        published_at="2026-08-20T19:42:00Z",
+    )
+    report = validate_latest_run_pointer(tmp_path, family="monthly_legacy")
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+
+    assert report["result_copy_count"] == 0
+    assert report["file_count"] == 2
+    assert artifact.read_bytes() == b"portfolio bytes"
+    assert pointer["run_dir"] == (
+        "outputs/monthly_legacy/20260820T194000Z_monthly"
+    )
+
+
+def test_latest_pointer_detects_changed_result_bytes(tmp_path: Path) -> None:
+    outputs = tmp_path / "outputs"
+    manifest_path = initialize_run_manifest(
+        outputs,
+        family="monthly_legacy",
+        run_id="20260820T194500Z_monthly",
+        created_at="2026-08-20T19:45:00Z",
+    )
+    artifact = manifest_path.parent / "portfolio.parquet"
+    artifact.write_bytes(b"before")
+    candidate = json.loads(manifest_path.read_text(encoding="utf-8"))
+    validated = transition_run_status(
+        candidate,
+        new_status="validated",
+        changed_at="2026-08-20T19:46:00Z",
+        reason="gates passed",
+    )
+    published = transition_run_status(
+        validated,
+        new_status="published",
+        changed_at="2026-08-20T19:47:00Z",
+        reason="owner promotion",
+    )
+    write_run_manifest(manifest_path, published)
+    publish_latest_run_pointer(
+        tmp_path,
+        manifest_path=manifest_path,
+        published_at="2026-08-20T19:47:00Z",
+    )
+    artifact.write_bytes(b"after")
+
+    with pytest.raises(RuntimeError, match="tree hash differs"):
+        validate_latest_run_pointer(tmp_path, family="monthly_legacy")

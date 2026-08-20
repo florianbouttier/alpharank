@@ -15,6 +15,7 @@ RUN_ROOT_INVENTORY_CONTRACT = "alpharank_run_root_inventory_v1"
 RUN_PATH_CONTRACT = "alpharank_run_path_v1"
 RUN_MANIFEST_CONTRACT = "alpharank_run_manifest_v1"
 RUN_LOG_LINK_CONTRACT = "alpharank_run_log_link_v1"
+LATEST_RUN_POINTER_CONTRACT = "alpharank_latest_run_pointer_v1"
 RUN_STATUSES = {"candidate", "validated", "published", "failed"}
 RUN_STATUS_TRANSITIONS = {
     "candidate": {"validated", "failed"},
@@ -289,6 +290,98 @@ def validate_run_log_links(
     return {"passed": True, "log_count": len(raw_logs), "bidirectional": True}
 
 
+def publish_latest_run_pointer(
+    project_root: Path,
+    *,
+    manifest_path: Path,
+    published_at: str,
+) -> Path:
+    """Atomically point latest at one immutable published run without copying it."""
+
+    project_root = project_root.resolve()
+    outputs_root = project_root / "outputs"
+    manifest_path = manifest_path.resolve()
+    report = validate_run_manifest(outputs_root, manifest_path)
+    if report["status"] != "published":
+        raise RuntimeError("Latest pointer requires a published run")
+    validate_run_log_links(project_root, manifest_path)
+    run_dir = manifest_path.parent
+    inventory = _run_tree_inventory(run_dir)
+    pointer = {
+        "contract": LATEST_RUN_POINTER_CONTRACT,
+        "family": report["family"],
+        "run_id": report["run_id"],
+        "published_at": published_at,
+        "run_dir": run_dir.relative_to(project_root).as_posix(),
+        "run_manifest_path": manifest_path.relative_to(project_root).as_posix(),
+        "run_manifest_sha256": _sha256_file(manifest_path),
+        "run_tree_sha256": _records_sha256(inventory),
+        "file_count": len(inventory),
+        "size_bytes": sum(int(record["size_bytes"]) for record in inventory),
+        "result_copy_count": 0,
+    }
+    family_root = outputs_root / str(report["family"])
+    immutable_pointer = (
+        family_root / "pointers" / str(report["run_id"]) / "manifest.json"
+    )
+    if immutable_pointer.exists():
+        existing = json.loads(immutable_pointer.read_text(encoding="utf-8"))
+        if existing != pointer:
+            raise RuntimeError(f"Immutable run pointer already differs: {immutable_pointer}")
+    else:
+        _write_json_atomic(immutable_pointer, pointer)
+    latest_pointer = family_root / "latest.json"
+    _write_json_atomic(latest_pointer, pointer)
+    validate_latest_run_pointer(project_root, family=str(report["family"]))
+    return latest_pointer
+
+
+def validate_latest_run_pointer(
+    project_root: Path,
+    *,
+    family: str,
+) -> dict[str, object]:
+    """Resolve latest and verify the target manifest and full run-tree hash."""
+
+    project_root = project_root.resolve()
+    if _FAMILY.fullmatch(family) is None:
+        raise ValueError(f"Invalid run family: {family!r}")
+    pointer_path = project_root / "outputs" / family / "latest.json"
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(pointer, Mapping)
+        or pointer.get("contract") != LATEST_RUN_POINTER_CONTRACT
+    ):
+        raise RuntimeError("Unsupported latest run pointer contract")
+    if pointer.get("family") != family or pointer.get("result_copy_count") != 0:
+        raise RuntimeError("Latest run pointer identity or copy contract differs")
+    manifest_path = (project_root / str(pointer["run_manifest_path"])).resolve()
+    report = validate_run_manifest(project_root / "outputs", manifest_path)
+    if report["status"] != "published" or report["run_id"] != pointer.get("run_id"):
+        raise RuntimeError("Latest run pointer target is not the declared published run")
+    if _sha256_file(manifest_path) != pointer.get("run_manifest_sha256"):
+        raise RuntimeError("Latest run manifest hash differs")
+    run_dir = (project_root / str(pointer["run_dir"])).resolve()
+    if run_dir != manifest_path.parent:
+        raise RuntimeError("Latest run directory differs from its manifest")
+    inventory = _run_tree_inventory(run_dir)
+    if _records_sha256(inventory) != pointer.get("run_tree_sha256"):
+        raise RuntimeError("Latest run tree hash differs")
+    if len(inventory) != pointer.get("file_count"):
+        raise RuntimeError("Latest run file count differs")
+    size_bytes = sum(int(record["size_bytes"]) for record in inventory)
+    if size_bytes != pointer.get("size_bytes"):
+        raise RuntimeError("Latest run size differs")
+    return {
+        "passed": True,
+        "family": family,
+        "run_id": report["run_id"],
+        "file_count": len(inventory),
+        "size_bytes": size_bytes,
+        "result_copy_count": 0,
+    }
+
+
 def build_run_root_inventory(
     outputs_root: Path,
     *,
@@ -457,6 +550,23 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _run_tree_inventory(run_dir: Path) -> list[dict[str, object]]:
+    return [
+        {
+            "path": path.relative_to(run_dir).as_posix(),
+            "size_bytes": path.stat().st_size,
+            "sha256": _sha256_file(path),
+        }
+        for path in sorted(item for item in run_dir.rglob("*") if item.is_file())
+    ]
+
+
+def _records_sha256(records: list[dict[str, object]]) -> str:
+    return hashlib.sha256(
+        json.dumps(records, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def _write_json_atomic(path: Path, payload: Mapping[str, object]) -> None:

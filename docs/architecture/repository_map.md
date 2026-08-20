@@ -165,6 +165,10 @@ Chaque nouveau journal suit `logs/<famille>/<run_id>/*.log`. Son hash et son
 sidecar figurent dans le manifeste du run ; le sidecar renvoie vers ce même
 manifeste. Les 74 journaux historiques ne sont pas appariés par supposition.
 
+Le `latest.json` d'une famille référence uniquement un run `published`, avec le
+hash du manifeste et de tout l'arbre. Son remplacement est atomique et ne copie
+aucun résultat ; la version immuable du pointeur permet de retrouver la cible.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

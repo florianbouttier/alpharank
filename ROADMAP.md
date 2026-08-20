@@ -218,7 +218,7 @@ doublons exacts et preuve de récupération.
 | `RUNORG-002` | définir un chemin unique `outputs/<famille>/<run_id>/` | fait | convention `lower_snake_case` + identifiant UTC documentée et validée à exactement deux niveaux |
 | `RUNORG-003` | séparer `candidate`, `validated`, `published` et `failed` dans le manifeste, pas dans des noms libres | fait | manifeste obligatoire dès l'initialisation, historique et transitions contrôlés, statut interdit dans le chemin |
 | `RUNORG-004` | relier chaque journal au manifeste du run | fait | nouveaux journaux hashés dans le manifeste avec sidecar de retour ; 74 journaux historiques préservés sans appariement inventé |
-| `RUNORG-005` | produire des pointeurs `latest` atomiques sans copier les résultats | à faire | cible et hash vérifiés |
+| `RUNORG-005` | produire des pointeurs `latest` atomiques sans copier les résultats | fait | pointeur atomique vers un run publié, manifeste et arbre hashés, copie immuable du pointeur, zéro copie de résultat |
 | `RUNORG-006` | mesurer les doublons exacts et proposer une rétention réversible | à faire | rapport d'espace, aucune suppression automatique |
 
 ## 13. Ordre d'exécution et portes de décision

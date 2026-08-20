@@ -51,5 +51,17 @@ Les 74 journaux historiques restent intacts et ne reçoivent pas d'association
 inventée après coup. Le contrat bidirectionnel est obligatoire pour chaque
 journal créé avec le nouveau format de run.
 
-Les pointeurs et règles de rétention sont ajoutés par les tâches RUNORG
-suivantes dans ce même contrat.
+## Pointeur `latest`
+
+Après le statut `published`, `outputs/<famille>/latest.json` peut être remplacé
+atomiquement. Ce petit pointeur contient le chemin du run, le hash du manifeste,
+l'empreinte SHA-256 de l'inventaire complet de l'arbre, son nombre de fichiers
+et sa taille. Une copie immuable du pointeur vit sous
+`outputs/<famille>/pointers/<run_id>/manifest.json`.
+
+Le pointeur ne contient et ne recopie aucun résultat (`result_copy_count: 0`).
+Sa validation relit la cible et recalcule l'empreinte ; un run encore
+`candidate` ou `validated`, un manifeste modifié ou un octet de résultat changé
+font échouer la résolution.
+
+Les règles de rétention sont ajoutées par RUNORG-006 dans ce même contrat.
