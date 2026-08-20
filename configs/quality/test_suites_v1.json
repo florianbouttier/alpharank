@@ -1,7 +1,7 @@
 {
   "policy_id": "pytest_suite_classification_v1",
   "schema_version": 1,
-  "description": "Ordered file-level pytest classification before physical TESTORG moves.",
+  "description": "Ordered file-level Pytest classification for the maintained test tree.",
   "effective_date": "2026-08-20",
   "default_suite": "unit",
   "ordered_rules": [

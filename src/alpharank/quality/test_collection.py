@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -9,6 +10,48 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
+
+
+def build_test_body_signature(paths: Sequence[Path]) -> dict[str, object]:
+    """Hash test-function ASTs independently from their module location."""
+
+    tests: list[dict[str, object]] = []
+    assertion_count = 0
+    for path in paths:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not node.name.startswith("test_"):
+                continue
+            body = ast.dump(node, annotate_fields=True, include_attributes=False)
+            test_assertion_count = sum(
+                isinstance(child, ast.Assert) for child in ast.walk(node)
+            )
+            assertion_count += test_assertion_count
+            tests.append(
+                {
+                    "name": node.name,
+                    "sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                    "assertion_count": test_assertion_count,
+                }
+            )
+
+    tests.sort(key=lambda row: str(row["name"]))
+    names = [str(row["name"]) for row in tests]
+    if len(names) != len(set(names)):
+        raise ValueError("Test body signature requires unique test-function names")
+    serialized = json.dumps(
+        tests,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return {
+        "test_count": len(tests),
+        "assertion_count": assertion_count,
+        "test_ast_sha256": hashlib.sha256(serialized).hexdigest(),
+    }
 
 
 def collect_canonical_node_ids(root: Path, test_paths: Sequence[str]) -> list[str]:

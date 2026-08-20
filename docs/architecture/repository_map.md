@@ -148,4 +148,7 @@ l'API canonique vivent sous `alpharank.replay`.
 
 Le registre [`test_catalog_v1.json`](test_catalog_v1.json) fige les fichiers de
 test suivis, leur domaine, leur suite logique, leur frontière réseau et leur
-durée observée avant tout déplacement physique.
+durée observée. La collecte canonique est conservée dans
+[`test_collection_v1.json`](test_collection_v1.json), et la découpe des anciens
+modules monolithiques est protégée par les empreintes AST de
+[`test_split_audit_v1.json`](test_split_audit_v1.json).

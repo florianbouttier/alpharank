@@ -186,9 +186,9 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `TESTORG-001` | cataloguer les 93 tests par domaine, niveau, réseau et durée | fait | 109 fichiers suivis catalogués sans déplacement ; 419 cas mesurés, dont trois dépendances locales explicites |
+| `TESTORG-001` | cataloguer les tests par domaine, niveau, réseau et durée | fait | catalogue courant : 111 fichiers et 421 cas mesurés, dont trois dépendances locales explicites |
 | `TESTORG-002` | créer une arborescence `unit`, `integration`, `replay` et `production` sans changer la découverte Pytest | fait | 419 identifiants canoniques identiques avant/après ; réseau isolé sous `integration/network` |
-| `TESTORG-003` | découper les deux fichiers de tests de plus de 1 000 lignes | à faire | mêmes scénarios et assertions |
+| `TESTORG-003` | découper les deux fichiers de tests de plus de 1 000 lignes | fait | 42 scénarios et 127 assertions préservés bit à bit au niveau AST ; aucun module de test au-dessus de 1 000 lignes |
 | `TESTORG-004` | centraliser uniquement les fixtures réellement partagées | à faire | dépendances de fixture lisibles et locales par défaut |
 
 ## 11. Lot DATA — converger sans retélécharger ni perdre une révision

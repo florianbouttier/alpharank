@@ -1,0 +1,31 @@
+{
+  "audit_id": "alpharank_test_split_audit_v1",
+  "effective_date": "2026-08-20",
+  "schema_version": 1,
+  "splits": [
+    {
+      "before_signature": {
+        "assertion_count": 94,
+        "test_ast_sha256": "a5a072f87325ce49aa67fefbb6ed98eca1203dc88b7ed56346537be66f505de2",
+        "test_count": 30
+      },
+      "source_path": "tests/integration/test_open_source_earnings.py",
+      "target_paths": [
+        "tests/integration/test_open_source_earnings.py",
+        "tests/integration/test_open_source_earnings_lineage.py"
+      ]
+    },
+    {
+      "before_signature": {
+        "assertion_count": 33,
+        "test_ast_sha256": "72435aa9d80e4e349a16f967298dfa2388882f630eca037a62f98f9eb6e1ffe9",
+        "test_count": 12
+      },
+      "source_path": "tests/integration/test_open_source_legacy_export.py",
+      "target_paths": [
+        "tests/integration/test_open_source_legacy_export.py",
+        "tests/integration/test_open_source_legacy_export_semantics.py"
+      ]
+    }
+  ]
+}

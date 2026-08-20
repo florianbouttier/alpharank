@@ -207,7 +207,7 @@ def _load_junit_measurements(path: Path) -> dict[str, TestMeasurement]:
     root = ElementTree.parse(path).getroot()
     for case in root.iter("testcase"):
         classname = case.attrib.get("classname", "")
-        if not classname.startswith("tests.test_"):
+        if not classname.startswith("tests."):
             continue
         test_path = classname.replace(".", "/") + ".py"
         grouped[test_path].append(case)

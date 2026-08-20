@@ -43,3 +43,8 @@ associe chaque fichier suivi à son domaine, sa suite, sa frontière réseau et 
 durée mesurée. Une mesure `failed_missing_local_artifacts` signifie que le test
 requiert encore un ancien artefact local non versionné ; elle reste visible tant
 que ce test n'a pas été rendu autonome.
+
+La découpe des anciens modules de plus de 1 000 lignes est contrôlée par
+[`../docs/architecture/test_split_audit_v1.json`](../docs/architecture/test_split_audit_v1.json) :
+les noms, corps AST et nombres d'assertions des 42 scénarios concernés doivent
+rester identiques.

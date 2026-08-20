@@ -10,7 +10,8 @@ and tool output, but it must not contain portfolio, data or model logic.
 - `test_catalog.py` attributes every tracked test file to one domain and suite,
   then records case counts, network boundary, duration and measured outcome.
 - `test_collection.py` canonicalizes collected node identifiers independently
-  of their parent directory and detects scenario drift during physical moves.
+  of their parent directory and fingerprints test-function bodies to detect
+  scenario or assertion drift during moves and module splits.
 - `dependencies.py` renders and compares the pip/Conda compatibility views from
   the single dependency source in `pyproject.toml`.
 - `config_schemas.py` classifies maintained JSON configs and rejects unknown

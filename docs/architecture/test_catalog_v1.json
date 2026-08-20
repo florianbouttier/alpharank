@@ -4,7 +4,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.003,
+      "duration_seconds": 0.002,
       "failure_count": 0,
       "network_requirement": "provider_boundary_disabled_by_default",
       "observed_outcome": "passed",
@@ -15,7 +15,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.006,
+      "duration_seconds": 0.005,
       "failure_count": 0,
       "network_requirement": "provider_boundary_disabled_by_default",
       "observed_outcome": "passed",
@@ -26,7 +26,7 @@
     {
       "domain": "data",
       "duration_class": "slow",
-      "duration_seconds": 87.091,
+      "duration_seconds": 80.447,
       "failure_count": 0,
       "network_requirement": "provider_boundary_disabled_by_default",
       "observed_outcome": "passed",
@@ -37,7 +37,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.0,
+      "duration_seconds": 0.002,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -48,7 +48,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
-      "duration_seconds": 0.46,
+      "duration_seconds": 0.455,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -59,7 +59,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.192,
+      "duration_seconds": 0.207,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -92,7 +92,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.008,
+      "duration_seconds": 0.007,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -103,13 +103,24 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.041,
+      "duration_seconds": 0.01,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/integration/test_open_source_earnings.py",
       "suite": "integration",
-      "test_case_count": 30
+      "test_case_count": 14
+    },
+    {
+      "domain": "data",
+      "duration_class": "fast",
+      "duration_seconds": 0.031,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/integration/test_open_source_earnings_lineage.py",
+      "suite": "integration",
+      "test_case_count": 16
     },
     {
       "domain": "data",
@@ -169,18 +180,29 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.205,
+      "duration_seconds": 0.104,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/integration/test_open_source_legacy_export.py",
       "suite": "integration",
-      "test_case_count": 12
+      "test_case_count": 5
+    },
+    {
+      "domain": "data",
+      "duration_class": "fast",
+      "duration_seconds": 0.1,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/integration/test_open_source_legacy_export_semantics.py",
+      "suite": "integration",
+      "test_case_count": 7
     },
     {
       "domain": "data",
       "duration_class": "medium",
-      "duration_seconds": 1.068,
+      "duration_seconds": 1.069,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -202,7 +224,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.209,
+      "duration_seconds": 0.224,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -268,7 +290,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.172,
+      "duration_seconds": 0.184,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -279,7 +301,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.026,
+      "duration_seconds": 0.025,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -290,7 +312,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.006,
+      "duration_seconds": 0.005,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -301,7 +323,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.085,
+      "duration_seconds": 0.089,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -312,7 +334,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.004,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -323,7 +345,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.092,
+      "duration_seconds": 0.091,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -345,7 +367,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.078,
+      "duration_seconds": 0.076,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -367,7 +389,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.002,
+      "duration_seconds": 0.003,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -378,7 +400,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.03,
+      "duration_seconds": 0.029,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -411,7 +433,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.004,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -422,7 +444,7 @@
     {
       "domain": "legacy",
       "duration_class": "fast",
-      "duration_seconds": 0.083,
+      "duration_seconds": 0.085,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -433,7 +455,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.371,
+      "duration_seconds": 0.367,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -455,7 +477,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
-      "duration_seconds": 0.025,
+      "duration_seconds": 0.022,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -466,7 +488,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
-      "duration_seconds": 0.018,
+      "duration_seconds": 0.017,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -488,7 +510,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
-      "duration_seconds": 0.041,
+      "duration_seconds": 0.04,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -499,7 +521,7 @@
     {
       "domain": "legacy",
       "duration_class": "fast",
-      "duration_seconds": 0.023,
+      "duration_seconds": 0.021,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -510,7 +532,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
-      "duration_seconds": 0.057,
+      "duration_seconds": 0.056,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -543,7 +565,7 @@
     {
       "domain": "backtest",
       "duration_class": "fast",
-      "duration_seconds": 0.004,
+      "duration_seconds": 0.005,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -576,7 +598,7 @@
     {
       "domain": "backtest",
       "duration_class": "fast",
-      "duration_seconds": 0.004,
+      "duration_seconds": 0.003,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -587,7 +609,7 @@
     {
       "domain": "backtest",
       "duration_class": "fast",
-      "duration_seconds": 0.001,
+      "duration_seconds": 0.002,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -609,7 +631,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.004,
       "failure_count": 2,
       "network_requirement": "none",
       "observed_outcome": "failed_missing_local_artifacts",
@@ -620,7 +642,7 @@
     {
       "domain": "quality_tooling",
       "duration_class": "medium",
-      "duration_seconds": 1.149,
+      "duration_seconds": 1.201,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -642,7 +664,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.004,
+      "duration_seconds": 0.003,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -653,7 +675,7 @@
     {
       "domain": "quality_tooling",
       "duration_class": "fast",
-      "duration_seconds": 0.001,
+      "duration_seconds": 0.0,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -664,7 +686,7 @@
     {
       "domain": "quality_tooling",
       "duration_class": "fast",
-      "duration_seconds": 0.007,
+      "duration_seconds": 0.006,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -675,7 +697,7 @@
     {
       "domain": "quality_tooling",
       "duration_class": "medium",
-      "duration_seconds": 0.622,
+      "duration_seconds": 0.647,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -708,7 +730,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.07,
+      "duration_seconds": 0.068,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -719,7 +741,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
-      "duration_seconds": 0.066,
+      "duration_seconds": 0.064,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -741,7 +763,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "medium",
-      "duration_seconds": 0.707,
+      "duration_seconds": 0.721,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -796,7 +818,7 @@
     {
       "domain": "quality_tooling",
       "duration_class": "fast",
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.004,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -829,7 +851,7 @@
     {
       "domain": "boosting",
       "duration_class": "fast",
-      "duration_seconds": 0.02,
+      "duration_seconds": 0.022,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -862,7 +884,7 @@
     {
       "domain": "boosting",
       "duration_class": "fast",
-      "duration_seconds": 0.051,
+      "duration_seconds": 0.048,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -895,7 +917,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.016,
+      "duration_seconds": 0.01,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -906,7 +928,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.015,
+      "duration_seconds": 0.012,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -950,7 +972,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.022,
+      "duration_seconds": 0.02,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -961,7 +983,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.006,
+      "duration_seconds": 0.005,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -972,7 +994,7 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
-      "duration_seconds": 0.003,
+      "duration_seconds": 0.001,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1005,7 +1027,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.003,
+      "duration_seconds": 0.002,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1027,7 +1049,7 @@
     {
       "domain": "quality_tooling",
       "duration_class": "slow",
-      "duration_seconds": 2.842,
+      "duration_seconds": 2.792,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1060,7 +1082,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.012,
+      "duration_seconds": 0.013,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1071,7 +1093,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.002,
+      "duration_seconds": 0.001,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1082,7 +1104,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.006,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1093,7 +1115,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.017,
+      "duration_seconds": 0.016,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1104,7 +1126,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.006,
+      "duration_seconds": 0.007,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1115,7 +1137,7 @@
     {
       "domain": "legacy",
       "duration_class": "fast",
-      "duration_seconds": 0.037,
+      "duration_seconds": 0.036,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1126,7 +1148,7 @@
     {
       "domain": "legacy",
       "duration_class": "fast",
-      "duration_seconds": 0.015,
+      "duration_seconds": 0.014,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1159,7 +1181,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.345,
+      "duration_seconds": 0.322,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1169,19 +1191,19 @@
     },
     {
       "domain": "quality_tooling",
-      "duration_class": "fast",
-      "duration_seconds": 0.021,
+      "duration_class": "slow",
+      "duration_seconds": 2.38,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/unit/test_test_catalog.py",
       "suite": "unit",
-      "test_case_count": 2
+      "test_case_count": 4
     },
     {
       "domain": "quality_tooling",
       "duration_class": "fast",
-      "duration_seconds": 0.001,
+      "duration_seconds": 0.002,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1192,7 +1214,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.003,
+      "duration_seconds": 0.002,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1202,7 +1224,7 @@
     }
   ],
   "measurement": {
-    "command": "python -m pytest -q -p no:cacheprovider --junitxml=test_catalog_junit.xml tests",
+    "command": "python -m pytest -q -p no:cacheprovider --junitxml=test_catalog_junit.xml tests/unit tests/integration tests/replay tests/production",
     "junit_source": "ephemeral_clean_index_checkout",
     "measured_at": "2026-08-20"
   },
@@ -1212,27 +1234,27 @@
     "domain_counts": {
       "backtest": 7,
       "boosting": 5,
-      "data": 47,
+      "data": 49,
       "legacy": 6,
       "portfolio": 9,
       "quality_tooling": 14,
       "replay_governance": 15,
       "reporting": 6
     },
-    "duration_seconds": 96.757,
+    "duration_seconds": 92.488,
     "failure_count": 3,
-    "file_count": 109,
+    "file_count": 111,
     "outcome_counts": {
       "failed_missing_local_artifacts": 2,
-      "passed": 107
+      "passed": 109
     },
     "suite_counts": {
-      "integration": 33,
+      "integration": 35,
       "network": 3,
       "production": 4,
       "replay": 9,
       "unit": 60
     },
-    "test_case_count": 419
+    "test_case_count": 421
   }
 }
