@@ -53,6 +53,7 @@
     "scripts/experiments/sweep_generalized_ema_expert_params.py",
     "scripts/maintenance/build_code_inventory.py",
     "scripts/maintenance/build_data_location_inventory.py",
+    "scripts/maintenance/build_data_reader_migration.py",
     "scripts/maintenance/build_test_catalog.py",
     "scripts/maintenance/build_test_collection.py",
     "scripts/maintenance/catalog_historical_data_roots.py",
@@ -850,6 +851,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/maintenance/build_data_reader_migration.py",
+      "target": "src/alpharank/data/reader_migration.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/maintenance/build_test_catalog.py",
       "target": "src/alpharank/quality/test_catalog.py"
     },
@@ -1567,6 +1573,11 @@
       "kind": "import",
       "source": "src/alpharank/backtest/data_source.py",
       "target": "src/alpharank/backtest/config.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/backtest/data_source.py",
+      "target": "src/alpharank/data/mart.py"
     },
     {
       "kind": "import",
@@ -2367,6 +2378,41 @@
       "kind": "import",
       "source": "src/alpharank/data/processing.py",
       "target": "src/alpharank/utils/returns.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/data/reader_migration.py",
+      "target": "scripts/run_backtest.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/data/reader_migration.py",
+      "target": "scripts/run_legacy.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/data/reader_migration.py",
+      "target": "src/alpharank/backtest/data_loading.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/data/reader_migration.py",
+      "target": "src/alpharank/data/composed_snapshot.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/reader_migration.py",
+      "target": "src/alpharank/data/mart.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/data/reader_migration.py",
+      "target": "src/alpharank/production/legacy_pipeline.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/data/reader_migration.py",
+      "target": "src/alpharank/replay/common.py"
     },
     {
       "kind": "import",
@@ -4457,6 +4503,19 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/data/reader_migration.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.maintenance.build_data_reader_migration",
+      "path": "scripts/maintenance/build_data_reader_migration.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/quality/test_catalog.py",
         "src/alpharank/quality/test_suites.py"
       ],
@@ -5141,6 +5200,7 @@
       "path": "scripts/run_backtest.py",
       "readers": [
         "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/quality/code_inventory.py"
       ]
     },
@@ -5175,6 +5235,7 @@
       "path": "scripts/run_legacy.py",
       "readers": [
         "scripts/run_backtest_application.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/quality/code_inventory.py"
       ]
@@ -5476,6 +5537,7 @@
         "src/alpharank/backtest/features.py",
         "src/alpharank/backtest/fundamentals.py",
         "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/multihorizon/data.py",
         "src/alpharank/multihorizon/risk.py"
       ]
@@ -5484,7 +5546,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/backtest/config.py"
+        "src/alpharank/backtest/config.py",
+        "src/alpharank/data/mart.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -5805,6 +5868,7 @@
       "readers": [
         "scripts/open_source/build_composed_model_snapshot.py",
         "src/alpharank/data/mart.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/data/warehouse_migration.py",
         "src/alpharank/replay/causal_snapshot.py"
       ]
@@ -5910,6 +5974,8 @@
       "module": "alpharank.data.mart",
       "path": "src/alpharank/data/mart.py",
       "readers": [
+        "src/alpharank/backtest/data_source.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/data/snapshot_publication.py",
         "src/alpharank/production/legacy_pipeline.py"
       ]
@@ -6805,6 +6871,28 @@
       "path": "src/alpharank/data/raw_contracts.py",
       "readers": [
         "src/alpharank/data/open_source/raw_archive.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/mart.py"
+      ],
+      "invokes": [
+        "scripts/run_backtest.py",
+        "scripts/run_legacy.py",
+        "src/alpharank/backtest/data_loading.py",
+        "src/alpharank/data/composed_snapshot.py",
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/common.py"
+      ],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.reader_migration",
+      "path": "src/alpharank/data/reader_migration.py",
+      "readers": [
+        "scripts/maintenance/build_data_reader_migration.py"
       ]
     },
     {
@@ -7988,6 +8076,7 @@
       "path": "src/alpharank/production/legacy_pipeline.py",
       "readers": [
         "scripts/run_legacy.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/__init__.py"
       ]
     },
@@ -8274,6 +8363,7 @@
       "path": "src/alpharank/replay/common.py",
       "readers": [
         "src/alpharank/common_v2.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/replay/reconciliation.py"
       ]
     },
@@ -8685,11 +8775,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 116,
-    "internal_edge_count": 694,
-    "library_count": 178,
-    "python_file_count": 301,
-    "script_count": 123,
-    "unread_node_count": 117
+    "active_entrypoint_count": 117,
+    "internal_edge_count": 703,
+    "library_count": 179,
+    "python_file_count": 303,
+    "script_count": 124,
+    "unread_node_count": 118
   }
 }

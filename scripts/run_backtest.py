@@ -1,9 +1,9 @@
 # %%
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from datetime import datetime
-import json
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,7 @@ import polars as pl
 from alpharank.backtest import (
     BacktestArtifacts,
     BacktestConfig,
+    BacktestDataSource,
     FundamentalFeatureConfig,
     LearningArtifacts,
     TechnicalFeatureConfig,
@@ -20,7 +21,6 @@ from alpharank.backtest import (
 )
 from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.observability import configure_run_logging
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LEGACY_DATA_QUALITY_EXCLUDED_TICKERS = (
@@ -56,7 +56,9 @@ DEFAULT_BACKTEST_FOLD_KPI_COLUMNS = (
 
 def default_config(**overrides: Any) -> BacktestConfig:
     params: dict[str, Any] = {
-        "data_dir": PROJECT_ROOT / "data",
+        "data_dir": BacktestDataSource.canonical_mart(
+            project_root=PROJECT_ROOT
+        ).data_dir,
         "output_dir": PROJECT_ROOT / "outputs",
         "excluded_tickers": LEGACY_DATA_QUALITY_EXCLUDED_TICKERS,
         "start_month": "2000-01",

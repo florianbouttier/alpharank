@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from alpharank.backtest.config import BacktestConfig
+from alpharank.data.mart import resolve_mart_model_input
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,19 @@ class BacktestDataSource:
             final_price_path=self.final_price_path,
             sp500_price_path=self.sp500_price_path,
         )
+
+    @classmethod
+    def canonical_mart(
+        cls,
+        *,
+        project_root: Path | None = None,
+    ) -> BacktestDataSource:
+        root = _project_root(project_root)
+        resolved = resolve_mart_model_input(
+            root / "data" / "model_inputs" / "manifests" / "latest.json",
+            warehouse_root=root / "data" / "warehouse",
+        )
+        return cls(name="canonical_mart", data_dir=resolved.mart_dir)
 
     @classmethod
     def eodhd(cls, *, project_root: Path | None = None) -> BacktestDataSource:

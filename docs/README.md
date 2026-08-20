@@ -38,6 +38,8 @@ dupliquer les contrats métier :
   `raw`, `stg`, `def`, `mart`, `snapshot` et `run`.
 - [`architecture/data_location_inventory_v1.json`](architecture/data_location_inventory_v1.json) :
   carte machine-lisible des emplacements actuels et de leurs lecteurs.
+- [`architecture/data_reader_migration_v1.json`](architecture/data_reader_migration_v1.json) :
+  comparaison ancien/MART et décision de migration de chaque lecteur Legacy.
 
 ## Standards de développement
 

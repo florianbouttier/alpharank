@@ -1,10 +1,11 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 446,
+  "node_count": 448,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
     "test_alpha_shap_portfolio_report.py::test_sort_catalog_uses_descending_mean_absolute_shap",
+    "test_backtest_data_source.py::test_canonical_backtest_source_resolves_model_input_mart",
     "test_backtest_data_source.py::test_eodhd_data_source_points_to_mirrored_output_folder",
     "test_backtest_data_source.py::test_open_source_live_data_source_applies_legacy_compatible_dir",
     "test_backtest_data_source.py::test_open_source_prices_only_data_source_keeps_financial_base_and_overrides_prices",
@@ -350,6 +351,7 @@
     "test_raw_provider_contracts.py::test_eodhd_is_catalogued_without_authorizing_a_new_download",
     "test_raw_provider_contracts.py::test_every_raw_provider_targets_its_own_warehouse_root",
     "test_raw_provider_contracts.py::test_warehouse_provider_paths_fail_closed_on_invalid_ids",
+    "test_reader_migration.py::test_every_legacy_reader_has_a_validated_migration_decision",
     "test_recomputable_replay.py::test_replay_recomputes_outputs_from_sealed_inputs",
     "test_reconciliation_v2.py::test_v1_v2_reconciliation_is_complete",
     "test_reconciliation_v2.py::test_v1_v2_reconciliation_names_reviewed_terminal_causes",
@@ -449,7 +451,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "a930f9285fb1983ee70ff35a58d0bb33b9d9e20b99051703d9bc08e063da60eb",
+  "node_ids_sha256": "3a3c36ac1ed9379516745dccea616d56366bbc406afcf86d78ccf16b4e968b20",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

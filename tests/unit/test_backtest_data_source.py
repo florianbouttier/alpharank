@@ -1,9 +1,33 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
+from alpharank.backtest import data_source as data_source_module
 from alpharank.backtest.config import BacktestConfig
 from alpharank.backtest.data_source import BacktestDataSource
+
+
+def test_canonical_backtest_source_resolves_model_input_mart(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    project_root = tmp_path / "repo"
+    mart_dir = project_root / "data" / "warehouse" / "mart" / "input_01"
+
+    def resolve(pointer_path: Path, *, warehouse_root: Path):
+        assert pointer_path == (
+            project_root / "data" / "model_inputs" / "manifests" / "latest.json"
+        )
+        assert warehouse_root == project_root / "data" / "warehouse"
+        return SimpleNamespace(mart_dir=mart_dir)
+
+    monkeypatch.setattr(data_source_module, "resolve_mart_model_input", resolve)
+
+    source = BacktestDataSource.canonical_mart(project_root=project_root)
+
+    assert source.name == "canonical_mart"
+    assert source.data_dir == mart_dir
 
 
 def test_eodhd_data_source_points_to_mirrored_output_folder(tmp_path: Path) -> None:

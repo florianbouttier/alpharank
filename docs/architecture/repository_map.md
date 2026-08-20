@@ -128,6 +128,15 @@ les lecteurs :
    d'observation ;
 6. décider séparément d'une éventuelle déduplication physique.
 
+Le registre
+[`data_reader_migration_v1.json`](data_reader_migration_v1.json) applique cette
+règle aux lecteurs Legacy actifs. Les commandes `run_legacy.py` et
+`run_backtest.py` résolvent désormais le MART canonique par défaut. Un replay,
+un audit ou une transition qui choisit une ancienne source doit encore la
+nommer explicitement : les hashes prouvent que huit des neuf fichiers modèle
+Legacy ne sont pas identiques au MART courant, donc une substitution silencieuse
+modifierait les données économiques.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

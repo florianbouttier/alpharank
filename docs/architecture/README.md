@@ -11,6 +11,8 @@ runs ni redécrire les deux modèles.
   graphe versionné des points d'entrée, imports et lecteurs Python suivis.
 - [`data_location_inventory_v1.json`](data_location_inventory_v1.json) :
   fichiers/packages de données actuels, volumes observés et lecteurs actifs.
+- [`data_reader_migration_v1.json`](data_reader_migration_v1.json) : comparaison
+  hashée ancien/MART et décision explicite pour chaque lecteur Legacy actif.
 - [`test_catalog_v1.json`](test_catalog_v1.json) : domaine, suite, durée et
   résultat observé de chaque fichier de test suivi.
 - [`test_collection_v1.json`](test_collection_v1.json) : collecte Pytest

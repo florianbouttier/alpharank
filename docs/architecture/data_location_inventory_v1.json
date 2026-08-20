@@ -43,7 +43,6 @@
         "scripts/open_source/restore_price_tickers_from_snapshot.py",
         "scripts/open_source/run_price_transition.py",
         "scripts/open_source/run_sec_q4_fix2_candidate.py",
-        "scripts/run_backtest.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_source.py",
         "src/alpharank/data/open_source/ingestion.py",
@@ -52,6 +51,7 @@
         "src/alpharank/data/open_source/sec_filing.py",
         "src/alpharank/data/open_source/simfin.py",
         "src/alpharank/data/open_source/stockanalysis.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/data/warehouse_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/causal_snapshot.py",
@@ -94,6 +94,7 @@
         "src/alpharank/data/open_source/ingestion_prices.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/transition.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
         "src/alpharank/reporting/central_research_data.py"
@@ -130,6 +131,7 @@
         "src/alpharank/data/composed_snapshot.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/transition.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 377625,
@@ -164,6 +166,7 @@
         "src/alpharank/data/open_source/ingestion.py",
         "src/alpharank/data/open_source/ingestion_prices.py",
         "src/alpharank/data/open_source/publishing.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/multihorizon/live.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
@@ -195,6 +198,7 @@
         "src/alpharank/data/composed_snapshot.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/sec_mapping.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 684738,
@@ -221,6 +225,7 @@
         "src/alpharank/data/open_source/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/revision_guard.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 8720839,
@@ -246,6 +251,7 @@
         "src/alpharank/data/open_source/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/revision_guard.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 20291055,
@@ -271,6 +277,7 @@
         "src/alpharank/data/open_source/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/revision_guard.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 8847984,
@@ -297,6 +304,7 @@
         "src/alpharank/data/open_source/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/revision_guard.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 731545,
@@ -319,7 +327,8 @@
         "src/alpharank/data/open_source/config.py",
         "src/alpharank/data/open_source/financial_audit.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/revision_guard.py"
+        "src/alpharank/data/open_source/revision_guard.py",
+        "src/alpharank/data/reader_migration.py"
       ],
       "size_bytes": 1022128,
       "target_role": "warehouse/def then mart"
@@ -588,6 +597,8 @@
       "path": "data/warehouse",
       "readers": [
         "scripts/open_source/promote_definitive_mart.py",
+        "src/alpharank/backtest/data_source.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 2391423766,
@@ -678,6 +689,8 @@
       "readers": [
         "scripts/open_source/build_roll_forward_price_package.py",
         "scripts/open_source/promote_definitive_mart.py",
+        "src/alpharank/backtest/data_source.py",
+        "src/alpharank/data/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 1010,
@@ -726,7 +739,7 @@
     },
     {
       "location_id": "data_root",
-      "reader_count": "1",
+      "reader_count": "2",
       "reference": "data/composed_snapshot.py"
     },
     {
@@ -771,22 +784,22 @@
     },
     {
       "location_id": "data_root",
-      "reader_count": "3",
+      "reader_count": "5",
       "reference": "data/model_inputs"
     },
     {
       "location_id": "model_input_manifests",
-      "reader_count": "3",
+      "reader_count": "5",
       "reference": "data/model_inputs/manifests"
     },
     {
       "location_id": "model_input_manifests",
-      "reader_count": "3",
+      "reader_count": "5",
       "reference": "data/model_inputs/manifests/latest.json"
     },
     {
       "location_id": "data_root",
-      "reader_count": "26",
+      "reader_count": "27",
       "reference": "data/open_source"
     },
     {
@@ -1001,7 +1014,7 @@
     },
     {
       "location_id": "warehouse",
-      "reader_count": "2",
+      "reader_count": "4",
       "reference": "data/warehouse"
     },
     {
@@ -1015,7 +1028,7 @@
     "file_location_count": 10,
     "location_count": 35,
     "package_location_count": 25,
-    "reader_edge_count": 263,
+    "reader_edge_count": 276,
     "static_reference_count": 59
   }
 }
