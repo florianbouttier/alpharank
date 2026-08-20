@@ -9,6 +9,7 @@ import pytest
 from alpharank.data.open_source.raw_archive import (
     archive_raw_frame_delta,
     reconstruct_raw_frame,
+    record_raw_download,
     register_immutable_raw_file,
 )
 
@@ -131,3 +132,89 @@ def test_immutable_eodhd_content_is_stored_once_for_multiple_source_ids(tmp_path
     assert first["sha256"] == second["sha256"]
     assert first["object_path"] == second["object_path"]
     assert len(list((archive_dir / "objects").glob("*/*"))) == 1
+
+
+def _record_stockanalysis_attempt(
+    tmp_path: Path,
+    *,
+    receipt_id: str,
+    retrieved_at: str,
+    payload: bytes | None,
+    response_status: int,
+):
+    return record_raw_download(
+        archive_dir=tmp_path / "raw" / "stockanalysis",
+        receipt_id=receipt_id,
+        source_name="stockanalysis",
+        dataset_name="daily_price_history",
+        request_id=f"stockanalysis:{receipt_id}",
+        retrieved_at=retrieved_at,
+        response_status=response_status,
+        payload=payload,
+        payload_format="json",
+        requested_scope={"ticker": "AAPL", "range": "Max"},
+        ingester_version="test-suite",
+        error=None if payload is not None else "service unavailable",
+    )
+
+
+def test_raw_download_receipts_reuse_identical_payload_object(tmp_path: Path) -> None:
+    payload = b'{"status":200,"data":[]}'
+    first = _record_stockanalysis_attempt(
+        tmp_path,
+        receipt_id="attempt_01",
+        retrieved_at="2026-08-20T10:00:00+00:00",
+        payload=payload,
+        response_status=200,
+    )
+    second = _record_stockanalysis_attempt(
+        tmp_path,
+        receipt_id="attempt_02",
+        retrieved_at="2026-08-20T10:01:00+00:00",
+        payload=payload,
+        response_status=200,
+    )
+
+    assert first.payload_sha256 == second.payload_sha256
+    assert first.payload_object_path == second.payload_object_path
+    assert not first.payload_reused
+    assert second.payload_reused
+    assert len(list((tmp_path / "raw" / "stockanalysis" / "objects").glob("*/*"))) == 1
+    manifest = json.loads(second.provider_manifest_path.read_text(encoding="utf-8"))
+    assert manifest["receipt_count"] == 2
+    assert manifest["payload_object_count"] == 1
+    assert manifest["latest_receipt_id"] == "attempt_02"
+    assert manifest["validation"] == {
+        "payload_objects": "passed",
+        "receipt_contract": "passed",
+    }
+
+
+def test_failed_raw_download_attempt_keeps_receipt_without_payload(tmp_path: Path) -> None:
+    failed = _record_stockanalysis_attempt(
+        tmp_path,
+        receipt_id="attempt_failed",
+        retrieved_at="2026-08-20T10:00:00+00:00",
+        payload=None,
+        response_status=503,
+    )
+
+    receipt = json.loads(failed.receipt_path.read_text(encoding="utf-8"))
+    assert receipt["response_status"] == 503
+    assert receipt["payload_sha256"] is None
+    assert receipt["payload_object_path"] is None
+    assert receipt["size_bytes"] == 0
+    assert receipt["error"] == "service unavailable"
+
+
+def test_raw_download_receipt_id_is_immutable(tmp_path: Path) -> None:
+    kwargs = {
+        "receipt_id": "attempt_01",
+        "retrieved_at": "2026-08-20T10:00:00+00:00",
+        "payload": b"{}",
+        "response_status": 200,
+    }
+    _record_stockanalysis_attempt(tmp_path, **kwargs)
+
+    with pytest.raises(FileExistsError, match="receipt already exists"):
+        _record_stockanalysis_attempt(tmp_path, **kwargs)

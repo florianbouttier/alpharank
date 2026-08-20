@@ -2170,6 +2170,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/data/open_source/raw_archive.py",
+      "target": "src/alpharank/data/raw_contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/raw_archive.py",
       "target": "src/alpharank/data/snapshot_storage.py"
     },
     {
@@ -6226,6 +6231,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/data/raw_contracts.py",
         "src/alpharank/data/snapshot_storage.py"
       ],
       "invokes": [],
@@ -6700,7 +6706,9 @@
       "lifecycle": "active",
       "module": "alpharank.data.raw_contracts",
       "path": "src/alpharank/data/raw_contracts.py",
-      "readers": []
+      "readers": [
+        "src/alpharank/data/open_source/raw_archive.py"
+      ]
     },
     {
       "declared_public_entrypoint": false,
@@ -8548,10 +8556,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 115,
-    "internal_edge_count": 685,
+    "internal_edge_count": 686,
     "library_count": 173,
     "python_file_count": 295,
     "script_count": 122,
-    "unread_node_count": 116
+    "unread_node_count": 115
   }
 }

@@ -249,6 +249,14 @@ Les cibles RAW par fournisseur ne sont plus implicites : le registre
 champs obligatoires de reçu et manifeste. `data/open_source/official/raw` reste
 lisible pendant la transition mais n'est plus la cible d'une nouvelle source.
 
+Le writer canonique `record_raw_download` conserve désormais chaque tentative
+dans `receipts/<receipt_id>.json`, échecs compris, et adresse les octets sous
+`objects/<préfixe>/<sha256>`. Deux réponses identiques gardent donc deux reçus
+mais une seule copie physique. Le manifeste fournisseur recalcule le nombre de
+reçus et d'objets, le hash de la liste de reçus et vérifie chaque objet avant
+d'être remplacé atomiquement. La migration des producteurs historiques reste
+séparée de ce contrat.
+
 Yahoo price RAW uses `alpharank_raw_delta_archive_v1`. A full provider response
 is still downloaded because equality cannot be known in advance, but an
 unchanged business row is not stored twice. Each run has an immutable manifest

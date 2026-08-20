@@ -197,7 +197,7 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 | --- | --- | --- | --- |
 | `DATA-001` | figer le dictionnaire des emplacements actuels et de leurs lecteurs | fait | 35 fichiers/packages, 58 références statiques et 261 arêtes lecteur-emplacement dans un inventaire machine-lisible |
 | `DATA-002` | déclarer `warehouse/raw` comme cible de toutes les sources brutes, EODHD inclus | fait | huit fournisseurs ont une racine RAW unique, des datasets déclarés et des contrats communs de reçu/manifeste |
-| `DATA-003` | enregistrer chaque téléchargement par reçu et hash ; réutiliser le payload s'il est identique | à faire | tentative tracée sans duplication physique inutile |
+| `DATA-003` | enregistrer chaque téléchargement par reçu et hash ; réutiliser le payload s'il est identique | fait | reçu immuable par tentative, échecs inclus ; objet adressé par SHA-256 et manifeste fournisseur vérifié |
 | `DATA-004` | normaliser uniquement dans `stg` | à faire | aucune règle de préférence fournisseur dans STG |
 | `DATA-005` | rendre `def` responsable du choix de valeur et de sa provenance | à faire | une décision expliquée par clé et date de connaissance |
 | `DATA-006` | construire les entrées AlphaRank uniquement depuis `mart` | à faire | parité exacte avec un snapshot validé |

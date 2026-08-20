@@ -400,13 +400,13 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.028,
+      "duration_seconds": 0.116,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/integration/test_raw_archive.py",
       "suite": "integration",
-      "test_case_count": 5
+      "test_case_count": 8
     },
     {
       "domain": "data",
@@ -1263,7 +1263,7 @@
       "replay_governance": 15,
       "reporting": 6
     },
-    "duration_seconds": 124.661,
+    "duration_seconds": 124.749,
     "failure_count": 3,
     "file_count": 113,
     "outcome_counts": {
@@ -1277,6 +1277,6 @@
       "replay": 9,
       "unit": 62
     },
-    "test_case_count": 427
+    "test_case_count": 430
   }
 }

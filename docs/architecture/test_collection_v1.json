@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 427,
+  "node_count": 430,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -333,10 +333,13 @@
     "test_price_revisions.py::test_reviewed_price_revision_creates_immutable_diff[stock_split]",
     "test_price_revisions.py::test_reviewed_price_revision_creates_immutable_diff[vendor_correction]",
     "test_price_seed.py::test_load_eodhd_seed_is_hashed_normalized_and_immutable",
+    "test_raw_archive.py::test_failed_raw_download_attempt_keeps_receipt_without_payload",
     "test_raw_archive.py::test_identical_raw_download_stores_no_price_rows_twice",
     "test_raw_archive.py::test_immutable_eodhd_content_is_stored_once_for_multiple_source_ids",
     "test_raw_archive.py::test_raw_archive_rejects_duplicate_business_keys",
     "test_raw_archive.py::test_raw_archive_traces_changed_new_and_missing_rows",
+    "test_raw_archive.py::test_raw_download_receipt_id_is_immutable",
+    "test_raw_archive.py::test_raw_download_receipts_reuse_identical_payload_object",
     "test_raw_archive.py::test_restored_identical_row_references_old_raw_content",
     "test_raw_provider_contracts.py::test_eodhd_is_catalogued_without_authorizing_a_new_download",
     "test_raw_provider_contracts.py::test_every_raw_provider_targets_its_own_warehouse_root",
@@ -430,7 +433,7 @@
     "test_warehouse_migration.py::test_mart_pointer_promotion_is_atomic_and_rollback_restores_exact_bytes",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "8e487fbfdbf8b447b1a10a7c664f551a1bce6de9fa868ea5620722bce6840e4d",
+  "node_ids_sha256": "c66bd99689b540c29aeba877e5d2656a3225af93c9baa6e4ccf416fea26e2ed2",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

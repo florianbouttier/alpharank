@@ -40,6 +40,13 @@ Ainsi, « ne pas stocker deux fois les mêmes octets » et « conserver tout
 l'historique des téléchargements » sont compatibles : on garde chaque reçu et
 on référence un payload déjà présent lorsque son hash est identique.
 
+Le writer canonique `record_raw_download` applique ce contrat : le reçu est
+créé même lorsque la réponse échoue sans payload, un identifiant de reçu ne peut
+pas être réutilisé, et le manifeste `manifests/latest.json` n'est régénéré
+qu'après vérification de tous les objets référencés. Les anciennes racines ne
+sont ni copiées ni basculées par cette étape ; cette migration est suivie par
+`DATA-008` et `DATA-009`.
+
 ## 3. STG — la même information dans une forme commune
 
 `stg` normalise sans choisir la vérité économique :

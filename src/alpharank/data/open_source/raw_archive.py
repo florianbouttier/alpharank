@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date, datetime
 import hashlib
 import json
 import math
+from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 import polars as pl
 
+from alpharank.data.raw_contracts import (
+    RAW_PROVIDER_MANIFEST_CONTRACT_ID,
+    RAW_RECEIPT_CONTRACT_ID,
+    provider_contract,
+)
 from alpharank.data.snapshot_storage import copy_snapshot_file
-
 
 RAW_DELTA_CONTRACT = "alpharank_raw_delta_archive_v1"
 IMMUTABLE_FILE_CONTRACT = "alpharank_immutable_raw_file_v1"
@@ -31,6 +35,128 @@ class RawArchiveResult:
     restored_row_count: int
     missing_row_count: int
     snapshot_sha256: str
+
+
+@dataclass(frozen=True)
+class RawDownloadReceipt:
+    receipt_id: str
+    receipt_path: Path
+    provider_manifest_path: Path
+    payload_sha256: str | None
+    payload_object_path: Path | None
+    payload_reused: bool
+
+
+def record_raw_download(
+    *,
+    archive_dir: Path,
+    receipt_id: str,
+    source_name: str,
+    dataset_name: str,
+    request_id: str,
+    retrieved_at: str,
+    response_status: int,
+    payload: bytes | None,
+    payload_format: str,
+    requested_scope: dict[str, Any],
+    ingester_version: str,
+    error: str | None = None,
+) -> RawDownloadReceipt:
+    """Record one provider attempt while storing identical bytes only once.
+
+    A receipt is created for every attempt, including an unsuccessful attempt
+    without a payload. Successful payloads are addressed by SHA-256 under the
+    provider root, so two receipts for identical bytes reference one object.
+    """
+
+    archive_dir = archive_dir.resolve()
+    _require_safe_identifier(receipt_id, "receipt_id")
+    _require_safe_identifier(source_name, "source_name")
+    _require_safe_identifier(dataset_name, "dataset_name")
+    _require_non_empty(request_id, "request_id")
+    _require_non_empty(ingester_version, "ingester_version")
+    _require_iso_timestamp(retrieved_at)
+    if not isinstance(response_status, int) or not 100 <= response_status <= 599:
+        raise ValueError("response_status must be an HTTP-like integer from 100 to 599")
+    if not isinstance(requested_scope, dict):
+        raise TypeError("requested_scope must be a dictionary")
+    if payload is None and 200 <= response_status <= 299:
+        raise ValueError("A successful RAW receipt requires a payload")
+    if payload is not None and not isinstance(payload, bytes):
+        raise TypeError("payload must be bytes or None")
+
+    provider = provider_contract(source_name)
+    datasets = provider.get("datasets")
+    if not isinstance(datasets, list):
+        raise ValueError(f"RAW provider has no datasets: {source_name}")
+    dataset = next(
+        (
+            candidate
+            for candidate in datasets
+            if isinstance(candidate, dict) and candidate.get("dataset_id") == dataset_name
+        ),
+        None,
+    )
+    if dataset is None:
+        raise ValueError(f"Undeclared RAW dataset for {source_name}: {dataset_name}")
+    formats = dataset.get("formats")
+    if not isinstance(formats, list) or payload_format not in formats:
+        raise ValueError(
+            f"Undeclared RAW payload format for {source_name}/{dataset_name}: "
+            f"{payload_format}"
+        )
+
+    receipt_path = archive_dir / "receipts" / f"{receipt_id}.json"
+    if receipt_path.exists():
+        raise FileExistsError(f"RAW receipt already exists: {receipt_path}")
+
+    payload_sha256: str | None = None
+    payload_object_path: Path | None = None
+    payload_reused = False
+    if payload is not None:
+        payload_sha256 = hashlib.sha256(payload).hexdigest()
+        payload_object_path = archive_dir / "objects" / payload_sha256[:2] / payload_sha256
+        if payload_object_path.exists():
+            if _file_sha256(payload_object_path) != payload_sha256:
+                raise RuntimeError(f"RAW payload object hash mismatch: {payload_object_path}")
+            payload_reused = True
+        else:
+            _write_bytes_atomic(payload_object_path, payload)
+
+    receipt = {
+        "contract": RAW_RECEIPT_CONTRACT_ID,
+        "receipt_id": receipt_id,
+        "source_name": source_name,
+        "dataset_name": dataset_name,
+        "request_id": request_id,
+        "retrieved_at": retrieved_at,
+        "response_status": response_status,
+        "payload_sha256": payload_sha256,
+        "size_bytes": len(payload) if payload is not None else 0,
+        "payload_format": payload_format,
+        "requested_scope": requested_scope,
+        "payload_object_path": (
+            payload_object_path.relative_to(archive_dir).as_posix()
+            if payload_object_path is not None
+            else None
+        ),
+        "ingester_version": ingester_version,
+        "error": error,
+    }
+    _write_json_atomic(receipt_path, receipt)
+    provider_manifest_path = _rebuild_provider_manifest(
+        archive_dir=archive_dir,
+        source_name=source_name,
+        dataset_name=dataset_name,
+    )
+    return RawDownloadReceipt(
+        receipt_id=receipt_id,
+        receipt_path=receipt_path,
+        provider_manifest_path=provider_manifest_path,
+        payload_sha256=payload_sha256,
+        payload_object_path=payload_object_path,
+        payload_reused=payload_reused,
+    )
 
 
 def archive_raw_frame_delta(
@@ -373,10 +499,96 @@ def _read_latest_run_id(path: Path) -> str | None:
     return payload.get("run_id")
 
 
+def _rebuild_provider_manifest(
+    *,
+    archive_dir: Path,
+    source_name: str,
+    dataset_name: str,
+) -> Path:
+    receipt_paths = sorted((archive_dir / "receipts").glob("*.json"))
+    receipts = [json.loads(path.read_text(encoding="utf-8")) for path in receipt_paths]
+    if not receipts:
+        raise RuntimeError(f"RAW provider has no receipts: {archive_dir}")
+    for receipt in receipts:
+        if receipt.get("contract") != RAW_RECEIPT_CONTRACT_ID:
+            raise RuntimeError(f"Unsupported RAW receipt under {archive_dir}")
+        if receipt.get("source_name") != source_name:
+            raise RuntimeError(f"Mixed RAW providers under {archive_dir}")
+        if receipt.get("dataset_name") != dataset_name:
+            raise RuntimeError(f"Mixed RAW datasets under {archive_dir}")
+        object_relative = receipt.get("payload_object_path")
+        payload_sha256 = receipt.get("payload_sha256")
+        if object_relative is None:
+            if payload_sha256 is not None or receipt.get("size_bytes") != 0:
+                raise RuntimeError("RAW receipt without payload has inconsistent metadata")
+            continue
+        object_path = archive_dir / str(object_relative)
+        if not object_path.is_file() or _file_sha256(object_path) != payload_sha256:
+            raise RuntimeError(f"RAW receipt payload is missing or altered: {object_path}")
+
+    latest = max(
+        receipts,
+        key=lambda receipt: (str(receipt["retrieved_at"]), str(receipt["receipt_id"])),
+    )
+    receipts_sha256 = hashlib.sha256(
+        json.dumps(receipts, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    manifest = {
+        "contract": RAW_PROVIDER_MANIFEST_CONTRACT_ID,
+        "provider_id": source_name,
+        "dataset_id": dataset_name,
+        "receipt_count": len(receipts),
+        "latest_receipt_id": latest["receipt_id"],
+        "payload_object_count": len(
+            {
+                receipt["payload_object_path"]
+                for receipt in receipts
+                if receipt["payload_object_path"] is not None
+            }
+        ),
+        "generated_at": latest["retrieved_at"],
+        "receipts_sha256": receipts_sha256,
+        "receipt_paths": [path.relative_to(archive_dir).as_posix() for path in receipt_paths],
+        "validation": {
+            "payload_objects": "passed",
+            "receipt_contract": "passed",
+        },
+    }
+    manifest_path = archive_dir / "manifests" / "latest.json"
+    _write_json_atomic(manifest_path, manifest)
+    return manifest_path
+
+
+def _require_safe_identifier(value: str, label: str) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{label} must be a non-empty string")
+    if any(character not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for character in value):
+        raise ValueError(f"{label} contains unsafe characters: {value!r}")
+
+
+def _require_non_empty(value: str, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} must be a non-empty string")
+
+
+def _require_iso_timestamp(value: str) -> None:
+    _require_non_empty(value, "retrieved_at")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("retrieved_at must include a timezone")
+
+
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(f"{path.suffix}.tmp")
     temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _write_bytes_atomic(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_bytes(payload)
     temporary.replace(path)
 
 
