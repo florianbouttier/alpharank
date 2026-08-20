@@ -136,7 +136,7 @@ def main() -> None:
                         ]
                     )
                 )
-        except Exception as exc:  # pragma: no cover - best effort operational path
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             failures.append({"ticker": ticker_us, "error": str(exc)})
 
     refreshed_financials = pl.concat(financial_frames, how="vertical_relaxed") if financial_frames else pl.DataFrame()

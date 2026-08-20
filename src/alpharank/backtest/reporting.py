@@ -398,7 +398,7 @@ def save_optuna_visualizations(
 
     try:
         from optuna import visualization as ov
-    except Exception:
+    except ImportError:
         return paths
 
     plotters = {
@@ -418,7 +418,7 @@ def save_optuna_visualizations(
             out = out_dir / f"{fold_label}_optuna_{name}.html"
             fig.write_html(str(out), include_plotlyjs="cdn", full_html=True)
             paths[f"optuna_{name}"] = out
-        except Exception:
+        except (OSError, RuntimeError, TypeError, ValueError):
             continue
 
     return paths
@@ -572,7 +572,7 @@ def write_html_report(
             return ""
         try:
             rel = path.relative_to(output_path.parent).as_posix()
-        except Exception:
+        except ValueError:
             rel = path.name
 
         suffix = path.suffix.lower()
@@ -687,7 +687,7 @@ def write_backtest_audit_report(
             return ""
         try:
             rel = path.relative_to(output_path.parent).as_posix()
-        except Exception:
+        except ValueError:
             rel = path.name
         return f"<li><a href='{html.escape(rel)}' target='_blank'>{html.escape(path.name)}</a></li>"
 
@@ -702,7 +702,7 @@ def write_backtest_audit_report(
     try:
         import plotly.express as px
         import plotly.graph_objects as go
-    except Exception:
+    except ImportError:
         px = None
         go = None
 

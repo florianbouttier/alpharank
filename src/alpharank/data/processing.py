@@ -12,10 +12,14 @@ from alpharank.utils.frame_backend import (
     to_pandas,
     to_polars,
 )
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
 
 try:
     import polars as pl
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     pl = None
 
 class IndexDataManager:
@@ -61,7 +65,7 @@ class IndexDataManager:
             else:
                 self.monthly_returns = monthly_returns_df.copy()
         else:
-            print("Monthly returns not provided. Calculating from daily prices...")
+            LOGGER.info("Monthly returns absent; calculating them from daily prices")
             self.monthly_returns = self._calculate_monthly_returns(self.daily_prices)
 
     def _calculate_monthly_returns(self, daily_prices: pd.DataFrame) -> pd.DataFrame:

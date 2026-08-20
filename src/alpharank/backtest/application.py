@@ -136,7 +136,7 @@ def _format_int(value: float | int | None) -> str:
     try:
         if not np.isfinite(float(value)):
             return "N/A"
-    except Exception:
+    except (TypeError, ValueError):
         return "N/A"
     return str(int(round(float(value))))
 
@@ -936,7 +936,7 @@ def _build_comparison_report(
         start_date = _format_month_label(cumulative_returns.get_column("year_month").min())
         end_date = _format_month_label(cumulative_returns.get_column("year_month").max())
         date_range_str = f"Period: {start_date} to {end_date}"
-    except Exception:
+    except (IndexError, TypeError, ValueError):
         date_range_str = "Period: N/A"
 
     metrics_html = _table_html(_display_metrics_table(metrics))

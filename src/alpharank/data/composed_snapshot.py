@@ -223,7 +223,7 @@ def build_composed_model_snapshot(
             composition_id=composition_id,
             manifest=manifest,
         )
-    except Exception:
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         shutil.rmtree(staging_dir, ignore_errors=True)
         raise
 

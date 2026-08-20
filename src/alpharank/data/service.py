@@ -9,6 +9,11 @@ from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
 from io import StringIO
 
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+
 
 class APIClient:
     """Wrapper POO pour EODHD API"""
@@ -457,7 +462,10 @@ class FundamentalData:
                 final_data_list.append(tp)
                 
             except (KeyError, TypeError) as e:
-                print(f"Error processing data for {ticker}: {e}")
+                LOGGER.warning(
+                    "Provider row could not be processed",
+                    extra={"ticker": ticker, "result": "skipped", "error": str(e)},
+                )
         
         if final_data_list:
             return pd.concat(final_data_list, ignore_index=True)

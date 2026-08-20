@@ -146,7 +146,7 @@ def seal_baseline_package(
         )
         _remove_write_bits(temporary)
         temporary.rename(destination)
-    except Exception:
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         _make_tree_owner_writable(temporary)
         shutil.rmtree(temporary, ignore_errors=True)
         raise

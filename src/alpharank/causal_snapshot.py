@@ -117,7 +117,7 @@ def seal_causal_v2_snapshot(
             patch_path=external_patch,
             captured_at=timestamp,
         )
-    except Exception:
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         external_patch.unlink(missing_ok=True)
         raise
     temporary = destination.parent / f".{destination.name}.tmp-{uuid4().hex}"
@@ -236,7 +236,7 @@ def seal_causal_v2_snapshot(
         )
         _remove_write_bits(temporary)
         os.replace(temporary, destination)
-    except Exception:
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         _make_tree_owner_writable(temporary)
         shutil.rmtree(temporary, ignore_errors=True)
         raise
@@ -328,7 +328,7 @@ def validate_causal_v2_snapshot(package_dir: Path) -> dict[str, Any]:
         errors.append("missing selected returns do not fail closed")
     try:
         validate_runtime_provenance(manifest.get("runtime_provenance", {}))
-    except Exception as exc:  # normalize the governance validator's error type
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
         errors.append(f"invalid runtime provenance: {exc}")
 
     if errors:

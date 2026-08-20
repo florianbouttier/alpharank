@@ -3,6 +3,11 @@ import optuna.visualization as vis
 import plotly.io as pio
 from typing import Optional
 
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+
 def generate_optuna_report(study: optuna.Study, output_path: str) -> None:
     """
     Generates an HTML report containing standard Optuna visualizations.
@@ -18,31 +23,43 @@ def generate_optuna_report(study: optuna.Study, output_path: str) -> None:
         # Optimization History
         try:
             figs.append(vis.plot_optimization_history(study))
-        except Exception as e:
-            print(f"Could not plot optimization history: {e}")
+        except (RuntimeError, TypeError, ValueError) as e:
+            LOGGER.warning(
+                "Optuna optimization-history plot unavailable",
+                extra={"result": "skipped", "error": str(e)},
+            )
             
         # Parameter Importances
         try:
             # Requires more than one parameter to be useful, and completed trials
             if len(study.trials) > 1:
                 figs.append(vis.plot_param_importances(study))
-        except Exception as e:
-            print(f"Could not plot param importances: {e}")
+        except (RuntimeError, TypeError, ValueError) as e:
+            LOGGER.warning(
+                "Optuna parameter-importance plot unavailable",
+                extra={"result": "skipped", "error": str(e)},
+            )
             
         # Parallel Coordinate
         try:
             figs.append(vis.plot_parallel_coordinate(study))
-        except Exception as e:
-            print(f"Could not plot parallel coordinate: {e}")
+        except (RuntimeError, TypeError, ValueError) as e:
+            LOGGER.warning(
+                "Optuna parallel-coordinate plot unavailable",
+                extra={"result": "skipped", "error": str(e)},
+            )
             
         # Slice Plot
         try:
             figs.append(vis.plot_slice(study))
-        except Exception as e:
-            print(f"Could not plot slice: {e}")
+        except (RuntimeError, TypeError, ValueError) as e:
+            LOGGER.warning(
+                "Optuna slice plot unavailable",
+                extra={"result": "skipped", "error": str(e)},
+            )
 
         if not figs:
-            print("No figures generated for Optuna report.")
+            LOGGER.warning("No Optuna figures were generated", extra={"result": "empty"})
             return
 
         # Combine into a single HTML file
@@ -61,7 +78,13 @@ def generate_optuna_report(study: optuna.Study, output_path: str) -> None:
                 
             f.write("</body></html>")
             
-        print(f"Optuna report saved to {output_path}")
+        LOGGER.info(
+            "Optuna report saved",
+            extra={"output_path": output_path, "result": "completed"},
+        )
 
-    except Exception as e:
-        print(f"Failed to generate Optuna report: {e}")
+    except (OSError, RuntimeError, TypeError, ValueError) as e:
+        LOGGER.exception(
+            "Optuna report generation failed",
+            extra={"output_path": output_path, "result": "failed", "error": str(e)},
+        )

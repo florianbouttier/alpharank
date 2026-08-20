@@ -329,7 +329,7 @@ def promote_mart_pointer(
         if promoted != after:
             raise RuntimeError("Atomic MART pointer verification failed")
         validate_composed_model_snapshot(_recorded_path(promoted["snapshot_dir"], pointer_path))
-    except Exception:
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         _write_bytes_atomic(pointer_path, before_bytes)
         raise
     promotion_manifest = promotion_dir / "manifest.json"
@@ -464,7 +464,7 @@ def _bootstrap_def_composition(
             }
             _write_json_atomic(staging / "manifest.json", payload)
             os.replace(staging, destination_root)
-        except Exception:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError):
             shutil.rmtree(staging, ignore_errors=True)
             raise
     payload = _read_json(manifest_path)
@@ -514,7 +514,7 @@ def _build_mart(
             if observed != expected_hashes:
                 raise RuntimeError("MART bootstrap changed model-file bytes")
             os.replace(staging, mart_dir)
-        except Exception:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError):
             shutil.rmtree(staging, ignore_errors=True)
             raise
     mart_validation = validate_composed_model_snapshot(mart_dir)

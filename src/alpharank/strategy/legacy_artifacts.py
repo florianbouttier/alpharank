@@ -5,7 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from alpharank.observability import get_run_logger
 from alpharank.strategy.analytics import PerformanceAnalyzer
+
+LOGGER = get_run_logger(__name__)
 
 
 def compare_models(
@@ -27,13 +30,20 @@ def compare_models(
         elif len(df_copy.columns) > 1:
             return_col = df_copy.columns[1]
         else:
-            print(f"Warning: Could not identify returns column for {model_name}. Skipping.")
+            LOGGER.warning(
+                "Could not identify a returns column; model skipped",
+                extra={"model_name": model_name, "result": "skipped"},
+            )
             continue
 
         if not isinstance(df_copy["year_month"].iloc[0], pd.Period):
             try:
                 df_copy["year_month"] = df_copy["year_month"].dt.to_period("M")
-            except Exception:
+            except (AttributeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "Legacy model dates require the generic conversion fallback",
+                    extra={"model_name": model_name, "result": "fallback", "error": str(exc)},
+                )
                 df_copy["year_month"] = pd.to_datetime(df_copy["year_month"]).dt.to_period("M")
 
         if start_year:
@@ -41,7 +51,10 @@ def compare_models(
         if end_year:
             df_copy = df_copy[df_copy["year_month"].dt.year <= end_year]
         if df_copy.empty:
-            print(f"Warning: No data available for {model_name} in selected period")
+            LOGGER.warning(
+                "No model data is available in the selected period",
+                extra={"model_name": model_name, "result": "skipped"},
+            )
             continue
 
         processed_data[model_name] = df_copy.set_index("year_month")[return_col]

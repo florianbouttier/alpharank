@@ -8,6 +8,8 @@ from typing import Sequence
 
 import polars as pl
 
+from alpharank.observability import set_run_log_context
+
 from alpharank.data.open_source.benchmark import (
     build_audited_metric_catalog,
     build_coverage_audit,
@@ -1015,6 +1017,12 @@ def _run_open_source_ingestion_in_place(
     paths.ensure()
 
     run_id = run_id or new_run_id()
+    set_run_log_context(
+        run_id=run_id,
+        snapshot_id="not_applicable",
+        component=__name__,
+        step="open_source_ingestion",
+    )
     ingested_at = utc_now_iso()
     end_date = end_date or date.today().strftime("%Y-%m-%d")
     if tickers is None:
@@ -1472,7 +1480,7 @@ def _run_open_source_ingestion_in_place(
     if refreshed_years:
         try:
             earnings_fetched = yahoo_client.fetch_earnings_dates(price_quality_tickers, limit=100)
-        except Exception as exc:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             earnings_fetched = _empty_raw_earnings_frame()
             run_failures["yfinance_earnings"].append({"error": str(exc)})
         earnings_delta = _with_earnings_ingestion_metadata(
@@ -1626,7 +1634,7 @@ def _run_open_source_ingestion_in_place(
         )
         try:
             simfin_year = simfin_client.fetch_quarterly_financials(ticker_list, year) if simfin_client.enabled else _empty_raw_financial_base()
-        except Exception as exc:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             simfin_year = _empty_raw_financial_base()
             run_failures["simfin"].append({"year": str(year), "error": str(exc)})
         run_failures["simfin"].extend(simfin_client.last_fetch_failures)

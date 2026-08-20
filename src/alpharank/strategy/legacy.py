@@ -35,10 +35,14 @@ from alpharank.utils.frame_backend import (
     to_pandas,
     to_polars,
 )
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
 
 try:
     import polars as pl
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     pl = None
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -703,12 +707,12 @@ class StrategyLearner:
         list_spliting_date_end_of_year = sorted(prices['year_month'].unique())
         list_spliting_date_end_of_year = [d for d in list_spliting_date_end_of_year if d.month == 1]
         list_spliting_date_end_of_year = [d for d in list_spliting_date_end_of_year if d >= first_date]
-        print(
+        LOGGER.info(
             f"[Optuna] full run: splits={len(list_spliting_date_end_of_year)}, "
             f"trials_per_split={n_trials}, n_jobs={n_jobs}"
         )
         if n_trials >= 30 and len(list_spliting_date_end_of_year) >= 10:
-            print(
+            LOGGER.warning(
                 "[Optuna] heavy configuration detected; first trial can take several minutes. "
                 "Use n_trials=1..5 in the script/main() for a quick validation run."
             )

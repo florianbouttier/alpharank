@@ -6,6 +6,11 @@ from scipy import stats
 from sklearn.metrics import precision_score, recall_score, average_precision_score, roc_auc_score
 from typing import Dict, List, Optional, Any, Tuple
 
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+
 def evaluate_classifier(
     y_true,
     y_pred_scores,
@@ -103,8 +108,11 @@ def compare_models(models_data: Dict[str, pd.Series], start_year: Optional[int] 
         if not isinstance(df['year_month'].iloc[0], pd.Period):
             try:
                 df['year_month'] = pd.to_datetime(df['year_month']).dt.to_period('M')
-            except Exception as e:
-                print(f"Error converting dates for {model_name}: {e}")
+            except (TypeError, ValueError) as e:
+                LOGGER.warning(
+                    "Model dates could not be converted",
+                    extra={"model_name": model_name, "result": "skipped", "error": str(e)},
+                )
                 continue
 
         # Identify return column
@@ -131,7 +139,10 @@ def compare_models(models_data: Dict[str, pd.Series], start_year: Optional[int] 
             df = df[df['year_month'].dt.year <= end_year]
 
         if df.empty:
-            print(f"Warning: No data available for {model_name} in selected time period")
+            LOGGER.warning(
+                "No model data is available in the selected period",
+                extra={"model_name": model_name, "result": "skipped"},
+            )
             continue
 
         # Store as Series indexed by year_month
@@ -148,7 +159,10 @@ def compare_models(models_data: Dict[str, pd.Series], start_year: Optional[int] 
         raise ValueError("No valid data found for any model")
         
     if not common_dates:
-        print("Warning: No common dates found across all models. Using all available data (outer join).")
+        LOGGER.warning(
+            "No common dates found; using all available model dates",
+            extra={"join_policy": "outer", "result": "fallback"},
+        )
     
     # Combine into single DataFrame
     all_returns = pd.DataFrame(processed_data)
@@ -357,7 +371,7 @@ def compare_score_and_perf(df_scores: pd.DataFrame, df_perf: pd.DataFrame, score
     merged = df_scores.merge(df_perf, on=["year_month"], how="inner")
     merged = merged.dropna(subset=[score_col, perf_col])
     if merged.empty:
-        print("No overlapping data between scores and performance.")
+        LOGGER.warning("No overlapping score and performance observations")
         return None
     spearman_corr = stats.spearmanr(merged[score_col], merged[perf_col])
     pearson_corr = stats.pearsonr(merged[score_col], merged[perf_col])

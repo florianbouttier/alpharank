@@ -19,6 +19,7 @@ from alpharank.data.open_source.storage import (
     try_acquire_json_lock,
     write_json,
 )
+from alpharank.observability import configure_run_logging, set_run_log_context
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -90,6 +91,7 @@ def default_nightly_tickers(
 
 
 def main() -> None:
+    configure_run_logging()
     if ALLOW_HISTORICAL_REVISIONS and not HISTORICAL_REVISION_REVIEW_NOTE:
         raise RuntimeError(
             "ALPHARANK_HISTORICAL_REVISION_REVIEW_NOTE is required when "
@@ -100,6 +102,12 @@ def main() -> None:
     active_tickers = TICKERS or default_nightly_tickers(reference_data_dir=REFERENCE_DATA_DIR, live_dir=LIVE_DIR)
     started_at = datetime.now().isoformat(timespec="seconds")
     run_id = new_run_id()
+    set_run_log_context(
+        run_id=run_id,
+        snapshot_id="not_applicable",
+        component=__name__,
+        step="nightly_ingestion",
+    )
     lock_payload = {
         "pid": os.getpid(),
         "run_id": run_id,

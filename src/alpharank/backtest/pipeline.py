@@ -31,10 +31,8 @@ from alpharank.backtest.kpis import (
     compute_backtest_kpis_by_fold,
     sanitize_numeric_frame,
 )
+from alpharank.backtest.model_artifacts import serialize_fold_model
 from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
-from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
-from alpharank.portfolio.comparison import reference_monthly_series
-from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.backtest.reporting import (
     save_auc_score_overview,
     save_backtest_vs_sp500_plots,
@@ -48,14 +46,24 @@ from alpharank.backtest.reporting import (
     write_backtest_audit_report,
     write_html_report,
 )
-from alpharank.backtest.time_folds import cpcv_fold_windows, filter_by_months, rolling_fold_windows, walk_forward_windows
-from alpharank.backtest.model_artifacts import serialize_fold_model
+from alpharank.backtest.time_folds import (
+    cpcv_fold_windows,
+    filter_by_months,
+    rolling_fold_windows,
+    walk_forward_windows,
+)
+from alpharank.data.lineage import load_latest_manifest, write_manifest
+from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.multihorizon.preprocessing import (
     FoldPreprocessor,
     fit_fold_preprocessor,
 )
-from alpharank.data.lineage import load_latest_manifest, write_manifest
-from alpharank.governance import capture_runtime_provenance, reserve_run_directory
+from alpharank.observability import get_run_logger, set_run_log_context
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
+
+LOGGER = get_run_logger(__name__)
 
 
 @dataclass
@@ -482,15 +490,25 @@ def _prepare_modeling_frame(config: BacktestConfig, *, run_dir: Path) -> tuple[p
         final_price_path=config.final_price_path,
         sp500_price_path=config.sp500_price_path,
     )
-    _write_run_data_input_manifest(
+    manifest = _write_run_data_input_manifest(
         run_dir=run_dir,
         data_dir=config.data_dir,
         raw=raw,
         config=config,
     )
+    set_run_log_context(
+        run_id=run_dir.name,
+        snapshot_id=(
+            manifest.get("snapshot_id")
+            or manifest.get("source_snapshot_id")
+            or "unversioned"
+        ),
+        component=__name__,
+        step="learning",
+    )
     raw = _apply_data_quality_ticker_exclusions(raw, config.excluded_tickers)
     if config.verbose and config.excluded_tickers:
-        print(
+        LOGGER.info(
             "[DataQuality] Excluding tickers from backtest inputs: "
             + ", ".join(config.excluded_tickers)
         )
@@ -802,6 +820,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     from alpharank.backtest.tuning import tune_and_fit_fold
 
     run_dir = _create_run_dir(config.output_dir)
+    set_run_log_context(run_id=run_dir.name, component=__name__, step="learning")
     figures_dir = run_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
 
@@ -837,7 +856,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     fold_durations: List[float] = []
 
     if config.verbose:
-        print(
+        LOGGER.info(
             "[Learning] start "
             f"months={len(months)} windows={total_windows} "
             f"trials_per_fold={config.n_optuna_trials}"
@@ -852,7 +871,10 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
     shap_explanations: List[ShapFoldExplanation] = []
     warm_start_params = _load_warm_start_params(config)
     if config.verbose and warm_start_params:
-        print(f"[Learning] loaded {len(warm_start_params)} warm-start parameter sets")
+        LOGGER.info(
+            "Warm-start parameter sets loaded",
+            extra={"parameter_set_count": len(warm_start_params)},
+        )
 
     for window_position, window in enumerate(windows, start=1):
         fold_start = time.perf_counter()
@@ -867,12 +889,12 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         train_month_count = train_df.select(pl.col("year_month").n_unique()).item() if not train_df.is_empty() else 0
 
         if config.verbose:
-            print(
+            LOGGER.info(
                 f"{fold_prefix} train={window.train_months[0]}->{window.train_months[-1]} "
                 f"val={window.val_months[0]}->{window.val_months[-1]} "
                 f"test={window.test_months[0]}->{window.test_months[-1]}"
             )
-            print(
+            LOGGER.info(
                 f"{fold_prefix} rows train={train_df.height} val={val_df.height} test={test_df.height} "
                 f"(train_months={train_month_count})"
             )
@@ -894,7 +916,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 )
             )
             if config.verbose:
-                print(
+                LOGGER.warning(
                     f"{fold_prefix} skipped: train_months={train_month_count} < min_train_months={config.min_train_months}"
                 )
             continue
@@ -915,7 +937,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 )
             )
             if config.verbose:
-                print(
+                LOGGER.warning(
                     f"{fold_prefix} skipped: train_rows={train_df.height} < fold_min_train_rows={config.fold_min_train_rows}"
                 )
             continue
@@ -936,7 +958,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 )
             )
             if config.verbose:
-                print(
+                LOGGER.warning(
                     f"{fold_prefix} skipped: val_rows={val_df.height} < fold_min_val_rows={config.fold_min_val_rows}"
                 )
             continue
@@ -957,7 +979,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 )
             )
             if config.verbose:
-                print(
+                LOGGER.warning(
                     f"{fold_prefix} skipped: test_rows={test_df.height} < fold_min_test_rows={config.fold_min_test_rows}"
                 )
             continue
@@ -981,7 +1003,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         test_positive_rate = _positive_rate(y_test)
 
         if config.verbose:
-            print(
+            LOGGER.info(
                 f"{fold_prefix} target positive rate "
                 f"train={train_positive_rate:.1%} "
                 f"val={val_positive_rate:.1%} "
@@ -1222,7 +1244,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         eta_pipeline_seconds = avg_fold_duration * remaining_folds
 
         if config.verbose:
-            print(
+            LOGGER.info(
                 f"{fold_prefix} completed "
                 f"score_test_pen={fold_score_train_test:.4f} "
                 f"(train_auc={tuned.train_auc:.4f}, val_auc={tuned.val_auc:.4f}, test_auc={tuned.test_auc:.4f}) "
@@ -1593,7 +1615,7 @@ def _finalize_backtest_run(
     paths["metadata"].write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     if config.verbose and pipeline_elapsed is not None:
-        print(
+        LOGGER.info(
             "[Pipeline] completed "
             f"elapsed={_format_seconds(pipeline_elapsed)} "
             f"completed_folds={fold_metrics.height}/{learning.total_windows} "
@@ -1619,13 +1641,14 @@ def _finalize_backtest_run(
 
 
 def run_backtest_from_learning(config: BacktestConfig, learning: LearningArtifacts) -> BacktestArtifacts:
+    set_run_log_context(run_id=learning.run_dir.name, component=__name__, step="backtest")
     if config.verbose:
-        print("[Pipeline] phase 2/2: backtest started")
+        LOGGER.info("Backtest phase started", extra={"result": "started"})
     backtest_start = time.perf_counter()
     backtest_phase = run_backtest_phase(config, learning)
     backtest_elapsed = time.perf_counter() - backtest_start
     if config.verbose:
-        print(
+        LOGGER.info(
             "[Pipeline] phase 2/2: backtest completed "
             f"elapsed={_format_seconds(backtest_elapsed)} "
             f"months={backtest_phase.monthly_returns.height}"
@@ -1637,24 +1660,24 @@ def run_boosting_backtest(config: BacktestConfig) -> BacktestArtifacts:
     pipeline_start = time.perf_counter()
 
     if config.verbose:
-        print("[Pipeline] phase 1/2: learning started")
+        LOGGER.info("Learning phase started", extra={"result": "started"})
     learning_start = time.perf_counter()
     learning = run_learning_phase(config)
     learning_elapsed = time.perf_counter() - learning_start
     if config.verbose:
-        print(
+        LOGGER.info(
             "[Pipeline] phase 1/2: learning completed "
             f"elapsed={_format_seconds(learning_elapsed)} "
             f"completed_folds={learning.fold_metrics.height}/{learning.total_windows}"
         )
 
     if config.verbose:
-        print("[Pipeline] phase 2/2: backtest started")
+        LOGGER.info("Backtest phase started", extra={"result": "started"})
     backtest_start = time.perf_counter()
     backtest_phase = run_backtest_phase(config, learning)
     backtest_elapsed = time.perf_counter() - backtest_start
     if config.verbose:
-        print(
+        LOGGER.info(
             "[Pipeline] phase 2/2: backtest completed "
             f"elapsed={_format_seconds(backtest_elapsed)} "
             f"months={backtest_phase.monthly_returns.height}"

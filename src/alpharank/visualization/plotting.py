@@ -7,6 +7,22 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
 
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+
+
+PLOTTING_ERRORS = (AttributeError, KeyError, RuntimeError, TypeError, ValueError)
+
+
+def _plot_error_html(section: str, error: BaseException) -> str:
+    LOGGER.exception(
+        "Portfolio visualization section failed",
+        extra={"section": section, "result": "failed", "error": str(error)},
+    )
+    return f"<div class='alert alert-danger'>Error: {escape(str(error))}</div>"
+
 # %%
 class PortfolioVisualizer:
     """
@@ -189,8 +205,11 @@ class PortfolioVisualizer:
                         backend=backend,
                     )
                     price_df = price_subset # Use daily for chart
-            except Exception as e:
-                print(f"Viz Error: Could not calculate detailed fundamentals: {e}")
+            except (KeyError, TypeError, ValueError) as e:
+                LOGGER.warning(
+                    "Detailed fundamentals could not be calculated for visualization",
+                    extra={"result": "unavailable", "error": str(e)},
+                )
 
         # Render Details
         if fundamentals_df is not None and price_df is not None:
@@ -413,7 +432,7 @@ class PortfolioVisualizer:
             start_date = cumulative_returns.index[0].strftime('%Y-%m-%d')
             end_date = cumulative_returns.index[-1].strftime('%Y-%m-%d')
             date_range_str = f"Period: {start_date} to {end_date}"
-        except:
+        except (AttributeError, IndexError, TypeError, ValueError):
             date_range_str = "Period: N/A"
         
         # --- 1. Cumulative Returns ---
@@ -438,8 +457,8 @@ class PortfolioVisualizer:
                 hovermode="x unified"
             )
             html_cum = pio.to_html(fig_cum, full_html=False, include_plotlyjs=False)
-        except Exception as e:
-            html_cum = f"<div class='alert alert-danger'>Error: {e}</div>"
+        except PLOTTING_ERRORS as e:
+            html_cum = _plot_error_html("cumulative_returns", e)
 
         # --- 2. Drawdowns ---
         try:
@@ -454,8 +473,8 @@ class PortfolioVisualizer:
                 hovermode="x unified"
             )
             html_dd = pio.to_html(fig_dd, full_html=False, include_plotlyjs=False)
-        except Exception as e:
-             html_dd = f"<div class='alert alert-danger'>Error: {e}</div>"
+        except PLOTTING_ERRORS as e:
+             html_dd = _plot_error_html("drawdowns", e)
 
         # --- 2b. Number of Positions ---
         html_positions = ""
@@ -481,8 +500,8 @@ class PortfolioVisualizer:
                     hovermode="x unified",
                 )
                 html_positions = pio.to_html(fig_positions, full_html=False, include_plotlyjs=False)
-            except Exception as e:
-                html_positions = f"<div class='alert alert-danger'>Error: {e}</div>"
+            except PLOTTING_ERRORS as e:
+                html_positions = _plot_error_html("positions", e)
 
         # --- 3. KPI Deep Dive Heatmaps (Tabbed) ---
         kpi_htmls = {}
@@ -559,8 +578,8 @@ class PortfolioVisualizer:
                 
                 fig.update_layout(height=1050, title_text=f"Deep Dive: {metric}", template="plotly_white")
                 kpi_htmls[metric] = pio.to_html(fig, full_html=False, include_plotlyjs=False)
-            except Exception as e:
-                kpi_htmls[metric] = f"<div class='alert alert-danger'>Error: {e}</div>"
+            except PLOTTING_ERRORS as e:
+                kpi_htmls[metric] = _plot_error_html(f"kpi:{metric}", e)
 
         # --- 4. Monthly Returns Heatmaps (Tabbed) ---
         monthly_htmls = {}
@@ -591,8 +610,8 @@ class PortfolioVisualizer:
                     yaxis=dict(dtick=1, type='category') # Ensure years are distinct
                 )
                 monthly_htmls[model_name] = pio.to_html(fig, full_html=False, include_plotlyjs=False)
-            except Exception as e:
-                monthly_htmls[model_name] = f"<div class='alert alert-danger'>Error: {e}</div>"
+            except PLOTTING_ERRORS as e:
+                monthly_htmls[model_name] = _plot_error_html(f"monthly:{model_name}", e)
 
         # --- G. Risk-Reward Scatter ---
         html_rr = ""
@@ -617,7 +636,8 @@ class PortfolioVisualizer:
                      height=400
                   )
                  html_rr = pio.to_html(fig_rr, full_html=False, include_plotlyjs=False)
-        except Exception: pass
+        except PLOTTING_ERRORS as exc:
+            html_rr = _plot_error_html("risk_reward", exc)
         
         # --- Correlation Matrix ---
         html_corr = ""
@@ -636,7 +656,8 @@ class PortfolioVisualizer:
                 height=500
             )
             html_corr = pio.to_html(fig_corr, full_html=False, include_plotlyjs=False)
-        except Exception: pass
+        except PLOTTING_ERRORS as exc:
+            html_corr = _plot_error_html("correlation", exc)
 
         # --- Assemble HTML ---
         

@@ -804,7 +804,7 @@ def _replace_directory_atomically(*, source_dir: Path, output_dir: Path) -> None
         os.replace(output_dir, backup_dir)
     try:
         os.replace(source_dir, output_dir)
-    except Exception:
+    except (OSError, RuntimeError):
         if backup_dir.exists() and not output_dir.exists():
             os.replace(backup_dir, output_dir)
         raise

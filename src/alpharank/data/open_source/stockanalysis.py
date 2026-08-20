@@ -54,7 +54,7 @@ class StockAnalysisClient:
                 ticker = futures[future]
                 try:
                     frame = future.result()
-                except Exception as exc:
+                except (KeyError, OSError, RuntimeError, TypeError, ValueError, requests.RequestException) as exc:
                     self.last_fetch_failures.append({"ticker": ticker, "error": str(exc)})
                     continue
                 if not frame.is_empty():

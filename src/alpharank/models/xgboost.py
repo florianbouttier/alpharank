@@ -18,9 +18,11 @@ from sklearn.model_selection import TimeSeriesSplit
 from alpharank.strategy.base import BaseStrategy
 from alpharank.data.datasets import clean_to_category
 from alpharank.models.shap_analysis import run_shap_analysis
+from alpharank.observability import get_run_logger
 from alpharank.utils.xgboost_runtime import load_xgboost
 
 xgb = load_xgboost()
+LOGGER = get_run_logger(__name__)
 
 
 class XGBoostModel(BaseStrategy):
@@ -190,8 +192,11 @@ class XGBoostModel(BaseStrategy):
                 )
 
                 generate_optuna_report(study, optuna_report_path)
-            except Exception as exc:  # pragma: no cover
-                print(f"Optuna report generation failed: {exc}")
+            except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:  # pragma: no cover
+                LOGGER.exception(
+                    "Optuna report generation failed",
+                    extra={"result": "failed", "error": str(exc)},
+                )
 
         return {
             "best_params": best_params,

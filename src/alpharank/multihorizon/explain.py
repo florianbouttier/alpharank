@@ -5,6 +5,10 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from alpharank.observability import get_run_logger
+
+LOGGER = get_run_logger(__name__)
+
 
 def shap_row_indexes(*, row_count: int, sample_size: int, seed: int) -> np.ndarray:
     if sample_size > 0 and row_count > sample_size:
@@ -93,5 +97,8 @@ def write_shap_outputs(samples: pl.DataFrame, output_dir: Path, *, top_features:
         plt.tight_layout()
         plt.savefig(output_dir / "shap_importance.png", dpi=160)
         plt.close()
-    except Exception:
-        pass
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        LOGGER.exception(
+            "Multi-horizon SHAP chart generation failed",
+            extra={"output_dir": str(output_dir), "result": "failed", "error": str(exc)},
+        )

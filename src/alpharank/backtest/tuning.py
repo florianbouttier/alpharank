@@ -14,6 +14,10 @@ from alpharank.backtest.mlcraft_adapter import (
     to_mlcraft_search_space,
 )
 from alpharank.backtest.time_folds import CombinatorialPurgedGroupTimeSeriesSplit
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
 
 
 @dataclass
@@ -50,7 +54,7 @@ def safe_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
         return 0.5
     try:
         return float(roc_auc_score(y_true, y_score))
-    except Exception:
+    except (TypeError, ValueError):
         return 0.5
 
 def compute_classification_metrics(
@@ -89,17 +93,17 @@ def compute_classification_metrics(
 
     try:
         ap = float(average_precision_score(y_true, y_score))
-    except Exception:
+    except (TypeError, ValueError):
         ap = 0.0
 
     try:
         ll = float(log_loss(y_true, y_score, labels=[0, 1]))
-    except Exception:
+    except (TypeError, ValueError):
         ll = 0.0
 
     try:
         brier = float(brier_score_loss(y_true, y_score))
-    except Exception:
+    except (TypeError, ValueError):
         brier = 0.0
 
     metrics = {
@@ -233,7 +237,7 @@ def _format_seconds(seconds: float) -> str:
 def _fmt_metric(value: Any) -> str:
     try:
         value_float = float(value)
-    except Exception:
+    except (TypeError, ValueError):
         return "nan"
     if not np.isfinite(value_float):
         return "nan"
@@ -269,7 +273,10 @@ def tune_and_fit_fold(
         fallback_val = np.full_like(y_val, fill_value=float(np.mean(y_train)), dtype=float)
         fallback_test = np.full_like(y_test, fill_value=float(np.mean(y_train)), dtype=float)
         if show_progress:
-            print(f"{progress_label} skipped tuning (single-class train target).")
+            LOGGER.warning(
+                "Tuning skipped because the training target has one class",
+                extra={"progress_label": progress_label, "result": "skipped"},
+            )
 
         return TunedModelResult(
             best_params=base_params.copy(),
@@ -295,7 +302,7 @@ def tune_and_fit_fold(
     optimize_start = time.perf_counter()
 
     if show_progress:
-        print(
+        LOGGER.info(
             f"{progress_label} mlcraft tuning started: {n_trials} trials "
             f"(inner CV=CPCV, objective=roc_auc, penalty alpha={lambda_gap:.3f})"
         )
@@ -418,7 +425,7 @@ def tune_and_fit_fold(
 
     if show_progress:
         total_elapsed = time.perf_counter() - optimize_start
-        print(
+        LOGGER.info(
             f"{progress_label} mlcraft tuning done: best_score={_fmt_metric(study.best_value)} "
             f"train_auc={train_auc:.4f} val_auc={val_auc:.4f} test_auc={test_auc:.4f} "
             f"elapsed={_format_seconds(total_elapsed)}"

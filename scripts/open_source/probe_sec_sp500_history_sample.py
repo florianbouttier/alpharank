@@ -96,7 +96,7 @@ def main() -> None:
                     f"[{completed}/{len(rows)}] Completed {ticker_root}: financial_rows={histories[ticker_root].combined_financials.height}, "
                     f"earnings_rows={histories[ticker_root].combined_earnings.height}"
                 )
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 print(f"[{completed}/{len(rows)}] Failed {ticker_root}: {exc}")
                 error_rows.append({"ticker": ticker_root, "stage": "ticker_history", "error": str(exc)})
 

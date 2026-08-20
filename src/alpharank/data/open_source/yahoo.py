@@ -8,8 +8,14 @@ from typing import Iterable, Sequence
 import pandas as pd
 import polars as pl
 import yfinance as yf
+from yfinance.exceptions import YFException
 
 from alpharank.data.open_source.config import GENERAL_COLUMNS, PRICE_COLUMNS, specs_for_statement
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+YAHOO_RECOVERABLE_ERRORS = (KeyError, OSError, RuntimeError, TypeError, ValueError, YFException)
 
 
 class YahooFinanceClient:
@@ -134,16 +140,23 @@ class YahooFinanceClient:
         *,
         retries: int = 5,
     ) -> pd.DataFrame | None:
+        last_error: BaseException | None = None
         for attempt in range(retries):
             ticker_object = self._ticker(ticker) if attempt == 0 else self._fresh_ticker(ticker)
             try:
                 actions = ticker_object.actions
-            except Exception:
+            except YAHOO_RECOVERABLE_ERRORS as exc:
+                last_error = exc
                 actions = None
             if actions is not None and not actions.empty and "Stock Splits" in actions.columns:
                 return actions
             if attempt + 1 < retries:
                 time.sleep(float(attempt + 1))
+        if last_error is not None:
+            LOGGER.warning(
+                "Yahoo split actions unavailable after retries",
+                extra={"ticker": ticker, "result": "skipped", "error": str(last_error)},
+            )
         return None
 
     def fetch_company_metadata(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
@@ -165,7 +178,15 @@ class YahooFinanceClient:
             for future in as_completed(futures):
                 try:
                     row = future.result()
-                except Exception:
+                except YAHOO_RECOVERABLE_ERRORS as exc:
+                    LOGGER.warning(
+                        "Yahoo company metadata worker failed",
+                        extra={
+                            "ticker": futures[future],
+                            "result": "skipped",
+                            "error": str(exc),
+                        },
+                    )
                     row = None
                 if row is not None:
                     rows.append(row)
@@ -232,7 +253,15 @@ class YahooFinanceClient:
             for future in as_completed(futures):
                 try:
                     rows.extend(future.result())
-                except Exception:
+                except YAHOO_RECOVERABLE_ERRORS as exc:
+                    LOGGER.warning(
+                        "Yahoo earnings worker failed",
+                        extra={
+                            "ticker": futures[future],
+                            "result": "skipped",
+                            "error": str(exc),
+                        },
+                    )
                     continue
         if not rows:
             return pl.DataFrame(
@@ -300,7 +329,15 @@ class YahooFinanceClient:
             for future in as_completed(futures):
                 try:
                     frame = future.result()
-                except Exception:
+                except YAHOO_RECOVERABLE_ERRORS as exc:
+                    LOGGER.warning(
+                        "Yahoo financial worker failed",
+                        extra={
+                            "ticker": futures[future],
+                            "result": "skipped",
+                            "error": str(exc),
+                        },
+                    )
                     frame = _empty_financial_frame()
                 if not frame.is_empty():
                     frames.append(frame)
@@ -419,7 +456,16 @@ def _fetch_ticker_financial_frames(ticker: str) -> list[pl.DataFrame]:
     for statement, getter in statement_map.items():
         try:
             wide = getter(ticker_obj)
-        except Exception:
+        except YAHOO_RECOVERABLE_ERRORS as exc:
+            LOGGER.warning(
+                "Yahoo financial statement unavailable",
+                extra={
+                    "ticker": ticker,
+                    "statement": statement,
+                    "result": "skipped",
+                    "error": str(exc),
+                },
+            )
             continue
         if wide is None or wide.empty:
             continue
@@ -506,7 +552,16 @@ def _download_with_retries(chunk: list[str], start_date: str, end_date: str, ret
                 threads=False,
                 group_by="ticker",
             )
-        except Exception:
+        except YAHOO_RECOVERABLE_ERRORS as exc:
+            LOGGER.warning(
+                "Yahoo price download attempt failed",
+                extra={
+                    "tickers": chunk,
+                    "attempt": attempt + 1,
+                    "result": "retrying",
+                    "error": str(exc),
+                },
+            )
             history = pd.DataFrame()
         last_history = history
         if not history.empty:
@@ -526,7 +581,7 @@ def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int, 
     for attempt in range(retries):
         try:
             history = ticker_obj.get_earnings_dates(limit=limit)
-        except Exception as exc:
+        except YAHOO_RECOVERABLE_ERRORS as exc:
             last_error = exc
             history = None
         if history is not None and not history.empty:
@@ -534,15 +589,21 @@ def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int, 
                 return history
         time.sleep(1.0 * (attempt + 1))
     if last_error is not None:
-        print(f"{ticker}: earnings fetch skipped ({last_error})")
+        LOGGER.warning(
+            "Yahoo earnings fetch skipped after retries",
+            extra={"ticker": ticker, "result": "skipped", "error": str(last_error)},
+        )
     return None
 
 
 def _safe_get_info(ticker_obj: yf.Ticker, *, ticker: str) -> dict[str, object] | None:
     try:
         info = ticker_obj.get_info()
-    except Exception as exc:
-        print(f"{ticker}: metadata fetch skipped ({exc})")
+    except YAHOO_RECOVERABLE_ERRORS as exc:
+        LOGGER.warning(
+            "Yahoo metadata fetch skipped",
+            extra={"ticker": ticker, "result": "skipped", "error": str(exc)},
+        )
         return None
     return info if isinstance(info, dict) else None
 

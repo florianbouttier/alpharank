@@ -64,7 +64,7 @@ def load_xgboost() -> "xgb":
     prepare_xgboost_runtime()
     try:
         return importlib.import_module("xgboost")
-    except Exception as exc:
+    except (ImportError, OSError) as exc:
         if sys.platform == "darwin" and "libomp.dylib" in str(exc):
             raise RuntimeError(
                 "xgboost could not load libomp.dylib. Install project dependencies in this "

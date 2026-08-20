@@ -102,7 +102,7 @@ def _collect_price_delta(
                 _, frame = future.result()
                 if not frame.empty:
                     frames.append(frame)
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append(f"{ticker}: {exc}")
 
             completed += 1

@@ -212,7 +212,7 @@ def _fetch_sec_earnings_calendar_range(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 print(f"SEC earnings calendar fetch failed for {ticker}: {exc}")
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
             completed += 1
@@ -242,7 +242,7 @@ def _fetch_sec_filing_earnings_actuals_range(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 print(f"SEC filing earnings actual fetch failed for {ticker}: {exc}")
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
             completed += 1

@@ -25,6 +25,9 @@ from alpharank.data.open_source.storage import (
     upsert_parquet,
 )
 from alpharank.data.open_source.yahoo import YahooFinanceClient
+from alpharank.observability import get_run_logger
+
+LOGGER = get_run_logger(__name__)
 
 
 def _canonicalize_general_outputs(
@@ -263,7 +266,7 @@ def _fetch_sec_financials(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append({"ticker": ticker, "error": str(exc)})
     return frames, failures
 
@@ -298,7 +301,7 @@ def _fetch_sec_companyfacts_bundle(
                 financials, earnings = future.result()
                 financial_frames.append(financials)
                 earnings_frames.append(earnings)
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append(
                     {
                         "ticker": ticker,
@@ -307,7 +310,13 @@ def _fetch_sec_companyfacts_bundle(
                     }
                 )
             if completed % 100 == 0:
-                print(f"SEC companyfacts progress: {completed}/{len(futures)}")
+                LOGGER.info(
+                    "SEC companyfacts acquisition progress",
+                    extra={
+                        "completed_count": completed,
+                        "total_count": len(futures),
+                    },
+                )
     return financial_frames, earnings_frames, failures
 
 
@@ -328,7 +337,7 @@ def _fetch_sec_earnings_actuals(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
     return frames, failures
 
@@ -352,12 +361,18 @@ def _fetch_sec_filing_earnings_actuals(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals_filing"})
             finally:
                 sec_client.clear_memory_cache()
             if completed % 100 == 0:
-                print(f"SEC filing earnings progress: {completed}/{len(futures)}")
+                LOGGER.info(
+                    "SEC filing earnings acquisition progress",
+                    extra={
+                        "completed_count": completed,
+                        "total_count": len(futures),
+                    },
+                )
     return frames, failures
 
 
@@ -380,12 +395,18 @@ def _fetch_sec_earnings_calendar(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
             finally:
                 sec_client.clear_memory_cache()
             if completed % 100 == 0:
-                print(f"SEC submissions progress: {completed}/{len(futures)}")
+                LOGGER.info(
+                    "SEC submissions acquisition progress",
+                    extra={
+                        "completed_count": completed,
+                        "total_count": len(futures),
+                    },
+                )
     return frames, failures
 
 
@@ -406,7 +427,7 @@ def _fetch_sec_company_profiles(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "general_reference"})
             finally:
                 sec_client.clear_memory_cache()
@@ -432,7 +453,7 @@ def _fetch_sec_filing_financials(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 failures.append({"ticker": ticker, "error": str(exc)})
             finally:
                 sec_client.clear_memory_cache()

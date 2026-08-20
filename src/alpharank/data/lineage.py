@@ -9,10 +9,15 @@ from typing import Any, Dict, Mapping
 
 import pandas as pd
 
+from alpharank.observability import get_run_logger
+
 try:
     import polars as pl
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     pl = None
+
+
+LOGGER = get_run_logger(__name__)
 
 
 TEMPORAL_COLUMN_CANDIDATES = (
@@ -80,7 +85,11 @@ def _coerce_temporal_max(series: Any) -> str | None:
             value = parsed.max()
             if value is not None:
                 return str(value)
-    except Exception:
+    except (AttributeError, TypeError, ValueError) as exc:
+        LOGGER.warning(
+            "Temporal maximum could not be parsed",
+            extra={"result": "unavailable", "error": str(exc)},
+        )
         return None
 
     return None
@@ -94,7 +103,11 @@ def _max_temporal_values(df: Any) -> Dict[str, str]:
                 value = _coerce_temporal_max(df.get_column(col))
                 if value is not None:
                     result[col] = value
-            except Exception:
+            except (AttributeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "Polars temporal lineage value could not be summarized",
+                    extra={"column": col, "result": "skipped", "error": str(exc)},
+                )
                 continue
         elif isinstance(df, pd.DataFrame) and col in df.columns and not df.empty:
             try:
@@ -106,7 +119,11 @@ def _max_temporal_values(df: Any) -> Dict[str, str]:
                 fallback = df[col].max()
                 if pd.notna(fallback):
                     result[col] = str(fallback)
-            except Exception:
+            except (AttributeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "Pandas temporal lineage value could not be summarized",
+                    extra={"column": col, "result": "skipped", "error": str(exc)},
+                )
                 continue
     return result
 

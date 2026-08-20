@@ -11,12 +11,14 @@ Examples:
 from __future__ import annotations
 
 import json
+import logging
 import sys
 import time
 from dataclasses import dataclass
 from math import floor
 from typing import Dict, List
 from urllib.parse import quote
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
@@ -24,6 +26,17 @@ YAHOO_QUOTE_URLS = [
     "https://query1.finance.yahoo.com/v7/finance/quote?symbols=",
     "https://query2.finance.yahoo.com/v7/finance/quote?symbols=",
 ]
+LOGGER = logging.getLogger(__name__)
+QUOTE_SOURCE_ERRORS = (
+    HTTPError,
+    URLError,
+    TimeoutError,
+    json.JSONDecodeError,
+    KeyError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
 
 
 @dataclass
@@ -61,7 +74,11 @@ def fetch_quotes_yahoo(symbols: List[str], timeout: int = 8) -> Dict[str, Quote]
             try:
                 payload = _request_json(url, timeout=timeout)
                 break
-            except Exception:
+            except QUOTE_SOURCE_ERRORS as exc:
+                LOGGER.warning(
+                    "Yahoo quote attempt failed",
+                    extra={"attempt": attempt + 1, "result": "retrying", "error": str(exc)},
+                )
                 if attempt == 2:
                     break
                 time.sleep(0.6 * (attempt + 1))
@@ -100,7 +117,11 @@ def _fetch_stooq_price(symbol: str, timeout: int = 8) -> float | None:
             fields = [f.strip() for f in line.split(",")]
             if len(fields) >= 7 and fields[6] not in {"N/D", ""}:
                 return float(fields[6])
-        except Exception:
+        except QUOTE_SOURCE_ERRORS as exc:
+            LOGGER.warning(
+                "Stooq quote attempt failed",
+                extra={"symbol": symbol, "result": "skipped", "error": str(exc)},
+            )
             continue
     return None
 
@@ -108,7 +129,11 @@ def _fetch_stooq_price(symbol: str, timeout: int = 8) -> float | None:
 def fetch_quotes(symbols: List[str], timeout: int = 8) -> tuple[Dict[str, Quote], str]:
     try:
         return fetch_quotes_yahoo(symbols, timeout=timeout), "yahoo"
-    except Exception:
+    except QUOTE_SOURCE_ERRORS as exc:
+        LOGGER.warning(
+            "Yahoo quote source failed; trying Stooq",
+            extra={"result": "fallback", "error": str(exc)},
+        )
         out: Dict[str, Quote] = {}
         for symbol in symbols:
             price = _fetch_stooq_price(symbol, timeout=timeout)
@@ -338,7 +363,11 @@ def get_fx_rates(portfolio_ccy: str, timeout: int = 8) -> tuple[float, float, st
         if eurusd_rate is None or usdeur_rate is None:
             raise RuntimeError("missing fx")
         return float(eurusd_rate), float(usdeur_rate), "yahoo"
-    except Exception:
+    except QUOTE_SOURCE_ERRORS as exc:
+        LOGGER.warning(
+            "Yahoo FX source failed; trying fallback providers",
+            extra={"result": "fallback", "error": str(exc)},
+        )
         # Fallback 1: exchangerate-api mirror without auth
         last_exc: Exception | None = None
         for attempt in range(3):
@@ -347,7 +376,7 @@ def get_fx_rates(portfolio_ccy: str, timeout: int = 8) -> tuple[float, float, st
                 usdeur_rate = float(payload["rates"]["EUR"])
                 eurusd_rate = 1.0 / usdeur_rate
                 return eurusd_rate, usdeur_rate, "open.er-api (fallback)"
-            except Exception as exc:
+            except QUOTE_SOURCE_ERRORS as exc:
                 last_exc = exc
                 if attempt < 2:
                     time.sleep(0.5 * (attempt + 1))
@@ -361,7 +390,7 @@ def get_fx_rates(portfolio_ccy: str, timeout: int = 8) -> tuple[float, float, st
                 usdeur_rate = float(usd_to_eur["rates"]["EUR"])
                 eurusd_rate = 1.0 / usdeur_rate
                 return eurusd_rate, usdeur_rate, "frankfurter (fallback)"
-            except Exception as exc:
+            except QUOTE_SOURCE_ERRORS as exc:
                 last_exc = exc
                 if attempt < 1:
                     time.sleep(0.5)
@@ -455,7 +484,8 @@ def main(
                 timeout=timeout,
             )
             return 0
-        except Exception as exc:
+        except Exception as exc:  # process boundary: return an explicit failure status
+            LOGGER.exception("Buy-only allocation failed", extra={"result": "failed"})
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
@@ -478,7 +508,8 @@ def main(
     except KeyboardInterrupt:
         print("\nStopped.")
         return 0
-    except Exception as exc:
+    except Exception as exc:  # process boundary: return an explicit failure status
+        LOGGER.exception("Portfolio allocation failed", extra={"result": "failed"})
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

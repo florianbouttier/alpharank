@@ -94,6 +94,7 @@
     "scripts/portfolio_allocation.py",
     "scripts/quality/check_config_schemas.py",
     "scripts/quality/check_dependencies.py",
+    "scripts/quality/check_error_handling.py",
     "scripts/quality/check_ruff_baseline.py",
     "scripts/quality/run_ci_checks.py",
     "scripts/render_methodology_v2_study.py",
@@ -1111,6 +1112,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/open_source/nightly_ingestion.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/open_source/probe_sec_earnings_tickers.py",
       "target": "src/alpharank/data/open_source/earnings.py"
     },
@@ -1266,6 +1272,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/open_source/run_ingestion.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/open_source/run_price_transition.py",
       "target": "src/alpharank/data/open_source/__init__.py"
     },
@@ -1311,6 +1322,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/quality/check_error_handling.py",
+      "target": "src/alpharank/quality/error_handling.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/quality/check_ruff_baseline.py",
       "target": "src/alpharank/quality/ruff_baseline.py"
     },
@@ -1328,6 +1344,11 @@
       "kind": "command",
       "source": "scripts/quality/run_ci_checks.py",
       "target": "scripts/quality/check_dependencies.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/quality/run_ci_checks.py",
+      "target": "scripts/quality/check_error_handling.py"
     },
     {
       "kind": "command",
@@ -1360,6 +1381,11 @@
       "target": "src/alpharank/data/ticker_integrity.py"
     },
     {
+      "kind": "import",
+      "source": "scripts/run_backtest.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
       "kind": "command",
       "source": "scripts/run_backtest_application.py",
       "target": "scripts/run_legacy.py"
@@ -1383,6 +1409,11 @@
       "kind": "import",
       "source": "scripts/run_legacy.py",
       "target": "src/alpharank/data/ticker_integrity.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/run_legacy.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -1528,6 +1559,11 @@
       "kind": "import",
       "source": "src/alpharank/backtest/datasets.py",
       "target": "src/alpharank/backtest/data_loading.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/backtest/explainability.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -1677,6 +1713,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/backtest/pipeline.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/backtest/pipeline.py",
       "target": "src/alpharank/portfolio/artifacts.py"
     },
     {
@@ -1708,6 +1749,11 @@
       "kind": "import",
       "source": "src/alpharank/backtest/tuning.py",
       "target": "src/alpharank/backtest/time_folds.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/backtest/tuning.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -1926,6 +1972,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/datasets.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/feature_availability.py",
       "target": "src/alpharank/data/point_in_time.py"
     },
@@ -1933,6 +1984,11 @@
       "kind": "import",
       "source": "src/alpharank/data/fundamental_coverage.py",
       "target": "src/alpharank/data/point_in_time.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/lineage.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -2101,6 +2157,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/open_source/ingestion_frames.py",
       "target": "src/alpharank/data/open_source/general_reference.py"
     },
@@ -2206,6 +2267,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/open_source/ingestion_reference.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/open_source/legacy_export.py",
       "target": "src/alpharank/data/open_source/config.py"
     },
@@ -2258,6 +2324,11 @@
       "kind": "import",
       "source": "src/alpharank/data/open_source/pipeline.py",
       "target": "src/alpharank/data/open_source/yahoo.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/open_source/pipeline.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -2356,6 +2427,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/open_source/yahoo.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/output_history.py",
       "target": "src/alpharank/data/snapshot_storage.py"
     },
@@ -2432,6 +2508,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/data/processing.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/processing.py",
       "target": "src/alpharank/utils/frame_backend.py"
     },
     {
@@ -2443,6 +2524,11 @@
       "kind": "import",
       "source": "src/alpharank/data/sector_history.py",
       "target": "src/alpharank/data/point_in_time.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/service.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -2463,6 +2549,11 @@
       "kind": "import",
       "source": "src/alpharank/data/warehouse_migration.py",
       "target": "src/alpharank/data/warehouse.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/features/indicators.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -2561,6 +2652,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/models/shap_analysis.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/models/xgboost.py",
       "target": "src/alpharank/data/datasets.py"
     },
@@ -2568,6 +2664,11 @@
       "kind": "import",
       "source": "src/alpharank/models/xgboost.py",
       "target": "src/alpharank/models/shap_analysis.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/models/xgboost.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -2643,6 +2744,11 @@
       "kind": "import",
       "source": "src/alpharank/multihorizon/data.py",
       "target": "src/alpharank/multihorizon/config.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/multihorizon/explain.py",
+      "target": "src/alpharank/observability.py"
     },
     {
       "kind": "import",
@@ -3072,6 +3178,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
       "target": "src/alpharank/portfolio/adapters/legacy.py"
     },
     {
@@ -3267,6 +3378,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/strategy/legacy.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy.py",
       "target": "src/alpharank/strategy/legacy_aggregation.py"
     },
     {
@@ -3312,6 +3428,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/strategy/legacy_artifacts.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_artifacts.py",
       "target": "src/alpharank/strategy/analytics.py"
     },
     {
@@ -3336,13 +3457,33 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/utils/data_utils.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/utils/metrics.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/utils/returns.py",
       "target": "src/alpharank/utils/frame_backend.py"
     },
     {
       "kind": "import",
+      "source": "src/alpharank/visualization/optuna_report.py",
+      "target": "src/alpharank/observability.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/visualization/plotting.py",
       "target": "src/alpharank/data/processing.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/visualization/plotting.py",
+      "target": "src/alpharank/observability.py"
     }
   ],
   "inventory_id": "alpharank_code_dependency_inventory_v1",
@@ -4466,7 +4607,8 @@
         "src/alpharank/data/open_source/__init__.py",
         "src/alpharank/data/open_source/ingestion_prices.py",
         "src/alpharank/data/open_source/refresh_policy.py",
-        "src/alpharank/data/open_source/storage.py"
+        "src/alpharank/data/open_source/storage.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -4657,7 +4799,8 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/data/open_source/__init__.py",
-        "src/alpharank/data/open_source/refresh_policy.py"
+        "src/alpharank/data/open_source/refresh_policy.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -4742,6 +4885,21 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/quality/error_handling.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.quality.check_error_handling",
+      "path": "scripts/quality/check_error_handling.py",
+      "readers": [
+        "scripts/quality/run_ci_checks.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/quality/ruff_baseline.py"
       ],
       "invokes": [],
@@ -4761,6 +4919,7 @@
         "scripts/maintenance/build_code_inventory.py",
         "scripts/quality/check_config_schemas.py",
         "scripts/quality/check_dependencies.py",
+        "scripts/quality/check_error_handling.py",
         "scripts/quality/check_ruff_baseline.py",
         "scripts/validate_documentation.py",
         "scripts/validate_markdown_links.py"
@@ -4789,7 +4948,8 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/backtest/__init__.py",
-        "src/alpharank/data/ticker_integrity.py"
+        "src/alpharank/data/ticker_integrity.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -4846,6 +5006,7 @@
       "imports": [
         "src/alpharank/data/price_eligibility.py",
         "src/alpharank/data/ticker_integrity.py",
+        "src/alpharank/observability.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "invokes": [],
@@ -5196,7 +5357,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -5317,6 +5480,7 @@
         "src/alpharank/data/lineage.py",
         "src/alpharank/governance.py",
         "src/alpharank/multihorizon/preprocessing.py",
+        "src/alpharank/observability.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/comparison.py",
         "src/alpharank/portfolio/simulation.py"
@@ -5411,7 +5575,8 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/backtest/mlcraft_adapter.py",
-        "src/alpharank/backtest/time_folds.py"
+        "src/alpharank/backtest/time_folds.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -5540,7 +5705,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/data/processing.py"
+        "src/alpharank/data/processing.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -5585,7 +5751,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -5835,7 +6003,8 @@
         "src/alpharank/data/open_source/transaction.py",
         "src/alpharank/data/open_source/yahoo.py",
         "src/alpharank/data/prices/__init__.py",
-        "src/alpharank/data/warehouse.py"
+        "src/alpharank/data/warehouse.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -5907,7 +6076,8 @@
         "src/alpharank/data/open_source/sec.py",
         "src/alpharank/data/open_source/sec_filing.py",
         "src/alpharank/data/open_source/storage.py",
-        "src/alpharank/data/open_source/yahoo.py"
+        "src/alpharank/data/open_source/yahoo.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -5954,7 +6124,8 @@
         "src/alpharank/data/open_source/sec.py",
         "src/alpharank/data/open_source/sec_filing.py",
         "src/alpharank/data/open_source/simfin.py",
-        "src/alpharank/data/open_source/yahoo.py"
+        "src/alpharank/data/open_source/yahoo.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -6243,7 +6414,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/data/open_source/config.py"
+        "src/alpharank/data/open_source/config.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -6450,6 +6622,7 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/features/indicators.py",
+        "src/alpharank/observability.py",
         "src/alpharank/utils/frame_backend.py",
         "src/alpharank/utils/returns.py"
       ],
@@ -6507,7 +6680,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -6610,7 +6785,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -6826,7 +7003,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -6842,6 +7021,7 @@
       "imports": [
         "src/alpharank/data/datasets.py",
         "src/alpharank/models/shap_analysis.py",
+        "src/alpharank/observability.py",
         "src/alpharank/strategy/base.py",
         "src/alpharank/utils/xgboost_runtime.py",
         "src/alpharank/visualization/optuna_report.py"
@@ -6936,7 +7116,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -7143,6 +7325,44 @@
       "path": "src/alpharank/multihorizon/tuning.py",
       "readers": [
         "src/alpharank/multihorizon/pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.observability",
+      "path": "src/alpharank/observability.py",
+      "readers": [
+        "scripts/open_source/nightly_ingestion.py",
+        "scripts/open_source/run_ingestion.py",
+        "scripts/run_backtest.py",
+        "scripts/run_legacy.py",
+        "src/alpharank/backtest/explainability.py",
+        "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/backtest/tuning.py",
+        "src/alpharank/data/datasets.py",
+        "src/alpharank/data/lineage.py",
+        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/data/open_source/ingestion_reference.py",
+        "src/alpharank/data/open_source/pipeline.py",
+        "src/alpharank/data/open_source/yahoo.py",
+        "src/alpharank/data/processing.py",
+        "src/alpharank/data/service.py",
+        "src/alpharank/features/indicators.py",
+        "src/alpharank/models/shap_analysis.py",
+        "src/alpharank/models/xgboost.py",
+        "src/alpharank/multihorizon/explain.py",
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/strategy/legacy.py",
+        "src/alpharank/strategy/legacy_artifacts.py",
+        "src/alpharank/utils/data_utils.py",
+        "src/alpharank/utils/metrics.py",
+        "src/alpharank/visualization/optuna_report.py",
+        "src/alpharank/visualization/plotting.py"
       ]
     },
     {
@@ -7537,6 +7757,7 @@
         "src/alpharank/features/indicators.py",
         "src/alpharank/governance.py",
         "src/alpharank/legacy_v2.py",
+        "src/alpharank/observability.py",
         "src/alpharank/portfolio/adapters/legacy.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/benchmark.py",
@@ -7643,6 +7864,19 @@
       "readers": [
         "scripts/quality/check_dependencies.py",
         "src/alpharank/quality/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.quality.error_handling",
+      "path": "src/alpharank/quality/error_handling.py",
+      "readers": [
+        "scripts/quality/check_error_handling.py"
       ]
     },
     {
@@ -7781,6 +8015,7 @@
       "imports": [
         "src/alpharank/data/processing.py",
         "src/alpharank/features/indicators.py",
+        "src/alpharank/observability.py",
         "src/alpharank/strategy/legacy_aggregation.py",
         "src/alpharank/strategy/legacy_artifacts.py",
         "src/alpharank/strategy/legacy_selection.py",
@@ -7821,6 +8056,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/observability.py",
         "src/alpharank/strategy/analytics.py"
       ],
       "invokes": [],
@@ -7889,7 +8125,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -7922,7 +8160,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -7998,7 +8238,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/observability.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -8012,7 +8254,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/data/processing.py"
+        "src/alpharank/data/processing.py",
+        "src/alpharank/observability.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -8040,11 +8283,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 117,
-    "internal_edge_count": 645,
-    "library_count": 159,
-    "python_file_count": 277,
-    "script_count": 118,
+    "active_entrypoint_count": 118,
+    "internal_edge_count": 673,
+    "library_count": 161,
+    "python_file_count": 280,
+    "script_count": 119,
     "unread_node_count": 107
   }
 }

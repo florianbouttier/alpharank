@@ -1054,7 +1054,7 @@ def _fmt_number(value: object) -> str:
         return "NA"
     try:
         return f"{float(value):,.2f}"
-    except Exception:
+    except (TypeError, ValueError):
         return str(value)
 
 
@@ -1063,7 +1063,7 @@ def _fmt_large_number(value: object) -> str:
         return "NA"
     try:
         numeric = float(value)
-    except Exception:
+    except (TypeError, ValueError):
         return str(value)
     abs_value = abs(numeric)
     if abs_value >= 1_000_000_000:

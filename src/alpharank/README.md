@@ -18,5 +18,8 @@
 - `visualization/` : rapports Legacy historiques.
 - `utils/` : utilitaires transverses sans propriété métier.
 
+`observability.py` fournit le logger structuré commun. Les commandes durables y
+lient `run_id`, `snapshot_id`, composant et étape avant le premier jalon métier.
+
 Séparer la génération des signaux Legacy/Boosting, puis utiliser
 `portfolio/` pour toute comparaison de performance.

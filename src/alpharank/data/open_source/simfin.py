@@ -81,7 +81,7 @@ class SimFinClient:
                 end_date=end_date,
                 refresh_days=self.refresh_days,
             )
-        except Exception as exc:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             self.last_fetch_failures.append({"dataset": "shareprices_daily", "error": str(exc)})
             return _empty_prices()
 
@@ -98,7 +98,7 @@ class SimFinClient:
                 .filter(pl.col("_report_date_str").str.starts_with(str(year)))
                 .drop("_report_date_str")
             )
-        except Exception as exc:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             self.last_fetch_failures.append({"dataset": dataset, "error": str(exc)})
             return pl.DataFrame()
 

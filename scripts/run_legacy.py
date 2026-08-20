@@ -13,6 +13,7 @@ from alpharank.data.price_eligibility import (
 from alpharank.data.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
 )
+from alpharank.observability import configure_run_logging
 from alpharank.production.legacy_pipeline import (
     INPUT_PACKAGE_FILENAMES as INPUT_PACKAGE_FILENAMES,
 )
@@ -225,6 +226,7 @@ def _run_cli() -> None:
         ),
     }
     if args.no_log:
+        configure_run_logging()
         main(**kwargs)
         return
 
@@ -241,6 +243,7 @@ def _run_cli() -> None:
         stdout = _Tee(sys.stdout, log_file)
         stderr = _Tee(sys.stderr, log_file)
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            configure_run_logging()
             print(f"Log file: {log_path}")
             print(f"Started at: {datetime.now().isoformat(timespec='seconds')}")
             print(f"Arguments: {kwargs}")

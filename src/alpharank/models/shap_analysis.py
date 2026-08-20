@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 from typing import List, Tuple, Any
 import seaborn as sns
 
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+
 # --- Main Functions ---
 
 def compute_shap_values(
@@ -48,10 +53,10 @@ def run_shap_analysis(model: Any, X: pd.DataFrame, top_n_heatmap: int = 10):
         X: The input data (Pandas DataFrame).
         top_n_heatmap: The number of top features to display on the heatmap.
     """
-    print("Starting SHAP analysis for Jupyter...")
+    LOGGER.info("SHAP analysis started", extra={"result": "started"})
     
     # 1. Create an explainer and compute all SHAP values
-    print("Step 1/4: Computing SHAP values and interactions (this may take a moment)...")
+    LOGGER.info("Computing SHAP values and interactions", extra={"step_index": 1})
     explainer = shap.TreeExplainer(model)
     # Main effects wrapped in an Explanation object
     shap_values_exp = explainer(X)
@@ -59,7 +64,7 @@ def run_shap_analysis(model: Any, X: pd.DataFrame, top_n_heatmap: int = 10):
     # shap_interaction_values = explainer.shap_interaction_values(X)
     
     # 2. Display the beeswarm summary plot
-    print("Step 2/4: Displaying beeswarm plot...")
+    LOGGER.info("Displaying SHAP beeswarm plot", extra={"step_index": 2})
     shap.plots.beeswarm(shap_values_exp, max_display=top_n_heatmap)
     
     # 3. Display the global interaction heatmap
@@ -93,7 +98,7 @@ def run_shap_analysis(model: Any, X: pd.DataFrame, top_n_heatmap: int = 10):
     # for idx in top_indices:
     #     shap.plots.scatter(shap_values_exp[:, idx])
 
-    print("SHAP analysis complete.")
+    LOGGER.info("SHAP analysis completed", extra={"result": "completed"})
 
 def save_waterfall_for_row(
     model, shap_row: np.ndarray, base_value: float, x_row: pd.Series, out_path: str, max_display: int = 20

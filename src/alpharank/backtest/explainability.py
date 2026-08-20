@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
+from alpharank.observability import get_run_logger
+
+LOGGER = get_run_logger(__name__)
+
 
 @dataclass
 class ShapFoldExplanation:
@@ -114,7 +118,8 @@ def collect_shap_explanation(
 
     try:
         import shap
-    except Exception:
+    except ImportError:
+        LOGGER.warning("SHAP dependency unavailable", extra={"result": "skipped"})
         return ShapArtifacts(paths={}, explanation=None)
 
     sample_idx = _sample_indices(X_test.shape[0], max_samples=max_samples)
@@ -137,7 +142,11 @@ def collect_shap_explanation(
                 interaction_values = _normalize_interaction_values(
                     explainer.shap_interaction_values(interaction_sample)
                 )
-            except Exception:
+            except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "SHAP interaction values unavailable",
+                    extra={"fold_label": fold_label, "result": "skipped", "error": str(exc)},
+                )
                 interaction_values = None
                 interaction_sample = None
 
@@ -151,7 +160,11 @@ def collect_shap_explanation(
             mean_abs_shap=mean_abs_shap,
         )
         return ShapArtifacts(paths={}, explanation=explanation)
-    except Exception:
+    except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        LOGGER.exception(
+            "SHAP fold explanation failed",
+            extra={"fold_label": fold_label, "result": "failed", "error": str(exc)},
+        )
         return ShapArtifacts(paths={}, explanation=None)
 
 

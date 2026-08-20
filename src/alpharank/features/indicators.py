@@ -5,9 +5,14 @@ from typing import List, Tuple, Dict, Any
 from tqdm import tqdm
 import random
 
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+
 try:
     import polars as pl
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     pl = None
 # %%
 class TechnicalIndicators:
@@ -245,7 +250,7 @@ class DecorrelatedIndicatorGenerator:
         
     # --- Decorrelation Search Functions ---
     def generate_decorrelated_ema_ratios(self, seed_pairs: List[Tuple[int, int]], n_to_find: int, correlation_threshold: float, max_tries: int = 200):
-        print(f"\nSearching for {n_to_find} decorrelated EMA Ratios...")
+        LOGGER.info("Searching for decorrelated EMA ratios", extra={"requested_count": n_to_find})
         
         # Add seed pairs unconditionally
         for n_short, n_long in seed_pairs:
@@ -271,7 +276,7 @@ class DecorrelatedIndicatorGenerator:
                     pbar.update(1)
 
     def generate_decorrelated_rsi(self, seed_params: List[Dict], n_to_find: int, correlation_threshold: float, max_tries: int = 100):
-        print(f"\nSearching for {n_to_find} decorrelated RSI indicators...")
+        LOGGER.info("Searching for decorrelated RSI indicators", extra={"requested_count": n_to_find})
 
         for params in seed_params:
             n = params
@@ -296,7 +301,10 @@ class DecorrelatedIndicatorGenerator:
                     pbar.update(1)
 
     def generate_decorrelated_bollinger_bands(self, seed_params: List[Dict], n_to_find: int, correlation_threshold: float, max_tries: int = 100):
-        print(f"\nSearching for {n_to_find} decorrelated Bollinger Band %B indicators...")
+        LOGGER.info(
+            "Searching for decorrelated Bollinger Band indicators",
+            extra={"requested_count": n_to_find},
+        )
 
         for params in seed_params:
             n, n_std = params['n'], params['n_std']
@@ -322,7 +330,10 @@ class DecorrelatedIndicatorGenerator:
                     pbar.update(1)
     
     def generate_decorrelated_stochastic_oscillators(self, seed_params: List[Dict], n_to_find: int, correlation_threshold: float, max_tries: int = 100):
-        print(f"\nSearching for {n_to_find} decorrelated Stochastic Oscillator %D indicators...")
+        LOGGER.info(
+            "Searching for decorrelated stochastic oscillators",
+            extra={"requested_count": n_to_find},
+        )
 
         for params in seed_params:
             n, d_window = params['n'], params['d_window']
@@ -352,10 +363,11 @@ class DecorrelatedIndicatorGenerator:
         Resamples the final selected daily indicators to monthly frequency
         and returns the result.
         """
-        print("\n--- Final Selected Indicators ---")
         selected_names = self.final_indicators_df.columns.drop(['ticker', 'date', 'year_month'])
-        print(list(selected_names))
-        print("-" * 35)
+        LOGGER.info(
+            "Technical indicators selected",
+            extra={"selected_indicators": list(selected_names), "result": "completed"},
+        )
         
         monthly_df = self.final_indicators_df.groupby(['ticker', 'year_month']).last().reset_index()
         return monthly_df.drop(columns='date')

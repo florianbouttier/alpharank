@@ -2,6 +2,10 @@ from typing import List,Optional
 import numpy as np
 import pandas as pd
 from alpharank.data.processing import IndexDataManager
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
 
 def _to_group_sizes(group_ids: pd.Series) -> np.ndarray:
     """
@@ -147,7 +151,7 @@ def apply_smooth_outlier_transform(
     Returns:
         pd.DataFrame: A new DataFrame with outliers in numerical features smoothly compressed.
     """
-    print("Applying smooth outlier transformation...")
+    LOGGER.info("Applying smooth outlier transformation")
     df_transformed = df.copy()
 
     # Define a default list of columns that should never be transformed
@@ -161,7 +165,10 @@ def apply_smooth_outlier_transform(
     cols_to_transform = df_transformed.select_dtypes(include=np.number).columns.tolist()
     cols_to_transform = [col for col in cols_to_transform if col not in default_exclusions]
 
-    print(f"Transforming outliers in {len(cols_to_transform)} numerical columns...")
+    LOGGER.info(
+        "Transforming numerical-column outliers",
+        extra={"column_count": len(cols_to_transform)},
+    )
 
     # Group by each month, then apply the outlier transformation on each column
     for col in cols_to_transform:
@@ -169,7 +176,7 @@ def apply_smooth_outlier_transform(
             lambda x: transform_outliers_smoothly(x, iqr_multiplier=iqr_multiplier)
         )
 
-    print("Outlier transformation complete.")
+    LOGGER.info("Outlier transformation completed", extra={"result": "completed"})
     return df_transformed
 
 def prepare_data_for_xgboost(kpi_df: pd.DataFrame,index : IndexDataManager,to_quantiles : bool = True,treshold_percentage_missing : float = 0.10) -> pd.DataFrame:
@@ -192,7 +199,13 @@ def prepare_data_for_xgboost(kpi_df: pd.DataFrame,index : IndexDataManager,to_qu
     df = df.drop(removed_df, axis=1)
     df = clean_to_category(df)
     
-    print(f"Removed columns : {list(removed_df)} due to missing values above {treshold_percentage_missing*100}%")
+    LOGGER.info(
+        "Columns above the missing-value threshold removed",
+        extra={
+            "columns": list(removed_df),
+            "missing_threshold": treshold_percentage_missing,
+        },
+    )
     return df
 
 def make_train_test_ranked(df,features,target,year_month_split) : 
@@ -204,7 +217,7 @@ def make_train_test_ranked(df,features,target,year_month_split) :
     X_train,y_train,group_train,meta_train = make_rank_dataset(df = train,features = features,target = target,remove_y_na = True)
     try : 
         X_test,y_test,group_test,meta_test = make_rank_dataset(test,features,target,remove_y_na=False)
-    except : 
+    except (KeyError, TypeError, ValueError):
         X_test,y_test,group_test,meta_test = make_rank_dataset(test,features,target,remove_y_na=True)
     
     return X_train,y_train,group_train,meta_train,X_test,y_test,group_test,meta_test,test
@@ -218,7 +231,7 @@ def make_train_test_proba(df,features,target,year_month_split) :
     X_train,y_train,meta_train = make_prob_dataset(df = train,features = features,target = target,remove_y_na = True)
     try : 
         X_test,y_test,meta_test = make_prob_dataset(test,features,target,remove_y_na=False)
-    except : 
+    except (KeyError, TypeError, ValueError):
         X_test,y_test,meta_test = make_prob_dataset(test,features,target,remove_y_na=True)
     
     return X_train,y_train,meta_train,X_test,y_test,meta_test,test

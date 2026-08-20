@@ -19,6 +19,7 @@ from alpharank.backtest import (
     run_learning_phase,
 )
 from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+from alpharank.observability import configure_run_logging
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -373,6 +374,7 @@ def run(config: BacktestConfig | None = None) -> BacktestArtifacts:
 
 
 def main() -> BacktestArtifacts:
+    configure_run_logging()
     artifacts = run()
     data_lineage = _read_data_lineage(Path(artifacts.output_paths["run_dir"]))
     print("\n=== Backtest Completed ===")

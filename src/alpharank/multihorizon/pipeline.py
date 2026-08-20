@@ -722,7 +722,7 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
                             seed=config.random_seed + window.fold,
                         )
                     )
-                except Exception as exc:
+                except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
                     (combination_dir / f"fold_{window.fold:02d}_shap_error.txt").write_text(
                         f"{type(exc).__name__}: {exc}\n"
                     )

@@ -1,6 +1,11 @@
 import pandas as pd
 from typing import Union, Sequence, Optional, Tuple
 
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+
 def detect_numeric_columns(df: pd.DataFrame, output_format: str = "dict") ->  Union[dict, pd.DataFrame] :
     """
     Scans object/string type columns and identifies those that can be converted
@@ -90,7 +95,7 @@ def remove_columns_by_keywords(df, keywords_to_remove=['premium'], how='any'):
         # Find columns that contain any of the keywords (case insensitive)
         cols_to_remove = [col for col in df.columns if any(keyword.lower() in col.lower() for keyword in keywords_to_remove)]
     
-    print(f"Deleted columns {cols_to_remove}")
+    LOGGER.info("Columns deleted", extra={"columns": cols_to_remove})
     df_cleaned = df.drop(columns=cols_to_remove, errors='ignore')
     
     return df_cleaned
@@ -115,7 +120,7 @@ def select_columns_by_keywords(df, keywords_to_keep=['premium'], how='any'):
         # Find columns that contain any of the keywords (case insensitive)
         cols_to_keep = [col for col in df.columns if any(keyword.lower() in col.lower() for keyword in keywords_to_keep)]
     
-    print(f"Selected columns {cols_to_keep}")
+    LOGGER.info("Columns selected", extra={"columns": cols_to_keep})
     df_cleaned = df[cols_to_keep]
     
     return df_cleaned
@@ -126,7 +131,7 @@ def remove_constant_columns(df):
     """
     # find columns with a single unique value (including NaN as a value)
     constant_cols = [col for col in df.columns if df[col].nunique(dropna=False) <= 1]
-    print(f"Removed constant columns {constant_cols}")
+    LOGGER.info("Constant columns removed", extra={"columns": constant_cols})
     # drop them
     df_cleaned = df.drop(columns=constant_cols, errors='ignore')
     return df_cleaned

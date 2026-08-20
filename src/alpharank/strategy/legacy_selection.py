@@ -19,7 +19,7 @@ from alpharank.utils.frame_backend import to_polars
 
 try:
     import polars as pl
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     pl = None
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -11,9 +11,9 @@ import polars as pl
 from alpharank.data.open_source.benchmark import (
     build_audited_metric_catalog,
     build_coverage_audit,
+    build_earnings_alignment,
     build_error_detail_tables,
     build_error_summary_tables,
-    build_earnings_alignment,
     build_financial_alignment,
     build_price_alignment,
     load_eodhd_prices,
@@ -24,12 +24,12 @@ from alpharank.data.open_source.benchmark import (
     write_detail_reports,
     write_html_report,
 )
+from alpharank.data.open_source.config import METRIC_SPECS, PILOT_TICKERS
 from alpharank.data.open_source.consolidation import (
     FinancialSourceInput,
     consolidate_financial_sources,
     split_consolidated_by_statement,
 )
-from alpharank.data.open_source.config import METRIC_SPECS, PILOT_TICKERS
 from alpharank.data.open_source.earnings import (
     align_sec_actuals_to_calendar,
     build_sec_companyfacts_earnings_actuals,
@@ -49,6 +49,9 @@ from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.simfin import SimFinClient
 from alpharank.data.open_source.yahoo import YahooFinanceClient
+from alpharank.observability import get_run_logger, set_run_log_context
+
+LOGGER = get_run_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,12 @@ def run_open_source_cadrage(
     project_root = Path(__file__).resolve().parents[4]
     reference_data_dir = reference_data_dir or project_root / "data"
     default_folder = _default_audit_folder(year=year, universe=universe, tickers=tickers)
+    set_run_log_context(
+        run_id=default_folder,
+        snapshot_id="not_applicable",
+        component=__name__,
+        step="open_source_cadrage",
+    )
     output_dir = output_dir or project_root / "data" / "open_source" / "audit" / default_folder
     output_dir.mkdir(parents=True, exist_ok=True)
     cache_dir = project_root / "data" / "open_source" / "_cache"
@@ -143,7 +152,11 @@ def run_open_source_cadrage(
     yahoo_prices = yahoo_client.download_prices(ticker_list, f"{year}-01-01", f"{year + 1}-01-01")
     try:
         yahoo_earnings = yahoo_client.fetch_earnings_dates(ticker_list)
-    except Exception:
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        LOGGER.exception(
+            "Yahoo earnings acquisition failed during cadrage",
+            extra={"result": "fallback", "error": str(exc)},
+        )
         yahoo_earnings = pl.DataFrame(
             schema={
                 "ticker": pl.String,
@@ -222,8 +235,11 @@ def run_open_source_cadrage(
         try:
             simfin_financials = simfin_client.fetch_quarterly_financials(ticker_list, year)
             simfin_fetch_failures.extend(simfin_client.last_fetch_failures)
-        except Exception as exc:
-            print(f"SimFin fetch failed: {exc}")
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            LOGGER.exception(
+                "SimFin fetch failed",
+                extra={"result": "failed", "error": str(exc)},
+            )
             simfin_fetch_failures.append({"error": str(exc)})
     consolidated_financials, consolidated_lineage, consolidation_source_summary = consolidate_financial_sources(
         [
@@ -591,8 +607,11 @@ def _fetch_sec_financials(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
-                print(f"SEC fetch failed for {ticker}: {exc}")
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "SEC companyfacts fetch failed",
+                    extra={"ticker": ticker, "result": "failed", "error": str(exc)},
+                )
                 failures.append({"ticker": ticker, "error": str(exc)})
     return frames, failures
 
@@ -614,8 +633,11 @@ def _fetch_sec_earnings_actuals(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
-                print(f"SEC earnings actual fetch failed for {ticker}: {exc}")
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "SEC earnings actual fetch failed",
+                    extra={"ticker": ticker, "result": "failed", "error": str(exc)},
+                )
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
     return frames, failures
 
@@ -639,8 +661,11 @@ def _fetch_sec_earnings_calendar(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
-                print(f"SEC earnings calendar fetch failed for {ticker}: {exc}")
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "SEC earnings calendar fetch failed",
+                    extra={"ticker": ticker, "result": "failed", "error": str(exc)},
+                )
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_calendar"})
     return frames, failures
 
@@ -664,8 +689,11 @@ def _fetch_sec_filing_earnings_actuals(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
-                print(f"SEC filing earnings actual fetch failed for {ticker}: {exc}")
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "SEC filing earnings actual fetch failed",
+                    extra={"ticker": ticker, "result": "failed", "error": str(exc)},
+                )
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "earnings_sec_actuals"})
     return frames, failures
 
@@ -687,8 +715,11 @@ def _fetch_sec_company_profiles(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
-                print(f"SEC company profile fetch failed for {ticker}: {exc}")
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "SEC company profile fetch failed",
+                    extra={"ticker": ticker, "result": "failed", "error": str(exc)},
+                )
                 failures.append({"ticker": ticker, "error": str(exc), "dataset": "general_reference"})
     return frames, failures
 
@@ -721,8 +752,11 @@ def _fetch_sec_filing_financials(
             ticker = futures[future]
             try:
                 frames.append(future.result())
-            except Exception as exc:
-                print(f"SEC filing fetch failed for {ticker}: {exc}")
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                LOGGER.warning(
+                    "SEC filing fetch failed",
+                    extra={"ticker": ticker, "result": "failed", "error": str(exc)},
+                )
                 failures.append({"ticker": ticker, "error": str(exc)})
     return frames, failures
 

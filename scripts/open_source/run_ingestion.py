@@ -7,9 +7,11 @@ from pathlib import Path
 
 from alpharank.data.open_source import run_open_source_ingestion
 from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
+from alpharank.observability import configure_run_logging
 
 
 def main() -> None:
+    configure_run_logging()
     parser = argparse.ArgumentParser(description="Unified bootstrap/daily/audit ingestion for open-source market data.")
     parser.add_argument("--mode", choices=("bootstrap", "daily"), default="daily")
     parser.add_argument("--start-date", default="2005-01-01")

@@ -38,6 +38,7 @@ from alpharank.legacy_v2 import (
     HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
     require_holding_month_membership,
 )
+from alpharank.observability import get_run_logger, set_run_log_context
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.benchmark import (
@@ -101,6 +102,7 @@ LEGACY_V2_COST_SCENARIOS = (
 )
 
 HISTORICAL_LEGACY_MISSING_RETURN_POLICY = "renormalize_available"
+LOGGER = get_run_logger(__name__)
 
 
 @dataclass
@@ -121,7 +123,7 @@ def _load_data(
     final_price_path: Path | None = None,
     sp500_price_path: Path | None = None,
 ) -> Dict[str, pl.DataFrame]:
-    print("Loading data...")
+    LOGGER.info("Loading Legacy input data", extra={"result": "started"})
     return {
         "final_price": pl.read_parquet(final_price_path or (data_dir / "US_Finalprice.parquet")),
         "general": pl.read_parquet(data_dir / "US_General.parquet"),
@@ -383,7 +385,11 @@ def _git_output(project_root: Path, *args: str) -> str | None:
             check=False,
             timeout=5,
         )
-    except Exception:
+    except (OSError, subprocess.SubprocessError) as exc:
+        LOGGER.warning(
+            "Git commit identifier is unavailable",
+            extra={"result": "unavailable", "error": str(exc)},
+        )
         return None
     if result.returncode != 0:
         return None
@@ -560,7 +566,7 @@ def _write_artifact_frame(frame: Any, output_path: Path) -> Path:
 def _extract_start_year(first_date: str) -> int:
     try:
         return int(str(first_date).split("-")[0])
-    except Exception as exc:
+    except (IndexError, TypeError, ValueError) as exc:
         raise ValueError(f"Invalid --first-date format: {first_date!r}. Expected YYYY-MM.") from exc
 
 
@@ -581,7 +587,11 @@ def _month_view_date(month: Any) -> str:
         period = pd.Period(str(month), freq="M")
         last_day = monthrange(period.year, period.month)[1]
         return f"{period.year:04d}-{period.month:02d}-{last_day:02d}"
-    except Exception:
+    except (TypeError, ValueError) as exc:
+        LOGGER.warning(
+            "Month label could not be normalized for the report",
+            extra={"month": str(month), "result": "fallback", "error": str(exc)},
+        )
         return str(month)
 
 
@@ -688,6 +698,7 @@ def run_pipeline(
     run_date_dir = output_dir / run_started_at.strftime("%Y-%m-%d")
     run_day_dir = run_date_dir / "runs" / run_instance_id
     run_day_dir = reserve_run_directory(run_day_dir)
+    set_run_log_context(run_id=run_instance_id, component=__name__, step="legacy_pipeline")
 
     source_data_dir = data_dir.resolve()
     source_input_files = _input_files(
@@ -706,6 +717,12 @@ def run_pipeline(
     input_files = _input_files(data_dir)
     payload = _load_data(data_dir)
     latest_snapshot = load_latest_manifest(data_dir)
+    set_run_log_context(
+        run_id=run_instance_id,
+        snapshot_id=(latest_snapshot or {}).get("snapshot_id") or run_instance_id,
+        component=__name__,
+        step="legacy_pipeline",
+    )
     audited_registry = (
         load_ticker_exclusion_registry(ticker_exclusion_registry)
         if ticker_exclusion_registry is not None
@@ -859,8 +876,8 @@ def run_pipeline(
     us_historical_company = payload["us_historical_company"]
     sp500_price = payload["sp500_price"]
 
-    print(f"Preprocessing ({backend})...")
-    print(
+    LOGGER.info("Preprocessing Legacy inputs", extra={"backend": backend})
+    LOGGER.info(
         "Full-trajectory ticker exclusions: "
         + ", ".join(ticker_to_exclude)
     )
@@ -885,7 +902,7 @@ def run_pipeline(
         pl.col("date").cast(pl.Date, strict=False).dt.truncate("1mo")
         <= pl.lit(decision_data_cutoff)
     )
-    print(
+    LOGGER.info(
         "Decision data completed through: "
         f"{decision_data_cutoff}; latest observed partial month excluded"
     )
@@ -896,7 +913,7 @@ def run_pipeline(
     )
     monthly_price_eligibility_file = run_day_dir / "monthly_price_eligibility.parquet"
     monthly_price_eligibility.write_parquet(monthly_price_eligibility_file)
-    print(
+    LOGGER.info(
         "Monthly price eligibility: "
         f"policy={price_eligibility_policy.policy_id}, "
         f"observations>={price_eligibility_policy.minimum_observations}, "
@@ -949,7 +966,7 @@ def run_pipeline(
     )
     _write_checkpoint(monthly_return, checkpoints_dir, f"{backend}_monthly_return")
 
-    print("Calculating prices vs index...")
+    LOGGER.info("Calculating stock prices relative to the index")
     sp500_price = sp500_price.with_columns(
         pl.col("adjusted_close").alias("sp500_adjusted_close")
     )
@@ -976,7 +993,7 @@ def run_pipeline(
         f"{backend}_final_price_vs_index",
     )
 
-    print("Calculating ratios...")
+    LOGGER.info("Calculating fundamental ratios")
     stocks_selections = to_polars(
         FundamentalProcessor.calculate_pe_ratios(
             balance=balance_sheet,
@@ -1033,7 +1050,7 @@ def run_pipeline(
         }
     _write_checkpoint(stocks_selections, checkpoints_dir, f"{backend}_stocks_selections")
 
-    print("Running strategy learning (Optuna)...")
+    LOGGER.info("Running Legacy strategy learning", extra={"optimizer": "optuna"})
     prices_for_learning = to_pandas(final_price_vs_index)
     stocks_filter_for_learning = normalize_year_month_to_period(to_pandas(stocks_selections), col="year_month")
     sector_for_learning = to_pandas(general.select(["ticker", "Sector"]))
@@ -1368,7 +1385,7 @@ def run_pipeline(
     _write_checkpoint(detailed_returns_long, checkpoints_dir, f"{backend}_detailed_returns")
     _write_checkpoint(comparison_monthly_returns_long, checkpoints_dir, f"{backend}_comparison_monthly_returns")
 
-    print("Generating reports...")
+    LOGGER.info("Generating Legacy reports")
     comparison_html = PortfolioVisualizer.make_comparison_report(
         metrics_df=metrics,
         cumulative_returns=cumulative,

@@ -158,6 +158,10 @@ tout déplacement.
   niveau et contexte ; la sortie utilisateur reste courte.
 - Tout journal de production porte au minimum `run_id`, `snapshot_id`, étape et
   résultat.
+- Dans la bibliothèque, utiliser `get_run_logger()` ; la commande appelle
+  `configure_run_logging()` à sa frontière puis `set_run_log_context()` dès que
+  le `run_id` est réservé. Le contrôle `check_error_handling.py` refuse les
+  `print()`, les captures sans type et les captures générales non justifiées.
 - Un repli vers une autre source, une autre date ou une ancienne valeur est une
   décision métier. Il doit être nommé, enregistré et testé. Il n'est jamais
   déclenché silencieusement parce qu'une valeur manque.

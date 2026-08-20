@@ -59,20 +59,20 @@ def main() -> None:
         try:
             calendar = sec_filing_client.extract_earnings_calendar(ticker_root, cik, years)
             calendar_frames.append(_filter_years(calendar, args.start_year, args.end_year))
-        except Exception as exc:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             errors.append({"ticker": ticker, "stage": "calendar", "error": str(exc)})
 
         try:
             facts_payload = sec_client.fetch_company_facts(cik)
             companyfacts = build_sec_companyfacts_earnings_actuals(ticker=ticker_root, facts_payload=facts_payload)
             companyfacts_frames.append(_filter_years(companyfacts, args.start_year, args.end_year))
-        except Exception as exc:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             errors.append({"ticker": ticker, "stage": "companyfacts", "error": str(exc)})
 
         try:
             filing = sec_filing_client.extract_earnings_actuals(ticker_root, cik, years)
             filing_frames.append(_filter_years(filing, args.start_year, args.end_year))
-        except Exception as exc:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             errors.append({"ticker": ticker, "stage": "filing", "error": str(exc)})
 
     calendar = _concat_or_empty(calendar_frames, empty_earnings_calendar_frame())
