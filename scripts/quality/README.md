@@ -7,6 +7,8 @@ when the caller supplies an output path; they do not alter source files.
   the reviewed historical-debt baseline.
 - `check_dependencies.py` verifies or explicitly regenerates the pip and Conda
   views from canonical `pyproject.toml` metadata.
+- `check_config_schemas.py` validates every maintained JSON config against its
+  strict versioned family schema.
 - `run_ci_checks.py` runs the exact static, documentation and logical Pytest
   groups. `--group ci` reproduces the clean-checkout CI gate; `--group all` is
   the artifact-aware local pre-publication gate.

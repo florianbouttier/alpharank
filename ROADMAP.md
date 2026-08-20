@@ -157,7 +157,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-006` | ajouter les contrôles de documentation, lint et tests ciblés en CI | fait | six groupes CI appelables par la même commande locale |
 | `QUAL-007` | choisir `pyproject.toml` comme source des dépendances et générer ou vérifier les autres fichiers | fait | vues pip et Conda déterministes, vérifiées dans la gate statique |
 | `QUAL-008` | rendre la CI AlphaRank autonome et isoler le contrôle Portfolio dans un job inter-projets explicite | fait | job `alpharank` autonome et job `portfolio-integration` séparé |
-| `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | à faire | erreurs de clé refusées avant le run |
+| `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | fait | 14 familles et 18 fichiers contrôlés récursivement avant les tests |
 | `QUAL-010` | corriger la gate CI pour un checkout sans artefacts locaux | fait | `--group ci` statique et huit tests ciblés verts depuis un dépôt temporaire propre |
 
 ## 9. Lot CODE — découper sans changer les résultats

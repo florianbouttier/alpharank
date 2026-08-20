@@ -5,6 +5,7 @@ code Python.
 
 ## Dossiers enfants
 
+- `data_contracts/` : schémas versionnés des familles de configuration.
 - `data_quality/` : exclusions de tickers, actions corporate confirmées et
   changements de composition d'indice.
 - `quality/` : baselines versionnées des contrôles différentiels de code.

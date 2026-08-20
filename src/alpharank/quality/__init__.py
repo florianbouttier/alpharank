@@ -1,5 +1,12 @@
 """Development-quality gates for gradual repository cleanup."""
 
+from alpharank.quality.config_schemas import (
+    CONFIG_SCHEMA_REGISTRY_VERSION,
+    build_config_schema_registry,
+    infer_structural_schema,
+    validate_config_schema_registry,
+    validate_config_value,
+)
 from alpharank.quality.dependencies import (
     DependencySource,
     dependency_sync_report,
@@ -24,16 +31,21 @@ from alpharank.quality.test_suites import (
 __all__ = [
     "RUFF_BASELINE_SCHEMA_VERSION",
     "ALLOWED_TEST_SUITES",
+    "CONFIG_SCHEMA_REGISTRY_VERSION",
     "DependencySource",
     "SuitePolicy",
     "build_ruff_baseline",
+    "build_config_schema_registry",
     "build_test_suite_report",
     "classify_test_path",
     "compare_ruff_baseline",
     "dependency_sync_report",
     "load_dependency_source",
     "load_test_suite_policy",
+    "infer_structural_schema",
     "run_ruff",
     "render_conda_environment",
     "render_requirements",
+    "validate_config_schema_registry",
+    "validate_config_value",
 ]

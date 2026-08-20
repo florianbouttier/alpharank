@@ -9,6 +9,8 @@ and tool output, but it must not contain portfolio, data or model logic.
   collection before tests are physically reorganized.
 - `dependencies.py` renders and compares the pip/Conda compatibility views from
   the single dependency source in `pyproject.toml`.
+- `config_schemas.py` classifies maintained JSON configs and rejects unknown
+  keys or structural drift recursively before execution.
 
 This package is the first strict Mypy scope. A later package may join the
 `files` list only after its own strict check is green without broad ignores.

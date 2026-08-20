@@ -9,6 +9,7 @@ from pathlib import Path
 
 REQUIRED_README_DIRS = (
     "configs",
+    "configs/data_contracts",
     "configs/data_quality",
     "configs/quality",
     "configs/research",

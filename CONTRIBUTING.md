@@ -351,6 +351,15 @@ python scripts/quality/check_dependencies.py
 Le mode `--write` régénère ensemble `requirements.txt` et `environment.yml` ;
 il n'est utilisé que dans une tâche dédiée qui indexe les trois fichiers.
 
+Toute configuration JSON maintenue est contrôlée avant les tests :
+
+```bash
+python scripts/quality/check_config_schemas.py
+```
+
+Une nouvelle famille doit recevoir un identifiant, un motif de chemin et un
+schéma versionné strict. Une clé inconnue, même imbriquée, est refusée.
+
 La CI possède deux jobs sans matrice implicite : `alpharank` valide ce dépôt
 depuis son seul checkout ; `portfolio-integration` récupère explicitement le
 dépôt consommateur et porte seul ses permissions, caches et builds.
