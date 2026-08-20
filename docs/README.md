@@ -70,11 +70,10 @@ et non par un déplacement cosmétique qui casserait les lecteurs.
 
 ## Recherche
 
-[`research/`](research/) contient les expériences reproductibles et leur
-registre chronologique. Le fichier volumineux
-[`research/boosting_signal_copy_model_catalog.md`](research/boosting_signal_copy_model_catalog.md)
-est une mémoire de recherche, pas une synthèse d'onboarding. Son découpage est
-suivi par `DOC-009`.
+[`research/`](research/) contient les expériences reproductibles. La
+[`synthèse Boosting`](research/boosting_signal_copy_model_catalog.md) expose les
+conclusions durables et renvoie vers quatre journaux chronologiques datés. Les
+entrées historiques restent intactes sans alourdir le parcours courant.
 
 ## Archives
 

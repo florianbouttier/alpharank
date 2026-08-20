@@ -3,8 +3,16 @@
 Ce dossier contient le registre chronologique Boosting et des packages
 d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 
-- `boosting_signal_copy_model_catalog.md` : registre central des essais et
-  décisions Boosting/Legacy-copy ; volumineux, à découper sous `DOC-009`.
+- `boosting_signal_copy_model_catalog.md` : synthèse courante et index des
+  décisions Boosting/Legacy-copy.
+- `boosting_signal_copy_log_20260614_20260627.md` : premiers diagnostics,
+  modèles teacher et allocation autonome.
+- `boosting_signal_copy_log_20260725_20260726.md` : correction anti-fuite et
+  challengers verrouillés.
+- `boosting_signal_copy_log_20260727_20260812.md` : dashboards, moteur commun et
+  replays alignés.
+- `boosting_signal_copy_log_20260820.md` : convention de clôture, SHAP et
+  anomalie d'identité SNDK.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
@@ -14,5 +22,6 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `multihorizon_boosting_20260725/` : package initial du Boosting multi-horizon.
 
 Ces packages servent à reproduire une étape de recherche. Le statut actif des
-modèles doit être résumé dans `boosting_signal_copy_model_catalog.md` et la
-méthodologie courante reste dans `../legacy_boosting_methodology.md`.
+modèles doit être résumé dans `boosting_signal_copy_model_catalog.md`, chaque
+nouvelle preuve va dans un journal daté et la méthodologie courante reste dans
+`../legacy_boosting_methodology.md`.

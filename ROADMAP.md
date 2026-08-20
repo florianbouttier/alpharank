@@ -39,7 +39,7 @@ découplé ces lecteurs ; son rôle est déjà clarifié dès maintenant.
 | 1 | `GIT-001` | publier chaque commit directement depuis `main` et conserver `main-save` | lot GIT ci-dessous | fait |
 | 2 | `DOC-014` | consolider `AGENTS.md` comme source unique et réduire `AGENT.md` à un pointeur | — | fait |
 | 3 | `DOC-015` | imposer le contrat Git une tâche = un commit documenté | — | fait |
-| 4 | `DOC-009` | découper le catalogue Boosting de 3 899 lignes | lot DOC ci-dessous | à faire |
+| 4 | `DOC-009` | découper le catalogue Boosting de 3 899 lignes | lot DOC ci-dessous | fait |
 | 5 | `DOC-010` | découpler les tests des chemins documentaires historiques | lot DOC ci-dessous | à faire |
 | 6 | `QUAL-002` | configurer Ruff sans reformatage global | lot QUAL ci-dessous | à faire |
 | 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | à faire |
@@ -124,7 +124,7 @@ La carte détaillée se trouve dans
 | `DOC-006` | documenter la réalité et la cible des données | fait | carte du dépôt, cycle de vie et pointeur de snapshot documentés |
 | `DOC-007` | supprimer le premier doublon de rôle entre `AGENT.md` et `AGENTS.md` sans perdre le guide historique | fait | ancien guide singulier archivé |
 | `DOC-008` | vérifier tous les README locaux et liens | fait | validateur documentaire et test de structure verts |
-| `DOC-009` | découper le catalogue Boosting en synthèse courante et journaux datés | à faire | page courante courte, entrées historiques intactes |
+| `DOC-009` | découper le catalogue Boosting en synthèse courante et journaux datés | fait | synthèse de 98 lignes, quatre journaux et reconstruction SHA-256 exacte |
 | `DOC-010` | retirer les chemins documentaires de la logique des tests avant le classement final par thème | à faire | les tests valident le contenu, pas un ancien emplacement |
 | `DOC-011` | formaliser le standard Python détaillé | fait | règles et checklist dans `docs/standards/python.md` |
 | `DOC-012` | formaliser le standard data détaillé | fait | contrats et checklist dans `docs/standards/data.md` |
