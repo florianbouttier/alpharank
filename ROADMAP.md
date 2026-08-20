@@ -167,7 +167,7 @@ les plus faciles à déplacer.
 
 | ID | Action | Statut | Contrôle obligatoire |
 | --- | --- | --- | --- |
-| `CODE-001` | cartographier les appels entre scripts et bibliothèque | à faire | graphe des entrées actives et lecteurs |
+| `CODE-001` | cartographier les appels entre scripts et bibliothèque | fait | inventaire versionné des entrées actives, imports, commandes et lecteurs inverses |
 | `CODE-002` | retirer les 35 injections de `sys.path` | à faire | commandes exécutables depuis un autre dossier |
 | `CODE-003` | découper `data/open_source/ingestion.py` par étape du pipeline | à faire | parité des sorties et tests d'ingestion |
 | `CODE-004` | alléger `scripts/run_legacy.py` en déplaçant la logique testable dans `src/` | à faire | replay Legacy strict inchangé |

@@ -1,5 +1,10 @@
 """Development-quality gates for gradual repository cleanup."""
 
+from alpharank.quality.code_inventory import (
+    CODE_INVENTORY_SCHEMA_VERSION,
+    build_code_inventory,
+    validate_code_inventory,
+)
 from alpharank.quality.config_schemas import (
     CONFIG_SCHEMA_REGISTRY_VERSION,
     build_config_schema_registry,
@@ -32,10 +37,12 @@ __all__ = [
     "RUFF_BASELINE_SCHEMA_VERSION",
     "ALLOWED_TEST_SUITES",
     "CONFIG_SCHEMA_REGISTRY_VERSION",
+    "CODE_INVENTORY_SCHEMA_VERSION",
     "DependencySource",
     "SuitePolicy",
     "build_ruff_baseline",
     "build_config_schema_registry",
+    "build_code_inventory",
     "build_test_suite_report",
     "classify_test_path",
     "compare_ruff_baseline",
@@ -48,4 +55,5 @@ __all__ = [
     "render_requirements",
     "validate_config_schema_registry",
     "validate_config_value",
+    "validate_code_inventory",
 ]

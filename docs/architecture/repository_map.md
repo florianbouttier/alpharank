@@ -125,3 +125,13 @@ Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans
 [`../standards/repository.md`](../standards/repository.md).
+
+## 7. Graphe exécutable et lecteurs
+
+Le registre
+[`code_dependency_inventory_v1.json`](code_dependency_inventory_v1.json)
+énumère les fichiers Python suivis, leurs imports internes, les commandes de
+scripts détectables statiquement et les lecteurs inverses. Il distingue les
+entrées actives de `scripts/_old/` et fige les six commandes publiques de
+`scripts/README.md`. Toute modification du graphe doit régénérer ce registre
+explicitement et rester contrôlée par la CI.

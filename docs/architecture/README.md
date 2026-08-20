@@ -7,6 +7,8 @@ runs ni redécrire les deux modèles.
   aujourd'hui et dans la cible.
 - [`data_lifecycle.md`](data_lifecycle.md) : rôle précis de `raw`, `stg`, `def`,
   `mart`, des snapshots et des sorties.
+- [`code_dependency_inventory_v1.json`](code_dependency_inventory_v1.json) :
+  graphe versionné des points d'entrée, imports et lecteurs Python suivis.
 
 Les migrations nécessaires sont suivies dans [`../../ROADMAP.md`](../../ROADMAP.md).
 Les règles applicables aux nouveaux changements sont sous

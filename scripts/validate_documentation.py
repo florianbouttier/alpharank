@@ -17,6 +17,7 @@ REQUIRED_README_DIRS = (
     "docs",
     "docs/research",
     "scripts",
+    "scripts/maintenance",
     "scripts/_old",
     "scripts/experiments",
     "scripts/open_source",
