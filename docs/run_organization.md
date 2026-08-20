@@ -39,5 +39,17 @@ Chaque transition conserve son instant et sa raison dans `status_history`.
 ou le suffixe du `run_id` : renommer un dossier ne peut donc ni valider ni
 publier un résultat.
 
-Les journaux, pointeurs et règles de rétention sont ajoutés par les tâches
-RUNORG suivantes dans ce même contrat.
+## Journaux reliés
+
+Un journal de nouveau run vit sous `logs/<famille>/<run_id>/*.log`. Le manifeste
+du run enregistre son chemin, son rôle, sa taille, son SHA-256 et le chemin d'un
+petit sidecar. Ce sidecar renvoie vers `outputs/<famille>/<run_id>/manifest.json`
+et reprend l'identité hashée du journal. Le validateur parcourt donc les liens
+dans les deux sens et détecte toute modification ultérieure des octets.
+
+Les 74 journaux historiques restent intacts et ne reçoivent pas d'association
+inventée après coup. Le contrat bidirectionnel est obligatoire pour chaque
+journal créé avec le nouveau format de run.
+
+Les pointeurs et règles de rétention sont ajoutés par les tâches RUNORG
+suivantes dans ce même contrat.

@@ -161,6 +161,10 @@ Le statut d'un nouveau run vit uniquement dans son `manifest.json`. Il commence
 à `candidate`, conserve chaque transition et ne peut atteindre `published`
 qu'après `validated`. Un suffixe libre dans le nom n'a aucun effet de promotion.
 
+Chaque nouveau journal suit `logs/<famille>/<run_id>/*.log`. Son hash et son
+sidecar figurent dans le manifeste du run ; le sidecar renvoie vers ce même
+manifeste. Les 74 journaux historiques ne sont pas appariés par supposition.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

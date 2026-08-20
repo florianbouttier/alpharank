@@ -14,6 +14,7 @@ from typing import Mapping
 RUN_ROOT_INVENTORY_CONTRACT = "alpharank_run_root_inventory_v1"
 RUN_PATH_CONTRACT = "alpharank_run_path_v1"
 RUN_MANIFEST_CONTRACT = "alpharank_run_manifest_v1"
+RUN_LOG_LINK_CONTRACT = "alpharank_run_log_link_v1"
 RUN_STATUSES = {"candidate", "validated", "published", "failed"}
 RUN_STATUS_TRANSITIONS = {
     "candidate": {"validated", "failed"},
@@ -181,6 +182,113 @@ def write_run_manifest(path: Path, manifest: Mapping[str, object]) -> None:
     temporary.replace(path)
 
 
+def canonical_log_path(
+    project_root: Path,
+    *,
+    family: str,
+    run_id: str,
+    filename: str = "run.log",
+) -> Path:
+    """Return logs/<family>/<run_id>/<filename> for one canonical run."""
+
+    canonical_run_dir(project_root.resolve() / "outputs", family=family, run_id=run_id)
+    if Path(filename).name != filename or not filename.endswith(".log"):
+        raise ValueError(f"Invalid run log filename: {filename!r}")
+    return project_root.resolve() / "logs" / family / run_id / filename
+
+
+def register_run_log(
+    project_root: Path,
+    *,
+    manifest_path: Path,
+    log_path: Path,
+    role: str,
+) -> dict[str, object]:
+    """Write bidirectional log links and return the updated run manifest."""
+
+    project_root = project_root.resolve()
+    outputs_root = project_root / "outputs"
+    report = validate_run_manifest(outputs_root, manifest_path)
+    if not role.strip():
+        raise ValueError("Run log role must be explicit")
+    expected_log = canonical_log_path(
+        project_root,
+        family=str(report["family"]),
+        run_id=str(report["run_id"]),
+        filename=log_path.name,
+    )
+    log_path = log_path.resolve()
+    if log_path != expected_log or not log_path.is_file():
+        raise RuntimeError(f"Run log is missing or outside its canonical directory: {log_path}")
+    manifest_path = manifest_path.resolve()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError("Run manifest must be an object")
+    raw_logs = payload.get("logs")
+    if not isinstance(raw_logs, list):
+        raise RuntimeError("Run manifest logs must be a list")
+    sidecar_path = log_path.with_suffix(f"{log_path.suffix}.run.json")
+    relative_log = log_path.relative_to(project_root).as_posix()
+    relative_manifest = manifest_path.relative_to(project_root).as_posix()
+    relative_sidecar = sidecar_path.relative_to(project_root).as_posix()
+    log_record = {
+        "log_id": hashlib.sha256(relative_log.encode("utf-8")).hexdigest(),
+        "path": relative_log,
+        "sidecar_path": relative_sidecar,
+        "role": role,
+        "size_bytes": log_path.stat().st_size,
+        "sha256": _sha256_file(log_path),
+    }
+    if any(not isinstance(entry, Mapping) for entry in raw_logs):
+        raise RuntimeError("Run manifest log entries must be objects")
+    if any(entry.get("path") == relative_log for entry in raw_logs):
+        raise RuntimeError(f"Run log is already registered: {relative_log}")
+    raw_logs.append(log_record)
+    sidecar = {
+        "contract": RUN_LOG_LINK_CONTRACT,
+        "family": report["family"],
+        "run_id": report["run_id"],
+        "log": log_record,
+        "run_manifest_path": relative_manifest,
+    }
+    _write_json_atomic(sidecar_path, sidecar)
+    write_run_manifest(manifest_path, payload)
+    validate_run_log_links(project_root, manifest_path)
+    return payload
+
+
+def validate_run_log_links(
+    project_root: Path,
+    manifest_path: Path,
+) -> dict[str, object]:
+    """Follow every manifest-to-log link and each log sidecar back to the run."""
+
+    project_root = project_root.resolve()
+    manifest_path = manifest_path.resolve()
+    validate_run_manifest(project_root / "outputs", manifest_path)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    raw_logs = payload.get("logs")
+    if not isinstance(raw_logs, list):
+        raise RuntimeError("Run manifest logs must be a list")
+    relative_manifest = manifest_path.relative_to(project_root).as_posix()
+    for record in raw_logs:
+        if not isinstance(record, Mapping):
+            raise RuntimeError("Run log record must be an object")
+        log_path = (project_root / str(record["path"])).resolve()
+        sidecar_path = (project_root / str(record["sidecar_path"])).resolve()
+        if not log_path.is_file() or _sha256_file(log_path) != record.get("sha256"):
+            raise RuntimeError(f"Run log bytes differ from manifest: {log_path}")
+        sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(sidecar, Mapping)
+            or sidecar.get("contract") != RUN_LOG_LINK_CONTRACT
+            or sidecar.get("run_manifest_path") != relative_manifest
+            or sidecar.get("log") != record
+        ):
+            raise RuntimeError(f"Run log sidecar does not link back: {sidecar_path}")
+    return {"passed": True, "log_count": len(raw_logs), "bidirectional": True}
+
+
 def build_run_root_inventory(
     outputs_root: Path,
     *,
@@ -341,3 +449,21 @@ def _run_family(name: str) -> str:
         if name.startswith(prefix):
             return family
     return "other_legacy"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_json_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(f"{path.suffix}.tmp")
+    temporary.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)

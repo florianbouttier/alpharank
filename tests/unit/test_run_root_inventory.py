@@ -7,10 +7,13 @@ import pytest
 
 from alpharank.governance_contracts.run_organization import (
     build_run_root_inventory,
+    canonical_log_path,
     canonical_run_dir,
     initialize_run_manifest,
+    register_run_log,
     transition_run_status,
     validate_canonical_run_dir,
+    validate_run_log_links,
     validate_run_manifest,
     validate_run_root_inventory,
     write_run_manifest,
@@ -122,3 +125,64 @@ def test_run_path_rejects_status_encoded_in_name(tmp_path: Path) -> None:
             family="monthly_legacy",
             run_id="20260820T192500Z_candidate",
         )
+
+
+def test_run_log_links_manifest_and_sidecar_in_both_directions(tmp_path: Path) -> None:
+    manifest_path = initialize_run_manifest(
+        tmp_path / "outputs",
+        family="monthly_legacy",
+        run_id="20260820T193000Z_monthly",
+        created_at="2026-08-20T19:30:00Z",
+    )
+    log_path = canonical_log_path(
+        tmp_path,
+        family="monthly_legacy",
+        run_id="20260820T193000Z_monthly",
+    )
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("run started\n", encoding="utf-8")
+
+    manifest = register_run_log(
+        tmp_path,
+        manifest_path=manifest_path,
+        log_path=log_path,
+        role="execution",
+    )
+    report = validate_run_log_links(tmp_path, manifest_path)
+    sidecar = json.loads(
+        log_path.with_suffix(".log.run.json").read_text(encoding="utf-8")
+    )
+
+    assert report == {"passed": True, "log_count": 1, "bidirectional": True}
+    assert manifest["logs"][0]["path"] == (
+        "logs/monthly_legacy/20260820T193000Z_monthly/run.log"
+    )
+    assert sidecar["run_manifest_path"] == (
+        "outputs/monthly_legacy/20260820T193000Z_monthly/manifest.json"
+    )
+
+
+def test_run_log_registration_detects_changed_bytes(tmp_path: Path) -> None:
+    manifest_path = initialize_run_manifest(
+        tmp_path / "outputs",
+        family="monthly_legacy",
+        run_id="20260820T193500Z_monthly",
+        created_at="2026-08-20T19:35:00Z",
+    )
+    log_path = canonical_log_path(
+        tmp_path,
+        family="monthly_legacy",
+        run_id="20260820T193500Z_monthly",
+    )
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("before\n", encoding="utf-8")
+    register_run_log(
+        tmp_path,
+        manifest_path=manifest_path,
+        log_path=log_path,
+        role="execution",
+    )
+    log_path.write_text("after\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="bytes differ"):
+        validate_run_log_links(tmp_path, manifest_path)

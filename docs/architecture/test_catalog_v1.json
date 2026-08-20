@@ -1099,7 +1099,7 @@
       "observed_outcome": "passed",
       "path": "tests/unit/test_run_root_inventory.py",
       "suite": "unit",
-      "test_case_count": 6
+      "test_case_count": 8
     },
     {
       "domain": "data",
@@ -1343,6 +1343,6 @@
       "replay": 9,
       "unit": 66
     },
-    "test_case_count": 456
+    "test_case_count": 458
   }
 }
