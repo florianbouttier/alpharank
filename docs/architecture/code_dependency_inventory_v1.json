@@ -55,6 +55,7 @@
     "scripts/maintenance/build_data_location_inventory.py",
     "scripts/maintenance/build_test_catalog.py",
     "scripts/maintenance/build_test_collection.py",
+    "scripts/maintenance/catalog_historical_data_roots.py",
     "scripts/open_source/audit_price_snapshot_vintages.py",
     "scripts/open_source/audit_sec_earnings_coverage.py",
     "scripts/open_source/backfill_sec_core_history.py",
@@ -866,6 +867,11 @@
       "kind": "import",
       "source": "scripts/maintenance/build_test_collection.py",
       "target": "src/alpharank/quality/test_collection.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/maintenance/catalog_historical_data_roots.py",
+      "target": "src/alpharank/data/historical_migration.py"
     },
     {
       "kind": "import",
@@ -4478,6 +4484,19 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": true,
+      "imports": [
+        "src/alpharank/data/historical_migration.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.maintenance.catalog_historical_data_roots",
+      "path": "scripts/maintenance/catalog_historical_data_roots.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
       "imports": [],
       "invokes": [],
       "layer": "script",
@@ -5846,6 +5865,19 @@
       "path": "src/alpharank/data/fundamental_coverage.py",
       "readers": [
         "src/alpharank/replay/causal_snapshot.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.historical_migration",
+      "path": "src/alpharank/data/historical_migration.py",
+      "readers": [
+        "scripts/maintenance/catalog_historical_data_roots.py"
       ]
     },
     {
@@ -8653,11 +8685,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 115,
-    "internal_edge_count": 693,
-    "library_count": 177,
-    "python_file_count": 299,
-    "script_count": 122,
-    "unread_node_count": 116
+    "active_entrypoint_count": 116,
+    "internal_edge_count": 694,
+    "library_count": 178,
+    "python_file_count": 301,
+    "script_count": 123,
+    "unread_node_count": 117
   }
 }

@@ -179,6 +179,15 @@ La migration suivra ces règles :
 6. ne dédupliquer physiquement qu'après une décision séparée et une procédure de
    restauration testée.
 
+Le catalogue DATA-008 applique les trois premières règles avant toute bascule.
+La synthèse suivie est
+[`historical_data_migration_v1.json`](historical_data_migration_v1.json) : 18
+racines, 13 979 fichiers et 31 745 951 138 octets sont référencés par leur hash
+exact. Elle mesure 4 637 fichiers dupliqués mais ne supprime ni ne copie rien.
+Le manifeste exhaustif ignoré par Git reste sous
+`data/warehouse/manifests/historical_migrations/<catalog_id>/manifest.json` et
+peut revalider chaque source avant une future opération physique.
+
 Les tâches correspondantes sont `DATA-001` à `DATA-010` dans
 [`../../ROADMAP.md`](../../ROADMAP.md).
 Les conventions de grain, clés, temps, nulls, formats et publication sont

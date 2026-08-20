@@ -37,3 +37,8 @@ chaque fichier modèle avant de rendre le dossier au consommateur.
 `snapshot_publication.py` publie ce MART par référence, sans seconde copie de
 données. Son manifeste immuable contient chaque chemin, taille et SHA-256 ; le
 pointeur atomique conserve le hash du manifeste et de l'inventaire complet.
+
+`historical_migration.py` catalogue les anciennes racines avant leur bascule.
+Chaque fichier reste à sa place et reçoit une référence de chemin, taille et
+SHA-256 ; le catalogue refuse une mutation et atteste zéro copie et zéro
+téléchargement.

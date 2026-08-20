@@ -11,3 +11,6 @@ commands do not implement portfolio, signal or data-provider logic.
   from a clean index checkout; it does not execute tests itself.
 - `build_test_collection.py` records path-independent Pytest node identifiers
   so a physical move cannot silently add or remove a scenario.
+- `catalog_historical_data_roots.py` hashes every retained historical data root
+  in place, writes the full ignored catalogue under `data/warehouse/manifests/`
+  and a compact tracked summary; it never copies or downloads payloads.

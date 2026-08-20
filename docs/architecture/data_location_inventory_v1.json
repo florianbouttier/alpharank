@@ -4,7 +4,7 @@
     {
       "current_role": "mixed_generation_root",
       "exists": true,
-      "file_count": 16267,
+      "file_count": 16272,
       "kind": "package",
       "location_id": "data_root",
       "migration_status": "observed",
@@ -57,7 +57,7 @@
         "src/alpharank/replay/causal_snapshot.py",
         "src/alpharank/replay/validation.py"
       ],
-      "size_bytes": 35986894818,
+      "size_bytes": 35993206602,
       "target_role": "routing_only"
     },
     {
@@ -581,7 +581,7 @@
     {
       "current_role": "canonical_transformation_root",
       "exists": true,
-      "file_count": 170,
+      "file_count": 175,
       "kind": "package",
       "location_id": "warehouse",
       "migration_status": "target",
@@ -590,7 +590,7 @@
         "scripts/open_source/promote_definitive_mart.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
-      "size_bytes": 2385112462,
+      "size_bytes": 2391423766,
       "target_role": "warehouse"
     },
     {
@@ -646,13 +646,13 @@
     {
       "current_role": "migration_and_promotion_evidence",
       "exists": true,
-      "file_count": 9,
+      "file_count": 14,
       "kind": "package",
       "location_id": "warehouse_manifests",
       "migration_status": "target",
       "path": "data/warehouse/manifests",
       "readers": [],
-      "size_bytes": 9561,
+      "size_bytes": 6320865,
       "target_role": "warehouse/manifests"
     },
     {
@@ -680,7 +680,7 @@
         "scripts/open_source/promote_definitive_mart.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
-      "size_bytes": 530,
+      "size_bytes": 1010,
       "target_role": "snapshot_pointer"
     },
     {
