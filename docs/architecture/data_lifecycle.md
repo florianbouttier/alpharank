@@ -84,6 +84,15 @@ faut encore :
 Chaque ligne retenue porte au minimum la clé métier, la valeur, la source brute,
 la version de règle, l'instant de connaissance et le motif de sélection.
 
+Le contrat `alpharank_definitive_observations_v1` reçoit la liste de priorité,
+sa version et un cutoff de connaissance. Pour chaque clé, il ne considère que
+les reçus connus à ce cutoff, retient la dernière observation de chaque source,
+choisit la première valeur non nulle, et écrit le reçu, le hash, la date reçue
+et le motif. Un zéro observé reste une valeur ; un `null` peut déclencher un
+fallback explicite. Si aucune valeur n'est disponible, une décision irrésolue
+est tout de même produite. Les consolidateurs historiques restent lisibles mais
+ne constituent pas la nouvelle interface canonique DEF.
+
 ## 5. MART — prêt pour un consommateur précis
 
 `mart` assemble les données définitives pour un usage identifié, par exemple :

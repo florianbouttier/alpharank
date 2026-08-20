@@ -281,6 +281,12 @@ remain separate rows identified by business key, provider and RAW receipt. The
 legacy `stage_yahoo_prices` import remains compatible but its implementation now
 belongs to that STG module.
 
+Canonical source choice lives in `src/alpharank/data/definitive.py`. Its
+point-in-time contract rejects undeclared sources, ignores receipts later than
+the declared knowledge cutoff and emits one decision row per business key with
+the selected receipt, payload hash, rule version and reason. A missing preferred
+value can cause an explicit fallback; an observed zero cannot.
+
 Yahoo price STG casts the provider columns and normalizes ticker/date fields but
 does not drop, fill or select observations. DEF then resolves only the exact
 `ticker,date` key:

@@ -24,3 +24,8 @@ le manifeste fournisseur recompte et revalide tous ses reçus.
 `staging.py` porte la normalisation fournisseur-neutre : types et colonnes sont
 harmonisés, mais aucune priorité de source n'est acceptée. Deux fournisseurs en
 désaccord sur la même clé métier restent deux lignes reliées à leurs reçus RAW.
+
+`definitive.py` applique une règle de priorité versionnée à un cutoff de
+connaissance explicite. Il conserve le reçu et le hash sélectionnés, distingue
+un vrai zéro d'une valeur absente et produit une décision auditée même lorsque
+la clé reste irrésolue.

@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 437,
+  "node_count": 441,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -41,6 +41,10 @@
     "test_dashboard_boundaries.py::test_sec_html_renderer_consumes_precalculated_tables",
     "test_data_location_inventory.py::test_canonical_pointer_and_legacy_prices_have_explicit_readers",
     "test_data_location_inventory.py::test_data_location_inventory_declares_current_files_packages_and_readers",
+    "test_definitive.py::test_def_falls_back_only_when_preferred_value_is_null_and_keeps_zero",
+    "test_definitive.py::test_def_ignores_information_retrieved_after_cutoff",
+    "test_definitive.py::test_def_records_unresolved_key_when_no_value_is_observed",
+    "test_definitive.py::test_def_selects_priority_and_records_decision_provenance",
     "test_definitive_prices.py::test_bootstrap_def_keeps_existing_raw_origin",
     "test_definitive_prices.py::test_def_carries_same_key_when_current_adjusted_close_is_null",
     "test_definitive_prices.py::test_def_freezes_validated_prefix_when_current_ticker_vintage_is_incomplete",
@@ -440,7 +444,7 @@
     "test_warehouse_migration.py::test_mart_pointer_promotion_is_atomic_and_rollback_restores_exact_bytes",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "914556d20d6b3f9e57dcc8a8634fcf4a1973e18337d1e289ef0f55eede7c6e5f",
+  "node_ids_sha256": "5e0184445f36f0bb7f3b606b5a36b38198c8f4dc274803023c211130af463fcb",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }
