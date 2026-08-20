@@ -8,6 +8,7 @@ des arguments.
 
 - `open_source/` : ingestion, reconstruction, composition et audits de données.
 - `experiments/` : expériences et générateurs de rapports R&D.
+- `quality/` : contrôles statiques différentiels sans mutation des sources.
 - `_old/` : scripts archivés, conservés uniquement pour référence.
 
 ## Entrées principales

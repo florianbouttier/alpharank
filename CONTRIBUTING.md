@@ -287,10 +287,18 @@ ruff check <fichiers-python-modifiés>
 ruff format --check <fichiers-python-modifiés>
 ```
 
-Ne pas exécuter `ruff format` sur tout le dépôt. Jusqu'à `QUAL-003`, un
-`ruff check src scripts tests` global reste un diagnostic de dette historique,
-pas une gate verte attendue ; la baseline et le contrôle différentiel seront
-ajoutés séparément.
+Ne pas exécuter `ruff format` sur tout le dépôt. Le contrôle global est
+différentiel :
+
+```bash
+python scripts/quality/check_ruff_baseline.py
+```
+
+La baseline versionnée conserve la dette historique sans l'ignorer. Toute
+nouvelle empreinte Ruff, ou occurrence supplémentaire d'une empreinte existante,
+fait échouer le contrôle ; une alerte corrigée peut disparaître sans régénérer la
+baseline. Sa réécriture exige une tâche de roadmap et une revue explicite du
+rapport complet.
 
 ## 13. Décision active et migration
 

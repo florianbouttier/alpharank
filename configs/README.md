@@ -7,6 +7,7 @@ code Python.
 
 - `data_quality/` : exclusions de tickers, actions corporate confirmées et
   changements de composition d'indice.
+- `quality/` : baselines versionnées des contrôles différentiels de code.
 - `research/` : configurations figées des expériences et challengers.
 
 Une configuration utilisée en production ou dans une comparaison publiée doit

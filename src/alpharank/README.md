@@ -9,6 +9,7 @@
 - `data/` : chargement, snapshots, lignée, prix et ingestion open source.
 - `features/` : indicateurs communs de bas niveau.
 - `models/` : wrappers historiques XGBoost/SHAP.
+- `quality/` : contrôles différentiels de qualité du code et baselines associées.
 - `visualization/` : rapports Legacy historiques.
 - `utils/` : utilitaires transverses sans propriété métier.
 

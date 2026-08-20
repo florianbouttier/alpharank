@@ -7,10 +7,10 @@ import argparse
 import re
 from pathlib import Path
 
-
 REQUIRED_README_DIRS = (
     "configs",
     "configs/data_quality",
+    "configs/quality",
     "configs/research",
     "data",
     "docs",
@@ -19,6 +19,7 @@ REQUIRED_README_DIRS = (
     "scripts/_old",
     "scripts/experiments",
     "scripts/open_source",
+    "scripts/quality",
     "src",
     "src/alpharank",
     "src/alpharank/backtest",
@@ -31,6 +32,7 @@ REQUIRED_README_DIRS = (
     "src/alpharank/multihorizon",
     "src/alpharank/portfolio",
     "src/alpharank/portfolio/adapters",
+    "src/alpharank/quality",
     "src/alpharank/strategy",
     "src/alpharank/utils",
     "src/alpharank/visualization",
