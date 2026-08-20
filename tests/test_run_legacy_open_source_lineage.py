@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pandas as pd
 import polars as pl
+from scripts.run_legacy import _default_log_stem, _parse_args
+from scripts.validate_legacy_replay_package import _resolve_project_root, validate_manifest
 
-from scripts.run_legacy import (
+from alpharank.production.legacy_pipeline import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     INPUT_PACKAGE_FILENAMES,
     _copy_snapshot_file,
-    _parse_args,
-    _default_log_stem,
     _input_files,
     _manifest_extra_context,
     _resolve_open_source_output_by_run_id,
@@ -20,8 +20,6 @@ from scripts.run_legacy import (
     _snapshot_input_package,
     normalize_year_month_to_timestamp,
 )
-from scripts.validate_legacy_replay_package import _resolve_project_root
-from scripts.validate_legacy_replay_package import validate_manifest
 
 
 def _write_json(path: Path, payload: dict) -> None:

@@ -4,7 +4,10 @@ This is the canonical runbook for the monthly `ptf du mois`.
 
 ## Production Workflow
 
-The monthly portfolio is produced by the legacy workflow in `scripts/run_legacy.py`.
+The monthly portfolio is produced by the stable command
+`scripts/run_legacy.py`; its testable implementation lives in
+`src/alpharank/production/legacy_pipeline.py` and both files are hashed in the
+run provenance.
 Do not use the XGBoost time-fold backtest for the monthly portfolio unless the
 request explicitly asks for the boosting/R&D workflow.
 

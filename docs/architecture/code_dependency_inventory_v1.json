@@ -1355,64 +1355,9 @@
       "target": "src/alpharank/backtest/__init__.py"
     },
     {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/lineage.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/open_source/legacy_export.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/open_source/pipeline.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/open_source/publishing.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/price_eligibility.py"
-    },
-    {
       "kind": "import",
       "source": "scripts/run_legacy.py",
       "target": "src/alpharank/data/price_eligibility.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/processing.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/processing.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/snapshot_storage.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/data/terminal_eligibility.py"
     },
     {
       "kind": "import",
@@ -1422,107 +1367,7 @@
     {
       "kind": "import",
       "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/features/indicators.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/governance.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/governance.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/legacy_v2.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/adapters/legacy.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/artifacts.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/benchmark.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/comparison.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/costs.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/costs.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/execution.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/execution.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/simulation.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/simulation.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/terminal_event_registry.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/portfolio/terminal_event_registry.py"
-    },
-    {
-      "kind": "command",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/strategy/legacy.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/strategy/legacy.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/strategy/search_protocol.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/utils/frame_backend.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_legacy.py",
-      "target": "src/alpharank/visualization/plotting.py"
+      "target": "src/alpharank/production/legacy_pipeline.py"
     },
     {
       "kind": "import",
@@ -2958,6 +2803,186 @@
       "kind": "import",
       "source": "src/alpharank/portfolio/simulation.py",
       "target": "src/alpharank/portfolio/costs.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/__init__.py",
+      "target": "src/alpharank/production/legacy_pipeline.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "scripts/run_legacy.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/causal_snapshot.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/causal_snapshot.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/lineage.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/open_source/legacy_export.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/open_source/pipeline.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/open_source/publishing.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/price_eligibility.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/price_eligibility.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/processing.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/processing.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/snapshot_storage.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/terminal_eligibility.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/ticker_integrity.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/features/indicators.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/legacy_v2.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/adapters/legacy.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/artifacts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/benchmark.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/comparison.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/costs.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/costs.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/execution.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/execution.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/terminal_event_registry.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/portfolio/terminal_event_registry.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/strategy/legacy.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/strategy/legacy.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/strategy/search_protocol.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/utils/frame_backend.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/visualization/plotting.py"
     },
     {
       "kind": "import",
@@ -4599,50 +4624,18 @@
       "declared_public_entrypoint": true,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/data/lineage.py",
         "src/alpharank/data/price_eligibility.py",
-        "src/alpharank/data/processing.py",
-        "src/alpharank/data/snapshot_storage.py",
         "src/alpharank/data/ticker_integrity.py",
-        "src/alpharank/features/indicators.py",
-        "src/alpharank/governance.py",
-        "src/alpharank/legacy_v2.py",
-        "src/alpharank/portfolio/adapters/legacy.py",
-        "src/alpharank/portfolio/artifacts.py",
-        "src/alpharank/portfolio/benchmark.py",
-        "src/alpharank/portfolio/comparison.py",
-        "src/alpharank/portfolio/costs.py",
-        "src/alpharank/portfolio/execution.py",
-        "src/alpharank/portfolio/simulation.py",
-        "src/alpharank/portfolio/terminal_event_registry.py",
-        "src/alpharank/strategy/legacy.py",
-        "src/alpharank/strategy/search_protocol.py",
-        "src/alpharank/utils/frame_backend.py",
-        "src/alpharank/visualization/plotting.py"
+        "src/alpharank/production/legacy_pipeline.py"
       ],
-      "invokes": [
-        "scripts/run_legacy.py",
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/pipeline.py",
-        "src/alpharank/data/open_source/publishing.py",
-        "src/alpharank/data/price_eligibility.py",
-        "src/alpharank/data/processing.py",
-        "src/alpharank/data/terminal_eligibility.py",
-        "src/alpharank/governance.py",
-        "src/alpharank/portfolio/costs.py",
-        "src/alpharank/portfolio/execution.py",
-        "src/alpharank/portfolio/simulation.py",
-        "src/alpharank/portfolio/terminal_event_registry.py",
-        "src/alpharank/strategy/legacy.py"
-      ],
+      "invokes": [],
       "layer": "script",
       "lifecycle": "active",
       "module": "scripts.run_legacy",
       "path": "scripts/run_legacy.py",
       "readers": [
         "scripts/run_backtest_application.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/quality/code_inventory.py"
       ]
     },
@@ -5256,13 +5249,13 @@
       "path": "src/alpharank/causal_snapshot.py",
       "readers": [
         "scripts/build_v1_v2_reconciliation.py",
-        "scripts/run_legacy.py",
         "scripts/seal_causal_v2_snapshot.py",
         "scripts/validate_boosting_v2_run.py",
         "scripts/validate_common_v2_replay.py",
         "scripts/validate_legacy_v2_run.py",
         "src/alpharank/common_v2.py",
-        "src/alpharank/multihorizon/pipeline.py"
+        "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -5374,8 +5367,8 @@
       "readers": [
         "scripts/download_data.py",
         "scripts/download_data_incremental.py",
-        "scripts/run_legacy.py",
-        "src/alpharank/backtest/pipeline.py"
+        "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -5718,8 +5711,8 @@
         "scripts/open_source/build_sec_output_package_with_backfill.py",
         "scripts/open_source/build_sec_overlay_package.py",
         "scripts/open_source/refresh_current_constituent_prices.py",
-        "scripts/run_legacy.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -5745,8 +5738,8 @@
         "scripts/open_source/audit_sec_earnings_coverage.py",
         "scripts/open_source/probe_sec_earnings_tickers.py",
         "scripts/open_source/probe_sec_sp500_history_sample.py",
-        "scripts/run_legacy.py",
-        "src/alpharank/data/open_source/__init__.py"
+        "src/alpharank/data/open_source/__init__.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -5779,8 +5772,8 @@
       "readers": [
         "scripts/open_source/build_output_package.py",
         "scripts/open_source/refresh_current_constituent_prices.py",
-        "scripts/run_legacy.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/open_source/ingestion.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6086,7 +6079,8 @@
         "src/alpharank/causal_snapshot.py",
         "src/alpharank/multihorizon/config.py",
         "src/alpharank/multihorizon/data.py",
-        "src/alpharank/portfolio/lineage.py"
+        "src/alpharank/portfolio/lineage.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6242,8 +6236,8 @@
         "scripts/compare_legacy_eodhd_vs_open_source.py",
         "scripts/generate_financial_report.py",
         "scripts/open_source/probe_sp500_entry_pe_coverage.py",
-        "scripts/run_legacy.py",
         "src/alpharank/data/datasets.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py",
         "src/alpharank/visualization/plotting.py"
       ]
@@ -6307,7 +6301,6 @@
       "path": "src/alpharank/data/snapshot_storage.py",
       "readers": [
         "scripts/open_source/compact_output_history.py",
-        "scripts/run_legacy.py",
         "src/alpharank/causal_snapshot.py",
         "src/alpharank/data/composed_snapshot.py",
         "src/alpharank/data/open_source/raw_archive.py",
@@ -6315,7 +6308,8 @@
         "src/alpharank/data/open_source/transaction.py",
         "src/alpharank/data/output_history.py",
         "src/alpharank/data/warehouse_migration.py",
-        "src/alpharank/governance.py"
+        "src/alpharank/governance.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6329,7 +6323,7 @@
       "path": "src/alpharank/data/terminal_eligibility.py",
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
-        "scripts/run_legacy.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py"
       ]
     },
@@ -6349,7 +6343,8 @@
         "scripts/experiments/run_multihorizon_boosting.py",
         "scripts/run_backtest.py",
         "scripts/run_legacy.py",
-        "src/alpharank/multihorizon/config.py"
+        "src/alpharank/multihorizon/config.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6395,8 +6390,8 @@
       "path": "src/alpharank/features/indicators.py",
       "readers": [
         "scripts/_old/run_full_backtest.py",
-        "scripts/run_legacy.py",
         "src/alpharank/data/processing.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py"
       ]
     },
@@ -6413,13 +6408,13 @@
       "path": "src/alpharank/governance.py",
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
-        "scripts/run_legacy.py",
         "scripts/seal_methodology_baseline.py",
         "scripts/validate_economic_prefix.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/causal_snapshot.py",
         "src/alpharank/common_v2.py",
         "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/reconciliation_v2.py"
       ]
     },
@@ -6437,9 +6432,9 @@
       "module": "alpharank.legacy_v2",
       "path": "src/alpharank/legacy_v2.py",
       "readers": [
-        "scripts/run_legacy.py",
         "scripts/validate_legacy_v2_run.py",
-        "src/alpharank/common_v2.py"
+        "src/alpharank/common_v2.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6839,9 +6834,9 @@
       "path": "src/alpharank/portfolio/adapters/legacy.py",
       "readers": [
         "scripts/build_legacy_common_replay.py",
-        "scripts/run_legacy.py",
         "scripts/validate_common_portfolio_engine.py",
         "src/alpharank/portfolio/adapters/__init__.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py"
       ]
     },
@@ -6878,10 +6873,10 @@
         "scripts/build_legacy_common_replay.py",
         "scripts/experiments/run_legacy_ema_risk_heads.py",
         "scripts/experiments/run_topn_allocation_comparison.py",
-        "scripts/run_legacy.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/common_v2.py",
-        "src/alpharank/portfolio/__init__.py"
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6913,8 +6908,8 @@
       "path": "src/alpharank/portfolio/benchmark.py",
       "readers": [
         "scripts/build_legacy_common_replay.py",
-        "scripts/run_legacy.py",
-        "src/alpharank/portfolio/__init__.py"
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6931,10 +6926,10 @@
         "scripts/build_legacy_common_replay.py",
         "scripts/experiments/run_legacy_ema_risk_heads.py",
         "scripts/experiments/run_topn_allocation_comparison.py",
-        "scripts/run_legacy.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/common_v2.py",
-        "src/alpharank/portfolio/__init__.py"
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6965,11 +6960,11 @@
       "module": "alpharank.portfolio.costs",
       "path": "src/alpharank/portfolio/costs.py",
       "readers": [
-        "scripts/run_legacy.py",
         "src/alpharank/common_v2.py",
         "src/alpharank/legacy_v2.py",
         "src/alpharank/portfolio/__init__.py",
-        "src/alpharank/portfolio/simulation.py"
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -6983,10 +6978,10 @@
       "path": "src/alpharank/portfolio/execution.py",
       "readers": [
         "scripts/experiments/build_execution_convention_bridge.py",
-        "scripts/run_legacy.py",
         "src/alpharank/causal_snapshot.py",
         "src/alpharank/common_v2.py",
-        "src/alpharank/portfolio/__init__.py"
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -7069,7 +7064,6 @@
         "scripts/build_legacy_common_replay.py",
         "scripts/experiments/build_execution_convention_bridge.py",
         "scripts/experiments/render_start_year_performance.py",
-        "scripts/run_legacy.py",
         "scripts/validate_common_portfolio_engine.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/backtest/portfolio.py",
@@ -7080,6 +7074,7 @@
         "src/alpharank/multihorizon/risk.py",
         "src/alpharank/multihorizon/trading.py",
         "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay_validation.py",
         "src/alpharank/strategy/legacy.py"
       ]
@@ -7095,9 +7090,9 @@
       "path": "src/alpharank/portfolio/terminal_event_registry.py",
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
-        "scripts/run_legacy.py",
         "scripts/validate_terminal_event_registry.py",
         "src/alpharank/common_v2.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/reconciliation_v2.py",
         "src/alpharank/strategy/legacy.py"
       ]
@@ -7130,6 +7125,71 @@
         "src/alpharank/common_v2.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/adapters/boosting.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/production/legacy_pipeline.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.production",
+      "path": "src/alpharank/production/__init__.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/data/lineage.py",
+        "src/alpharank/data/price_eligibility.py",
+        "src/alpharank/data/processing.py",
+        "src/alpharank/data/snapshot_storage.py",
+        "src/alpharank/data/ticker_integrity.py",
+        "src/alpharank/features/indicators.py",
+        "src/alpharank/governance.py",
+        "src/alpharank/legacy_v2.py",
+        "src/alpharank/portfolio/adapters/legacy.py",
+        "src/alpharank/portfolio/artifacts.py",
+        "src/alpharank/portfolio/benchmark.py",
+        "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/costs.py",
+        "src/alpharank/portfolio/execution.py",
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/portfolio/terminal_event_registry.py",
+        "src/alpharank/strategy/legacy.py",
+        "src/alpharank/strategy/search_protocol.py",
+        "src/alpharank/utils/frame_backend.py",
+        "src/alpharank/visualization/plotting.py"
+      ],
+      "invokes": [
+        "scripts/run_legacy.py",
+        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/data/open_source/legacy_export.py",
+        "src/alpharank/data/open_source/pipeline.py",
+        "src/alpharank/data/open_source/publishing.py",
+        "src/alpharank/data/price_eligibility.py",
+        "src/alpharank/data/processing.py",
+        "src/alpharank/data/terminal_eligibility.py",
+        "src/alpharank/governance.py",
+        "src/alpharank/portfolio/costs.py",
+        "src/alpharank/portfolio/execution.py",
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/portfolio/terminal_event_registry.py",
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/strategy/legacy.py"
+      ],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.production.legacy_pipeline",
+      "path": "src/alpharank/production/legacy_pipeline.py",
+      "readers": [
+        "scripts/run_legacy.py",
+        "src/alpharank/production/__init__.py"
       ]
     },
     {
@@ -7310,8 +7370,8 @@
       "readers": [
         "scripts/compare_legacy_eodhd_vs_open_source.py",
         "scripts/compare_legacy_input_ablation.py",
-        "scripts/run_legacy.py",
-        "scripts/validate_common_portfolio_engine.py"
+        "scripts/validate_common_portfolio_engine.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     },
     {
@@ -7335,7 +7395,7 @@
       "module": "alpharank.strategy.search_protocol",
       "path": "src/alpharank/strategy/search_protocol.py",
       "readers": [
-        "scripts/run_legacy.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py"
       ]
     },
@@ -7374,9 +7434,9 @@
       "path": "src/alpharank/utils/frame_backend.py",
       "readers": [
         "scripts/compare_legacy_eodhd_vs_open_source.py",
-        "scripts/run_legacy.py",
         "scripts/validate_common_portfolio_engine.py",
         "src/alpharank/data/processing.py",
+        "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py",
         "src/alpharank/utils/returns.py"
       ]
@@ -7482,7 +7542,7 @@
       "module": "alpharank.visualization.plotting",
       "path": "src/alpharank/visualization/plotting.py",
       "readers": [
-        "scripts/run_legacy.py"
+        "src/alpharank/production/legacy_pipeline.py"
       ]
     }
   ],
@@ -7503,10 +7563,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 117,
-    "internal_edge_count": 597,
-    "library_count": 143,
-    "python_file_count": 261,
+    "internal_edge_count": 602,
+    "library_count": 145,
+    "python_file_count": 263,
     "script_count": 118,
-    "unread_node_count": 105
+    "unread_node_count": 106
   }
 }

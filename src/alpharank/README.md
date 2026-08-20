@@ -6,6 +6,7 @@
 - `multihorizon/` : Boosting causal actuel et scoring live.
 - `backtest/` : pipeline Boosting historique et composants génériques.
 - `portfolio/` : contrat de holdings, simulation et KPI partagés.
+- `production/` : orchestration testable des commandes canoniques.
 - `data/` : chargement, snapshots, lignée, prix et ingestion open source.
 - `features/` : indicateurs communs de bas niveau.
 - `models/` : wrappers historiques XGBoost/SHAP.

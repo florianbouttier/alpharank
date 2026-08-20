@@ -34,6 +34,7 @@ REQUIRED_README_DIRS = (
     "src/alpharank/multihorizon",
     "src/alpharank/portfolio",
     "src/alpharank/portfolio/adapters",
+    "src/alpharank/production",
     "src/alpharank/quality",
     "src/alpharank/strategy",
     "src/alpharank/utils",
