@@ -48,11 +48,9 @@ découplé ces lecteurs ; son rôle est déjà clarifié dès maintenant.
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
 
-Transition : `DOC-001` à `DOC-013` et `QUAL-001` ont été réalisés dans le
-worktree avant l'activation du contrat Git, sans commit. Leur statut ci-dessous
-est donc corrigé en `prêt à committer`. Ils devront chacun recevoir leur commit
-atomique ou être redécoupés avant tout nettoyage de code ; aucun commit global
-« documentation cleanup » ne les absorbera silencieusement.
+Transition achevée : les travaux `DOC-001` à `DOC-013` et `QUAL-001`, commencés
+avant l'activation du contrat Git, ont été redécoupés puis committés sous leurs
+identifiants propres. Aucun commit global de nettoyage ne les a absorbés.
 
 ## 3. Règles de conduite
 
@@ -120,7 +118,7 @@ La carte détaillée se trouve dans
 | --- | --- | --- | --- |
 | `DOC-001` | inventorier tout le dépôt et mesurer les zones de confusion | fait | état des lieux ci-dessus, relevé le 2026-08-20 |
 | `DOC-002` | écrire un point d'entrée unique pour les normes de développement | fait | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| `DOC-003` | réduire le README racine à un onboarding de cinq minutes | prêt à committer | parcours court et ancien README archivé |
+| `DOC-003` | réduire le README racine à un onboarding de cinq minutes | fait | parcours court et ancien README archivé |
 | `DOC-004` | placer les rapports datés, le handoff et les anciennes pages dans `docs/archive/` | fait | rapports, handoff et pages historiques classés et indexés |
 | `DOC-005` | rendre le registre méthodologique visible à la racine sans perdre son historique | fait | registre détaillé conservé à la racine et pointeur historique maintenu |
 | `DOC-006` | documenter la réalité et la cible des données | fait | carte du dépôt, cycle de vie et pointeur de snapshot documentés |
