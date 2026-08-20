@@ -1,0 +1,127 @@
+# Carte du dépôt AlphaRank
+
+**Rôle : document canonique d'architecture du dépôt.**
+
+**État observé : 2026-08-20.**
+
+## 1. Ce qu'il faut utiliser aujourd'hui
+
+Pour un run mensuel de production, la source de données courante ne se choisit
+pas en parcourant les dossiers. Elle est désignée par :
+
+```text
+data/model_inputs/manifests/latest.json
+```
+
+Ce pointeur mène à un snapshot immuable. `data/open_source/output/`,
+`data/sec/output/`, les Parquet directement sous `data/` et les nombreux
+dossiers sous `outputs/` ne doivent pas être choisis comme remplacements au gré
+des fichiers disponibles.
+
+## 2. Carte simple
+
+```text
+README.md / ROADMAP.md / CONTRIBUTING.md
+    orientation humaine, travaux et normes
+
+configs/
+    décisions versionnées qui modifient un run
+
+src/alpharank/
+    logique Python réutilisable
+    ├── strategy/       signal Legacy
+    ├── multihorizon/   signal Boosting actuel
+    ├── portfolio/      simulation et KPI partagés
+    ├── data/           chargement, lignée et ingestion
+    └── backtest/       pipeline de recherche historique
+
+scripts/
+    commandes et orchestration ; pas une seconde bibliothèque
+
+data/
+    données sources, transformations et snapshots immuables
+
+outputs/
+    résultats de calcul et rapports de runs
+
+logs/
+    journaux d'exécution reliés aux runs
+
+docs/
+    règles courantes, recherche reproductible et archives séparées
+```
+
+## 3. Pourquoi `data/` semble incohérent
+
+Trois générations se superposent actuellement :
+
+| Génération | Emplacements principaux | Rôle réel aujourd'hui |
+| --- | --- | --- |
+| historique | fichiers `data/*.parquet`, `data/eodhd/`, `data/_snapshots/` | anciennes interfaces et archive EODHD, encore lues par certains replays |
+| migration open source | `data/open_source/`, `data/sec/` | acquisition, audits et anciens packages publiés |
+| entrepôt cible | `data/warehouse/raw`, `stg`, `def`, `mart` | structure destinée à devenir l'unique trajet de transformation |
+
+À cela s'ajoute `data/model_inputs/`, qui ne représente pas une quatrième
+méthode de transformation : il conserve les **releases immuables** effectivement
+consommées par les modèles.
+
+Le problème n'est donc pas l'existence de `raw/stg/def/mart`. Le problème est
+que la migration n'est pas achevée et qu'aucune carte visible n'expliquait les
+anciennes branches encore nécessaires.
+
+## 4. Responsabilité des grandes zones
+
+| Chemin | Contient | Ne doit pas contenir |
+| --- | --- | --- |
+| `configs/` | exclusions, événements sourcés, profils de recherche | sorties calculées ou secrets |
+| `src/alpharank/` | calculs, contrats, validateurs réutilisables | arguments de commande ou chemins locaux implicites |
+| `scripts/` | lecture d'arguments, orchestration, écriture d'artefacts | moteurs de calcul dupliqués |
+| `tests/` | preuves de comportement et de replay | logique importée en production |
+| `data/` | données et manifestes de lignée | rapports HTML ou code Python métier |
+| `outputs/` | artefacts d'un run identifié | source de vérité d'entrée non manifestée |
+| `logs/` | événements d'exécution | résultats économiques canoniques |
+| `docs/` | règles, procédures, décisions et archives | copie manuelle d'une donnée destinée au modèle |
+
+## 5. Source, snapshot et run ne sont pas synonymes
+
+```text
+source fournisseur
+        |
+        v
+raw -> stg -> def -> mart
+                       |
+                       v
+             snapshot immuable
+                       |
+                       v
+                 run de modèle
+                       |
+                       v
+                rapport / site
+```
+
+- La **source** est l'observation reçue d'un fournisseur.
+- Le **mart** est une table prête pour un besoin défini.
+- Le **snapshot** fige un ensemble de marts avec leurs preuves.
+- Le **run** est un calcul qui consomme ce snapshot.
+- Le **rapport** expose les résultats du run ; il ne devient pas une source de
+  données par sa simple présence dans `outputs/`.
+
+## 6. Cible de rangement
+
+La cible n'est pas de déplacer brutalement 65 Go. Elle est de faire converger
+les lecteurs :
+
+1. cataloguer chaque ancien emplacement et ses consommateurs ;
+2. référencer ou importer son contenu dans la couche correcte sans nouveau
+   téléchargement ;
+3. démontrer l'identité par clés, valeurs et hashes ;
+4. basculer un lecteur à la fois ;
+5. conserver l'ancien emplacement en lecture seule pendant une période
+   d'observation ;
+6. décider séparément d'une éventuelle déduplication physique.
+
+Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
+contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
+règles de placement sont dans
+[`../standards/repository.md`](../standards/repository.md).
