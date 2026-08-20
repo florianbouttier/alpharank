@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from alpharank.data.open_source.ingestion import _resolve_open_source_data_layout
+from alpharank.data.open_source.storage import OpenSourceLivePaths
 from alpharank.data.open_source.transaction import OpenSourceStoreTransaction
 
 
@@ -48,3 +50,34 @@ def test_successful_transaction_keeps_changes(tmp_path: Path) -> None:
 
     assert (official / "raw" / "data.parquet").read_bytes() == b"raw after"
     assert not (root / "_transactions").exists() or not any((root / "_transactions").iterdir())
+
+
+def test_clean_worktree_symlink_resolves_one_physical_data_root(
+    tmp_path: Path,
+) -> None:
+    data_root = tmp_path / "persistent" / "data"
+    official = data_root / "open_source" / "official"
+    official.mkdir(parents=True)
+    worktree = tmp_path / "clean_worktree"
+    worktree.mkdir()
+    (worktree / "data").symlink_to(data_root, target_is_directory=True)
+
+    resolved_official, open_source_root, resolved_data_root, reference_dir = (
+        _resolve_open_source_data_layout(
+            project_root=worktree,
+            live_dir=worktree / "data" / "open_source" / "official",
+            reference_data_dir=worktree / "data",
+        )
+    )
+
+    assert resolved_official == official.resolve()
+    assert open_source_root == (data_root / "open_source").resolve()
+    assert resolved_data_root == data_root.resolve()
+    assert reference_dir == data_root.resolve()
+    paths = OpenSourceLivePaths(
+        resolved_official,
+        audit_root_dir=open_source_root / "audit",
+    )
+    assert (paths.audit_dir / "2025").relative_to(paths.root_dir) == Path(
+        "audit/2025"
+    )

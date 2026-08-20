@@ -261,6 +261,27 @@ class OpenSourceReferenceRefreshResult:
     earnings_tickers: int
 
 
+def _resolve_open_source_data_layout(
+    *,
+    project_root: Path,
+    live_dir: Path | None,
+    reference_data_dir: Path | None,
+) -> tuple[Path, Path, Path, Path]:
+    """Resolve one physical data root while code remains in its worktree."""
+
+    official_dir = (
+        live_dir
+        if live_dir is not None
+        else project_root / "data" / "open_source" / "official"
+    ).resolve()
+    open_source_root = official_dir.parent
+    data_root = open_source_root.parent
+    resolved_reference_dir = (
+        reference_data_dir if reference_data_dir is not None else data_root
+    ).resolve()
+    return official_dir, open_source_root, data_root, resolved_reference_dir
+
+
 def repair_open_source_price_history(
     *,
     start_date: str = "2005-01-01",
@@ -273,10 +294,15 @@ def repair_open_source_price_history(
     source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
-    reference_data_dir = reference_data_dir or (project_root / "data")
-    open_source_root = project_root / "data" / "open_source"
+    official_dir, open_source_root, _, reference_data_dir = (
+        _resolve_open_source_data_layout(
+            project_root=project_root,
+            live_dir=live_dir,
+            reference_data_dir=reference_data_dir,
+        )
+    )
     paths = OpenSourceLivePaths(
-        live_dir or (open_source_root / "official"),
+        official_dir,
         audit_root_dir=open_source_root / "audit",
     )
     paths.ensure()
@@ -306,13 +332,15 @@ def repair_open_source_price_history(
     )
     retained_inactive_price_tickers = tuple(sorted(set(ticker_list) - set(price_refresh_tickers)))
 
-    yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
+    yahoo_client = YahooFinanceClient(
+        cache_dir=open_source_root / "_cache" / "yfinance"
+    )
     simfin_client = SimFinClient(
-        data_dir=project_root / "data" / "open_source" / "_cache" / "simfin",
+        data_dir=open_source_root / "_cache" / "simfin",
         refresh_days=source_refresh_policy.simfin_refresh_days,
     )
     stockanalysis_client = StockAnalysisClient(
-        cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis",
+        cache_dir=open_source_root / "_cache" / "stockanalysis",
         refresh_cache=source_refresh_policy.refresh_stockanalysis,
         persist_cache=source_refresh_policy.persist_stockanalysis_payloads,
     )
@@ -546,10 +574,15 @@ def refresh_open_source_reference_layers(
     source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
 ) -> OpenSourceReferenceRefreshResult:
     project_root = Path(__file__).resolve().parents[4]
-    reference_data_dir = reference_data_dir or (project_root / "data")
-    open_source_root = project_root / "data" / "open_source"
+    official_dir, open_source_root, _, reference_data_dir = (
+        _resolve_open_source_data_layout(
+            project_root=project_root,
+            live_dir=live_dir,
+            reference_data_dir=reference_data_dir,
+        )
+    )
     paths = OpenSourceLivePaths(
-        live_dir or (open_source_root / "official"),
+        official_dir,
         audit_root_dir=open_source_root / "audit",
     )
     paths.ensure()
@@ -567,16 +600,18 @@ def refresh_open_source_reference_layers(
     )
     ticker_list = tuple(tickers) if tickers is not None else _load_existing_open_source_tickers(paths, reference_data_dir)
 
-    yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
+    yahoo_client = YahooFinanceClient(
+        cache_dir=open_source_root / "_cache" / "yfinance"
+    )
     sec_client = SecCompanyFactsClient(
         user_agent=user_agent,
-        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts",
+        cache_dir=open_source_root / "_cache" / "sec_companyfacts",
         refresh_cache=source_refresh_policy.refresh_sec_companyfacts,
         persist_cache=source_refresh_policy.persist_sec_companyfacts_payloads,
     )
     sec_filing_client = SecFilingFactsClient(
         user_agent=user_agent,
-        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing",
+        cache_dir=open_source_root / "_cache" / "sec_filing",
         refresh_mutable_cache=source_refresh_policy.refresh_sec_submissions,
         persist_metadata_cache=source_refresh_policy.persist_sec_filing_metadata,
         persist_filing_documents=source_refresh_policy.persist_sec_filing_documents,
@@ -865,10 +900,10 @@ def run_open_source_ingestion(
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     official_dir = (
-        live_dir.resolve()
+        live_dir
         if live_dir is not None
         else project_root / "data" / "open_source" / "official"
-    )
+    ).resolve()
     try:
         with OpenSourceStoreTransaction(official_dir=official_dir):
             return _run_open_source_ingestion_in_place(
@@ -913,13 +948,20 @@ def _run_open_source_ingestion_in_place(
     run_id: str | None = None,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
-    reference_data_dir = reference_data_dir or (project_root / "data")
-    eodhd_price_seed_path = eodhd_price_seed_path or (
-        project_root / "data" / "eodhd" / "output" / "US_Finalprice.parquet"
+    official_dir, open_source_root, data_root, reference_data_dir = (
+        _resolve_open_source_data_layout(
+            project_root=project_root,
+            live_dir=live_dir,
+            reference_data_dir=reference_data_dir,
+        )
     )
-    open_source_root = project_root / "data" / "open_source"
+    eodhd_price_seed_path = (
+        eodhd_price_seed_path.resolve()
+        if eodhd_price_seed_path is not None
+        else data_root / "eodhd" / "output" / "US_Finalprice.parquet"
+    )
     paths = OpenSourceLivePaths(
-        live_dir or (open_source_root / "official"),
+        official_dir,
         audit_root_dir=open_source_root / "audit",
     )
     paths.ensure()
@@ -1017,27 +1059,29 @@ def _run_open_source_ingestion_in_place(
         ),
     }
 
-    yahoo_client = YahooFinanceClient(cache_dir=project_root / "data" / "open_source" / "_cache" / "yfinance")
+    yahoo_client = YahooFinanceClient(
+        cache_dir=open_source_root / "_cache" / "yfinance"
+    )
     sec_client = SecCompanyFactsClient(
         user_agent=user_agent,
-        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_companyfacts",
+        cache_dir=open_source_root / "_cache" / "sec_companyfacts",
         refresh_cache=source_refresh_policy.refresh_sec_companyfacts,
         persist_cache=source_refresh_policy.persist_sec_companyfacts_payloads,
     )
     sec_filing_client = SecFilingFactsClient(
         user_agent=user_agent,
-        cache_dir=project_root / "data" / "open_source" / "_cache" / "sec_filing",
+        cache_dir=open_source_root / "_cache" / "sec_filing",
         refresh_mutable_cache=source_refresh_policy.refresh_sec_submissions,
         persist_metadata_cache=source_refresh_policy.persist_sec_filing_metadata,
         persist_filing_documents=source_refresh_policy.persist_sec_filing_documents,
     )
     simfin_client = SimFinClient(
         api_key=simfin_api_key,
-        data_dir=project_root / "data" / "open_source" / "_cache" / "simfin",
+        data_dir=open_source_root / "_cache" / "simfin",
         refresh_days=source_refresh_policy.simfin_refresh_days,
     )
     stockanalysis_client = StockAnalysisClient(
-        cache_dir=project_root / "data" / "open_source" / "_cache" / "stockanalysis",
+        cache_dir=open_source_root / "_cache" / "stockanalysis",
         refresh_cache=source_refresh_policy.refresh_stockanalysis,
         persist_cache=source_refresh_policy.persist_stockanalysis_payloads,
     )
@@ -1136,7 +1180,7 @@ def _run_open_source_ingestion_in_place(
     )
 
     previous_price_source = resolve_previous_validated_price_lineage(
-        project_root / "data" / "model_inputs" / "manifests" / "latest.json"
+        data_root / "model_inputs" / "manifests" / "latest.json"
     )
     previous_validated_price_lineage = pl.read_parquet(previous_price_source.lineage_path)
     yahoo_full_history, yahoo_key_coverage = _complete_yahoo_history_against_validated(
@@ -1155,7 +1199,7 @@ def _run_open_source_ingestion_in_place(
         run_id=run_id,
         ingested_at=ingested_at,
         raw_archive_dir=(
-            WarehousePaths(project_root / "data" / "warehouse").raw / "yahoo" / "prices"
+            WarehousePaths(data_root / "warehouse").raw / "yahoo" / "prices"
         ),
     )
     source_refresh_contract["source_semantics"]["yfinance_prices"][
@@ -1346,7 +1390,7 @@ def _run_open_source_ingestion_in_place(
         source_refresh_policy=source_refresh_policy,
         source_refresh_contract=source_refresh_contract,
         latest_composed_manifest_path=(
-            project_root / "data" / "model_inputs" / "manifests" / "latest.json"
+            data_root / "model_inputs" / "manifests" / "latest.json"
         ),
         preserved_terminal_tickers=terminal_price_tickers,
         reviewed_extreme_price_move_registry_path=(
