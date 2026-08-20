@@ -73,3 +73,12 @@ explicit_package_bases = true
 strict = true
 show_error_codes = true
 warn_unused_configs = true
+
+[tool.pytest.ini_options]
+markers = [
+  "unit: isolated deterministic contract tests",
+  "integration: multiple components or controlled filesystem boundaries",
+  "replay: immutable lineage, causal replay, or economic parity checks",
+  "network: provider-boundary tests; live access remains disabled unless explicit",
+  "production: production workflow and publication contract tests",
+]

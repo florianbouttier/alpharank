@@ -310,6 +310,21 @@ python -m mypy
 Un package rejoint cette liste seulement lorsque la commande est verte sans
 `ignore_missing_imports` global ni suppression non justifiée.
 
+Les suites Pytest logiques sont séparées par marqueur sans déplacer les fichiers
+avant `TESTORG-*` :
+
+```bash
+python -m pytest -m unit
+python -m pytest -m integration
+python -m pytest -m replay
+python -m pytest -m network
+python -m pytest -m production
+```
+
+La politique ordonnée et ses exceptions sont versionnées dans
+`configs/quality/test_suites_v1.json`. Un nouveau fichier non reconnu rejoint
+explicitement `unit` jusqu'à ce qu'une dépendance plus large soit déclarée.
+
 ## 13. Décision active et migration
 
 La norme retenue est donc :

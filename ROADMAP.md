@@ -153,7 +153,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-002` | configurer Ruff dans `pyproject.toml` sans reformater le dépôt | fait | configuration partagée et commandes ciblées documentées |
 | `QUAL-003` | établir une baseline des alertes et empêcher seulement les nouvelles régressions | fait | baseline Ruff déterministe, rapport reproductible et CI différentielle |
 | `QUAL-004` | activer le typage progressivement par package | fait | périmètre Mypy strict explicite, initialisé sur `alpharank.quality` et exécuté en CI |
-| `QUAL-005` | classer les tests en unitaires, intégration, replay, réseau et production | à faire | marqueurs et commandes séparées |
+| `QUAL-005` | classer les tests en unitaires, intégration, replay, réseau et production | fait | politique ordonnée, marqueurs automatiques et cinq commandes séparées |
 | `QUAL-006` | ajouter les contrôles de documentation, lint et tests ciblés en CI | à faire | contrôles reproductibles localement |
 | `QUAL-007` | choisir `pyproject.toml` comme source des dépendances et générer ou vérifier les autres fichiers | à faire | absence de dérive entre les trois installations |
 | `QUAL-008` | rendre la CI AlphaRank autonome et isoler le contrôle Portfolio dans un job inter-projets explicite | à faire | AlphaRank validable sans checkout Portfolio |
