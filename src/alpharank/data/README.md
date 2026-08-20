@@ -29,3 +29,7 @@ désaccord sur la même clé métier restent deux lignes reliées à leurs reçu
 connaissance explicite. Il conserve le reçu et le hash sélectionnés, distingue
 un vrai zéro d'une valeur absente et produit une décision auditée même lorsque
 la clé reste irrésolue.
+
+`mart.py` résout l'entrée modèle canonique. Il refuse une cible hors de
+`warehouse/mart`, exige les preuves de parité DEF/source et revérifie le hash de
+chaque fichier modèle avant de rendre le dossier au consommateur.

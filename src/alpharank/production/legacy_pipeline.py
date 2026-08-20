@@ -18,6 +18,7 @@ import pandas as pd
 import polars as pl
 
 from alpharank.data.lineage import load_latest_manifest, write_manifest
+from alpharank.data.mart import MartInputResolution, resolve_mart_model_input
 from alpharank.data.price_eligibility import (
     STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
     build_monthly_price_eligibility,
@@ -426,6 +427,7 @@ def _code_context(project_root: Path) -> Dict[str, Any]:
         "scripts/run_legacy.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/data/processing.py",
+        "src/alpharank/data/mart.py",
         "src/alpharank/strategy/legacy.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/pipeline.py",
@@ -668,13 +670,19 @@ def run_pipeline(
     maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
 ) -> PipelineOutput:
     backend = "polars"
-    project_root = Path(__file__).parent.parent
+    project_root = Path(__file__).resolve().parents[3]
+    mart_input: MartInputResolution | None = None
     if data_dir is not None and open_source_run_id is not None:
         raise ValueError("Use either data_dir or open_source_run_id, not both.")
     if open_source_run_id is not None:
         data_dir = _resolve_open_source_output_by_run_id(project_root, open_source_run_id)
     else:
-        data_dir = data_dir if data_dir is not None else project_root / "data"
+        if data_dir is None:
+            mart_input = resolve_mart_model_input(
+                project_root / "data" / "model_inputs" / "manifests" / "latest.json",
+                warehouse_root=project_root / "data" / "warehouse",
+            )
+            data_dir = mart_input.mart_dir
     output_dir = output_dir if output_dir is not None else project_root / "outputs"
     methodology_identity: Dict[str, Any] | None = None
     if methodology_manifest is not None:
@@ -752,6 +760,7 @@ def run_pipeline(
         "run_output_dir": str(run_day_dir.resolve()),
         "source_input_files": {name: str(path.resolve()) for name, path in source_input_files.items()},
         "source_input_sha256": {name: _sha256_path(path) for name, path in source_input_files.items()},
+        "mart_input": mart_input.to_manifest() if mart_input is not None else None,
         "input_snapshot_storage": _read_json_if_exists(
             input_snapshot_dir / "storage_manifest.json"
         ),
@@ -815,6 +824,7 @@ def run_pipeline(
             "src/alpharank/production/legacy_pipeline.py",
             "src/alpharank/causal_snapshot.py",
             "src/alpharank/data/processing.py",
+            "src/alpharank/data/mart.py",
             "src/alpharank/strategy/legacy.py",
             "src/alpharank/portfolio/simulation.py",
             "src/alpharank/portfolio/execution.py",

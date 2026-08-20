@@ -587,7 +587,8 @@
       "migration_status": "target",
       "path": "data/warehouse",
       "readers": [
-        "scripts/open_source/promote_definitive_mart.py"
+        "scripts/open_source/promote_definitive_mart.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 2385112462,
       "target_role": "warehouse"
@@ -676,7 +677,8 @@
       "path": "data/model_inputs/manifests",
       "readers": [
         "scripts/open_source/build_roll_forward_price_package.py",
-        "scripts/open_source/promote_definitive_mart.py"
+        "scripts/open_source/promote_definitive_mart.py",
+        "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 530,
       "target_role": "snapshot_pointer"
@@ -764,17 +766,22 @@
     },
     {
       "location_id": "data_root",
-      "reader_count": "2",
+      "reader_count": "1",
+      "reference": "data/mart.py"
+    },
+    {
+      "location_id": "data_root",
+      "reader_count": "3",
       "reference": "data/model_inputs"
     },
     {
       "location_id": "model_input_manifests",
-      "reader_count": "2",
+      "reader_count": "3",
       "reference": "data/model_inputs/manifests"
     },
     {
       "location_id": "model_input_manifests",
-      "reader_count": "2",
+      "reader_count": "3",
       "reference": "data/model_inputs/manifests/latest.json"
     },
     {
@@ -994,7 +1001,7 @@
     },
     {
       "location_id": "warehouse",
-      "reader_count": "1",
+      "reader_count": "2",
       "reference": "data/warehouse"
     },
     {
@@ -1008,7 +1015,7 @@
     "file_location_count": 10,
     "location_count": 35,
     "package_location_count": 25,
-    "reader_edge_count": 261,
-    "static_reference_count": 58
+    "reader_edge_count": 263,
+    "static_reference_count": 59
   }
 }

@@ -55,6 +55,12 @@ Sa cible est immuable. `data/open_source/output/`, `data/sec/output/`,
 rôles historiques ou de replay, mais ne sont pas des substituts libres à ce
 pointeur.
 
+La cible de production doit être sous `data/warehouse/mart/`. Sans
+`--data-dir`, `scripts/run_legacy.py` résout ce pointeur, vérifie le manifeste
+MART, les neuf hashes de fichiers et la parité DEF/source avant de créer son
+`input_snapshot/`. Un `--data-dir` explicite reste réservé aux replays décrits
+par le runbook.
+
 L'explication de `raw -> stg -> def -> mart -> snapshot` est dans
 [`docs/architecture/data_lifecycle.md`](docs/architecture/data_lifecycle.md).
 

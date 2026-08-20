@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 
 import polars as pl
+import pytest
 
+from alpharank.data.mart import resolve_mart_model_input
 from alpharank.data.warehouse_migration import (
     catalog_existing_eodhd,
     migrate_validated_snapshot_to_warehouse,
@@ -14,7 +16,6 @@ from alpharank.data.warehouse_migration import (
     validate_eodhd_catalog,
     validate_warehouse_mart,
 )
-
 
 MODEL_FILES = (
     "US_Finalprice.parquet",
@@ -170,3 +171,51 @@ def test_mart_pointer_promotion_is_atomic_and_rollback_restores_exact_bytes(tmp_
 
     rollback_mart_pointer(pointer_path=pointer, promotion_manifest_path=promotion)
     assert pointer.read_bytes() == before
+
+
+def test_legacy_model_input_resolves_only_validated_mart_with_exact_parity(
+    tmp_path: Path,
+) -> None:
+    snapshot, pointer = _seed_composed_snapshot(tmp_path / "data")
+    eodhd = tmp_path / "data" / "eodhd" / "output"
+    eodhd.mkdir(parents=True)
+    (eodhd / "seed.json").write_text('{"source":"eodhd"}')
+    source_hashes = {name: _sha256(snapshot / name) for name in MODEL_FILES}
+    migrated = migrate_validated_snapshot_to_warehouse(
+        project_root=tmp_path,
+        latest_pointer_path=pointer,
+        warehouse_root=tmp_path / "data" / "warehouse",
+        promote=True,
+        generated_at="2026-08-20T12:00:00+00:00",
+    )
+
+    resolved = resolve_mart_model_input(
+        pointer,
+        warehouse_root=tmp_path / "data" / "warehouse",
+    )
+
+    assert resolved.mart_dir == migrated.mart_dir
+    assert resolved.composition_id == "composition-test"
+    assert resolved.model_file_sha256 == source_hashes
+    assert resolved.to_manifest()["source_snapshot_dir"] == str(snapshot.resolve())
+
+
+def test_mart_input_resolution_rejects_changed_model_bytes(tmp_path: Path) -> None:
+    _, pointer = _seed_composed_snapshot(tmp_path / "data")
+    eodhd = tmp_path / "data" / "eodhd" / "output"
+    eodhd.mkdir(parents=True)
+    (eodhd / "seed.json").write_text('{"source":"eodhd"}')
+    migrated = migrate_validated_snapshot_to_warehouse(
+        project_root=tmp_path,
+        latest_pointer_path=pointer,
+        warehouse_root=tmp_path / "data" / "warehouse",
+        promote=True,
+        generated_at="2026-08-20T12:00:00+00:00",
+    )
+    (migrated.mart_dir / "US_Finalprice.parquet").write_bytes(b"changed")
+
+    with pytest.raises(RuntimeError, match="hash mismatch|bytes differ"):
+        resolve_mart_model_input(
+            pointer,
+            warehouse_root=tmp_path / "data" / "warehouse",
+        )

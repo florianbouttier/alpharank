@@ -105,6 +105,12 @@ ne constituent pas la nouvelle interface canonique DEF.
 Un mart peut calculer des features ou joindre des tables, mais ne doit pas
 réinventer la préférence fournisseur définie dans `def`.
 
+Le résolveur `resolve_mart_model_input` impose que la cible consommée par
+Legacy soit sous `data/warehouse/mart/`, que le manifeste atteste les parités
+DEF-vers-MART et snapshot-source-vers-MART, puis recalcule tous les hashes. Le
+chemin par défaut de `scripts/run_legacy.py` passe par ce contrôle avant de
+figer son propre `input_snapshot/`.
+
 ## 6. SNAPSHOT — une publication figée, pas une nouvelle couche
 
 Un snapshot est une release immuable d'un ou plusieurs marts. Il contient ou

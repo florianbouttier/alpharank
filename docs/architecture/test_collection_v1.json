@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 441,
+  "node_count": 443,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -440,11 +440,13 @@
     "test_ticker_integrity.py::test_exclusion_applies_to_complete_ticker_trajectory",
     "test_ticker_integrity.py::test_registry_returns_only_full_trajectory_exclusions",
     "test_warehouse_migration.py::test_eodhd_catalog_deduplicates_bytes_and_reconstructs_every_source",
+    "test_warehouse_migration.py::test_legacy_model_input_resolves_only_validated_mart_with_exact_parity",
     "test_warehouse_migration.py::test_live008_builds_byte_identical_mart_and_preserves_source",
+    "test_warehouse_migration.py::test_mart_input_resolution_rejects_changed_model_bytes",
     "test_warehouse_migration.py::test_mart_pointer_promotion_is_atomic_and_rollback_restores_exact_bytes",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "5e0184445f36f0bb7f3b606b5a36b38198c8f4dc274803023c211130af463fcb",
+  "node_ids_sha256": "802c8d5e5c3db97a4b32c2280249ab875f1c4553ad3daccf7713bd8e30589bd2",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

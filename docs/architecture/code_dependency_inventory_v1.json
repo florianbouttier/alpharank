@@ -1819,6 +1819,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/mart.py",
+      "target": "src/alpharank/data/composed_snapshot.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/open_source/__init__.py",
       "target": "src/alpharank/data/open_source/ingestion.py"
     },
@@ -2911,6 +2916,16 @@
       "kind": "import",
       "source": "src/alpharank/production/legacy_pipeline.py",
       "target": "src/alpharank/data/lineage.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/mart.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/data/mart.py"
     },
     {
       "kind": "command",
@@ -5755,6 +5770,7 @@
       "path": "src/alpharank/data/composed_snapshot.py",
       "readers": [
         "scripts/open_source/build_composed_model_snapshot.py",
+        "src/alpharank/data/mart.py",
         "src/alpharank/data/warehouse_migration.py",
         "src/alpharank/replay/causal_snapshot.py"
       ]
@@ -5832,6 +5848,21 @@
         "scripts/_archive/2026-08-20/download_data.py",
         "scripts/_archive/2026-08-20/download_data_incremental.py",
         "src/alpharank/backtest/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/composed_snapshot.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.mart",
+      "path": "src/alpharank/data/mart.py",
+      "readers": [
         "src/alpharank/production/legacy_pipeline.py"
       ]
     },
@@ -7841,6 +7872,7 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/data/lineage.py",
+        "src/alpharank/data/mart.py",
         "src/alpharank/data/price_eligibility.py",
         "src/alpharank/data/processing.py",
         "src/alpharank/data/snapshot_storage.py",
@@ -7866,6 +7898,7 @@
       "invokes": [
         "scripts/run_legacy.py",
         "src/alpharank/causal_snapshot.py",
+        "src/alpharank/data/mart.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/publishing.py",
@@ -8587,9 +8620,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 115,
-    "internal_edge_count": 687,
-    "library_count": 175,
-    "python_file_count": 297,
+    "internal_edge_count": 690,
+    "library_count": 176,
+    "python_file_count": 298,
     "script_count": 122,
     "unread_node_count": 116
   }

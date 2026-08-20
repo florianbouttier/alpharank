@@ -195,12 +195,12 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `DATA-001` | figer le dictionnaire des emplacements actuels et de leurs lecteurs | fait | 35 fichiers/packages, 58 références statiques et 261 arêtes lecteur-emplacement dans un inventaire machine-lisible |
+| `DATA-001` | figer le dictionnaire des emplacements actuels et de leurs lecteurs | fait | 35 fichiers/packages, 59 références statiques et 263 arêtes lecteur-emplacement dans un inventaire machine-lisible |
 | `DATA-002` | déclarer `warehouse/raw` comme cible de toutes les sources brutes, EODHD inclus | fait | huit fournisseurs ont une racine RAW unique, des datasets déclarés et des contrats communs de reçu/manifeste |
 | `DATA-003` | enregistrer chaque téléchargement par reçu et hash ; réutiliser le payload s'il est identique | fait | reçu immuable par tentative, échecs inclus ; objet adressé par SHA-256 et manifeste fournisseur vérifié |
 | `DATA-004` | normaliser uniquement dans `stg` | fait | contrat STG sans priorité ni sélection ; conflits fournisseur conservés comme observations distinctes |
 | `DATA-005` | rendre `def` responsable du choix de valeur et de sa provenance | fait | règle versionnée, cutoff causal, reçu choisi et motif explicite pour chaque clé résolue ou non |
-| `DATA-006` | construire les entrées AlphaRank uniquement depuis `mart` | à faire | parité exacte avec un snapshot validé |
+| `DATA-006` | construire les entrées AlphaRank uniquement depuis `mart` | fait | Legacy résout par défaut un mart canonique ; neuf hashes DEF, mart et snapshot source sont identiques |
 | `DATA-007` | définir le snapshot comme publication immuable du mart, pas comme couche concurrente | à faire | manifeste et hashes complets |
 | `DATA-008` | migrer les racines historiques par référence/hash avant toute copie | à faire | aucun nouveau téléchargement, aucune clé perdue |
 | `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | à faire | ancien et nouveau chemins comparés |

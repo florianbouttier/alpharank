@@ -455,13 +455,13 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.358,
+      "duration_seconds": 0.416,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/production/test_warehouse_migration.py",
       "suite": "production",
-      "test_case_count": 3
+      "test_case_count": 5
     },
     {
       "domain": "replay_governance",
@@ -1285,7 +1285,7 @@
       "replay_governance": 15,
       "reporting": 6
     },
-    "duration_seconds": 124.754,
+    "duration_seconds": 124.812,
     "failure_count": 3,
     "file_count": 115,
     "outcome_counts": {
@@ -1299,6 +1299,6 @@
       "replay": 9,
       "unit": 64
     },
-    "test_case_count": 441
+    "test_case_count": 443
   }
 }
