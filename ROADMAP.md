@@ -42,7 +42,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 3 | `DOC-015` | imposer le contrat Git une tâche = un commit documenté | — | fait |
 | 4 | `DOC-009` | découper le catalogue Boosting de 3 899 lignes | lot DOC ci-dessous | fait |
 | 5 | `DOC-010` | découpler les tests des chemins documentaires historiques | lot DOC ci-dessous | fait |
-| 6 | `QUAL-002` | configurer Ruff sans reformatage global | lot QUAL ci-dessous | à faire |
+| 6 | `QUAL-002` | configurer Ruff sans reformatage global | lot QUAL ci-dessous | fait |
 | 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | à faire |
 | 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | à faire — bloque la publication économique |
 
@@ -150,7 +150,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
 | `QUAL-001` | activer les choix de `CONTRIBUTING.md` pour le nouveau code et les nouvelles données | fait | standard version 1 documenté et indexé |
-| `QUAL-002` | configurer Ruff dans `pyproject.toml` sans reformater le dépôt | à faire | configuration et commande documentées |
+| `QUAL-002` | configurer Ruff dans `pyproject.toml` sans reformater le dépôt | fait | configuration partagée et commandes ciblées documentées |
 | `QUAL-003` | établir une baseline des alertes et empêcher seulement les nouvelles régressions | à faire | rapport reproductible, CI différentielle |
 | `QUAL-004` | activer le typage progressivement par package | à faire | périmètre mypy explicite et croissant |
 | `QUAL-005` | classer les tests en unitaires, intégration, replay, réseau et production | à faire | marqueurs et commandes séparées |

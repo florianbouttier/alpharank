@@ -275,6 +275,23 @@ L'activation de ces contrôles est volontairement reportée aux tâches `QUAL-*`
 de la roadmap. Aucun outil ne doit reformater d'un coup le dépôt actuel : cela
 rendrait les changements métier impossibles à relire.
 
+### Ruff pendant la migration
+
+La configuration partagée est dans `pyproject.toml` : Python 3.10, lignes de
+100 caractères, règles `E4`, `E7`, `E9`, `F` et `I`, avec le formateur en
+guillemets doubles. Pour une tâche qui modifie du Python, contrôler uniquement
+les fichiers concernés :
+
+```bash
+ruff check <fichiers-python-modifiés>
+ruff format --check <fichiers-python-modifiés>
+```
+
+Ne pas exécuter `ruff format` sur tout le dépôt. Jusqu'à `QUAL-003`, un
+`ruff check src scripts tests` global reste un diagnostic de dette historique,
+pas une gate verte attendue ; la baseline et le contrôle différentiel seront
+ajoutés séparément.
+
 ## 13. Décision active et migration
 
 La norme retenue est donc :
