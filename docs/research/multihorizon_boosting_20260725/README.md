@@ -8,7 +8,7 @@ from a raw Legacy weight column. Use `performance_report.md` and the
 
 This directory is the detailed audit trail requested for the multi-horizon
 study. The durable conclusion is also recorded in
-`docs/boosting_signal_copy_model_catalog.md`; this folder keeps the protocol,
+`docs/research/boosting_signal_copy_model_catalog.md`; this folder keeps the protocol,
 commands, run identifiers, diagnostics, and interpretation together.
 
 ## Question

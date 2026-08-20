@@ -1,5 +1,8 @@
 # Diagnostic clonage legacy - 2026-06-14
 
+> **Archive datée.** Ce diagnostic reste consultable mais n'est pas une règle
+> méthodologique active.
+
 ## Changement de priorite
 
 Avant d'essayer de generaliser ou de battre legacy, il faut d'abord verifier qu'un modele ML sait reproduire ses signaux et ses trades.

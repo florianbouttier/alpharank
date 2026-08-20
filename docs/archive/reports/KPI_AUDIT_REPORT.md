@@ -1,5 +1,8 @@
 # FundamentalProcessor Audit Report
 
+> Archived historical audit. This document is evidence, not the current data
+> or methodology contract.
+
 ## 1. Overview
 The `FundamentalProcessor` class (in `src/alpharank/data/processing.py`) is responsible for transforming raw quarterly financial statements into a structured, monthly time-series of fundamental KPIs and valuation ratios for each ticker.
 

@@ -1,5 +1,8 @@
 # Rapport : Trous de Données par Ticker — S&P 500 Actuel
 
+> **Archive datée.** Les chiffres ci-dessous décrivent le package observé à la
+> date du rapport, pas la couverture courante.
+
 **Date :** 11 mai 2026  
 **Source :** SEC companyfacts (`data/open_source/official/raw/financials_sec_companyfacts.parquet`) vs EODHD legacy (`data/eodhd/output/`)  
 **Univers :** S&P 500 actuel (503 tickers au 2026-04-01)  

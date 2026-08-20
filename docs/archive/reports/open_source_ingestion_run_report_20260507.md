@@ -1,5 +1,8 @@
 # Open-Source Data Ingestion Report - 2026-05-07
 
+> Archived run report. It records one historical execution and is not the
+> current ingestion contract.
+
 ## Executive Summary
 
 The official open-source ingestion completed successfully on 2026-05-07.
@@ -218,4 +221,3 @@ Interpretation:
 - These are source-level semantic differences versus EODHD, not necessarily fatal strategy differences.
 - For `run_legacy.py`, current evidence says the open-source package is usable because the strategy path, optimizer outputs, final holdings, and combined metrics match on the aligned scope.
 - For any future strategy using raw statement KPIs directly, keep using the audit reports before declaring parity.
-

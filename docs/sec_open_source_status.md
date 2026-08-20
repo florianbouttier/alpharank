@@ -375,8 +375,8 @@ Une fois ce statut lu, les docs utiles sont:
 
 - `docs/sec_fundamentals_contract.md`
 - `docs/open_source_ingestion_architecture.md`
-- `docs/open_source_cadrage_status_2025.md` pour le contexte historique du package multi-source
-- `docs/audit_donnees_financieres_2025.md` pour l'audit detaille du chantier
+- `docs/archive/reports/open_source_cadrage_status_2025.md` pour le contexte historique du package multi-source
+- `docs/archive/reports/audit_donnees_financieres_2025.md` pour l'audit detaille du chantier
 
 ## Regle de mise a jour
 

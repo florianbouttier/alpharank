@@ -1,5 +1,8 @@
 # Diagnostic EMA vs XGBoost vs legacy - 2026-06-14
 
+> **Archive datée.** Ce diagnostic reste consultable mais n'est pas une règle
+> méthodologique active.
+
 ## Verdict
 
 Oui, l'idee EMA-only etait la bonne experience a faire.

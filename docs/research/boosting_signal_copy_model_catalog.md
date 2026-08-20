@@ -1,5 +1,9 @@
 # Catalogue central des modeles boosting / legacy-copy
 
+> **Rôle : registre chronologique de recherche.** Ce document conserve les
+> expériences et décisions passées ; il n'est pas un onboarding. La synthèse
+> méthodologique active reste dans
+> [`../legacy_boosting_methodology.md`](../legacy_boosting_methodology.md).
 Date de creation de cette doc : 2026-06-14.
 
 Cette page est le point central pour se rappeler quels modeles ont ete testes,

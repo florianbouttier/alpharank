@@ -1,5 +1,8 @@
 # Audit des Données Financières — AlphaRank
 
+> **Archive datée.** Ce rapport est conservé comme preuve historique et ne
+> décrit pas automatiquement l'état courant des données.
+
 **Date de l'audit :** 10 mai 2026  
 **Auditeur :** OpenCode (agent IA)  
 **Périmètre :** Données fondamentales (financials) dans les packages `data/sec/output/` et `data/open_source/output/`, avec comparaison legacy EODHD  

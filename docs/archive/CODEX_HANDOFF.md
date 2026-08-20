@@ -1,3 +1,9 @@
+# Archive du Codex Handoff
+
+> Journal historique figé lors du nettoyage documentaire du 2026-08-20. Ne pas
+> y ajouter de nouvel état courant. Commencer par [`../../README.md`](../../README.md),
+> [`../README.md`](../README.md) et les roadmaps racine.
+
 # Codex Handoff
 
 Last updated: 2026-08-16
@@ -161,7 +167,7 @@ Legacy and boosting still own separate signal and training logic, but finalized
 holdings now share `src/alpharank/portfolio/` for contract validation,
 allocation primitives, monthly simulation, turnover/costs, performance,
 calendar alignment, and standard artifacts. The canonical architecture and
-formulas are in [`docs/common_portfolio_backtest_engine.md`](./common_portfolio_backtest_engine.md).
+formulas are in [`docs/common_portfolio_backtest_engine.md`](../common_portfolio_backtest_engine.md).
 
 The frozen validation command is
 `scripts/validate_common_portfolio_engine.py`. Against the validated Legacy run
@@ -230,37 +236,37 @@ This file is the central cross-track note. Do not create scattered experiment
 notes when one of these canonical documents already fits:
 
 - Boosting / Legacy-copy R&D:
-  [`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md)
+  [`docs/boosting_signal_copy_model_catalog.md`](../research/boosting_signal_copy_model_catalog.md)
 - Detailed 2026-07-25 multi-horizon protocol and run log:
-  [`docs/research/multihorizon_boosting_20260725/`](./research/multihorizon_boosting_20260725/)
+  [`docs/research/multihorizon_boosting_20260725/`](../research/multihorizon_boosting_20260725/)
 - Corrected exact Legacy EMA comparison, trading and SHAP:
-  [`docs/research/exact_legacy_ema_20260725/`](./research/exact_legacy_ema_20260725/)
+  [`docs/research/exact_legacy_ema_20260725/`](../research/exact_legacy_ema_20260725/)
 - Locked challenger confirmation and HTML papers:
-  [`docs/research/locked_challenger_confirmation_20260725/`](./research/locked_challenger_confirmation_20260725/)
+  [`docs/research/locked_challenger_confirmation_20260725/`](../research/locked_challenger_confirmation_20260725/)
 - Long-history exact-EMA risk heads, allocation test and HTML papers:
-  [`docs/research/legacy_ema_risk_overlay_long_history_20260725/`](./research/legacy_ema_risk_overlay_long_history_20260725/)
+  [`docs/research/legacy_ema_risk_overlay_long_history_20260725/`](../research/legacy_ema_risk_overlay_long_history_20260725/)
 - Validated-snapshot replay and Legacy performance reconciliation:
-  [`docs/research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/`](./research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/)
+  [`docs/research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/`](../research/legacy_ema_risk_overlay_long_history_clean_v2_20260726/)
 - Semantic price/ticker/universe audit, versioned full-trajectory quarantine,
   and causal ML rerun:
-  [`docs/research/legacy_ema_data_integrity_audit_20260726/`](./research/legacy_ema_data_integrity_audit_20260726/)
+  [`docs/research/legacy_ema_data_integrity_audit_20260726/`](../research/legacy_ema_data_integrity_audit_20260726/)
 - Monthly portfolio production:
-  [`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md)
+  [`docs/monthly_portfolio_runbook.md`](../monthly_portfolio_runbook.md)
 - Complete Legacy and Boosting signal pseudocode, data usage, liquidity gates,
   and code architecture:
-  [`docs/legacy_boosting_methodology.md`](./legacy_boosting_methodology.md)
+  [`docs/legacy_boosting_methodology.md`](../legacy_boosting_methodology.md)
 - SEC/open-source data status:
-  [`docs/sec_open_source_status.md`](./sec_open_source_status.md)
+  [`docs/sec_open_source_status.md`](../sec_open_source_status.md)
 - SEC data robustness and replay incident:
-  [`docs/sec_data_robustness_plan.md`](./sec_data_robustness_plan.md)
+  [`docs/sec_data_robustness_plan.md`](../sec_data_robustness_plan.md)
 - SEC/open-source audit appendices:
-  [`docs/audit_donnees_financieres_2025.md`](./audit_donnees_financieres_2025.md),
-  [`docs/rapport_couverture_sp500_revenue_netincome.md`](./rapport_couverture_sp500_revenue_netincome.md),
-  [`docs/rapport_trous_ticker_par_ticker.md`](./rapport_trous_ticker_par_ticker.md)
+  [`docs/audit_donnees_financieres_2025.md`](./reports/audit_donnees_financieres_2025.md),
+  [`docs/rapport_couverture_sp500_revenue_netincome.md`](./reports/rapport_couverture_sp500_revenue_netincome.md),
+  [`docs/rapport_trous_ticker_par_ticker.md`](./reports/rapport_trous_ticker_par_ticker.md)
 - Backtest feature formulas:
-  [`docs/backtest_feature_reference.md`](./backtest_feature_reference.md)
+  [`docs/backtest_feature_reference.md`](../backtest_feature_reference.md)
 - Open-source ingestion architecture:
-  [`docs/open_source_ingestion_architecture.md`](./open_source_ingestion_architecture.md)
+  [`docs/open_source_ingestion_architecture.md`](../open_source_ingestion_architecture.md)
 
 When work changes a method, run procedure, data lineage rule, or R&D conclusion,
 update the relevant canonical doc in the same commit. New notes should be rare
@@ -284,7 +290,7 @@ not be quoted directly for this comparison because it used SPY `close` and
 included an incomplete July Legacy return.
 
 The detailed reconciliation and remaining point-in-time caveats are in
-[`docs/research/legacy_ema_data_integrity_audit_20260726/`](./research/legacy_ema_data_integrity_audit_20260726/).
+[`docs/research/legacy_ema_data_integrity_audit_20260726/`](../research/legacy_ema_data_integrity_audit_20260726/).
 The reproducible ticker/month CAGR attribution is in
 `outputs/legacy_attribution_20260809/`; its script is
 `scripts/experiments/analyze_legacy_return_attribution.py`. The full audit
@@ -473,7 +479,7 @@ Current conclusion:
   fixed concentrated top 5.
 
 Detailed source of truth:
-[`docs/boosting_signal_copy_model_catalog.md`](./boosting_signal_copy_model_catalog.md).
+[`docs/boosting_signal_copy_model_catalog.md`](../research/boosting_signal_copy_model_catalog.md).
 
 ### Monthly Portfolio / Replayability
 
@@ -504,7 +510,7 @@ Current production rule:
   retained `input_snapshot/`.
 
 Detailed source of truth:
-[`docs/monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md).
+[`docs/monthly_portfolio_runbook.md`](../monthly_portfolio_runbook.md).
 
 2026-07-27 freshness extension:
 
@@ -551,8 +557,8 @@ Current notable result:
 
 Detailed sources of truth:
 
-- [`docs/sec_open_source_status.md`](./sec_open_source_status.md)
-- [`docs/sec_data_robustness_plan.md`](./sec_data_robustness_plan.md)
+- [`docs/sec_open_source_status.md`](../sec_open_source_status.md)
+- [`docs/sec_data_robustness_plan.md`](../sec_data_robustness_plan.md)
 
 ## 1. Current priorities
 
@@ -592,7 +598,7 @@ The user currently cares about both, but with different intent:
 
 Canonical reference for backtest formulas and feature construction:
 
-- [`docs/backtest_feature_reference.md`](./backtest_feature_reference.md)
+- [`docs/backtest_feature_reference.md`](../backtest_feature_reference.md)
 
 Do not reconstruct feature formulas from memory when this document exists. Update it when behavior changes.
 

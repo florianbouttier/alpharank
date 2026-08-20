@@ -1,5 +1,8 @@
 # Rapport Boosting CPCV - Seuil relatif 5 %
 
+> **Archive datée.** Ce rapport conserve un résultat de recherche passé ; il ne
+> définit pas le modèle courant.
+
 Date du run : 2026-06-11  
 Run dir : `outputs/xgboost_timefold_backtest_20260611_013248`  
 Code de référence : commits `85a2b12`, `e69537b`, `903207b`, `02ba3bf`

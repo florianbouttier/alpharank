@@ -1,5 +1,8 @@
 # Rapport de Couverture : totalRevenue & netIncome — S&P 500 Historique
 
+> **Archive datée.** Les chiffres ci-dessous décrivent le package observé à la
+> date du rapport, pas la couverture courante.
+
 **Date :** 10 mai 2026
 **Source :** Package SEC-only (`data/sec/output/`) comparé à EODHD legacy (`data/eodhd/output/`)
 **Métriques focus :** `totalRevenue`, `netIncome` (demandé à Codex)

@@ -1,5 +1,8 @@
 # Rapport boosting walk-forward - 2026-06-12
 
+> **Archive datée.** Ce rapport conserve un diagnostic passé ; il ne définit
+> pas le modèle courant.
+
 ## Synthese
 
 J'ai ajoute une voie de training/backtest plus proche de l'usage mensuel reel :
