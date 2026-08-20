@@ -351,6 +351,10 @@ python scripts/quality/check_dependencies.py
 Le mode `--write` régénère ensemble `requirements.txt` et `environment.yml` ;
 il n'est utilisé que dans une tâche dédiée qui indexe les trois fichiers.
 
+La CI possède deux jobs sans matrice implicite : `alpharank` valide ce dépôt
+depuis son seul checkout ; `portfolio-integration` récupère explicitement le
+dépôt consommateur et porte seul ses permissions, caches et builds.
+
 ## 13. Décision active et migration
 
 La norme retenue est donc :
