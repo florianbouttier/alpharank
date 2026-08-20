@@ -129,7 +129,7 @@ production history.
   rows drift outside an explicit allowed window.
 - History gate: after publication, historize the final package under
   `data/open_source/history/output/open_source_output_*/`; this is now covered
-  by `tests/test_open_source_publishing.py`.
+  by `tests/integration/test_open_source_publishing.py`.
 - Lineage gate: fail publication if `snapshot_manifest.json`, copied lineage
   `manifest.json`, and ingestion run manifest disagree on run id. The publish
   order now prevents stale lineage manifests in newly retained snapshots; a

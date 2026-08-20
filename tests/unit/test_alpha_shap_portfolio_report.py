@@ -8,7 +8,7 @@ import polars as pl
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[1]
+    Path(__file__).resolve().parents[2]
     / "scripts"
     / "experiments"
     / "render_alpha_shap_portfolio_report.py"

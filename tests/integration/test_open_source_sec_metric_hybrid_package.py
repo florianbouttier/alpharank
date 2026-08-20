@@ -6,7 +6,7 @@ import polars as pl
 
 from alpharank.utils.module_loading import load_module_from_path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts" / "open_source"
+SCRIPT_DIR = Path(__file__).resolve().parents[2] / "scripts" / "open_source"
 _HYBRID_PACKAGE_MODULE = load_module_from_path(
     "alpharank_test_build_sec_metric_hybrid_package",
     SCRIPT_DIR / "build_sec_metric_hybrid_package.py",

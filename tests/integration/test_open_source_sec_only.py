@@ -797,7 +797,7 @@ def test_build_sec_only_financials_preserves_recent_locally_coherent_source_quar
 
 
 def test_build_quarterly_presence_uses_separate_financial_and_eps_grids() -> None:
-    module_path = Path(__file__).resolve().parents[1] / "scripts" / "open_source" / "build_sec_quality_dashboard.py"
+    module_path = Path(__file__).resolve().parents[2] / "scripts" / "open_source" / "build_sec_quality_dashboard.py"
     spec = importlib.util.spec_from_file_location("build_sec_quality_dashboard", module_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

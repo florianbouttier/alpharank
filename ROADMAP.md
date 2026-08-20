@@ -187,7 +187,7 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
 | `TESTORG-001` | cataloguer les 93 tests par domaine, niveau, réseau et durée | fait | 109 fichiers suivis catalogués sans déplacement ; 419 cas mesurés, dont trois dépendances locales explicites |
-| `TESTORG-002` | créer une arborescence `unit`, `integration`, `replay` et `production` sans changer la découverte Pytest | à faire | même liste de tests collectés avant/après |
+| `TESTORG-002` | créer une arborescence `unit`, `integration`, `replay` et `production` sans changer la découverte Pytest | fait | 419 identifiants canoniques identiques avant/après ; réseau isolé sous `integration/network` |
 | `TESTORG-003` | découper les deux fichiers de tests de plus de 1 000 lignes | à faire | mêmes scénarios et assertions |
 | `TESTORG-004` | centraliser uniquement les fixtures réellement partagées | à faire | dépendances de fixture lisibles et locales par défaut |
 

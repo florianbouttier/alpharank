@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def test_alpharank_ci_is_independent_from_portfolio_checkout() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     workflow = (root / ".github/workflows/methodology-validation.yml").read_text(encoding="utf-8")
 
     alpharank_job, portfolio_job = workflow.split("  portfolio-integration:", maxsplit=1)

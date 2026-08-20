@@ -7,3 +7,5 @@ commands do not implement portfolio, signal or data-provider logic.
   graph, or regenerates it explicitly with `--write`.
 - `build_test_catalog.py` merges the suite policy with a JUnit report produced
   from a clean index checkout; it does not execute tests itself.
+- `build_test_collection.py` records path-independent Pytest node identifiers
+  so a physical move cannot silently add or remove a scenario.

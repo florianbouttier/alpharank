@@ -24,7 +24,7 @@ def _require_unique_document(
 
 
 def test_documentation_structure_maps_normative_rules_to_code_and_tests() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     documents = _load_markdown_documents(root)
 
     required_contract_fragments = (
@@ -41,7 +41,7 @@ def test_documentation_structure_maps_normative_rules_to_code_and_tests() -> Non
         "reference_close_adjusted_close_v1",
         "next_session_open_v1",
         "sec-filing-availability-v1",
-        "tests/test_recomputable_replay.py::test_replay_recomputes_outputs_from_sealed_inputs",
+        "tests/replay/test_recomputable_replay.py::test_replay_recomputes_outputs_from_sealed_inputs",
     )
     _require_unique_document(
         documents,

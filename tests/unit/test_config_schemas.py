@@ -8,7 +8,7 @@ from alpharank.quality.config_schemas import (
     validate_config_value,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "configs/data_contracts/config_schema_registry_v1.json"
 
 

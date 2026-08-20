@@ -416,8 +416,8 @@ true historical point-in-time feed.
 
 ## Tests
 
-Core tests are in `tests/test_portfolio_engine.py` and
-`tests/test_portfolio_attribution.py`. They cover timing,
+Core tests are in `tests/unit/test_portfolio_engine.py` and
+`tests/unit/test_portfolio_attribution.py`. They cover timing,
 lookahead rejection, missing-return handling, adapter equivalence, turnover,
 calendar alignment, and complete-year performance. Existing backtest and
 multi-horizon tests exercise the compatibility wrappers.

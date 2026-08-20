@@ -11,7 +11,7 @@ from alpharank.quality.test_suites import (
     load_test_suite_policy,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_ordered_suite_rules_take_precedence_over_broad_patterns() -> None:
@@ -19,21 +19,22 @@ def test_ordered_suite_rules_take_precedence_over_broad_patterns() -> None:
         policy_id="fixture",
         default_suite="unit",
         rules=(
-            SuiteRule("production", ("tests/test_open_source_nightly.py",)),
-            SuiteRule("integration", ("tests/test_open_source_*.py",)),
-            SuiteRule("network", ("tests/test_network.py",)),
-            SuiteRule("replay", ("tests/test_replay.py",)),
+            SuiteRule("production", ("tests/production/test_*.py",)),
+            SuiteRule("network", ("tests/integration/network/test_*.py",)),
+            SuiteRule("integration", ("tests/integration/test_*.py",)),
+            SuiteRule("replay", ("tests/replay/test_*.py",)),
         ),
     )
 
-    assert classify_test_path("tests/test_open_source_nightly.py", policy) == "production"
-    assert classify_test_path("tests/test_open_source_storage.py", policy) == "integration"
-    assert classify_test_path("tests/test_small_function.py", policy) == "unit"
+    assert classify_test_path("tests/production/test_open_source_nightly.py", policy) == "production"
+    assert classify_test_path("tests/integration/network/test_yahoo.py", policy) == "network"
+    assert classify_test_path("tests/integration/test_storage.py", policy) == "integration"
+    assert classify_test_path("tests/unit/test_small_function.py", policy) == "unit"
 
 
 def test_repository_policy_classifies_every_suite_and_test_file() -> None:
     policy = load_test_suite_policy(ROOT / "configs/quality/test_suites_v1.json")
-    paths = [path.relative_to(ROOT).as_posix() for path in (ROOT / "tests").glob("test_*.py")]
+    paths = [path.relative_to(ROOT).as_posix() for path in (ROOT / "tests").rglob("test_*.py")]
 
     report = build_test_suite_report(paths, policy)
 

@@ -41,6 +41,11 @@ REQUIRED_README_DIRS = (
     "src/alpharank/utils",
     "src/alpharank/visualization",
     "tests",
+    "tests/integration",
+    "tests/integration/network",
+    "tests/production",
+    "tests/replay",
+    "tests/unit",
 )
 
 DIRECTORY_INDEX_DIRS = (
@@ -53,6 +58,7 @@ DIRECTORY_INDEX_DIRS = (
     "src/alpharank/data",
     "src/alpharank/data/open_source",
     "src/alpharank/portfolio",
+    "tests",
 )
 
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")

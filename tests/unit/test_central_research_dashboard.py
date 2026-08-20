@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = (
     PROJECT_ROOT
     / "scripts/experiments/render_central_research_dashboard.py"

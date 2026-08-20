@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "open_source" / "build_sec_kpi_scenario_comparison.py"
+MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "open_source" / "build_sec_kpi_scenario_comparison.py"
 SPEC = importlib.util.spec_from_file_location("build_sec_kpi_scenario_comparison", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)

@@ -180,42 +180,42 @@
     "src/alpharank/visualization/financial_comparison.py": 5,
     "src/alpharank/visualization/optuna_report.py": 2,
     "src/alpharank/visualization/plotting.py": 13,
-    "tests/test_alpha_shap_portfolio_report.py": 1,
-    "tests/test_boosting_v2_replay.py": 1,
-    "tests/test_build_roll_forward_price_package.py": 1,
-    "tests/test_causal_snapshot.py": 1,
-    "tests/test_central_research_dashboard.py": 1,
-    "tests/test_common_v2_replay.py": 1,
-    "tests/test_documentation_structure.py": 1,
-    "tests/test_feature_availability.py": 1,
-    "tests/test_fundamental_coverage.py": 1,
-    "tests/test_governance_baseline.py": 1,
-    "tests/test_governance_promotion.py": 1,
-    "tests/test_governance_runtime_provenance.py": 1,
-    "tests/test_governance_sealed_confirmation.py": 1,
-    "tests/test_legacy_search_protocol.py": 1,
-    "tests/test_legacy_v2_replay.py": 1,
-    "tests/test_methodology_v2_study.py": 1,
-    "tests/test_multihorizon_research.py": 1,
-    "tests/test_open_source_earnings.py": 2,
-    "tests/test_open_source_legacy_export.py": 2,
-    "tests/test_open_source_nightly.py": 1,
-    "tests/test_open_source_price_fallback.py": 1,
-    "tests/test_open_source_reference_tickers.py": 1,
-    "tests/test_open_source_refresh_policy.py": 1,
-    "tests/test_open_source_sec_metric_hybrid_package.py": 2,
-    "tests/test_portfolio_attribution.py": 1,
-    "tests/test_portfolio_benchmark.py": 1,
-    "tests/test_portfolio_engine.py": 1,
-    "tests/test_run_legacy_open_source_lineage.py": 1,
-    "tests/test_run_sec_q4_fix2_candidate.py": 1,
-    "tests/test_sec_core_kpi_yearly_report.py": 1,
-    "tests/test_sec_kpi_scenario_comparison.py": 1,
-    "tests/test_snapshot_revision_audit.py": 1,
-    "tests/test_start_year_performance.py": 1,
-    "tests/test_terminal_event_registry.py": 1,
-    "tests/test_terminal_price_registry.py": 1,
-    "tests/test_warehouse_migration.py": 1
+    "tests/integration/network/test_open_source_refresh_policy.py": 1,
+    "tests/integration/test_build_roll_forward_price_package.py": 1,
+    "tests/integration/test_causal_snapshot.py": 1,
+    "tests/integration/test_open_source_earnings.py": 2,
+    "tests/integration/test_open_source_legacy_export.py": 2,
+    "tests/integration/test_open_source_price_fallback.py": 1,
+    "tests/integration/test_open_source_reference_tickers.py": 1,
+    "tests/integration/test_open_source_sec_metric_hybrid_package.py": 2,
+    "tests/production/test_governance_promotion.py": 1,
+    "tests/production/test_open_source_nightly.py": 1,
+    "tests/production/test_run_legacy_open_source_lineage.py": 1,
+    "tests/production/test_warehouse_migration.py": 1,
+    "tests/replay/test_boosting_v2_replay.py": 1,
+    "tests/replay/test_common_v2_replay.py": 1,
+    "tests/replay/test_legacy_v2_replay.py": 1,
+    "tests/replay/test_snapshot_revision_audit.py": 1,
+    "tests/unit/test_alpha_shap_portfolio_report.py": 1,
+    "tests/unit/test_central_research_dashboard.py": 1,
+    "tests/unit/test_documentation_structure.py": 1,
+    "tests/unit/test_feature_availability.py": 1,
+    "tests/unit/test_fundamental_coverage.py": 1,
+    "tests/unit/test_governance_baseline.py": 1,
+    "tests/unit/test_governance_runtime_provenance.py": 1,
+    "tests/unit/test_governance_sealed_confirmation.py": 1,
+    "tests/unit/test_legacy_search_protocol.py": 1,
+    "tests/unit/test_methodology_v2_study.py": 1,
+    "tests/unit/test_multihorizon_research.py": 1,
+    "tests/unit/test_portfolio_attribution.py": 1,
+    "tests/unit/test_portfolio_benchmark.py": 1,
+    "tests/unit/test_portfolio_engine.py": 1,
+    "tests/unit/test_run_sec_q4_fix2_candidate.py": 1,
+    "tests/unit/test_sec_core_kpi_yearly_report.py": 1,
+    "tests/unit/test_sec_kpi_scenario_comparison.py": 1,
+    "tests/unit/test_start_year_performance.py": 1,
+    "tests/unit/test_terminal_event_registry.py": 1,
+    "tests/unit/test_terminal_price_registry.py": 1
   },
   "fingerprints": [
     {
@@ -233,14 +233,6 @@
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/open_source/build_sec_overlay_package.py",
       "source": "from build_sec_output_package import publish_sec_output_package"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "0147ac37e1581e75968ed923da9512d3de3075812e8807e6a7c04afbf76db6fe",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_portfolio_attribution.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -272,6 +264,14 @@
       "fingerprint": "03f5fb9c6d976c95cfa287a877729b499c0e97a14af3a4f3319c4cbceb78585e",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/data/feature_availability.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "04364d0c688aadb187b537153779bfde66002db44452d431316962506d1c5b73",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_portfolio_engine.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -331,27 +331,11 @@
       "source": "from typing import Union, Sequence, Optional, Tuple"
     },
     {
-      "code": "F841",
-      "count": 1,
-      "fingerprint": "08ab5389939155cab5e1a0a7dddd1bc49d74d32de237949bea9e3652f4a894a0",
-      "message": "Local variable `general` is assigned to but never used",
-      "path": "tests/test_open_source_legacy_export.py",
-      "source": "general = pl.read_parquet(output_dir / \"US_General.parquet\")"
-    },
-    {
       "code": "I001",
       "count": 1,
       "fingerprint": "08f22f469de9227d52daed7e35273712f4ec2199caa330ac33bd1c530112264a",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/data/snapshot_storage.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "0939bccf68b2973bade67a7a42336d49060603a387caa81fa30b7f26bfef1e90",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_governance_runtime_provenance.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -379,6 +363,14 @@
       "source": "from __future__ import annotations"
     },
     {
+      "code": "F841",
+      "count": 1,
+      "fingerprint": "0b600768d2995bc0fb3c2633f23c130eae5bc8323cf3bd638dbd15ef5c12d26a",
+      "message": "Local variable `second` is assigned to but never used",
+      "path": "tests/unit/test_legacy_search_protocol.py",
+      "source": "second = write_legacy_search_audit("
+    },
+    {
       "code": "I001",
       "count": 1,
       "fingerprint": "0c11705af0f8c7af27dfc344cd102d6e022ed1b7707b0caa739ac351039a80fc",
@@ -400,6 +392,14 @@
       "fingerprint": "0d7888bb1dcf68ad52b24b9b02c1fa6de888e7d1eb1e6c56fc84e978c1f6a9d1",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/data/open_source/publishing.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "0d9cfe768b9ac5cc6dff4dd4520af5f93464193e8a87fb216fa70dd6ffb0ac76",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/integration/test_open_source_reference_tickers.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -425,6 +425,14 @@
       "message": "`typing.Callable` imported but unused",
       "path": "scripts/experiments/run_signal_copy_models.py",
       "source": "from typing import Callable, Sequence"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "0f3f4c6549806d8444850246be13477d39d8c275826f3c9a91fddbf172d4d988",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_governance_sealed_confirmation.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -485,22 +493,6 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "15117b4ab7aa46a30eb518ac99d2b28ff748846be4cbdf4e906e65da9ab61280",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_open_source_sec_metric_hybrid_package.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "F401",
-      "count": 1,
-      "fingerprint": "162563582a06e379da18aaee07eddb05cadfa3b4423ee71ad9605d913b8de402",
-      "message": "`alpharank.data.open_source.earnings.empty_earnings_calendar_frame` imported but unused",
-      "path": "tests/test_open_source_earnings.py",
-      "source": "empty_earnings_calendar_frame,"
-    },
-    {
-      "code": "I001",
-      "count": 1,
       "fingerprint": "1739a14f6583e8a646d4ddf00ac7b406a41a6744bf400c85670cbc2a8078e88d",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/multihorizon/pipeline.py",
@@ -529,14 +521,6 @@
       "message": "`plotly.subplots.make_subplots` imported but unused",
       "path": "src/alpharank/visualization/financial_comparison.py",
       "source": "from plotly.subplots import make_subplots"
-    },
-    {
-      "code": "F841",
-      "count": 1,
-      "fingerprint": "1886ac297845659815e1c83067b36f7a83ada49c28c95a56464c12ad7c16203f",
-      "message": "Local variable `earnings_export` is assigned to but never used",
-      "path": "tests/test_open_source_legacy_export.py",
-      "source": "earnings_export = pl.read_parquet(output_dir / \"US_Earnings.parquet\")"
     },
     {
       "code": "E402",
@@ -619,6 +603,14 @@
       "source": "empty_earnings_lineage_frame,"
     },
     {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "1fdfe9ed05ab5f966d33f3a59a59ec15a396715a3030f9317f11231721f9499b",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_sec_core_kpi_yearly_report.py",
+      "source": "from __future__ import annotations"
+    },
+    {
       "code": "E402",
       "count": 1,
       "fingerprint": "204190b1174d40a4c14878ef4092ced2619930c68c1593cae8b6f5e66d090964",
@@ -632,14 +624,6 @@
       "fingerprint": "206ed25481062ba4ccb27e230414cad774e1b3ccd84af280c1288f4d55b05d36",
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/experiments/run_residual_init_score_experiment.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "20afe96714ca18eeba399c6c5fd68f6af8f6e180c639e7881623e0007030dc03",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_methodology_v2_study.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -713,6 +697,14 @@
       "message": "Module level import not at top of file",
       "path": "scripts/build_common_legacy_boosting_replay.py",
       "source": "from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "2595883821d6e3f48c8653c5ce4f323e5b2d10ced45c0e2d038f6a4aad11aae8",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/replay/test_legacy_v2_replay.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "F403",
@@ -821,10 +813,26 @@
     {
       "code": "I001",
       "count": 1,
+      "fingerprint": "2be692ea93e3a3d690b77896db724df3019d412fad6fc46b8f505c0eccbb8ae0",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_alpha_shap_portfolio_report.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
       "fingerprint": "2cf21fa3e695466a765ec5ed7c0027d06db5a21859d29f78f2317bd02d1e6bca",
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/experiments/run_tradable_ema_regression_optuna.py",
       "source": "from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "2e623e49a00ac49dde615702cb496cce36cc236497439d1e6101b997a7e4cdda",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_documentation_structure.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "E402",
@@ -841,6 +849,22 @@
       "message": "Module level import not at top of file",
       "path": "scripts/experiments/run_legacy_ema_risk_heads.py",
       "source": "from alpharank.data.ticker_integrity import load_ticker_exclusion_registry"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "2f21e439bde92807d3acb367167ccacc7b60001aea5e28b6cd37e52956e90444",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/integration/test_open_source_earnings.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "2f3f6a2ff8c7a70f1e343d54aefb9662859f81ba48cf0161429962522e0a4fb6",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_terminal_price_registry.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "F541",
@@ -875,19 +899,11 @@
       "source": "overlay = performance.filter("
     },
     {
-      "code": "F841",
-      "count": 1,
-      "fingerprint": "31d1df08481eca44d856432f449ac2027940ec7eb39236c51e766ce5f9a8131d",
-      "message": "Local variable `second` is assigned to but never used",
-      "path": "tests/test_legacy_search_protocol.py",
-      "source": "second = write_legacy_search_audit("
-    },
-    {
       "code": "I001",
       "count": 1,
-      "fingerprint": "358048242acd4407867ada77ad4f50e1c84c1f8858fe639c645dfee475210255",
+      "fingerprint": "33c883150d97895fe7ebb0616b179d5628c71ed811213cc815d6d278660554e6",
       "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_run_sec_q4_fix2_candidate.py",
+      "path": "tests/unit/test_governance_baseline.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -901,10 +917,26 @@
     {
       "code": "I001",
       "count": 1,
+      "fingerprint": "36ee2cbe9fc392ff9c058b3377286c39b389d231a460ca4025f9d6b6fffcae22",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/production/test_warehouse_migration.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
       "fingerprint": "3734af986ea03ae089ed9331289965f8f74540e94de4f23256aa81623e12fc5c",
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/experiments/run_portfolio_boosting_rank_regression.py",
       "source": "from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN, _append_legacy, _load_legacy_labels  # noqa: E402"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "3795f8abef28147a2ff2572bfb3bac927d925662ff2b1e83facb58ab9f690834",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/production/test_run_legacy_open_source_lineage.py",
+      "source": "import hashlib"
     },
     {
       "code": "E402",
@@ -921,14 +953,6 @@
       "message": "Module level import not at top of file",
       "path": "scripts/experiments/confirm_locked_challenger.py",
       "source": "from alpharank.multihorizon.metrics import score_predictions"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "3a4769812419147c23533ce2ba4ad29600011bb39b39346f1409957e4f50c69e",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_alpha_shap_portfolio_report.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "F401",
@@ -957,17 +981,9 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "3dea0f7fee371075b65768fc14085332e74db0578845214766de53d944a14611",
+      "fingerprint": "3b9295df8f12984b70c678739a6d15b2c50b905e4d4ac73841b6d53c7eba5e8a",
       "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_warehouse_migration.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "3e35e8ca3f2f0fecd2a0e0f0e7264cb2be0c1b9d8570f5ebfa9040cd1415189a",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_multihorizon_research.py",
+      "path": "tests/production/test_governance_promotion.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -989,9 +1005,9 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "410637e02bc22e150dd0501f0436f65d75f413449020300e44b52c58a17f91f3",
+      "fingerprint": "3f53232012e52e385bc1b11f5b6362d55aa6e914784c0d54e574615960342f04",
       "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_governance_promotion.py",
+      "path": "tests/replay/test_snapshot_revision_audit.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -1033,14 +1049,6 @@
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/strategy/base.py",
       "source": "from abc import ABC, abstractmethod"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "44754c0babd73b2606cc130cd687d43bcd1658d76568dcc2df2818b693f565a4",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_portfolio_engine.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -1155,6 +1163,22 @@
       "source": "empty_earnings_long_frame,"
     },
     {
+      "code": "E402",
+      "count": 1,
+      "fingerprint": "4b2c4de9d17d6f96c3d171b503c60112d4fa2ebc00292e6a49fda342bcf2df14",
+      "message": "Module level import not at top of file",
+      "path": "tests/integration/test_open_source_sec_metric_hybrid_package.py",
+      "source": "from build_sec_metric_hybrid_package import merge_earnings_prefer_non_null_actuals"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "4d6f7a8b927f218c958a47c0d07f390116bd95e6e8709be7fb965e5f451441e0",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_start_year_performance.py",
+      "source": "from __future__ import annotations"
+    },
+    {
       "code": "I001",
       "count": 1,
       "fingerprint": "4da3cc71d7f55739c73ac1c3db7c279532430becb32936fab3b1e0da415478d6",
@@ -1181,22 +1205,6 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "4f4e6e5296af2c153328f99794bfdf82e11c2132f3369c7a9d04b6bde8d2c491",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_boosting_v2_replay.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "4fb966402514a09906c157999463311b772c2d0b69def31ad70355db00dc89b4",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_governance_sealed_confirmation.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
       "fingerprint": "50905ceb8f6a4ffa7fd22dc841c1ae3ced184fd12297440ac37b45d49b2ccd09",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/data/ticker_integrity.py",
@@ -1209,14 +1217,6 @@
       "message": "Module level import not at top of file",
       "path": "scripts/experiments/confirm_locked_challenger.py",
       "source": "from alpharank.multihorizon.preprocessing import fit_fold_preprocessor"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "511dfdf11dd71aeec6264d0aea68ea39434bc7076ac94693abd9e2cb52489ddb",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_sec_core_kpi_yearly_report.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "F401",
@@ -1253,6 +1253,14 @@
     {
       "code": "I001",
       "count": 1,
+      "fingerprint": "54061a11d1b32082c1e83cfeb59b2856586c733ddfe0407fca47cdadf10d6f5f",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_sec_kpi_scenario_comparison.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
       "fingerprint": "5460986bfa2189c14a7702c6046a6155372ccdaf7c80f68706225e9a298f0413",
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/experiments/run_live_alpha_portfolio.py",
@@ -1273,6 +1281,14 @@
       "message": "Multiple statements on one line (colon)",
       "path": "src/alpharank/visualization/plotting.py",
       "source": "except Exception: pass"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "596ed6cd74951ec407a243db304d417cef283a8cdc1baf8c7cf3b58d23256f24",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/integration/test_causal_snapshot.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "E402",
@@ -1389,34 +1405,10 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "6233d40ac66550dc1fcf6aaf46bd031d434320d40ccb3211608e2bd756cf7624",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_legacy_v2_replay.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
       "fingerprint": "627e285a9a495b14fa952d42e8af8083b2dd9f4922015ef9bc444abd4948e1a5",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/data/prices/__init__.py",
       "source": "from alpharank.data.prices.composition import ("
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "62bd91c6f026200085d697200564aad0b81f2ffcee4df7465100575bffb20cf1",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_terminal_price_registry.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "62c4e441b0ce7bc048c57955e2705ef4e866e11813b66fbae49f45be771d221c",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_build_roll_forward_price_package.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "E402",
@@ -1433,14 +1425,6 @@
       "message": "Module level import not at top of file",
       "path": "scripts/experiments/confirm_locked_challenger.py",
       "source": "from alpharank.multihorizon.legacy_ema import ("
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "63dd45b5e4423ca16ba7da0b07d645fdac5a21d2fd5b7e465619644b08022d14",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_documentation_structure.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -1477,9 +1461,17 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "67f09365b0a91f040986aeb78dae220d39cd17b4fce0df873de2aec88c122562",
+      "fingerprint": "66efd3e3ad4ea80dbf2b8ad00edd375fa138b37a702ddb16195b9c3071465b32",
       "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_central_research_dashboard.py",
+      "path": "tests/unit/test_run_sec_q4_fix2_candidate.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "68374afb1f24fbf763ad9ff5c35980b0f571ede0888c5784d269a6e2ec1cf83a",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_governance_runtime_provenance.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -1489,14 +1481,6 @@
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/models/shap_analysis.py",
       "source": "import os"
-    },
-    {
-      "code": "E402",
-      "count": 1,
-      "fingerprint": "693acf79dddf4bc054e052f2d25d2c111c426e3b6ba6183048b827b871cc5c52",
-      "message": "Module level import not at top of file",
-      "path": "tests/test_open_source_sec_metric_hybrid_package.py",
-      "source": "from build_sec_metric_hybrid_package import merge_earnings_prefer_non_null_actuals"
     },
     {
       "code": "E402",
@@ -1521,6 +1505,14 @@
       "message": "`typing.Iterable` imported but unused",
       "path": "src/alpharank/backtest/kpis.py",
       "source": "from typing import Dict, Iterable, List"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "6c8529055a5ae01add862e286674a800f038f2ebba70beb2f57d9930535ad145",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/production/test_open_source_nightly.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -1571,6 +1563,14 @@
       "source": "from build_sec_output_package import publish_sec_output_package"
     },
     {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "7410fc7722f1053682239ab21fa0090ca02c9b8e67ded7117f0af6747329f8a9",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/integration/test_build_roll_forward_price_package.py",
+      "source": "from __future__ import annotations"
+    },
+    {
       "code": "F401",
       "count": 1,
       "fingerprint": "7568db07335851e0c91ab15328c1dd34e28cfce67361221898ca4c1df37e9595",
@@ -1592,14 +1592,6 @@
       "fingerprint": "75c45b171d7c853b00a2a0bb249383362581e3fabaa13b4205e5c82efc042770",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/backtest/features.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "774816050914d2306dbb4049b283f2e09778abca2f18a03619a0698a6dfa2dab",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_open_source_reference_tickers.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -1797,25 +1789,9 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "88dcd14faaed3a47717c96cdf5c980f302e93c8c9160c297311cc423f09c4edf",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_governance_baseline.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
       "fingerprint": "892d8f7056d2c974ac8a2f85bcb7021eb272b67023f4ddf7a6c7da572ffa7c46",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/multihorizon/config.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "89495e99c111f89b8c890f81a107a6dfbf28a94954aafdfca7a31c865b149654",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_portfolio_benchmark.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -1845,26 +1821,10 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "8a892b194539ee20ab9179a37cc91d931a3d2172b76eecb9bfdb7545ca5fe262",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_open_source_refresh_policy.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
       "fingerprint": "8c626de4c8e3359c4bf8c353ca808c9c57f8f2bb6f68c8b8d267a2367eaaf3e5",
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/experiments/build_generalized_ema_expert_frame.py",
       "source": "from run_ema_rich_future_target_models import _recomposition_by_month, _recomposition_summary  # noqa: E402"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "8c98b04a501749084581b243e53fb26363eb3bb6aa8cb045a4a276bb59c117fe",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_terminal_event_registry.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -1901,25 +1861,9 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "8e16656b08bdf85cfbf307f39056d34925c9d5a6fb4a181cb6311be749aa2cf6",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_common_v2_replay.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
       "fingerprint": "8e220908225fde00ec28f3dc593b7d87bb483450245f414345945a805529438b",
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/open_source/audit_sec_earnings_coverage.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "8e7822790c5f1da3b87cb0087fba1e8070ad3249dada3edaab4954c2052b5e43",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_open_source_nightly.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -1947,12 +1891,28 @@
       "source": "from __future__ import annotations"
     },
     {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "90025559be6852d7ef462b885d94f8187cfea2c0907407a662b02508622dd162",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/replay/test_boosting_v2_replay.py",
+      "source": "from __future__ import annotations"
+    },
+    {
       "code": "F401",
       "count": 1,
       "fingerprint": "90d93ccfe2e0ab81cd5f1af9c705b2cb122b56eca6fb5e329a216e874f698617",
       "message": "`typing.Optional` imported but unused",
       "path": "src/alpharank/utils/data_utils.py",
       "source": "from typing import Union, Sequence, Optional, Tuple"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "90f3c3a1ff8463bdfed90eb8bebf4acc8ba65d004dfbbad948302e6967c22db5",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/integration/test_open_source_price_fallback.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "E701",
@@ -2027,6 +1987,14 @@
       "source": "from __future__ import annotations"
     },
     {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "96d3fc0d2bc34a95bc1f11018ba6132bc0248685b6b4745debd59227c39e5075",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_central_research_dashboard.py",
+      "source": "from __future__ import annotations"
+    },
+    {
       "code": "E722",
       "count": 1,
       "fingerprint": "9728eddd254bd6dc371d399b99a9566a2012d179b6fc78abb42b97e028800191",
@@ -2083,20 +2051,20 @@
       "source": "from __future__ import annotations"
     },
     {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "9c6bba4142c199f72d67fa66111a8cfd1d714325f2367493031655dd9459855f",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_feature_availability.py",
-      "source": "from __future__ import annotations"
-    },
-    {
       "code": "E402",
       "count": 1,
       "fingerprint": "9d0d722cc732f3d63a06c82cfd3630d2995f3b67d996ca7f3d73b45d7becacca",
       "message": "Module level import not at top of file",
       "path": "scripts/experiments/confirm_locked_challenger.py",
       "source": "from alpharank.multihorizon.confirmation import ("
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "9d38a31103d6d11caebbf9efe5cd9de5a467293056beb52aa1ddd65a4835f2ec",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_fundamental_coverage.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "E402",
@@ -2121,6 +2089,14 @@
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/generate_financial_report.py",
       "source": "import os"
+    },
+    {
+      "code": "F401",
+      "count": 1,
+      "fingerprint": "9ff21fa33833b5eb9b542dc8c1d6f3b34a4971ae3bd494890d7779d075efd87d",
+      "message": "`alpharank.data.open_source.earnings.empty_earnings_calendar_frame` imported but unused",
+      "path": "tests/integration/test_open_source_earnings.py",
+      "source": "empty_earnings_calendar_frame,"
     },
     {
       "code": "I001",
@@ -2149,17 +2125,9 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "a3d93c2b7b768bf4234bee408758ced74166c83d7f94d84237544c372514ce79",
+      "fingerprint": "a1f33af12a6c2a8f53831ce16cc443a890e984fa844adddb28123c7870511250",
       "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_open_source_earnings.py",
-      "source": "from __future__ import annotations"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "a50ea1d4cbacad0d9e4ce0ddf287c3cc1d03e25a9cdcc755d9a3f2f4ee2864c0",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_start_year_performance.py",
+      "path": "tests/unit/test_multihorizon_research.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -2187,14 +2155,6 @@
       "source": "from __future__ import annotations"
     },
     {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "aa1d0ab36a795e21b39797a6c4c0fe87d749aa85ef2da52f75e01622c4209b86",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_fundamental_coverage.py",
-      "source": "from __future__ import annotations"
-    },
-    {
       "code": "F401",
       "count": 1,
       "fingerprint": "aa3daf77974a987bc8300c2a2140e70667880cde09c15fa176245a32e07e6cf2",
@@ -2208,6 +2168,14 @@
       "fingerprint": "ab0d4a8b3b60a8eea9ea3a885b865cbc41c96178043a90cd28114ba6b905a11b",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/data/open_source/sec_raw_versions.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "abe2f4c2834c79929cf7c4e09668ba82d6e12364255d3bbf1b122521f1ffdd55",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/integration/network/test_open_source_refresh_policy.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -2225,14 +2193,6 @@
       "message": "`alpharank.data.open_source.earnings.empty_earnings_lineage_frame` imported but unused",
       "path": "src/alpharank/data/open_source/ingestion.py",
       "source": "empty_earnings_lineage_frame,"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "acd1d3abdab129ea843de9189d1b8ed540b49faf4896b1012ed4146a5d240d30",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_run_legacy_open_source_lineage.py",
-      "source": "import hashlib"
     },
     {
       "code": "F841",
@@ -2325,6 +2285,14 @@
     {
       "code": "I001",
       "count": 1,
+      "fingerprint": "b1ffb05010e3ed1d7bb735267bde718f03a3a931adc61952c79ba36aa3aa88c5",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_feature_availability.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
       "fingerprint": "b2000b99c3d946ec5f8889b392079242e10682ca7e74e7477650e888d545ae59",
       "message": "Import block is un-sorted or un-formatted",
       "path": "scripts/sync_eodhd_output.py",
@@ -2361,14 +2329,6 @@
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/backtest/__init__.py",
       "source": "from alpharank.backtest.application import ("
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "b5cb6f342efd3a3d672e0ab137be2224147666eea6d34b63cd92f152e8959a78",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_snapshot_revision_audit.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -2483,6 +2443,14 @@
       "source": "from __future__ import annotations"
     },
     {
+      "code": "F841",
+      "count": 1,
+      "fingerprint": "bd2bc6d05f0fc7335ef9b1149e0eccbd8fe1862f47d092ddc91ead460879b17c",
+      "message": "Local variable `earnings_export` is assigned to but never used",
+      "path": "tests/integration/test_open_source_legacy_export.py",
+      "source": "earnings_export = pl.read_parquet(output_dir / \"US_Earnings.parquet\")"
+    },
+    {
       "code": "F821",
       "count": 1,
       "fingerprint": "bdf6ea21a166f249dd086b393ad05fb3c6cf4b0786b662eb41a535e8c089652e",
@@ -2512,6 +2480,14 @@
       "fingerprint": "bf59464b6a04b6eae554059365a282fb36039286dc1f772bd5fbc8eb7b1aa9d2",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/portfolio/terminal_returns.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "bf6f38fb1a30f28ec9f4b5efdddac240b715a186653c92c783413fe71b2f4906",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/integration/test_open_source_sec_metric_hybrid_package.py",
       "source": "from __future__ import annotations"
     },
     {
@@ -2725,6 +2701,14 @@
     {
       "code": "I001",
       "count": 1,
+      "fingerprint": "d22a220a3b840da2f222f5408341a735f90e458b16867b3708fee3f99f807d39",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_terminal_event_registry.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
       "fingerprint": "d4ddc24bb766abb7e942df732fb1c97402bf1159930a3a25d541c1df3343b887",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/strategy/search_protocol.py",
@@ -2779,6 +2763,14 @@
       "source": "from __future__ import annotations"
     },
     {
+      "code": "F841",
+      "count": 1,
+      "fingerprint": "da24d137cb4095d7118340a858e23ec838f9389ccbec5ef1a33bab5fd4d4b0a2",
+      "message": "Local variable `general` is assigned to but never used",
+      "path": "tests/integration/test_open_source_legacy_export.py",
+      "source": "general = pl.read_parquet(output_dir / \"US_General.parquet\")"
+    },
+    {
       "code": "I001",
       "count": 1,
       "fingerprint": "da3fd9fac395aaf27d5e3b1d24bfde7252ea3ed4c7d50b38c01dd9240a8e61b8",
@@ -2827,12 +2819,28 @@
       "source": "from run_signal_copy_models import DEFAULT_LEGACY_PATH, DEFAULT_SOURCE_RUN, _append_legacy, _load_legacy_labels  # noqa: E402"
     },
     {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "dd4a417d63cfd95c08b0da69c1bec4f23e3c9b82c85f4c411db6f87c74e458f3",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_methodology_v2_study.py",
+      "source": "from __future__ import annotations"
+    },
+    {
       "code": "E701",
       "count": 1,
       "fingerprint": "ddd3dcf8976c0ca71dd6c4e22e522498d85dad405c86d2f32e2e1621f9a25d7f",
       "message": "Multiple statements on one line (colon)",
       "path": "src/alpharank/visualization/plotting.py",
       "source": "if returns_series.empty: continue"
+    },
+    {
+      "code": "I001",
+      "count": 1,
+      "fingerprint": "de68eb92dabffdf326d2759deba357d6655c5e4a721815e8418ab11b09c3d477",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/replay/test_common_v2_replay.py",
+      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -2873,14 +2881,6 @@
       "message": "`alpharank.data.open_source.storage.read_json` imported but unused",
       "path": "scripts/open_source/backfill_sec_core_history.py",
       "source": "read_json,"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "e3963482e7a5a3f261e0dd2918ccb8169c1e62e6ecafc00e85629206712ed8a9",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_causal_snapshot.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "E402",
@@ -2953,14 +2953,6 @@
       "message": "`matplotlib.pyplot` imported but unused",
       "path": "src/alpharank/strategy/legacy.py",
       "source": "import matplotlib.pyplot as plt"
-    },
-    {
-      "code": "I001",
-      "count": 1,
-      "fingerprint": "e97c54d9ecab931cc1721967cc6172bbc1ceb1a1bf3006fa5d27f41246c34211",
-      "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_open_source_price_fallback.py",
-      "source": "from __future__ import annotations"
     },
     {
       "code": "I001",
@@ -3101,6 +3093,14 @@
     {
       "code": "I001",
       "count": 1,
+      "fingerprint": "f2dd3288675080e862c3721dee4aa9c2894ef5af38028156996c75d990624159",
+      "message": "Import block is un-sorted or un-formatted",
+      "path": "tests/unit/test_portfolio_benchmark.py",
+      "source": "from __future__ import annotations"
+    },
+    {
+      "code": "I001",
+      "count": 1,
       "fingerprint": "f3e595bdf0e3c1c77ff47ad3688de5523c5cf950103b1b7a018300b8bd3de416",
       "message": "Import block is un-sorted or un-formatted",
       "path": "src/alpharank/data/open_source/fundamental_quality.py",
@@ -3149,9 +3149,9 @@
     {
       "code": "I001",
       "count": 1,
-      "fingerprint": "f7a8b5afea444bd2d0a29e52dc9df9cc5b8edfa5537c2ab4f50e8e78ecfa8118",
+      "fingerprint": "f75f1b1798f86acd9e5b1947c8fb9133254df65027016e478637366e2a573d90",
       "message": "Import block is un-sorted or un-formatted",
-      "path": "tests/test_sec_kpi_scenario_comparison.py",
+      "path": "tests/unit/test_portfolio_attribution.py",
       "source": "from __future__ import annotations"
     },
     {

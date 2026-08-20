@@ -10,7 +10,7 @@ from alpharank.quality.code_inventory import (
     validate_code_inventory,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 INVENTORY = ROOT / "docs/architecture/code_dependency_inventory_v1.json"
 
 

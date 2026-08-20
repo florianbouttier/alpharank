@@ -4,7 +4,7 @@ from pathlib import Path
 
 from alpharank.quality.error_handling import audit_error_handling
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_tracked_code_respects_explicit_error_handling_policy() -> None:

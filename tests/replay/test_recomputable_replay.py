@@ -33,7 +33,7 @@ def _holdings() -> pl.DataFrame:
 
 
 def test_replay_recomputes_outputs_from_sealed_inputs(tmp_path: Path) -> None:
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parents[2]
     model = tmp_path / "model.json"
     model.write_text('{"model":"fixture","version":1}\n', encoding="utf-8")
     config = {

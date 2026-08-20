@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 AUDIT_PATH = ROOT / "docs" / "architecture" / "script_archival_audit_v1.json"
 INVENTORY_PATH = ROOT / "docs" / "architecture" / "code_dependency_inventory_v1.json"
 

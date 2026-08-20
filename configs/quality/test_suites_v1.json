@@ -8,46 +8,25 @@
     {
       "suite": "production",
       "patterns": [
-        "tests/test_governance_promotion.py",
-        "tests/test_open_source_nightly.py",
-        "tests/test_run_legacy_open_source_lineage.py",
-        "tests/test_warehouse_migration.py"
+        "tests/production/test_*.py"
       ]
     },
     {
       "suite": "network",
       "patterns": [
-        "tests/test_current_constituent_price_refresh.py",
-        "tests/test_open_source_refresh_policy.py",
-        "tests/test_open_source_yahoo.py"
+        "tests/integration/network/test_*.py"
       ]
     },
     {
       "suite": "replay",
       "patterns": [
-        "tests/test_*replay.py",
-        "tests/test_definitive_prices.py",
-        "tests/test_future_mutation_invariance.py",
-        "tests/test_governance_economic_prefix.py",
-        "tests/test_reconciliation_v2.py",
-        "tests/test_snapshot_revision_audit.py"
+        "tests/replay/test_*.py"
       ]
     },
     {
       "suite": "integration",
       "patterns": [
-        "tests/test_build_roll_forward_price_package.py",
-        "tests/test_causal_snapshot.py",
-        "tests/test_composed_snapshot.py",
-        "tests/test_open_source_*.py",
-        "tests/test_persistent_price_history.py",
-        "tests/test_price_composition.py",
-        "tests/test_price_corporate_actions.py",
-        "tests/test_price_gates.py",
-        "tests/test_price_revisions.py",
-        "tests/test_price_seed.py",
-        "tests/test_raw_archive.py",
-        "tests/test_warehouse_*.py"
+        "tests/integration/test_*.py"
       ]
     }
   ]

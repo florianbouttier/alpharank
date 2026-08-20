@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 REPRESENTATIVE_COMMANDS = (
     "scripts/build_legacy_common_replay.py",
     "scripts/experiments/analyze_ema_anchor_recomposition_gap.py",

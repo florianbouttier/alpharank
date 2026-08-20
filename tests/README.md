@@ -3,6 +3,12 @@
 Tests unitaires et d'intégration de lignée, ingestion, causalité, stratégies,
 simulation et rapports.
 
+- `unit/` : contrats isolés et déterministes ;
+- `integration/` : composants et fichiers contrôlés ;
+- `integration/network/` : frontières fournisseur sans accès live implicite ;
+- `replay/` : snapshots, lignée, causalité et parité économique ;
+- `production/` : workflows et publication sur fixtures contrôlées.
+
 Conventions :
 
 - nommer le test selon le contrat protégé, pas selon l'incident du jour ;
@@ -17,7 +23,7 @@ dossier actif possède son README et que les liens Markdown locaux existent.
 ## Suites logiques
 
 La politique versionnée `configs/quality/test_suites_v1.json` attribue chaque
-fichier à une seule suite pendant la collecte, sans changer son emplacement :
+fichier à une seule suite selon son emplacement maintenu :
 
 ```bash
 python -m pytest -m unit

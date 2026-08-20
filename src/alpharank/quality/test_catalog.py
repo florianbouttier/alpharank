@@ -51,7 +51,14 @@ def tracked_test_paths(root: Path) -> list[str]:
     """Return the test files recorded by the current Git index."""
 
     completed = subprocess.run(
-        ["git", "ls-files", "-z", "tests/test_*.py"],
+        [
+            "git",
+            "ls-files",
+            "-z",
+            "--",
+            "tests/test_*.py",
+            "tests/**/test_*.py",
+        ],
         cwd=root,
         check=True,
         capture_output=True,
@@ -70,9 +77,13 @@ def build_test_catalog(
     """Combine static ownership with per-file Pytest JUnit measurements."""
 
     measurements = _load_junit_measurements(junit_path)
+    measurements_by_name = {Path(path).name: row for path, row in measurements.items()}
     rows: list[TestCatalogRow] = []
     for path in sorted(paths):
-        measurement = measurements.get(path, _empty_measurement())
+        measurement = measurements.get(
+            path,
+            measurements_by_name.get(Path(path).name, _empty_measurement()),
+        )
         suite = classify_test_path(path, policy)
         duration_seconds = round(float(measurement["duration_seconds"]), 6)
         rows.append(
@@ -203,8 +214,14 @@ def _load_junit_measurements(path: Path) -> dict[str, TestMeasurement]:
 
     measurements: dict[str, TestMeasurement] = {}
     for test_path, cases in grouped.items():
-        failures = [case for case in cases if case.find("failure") is not None]
-        missing_local_artifact = any("FileNotFoundError" in (failure.text or "") for failure in failures)
+        failures = [
+            failure
+            for case in cases
+            if (failure := case.find("failure")) is not None
+        ]
+        missing_local_artifact = any(
+            "FileNotFoundError" in (failure.text or "") for failure in failures
+        )
         measurements[test_path] = TestMeasurement(
             test_case_count=len(cases),
             duration_seconds=sum(float(case.attrib.get("time", "0")) for case in cases),

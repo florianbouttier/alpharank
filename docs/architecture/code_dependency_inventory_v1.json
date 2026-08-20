@@ -53,6 +53,7 @@
     "scripts/experiments/sweep_generalized_ema_expert_params.py",
     "scripts/maintenance/build_code_inventory.py",
     "scripts/maintenance/build_test_catalog.py",
+    "scripts/maintenance/build_test_collection.py",
     "scripts/open_source/audit_price_snapshot_vintages.py",
     "scripts/open_source/audit_sec_earnings_coverage.py",
     "scripts/open_source/backfill_sec_core_history.py",
@@ -849,6 +850,16 @@
       "kind": "import",
       "source": "scripts/maintenance/build_test_catalog.py",
       "target": "src/alpharank/quality/test_suites.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/maintenance/build_test_collection.py",
+      "target": "src/alpharank/quality/test_catalog.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/maintenance/build_test_collection.py",
+      "target": "src/alpharank/quality/test_collection.py"
     },
     {
       "kind": "import",
@@ -4377,6 +4388,20 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": true,
+      "imports": [
+        "src/alpharank/quality/test_catalog.py",
+        "src/alpharank/quality/test_collection.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.maintenance.build_test_collection",
+      "path": "scripts/maintenance/build_test_collection.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
       "imports": [],
       "invokes": [],
       "layer": "script",
@@ -7883,7 +7908,21 @@
       "module": "alpharank.quality.test_catalog",
       "path": "src/alpharank/quality/test_catalog.py",
       "readers": [
-        "scripts/maintenance/build_test_catalog.py"
+        "scripts/maintenance/build_test_catalog.py",
+        "scripts/maintenance/build_test_collection.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.quality.test_collection",
+      "path": "src/alpharank/quality/test_collection.py",
+      "readers": [
+        "scripts/maintenance/build_test_collection.py"
       ]
     },
     {
@@ -8431,11 +8470,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 113,
-    "internal_edge_count": 679,
-    "library_count": 169,
-    "python_file_count": 289,
-    "script_count": 120,
-    "unread_node_count": 113
+    "active_entrypoint_count": 114,
+    "internal_edge_count": 681,
+    "library_count": 170,
+    "python_file_count": 291,
+    "script_count": 121,
+    "unread_node_count": 114
   }
 }

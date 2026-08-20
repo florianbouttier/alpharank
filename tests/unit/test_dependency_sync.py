@@ -10,7 +10,7 @@ from alpharank.quality.dependencies import (
     render_requirements,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_dependency_views_are_generated_from_pyproject() -> None:

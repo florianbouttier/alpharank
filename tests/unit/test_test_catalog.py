@@ -8,11 +8,13 @@ from alpharank.quality.test_catalog import (
     classify_test_domain,
     tracked_test_paths,
 )
+from alpharank.quality.test_collection import collect_canonical_node_ids
 from alpharank.quality.test_suites import classify_test_path, load_test_suite_policy
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "docs" / "architecture" / "test_catalog_v1.json"
 POLICY = ROOT / "configs" / "quality" / "test_suites_v1.json"
+COLLECTION = ROOT / "docs" / "architecture" / "test_collection_v1.json"
 
 
 def test_versioned_catalog_covers_every_tracked_test_file() -> None:
@@ -25,12 +27,12 @@ def test_versioned_catalog_covers_every_tracked_test_file() -> None:
     assert catalog["summary"]["file_count"] == len(paths)
     assert all(row["domain"] == classify_test_domain(row["path"]) for row in rows)
     assert all(row["suite"] == classify_test_path(row["path"], policy) for row in rows)
-    assert all(
-        row["test_case_count"] > 0 or row["path"] == "tests/test_test_catalog.py"
-        for row in rows
-    )
+    assert all(row["test_case_count"] > 0 for row in rows)
     assert all(row["duration_seconds"] >= 0.0 for row in rows)
     assert set(catalog["summary"]["domain_counts"]) == set(ALLOWED_TEST_DOMAINS)
+
+    collection = json.loads(COLLECTION.read_text(encoding="utf-8"))
+    assert collect_canonical_node_ids(ROOT, paths) == collection["node_ids"]
 
 
 def test_network_and_failed_measurements_are_explicit() -> None:

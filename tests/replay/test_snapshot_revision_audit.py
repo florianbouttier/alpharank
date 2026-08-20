@@ -7,7 +7,7 @@ import polars as pl
 
 
 SCRIPT = (
-    Path(__file__).resolve().parents[1]
+    Path(__file__).resolve().parents[2]
     / "scripts/audit_open_source_snapshot_revisions.py"
 )
 SPEC = importlib.util.spec_from_file_location("snapshot_revision_audit", SCRIPT)
