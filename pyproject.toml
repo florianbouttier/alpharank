@@ -37,7 +37,12 @@ dev = [
   "pytest>=7.0",
   "ruff>=0.6",
   "mypy>=1.0",
+  "tomli>=2.0; python_version < '3.11'",
 ]
+
+[tool.alpharank.dependencies]
+conda-environment-name = "alpharank"
+conda-python = "3.11"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

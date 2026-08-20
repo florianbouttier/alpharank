@@ -155,7 +155,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-004` | activer le typage progressivement par package | fait | périmètre Mypy strict explicite, initialisé sur `alpharank.quality` et exécuté en CI |
 | `QUAL-005` | classer les tests en unitaires, intégration, replay, réseau et production | fait | politique ordonnée, marqueurs automatiques et cinq commandes séparées |
 | `QUAL-006` | ajouter les contrôles de documentation, lint et tests ciblés en CI | fait | six groupes CI appelables par la même commande locale |
-| `QUAL-007` | choisir `pyproject.toml` comme source des dépendances et générer ou vérifier les autres fichiers | à faire | absence de dérive entre les trois installations |
+| `QUAL-007` | choisir `pyproject.toml` comme source des dépendances et générer ou vérifier les autres fichiers | fait | vues pip et Conda déterministes, vérifiées dans la gate statique |
 | `QUAL-008` | rendre la CI AlphaRank autonome et isoler le contrôle Portfolio dans un job inter-projets explicite | à faire | AlphaRank validable sans checkout Portfolio |
 | `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | à faire | erreurs de clé refusées avant le run |
 | `QUAL-010` | corriger la gate CI pour un checkout sans artefacts locaux | fait | `--group ci` statique et huit tests ciblés verts depuis un dépôt temporaire propre |

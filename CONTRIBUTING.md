@@ -341,6 +341,16 @@ python scripts/quality/run_ci_checks.py --group all
 Chaque groupe peut être exécuté séparément avec `--group static`, `unit`,
 `integration`, `replay`, `network` ou `production`.
 
+`pyproject.toml` est l'unique source des dépendances. Vérifier ses deux vues de
+compatibilité avec :
+
+```bash
+python scripts/quality/check_dependencies.py
+```
+
+Le mode `--write` régénère ensemble `requirements.txt` et `environment.yml` ;
+il n'est utilisé que dans une tâche dédiée qui indexe les trois fichiers.
+
 ## 13. Décision active et migration
 
 La norme retenue est donc :

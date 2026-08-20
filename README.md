@@ -90,6 +90,10 @@ bash scripts/setup_conda_env.sh alpharank
 conda activate alpharank
 ```
 
+Les dépendances sont déclarées uniquement dans `pyproject.toml`.
+`requirements.txt` est sa vue runtime générée et `environment.yml` délègue
+l'installation Python à l'extra `dev` du même fichier.
+
 ## Vérifications courantes
 
 ```bash
