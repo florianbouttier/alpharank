@@ -29,8 +29,9 @@ de preuves rendraient à nouveau l'onboarding illisible. Il n'est pas supprimé,
 car il constitue l'historique d'audit demandé.
 
 Son nom de fichier conserve encore le mot `ROADMAP` pour ne pas casser les liens
-et contrôles historiques. `DOC-010` pourra le renommer en registre après avoir
-découplé ces lecteurs ; son rôle est déjà clarifié dès maintenant.
+externes et les références historiques. `DOC-010` a découplé les tests du chemin
+précédent sous `docs/` puis supprimé ce pointeur de compatibilité ; le registre
+racine est désormais l'unique fichier actif pour ce contenu.
 
 ## 2. Priorités actives
 
@@ -40,7 +41,7 @@ découplé ces lecteurs ; son rôle est déjà clarifié dès maintenant.
 | 2 | `DOC-014` | consolider `AGENTS.md` comme source unique et réduire `AGENT.md` à un pointeur | — | fait |
 | 3 | `DOC-015` | imposer le contrat Git une tâche = un commit documenté | — | fait |
 | 4 | `DOC-009` | découper le catalogue Boosting de 3 899 lignes | lot DOC ci-dessous | fait |
-| 5 | `DOC-010` | découpler les tests des chemins documentaires historiques | lot DOC ci-dessous | à faire |
+| 5 | `DOC-010` | découpler les tests des chemins documentaires historiques | lot DOC ci-dessous | fait |
 | 6 | `QUAL-002` | configurer Ruff sans reformatage global | lot QUAL ci-dessous | à faire |
 | 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | à faire |
 | 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | à faire — bloque la publication économique |
@@ -125,7 +126,7 @@ La carte détaillée se trouve dans
 | `DOC-007` | supprimer le premier doublon de rôle entre `AGENT.md` et `AGENTS.md` sans perdre le guide historique | fait | ancien guide singulier archivé |
 | `DOC-008` | vérifier tous les README locaux et liens | fait | validateur documentaire et test de structure verts |
 | `DOC-009` | découper le catalogue Boosting en synthèse courante et journaux datés | fait | synthèse de 98 lignes, quatre journaux et reconstruction SHA-256 exacte |
-| `DOC-010` | retirer les chemins documentaires de la logique des tests avant le classement final par thème | à faire | les tests valident le contenu, pas un ancien emplacement |
+| `DOC-010` | retirer les chemins documentaires de la logique des tests avant le classement final par thème | fait | découverte par contenu et ancien pointeur méthodologique supprimé |
 | `DOC-011` | formaliser le standard Python détaillé | fait | règles et checklist dans `docs/standards/python.md` |
 | `DOC-012` | formaliser le standard data détaillé | fait | contrats et checklist dans `docs/standards/data.md` |
 | `DOC-013` | formaliser l'organisation cible et les dépendances autorisées | fait | règles dans `docs/standards/repository.md` |
@@ -134,9 +135,9 @@ La carte détaillée se trouve dans
 | `DOC-016` | clarifier roadmap maître et registre méthodologique | fait | une seule liste de priorités actives, historique intégral conservé |
 | `DOC-017` | supprimer le pointeur singulier `AGENT.md` après audit de ses lecteurs | fait | aucun lecteur actif, `AGENTS.md` seule source normative, ancien guide conservé dans l'archive |
 
-`DOC-010` explique pourquoi plusieurs contrats restent temporairement à la
-racine de `docs/` : le code de test verrouille aujourd'hui leurs chemins et
-cette passe a reçu l'interdiction explicite de modifier du code.
+`DOC-010` a retiré des tests les chemins documentaires historiques. Les contrats
+restent directement sous `docs/` pour leurs lecteurs humains et liens publics ;
+un classement ultérieur exigera son propre inventaire de lecteurs.
 
 ## 7. Lot GIT — publier une histoire lisible en continu
 

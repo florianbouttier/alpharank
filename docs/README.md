@@ -63,10 +63,10 @@ code et aux nouvelles données :
 | Robustesse et migrations SEC | [`sec_data_robustness_plan.md`](sec_data_robustness_plan.md) |
 | État courant de la couverture SEC | [`sec_open_source_status.md`](sec_open_source_status.md) |
 
-Ces contrats restent temporairement directement sous `docs/` car plusieurs
-tests et commandes historiques connaissent leurs chemins. Leur éventuel
-classement par sous-dossier sera fait par `DOC-010`, après découplage explicite,
-et non par un déplacement cosmétique qui casserait les lecteurs.
+Les tests découvrent ces contrats par leur contenu normatif et ne verrouillent
+plus leur emplacement. Ils restent directement sous `docs/` pour conserver les
+liens humains et publics actuels ; un classement ultérieur devra inventorier
+ces lecteurs dans une tâche distincte.
 
 ## Recherche
 
