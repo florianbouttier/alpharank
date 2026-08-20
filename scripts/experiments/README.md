@@ -4,6 +4,10 @@ Scripts R&D non utilisés directement par la production mensuelle. Ils couvrent
 les challengers Boosting, les diagnostics EMA, l'attribution et les rapports
 HTML.
 
+`render_central_research_dashboard.py` ne porte que le rendu et l'orchestration
+du rapport central ; ses calculs sont propriétaires de
+`src/alpharank/reporting/central_research_data.py`.
+
 Règles :
 
 - commencer par un smoke test étroit ;

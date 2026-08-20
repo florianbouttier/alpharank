@@ -173,7 +173,7 @@ les plus faciles à déplacer.
 | `CODE-004` | alléger `scripts/run_legacy.py` en déplaçant la logique testable dans `src/` | fait | commande ramenée à moins de 350 lignes, moteur et hash de provenance sous `src/` |
 | `CODE-005` | découper `strategy/legacy.py` par agrégation, sélection et artefacts | fait | façades inchangées et sorties économiques caractérisées à l'identique |
 | `CODE-006` | découper `governance.py` par contrat de validation | fait | façade stable, six propriétaires documentés et 13 refus/messages inchangés |
-| `CODE-007` | séparer calcul et rendu dans les dashboards de plus de 1 000 lignes | à faire | données et HTML comparés séparément |
+| `CODE-007` | séparer calcul et rendu dans les dashboards de plus de 1 000 lignes | fait | deux scripts suivis sous 1 000 lignes, calculs et HTML testés séparément |
 | `CODE-008` | centraliser les commandes de comparaison aujourd'hui dupliquées | à faire | un seul moteur économique partagé |
 | `CODE-009` | remplacer les captures générales et `print()` par des erreurs et journaux explicites | à faire | aucun échec silencieux, run_id présent |
 | `CODE-010` | déplacer les scripts réellement obsolètes après audit des lecteurs | à faire | zéro import ou appel actif avant archivage |

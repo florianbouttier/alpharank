@@ -14,4 +14,6 @@ snapshots.
 
 Les scripts `probe_*`, `audit_*`, `repair_*` et `reconstruct_*` produisent des
 candidats ou diagnostics ; ils ne publient pas silencieusement la production.
+`build_sec_quality_dashboard.py` rend les tables calculées par
+`src/alpharank/reporting/sec_quality_data.py`.
 Contrat complet : `../../docs/open_source_ingestion_architecture.md`.

@@ -427,17 +427,12 @@
     {
       "kind": "import",
       "source": "scripts/experiments/render_central_research_dashboard.py",
-      "target": "src/alpharank/portfolio/attribution.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/experiments/render_central_research_dashboard.py",
-      "target": "src/alpharank/portfolio/lineage.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/experiments/render_central_research_dashboard.py",
       "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/experiments/render_central_research_dashboard.py",
+      "target": "src/alpharank/reporting/central_research_data.py"
     },
     {
       "kind": "import",
@@ -1068,6 +1063,11 @@
       "kind": "import",
       "source": "scripts/open_source/build_sec_overlay_package.py",
       "target": "src/alpharank/utils/module_loading.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/build_sec_quality_dashboard.py",
+      "target": "src/alpharank/reporting/sec_quality_data.py"
     },
     {
       "kind": "import",
@@ -3226,6 +3226,21 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/central_research_data.py",
+      "target": "src/alpharank/portfolio/attribution.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/central_research_data.py",
+      "target": "src/alpharank/portfolio/lineage.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/central_research_data.py",
+      "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/strategy/analytics.py",
       "target": "src/alpharank/portfolio/performance.py"
     },
@@ -3693,9 +3708,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/portfolio/attribution.py",
-        "src/alpharank/portfolio/lineage.py",
-        "src/alpharank/portfolio/performance.py"
+        "src/alpharank/portfolio/performance.py",
+        "src/alpharank/reporting/central_research_data.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -4383,7 +4397,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": true,
-      "imports": [],
+      "imports": [
+        "src/alpharank/reporting/sec_quality_data.py"
+      ],
       "invokes": [],
       "layer": "script",
       "lifecycle": "active",
@@ -7243,10 +7259,10 @@
       "module": "alpharank.portfolio.attribution",
       "path": "src/alpharank/portfolio/attribution.py",
       "readers": [
-        "scripts/experiments/render_central_research_dashboard.py",
         "scripts/experiments/render_latest_common_dashboard.py",
         "src/alpharank/common_v2.py",
-        "src/alpharank/portfolio/__init__.py"
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/reporting/central_research_data.py"
       ]
     },
     {
@@ -7349,10 +7365,10 @@
       "path": "src/alpharank/portfolio/lineage.py",
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
-        "scripts/experiments/render_central_research_dashboard.py",
         "scripts/experiments/render_latest_common_dashboard.py",
         "scripts/validate_common_portfolio_engine.py",
-        "src/alpharank/portfolio/__init__.py"
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/reporting/central_research_data.py"
       ]
     },
     {
@@ -7395,6 +7411,7 @@
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/reconciliation_v2.py",
+        "src/alpharank/reporting/central_research_data.py",
         "src/alpharank/strategy/analytics.py"
       ]
     },
@@ -7672,6 +7689,47 @@
       "path": "src/alpharank/replay_validation.py",
       "readers": [
         "scripts/validate_recomputable_replay_package.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting",
+      "path": "src/alpharank/reporting/__init__.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/attribution.py",
+        "src/alpharank/portfolio/lineage.py",
+        "src/alpharank/portfolio/performance.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.central_research_data",
+      "path": "src/alpharank/reporting/central_research_data.py",
+      "readers": [
+        "scripts/experiments/render_central_research_dashboard.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.sec_quality_data",
+      "path": "src/alpharank/reporting/sec_quality_data.py",
+      "readers": [
+        "scripts/open_source/build_sec_quality_dashboard.py"
       ]
     },
     {
@@ -7968,10 +8026,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 117,
-    "internal_edge_count": 640,
-    "library_count": 156,
-    "python_file_count": 274,
+    "internal_edge_count": 643,
+    "library_count": 159,
+    "python_file_count": 277,
     "script_count": 118,
-    "unread_node_count": 106
+    "unread_node_count": 107
   }
 }

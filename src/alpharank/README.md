@@ -14,6 +14,7 @@
 - `features/` : indicateurs communs de bas niveau.
 - `models/` : wrappers historiques XGBoost/SHAP.
 - `quality/` : contrôles différentiels de qualité du code et baselines associées.
+- `reporting/` : calculs de payloads et tables, séparés du rendu des dashboards.
 - `visualization/` : rapports Legacy historiques.
 - `utils/` : utilitaires transverses sans propriété métier.
 
