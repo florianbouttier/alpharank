@@ -119,7 +119,7 @@ La carte détaillée se trouve dans
 | ID | Action | Statut | Preuve attendue |
 | --- | --- | --- | --- |
 | `DOC-001` | inventorier tout le dépôt et mesurer les zones de confusion | prêt à committer | état des lieux ci-dessus |
-| `DOC-002` | écrire un point d'entrée unique pour les normes de développement | prêt à committer | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| `DOC-002` | écrire un point d'entrée unique pour les normes de développement | fait | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | `DOC-003` | réduire le README racine à un onboarding de cinq minutes | prêt à committer | parcours court et ancien README archivé |
 | `DOC-004` | placer les rapports datés, le handoff et les anciennes pages dans `docs/archive/` | prêt à committer | aucun rapport historique mélangé aux contrats courants |
 | `DOC-005` | rendre le registre méthodologique visible à la racine sans perdre son historique | prêt à committer | registre détaillé conservé et compatibilité temporaire documentée |
