@@ -275,6 +275,12 @@ what the provider returned; it does not silently carry a missing value forward.
 That business decision belongs in DEF, where any reused prior ticker/date must
 retain the original source run id and an explicit carried-forward reason.
 
+Canonical STG normalization lives in `src/alpharank/data/staging.py`. It accepts
+no provider priority and rejects selection columns; conflicting observations
+remain separate rows identified by business key, provider and RAW receipt. The
+legacy `stage_yahoo_prices` import remains compatible but its implementation now
+belongs to that STG module.
+
 Yahoo price STG casts the provider columns and normalizes ticker/date fields but
 does not drop, fill or select observations. DEF then resolves only the exact
 `ticker,date` key:

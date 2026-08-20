@@ -1844,6 +1844,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/open_source/definitive_prices.py",
+      "target": "src/alpharank/data/staging.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/open_source/earnings.py",
       "target": "src/alpharank/data/open_source/sec.py"
     },
@@ -5935,7 +5940,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/data/staging.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -6780,6 +6787,19 @@
         "src/alpharank/governance_contracts/baseline.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/causal_snapshot.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.staging",
+      "path": "src/alpharank/data/staging.py",
+      "readers": [
+        "src/alpharank/data/open_source/definitive_prices.py"
       ]
     },
     {
@@ -8556,9 +8576,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 115,
-    "internal_edge_count": 686,
-    "library_count": 173,
-    "python_file_count": 295,
+    "internal_edge_count": 687,
+    "library_count": 174,
+    "python_file_count": 296,
     "script_count": 122,
     "unread_node_count": 115
   }

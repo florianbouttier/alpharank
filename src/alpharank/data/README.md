@@ -20,3 +20,7 @@ identifiants fournisseur `lower_snake_case` sous `warehouse/raw`.
 y compris sans payload en cas d'échec. Les octets reçus sont stockés une seule
 fois sous leur SHA-256 ; plusieurs reçus identiques référencent le même objet et
 le manifeste fournisseur recompte et revalide tous ses reçus.
+
+`staging.py` porte la normalisation fournisseur-neutre : types et colonnes sont
+harmonisés, mais aucune priorité de source n'est acceptée. Deux fournisseurs en
+désaccord sur la même clé métier restent deux lignes reliées à leurs reçus RAW.

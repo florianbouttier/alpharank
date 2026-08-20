@@ -5,22 +5,12 @@ from typing import Sequence
 
 import polars as pl
 
-
-PRICE_VALUE_COLUMNS = (
-    "open",
-    "high",
-    "low",
-    "close",
-    "volume",
-    "adjusted_close",
+from alpharank.data.staging import (
+    PRICE_COLUMNS,
+    PRICE_METADATA_COLUMNS,
+    PRICE_VALUE_COLUMNS,
 )
-PRICE_METADATA_COLUMNS = (
-    "source",
-    "dataset",
-    "ingestion_run_id",
-    "ingested_at",
-)
-PRICE_COLUMNS = ("date", *PRICE_VALUE_COLUMNS, "ticker", *PRICE_METADATA_COLUMNS)
+from alpharank.data.staging import stage_yahoo_prices as stage_yahoo_prices
 
 
 @dataclass(frozen=True)
@@ -30,33 +20,6 @@ class DefinitivePriceResult:
     current_row_count: int
     carried_forward_row_count: int
     unresolved_row_count: int
-
-
-def stage_yahoo_prices(
-    frame: pl.DataFrame,
-    *,
-    run_id: str,
-    observed_at: str,
-    dataset: str = "prices_yfinance",
-) -> pl.DataFrame:
-    """Normalize one RAW Yahoo observation without selecting or filling rows."""
-
-    required = {"ticker", "date", *PRICE_VALUE_COLUMNS}
-    missing = sorted(required - set(frame.columns))
-    if missing:
-        raise ValueError(f"Yahoo STG price columns are missing: {missing}")
-    staged = frame.select(
-        pl.col("date").cast(pl.String, strict=False),
-        *(pl.col(column).cast(pl.Float64, strict=False) for column in PRICE_VALUE_COLUMNS),
-        pl.col("ticker").cast(pl.String, strict=False).str.to_uppercase(),
-    ).with_columns(
-        pl.lit("yfinance").alias("source"),
-        pl.lit(dataset).alias("dataset"),
-        pl.lit(run_id).alias("ingestion_run_id"),
-        pl.lit(observed_at).alias("ingested_at"),
-    )
-    _require_unique_price_keys(staged, layer="STG")
-    return staged.sort(["ticker", "date"])
 
 
 def bootstrap_definitive_prices(previous_validated: pl.DataFrame) -> pl.DataFrame:

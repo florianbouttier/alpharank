@@ -1146,6 +1146,17 @@
       "test_case_count": 5
     },
     {
+      "domain": "data",
+      "duration_class": "fast",
+      "duration_seconds": 0.002,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/test_staging.py",
+      "suite": "unit",
+      "test_case_count": 7
+    },
+    {
       "domain": "reporting",
       "duration_class": "fast",
       "duration_seconds": 0.008,
@@ -1256,27 +1267,27 @@
     "domain_counts": {
       "backtest": 7,
       "boosting": 5,
-      "data": 50,
+      "data": 51,
       "legacy": 6,
       "portfolio": 9,
       "quality_tooling": 15,
       "replay_governance": 15,
       "reporting": 6
     },
-    "duration_seconds": 124.749,
+    "duration_seconds": 124.751,
     "failure_count": 3,
-    "file_count": 113,
+    "file_count": 114,
     "outcome_counts": {
       "failed_missing_local_artifacts": 2,
-      "passed": 111
+      "passed": 112
     },
     "suite_counts": {
       "integration": 35,
       "network": 3,
       "production": 4,
       "replay": 9,
-      "unit": 62
+      "unit": 63
     },
-    "test_case_count": 430
+    "test_case_count": 437
   }
 }

@@ -59,6 +59,13 @@ sont ni copiées ni basculées par cette étape ; cette migration est suivie par
 
 Deux sources en désaccord restent deux observations distinctes dans `stg`.
 
+Le contrat exécutable `alpharank_staging_observations_v1` refuse explicitement
+les colonnes de sélection (`selected_source`, `source_priority`,
+`fallback_used`, `selection_reason`). Son API ne reçoit aucune priorité : elle
+normalise les types, conserve le nombre de lignes et impose une lignée
+`source_name`, `dataset_name`, `receipt_id`, `payload_sha256`, `retrieved_at`.
+Le choix entre candidats appartient exclusivement à `def`.
+
 ## 4. DEF — la valeur retenue et la raison
 
 `def` signifie **définitif pour une règle versionnée et une date de

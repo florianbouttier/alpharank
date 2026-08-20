@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 430,
+  "node_count": 437,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -397,6 +397,13 @@
     "test_snapshot_revision_audit.py::test_revision_audit_refuses_removed_columns_in_additive_mode",
     "test_snapshot_revision_audit.py::test_revision_audit_reports_additive_schema_without_ignoring_old_values",
     "test_snapshot_revision_audit.py::test_revision_audit_separates_exact_and_material_numeric_drift",
+    "test_staging.py::test_stg_keeps_conflicting_provider_observations_separate",
+    "test_staging.py::test_stg_rejects_duplicate_rows_from_one_receipt",
+    "test_staging.py::test_stg_rejects_source_selection_columns[fallback_used]",
+    "test_staging.py::test_stg_rejects_source_selection_columns[selected_source]",
+    "test_staging.py::test_stg_rejects_source_selection_columns[selection_reason]",
+    "test_staging.py::test_stg_rejects_source_selection_columns[source_priority]",
+    "test_staging.py::test_stg_result_is_independent_of_provider_input_order",
     "test_start_year_performance.py::test_calendar_report_keeps_partial_year_status",
     "test_start_year_performance.py::test_start_year_report_discloses_partial_boosting_history",
     "test_strategy_legacy.py::test_legacy_sector_cap_uses_pit_sector",
@@ -433,7 +440,7 @@
     "test_warehouse_migration.py::test_mart_pointer_promotion_is_atomic_and_rollback_restores_exact_bytes",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "c66bd99689b540c29aeba877e5d2656a3225af93c9baa6e4ccf416fea26e2ed2",
+  "node_ids_sha256": "914556d20d6b3f9e57dcc8a8634fcf4a1973e18337d1e289ef0f55eede7c6e5f",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }
