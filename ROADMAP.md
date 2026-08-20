@@ -149,7 +149,7 @@ cette passe a reçu l'interdiction explicite de modifier du code.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `QUAL-001` | activer les choix de `CONTRIBUTING.md` pour le nouveau code et les nouvelles données | prêt à committer | standard version 1 documenté et indexé |
+| `QUAL-001` | activer les choix de `CONTRIBUTING.md` pour le nouveau code et les nouvelles données | fait | standard version 1 documenté et indexé |
 | `QUAL-002` | configurer Ruff dans `pyproject.toml` sans reformater le dépôt | à faire | configuration et commande documentées |
 | `QUAL-003` | établir une baseline des alertes et empêcher seulement les nouvelles régressions | à faire | rapport reproductible, CI différentielle |
 | `QUAL-004` | activer le typage progressivement par package | à faire | périmètre mypy explicite et croissant |

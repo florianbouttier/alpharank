@@ -1,6 +1,6 @@
 # Normes de développement AlphaRank
 
-**Statut : proposition soumise au propriétaire — version 1.0, 20 août 2026.**
+**Statut : norme active pour tout nouveau code et toute nouvelle donnée — version 1.0, 20 août 2026.**
 
 Ce document est le point d'entrée. Les règles détaillées sont séparées pour
 rester consultables :
@@ -265,7 +265,7 @@ L'activation de ces contrôles est volontairement reportée aux tâches `QUAL-*`
 de la roadmap. Aucun outil ne doit reformater d'un coup le dépôt actuel : cela
 rendrait les changements métier impossibles à relire.
 
-## 13. Proposition et migration
+## 13. Décision active et migration
 
 La norme retenue est donc :
 
