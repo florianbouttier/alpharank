@@ -71,38 +71,48 @@ CODE-003 — Nettoyer l'ingestion, corriger les données et refaire le dashboard
    et la documentation.
 9. Créer l'unique commit.
 10. Vérifier le commit créé avec `git show --stat` et `git show`.
+11. Pousser immédiatement avec `git push origin main`.
+12. Vérifier après récupération des références que `main` et `origin/main`
+    désignent le même commit.
 
 Une tâche n'est `fait` que lorsque le commit existe et que ses validations sont
-documentées. Du code présent uniquement dans le worktree reste `en cours` ou
-`prêt à committer`.
+documentées. Pour le suivi visible à distance, elle n'est publiée comme `faite`
+que lorsque ce commit est présent sur `origin/main`. Du code présent uniquement
+dans le worktree reste `en cours` ou `prêt à committer`. Si le commit local
+existe mais que le push échoue, le handoff porte explicitement `push en attente`
+et le hash concerné ; pousser ce même commit reste l'action suivante.
 
 ## 4. Autorisation
 
 - Aucun commit sans autorisation explicite de l'utilisateur.
 - Une demande explicite d'exécuter un ensemble de tâches de roadmap autorise
   les commits unitaires nécessaires à cet ensemble.
-- Cette autorisation ne permet ni push, ni PR, ni suppression, ni réécriture
-  d'historique si ces actions n'ont pas été demandées.
+- Dans ce dépôt personnel, cette autorisation inclut le push normal immédiat de
+  chaque commit sur `origin/main`. Elle ne permet ni suppression, ni
+  réécriture d'historique, ni force-push.
 - En présence d'un worktree sale, ne pas demander automatiquement de le nettoyer
   ou de le stasher : isoler la tâche par staging sélectif.
 
 ## 5. Branches
 
-Nom recommandé :
+Le propriétaire étant le seul contributeur, le flux normal est :
 
 ```text
-codex/<task-id-lowercase>-<slug-court>
+main local -> origin/main
 ```
 
-Exemple : `codex/code-003-split-ingestion`.
-
-- Une branche peut contenir une suite ordonnée de tâches explicitement demandée,
-  mais chaque tâche reste un commit distinct.
-- Ne pas créer ou changer de branche si cela gêne des changements existants sans
-  vérifier d'abord le worktree.
-- Ne pas fusionner une autre branche uniquement pour obtenir un fichier ;
-  comprendre et isoler la modification nécessaire.
-- Pas de merge commit parasite dans une séquence « un commit par tâche ».
+- Travailler, committer et pousser directement depuis `main`.
+- Une branche `codex/<task-id-lowercase>-<slug-court>` n'est utilisée que sur
+  demande explicite ou pour un travail parallèle réellement isolé.
+- Une branche temporaire est réintégrée sans masquer les commits unitaires et
+  sans merge commit parasite lorsqu'un fast-forward est possible.
+- `main-save` désigne exclusivement l'ancien `main` distant au commit
+  `c1113ab0613c06c8e3deb27e7a7f35d892e80bca`. Elle est immuable : ne pas y
+  committer, la fusionner, la rebaser, la supprimer ou la faire avancer sans
+  demande explicite.
+- La présence d'un seul contributeur ne dispense pas de récupérer les
+  références distantes : une automatisation ou une modification depuis un
+  autre appareil peut avoir avancé `origin/main`.
 
 ## 6. Format du message
 
@@ -299,16 +309,33 @@ Par défaut :
 Un `git revert` est préféré pour annuler proprement un commit publié. La roadmap
 conserve le statut historique et référence la tâche de revert.
 
-## 14. Push et pull request
+## 14. Publication directe sur `main`
 
-- Aucun push sans demande explicite.
-- Avant push : tests verts, diff/commits revus, aucune donnée générée, branche
-  correcte et historique lisible.
-- Une PR décrit les tâches dans l'ordre et ne masque pas plusieurs tâches sous
-  un squash unique si l'exigence est un commit par tâche.
-- Ne pas utiliser un squash automatique qui détruit la correspondance
-  roadmap/commits sans décision explicite.
-- Aucun force-push sans revue précise de la branche et autorisation explicite.
+Chaque commit validé est publié immédiatement, afin que l'historique soit
+consultable depuis les autres appareils du propriétaire.
+
+Cycle obligatoire :
+
+1. vérifier que la branche courante est `main` ;
+2. exécuter `git fetch origin --prune` ;
+3. vérifier que `origin/main` n'a pas de commit absent de `main` ;
+4. exécuter les validations et relire le diff indexé ;
+5. créer l'unique commit de la tâche ;
+6. exécuter `git push origin main` sans délai ;
+7. récupérer à nouveau les références et comparer les hashes de `main` et
+   `origin/main`.
+
+Une pull request n'est pas exigée dans ce dépôt personnel. Si le push est
+rejeté ou si les historiques divergent :
+
+- ne pas forcer le push ;
+- ne pas rebaser, fusionner ou écraser automatiquement ;
+- inspecter les commits distants et les changements locaux ;
+- réconcilier explicitement en conservant la relation tâche/commit ;
+- signaler le hash local non publié et la cause dans le handoff.
+
+Le force-push est interdit par défaut, y compris sur `main-save`. Une exception
+exige une demande explicite nommant la branche et une revue de l'impact distant.
 
 ## 15. Checklist finale
 
@@ -321,4 +348,5 @@ conserve le statut historique et référence la tâche de revert.
 - [ ] impact économique/data déclaré ;
 - [ ] diff indexé relu entièrement ;
 - [ ] aucune modification tierce ou artefact généré ;
-- [ ] aucun push non autorisé.
+- [ ] branche courante `main` et absence de divergence distante ;
+- [ ] commit poussé sur `origin/main` et égalité des hashes vérifiée.

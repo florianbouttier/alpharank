@@ -36,7 +36,7 @@ découplé ces lecteurs ; son rôle est déjà clarifié dès maintenant.
 
 | Ordre | TASK-ID maître | Travail | Détail lié | Statut |
 | ---: | --- | --- | --- | --- |
-| 1 | `GIT-001` | publier chaque commit directement depuis `main` et conserver `main-save` | lot GIT ci-dessous | en cours |
+| 1 | `GIT-001` | publier chaque commit directement depuis `main` et conserver `main-save` | lot GIT ci-dessous | fait |
 | 2 | `DOC-014` | consolider `AGENTS.md` comme source unique et réduire `AGENT.md` à un pointeur | — | fait |
 | 3 | `DOC-015` | imposer le contrat Git une tâche = un commit documenté | — | fait |
 | 4 | `DOC-009` | découper le catalogue Boosting de 3 899 lignes | lot DOC ci-dessous | à faire |
@@ -143,7 +143,7 @@ cette passe a reçu l'interdiction explicite de modifier du code.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `GIT-001` | travailler sur `main`, pousser chaque commit et préserver l'ancien `main` sous `main-save` | en cours | sauvegarde distante vérifiée, `main` intégré sans réécriture et règle inscrite dans les documents normatifs |
+| `GIT-001` | travailler sur `main`, pousser chaque commit et préserver l'ancien `main` sous `main-save` | fait | `main-save` = `c1113ab…`, `main` intégré par fast-forward, publication immédiate inscrite dans les documents normatifs |
 
 ## 8. Lot QUAL — rendre les normes contrôlables
 

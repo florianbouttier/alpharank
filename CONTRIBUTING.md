@@ -243,6 +243,16 @@ Le contrat complet est dans [`docs/standards/git.md`](docs/standards/git.md).
   `refactor(CODE-003): remove runtime path injection`.
 - Le commit inclut implémentation, test ou preuve, documentation et passage de
   la tâche à `fait`.
+- Le dépôt étant maintenu par une seule personne, la branche normale de travail
+  et de publication est `main`. Une tâche autorisée est committée sur `main`,
+  puis poussée immédiatement avec `git push origin main` ; aucune confirmation
+  de push supplémentaire n'est attendue.
+- `main-save` conserve l'état de `main` antérieur à l'intégration du 20 août
+  2026, au commit `c1113ab0613c06c8e3deb27e7a7f35d892e80bca`. Cette branche
+  est une sauvegarde immuable, pas une seconde branche de développement.
+- Avant le commit, vérifier les références distantes. Après le push, vérifier
+  que les hashes de `main` et `origin/main` sont identiques. En cas de
+  divergence, ne jamais utiliser un force-push pour la masquer.
 - Une remise en forme globale, un déplacement et un changement métier ne sont
   jamais mélangés dans le même commit.
 - Les artefacts générés, données brutes, secrets, caches et gros résultats ne
@@ -250,7 +260,7 @@ Le contrat complet est dans [`docs/standards/git.md`](docs/standards/git.md).
 - Aucun historique n'est réécrit pour rendre une ancienne organisation plus
   jolie.
 
-## 12. Contrôles proposés avant fusion
+## 12. Contrôles proposés avant publication
 
 Après adoption, les contrôles minimaux seront :
 

@@ -70,8 +70,20 @@ Lire `docs/standards/git.md` avant tout commit.
 - Ne jamais mélanger reformatage, déplacement et changement métier.
 - Vérifier le diff indexé avant le commit ; ne jamais stage des fichiers sans
   rapport, données brutes, snapshots, caches, secrets ou gros outputs.
-- Aucun `git push` sans demande explicite. Aucun force-push sans demande portant
-  explicitement sur cette opération et revue de l'impact.
+- Le propriétaire étant seul sur ce dépôt, travailler et committer directement
+  sur `main` par défaut. Une branche séparée n'est créée que sur demande
+  explicite ou lorsqu'un travail parallèle ne peut pas être isolé autrement.
+- L'autorisation d'exécuter une tâche de roadmap inclut son unique commit et son
+  push normal. Après chaque commit validé, exécuter immédiatement
+  `git push origin main`, puis vérifier que `origin/main` porte le même hash.
+- Avant de committer, récupérer les références distantes et vérifier que
+  `main` n'a pas divergé de `origin/main`. En cas de divergence ou de rejet du
+  push, ne jamais forcer : inspecter et réconcilier explicitement.
+- `main-save` est la sauvegarde immuable de l'ancien `main` au commit
+  `c1113ab0613c06c8e3deb27e7a7f35d892e80bca`. Ne jamais l'avancer, la fusionner
+  ou la supprimer sans demande explicite du propriétaire.
+- Aucun force-push. Une éventuelle exception exige une demande portant
+  explicitement sur cette opération et une revue de l'impact distant.
 - Ne pas amender ou rebaser un commit déjà créé sans demande explicite. Une
   correction ultérieure reçoit une nouvelle tâche et un nouveau commit.
 
@@ -188,4 +200,5 @@ Le compte rendu final indique :
 - snapshot/run concernés lorsqu'il y en a ;
 - changement économique ou garantie de parité ;
 - risques, dette ou travail restant ;
-- absence de push si aucun push n'a été demandé.
+- hash local et hash distant après le push, ou raison précise d'un push en
+  attente.
