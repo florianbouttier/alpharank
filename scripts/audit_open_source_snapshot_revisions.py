@@ -64,14 +64,33 @@ def _compare_frames(
     keys: tuple[str, ...],
     example_limit: int = 100,
     materiality_tolerance: float = 0.0,
+    allow_additive_schema: bool = False,
 ) -> dict[str, Any]:
-    if previous.columns != current.columns:
+    previous_columns = previous.columns
+    current_columns = current.columns
+    added_columns = [column for column in current_columns if column not in previous_columns]
+    removed_columns = [column for column in previous_columns if column not in current_columns]
+    if previous_columns != current_columns and (
+        not allow_additive_schema or removed_columns
+    ):
         raise ValueError(
-            f"Schema drift: previous={previous.columns}, current={current.columns}"
+            "Schema drift: "
+            f"previous={previous_columns}, current={current_columns}, "
+            f"added={added_columns}, removed={removed_columns}"
         )
+    type_changes = {
+        column: {
+            "previous": str(previous.schema[column]),
+            "current": str(current.schema[column]),
+        }
+        for column in previous_columns
+        if column in current.schema and previous.schema[column] != current.schema[column]
+    }
+    if type_changes:
+        raise ValueError(f"Schema type drift: {type_changes}")
     _require_unique(previous, keys, label="previous frame")
     _require_unique(current, keys, label="current frame")
-    value_columns = [column for column in previous.columns if column not in keys]
+    value_columns = [column for column in previous_columns if column not in keys]
     previous_keys = previous.select(keys)
     current_keys = current.select(keys)
     added = current_keys.join(previous_keys, on=list(keys), how="anti")
@@ -156,6 +175,19 @@ def _compare_frames(
             }
         )
     return {
+        "schema": {
+            "policy": (
+                "allow_additive_current_columns"
+                if allow_additive_schema
+                else "exact_columns"
+            ),
+            "previous_columns": previous_columns,
+            "current_columns": current_columns,
+            "added_columns": added_columns,
+            "removed_columns": removed_columns,
+            "compared_columns": previous_columns,
+            "type_changes": type_changes,
+        },
         "previous_rows": previous.height,
         "current_rows": current.height,
         "added_rows": added.height,
@@ -237,12 +269,14 @@ def _audit_replays(
         pl.read_parquet(current_legacy_run / "legacy_common_holdings.parquet"),
         keys=("strategy", "decision_month", "holding_month", "ticker"),
         materiality_tolerance=1e-12,
+        allow_additive_schema=True,
     )
     legacy_monthly = _compare_frames(
         pl.read_parquet(previous_legacy_run / "legacy_common_monthly.parquet"),
         pl.read_parquet(current_legacy_run / "legacy_common_monthly.parquet"),
         keys=("strategy", "decision_month", "holding_month"),
         materiality_tolerance=1e-12,
+        allow_additive_schema=True,
     )
     prediction_path = Path("classification_h06/predictions.parquet")
     boosting_predictions = _compare_frames(
@@ -250,6 +284,7 @@ def _audit_replays(
         pl.read_parquet(current_boosting_run / prediction_path),
         keys=("decision_month", "ticker", "fold", "method", "horizon"),
         materiality_tolerance=1e-12,
+        allow_additive_schema=True,
     )
     return {
         "legacy_holdings": legacy_holdings,

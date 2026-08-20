@@ -42,3 +42,50 @@ def test_revision_audit_fails_on_duplicate_natural_keys() -> None:
         assert "duplicate natural keys" in str(exc)
     else:
         raise AssertionError("Expected duplicate natural keys to fail closed")
+
+
+def test_revision_audit_reports_additive_schema_without_ignoring_old_values() -> None:
+    previous = pl.DataFrame({"id": [1], "value": [1.0]})
+    current = pl.DataFrame({"id": [1], "value": [2.0], "cost_detail": [0.1]})
+
+    result = module._compare_frames(
+        previous,
+        current,
+        keys=("id",),
+        materiality_tolerance=1e-12,
+        allow_additive_schema=True,
+    )
+
+    assert result["schema"]["added_columns"] == ["cost_detail"]
+    assert result["schema"]["removed_columns"] == []
+    assert result["schema"]["compared_columns"] == ["id", "value"]
+    assert result["materially_changed_common_rows"] == 1
+
+
+def test_revision_audit_keeps_schema_strict_by_default() -> None:
+    previous = pl.DataFrame({"id": [1], "value": [1.0]})
+    current = pl.DataFrame({"id": [1], "value": [1.0], "detail": [0.1]})
+
+    try:
+        module._compare_frames(previous, current, keys=("id",))
+    except ValueError as exc:
+        assert "Schema drift" in str(exc)
+    else:
+        raise AssertionError("Expected additive columns to fail in strict mode")
+
+
+def test_revision_audit_refuses_removed_columns_in_additive_mode() -> None:
+    previous = pl.DataFrame({"id": [1], "value": [1.0], "detail": [0.1]})
+    current = pl.DataFrame({"id": [1], "value": [1.0]})
+
+    try:
+        module._compare_frames(
+            previous,
+            current,
+            keys=("id",),
+            allow_additive_schema=True,
+        )
+    except ValueError as exc:
+        assert "removed=['detail']" in str(exc)
+    else:
+        raise AssertionError("Expected removed columns to fail closed")
