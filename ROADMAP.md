@@ -134,6 +134,7 @@ La carte détaillée se trouve dans
 | `DOC-014` | consolider les instructions agents dans le seul fichier réellement chargé | fait | `AGENTS.md` court, ancien contenu archivé, `AGENT.md` simple pointeur |
 | `DOC-015` | formaliser le contrat Git tâche/commit/preuves | fait | `docs/standards/git.md` et liens normatifs |
 | `DOC-016` | clarifier roadmap maître et registre méthodologique | fait | une seule liste de priorités actives, historique intégral conservé |
+| `DOC-017` | supprimer le pointeur singulier `AGENT.md` après audit de ses lecteurs | fait | aucun lecteur actif, `AGENTS.md` seule source normative, ancien guide conservé dans l'archive |
 
 `DOC-010` explique pourquoi plusieurs contrats restent temporairement à la
 racine de `docs/` : le code de test verrouille aujourd'hui leurs chemins et

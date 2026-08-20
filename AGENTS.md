@@ -1,8 +1,8 @@
 # AlphaRank — instructions agents
 
 Ce fichier est l'unique source d'instructions automatiquement normative pour
-les agents travaillant dans ce dépôt. `AGENT.md` est seulement un pointeur de
-compatibilité. Ne jamais maintenir deux copies des règles.
+les agents travaillant dans ce dépôt. Ne jamais maintenir une seconde copie des
+règles sous un nom voisin.
 
 ## 1. Ordre de lecture
 

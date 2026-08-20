@@ -14,7 +14,7 @@ La racine est une page d'accueil, pas un espace de stockage.
 
 - `README.md` : onboarding court ;
 - `ROADMAP.md` et roadmaps majeures explicitement nommées ;
-- `CONTRIBUTING.md`, `AGENTS.md`, `AGENT.md` de compatibilité ;
+- `CONTRIBUTING.md` et l'unique guide agent `AGENTS.md` ;
 - `pyproject.toml`, fichier d'environnement et fichiers de dépendances ;
 - `.gitignore`, `.editorconfig` et configurations d'outils standard ;
 - fichiers légaux éventuels.

@@ -8,7 +8,7 @@ The monthly portfolio is produced by the legacy workflow in `scripts/run_legacy.
 Do not use the XGBoost time-fold backtest for the monthly portfolio unless the
 request explicitly asks for the boosting/R&D workflow.
 
-Before running the workflow, read `AGENTS.md` and `AGENT.md`. If the procedure
+Before running the workflow, read `AGENTS.md`. If the procedure
 or expected artifacts differ from those files, update the documentation in the
 same task.
 
