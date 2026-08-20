@@ -15,6 +15,8 @@ runs ni redécrire les deux modèles.
   hashée ancien/MART et décision explicite pour chaque lecteur Legacy actif.
 - [`legacy_data_archive_policy_v1.json`](legacy_data_archive_policy_v1.json) :
   gel contractuel, fenêtre d'observation et retour arrière des anciennes racines.
+- [`run_root_inventory_v1.json`](run_root_inventory_v1.json) : famille, date,
+  statut explicite disponible et volume des 346 racines historiques de `outputs/`.
 - [`test_catalog_v1.json`](test_catalog_v1.json) : domaine, suite, durée et
   résultat observé de chaque fichier de test suivi.
 - [`test_collection_v1.json`](test_collection_v1.json) : collecte Pytest

@@ -55,6 +55,7 @@
     "scripts/maintenance/build_data_location_inventory.py",
     "scripts/maintenance/build_data_reader_migration.py",
     "scripts/maintenance/build_legacy_archive_policy.py",
+    "scripts/maintenance/build_run_root_inventory.py",
     "scripts/maintenance/build_test_catalog.py",
     "scripts/maintenance/build_test_collection.py",
     "scripts/maintenance/catalog_historical_data_roots.py",
@@ -859,6 +860,11 @@
       "kind": "import",
       "source": "scripts/maintenance/build_legacy_archive_policy.py",
       "target": "src/alpharank/data/legacy_archive_policy.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/maintenance/build_run_root_inventory.py",
+      "target": "src/alpharank/governance_contracts/run_organization.py"
     },
     {
       "kind": "import",
@@ -4535,6 +4541,19 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/governance_contracts/run_organization.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.maintenance.build_run_root_inventory",
+      "path": "scripts/maintenance/build_run_root_inventory.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/quality/test_catalog.py",
         "src/alpharank/quality/test_suites.py"
       ],
@@ -7266,6 +7285,19 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.governance_contracts.run_organization",
+      "path": "src/alpharank/governance_contracts/run_organization.py",
+      "readers": [
+        "scripts/maintenance/build_run_root_inventory.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [
         "src/alpharank/governance_contracts/common.py",
         "src/alpharank/governance_contracts/contracts.py"
@@ -8807,11 +8839,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 118,
-    "internal_edge_count": 704,
-    "library_count": 180,
-    "python_file_count": 305,
-    "script_count": 125,
-    "unread_node_count": 119
+    "active_entrypoint_count": 119,
+    "internal_edge_count": 705,
+    "library_count": 181,
+    "python_file_count": 307,
+    "script_count": 126,
+    "unread_node_count": 120
   }
 }

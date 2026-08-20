@@ -42,6 +42,8 @@ dupliquer les contrats métier :
   comparaison ancien/MART et décision de migration de chaque lecteur Legacy.
 - [`architecture/legacy_data_archive_policy_v1.json`](architecture/legacy_data_archive_policy_v1.json) :
   gel, archivage par référence et procédure de retour arrière des anciennes racines.
+- [`architecture/run_root_inventory_v1.json`](architecture/run_root_inventory_v1.json) :
+  registre consultable des anciennes racines de résultats.
 
 ## Standards de développement
 

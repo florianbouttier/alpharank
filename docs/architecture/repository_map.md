@@ -145,6 +145,12 @@ aucun payload n'est déplacé et aucune suppression automatique n'est autorisée
 Le même contrat décrit le retour arrière lecteur par lecteur si un replay
 explicite ne peut plus résoudre sa source.
 
+Les 346 dossiers directement sous `outputs/` restent des résultats historiques,
+mais ils sont maintenant consultables dans
+[`run_root_inventory_v1.json`](run_root_inventory_v1.json) par famille, date,
+statut manifesté et volume. Le registre n'invente pas un statut à partir d'un
+nom libre : l'absence de manifeste conforme reste `legacy_unclassified`.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

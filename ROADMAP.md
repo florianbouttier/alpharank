@@ -214,7 +214,7 @@ doublons exacts et preuve de récupération.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `RUNORG-001` | inventorier les 346 dossiers racine de `outputs/` par famille, date, statut et taille | à faire | registre consultable sans ouvrir chaque dossier |
+| `RUNORG-001` | inventorier les 346 dossiers racine de `outputs/` par famille, date, statut et taille | fait | registre de 346 racines, 33,82 Go et 17 familles, sans inférence de statut depuis le nom |
 | `RUNORG-002` | définir un chemin unique `outputs/<famille>/<run_id>/` | à faire | convention documentée et validée |
 | `RUNORG-003` | séparer `candidate`, `validated`, `published` et `failed` dans le manifeste, pas dans des noms libres | à faire | statut explicite de chaque nouveau run |
 | `RUNORG-004` | relier chaque journal au manifeste du run | à faire | navigation dans les deux sens |
