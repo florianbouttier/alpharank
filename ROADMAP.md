@@ -171,7 +171,7 @@ les plus faciles à déplacer.
 | `CODE-002` | retirer les 35 injections de `sys.path` | fait | zéro injection restante et commandes représentatives exécutables hors dépôt |
 | `CODE-003` | découper `data/open_source/ingestion.py` par étape du pipeline | fait | orchestration, schémas, prix et référentiels séparés ; 63 tests de caractérisation verts |
 | `CODE-004` | alléger `scripts/run_legacy.py` en déplaçant la logique testable dans `src/` | fait | commande ramenée à moins de 350 lignes, moteur et hash de provenance sous `src/` |
-| `CODE-005` | découper `strategy/legacy.py` par agrégation, sélection et artefacts | à faire | décisions mensuelles identiques |
+| `CODE-005` | découper `strategy/legacy.py` par agrégation, sélection et artefacts | fait | façades inchangées et sorties économiques caractérisées à l'identique |
 | `CODE-006` | découper `governance.py` par contrat de validation | à faire | mêmes refus et mêmes messages structurés |
 | `CODE-007` | séparer calcul et rendu dans les dashboards de plus de 1 000 lignes | à faire | données et HTML comparés séparément |
 | `CODE-008` | centraliser les commandes de comparaison aujourd'hui dupliquées | à faire | un seul moteur économique partagé |

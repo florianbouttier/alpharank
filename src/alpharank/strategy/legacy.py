@@ -3,22 +3,20 @@ import numpy as np
 #from .data_preprocessing import DataPreprocessor
 #from .fundamentals import FundamentalAnalyzer
 from alpharank.data.processing import IndexDataManager, PricesDataPreprocessor, FundamentalProcessor
-from alpharank.data.sector_history import (
-    SECTOR_HISTORY_LINEAGE_COLUMNS,
-    resolve_point_in_time_sectors,
-)
-from alpharank.data.terminal_eligibility import (
-    TERMINAL_ENTRY_POLICY_ID,
-    apply_terminal_entry_gate,
-)
 from alpharank.strategy.search_protocol import (
     LEGACY_SEARCH_SPACE,
     LOCKED_LEGACY_ANCHORS,
 )
 from alpharank.features.indicators import TechnicalIndicators
-from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
-from alpharank.portfolio.simulation import simulate_weighted_portfolio
-from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
+from alpharank.strategy.legacy_aggregation import aggregate_portfolios
+from alpharank.strategy.legacy_artifacts import (
+    calculate_cagr_by_year,
+    compare_models,
+)
+from alpharank.strategy.legacy_selection import (
+    attach_legacy_sector_policy,
+    get_portfolio_at_month,
+)
 import datetime
 from scipy import stats
 from tqdm import tqdm
@@ -49,80 +47,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 def _attach_legacy_sector_policy(
     candidates: "pl.DataFrame", sector: pd.DataFrame
 ) -> "pl.DataFrame":
-    """Attach only sectors that were known before the Legacy order boundary."""
+    """Compatibility wrapper for the Legacy point-in-time sector policy."""
 
-    decision_candidates = candidates.with_columns(
-        pl.col("year_month")
-        .cast(pl.Datetime)
-        .dt.replace_time_zone("UTC")
-        .alias("decision_at")
-    )
-    terminal_registry = load_terminal_event_registry()
-    terminal_gate = apply_terminal_entry_gate(
-        decision_candidates,
-        terminal_registry.terminal_entry_blocks(),
-    )
-    blocked_by_month = (
-        terminal_gate.blocked.group_by("year_month")
-        .agg(pl.len().alias("terminal_entry_blocked_candidates"))
-        if terminal_gate.blocked.height
-        else pl.DataFrame(
-            schema={
-                "year_month": decision_candidates.schema["year_month"],
-                "terminal_entry_blocked_candidates": pl.UInt32,
-            }
-        )
-    )
-    decision_candidates = terminal_gate.eligible.join(
-        blocked_by_month,
-        on="year_month",
-        how="left",
-    ).with_columns(
-        pl.col("terminal_entry_blocked_candidates")
-        .fill_null(0)
-        .cast(pl.UInt32),
-        pl.lit(TERMINAL_ENTRY_POLICY_ID).alias("terminal_entry_policy_id"),
-        pl.lit(terminal_registry.payload["registry_id"]).alias(
-            "terminal_entry_registry_id"
-        ),
-        pl.lit(terminal_registry.sha256).alias("terminal_entry_registry_sha256"),
-    )
-    required_history = {
-        "ticker",
-        "Sector",
-        *SECTOR_HISTORY_LINEAGE_COLUMNS,
-    }
-    if required_history.issubset(sector.columns):
-        decisions = decision_candidates.select("ticker", "decision_at").unique()
-        resolved = resolve_point_in_time_sectors(
-            decisions,
-            to_polars(sector),
-        ).select(
-            "ticker",
-            "decision_at",
-            "Sector",
-            "sector_constraint_enabled",
-            "sector_constraint_reason",
-            "sector_known_at_selected",
-            "classification_id",
-        )
-        return decision_candidates.join(
-            resolved,
-            on=["ticker", "decision_at"],
-            how="left",
-        )
-
-    return decision_candidates.with_columns(
-        pl.lit(None).cast(pl.String).alias("Sector"),
-        pl.lit(False).alias("sector_constraint_enabled"),
-        pl.lit("disabled_no_point_in_time_sector_history").alias(
-            "sector_constraint_reason"
-        ),
-        pl.lit(None)
-        .cast(pl.Datetime(time_zone="UTC"))
-        .alias("sector_known_at_selected"),
-        pl.lit(None).cast(pl.String).alias("classification_id"),
-    )
+    return attach_legacy_sector_policy(candidates, sector)
 
 
 # %%
@@ -831,204 +758,24 @@ class StrategyLearner:
         union_mode: bool = True,
         backend: Backend = "polars",
     ) -> Dict[str, pd.DataFrame]:
-        """
-        Aggregate multiple optuna portfolio outputs into a single combined portfolio.
-        
-        Args:
-            optuna_outputs: List of optuna output dicts, each containing 'detailled' and 'aggregated' keys
-            mode: Weighting mode:
-                - 'equal': All stocks weighted equally regardless of how many models picked them
-                - 'frequency': Stocks weighted by how many models selected them
-            index: Optional IndexDataManager for computing returns vs index
-            union_mode: If True (default), stocks present in ANY model are included (Union).
-                        If False, only stocks present in ALL models are included (Intersection).
-                
-        Returns:
-            Dict with 'detailed' and 'aggregated' DataFrames
-        """
-        if not optuna_outputs:
-            raise ValueError("optuna_outputs list cannot be empty")
-        
-        if mode not in ['equal', 'frequency']:
-            raise ValueError(f"mode must be 'equal' or 'frequency', got '{mode}'")
-        
-        backend_name = ensure_backend_name(backend, default="polars")
-        n_models = len(optuna_outputs)
+        """Aggregate Legacy model outputs through the dedicated owner module."""
 
-        if backend_name == "polars":
-            require_polars()
-            all_detailed_pl = []
-            for i, output in enumerate(optuna_outputs):
-                detailed_key = 'detailed' if 'detailed' in output else 'detailled'
-                df = output[detailed_key]
-                if isinstance(df, pd.DataFrame):
-                    pldf = to_polars(normalize_year_month_to_timestamp(df, col='year_month'))
-                else:
-                    pldf = df.clone()
-                    if 'year_month' in pldf.columns:
-                        ym_dtype = pldf.schema.get('year_month')
-                        if ym_dtype == pl.Date:
-                            pass
-                        elif ym_dtype == pl.Datetime:
-                            pldf = pldf.with_columns(pl.col('year_month').dt.truncate('1mo').alias('year_month'))
-                        else:
-                            pldf = pldf.with_columns(
-                                pl.col('year_month').cast(pl.Utf8).str.strptime(pl.Date, format='%Y-%m-%d', strict=False).alias('year_month')
-                            )
-                all_detailed_pl.append(pldf.with_columns(pl.lit(i).alias('source_model')))
-            pld = pl.concat(all_detailed_pl, how='vertical_relaxed')
-            if not union_mode:
-                valid_keys = (
-                    pld.group_by(['year_month', 'ticker'])
-                    .agg(pl.col('source_model').n_unique().alias('_models'))
-                    .filter(pl.col('_models') == n_models)
-                    .select(['year_month', 'ticker'])
-                )
-                pld = pld.join(valid_keys, on=['year_month', 'ticker'], how='inner')
-
-            detailed_holdings = (
-                pld.group_by(['year_month', 'ticker'])
-                .agg(
-                    pl.col('dr').mean().alias('dr'),
-                    pl.col('source_model').n_unique().alias('n_models'),
-                    pl.col('Sector').first().alias('Sector'),
-                )
-                .with_columns(
-                    (pl.lit(1.0) if mode == 'equal' else (pl.col('n_models') / n_models)).alias('weight')
-                )
-                .with_columns((pl.col('weight') / pl.col('weight').sum().over('year_month')).alias('weight_normalized'))
-            )
-            if index is not None:
-                benchmark_for_engine = to_polars(
-                    normalize_year_month_to_timestamp(
-                        index.monthly_returns[['year_month', 'monthly_return']],
-                        col='year_month',
-                    )
-                ).with_columns(pl.col('monthly_return').fill_null(0.0))
-            else:
-                benchmark_for_engine = detailed_holdings.select('year_month').unique().with_columns(
-                    pl.lit(0.0).alias('monthly_return')
-                )
-            engine_holdings = legacy_detailed_to_holdings(
-                detailed_holdings.with_columns((pl.col('dr') - 1.0).alias('dr')),
-                strategy=f'Legacy_{mode}',
-                benchmark_monthly=benchmark_for_engine,
-            ).filter(pl.col('realized_return').is_not_null())
-            engine_monthly = simulate_weighted_portfolio(
-                engine_holdings,
-                transaction_cost_bps=0.0,
-                causal_timing_policy="legacy_month_only",
-                # Missing Legacy returns are excluded and remaining weights are
-                # renormalized exactly as in the historical implementation.
-                validate=False,
-            )
-            model_counts = (
-                detailed_holdings.filter(pl.col('dr').is_not_null())
-                .with_columns(pl.col('year_month').cast(pl.Date))
-                .group_by('year_month')
-                .agg(pl.col('n_models').mean().alias('avg_models_per_stock'))
-            )
-            aggregated = (
-                engine_monthly.select(
-                    pl.col('holding_month').alias('year_month'),
-                    pl.col('net_return').alias('monthly_return'),
-                    pl.col('n_positions').cast(pl.UInt32).alias('n'),
-                )
-                .join(model_counts, on='year_month', how='left')
-            )
-            if index is not None:
-                idx = normalize_year_month_to_timestamp(index.monthly_returns[['year_month', 'monthly_return']], col='year_month')
-                idx_pl = to_polars(idx).with_columns(pl.col('year_month').cast(pl.Date)).rename({'monthly_return': 'monthly_return_index'})
-                aggregated = (
-                    aggregated.join(idx_pl, on='year_month', how='left')
-                    .with_columns(((1 + pl.col('monthly_return')) / (1 + pl.col('monthly_return_index'))).alias('monthly_return_vs_index'))
-                )
-            detailed_output = detailed_holdings.select(['year_month', 'ticker', 'dr', 'n_models', 'Sector', 'weight', 'weight_normalized'])
-            detailed_output = detailed_output.with_columns((pl.col('dr') - 1).alias('dr'))
-            return {
-                'detailed': normalize_year_month_to_period(to_pandas(detailed_output), 'year_month'),
-                'aggregated': normalize_year_month_to_period(to_pandas(aggregated), 'year_month'),
-            }
-
-        raise ValueError("Pandas backend is disabled for StrategyLearner.aggregate_portfolios.")
+        return aggregate_portfolios(
+            optuna_outputs,
+            mode=mode,
+            index=index,
+            union_mode=union_mode,
+            backend=backend,
+        )
     
     @staticmethod
     def get_portfolio_at_month(
         portfolio_output: Dict[str, Any],
         month: Optional[pd.Period] = None
     ) -> pd.DataFrame:
-        """
-        Get portfolio holdings for a specific month.
-        
-        Args:
-            portfolio_output: Output from learning_process_optuna_full or aggregate_portfolios.
-                              Must contain 'detailled' or 'detailed' key.
-            month: Target month as pd.Period. If None, uses the latest month.
-            
-        Returns:
-            DataFrame with columns: ticker, Sector, weight, weight_normalized, monthly_return
-            Sorted by weight_normalized descending.
-        """
-        # Get detailed dataframe (handle both spellings)
-        if 'detailed' in portfolio_output:
-            df = portfolio_output['detailed'].copy()
-        elif 'detailled' in portfolio_output:
-            df = portfolio_output['detailled'].copy()
-        else:
-            raise ValueError("portfolio_output must contain 'detailed' or 'detailled' key")
-        
-        if df.empty:
-            raise ValueError("Portfolio is empty")
-        
-        # Determine target month
-        if month is None:
-            month = df['year_month'].max()
-        
-        # Filter to target month
-        df_month = df[df['year_month'] == month].copy()
-        
-        if df_month.empty:
-            available = df['year_month'].unique()[:5]
-            raise ValueError(f"No data for month {month}. Available months: {list(available)}...")
-        
-        # Handle weight column - if it doesn't exist, create equal weights
-        if 'weight' not in df_month.columns:
-            df_month['weight'] = 1.0
-        
-        # Calculate normalized weights (sum to 1)
-        total_weight = df_month['weight'].sum()
-        if total_weight > 0:
-            df_month['weight_normalized'] = df_month['weight'] / total_weight
-        else:
-            df_month['weight_normalized'] = 1.0 / len(df_month)
-        
-        # Get return column (try 'dr' or 'monthly_return')
-        if 'dr' in df_month.columns:
-            return_col = 'dr'
-        elif 'monthly_return' in df_month.columns:
-            return_col = 'monthly_return'
-        else:
-            return_col = None
-        
-        # Build output
-        output_cols = ['ticker']
-        if 'Sector' in df_month.columns:
-            output_cols.append('Sector')
-        output_cols.extend(['weight', 'weight_normalized'])
-        if return_col:
-            df_month['monthly_return'] = df_month[return_col]
-            output_cols.append('monthly_return')
-        if 'n_models' in df_month.columns:
-            output_cols.append('n_models')
-        
-        result = df_month[output_cols].copy()
-        result = result.sort_values('weight_normalized', ascending=False).reset_index(drop=True)
-        
-        # Add metadata
-        result.attrs['month'] = month
-        result.attrs['total_stocks'] = len(result)
-        
-        return result
+        """Return one month's holdings through the dedicated selection module."""
+
+        return get_portfolio_at_month(portfolio_output, month=month)
 
     def learning_fundamental(balance, cashflow, income, earnings, general, monthly_return, historical_company, col_learning, earning_choice, list_date_to_maximise_earning_choice, tresh, n_max_sector, list_kpi_toinvert=['pe'], list_kpi_toincrease=['totalrevenue_rolling', 'grossprofit_rolling', 'operatingincome_rolling', 'incomebeforeTax_rolling', 'netincome_rolling', 'ebit_rolling', 'ebitda_rolling', 'freecashflow_rolling', 'epsactual_rolling'], list_ratios_toincrease=['roic', 'netmargin'], list_kpi_toaccelerate=['epsactual_rolling'], list_lag_increase=[1, 4, 4*5], list_ratios_to_augment=["roic_lag4", "roic_lag1", "netmargin_lag4"], list_date_to_maximise=['filing_date_income', 'filing_date_cash', 'filing_date_balance', 'filing_date_earning']):
         ratios = FundamentalAnalyzer.calculate_fundamental_ratios(balance=balance,
@@ -1347,163 +1094,20 @@ class ModelEvaluator:
 
     @staticmethod
     def compare_models(models_data, start_year=None, end_year=None, risk_free_rate=0.02):
-        from alpharank.strategy.analytics import PerformanceAnalyzer
-        
-        processed_data = {}
-        # Use None to track min/max dates dynamically
-        global_min_date = None
-        global_max_date = None
-        
-        # 1. Process and Filter Data
-        for model_name, df in models_data.items():
-            df_copy = df.copy()
-            # Logic to find return column
-            return_cols = [col for col in df_copy.columns if 'return' in col.lower()]
-            if return_cols:
-                return_col = return_cols[0]
-            else:
-                if 'monthly_return' in df_copy.columns:
-                    return_col = 'monthly_return'
-                elif len(df_copy.columns) > 1:
-                    return_col = df_copy.columns[1]
-                else:
-                    print(f"Warning: Could not identify returns column for {model_name}. Skipping.")
-                    continue
-            
-            # Ensure Period Index
-            if not isinstance(df_copy['year_month'].iloc[0], pd.Period):
-                try:
-                    df_copy['year_month'] = df_copy['year_month'].dt.to_period('M')
-                except:
-                    df_copy['year_month'] = pd.to_datetime(df_copy['year_month']).dt.to_period('M')
-            
-            # Filter by date
-            if start_year:
-                df_copy = df_copy[df_copy['year_month'].dt.year >= start_year]
-            if end_year:
-                df_copy = df_copy[df_copy['year_month'].dt.year <= end_year]
-                
-            if df_copy.empty:
-                print(f"Warning: No data available for {model_name} in selected period")
-                continue
-                
-            # Update global date range
-            model_min = df_copy['year_month'].min()
-            model_max = df_copy['year_month'].max()
-            
-            if global_min_date is None or model_min < global_min_date:
-                global_min_date = model_min
-            if global_max_date is None or model_max > global_max_date:
-                global_max_date = model_max
-            
-            # Store Series (indexed by Period)
-            processed_data[model_name] = df_copy.set_index('year_month')[return_col]
-        
-        # 2. Create Aligned DataFrame
-        all_returns = pd.DataFrame(processed_data)
-        all_returns = all_returns.sort_index()
-        
-        # 3. Calculate Global Metrics via Analyzer
-        metrics = {}
-        for model in processed_data:
-             series = processed_data[model]
-             if series.empty: continue
-             
-             m_dict = PerformanceAnalyzer.calculate_metrics(series, risk_free_rate)
-             
-             # Add specific metrics requiring original data (like avg stocks)
-             n_stocks_avg = None
-             if model in models_data: 
-                orig_df = models_data[model]
-                if 'n' in orig_df.columns:
-                     n_stocks_avg = orig_df['n'].mean()
-             m_dict['Number of Stocks (Avg)'] = n_stocks_avg
-             
-             # Start/End dates
-             m_dict['Start Date'] = series.index.min().strftime('%y-%m')
-             m_dict['End Date'] = series.index.max().strftime('%y-%m')
-             
-             # Add windowed CAGR which isn't in standard single-series calculator by default or requires extra logic
-             # We can just add it here manually or extend Analyzer. 
-             # For now, let's keep it simple and use logic similar to before, but verify dates.
-             total_years = (series.index.max() - series.index.min()).n / 12
-             for yr in [3, 5, 10]:
-                 if total_years >= yr:
-                     # Get last N years
-                     subset = series.iloc[-12*yr:]
-                     m_dict[f'CAGR ({yr}Y)'] = (1 + subset).prod() ** (1/yr) - 1
-                 else:
-                     m_dict[f'CAGR ({yr}Y)'] = None
+        """Build comparison artifacts through the dedicated artifact module."""
 
-             metrics[model] = m_dict
-
-        metrics_df = pd.DataFrame(metrics).T
-        
-        # Format Metrics DF for display
-        pct_cols = ['Total Return', 'CAGR', 'Monthly Mean', 'Monthly Volatility', 
-                    'Annualized Volatility', 'Max Drawdown', 'Positive Periods %',
-                    'CAGR (3Y)', 'CAGR (5Y)', 'CAGR (10Y)']
-        for col in pct_cols:
-            if col in metrics_df.columns:
-                 metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A")
-        
-        float_cols = ['Sharpe Ratio', 'Sortino Ratio', 'Calmar Ratio']
-        for col in float_cols:
-            if col in metrics_df.columns:
-                metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:.2f}" if pd.notnull(x) and not np.isinf(x) else "N/A")
-
-        # 4. Generate Visualization Data (CRITICAL: Convert Periods to Timestamps)
-        cumulative_returns = PerformanceAnalyzer.calculate_cumulative_returns(all_returns, fill_missing=True)
-        # Convert index to timestamp for Plotly
-        cumulative_returns.index = cumulative_returns.index.to_timestamp()
-        
-        drawdowns_df = PerformanceAnalyzer.calculate_drawdowns(cumulative_returns)
-        # Index is already timestamp from cumulative_returns
-        
-        annual_returns_df = PerformanceAnalyzer.get_annual_returns(all_returns).T
-        # Annual returns index is integers (years), which is fine for Plotly
-        
-        correlation_matrix = all_returns.corr()
-        
-        # Comprehensive Metrics Grids
-        # 1. Cumulative from Start Year (e.g. 2010->End, 2011->End)
-        cumulative_metrics_dict = PerformanceAnalyzer.calculate_metrics_by_start_year(all_returns, risk_free_rate)
-        
-        # 2. Discrete Annual Metrics (e.g. 2010, 2011)
-        annual_metrics_dict = PerformanceAnalyzer.calculate_annual_metrics(all_returns, risk_free_rate)
-        
-        # Worst Periods
-        worst_periods_df = PerformanceAnalyzer.calculate_worst_periods(all_returns)
-
-        # Monthly Returns Dict - Convert each series index to timestamp
-        monthly_returns_dict = {}
-        for col in all_returns.columns:
-            s_clean = all_returns[col].dropna()
-            # Convert index
-            s_clean.index = s_clean.index.to_timestamp()
-            monthly_returns_dict[col] = s_clean
-            
-        return metrics_df, cumulative_returns, correlation_matrix, worst_periods_df, drawdowns_df, annual_returns_df, cumulative_metrics_dict, annual_metrics_dict, monthly_returns_dict
+        return compare_models(
+            models_data,
+            start_year=start_year,
+            end_year=end_year,
+            risk_free_rate=risk_free_rate,
+        )
 
     @staticmethod
     def calculate_cagr_by_year(returns_df):
-        years = sorted(set(returns_df.index.year))
-        cagr_results = {}
-        for model in returns_df.columns:
-            model_cagr = {}
-            for start_year in years:
-                filtered_returns = returns_df.loc[returns_df.index.year >= start_year, model]
-                if len(filtered_returns) < 12:
-                    model_cagr[start_year] = np.nan
-                    continue
-                total_return = (1 + filtered_returns).prod() - 1
-                years_count = len(filtered_returns) / 12
-                cagr = (1 + total_return) ** (1 / years_count) - 1
-                model_cagr[start_year] = cagr
-            cagr_results[model] = model_cagr
-        cagr_df = pd.DataFrame(cagr_results)
-        cagr_df = cagr_df.dropna(how='all')
-        return cagr_df
+        """Calculate rolling-start CAGRs through the artifact module."""
+
+        return calculate_cagr_by_year(returns_df)
 
 
 # %%

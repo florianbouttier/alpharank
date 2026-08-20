@@ -3077,37 +3077,22 @@
     {
       "kind": "import",
       "source": "src/alpharank/strategy/legacy.py",
-      "target": "src/alpharank/data/sector_history.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/strategy/legacy.py",
-      "target": "src/alpharank/data/terminal_eligibility.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/strategy/legacy.py",
       "target": "src/alpharank/features/indicators.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/strategy/legacy.py",
-      "target": "src/alpharank/portfolio/adapters/legacy.py"
+      "target": "src/alpharank/strategy/legacy_aggregation.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/strategy/legacy.py",
-      "target": "src/alpharank/portfolio/simulation.py"
+      "target": "src/alpharank/strategy/legacy_artifacts.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/strategy/legacy.py",
-      "target": "src/alpharank/portfolio/terminal_event_registry.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/strategy/legacy.py",
-      "target": "src/alpharank/strategy/analytics.py"
+      "target": "src/alpharank/strategy/legacy_selection.py"
     },
     {
       "kind": "import",
@@ -3117,6 +3102,51 @@
     {
       "kind": "import",
       "source": "src/alpharank/strategy/legacy.py",
+      "target": "src/alpharank/utils/frame_backend.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_aggregation.py",
+      "target": "src/alpharank/data/processing.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_aggregation.py",
+      "target": "src/alpharank/portfolio/adapters/legacy.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_aggregation.py",
+      "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_aggregation.py",
+      "target": "src/alpharank/utils/frame_backend.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_artifacts.py",
+      "target": "src/alpharank/strategy/analytics.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_selection.py",
+      "target": "src/alpharank/data/sector_history.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_selection.py",
+      "target": "src/alpharank/data/terminal_eligibility.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_selection.py",
+      "target": "src/alpharank/portfolio/terminal_event_registry.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/strategy/legacy_selection.py",
       "target": "src/alpharank/utils/frame_backend.py"
     },
     {
@@ -6239,6 +6269,7 @@
         "src/alpharank/data/datasets.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py",
+        "src/alpharank/strategy/legacy_aggregation.py",
         "src/alpharank/visualization/plotting.py"
       ]
     },
@@ -6255,7 +6286,7 @@
       "path": "src/alpharank/data/sector_history.py",
       "readers": [
         "src/alpharank/causal_snapshot.py",
-        "src/alpharank/strategy/legacy.py"
+        "src/alpharank/strategy/legacy_selection.py"
       ]
     },
     {
@@ -6324,7 +6355,7 @@
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
         "src/alpharank/production/legacy_pipeline.py",
-        "src/alpharank/strategy/legacy.py"
+        "src/alpharank/strategy/legacy_selection.py"
       ]
     },
     {
@@ -6837,7 +6868,7 @@
         "scripts/validate_common_portfolio_engine.py",
         "src/alpharank/portfolio/adapters/__init__.py",
         "src/alpharank/production/legacy_pipeline.py",
-        "src/alpharank/strategy/legacy.py"
+        "src/alpharank/strategy/legacy_aggregation.py"
       ]
     },
     {
@@ -7076,7 +7107,7 @@
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay_validation.py",
-        "src/alpharank/strategy/legacy.py"
+        "src/alpharank/strategy/legacy_aggregation.py"
       ]
     },
     {
@@ -7094,7 +7125,7 @@
         "src/alpharank/common_v2.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/reconciliation_v2.py",
-        "src/alpharank/strategy/legacy.py"
+        "src/alpharank/strategy/legacy_selection.py"
       ]
     },
     {
@@ -7331,7 +7362,7 @@
       "module": "alpharank.strategy.analytics",
       "path": "src/alpharank/strategy/analytics.py",
       "readers": [
-        "src/alpharank/strategy/legacy.py"
+        "src/alpharank/strategy/legacy_artifacts.py"
       ]
     },
     {
@@ -7352,13 +7383,10 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/data/processing.py",
-        "src/alpharank/data/sector_history.py",
-        "src/alpharank/data/terminal_eligibility.py",
         "src/alpharank/features/indicators.py",
-        "src/alpharank/portfolio/adapters/legacy.py",
-        "src/alpharank/portfolio/simulation.py",
-        "src/alpharank/portfolio/terminal_event_registry.py",
-        "src/alpharank/strategy/analytics.py",
+        "src/alpharank/strategy/legacy_aggregation.py",
+        "src/alpharank/strategy/legacy_artifacts.py",
+        "src/alpharank/strategy/legacy_selection.py",
         "src/alpharank/strategy/search_protocol.py",
         "src/alpharank/utils/frame_backend.py"
       ],
@@ -7372,6 +7400,57 @@
         "scripts/compare_legacy_input_ablation.py",
         "scripts/validate_common_portfolio_engine.py",
         "src/alpharank/production/legacy_pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/processing.py",
+        "src/alpharank/portfolio/adapters/legacy.py",
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/utils/frame_backend.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.strategy.legacy_aggregation",
+      "path": "src/alpharank/strategy/legacy_aggregation.py",
+      "readers": [
+        "src/alpharank/strategy/legacy.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/strategy/analytics.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.strategy.legacy_artifacts",
+      "path": "src/alpharank/strategy/legacy_artifacts.py",
+      "readers": [
+        "src/alpharank/strategy/legacy.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/sector_history.py",
+        "src/alpharank/data/terminal_eligibility.py",
+        "src/alpharank/portfolio/terminal_event_registry.py",
+        "src/alpharank/utils/frame_backend.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.strategy.legacy_selection",
+      "path": "src/alpharank/strategy/legacy_selection.py",
+      "readers": [
+        "src/alpharank/strategy/legacy.py"
       ]
     },
     {
@@ -7438,6 +7517,8 @@
         "src/alpharank/data/processing.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py",
+        "src/alpharank/strategy/legacy_aggregation.py",
+        "src/alpharank/strategy/legacy_selection.py",
         "src/alpharank/utils/returns.py"
       ]
     },
@@ -7563,9 +7644,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 117,
-    "internal_edge_count": 602,
-    "library_count": 145,
-    "python_file_count": 263,
+    "internal_edge_count": 608,
+    "library_count": 148,
+    "python_file_count": 266,
     "script_count": 118,
     "unread_node_count": 106
   }
