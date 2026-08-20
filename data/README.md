@@ -25,6 +25,8 @@ Ne pas choisir un fichier de remplacement en fonction de sa date ou de son nom.
 
 Cette coexistence est documentée honnêtement ; elle ne signifie pas que chaque
 zone est équivalente ou qu'un agent peut choisir la plus récente à la main.
+L'inventaire machine-lisible des 35 emplacements et de leurs lecteurs est
+[`../docs/architecture/data_location_inventory_v1.json`](../docs/architecture/data_location_inventory_v1.json).
 
 ## Contrat cible
 

@@ -102,6 +102,10 @@ source déclarée manque.
 
 ## 8. Correspondance avec les dossiers actuels
 
+Le relevé machine-lisible daté, avec volumes et lecteurs de code actifs, est
+[`data_location_inventory_v1.json`](data_location_inventory_v1.json). Le tableau
+ci-dessous en donne la lecture contractuelle stable.
+
 | Emplacement actuel | Lecture correcte | État cible |
 | --- | --- | --- |
 | `data/US_*.parquet` | ancienne interface Legacy | référencée puis retirée des lecteurs actifs |

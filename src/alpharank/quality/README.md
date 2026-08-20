@@ -20,6 +20,8 @@ and tool output, but it must not contain portfolio, data or model logic.
   keys or structural drift recursively before execution.
 - `code_inventory.py` maps tracked Python entrypoints, imports, command edges
   and reverse readers without importing application modules.
+- `data_locations.py` maps each current data file/package to its target role
+  and tracks active Python readers without copying or hashing payloads.
 
 This package is the first strict Mypy scope. A later package may join the
 `files` list only after its own strict check is green without broad ignores.

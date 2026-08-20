@@ -175,6 +175,7 @@ def classify_test_domain(path: str) -> str:
         (
             "code_inventory",
             "config_schemas",
+            "data_location_inventory",
             "dependency_sync",
             "documentation_structure",
             "error_handling_policy",

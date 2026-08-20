@@ -71,6 +71,11 @@ Le problème n'est donc pas l'existence de `raw/stg/def/mart`. Le problème est
 que la migration n'est pas achevée et qu'aucune carte visible n'expliquait les
 anciennes branches encore nécessaires.
 
+L'état observé détaillé est figé dans
+[`data_location_inventory_v1.json`](data_location_inventory_v1.json) : chaque
+fichier ou package y porte son rôle, sa cible, ses volumes et ses lecteurs de
+code actifs.
+
 ## 4. Responsabilité des grandes zones
 
 | Chemin | Contient | Ne doit pas contenir |

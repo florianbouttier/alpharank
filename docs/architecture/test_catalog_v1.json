@@ -674,6 +674,17 @@
     },
     {
       "domain": "quality_tooling",
+      "duration_class": "medium",
+      "duration_seconds": 1.069,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/test_data_location_inventory.py",
+      "suite": "unit",
+      "test_case_count": 2
+    },
+    {
+      "domain": "quality_tooling",
       "duration_class": "fast",
       "duration_seconds": 0.001,
       "failure_count": 0,
@@ -1237,24 +1248,24 @@
       "data": 49,
       "legacy": 6,
       "portfolio": 9,
-      "quality_tooling": 14,
+      "quality_tooling": 15,
       "replay_governance": 15,
       "reporting": 6
     },
-    "duration_seconds": 123.591,
+    "duration_seconds": 124.66,
     "failure_count": 3,
-    "file_count": 111,
+    "file_count": 112,
     "outcome_counts": {
       "failed_missing_local_artifacts": 2,
-      "passed": 109
+      "passed": 110
     },
     "suite_counts": {
       "integration": 35,
       "network": 3,
       "production": 4,
       "replay": 9,
-      "unit": 60
+      "unit": 61
     },
-    "test_case_count": 422
+    "test_case_count": 424
   }
 }

@@ -52,6 +52,7 @@
     "scripts/experiments/summarize_multihorizon_run.py",
     "scripts/experiments/sweep_generalized_ema_expert_params.py",
     "scripts/maintenance/build_code_inventory.py",
+    "scripts/maintenance/build_data_location_inventory.py",
     "scripts/maintenance/build_test_catalog.py",
     "scripts/maintenance/build_test_collection.py",
     "scripts/open_source/audit_price_snapshot_vintages.py",
@@ -843,6 +844,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/maintenance/build_data_location_inventory.py",
+      "target": "src/alpharank/quality/data_locations.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/maintenance/build_test_catalog.py",
       "target": "src/alpharank/quality/test_catalog.py"
     },
@@ -1350,6 +1356,11 @@
       "kind": "command",
       "source": "scripts/quality/run_ci_checks.py",
       "target": "scripts/maintenance/build_code_inventory.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/quality/run_ci_checks.py",
+      "target": "scripts/maintenance/build_data_location_inventory.py"
     },
     {
       "kind": "command",
@@ -3127,6 +3138,16 @@
       "target": "scripts/validate_legacy_replay_package.py"
     },
     {
+      "kind": "command",
+      "source": "src/alpharank/quality/data_locations.py",
+      "target": "scripts/validate_documentation.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/quality/data_locations.py",
+      "target": "scripts/validate_markdown_links.py"
+    },
+    {
       "kind": "import",
       "source": "src/alpharank/quality/test_catalog.py",
       "target": "src/alpharank/quality/test_suites.py"
@@ -4375,6 +4396,21 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/quality/data_locations.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.maintenance.build_data_location_inventory",
+      "path": "scripts/maintenance/build_data_location_inventory.py",
+      "readers": [
+        "scripts/quality/run_ci_checks.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/quality/test_catalog.py",
         "src/alpharank/quality/test_suites.py"
       ],
@@ -5004,6 +5040,7 @@
       "imports": [],
       "invokes": [
         "scripts/maintenance/build_code_inventory.py",
+        "scripts/maintenance/build_data_location_inventory.py",
         "scripts/quality/check_config_schemas.py",
         "scripts/quality/check_dependencies.py",
         "scripts/quality/check_error_handling.py",
@@ -5180,7 +5217,8 @@
       "path": "scripts/validate_documentation.py",
       "readers": [
         "scripts/quality/run_ci_checks.py",
-        "src/alpharank/quality/code_inventory.py"
+        "src/alpharank/quality/code_inventory.py",
+        "src/alpharank/quality/data_locations.py"
       ]
     },
     {
@@ -5232,7 +5270,8 @@
       "module": "scripts.validate_markdown_links",
       "path": "scripts/validate_markdown_links.py",
       "readers": [
-        "scripts/quality/run_ci_checks.py"
+        "scripts/quality/run_ci_checks.py",
+        "src/alpharank/quality/data_locations.py"
       ]
     },
     {
@@ -7859,6 +7898,22 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [],
+      "invokes": [
+        "scripts/validate_documentation.py",
+        "scripts/validate_markdown_links.py"
+      ],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.quality.data_locations",
+      "path": "src/alpharank/quality/data_locations.py",
+      "readers": [
+        "scripts/maintenance/build_data_location_inventory.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -8481,11 +8536,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 114,
-    "internal_edge_count": 681,
-    "library_count": 171,
-    "python_file_count": 292,
-    "script_count": 121,
+    "active_entrypoint_count": 115,
+    "internal_edge_count": 685,
+    "library_count": 172,
+    "python_file_count": 294,
+    "script_count": 122,
     "unread_node_count": 115
   }
 }

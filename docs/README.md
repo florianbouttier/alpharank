@@ -36,6 +36,8 @@ dupliquer les contrats métier :
   actuelle, cible et responsabilités ;
 - [`architecture/data_lifecycle.md`](architecture/data_lifecycle.md) : sens de
   `raw`, `stg`, `def`, `mart`, `snapshot` et `run`.
+- [`architecture/data_location_inventory_v1.json`](architecture/data_location_inventory_v1.json) :
+  carte machine-lisible des emplacements actuels et de leurs lecteurs.
 
 ## Standards de développement
 
