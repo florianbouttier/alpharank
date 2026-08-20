@@ -25,6 +25,7 @@ from alpharank.portfolio.lineage import (
     require_matching_price_eligibility,
     require_matching_ticker_exclusions,
 )
+from alpharank.portfolio.maturity import split_completed_portfolio_months
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.multihorizon.config import validate_latest_common_comparison_profile
 
@@ -112,7 +113,9 @@ def build_comparison(
         if _hash(source) != declared_hash:
             raise ValueError(f"Boosting does not match {source.name} from the Legacy run.")
 
-    predictions = pl.read_parquet(predictions_path)
+    all_predictions = pl.read_parquet(predictions_path)
+    portfolio_maturity = split_completed_portfolio_months(all_predictions)
+    predictions = portfolio_maturity.completed_predictions
     boosting_holdings = pl.concat(
         [
             boosting_predictions_to_holdings(
@@ -232,6 +235,7 @@ def build_comparison(
                     "score_only_tail": boosting_manifest.get("protocol", {}).get(
                         "score_only_tail"
                     ),
+                    "portfolio_maturity": portfolio_maturity.manifest,
                     "results": boosting_manifest.get("results"),
                 },
                 "artifacts": {
