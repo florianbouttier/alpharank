@@ -122,7 +122,7 @@ La carte détaillée se trouve dans
 | `DOC-002` | écrire un point d'entrée unique pour les normes de développement | fait | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | `DOC-003` | réduire le README racine à un onboarding de cinq minutes | prêt à committer | parcours court et ancien README archivé |
 | `DOC-004` | placer les rapports datés, le handoff et les anciennes pages dans `docs/archive/` | prêt à committer | aucun rapport historique mélangé aux contrats courants |
-| `DOC-005` | rendre le registre méthodologique visible à la racine sans perdre son historique | prêt à committer | registre détaillé conservé et compatibilité temporaire documentée |
+| `DOC-005` | rendre le registre méthodologique visible à la racine sans perdre son historique | fait | registre détaillé conservé à la racine et pointeur historique maintenu |
 | `DOC-006` | documenter la réalité et la cible des données | fait | carte du dépôt, cycle de vie et pointeur de snapshot documentés |
 | `DOC-007` | supprimer le premier doublon de rôle entre `AGENT.md` et `AGENTS.md` sans perdre le guide historique | fait | ancien guide singulier archivé |
 | `DOC-008` | vérifier tous les README locaux et liens | prêt à committer | validateur documentaire et tests de structure verts |

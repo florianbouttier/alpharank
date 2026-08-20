@@ -74,7 +74,7 @@ Les sources de vérité détaillées sont :
 - production et replay mensuel :
   [`monthly_portfolio_runbook.md`](./monthly_portfolio_runbook.md) ;
 - statut d'implémentation et preuves :
-  [`methodology_audit_roadmap.md`](./methodology_audit_roadmap.md).
+  [`METHODOLOGY_AUDIT_ROADMAP.md`](../METHODOLOGY_AUDIT_ROADMAP.md).
 
 ## Validation
 
