@@ -102,10 +102,14 @@ def compare_ruff_baseline(
     return {
         "schema_version": RUFF_BASELINE_SCHEMA_VERSION,
         "passed": not regressions,
-        "baseline_total": int(baseline["total_diagnostics"]),
-        "current_total": int(current["total_diagnostics"]),
-        "new_diagnostic_count": sum(int(row["count_delta"]) for row in regressions),
-        "resolved_diagnostic_count": sum(int(row["count_delta"]) for row in resolved),
+        "baseline_total": _require_int(baseline["total_diagnostics"], "baseline total"),
+        "current_total": _require_int(current["total_diagnostics"], "current total"),
+        "new_diagnostic_count": sum(
+            _require_int(row["count_delta"], "regression count") for row in regressions
+        ),
+        "resolved_diagnostic_count": sum(
+            _require_int(row["count_delta"], "resolved count") for row in resolved
+        ),
         "regressions": regressions,
         "resolved": resolved,
         "current_by_code": current["diagnostics_by_code"],
@@ -161,6 +165,12 @@ def _normalize_diagnostic(root: Path, row: dict[str, object]) -> dict[str, str]:
 
 def _counter_dict(values: Iterable[object]) -> dict[str, int]:
     return dict(sorted(Counter(str(value) for value in values).items()))
+
+
+def _require_int(value: object, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Ruff baseline {label} must be an integer")
+    return value
 
 
 def _validate_baseline(payload: dict[str, object]) -> None:

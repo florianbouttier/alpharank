@@ -300,6 +300,16 @@ fait échouer le contrôle ; une alerte corrigée peut disparaître sans régén
 baseline. Sa réécriture exige une tâche de roadmap et une revue explicite du
 rapport complet.
 
+Le typage strict est activé progressivement sur la liste `tool.mypy.files` de
+`pyproject.toml`. La commande canonique est :
+
+```bash
+python -m mypy
+```
+
+Un package rejoint cette liste seulement lorsque la commande est verte sans
+`ignore_missing_imports` global ni suppression non justifiée.
+
 ## 13. Décision active et migration
 
 La norme retenue est donc :

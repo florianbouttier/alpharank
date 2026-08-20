@@ -152,7 +152,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-001` | activer les choix de `CONTRIBUTING.md` pour le nouveau code et les nouvelles données | fait | standard version 1 documenté et indexé |
 | `QUAL-002` | configurer Ruff dans `pyproject.toml` sans reformater le dépôt | fait | configuration partagée et commandes ciblées documentées |
 | `QUAL-003` | établir une baseline des alertes et empêcher seulement les nouvelles régressions | fait | baseline Ruff déterministe, rapport reproductible et CI différentielle |
-| `QUAL-004` | activer le typage progressivement par package | à faire | périmètre mypy explicite et croissant |
+| `QUAL-004` | activer le typage progressivement par package | fait | périmètre Mypy strict explicite, initialisé sur `alpharank.quality` et exécuté en CI |
 | `QUAL-005` | classer les tests en unitaires, intégration, replay, réseau et production | à faire | marqueurs et commandes séparées |
 | `QUAL-006` | ajouter les contrôles de documentation, lint et tests ciblés en CI | à faire | contrôles reproductibles localement |
 | `QUAL-007` | choisir `pyproject.toml` comme source des dépendances et générer ou vérifier les autres fichiers | à faire | absence de dérive entre les trois installations |
