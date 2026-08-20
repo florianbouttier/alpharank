@@ -7,6 +7,8 @@ and tool output, but it must not contain portfolio, data or model logic.
   and rejects only diagnostics introduced beyond that baseline.
 - `test_suites.py` validates the ordered pytest suite policy used during
   collection before tests are physically reorganized.
+- `test_catalog.py` attributes every tracked test file to one domain and suite,
+  then records case counts, network boundary, duration and measured outcome.
 - `dependencies.py` renders and compares the pip/Conda compatibility views from
   the single dependency source in `pyproject.toml`.
 - `config_schemas.py` classifies maintained JSON configs and rejects unknown

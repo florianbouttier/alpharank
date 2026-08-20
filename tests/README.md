@@ -30,3 +30,10 @@ python -m pytest -m production
 `network` désigne les contrats de frontière fournisseur ; aucun accès live
 n'est implicite. `production` valide les workflows sur des fixtures contrôlées
 et ne publie ni ne promeut aucun artefact.
+
+Le catalogue versionné
+[`../docs/architecture/test_catalog_v1.json`](../docs/architecture/test_catalog_v1.json)
+associe chaque fichier suivi à son domaine, sa suite, sa frontière réseau et sa
+durée mesurée. Une mesure `failed_missing_local_artifacts` signifie que le test
+requiert encore un ancien artefact local non versionné ; elle reste visible tant
+que ce test n'a pas été rendu autonome.

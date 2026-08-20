@@ -5,3 +5,5 @@ commands do not implement portfolio, signal or data-provider logic.
 
 - `build_code_inventory.py` verifies the tracked Python entrypoint and reader
   graph, or regenerates it explicitly with `--write`.
+- `build_test_catalog.py` merges the suite policy with a JUnit report produced
+  from a clean index checkout; it does not execute tests itself.

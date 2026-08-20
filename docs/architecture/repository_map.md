@@ -145,3 +145,7 @@ Les quelques modules encore directement sous `src/alpharank/` sont attribués
 dans [`root_module_ownership_v1.json`](root_module_ownership_v1.json). Les six
 anciens noms de replay y sont déclarés comme façades ; les implémentations et
 l'API canonique vivent sous `alpharank.replay`.
+
+Le registre [`test_catalog_v1.json`](test_catalog_v1.json) fige les fichiers de
+test suivis, leur domaine, leur suite logique, leur frontière réseau et leur
+durée observée avant tout déplacement physique.

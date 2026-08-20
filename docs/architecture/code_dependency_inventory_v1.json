@@ -52,6 +52,7 @@
     "scripts/experiments/summarize_multihorizon_run.py",
     "scripts/experiments/sweep_generalized_ema_expert_params.py",
     "scripts/maintenance/build_code_inventory.py",
+    "scripts/maintenance/build_test_catalog.py",
     "scripts/open_source/audit_price_snapshot_vintages.py",
     "scripts/open_source/audit_sec_earnings_coverage.py",
     "scripts/open_source/backfill_sec_core_history.py",
@@ -838,6 +839,16 @@
       "kind": "import",
       "source": "scripts/maintenance/build_code_inventory.py",
       "target": "src/alpharank/quality/code_inventory.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/maintenance/build_test_catalog.py",
+      "target": "src/alpharank/quality/test_catalog.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/maintenance/build_test_catalog.py",
+      "target": "src/alpharank/quality/test_suites.py"
     },
     {
       "kind": "import",
@@ -3106,6 +3117,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/quality/test_catalog.py",
+      "target": "src/alpharank/quality/test_suites.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reconciliation_v2.py",
       "target": "src/alpharank/replay/reconciliation.py"
     },
@@ -4343,6 +4359,20 @@
       "readers": [
         "scripts/quality/run_ci_checks.py"
       ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/quality/test_catalog.py",
+        "src/alpharank/quality/test_suites.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.maintenance.build_test_catalog",
+      "path": "scripts/maintenance/build_test_catalog.py",
+      "readers": []
     },
     {
       "declared_public_entrypoint": false,
@@ -7844,6 +7874,21 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [
+        "src/alpharank/quality/test_suites.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.quality.test_catalog",
+      "path": "src/alpharank/quality/test_catalog.py",
+      "readers": [
+        "scripts/maintenance/build_test_catalog.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [],
       "invokes": [],
       "layer": "library",
@@ -7851,7 +7896,9 @@
       "module": "alpharank.quality.test_suites",
       "path": "src/alpharank/quality/test_suites.py",
       "readers": [
-        "src/alpharank/quality/__init__.py"
+        "scripts/maintenance/build_test_catalog.py",
+        "src/alpharank/quality/__init__.py",
+        "src/alpharank/quality/test_catalog.py"
       ]
     },
     {
@@ -8384,11 +8431,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 112,
-    "internal_edge_count": 676,
-    "library_count": 168,
-    "python_file_count": 287,
-    "script_count": 119,
-    "unread_node_count": 112
+    "active_entrypoint_count": 113,
+    "internal_edge_count": 679,
+    "library_count": 169,
+    "python_file_count": 289,
+    "script_count": 120,
+    "unread_node_count": 113
   }
 }
