@@ -15,6 +15,8 @@ runs ni redécrire les deux modèles.
   canonique, indépendante du dossier parent.
 - [`test_split_audit_v1.json`](test_split_audit_v1.json) : empreintes des corps
   de tests protégées lors de la découpe des deux anciens modules monolithiques.
+- [`test_fixture_inventory_v1.json`](test_fixture_inventory_v1.json) : seule
+  fixture partagée et règle de propriété locale par défaut.
 
 Les migrations nécessaires sont suivies dans [`../../ROADMAP.md`](../../ROADMAP.md).
 Les règles applicables aux nouveaux changements sont sous

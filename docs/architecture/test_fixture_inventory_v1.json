@@ -1,0 +1,17 @@
+{
+  "fixtures": [
+    {
+      "autouse": true,
+      "name": "isolate_run_log_context",
+      "path": "tests/conftest.py",
+      "scope": "function"
+    }
+  ],
+  "inventory_id": "alpharank_test_fixture_inventory_v1",
+  "policy": {
+    "builtin_fixtures": "provided_by_pytest_not_redeclared",
+    "default_ownership": "local_to_test_module",
+    "shared_fixture_requirement": "cross_suite_process_isolation"
+  },
+  "schema_version": 1
+}

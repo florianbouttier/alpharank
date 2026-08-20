@@ -12,6 +12,8 @@ and tool output, but it must not contain portfolio, data or model logic.
 - `test_collection.py` canonicalizes collected node identifiers independently
   of their parent directory and fingerprints test-function bodies to detect
   scenario or assertion drift during moves and module splits.
+- `test_fixtures.py` inventories explicit Pytest fixture declarations so only
+  genuinely cross-suite isolation is centralized.
 - `dependencies.py` renders and compares the pip/Conda compatibility views from
   the single dependency source in `pyproject.toml`.
 - `config_schemas.py` classifies maintained JSON configs and rejects unknown

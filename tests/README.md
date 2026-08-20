@@ -48,3 +48,8 @@ La découpe des anciens modules de plus de 1 000 lignes est contrôlée par
 [`../docs/architecture/test_split_audit_v1.json`](../docs/architecture/test_split_audit_v1.json) :
 les noms, corps AST et nombres d'assertions des 42 scénarios concernés doivent
 rester identiques.
+
+Les helpers et fixtures métier restent locaux au module qui les consomme. La
+seule fixture racine maintenue isole le contexte de journalisation entre tests ;
+son inventaire versionné vit dans
+[`../docs/architecture/test_fixture_inventory_v1.json`](../docs/architecture/test_fixture_inventory_v1.json).
