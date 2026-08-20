@@ -26,27 +26,24 @@ from alpharank.portfolio.benchmark import (
     monthly_benchmark_returns,
 )
 from alpharank.portfolio.comparison import align_return_series, reference_monthly_series
-from alpharank.portfolio.costs import TransactionCostModel, transaction_cost_components
-from alpharank.portfolio.execution import (
-    LEGACY_NEXT_SESSION_OPEN,
-    build_execution_sensitivity_report,
-    build_monthly_execution_orders,
-    validate_execution_sensitivity_report,
-    write_execution_sensitivity_report,
-)
 from alpharank.portfolio.contracts import (
     CAUSAL_TIMING_REQUIRED_COLUMNS,
     HOLDINGS_REQUIRED_COLUMNS,
     MONTHLY_REQUIRED_COLUMNS,
-    validate_holdings,
     validate_causal_timing,
+    validate_holdings,
     validate_monthly_returns,
 )
-from alpharank.portfolio.performance import (
-    advanced_performance_statistics,
-    annual_returns,
-    legacy_report_statistics,
-    performance_statistics,
+from alpharank.portfolio.costs import TransactionCostModel, transaction_cost_components
+from alpharank.portfolio.execution import (
+    ALPHARANK_REFERENCE_CLOSE,
+    LEGACY_NEXT_SESSION_OPEN,
+    build_execution_return_bridge,
+    build_execution_sensitivity_report,
+    build_monthly_execution_orders,
+    validate_execution_sensitivity_report,
+    write_execution_return_bridge,
+    write_execution_sensitivity_report,
 )
 from alpharank.portfolio.lineage import (
     compare_input_hashes,
@@ -56,6 +53,12 @@ from alpharank.portfolio.lineage import (
     require_matching_price_eligibility,
     require_matching_ticker_exclusions,
     ticker_exclusions_from_manifest,
+)
+from alpharank.portfolio.performance import (
+    advanced_performance_statistics,
+    annual_returns,
+    legacy_report_statistics,
+    performance_statistics,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_returns import (
@@ -89,7 +92,9 @@ __all__ = [
     "constrained_inverse_risk_weights",
     "equal_weights",
     "legacy_report_statistics",
+    "ALPHARANK_REFERENCE_CLOSE",
     "LEGACY_NEXT_SESSION_OPEN",
+    "build_execution_return_bridge",
     "build_execution_sensitivity_report",
     "build_monthly_execution_orders",
     "monthly_benchmark_returns",
@@ -107,6 +112,7 @@ __all__ = [
     "simulate_weighted_portfolio",
     "validate_causal_timing",
     "validate_execution_sensitivity_report",
+    "write_execution_return_bridge",
     "ticker_exclusions_from_manifest",
     "transaction_cost_components",
     "validate_holdings",

@@ -1,15 +1,14 @@
-"""Versioned, causal execution conventions for Legacy portfolio orders."""
+"""Versioned execution conventions for Legacy portfolio orders."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, time, timedelta
-import json
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import polars as pl
-
 
 NEW_YORK = ZoneInfo("America/New_York")
 
@@ -30,6 +29,13 @@ LEGACY_NEXT_SESSION_OPEN = ExecutionPolicy(
     canonical_scenario="next_session_open",
     signal_cutoff_rule="decision timestamp is the final information boundary",
     execution_rule="first observed regular-session open strictly after signal cutoff",
+)
+
+ALPHARANK_REFERENCE_CLOSE = ExecutionPolicy(
+    identifier="reference_close_adjusted_close_v1",
+    canonical_scenario="signal_close_reference",
+    signal_cutoff_rule="decision timestamp is the reference closing timestamp",
+    execution_rule="simulated purchase at the observed reference close",
 )
 
 EXECUTION_SCENARIOS = (
@@ -72,21 +78,15 @@ def build_monthly_execution_orders(
     for row in keys.to_dicts():
         holding_month = row["year_month"]
         candidates = [
-            value
-            for value in price_dates.get(str(row["ticker"]), [])
-            if value < holding_month
+            value for value in price_dates.get(str(row["ticker"]), []) if value < holding_month
         ]
         if not candidates:
-            raise RuntimeError(
-                f"No pre-holding signal session for {row['ticker']} {holding_month}"
-            )
+            raise RuntimeError(f"No pre-holding signal session for {row['ticker']} {holding_month}")
         signal_date = candidates[-1]
         cutoff = datetime.combine(signal_date, time(16, 0), tzinfo=NEW_YORK)
         rows.append(
             {
-                "order_id": (
-                    f"{row['portfolio_model']}|{holding_month}|{row['ticker']}"
-                ),
+                "order_id": (f"{row['portfolio_model']}|{holding_month}|{row['ticker']}"),
                 "ticker": row["ticker"],
                 "signal_cutoff_at": cutoff.astimezone(ZoneInfo("UTC")),
             }
@@ -98,7 +98,7 @@ def build_execution_sensitivity_report(
     orders: pl.DataFrame,
     daily_prices: pl.DataFrame,
     *,
-    policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+    policy: ExecutionPolicy = ALPHARANK_REFERENCE_CLOSE,
     require_canonical_available: bool = True,
 ) -> pl.DataFrame:
     """Build mandatory close/open/VWAP rows without inventing unavailable prices."""
@@ -143,7 +143,15 @@ def build_execution_sensitivity_report(
                     scenario="signal_close_reference",
                     price=(signal_close or {}).get("close"),
                     execution_at=(signal_close or {}).get("close_at"),
-                    status="reference_only_not_after_signal",
+                    status=(
+                        "available"
+                        if signal_close and policy.canonical_scenario == "signal_close_reference"
+                        else (
+                            "reference_only_not_after_signal"
+                            if signal_close
+                            else "unavailable_no_reference_close"
+                        )
+                    ),
                 ),
                 _scenario_row(
                     order,
@@ -179,7 +187,7 @@ def build_execution_sensitivity_report(
 def validate_execution_sensitivity_report(
     report: pl.DataFrame,
     *,
-    policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+    policy: ExecutionPolicy = ALPHARANK_REFERENCE_CLOSE,
     require_canonical_available: bool = True,
 ) -> None:
     """Require every scenario and a causal canonical execution for every order."""
@@ -188,24 +196,25 @@ def validate_execution_sensitivity_report(
     for order_key, group in report.partition_by("order_id", as_dict=True).items():
         scenarios = set(group["scenario"].to_list())
         if scenarios != expected:
-            raise RuntimeError(
-                f"Execution sensitivity is incomplete for {order_key}: {scenarios}"
-            )
+            raise RuntimeError(f"Execution sensitivity is incomplete for {order_key}: {scenarios}")
     canonical = report.filter(pl.col("scenario") == policy.canonical_scenario)
+    timing_is_valid = (
+        pl.col("execution_at") == pl.col("signal_cutoff_at")
+        if policy.canonical_scenario == "signal_close_reference"
+        else pl.col("execution_at") > pl.col("signal_cutoff_at")
+    )
     invalid = canonical.filter(
-        (pl.col("status") != "available")
-        | pl.col("execution_at").is_null()
-        | (pl.col("execution_at") <= pl.col("signal_cutoff_at"))
+        (pl.col("status") != "available") | pl.col("execution_at").is_null() | ~timing_is_valid
     )
     if canonical.is_empty() or (require_canonical_available and not invalid.is_empty()):
-        raise RuntimeError("Canonical execution is unavailable or not after the signal.")
+        raise RuntimeError("Canonical execution is unavailable or violates its timing policy.")
 
 
 def write_execution_sensitivity_report(
     report: pl.DataFrame,
     output_dir: Path,
     *,
-    policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+    policy: ExecutionPolicy = ALPHARANK_REFERENCE_CLOSE,
     require_canonical_available: bool = True,
 ) -> dict[str, object]:
     """Persist the mandatory sensitivity table and its versioned policy."""
@@ -218,8 +227,7 @@ def write_execution_sensitivity_report(
     output_dir.mkdir(parents=True, exist_ok=True)
     report.write_parquet(output_dir / "legacy_execution_sensitivity.parquet")
     canonical_unavailable_count = report.filter(
-        (pl.col("scenario") == policy.canonical_scenario)
-        & (pl.col("status") != "available")
+        (pl.col("scenario") == policy.canonical_scenario) & (pl.col("status") != "available")
     ).height
     manifest = {
         "execution_policy": policy.to_manifest(),
@@ -235,6 +243,180 @@ def write_execution_sensitivity_report(
         "row_count": report.height,
     }
     (output_dir / "legacy_execution_policy.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def build_execution_return_bridge(
+    *,
+    canonical_holdings: pl.DataFrame,
+    sensitivity_holdings: pl.DataFrame,
+    canonical_monthly: pl.DataFrame,
+    sensitivity_monthly: pl.DataFrame,
+    transaction_cost_bps: float,
+    tolerance: float = 1e-12,
+) -> pl.DataFrame:
+    """Reconcile close and next-open returns on one immutable allocation.
+
+    The sensitivity is allowed to change realized returns, but never the
+    selected securities, months, target weights, or cost parameters.
+    """
+
+    holding_keys = ["strategy", "decision_month", "holding_month", "ticker"]
+    required_holdings = {*holding_keys, "target_weight"}
+    monthly_keys = ["strategy", "holding_month"]
+    required_monthly = {
+        *monthly_keys,
+        "gross_return",
+        "turnover",
+        "transaction_cost",
+        "net_return",
+    }
+    for label, frame in (
+        ("canonical_holdings", canonical_holdings),
+        ("sensitivity_holdings", sensitivity_holdings),
+    ):
+        missing = sorted(required_holdings - set(frame.columns))
+        if missing:
+            raise ValueError(f"{label} is missing execution bridge fields: {missing}")
+        if frame.select(holding_keys).is_duplicated().any():
+            raise ValueError(f"{label} contains duplicate holding keys.")
+    for label, frame in (
+        ("canonical_monthly", canonical_monthly),
+        ("sensitivity_monthly", sensitivity_monthly),
+    ):
+        missing = sorted(required_monthly - set(frame.columns))
+        if missing:
+            raise ValueError(f"{label} is missing execution bridge fields: {missing}")
+        if frame.select(monthly_keys).is_duplicated().any():
+            raise ValueError(f"{label} contains duplicate monthly keys.")
+
+    allocations = canonical_holdings.select(
+        *holding_keys,
+        pl.col("target_weight").alias("canonical_target_weight"),
+    ).join(
+        sensitivity_holdings.select(
+            *holding_keys,
+            pl.col("target_weight").alias("sensitivity_target_weight"),
+        ),
+        on=holding_keys,
+        how="full",
+        coalesce=True,
+        validate="1:1",
+    )
+    if allocations.height != canonical_holdings.height or allocations.height != (
+        sensitivity_holdings.height
+    ):
+        raise RuntimeError("Execution sensitivity changed the holding key set.")
+    invalid_allocations = allocations.filter(
+        pl.col("canonical_target_weight").is_null()
+        | pl.col("sensitivity_target_weight").is_null()
+        | (
+            (pl.col("canonical_target_weight") - pl.col("sensitivity_target_weight")).abs()
+            > tolerance
+        )
+    )
+    if not invalid_allocations.is_empty():
+        raise RuntimeError("Execution sensitivity changed canonical target weights.")
+
+    canonical = canonical_monthly.select(
+        *monthly_keys,
+        pl.col("gross_return").alias("canonical_gross_return"),
+        pl.col("turnover").alias("canonical_turnover"),
+        pl.col("transaction_cost").alias("canonical_transaction_cost"),
+        pl.col("net_return").alias("canonical_net_return"),
+    )
+    sensitivity = sensitivity_monthly.select(
+        *monthly_keys,
+        pl.col("gross_return").alias("sensitivity_gross_return"),
+        pl.col("turnover").alias("sensitivity_turnover"),
+        pl.col("transaction_cost").alias("sensitivity_transaction_cost"),
+        pl.col("net_return").alias("sensitivity_net_return"),
+    )
+    bridge = canonical.join(
+        sensitivity,
+        on=monthly_keys,
+        how="full",
+        coalesce=True,
+        validate="1:1",
+    )
+    if bridge.height != canonical.height or bridge.height != sensitivity.height:
+        raise RuntimeError("Execution sensitivity changed the strategy-month calendar.")
+    missing_returns = bridge.filter(
+        pl.any_horizontal(
+            pl.col(
+                "canonical_net_return",
+                "sensitivity_net_return",
+            ).is_null()
+        )
+    )
+    if not missing_returns.is_empty():
+        raise RuntimeError("Execution sensitivity has an unmatched strategy-month.")
+
+    expected_cost_rate = float(transaction_cost_bps) / 10_000.0
+    for prefix in ("canonical", "sensitivity"):
+        invalid_costs = bridge.filter(
+            (
+                pl.col(f"{prefix}_transaction_cost")
+                - pl.col(f"{prefix}_turnover") * expected_cost_rate
+            ).abs()
+            > tolerance
+        )
+        if not invalid_costs.is_empty():
+            raise RuntimeError(f"{prefix} execution series does not use the declared cost rate.")
+    return bridge.with_columns(
+        (pl.col("canonical_net_return") - pl.col("sensitivity_net_return")).alias("net_return_gap")
+    ).sort(monthly_keys)
+
+
+def write_execution_return_bridge(
+    bridge: pl.DataFrame,
+    output_dir: Path,
+    *,
+    transaction_cost_bps: float,
+    canonical_policy: ExecutionPolicy = ALPHARANK_REFERENCE_CLOSE,
+    sensitivity_policy: ExecutionPolicy = LEGACY_NEXT_SESSION_OPEN,
+) -> dict[str, object]:
+    """Persist the paired return series and block policy-role inversion."""
+
+    if canonical_policy.identifier != ALPHARANK_REFERENCE_CLOSE.identifier:
+        raise RuntimeError("Only the approved reference-close policy can be canonical.")
+    if sensitivity_policy.identifier == canonical_policy.identifier:
+        raise RuntimeError("An execution sensitivity cannot be the canonical policy.")
+    if sensitivity_policy.identifier != LEGACY_NEXT_SESSION_OPEN.identifier:
+        raise RuntimeError("The mandatory next-session-open sensitivity is missing.")
+    required = {
+        "strategy",
+        "holding_month",
+        "canonical_net_return",
+        "sensitivity_net_return",
+        "net_return_gap",
+    }
+    missing = sorted(required - set(bridge.columns))
+    if missing:
+        raise ValueError(f"Execution return bridge is missing fields: {missing}")
+    if bridge.is_empty():
+        raise ValueError("Execution return bridge cannot be empty.")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    bridge_path = output_dir / "execution_return_bridge.parquet"
+    bridge.write_parquet(bridge_path)
+    manifest = {
+        "contract_version": 1,
+        "canonical_execution_policy": canonical_policy.to_manifest(),
+        "mandatory_sensitivity_policy": sensitivity_policy.to_manifest(),
+        "sensitivity_is_canonical": False,
+        "same_holding_keys_and_target_weights": True,
+        "same_strategy_month_calendar": True,
+        "transaction_cost_bps_times_turnover": float(transaction_cost_bps),
+        "strategy_count": bridge["strategy"].n_unique(),
+        "month_count": bridge["holding_month"].n_unique(),
+        "row_count": bridge.height,
+        "report": bridge_path.name,
+    }
+    (output_dir / "execution_return_policy.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
@@ -289,9 +471,7 @@ def apply_next_session_open_holding_returns(
             & (pl.col("adjusted_close") > 0.0)
         )
         .with_columns(
-            (
-                pl.col("open") * pl.col("adjusted_close") / pl.col("close")
-            ).alias("adjusted_open")
+            (pl.col("open") * pl.col("adjusted_close") / pl.col("close")).alias("adjusted_open")
         )
         .sort(["ticker", "date"])
     )
@@ -322,13 +502,9 @@ def apply_next_session_open_holding_returns(
         if ticker_prices is None:
             raise RuntimeError(f"No execution price history for {ticker}")
         before_holding = ticker_prices.filter(pl.col("date") < holding_month)
-        inside_holding = ticker_prices.filter(
-            pl.col("date").dt.truncate("1mo") == holding_month
-        )
+        inside_holding = ticker_prices.filter(pl.col("date").dt.truncate("1mo") == holding_month)
         if before_holding.is_empty() or inside_holding.is_empty():
-            raise RuntimeError(
-                f"Incomplete next-open holding window for {ticker} {holding_month}"
-            )
+            raise RuntimeError(f"Incomplete next-open holding window for {ticker} {holding_month}")
         signal_date = before_holding["date"][-1]
         entry = inside_holding.row(0, named=True)
         ending = inside_holding.row(-1, named=True)
@@ -337,22 +513,16 @@ def apply_next_session_open_holding_returns(
         signal_at = datetime.combine(signal_date, time(16, 0), tzinfo=NEW_YORK)
         execution_at = datetime.combine(entry["date"], time(9, 30), tzinfo=NEW_YORK)
         end_at = datetime.combine(ending["date"], time(16, 0), tzinfo=NEW_YORK)
-        scheduled_end_at = datetime.combine(
-            scheduled_end_date, time(16, 0), tzinfo=NEW_YORK
-        )
+        scheduled_end_at = datetime.combine(scheduled_end_date, time(16, 0), tzinfo=NEW_YORK)
         if execution_at <= signal_at or end_at <= execution_at:
-            raise RuntimeError(
-                f"Invalid next-open holding chronology for {ticker} {holding_month}"
-            )
+            raise RuntimeError(f"Invalid next-open holding chronology for {ticker} {holding_month}")
         rows.append(
             {
                 "ticker": ticker,
                 "decision_month": decision_month,
                 "holding_month": holding_month,
                 "realized_return_next_open": (
-                    float(ending["adjusted_close"])
-                    / float(entry["adjusted_open"])
-                    - 1.0
+                    float(ending["adjusted_close"]) / float(entry["adjusted_open"]) - 1.0
                 ),
                 "execution_price_unadjusted": float(entry["open"]),
                 "execution_price_adjusted": float(entry["adjusted_open"]),
@@ -363,12 +533,8 @@ def apply_next_session_open_holding_returns(
                     execution_at + timedelta(microseconds=1)
                 ).astimezone(ZoneInfo("UTC")),
                 "holding_return_end_at": end_at.astimezone(ZoneInfo("UTC")),
-                "scheduled_holding_end_at": scheduled_end_at.astimezone(
-                    ZoneInfo("UTC")
-                ),
-                "holding_observation_gap_calendar_days": (
-                    scheduled_end_date - ending["date"]
-                ).days,
+                "scheduled_holding_end_at": scheduled_end_at.astimezone(ZoneInfo("UTC")),
+                "holding_observation_gap_calendar_days": (scheduled_end_date - ending["date"]).days,
                 "execution_policy_id": policy.identifier,
                 "return_resolution": (
                     "provisional_last_observation"
@@ -381,9 +547,7 @@ def apply_next_session_open_holding_returns(
                     else None
                 ),
                 "manual_review_status": (
-                    "pending_manual_terminal_event_review"
-                    if is_partial_observation
-                    else None
+                    "pending_manual_terminal_event_review" if is_partial_observation else None
                 ),
             }
         )

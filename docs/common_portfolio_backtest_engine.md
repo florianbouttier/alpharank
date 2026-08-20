@@ -1,6 +1,6 @@
 # Common Portfolio And Backtest Engine
 
-Last updated: 2026-08-16
+Last updated: 2026-08-20
 
 This document is the source of truth for the code shared after signal
 generation by the Legacy and boosting methodologies.
@@ -112,6 +112,37 @@ The common simulator writes one row per strategy and holding month:
 Legacy production uses zero transaction cost to reproduce the published
 historical convention. Alpha risk research currently uses 10 bps times
 turnover and keeps gross and net returns separately.
+
+### Convention de clôture approuvée le 2026-08-20
+
+La convention économique AlphaRank est l'achat simulé à la clôture de référence
+et le rendement mensuel de clôture ajustée à clôture ajustée. La variante
+`next_session_open_v1`, ajoutée pendant l'audit `LEG-003`, reste un test de
+sensibilité utile mais ne remplace pas la série canonique.
+
+Le runtime identifie cette convention par
+`reference_close_adjusted_close_v1`. `scripts/run_legacy.py` la fige dans
+`run_config.canonical_execution_policy` et déclare séparément
+`next_session_open_v1` sous `mandatory_execution_sensitivities`. Le rapport
+versionné `execution_return_bridge.parquet`, accompagné de
+`execution_return_policy.json`, ne peut être écrit que si les deux séries
+partagent exactement titres, mois, poids et barème de coûts. Les replays `v2`
+déjà scellés continuent d'accepter explicitement l'ancienne politique.
+
+Le diagnostic du snapshot `9a2058c9…425ad`, sur les 180 mois réalisés d'août
+2011 à juillet 2026 et avec 10 points de base multipliés par le turnover pour
+les trois stratégies investissables, mesure un écart de CAGR clôture moins
+prochaine ouverture de `+2,87` points pour Boosting Top 5, `+2,08` points pour
+Boosting Top 10 et `+1,08` point pour Legacy. Il s'agit de l'effet composé de
+petits écarts répétés à la frontière des mois, pas d'un rendement ajouté en une
+seule journée.
+
+Ces chiffres sont diagnostiques tant que `LIVE-022` n'a pas séparé l'ancien et
+le nouveau titre portant le symbole SNDK. Le rapport exploratoire correspondant
+est conservé sous
+`outputs/production_refresh_20260820/execution_close_runtime_v2/`.
+Son manifeste rapproche 540 lignes sur trois stratégies et 180 mois, avec
+`sensitivity_is_canonical=false`; il reste non publiable jusqu'au replay SNDK.
 
 ## Benchmark Contract
 

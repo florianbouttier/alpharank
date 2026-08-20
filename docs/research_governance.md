@@ -1,6 +1,6 @@
 # Gouvernance des résultats de recherche
 
-Dernière mise à jour : 2026-08-18.
+Dernière mise à jour : 2026-08-20.
 
 Ce document définit les règles approuvées pour conserver, comparer et promouvoir
 les résultats Legacy et Boosting. Il complète les contrats méthodologiques et de
@@ -57,7 +57,7 @@ ci-dessous ne peut être contredite par un rapport ou un dashboard.
 | Prix et vintages (`PRC-001` à `PRC-003`) | Un prix historique publié appartient à un vintage immuable. Toute révision crée un nouveau package et conserve le diff, la date de connaissance et le registre persistant ; un appel réseau ne réécrit jamais un historique scellé. | `src/alpharank/data/prices/`, `src/alpharank/data/price_revisions.py`; politiques et hashes dans les manifests de composition | `tests/test_price_revisions.py::test_price_revision_requires_new_vintage`, `tests/test_composed_snapshot.py::test_price_registry_promotion_preserves_payload` |
 | Univers, secteurs et fondamentaux (`UNI-001` à `UNI-004`, `FND-001` à `FND-004`, `LEG-001`) | Membership, secteur et filing sont joints point-in-time avec provenance complète. Une couverture sectorielle partielle désactive le cap ; une donnée fondamentale officielle est SEC-only et devient disponible après le délai opérationnel de 24 heures. | `src/alpharank/data/open_source/constituents.py`, `src/alpharank/data/sector_history.py`, `src/alpharank/data/fundamental_coverage.py`, `src/alpharank/data/feature_availability.py`; politiques `sec-only-exclude-ex-ante-v1` et `sec-filing-availability-v1` | `tests/test_open_source_constituents.py::test_membership_effective_at_decision_time`, `tests/test_sector_history.py::test_sector_used_was_known_at_decision_date`, `tests/test_strategy_legacy.py::test_legacy_sector_cap_uses_pit_sector` |
 | Événements terminaux (`BST-002`, `SIM-001`) | Une sélection sans rendement réalisé échoue par défaut. Seul un événement terminal sourcé, connu et effectif pendant la détention peut résoudre le rendement ; `renormalize_available` est réservé au replay historique nommé. | `src/alpharank/portfolio/terminal_returns.py`, `src/alpharank/portfolio/simulation.py`; `missing_return_policy=raise` | `tests/test_portfolio_engine.py::test_terminal_return_is_included`, `tests/test_portfolio_engine.py::test_unresolved_terminal_return_does_not_promote_a_survivor` |
-| Exécution (`LEG-003`, `SIM-004`) | L'ordre canonique est exécuté à la prochaine ouverture observée, strictement après le cutoff ; la première observation de rendement suit l'exécution. La clôture du signal est un scénario non exécutable et le VWAP n'est utilisé que s'il est observé. | `src/alpharank/portfolio/execution.py`, `src/alpharank/portfolio/contracts.py`; `next_session_open_v1`, `causal_timing_policy=require_explicit` | `tests/test_portfolio_engine.py::test_holding_return_starts_after_trade`, `tests/test_portfolio_execution.py::test_order_price_occurs_after_signal_cutoff` |
+| Exécution (`LEG-003`, `LEG-005`, `SIM-004`) | Décision approuvée le 2026-08-20 : la performance AlphaRank canonique simule l'achat à la clôture de référence et mesure le rendement de clôture ajustée à clôture ajustée. La prochaine ouverture observée reste une sensibilité obligatoire, jamais la série publiée par défaut ; le VWAP n'est utilisé que s'il est observé. | Le replay commun conserve la série `adjusted_close` ; `src/alpharank/portfolio/execution.py` porte le défaut runtime `reference_close_adjusted_close_v1`, conserve `next_session_open_v1` et écrit le pont des deux séries. | `tests/test_portfolio_execution.py` refuse l'inversion des rôles et tout écart de titres, mois, poids ou barème de coûts entre les deux séries. |
 | Allocation et coûts (`SIM-002`, `SIM-003`) | Le turnover part des poids dérivés pré-trade, cash inclus. Les coûts sont des scénarios nommés et rapprochent spread, slippage, impact, commission/minimum et FX avec `net = brut - coûts`. | `src/alpharank/portfolio/allocation.py`, `src/alpharank/portfolio/costs.py`; `TransactionCostModel` versionné dans le manifeste | `tests/test_portfolio_engine.py::test_turnover_uses_drifted_pretrade_weights`, `tests/test_portfolio_engine.py::test_cost_model_is_monotonic_and_reconciled` |
 | Limites, promotion et statut (`GOV-001` à `GOV-005`, `BST-006`) | `v1-audited-biased` reste immuable. Toute correction économique publie une autre version ; promotion et rollback sont atomiques, approuvés et conservent la version supersédée. Une confirmation finale est scellée avant ouverture. | `src/alpharank/governance.py`; pointeur de promotion, inventaire SHA-256 et protocole `sealed-confirmation-v1` | `tests/test_governance_baseline.py::test_baseline_package_is_immutable`, `tests/test_governance_promotion.py::test_promotion_is_atomic_and_reversible` |
 | Replay et provenance (`GOV-003`, `QA-002`, `QA-003`) | Un résultat publiable capture tout le runtime et doit être recalculé depuis ses entrées scellées. Toute mutation du code moteur, de la configuration, des entrées ou du modèle invalide le replay. | `src/alpharank/replay_validation.py`, `src/alpharank/governance.py`, `.github/workflows/methodology-validation.yml` | `tests/test_governance_runtime_provenance.py::test_manifest_captures_complete_runtime_provenance`, `tests/test_recomputable_replay.py::test_replay_recomputes_outputs_from_sealed_inputs` |
@@ -273,14 +273,22 @@ lieu de créer une interpolation asymétrique.
 
 ## Exécution Legacy
 
-La convention canonique est `next_session_open_v1`. Le cutoff du signal est la
-clôture de la dernière séance observée avant le mois de détention ; l'ordre est
-valorisé à la première ouverture de séance strictement postérieure. Chaque run
-Legacy doit écrire `legacy_execution_sensitivity.parquet` et
-`legacy_execution_policy.json` avec trois scénarios : clôture du signal comme
-référence non exécutable, prochaine ouverture canonique et VWAP de séance
-uniquement lorsqu'une valeur VWAP observée existe. Aucun proxy VWAP n'est
-reconstruit depuis OHLC, et l'absence du prix canonique bloque le run.
+La décision utilisateur du 2026-08-20 confirme la convention historique
+AlphaRank : achat simulé à la clôture de référence, puis rendement de clôture
+ajustée à clôture ajustée sur le mois détenu. L'interprétation introduite par
+`LEG-003` le 2026-08-18, qui faisait de `next_session_open_v1` la convention
+canonique, est supersédée ; ses artefacts restent conservés comme contrôle de
+sensibilité.
+
+Chaque rapport doit donc afficher séparément la série canonique de clôture et la
+sensibilité à la prochaine ouverture, calculées sur les mêmes titres, mois,
+poids et frais. Le VWAP de séance n'est affiché que lorsqu'une valeur réellement
+observée existe ; aucun proxy n'est reconstruit depuis OHLC. `LEG-005` rend ce
+choix explicite et bloquant : chaque nouveau run déclare
+`reference_close_adjusted_close_v1` comme convention canonique et
+`next_session_open_v1` comme sensibilité obligatoire. Le pont versionné vérifie
+l'identité des titres, mois et poids ainsi que le même barème de coûts, sans
+réécrire les anciennes baselines.
 
 ## Protocole de recherche Legacy
 

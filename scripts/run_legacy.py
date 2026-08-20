@@ -8,10 +8,11 @@ import os
 import platform
 import re
 import shutil
+import subprocess
 import sys
+from calendar import monthrange
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from calendar import monthrange
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -20,12 +21,12 @@ import polars as pl
 
 from alpharank.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.data.lineage import load_latest_manifest, write_manifest
-from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
 from alpharank.data.price_eligibility import (
     STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
     build_monthly_price_eligibility,
     monthly_price_eligibility_policy,
 )
+from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
 from alpharank.data.snapshot_storage import copy_snapshot_file
 from alpharank.data.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
@@ -47,13 +48,15 @@ from alpharank.portfolio.benchmark import (
     monthly_benchmark_returns,
 )
 from alpharank.portfolio.comparison import reference_monthly_series
+from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.execution import (
+    ALPHARANK_REFERENCE_CLOSE,
+    LEGACY_NEXT_SESSION_OPEN,
     apply_next_session_open_holding_returns,
     build_execution_sensitivity_report,
     build_monthly_execution_orders,
     write_execution_sensitivity_report,
 )
-from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
@@ -65,7 +68,6 @@ from alpharank.utils.frame_backend import (
     to_polars,
 )
 from alpharank.visualization.plotting import PortfolioVisualizer
-
 
 INPUT_PACKAGE_FILENAMES: Dict[str, str] = {
     "final_price": "US_Finalprice.parquet",
@@ -776,6 +778,10 @@ def run_pipeline(
         "execution_sensitivity_require_canonical_available": (
             methodology_identity is not None
         ),
+        "canonical_execution_policy": ALPHARANK_REFERENCE_CLOSE.to_manifest(),
+        "mandatory_execution_sensitivities": [
+            LEGACY_NEXT_SESSION_OPEN.to_manifest()
+        ],
         "methodology_identity": methodology_identity,
     }
     runtime_provenance = capture_runtime_provenance(
@@ -1340,11 +1346,13 @@ def run_pipeline(
     execution_sensitivity = build_execution_sensitivity_report(
         execution_orders,
         final_price.select(execution_price_columns),
+        policy=ALPHARANK_REFERENCE_CLOSE,
         require_canonical_available=require_canonical_execution,
     )
     write_execution_sensitivity_report(
         execution_sensitivity,
         run_day_dir,
+        policy=ALPHARANK_REFERENCE_CLOSE,
         require_canonical_available=require_canonical_execution,
     )
     comparison_monthly_returns_long = _named_frames_to_long(

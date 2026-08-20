@@ -195,6 +195,11 @@ Key files:
   produced by the shared portfolio simulator.
 - `legacy_common_annual.csv`, `legacy_common_performance.csv`, and
   `legacy_common_calendar.json`: shared Legacy/Alpha/SPY reporting convention.
+- `legacy_execution_policy.json`: convention runtime canonique
+  `reference_close_adjusted_close_v1` et scénarios de sensibilité obligatoires.
+- `execution_return_bridge.parquet` et `execution_return_policy.json` lorsqu'un
+  replay comparatif est produit : rapprochement clôture/prochaine ouverture sur
+  les mêmes positions, mois, poids et paramètres de coûts.
 - `portfolio_report_frequency_polars_<YYYY-MM>.html`: frequency-weighted portfolio snapshot.
 - `portfolio_report_equal_polars_<YYYY-MM>.html`: equal-weighted portfolio snapshot.
 

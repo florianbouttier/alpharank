@@ -43,7 +43,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 4 | `DOC-009` | découper le catalogue Boosting de 3 899 lignes | lot DOC ci-dessous | fait |
 | 5 | `DOC-010` | découpler les tests des chemins documentaires historiques | lot DOC ci-dessous | fait |
 | 6 | `QUAL-002` | configurer Ruff sans reformatage global | lot QUAL ci-dessous | fait |
-| 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | à faire |
+| 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | fait |
 | 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | à faire — bloque la publication économique |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas

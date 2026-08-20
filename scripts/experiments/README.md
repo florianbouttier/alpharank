@@ -11,3 +11,7 @@ Règles :
 - conserver snapshot, configuration, commande et métrique primaire ;
 - promouvoir les conclusions dans les documents canoniques ;
 - ne pas réimplémenter les KPI du package `alpharank.portfolio`.
+
+`build_execution_convention_bridge.py` rapproche la série canonique de clôture
+et la sensibilité à la prochaine ouverture. Il échoue si le dossier de sortie
+existe déjà et conserve les hashes de chaque entrée et sortie.
