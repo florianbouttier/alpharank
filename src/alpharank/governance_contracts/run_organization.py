@@ -6,13 +6,21 @@ import hashlib
 import json
 import re
 from collections import Counter
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
 
 RUN_ROOT_INVENTORY_CONTRACT = "alpharank_run_root_inventory_v1"
 RUN_PATH_CONTRACT = "alpharank_run_path_v1"
+RUN_MANIFEST_CONTRACT = "alpharank_run_manifest_v1"
 RUN_STATUSES = {"candidate", "validated", "published", "failed"}
+RUN_STATUS_TRANSITIONS = {
+    "candidate": {"validated", "failed"},
+    "validated": {"published", "failed"},
+    "published": set(),
+    "failed": set(),
+}
 _COMPACT_DATE = re.compile(r"(?<!\d)(20\d{6})(?!\d)")
 _DASHED_DATE = re.compile(r"(?<!\d)(20\d{2}-\d{2}-\d{2})(?!\d)")
 _FAMILY = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
@@ -26,6 +34,10 @@ def canonical_run_dir(outputs_root: Path, *, family: str, run_id: str) -> Path:
         raise ValueError(f"Invalid run family: {family!r}")
     if _RUN_ID.fullmatch(run_id) is None:
         raise ValueError(f"Invalid run id: {run_id!r}")
+    name_tokens = {family, *run_id.split("_")}
+    reserved = name_tokens & RUN_STATUSES
+    if reserved:
+        raise ValueError(f"Run path embeds manifest status: {sorted(reserved)}")
     return outputs_root.resolve() / family / run_id
 
 
@@ -49,6 +61,124 @@ def validate_canonical_run_dir(outputs_root: Path, run_dir: Path) -> dict[str, s
         "run_id": run_id,
         "run_dir": run_dir.as_posix(),
     }
+
+
+def initialize_run_manifest(
+    outputs_root: Path,
+    *,
+    family: str,
+    run_id: str,
+    created_at: str,
+) -> Path:
+    """Create one canonical run directory with an explicit candidate manifest."""
+
+    run_dir = canonical_run_dir(outputs_root, family=family, run_id=run_id)
+    run_dir.mkdir(parents=True, exist_ok=False)
+    manifest = {
+        "contract": RUN_MANIFEST_CONTRACT,
+        "family": family,
+        "run_id": run_id,
+        "run_dir": run_dir.relative_to(outputs_root.resolve().parent).as_posix(),
+        "created_at": created_at,
+        "status": "candidate",
+        "status_history": [
+            {
+                "status": "candidate",
+                "changed_at": created_at,
+                "reason": "run_initialized",
+            }
+        ],
+        "artifacts": [],
+        "logs": [],
+    }
+    manifest_path = run_dir / "manifest.json"
+    write_run_manifest(manifest_path, manifest)
+    validate_run_manifest(outputs_root, manifest_path)
+    return manifest_path
+
+
+def transition_run_status(
+    manifest: Mapping[str, object],
+    *,
+    new_status: str,
+    changed_at: str,
+    reason: str,
+) -> dict[str, object]:
+    """Return a manifest with one allowed, auditable status transition."""
+
+    current = str(manifest.get("status"))
+    if new_status not in RUN_STATUSES:
+        raise ValueError(f"Unknown run status: {new_status}")
+    if new_status not in RUN_STATUS_TRANSITIONS.get(current, set()):
+        raise ValueError(f"Invalid run status transition: {current} -> {new_status}")
+    if not reason.strip():
+        raise ValueError("Run status transition requires a reason")
+    updated = deepcopy(dict(manifest))
+    raw_history = updated.get("status_history")
+    if not isinstance(raw_history, list):
+        raise RuntimeError("Run manifest status_history must be a list")
+    updated["status"] = new_status
+    raw_history.append(
+        {
+            "status": new_status,
+            "changed_at": changed_at,
+            "reason": reason,
+        }
+    )
+    return updated
+
+
+def validate_run_manifest(
+    outputs_root: Path,
+    manifest_path: Path,
+) -> dict[str, object]:
+    """Validate path identity, current status and complete status history."""
+
+    manifest_path = manifest_path.resolve()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping) or payload.get("contract") != RUN_MANIFEST_CONTRACT:
+        raise RuntimeError("Unsupported run manifest contract")
+    family = str(payload.get("family"))
+    run_id = str(payload.get("run_id"))
+    run_dir = canonical_run_dir(outputs_root, family=family, run_id=run_id)
+    if manifest_path != run_dir / "manifest.json":
+        raise RuntimeError("Run manifest path differs from its identity")
+    recorded_run_dir = run_dir.relative_to(outputs_root.resolve().parent).as_posix()
+    if payload.get("run_dir") != recorded_run_dir:
+        raise RuntimeError("Run manifest records another directory")
+    status = payload.get("status")
+    history = payload.get("status_history")
+    if status not in RUN_STATUSES or not isinstance(history, list) or not history:
+        raise RuntimeError("Run manifest has no explicit valid status history")
+    if any(not isinstance(entry, Mapping) for entry in history):
+        raise RuntimeError("Run manifest status history entries must be objects")
+    if history[-1].get("status") != status:
+        raise RuntimeError("Run manifest status differs from status history")
+    observed = [str(entry.get("status")) for entry in history]
+    if observed[0] != "candidate":
+        raise RuntimeError("Run status history must start as candidate")
+    for previous, current in zip(observed, observed[1:], strict=False):
+        if current not in RUN_STATUS_TRANSITIONS.get(previous, set()):
+            raise RuntimeError(f"Invalid recorded status transition: {previous} -> {current}")
+    return {
+        "passed": True,
+        "family": family,
+        "run_id": run_id,
+        "status": status,
+        "transition_count": len(history) - 1,
+    }
+
+
+def write_run_manifest(path: Path, manifest: Mapping[str, object]) -> None:
+    """Atomically write a small run manifest without moving result payloads."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(f"{path.suffix}.tmp")
+    temporary.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
 
 
 def build_run_root_inventory(

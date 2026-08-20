@@ -157,6 +157,10 @@ Tout nouveau résultat suit le contrat
 identifiant UTC immuable `YYYYMMDDTHHMMSSZ_<slug>`. Les racines historiques ne
 sont pas déplacées implicitement.
 
+Le statut d'un nouveau run vit uniquement dans son `manifest.json`. Il commence
+à `candidate`, conserve chaque transition et ne peut atteindre `published`
+qu'après `validated`. Un suffixe libre dans le nom n'a aucun effet de promotion.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

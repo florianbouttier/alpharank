@@ -23,5 +23,21 @@ les traversées hors de `outputs/` et les niveaux supplémentaires. Les 346
 racines historiques inventoriées restent en place : ce contrat s'applique aux
 nouveaux runs et ne déclenche aucun déplacement rétroactif.
 
-Les statuts, journaux, pointeurs et règles de rétention sont ajoutés par les
-tâches RUNORG suivantes dans ce même contrat.
+## Statut dans le manifeste
+
+Chaque nouveau dossier contient immédiatement un `manifest.json` conforme à
+`alpharank_run_manifest_v1`. Il naît avec le statut `candidate`, puis les seules
+transitions possibles sont :
+
+```text
+candidate -> validated -> published
+         \-> failed    \-> failed
+```
+
+Chaque transition conserve son instant et sa raison dans `status_history`.
+`published` et `failed` sont terminaux. Le statut est interdit dans la famille
+ou le suffixe du `run_id` : renommer un dossier ne peut donc ni valider ni
+publier un résultat.
+
+Les journaux, pointeurs et règles de rétention sont ajoutés par les tâches
+RUNORG suivantes dans ce même contrat.
