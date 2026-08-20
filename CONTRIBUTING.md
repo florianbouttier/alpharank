@@ -325,6 +325,15 @@ La politique ordonnée et ses exceptions sont versionnées dans
 `configs/quality/test_suites_v1.json`. Un nouveau fichier non reconnu rejoint
 explicitement `unit` jusqu'à ce qu'une dépendance plus large soit déclarée.
 
+La gate AlphaRank complète, identique à celle appelée par la CI, est :
+
+```bash
+python scripts/quality/run_ci_checks.py --group all
+```
+
+Chaque groupe peut être exécuté séparément avec `--group static`, `unit`,
+`integration`, `replay`, `network` ou `production`.
+
 ## 13. Décision active et migration
 
 La norme retenue est donc :

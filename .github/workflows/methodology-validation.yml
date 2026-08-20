@@ -53,16 +53,35 @@ jobs:
         working-directory: alpharank
         run: python -m pip install -e '.[dev]'
 
-      - name: Validate AlphaRank
+      - name: Validate AlphaRank static and documentation contracts
         if: matrix.target == 'alpharank'
         working-directory: alpharank
-        run: |
-          python scripts/quality/check_ruff_baseline.py
-          python -m mypy
-          python -m pytest -q -p no:cacheprovider
-          python -m pytest -q tests/test_future_mutation_invariance.py
-          python -m pytest -q tests/test_recomputable_replay.py
-          python scripts/validate_markdown_links.py .
+        run: python scripts/quality/run_ci_checks.py --group static
+
+      - name: Validate AlphaRank unit tests
+        if: matrix.target == 'alpharank'
+        working-directory: alpharank
+        run: python scripts/quality/run_ci_checks.py --group unit
+
+      - name: Validate AlphaRank integration tests
+        if: matrix.target == 'alpharank'
+        working-directory: alpharank
+        run: python scripts/quality/run_ci_checks.py --group integration
+
+      - name: Validate AlphaRank causal replays
+        if: matrix.target == 'alpharank'
+        working-directory: alpharank
+        run: python scripts/quality/run_ci_checks.py --group replay
+
+      - name: Validate AlphaRank provider boundaries
+        if: matrix.target == 'alpharank'
+        working-directory: alpharank
+        run: python scripts/quality/run_ci_checks.py --group network
+
+      - name: Validate AlphaRank production contracts
+        if: matrix.target == 'alpharank'
+        working-directory: alpharank
+        run: python scripts/quality/run_ci_checks.py --group production
 
       - name: Install Portfolio backend
         if: matrix.target == 'portfolio'
