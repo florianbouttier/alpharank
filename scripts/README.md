@@ -10,7 +10,7 @@ des arguments.
 - `experiments/` : expériences et générateurs de rapports R&D.
 - `quality/` : contrôles statiques différentiels sans mutation des sources.
 - `maintenance/` : inventaires et opérations de rangement réversibles.
-- `_old/` : scripts archivés, conservés uniquement pour référence.
+- `_archive/` : scripts sans lecteur actif, conservés avec provenance et date.
 
 ## Entrées principales
 

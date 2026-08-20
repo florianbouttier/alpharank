@@ -1,0 +1,115 @@
+{
+  "archive_date": "2026-08-20",
+  "candidates": [
+    {
+      "active_readers": [],
+      "archive_path": "scripts/_archive/2026-08-20/run_full_backtest.py",
+      "decision": "archived",
+      "historical_references": [],
+      "last_commit": "46e1697d8f878882f88f035415ac14fa28f0d182",
+      "replacement": "scripts/run_backtest.py",
+      "sha256_before_move": "a1fbb819e98f78b898b8c8e208bd66e13f2897b878b523a1387559ae94f8a5f5",
+      "size_bytes": 11237,
+      "source_path": "scripts/_old/run_full_backtest.py"
+    },
+    {
+      "active_readers": [],
+      "archive_path": "scripts/_archive/2026-08-20/backtest_data_source_examples.py",
+      "decision": "archived",
+      "historical_references": [
+        "docs/archive/root_README_20260820.md"
+      ],
+      "last_commit": "6f62036519570ea5cf7599acc016324ca3382430",
+      "replacement": "scripts/run_backtest.py with a manifest-resolved BacktestConfig",
+      "sha256_before_move": "07bd0acefce66dfdce32e122c816fb98056f2eaddc8926412ac99cee9b4af296",
+      "size_bytes": 709,
+      "source_path": "scripts/backtest_data_source_examples.py"
+    },
+    {
+      "active_readers": [],
+      "archive_path": "scripts/_archive/2026-08-20/download_data.py",
+      "decision": "archived",
+      "historical_references": [],
+      "last_commit": "27bc1d67cb8052ef2136faa5010c492d0450d7cd",
+      "replacement": "scripts/open_source/run_ingestion.py; frozen EODHD prices remain immutable",
+      "sha256_before_move": "05d21ccc8608a5b21a3425de9c20eef86f205ef7326ec1df690e407507227a80",
+      "size_bytes": 5078,
+      "source_path": "scripts/download_data.py"
+    },
+    {
+      "active_readers": [],
+      "archive_path": "scripts/_archive/2026-08-20/download_data_incremental.py",
+      "decision": "archived",
+      "historical_references": [],
+      "last_commit": "2b19752d1eab008895f3ba9af06d404d959c8899",
+      "replacement": "scripts/open_source/run_ingestion.py; frozen EODHD prices remain immutable",
+      "sha256_before_move": "7ff37a53c9e253ae4fa964f57012412bbb5b90a0ce65a55284847330a5e6b1c7",
+      "size_bytes": 9731,
+      "source_path": "scripts/download_data_incremental.py"
+    },
+    {
+      "active_readers": [],
+      "archive_path": "scripts/_archive/2026-08-20/generate_financial_report.py",
+      "decision": "archived",
+      "historical_references": [],
+      "last_commit": "46e1697d8f878882f88f035415ac14fa28f0d182",
+      "replacement": "scripts/open_source/build_sec_fundamental_explorer.py",
+      "sha256_before_move": "01529ba9327ccfc4e2e29d333d6e686dde1437768b87f95e482160f0193fa5f4",
+      "size_bytes": 3585,
+      "source_path": "scripts/generate_financial_report.py"
+    },
+    {
+      "active_readers": [],
+      "archive_path": "scripts/_archive/2026-08-20/run_backtest_open_source_prices.py",
+      "decision": "archived",
+      "historical_references": [
+        "docs/archive/root_README_20260820.md"
+      ],
+      "last_commit": "6f62036519570ea5cf7599acc016324ca3382430",
+      "replacement": "scripts/run_backtest.py with the canonical model-input snapshot",
+      "sha256_before_move": "996e8724eed646b8d4b9d4274d947bc1a4af039a633df349512b6edfec2daf51",
+      "size_bytes": 1043,
+      "source_path": "scripts/run_backtest_open_source_prices.py"
+    },
+    {
+      "active_readers": [],
+      "archive_path": "scripts/_archive/2026-08-20/run_boosting_vs_legacy.py",
+      "decision": "archived",
+      "historical_references": [],
+      "last_commit": "f97376c899df85266915c27d8b95a92ac7f0ef30",
+      "replacement": "scripts/build_common_legacy_boosting_replay.py",
+      "sha256_before_move": "ac28ecfd1cc57880f5d3219895cdca1feb101ff94232042877e09a821311b6f5",
+      "size_bytes": 3947,
+      "source_path": "scripts/run_boosting_vs_legacy.py"
+    },
+    {
+      "active_readers": [
+        "docs/sec_open_source_status.md",
+        "tests/test_run_sec_q4_fix2_candidate.py"
+      ],
+      "archive_path": null,
+      "decision": "retained",
+      "historical_references": [
+        "docs/archive/root_README_20260820.md"
+      ],
+      "last_commit": "fb11783b168d8abb402dc0ed4bc73b38771ae5c3",
+      "replacement": null,
+      "sha256_before_move": "b1e7a3ee0bfe323e0d789372e688c545188396547e98f6c8e7700353274051e3",
+      "size_bytes": 10957,
+      "source_path": "scripts/open_source/run_sec_q4_fix2_candidate.py"
+    }
+  ],
+  "inventory_id": "alpharank_script_archival_audit_v1",
+  "reader_classes_checked": [
+    "python_import",
+    "python_command",
+    "documentation_current",
+    "documentation_archive",
+    "ci",
+    "launch_agent",
+    "test"
+  ],
+  "rollback": "git restore the source path from the CODE-010 parent commit",
+  "schema_version": 1,
+  "task_id": "CODE-010"
+}

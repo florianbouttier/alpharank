@@ -2,7 +2,6 @@
   "active_entrypoints": [
     "scripts/audit_data_lineage.py",
     "scripts/audit_open_source_snapshot_revisions.py",
-    "scripts/backtest_data_source_examples.py",
     "scripts/benchmark_legacy_backends.py",
     "scripts/build_common_legacy_boosting_replay.py",
     "scripts/build_common_v2_replay.py",
@@ -10,8 +9,6 @@
     "scripts/build_v1_v2_reconciliation.py",
     "scripts/compare_legacy_eodhd_vs_open_source.py",
     "scripts/compare_legacy_input_ablation.py",
-    "scripts/download_data.py",
-    "scripts/download_data_incremental.py",
     "scripts/experiments/analyze_ema_anchor_recomposition_gap.py",
     "scripts/experiments/analyze_legacy_factor_exposures.py",
     "scripts/experiments/analyze_legacy_return_attribution.py",
@@ -54,7 +51,6 @@
     "scripts/experiments/run_tradable_ema_residual_regression.py",
     "scripts/experiments/summarize_multihorizon_run.py",
     "scripts/experiments/sweep_generalized_ema_expert_params.py",
-    "scripts/generate_financial_report.py",
     "scripts/maintenance/build_code_inventory.py",
     "scripts/open_source/audit_price_snapshot_vintages.py",
     "scripts/open_source/audit_sec_earnings_coverage.py",
@@ -100,8 +96,6 @@
     "scripts/render_methodology_v2_study.py",
     "scripts/run_backtest.py",
     "scripts/run_backtest_application.py",
-    "scripts/run_backtest_open_source_prices.py",
-    "scripts/run_boosting_vs_legacy.py",
     "scripts/run_legacy.py",
     "scripts/seal_causal_v2_snapshot.py",
     "scripts/seal_methodology_baseline.py",
@@ -122,38 +116,73 @@
   "edges": [
     {
       "kind": "import",
-      "source": "scripts/_old/run_full_backtest.py",
-      "target": "src/alpharank/data/datasets.py"
+      "source": "scripts/_archive/2026-08-20/backtest_data_source_examples.py",
+      "target": "src/alpharank/backtest/__init__.py"
     },
     {
       "kind": "import",
-      "source": "scripts/_old/run_full_backtest.py",
+      "source": "scripts/_archive/2026-08-20/download_data.py",
+      "target": "src/alpharank/data/lineage.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/download_data.py",
+      "target": "src/alpharank/data/service.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/download_data_incremental.py",
+      "target": "src/alpharank/data/lineage.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/download_data_incremental.py",
+      "target": "src/alpharank/data/service.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/generate_financial_report.py",
       "target": "src/alpharank/data/processing.py"
     },
     {
       "kind": "import",
-      "source": "scripts/_old/run_full_backtest.py",
+      "source": "scripts/_archive/2026-08-20/generate_financial_report.py",
+      "target": "src/alpharank/visualization/financial_comparison.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/run_backtest_open_source_prices.py",
+      "target": "src/alpharank/backtest/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/run_full_backtest.py",
+      "target": "src/alpharank/data/datasets.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/run_full_backtest.py",
+      "target": "src/alpharank/data/processing.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/_archive/2026-08-20/run_full_backtest.py",
       "target": "src/alpharank/features/indicators.py"
     },
     {
       "kind": "import",
-      "source": "scripts/_old/run_full_backtest.py",
+      "source": "scripts/_archive/2026-08-20/run_full_backtest.py",
       "target": "src/alpharank/models/xgboost.py"
     },
     {
       "kind": "import",
-      "source": "scripts/_old/run_full_backtest.py",
+      "source": "scripts/_archive/2026-08-20/run_full_backtest.py",
       "target": "src/alpharank/utils/data_utils.py"
     },
     {
       "kind": "import",
-      "source": "scripts/_old/run_full_backtest.py",
+      "source": "scripts/_archive/2026-08-20/run_full_backtest.py",
       "target": "src/alpharank/utils/metrics.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/backtest_data_source_examples.py",
-      "target": "src/alpharank/backtest/__init__.py"
     },
     {
       "kind": "command",
@@ -324,26 +353,6 @@
       "kind": "import",
       "source": "scripts/compare_legacy_input_ablation.py",
       "target": "src/alpharank/strategy/legacy.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/download_data.py",
-      "target": "src/alpharank/data/lineage.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/download_data.py",
-      "target": "src/alpharank/data/service.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/download_data_incremental.py",
-      "target": "src/alpharank/data/lineage.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/download_data_incremental.py",
-      "target": "src/alpharank/data/service.py"
     },
     {
       "kind": "import",
@@ -829,16 +838,6 @@
       "kind": "import",
       "source": "scripts/experiments/summarize_multihorizon_run.py",
       "target": "src/alpharank/portfolio/performance.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/generate_financial_report.py",
-      "target": "src/alpharank/data/processing.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/generate_financial_report.py",
-      "target": "src/alpharank/visualization/financial_comparison.py"
     },
     {
       "kind": "import",
@@ -1394,11 +1393,6 @@
       "kind": "import",
       "source": "scripts/run_backtest_application.py",
       "target": "src/alpharank/backtest/application.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/run_backtest_open_source_prices.py",
-      "target": "src/alpharank/backtest/__init__.py"
     },
     {
       "kind": "import",
@@ -3493,6 +3487,85 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/backtest/__init__.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "archived",
+      "module": "scripts._archive.2026-08-20.backtest_data_source_examples",
+      "path": "scripts/_archive/2026-08-20/backtest_data_source_examples.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/data/lineage.py",
+        "src/alpharank/data/service.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "archived",
+      "module": "scripts._archive.2026-08-20.download_data",
+      "path": "scripts/_archive/2026-08-20/download_data.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/data/lineage.py",
+        "src/alpharank/data/service.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "archived",
+      "module": "scripts._archive.2026-08-20.download_data_incremental",
+      "path": "scripts/_archive/2026-08-20/download_data_incremental.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/data/processing.py",
+        "src/alpharank/visualization/financial_comparison.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "archived",
+      "module": "scripts._archive.2026-08-20.generate_financial_report",
+      "path": "scripts/_archive/2026-08-20/generate_financial_report.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/backtest/__init__.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "archived",
+      "module": "scripts._archive.2026-08-20.run_backtest_open_source_prices",
+      "path": "scripts/_archive/2026-08-20/run_backtest_open_source_prices.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "archived",
+      "module": "scripts._archive.2026-08-20.run_boosting_vs_legacy",
+      "path": "scripts/_archive/2026-08-20/run_boosting_vs_legacy.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/data/datasets.py",
         "src/alpharank/data/processing.py",
         "src/alpharank/features/indicators.py",
@@ -3503,8 +3576,8 @@
       "invokes": [],
       "layer": "script",
       "lifecycle": "archived",
-      "module": "scripts._old.run_full_backtest",
-      "path": "scripts/_old/run_full_backtest.py",
+      "module": "scripts._archive.2026-08-20.run_full_backtest",
+      "path": "scripts/_archive/2026-08-20/run_full_backtest.py",
       "readers": []
     },
     {
@@ -3527,19 +3600,6 @@
       "lifecycle": "active",
       "module": "scripts.audit_open_source_snapshot_revisions",
       "path": "scripts/audit_open_source_snapshot_revisions.py",
-      "readers": []
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": true,
-      "imports": [
-        "src/alpharank/backtest/__init__.py"
-      ],
-      "invokes": [],
-      "layer": "script",
-      "lifecycle": "active",
-      "module": "scripts.backtest_data_source_examples",
-      "path": "scripts/backtest_data_source_examples.py",
       "readers": []
     },
     {
@@ -3661,34 +3721,6 @@
       "lifecycle": "active",
       "module": "scripts.compare_legacy_input_ablation",
       "path": "scripts/compare_legacy_input_ablation.py",
-      "readers": []
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": true,
-      "imports": [
-        "src/alpharank/data/lineage.py",
-        "src/alpharank/data/service.py"
-      ],
-      "invokes": [],
-      "layer": "script",
-      "lifecycle": "active",
-      "module": "scripts.download_data",
-      "path": "scripts/download_data.py",
-      "readers": []
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": true,
-      "imports": [
-        "src/alpharank/data/lineage.py",
-        "src/alpharank/data/service.py"
-      ],
-      "invokes": [],
-      "layer": "script",
-      "lifecycle": "active",
-      "module": "scripts.download_data_incremental",
-      "path": "scripts/download_data_incremental.py",
       "readers": []
     },
     {
@@ -4281,20 +4313,6 @@
       "lifecycle": "active",
       "module": "scripts.experiments.sweep_generalized_ema_expert_params",
       "path": "scripts/experiments/sweep_generalized_ema_expert_params.py",
-      "readers": []
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": true,
-      "imports": [
-        "src/alpharank/data/processing.py",
-        "src/alpharank/visualization/financial_comparison.py"
-      ],
-      "invokes": [],
-      "layer": "script",
-      "lifecycle": "active",
-      "module": "scripts.generate_financial_report",
-      "path": "scripts/generate_financial_report.py",
       "readers": []
     },
     {
@@ -4977,30 +4995,6 @@
       "readers": []
     },
     {
-      "declared_public_entrypoint": false,
-      "has_main_guard": true,
-      "imports": [
-        "src/alpharank/backtest/__init__.py"
-      ],
-      "invokes": [],
-      "layer": "script",
-      "lifecycle": "active",
-      "module": "scripts.run_backtest_open_source_prices",
-      "path": "scripts/run_backtest_open_source_prices.py",
-      "readers": []
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": true,
-      "imports": [],
-      "invokes": [],
-      "layer": "script",
-      "lifecycle": "active",
-      "module": "scripts.run_boosting_vs_legacy",
-      "path": "scripts/run_boosting_vs_legacy.py",
-      "readers": []
-    },
-    {
       "declared_public_entrypoint": true,
       "has_main_guard": true,
       "imports": [
@@ -5253,9 +5247,9 @@
       "module": "alpharank.backtest",
       "path": "src/alpharank/backtest/__init__.py",
       "readers": [
-        "scripts/backtest_data_source_examples.py",
-        "scripts/run_backtest.py",
-        "scripts/run_backtest_open_source_prices.py"
+        "scripts/_archive/2026-08-20/backtest_data_source_examples.py",
+        "scripts/_archive/2026-08-20/run_backtest_open_source_prices.py",
+        "scripts/run_backtest.py"
       ]
     },
     {
@@ -5714,7 +5708,7 @@
       "module": "alpharank.data.datasets",
       "path": "src/alpharank/data/datasets.py",
       "readers": [
-        "scripts/_old/run_full_backtest.py",
+        "scripts/_archive/2026-08-20/run_full_backtest.py",
         "src/alpharank/models/xgboost.py"
       ]
     },
@@ -5760,8 +5754,8 @@
       "module": "alpharank.data.lineage",
       "path": "src/alpharank/data/lineage.py",
       "readers": [
-        "scripts/download_data.py",
-        "scripts/download_data_incremental.py",
+        "scripts/_archive/2026-08-20/download_data.py",
+        "scripts/_archive/2026-08-20/download_data_incremental.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/production/legacy_pipeline.py"
       ]
@@ -6632,9 +6626,9 @@
       "module": "alpharank.data.processing",
       "path": "src/alpharank/data/processing.py",
       "readers": [
-        "scripts/_old/run_full_backtest.py",
+        "scripts/_archive/2026-08-20/generate_financial_report.py",
+        "scripts/_archive/2026-08-20/run_full_backtest.py",
         "scripts/compare_legacy_eodhd_vs_open_source.py",
-        "scripts/generate_financial_report.py",
         "scripts/open_source/probe_sp500_entry_pe_coverage.py",
         "src/alpharank/data/datasets.py",
         "src/alpharank/production/legacy_pipeline.py",
@@ -6689,8 +6683,8 @@
       "module": "alpharank.data.service",
       "path": "src/alpharank/data/service.py",
       "readers": [
-        "scripts/download_data.py",
-        "scripts/download_data_incremental.py"
+        "scripts/_archive/2026-08-20/download_data.py",
+        "scripts/_archive/2026-08-20/download_data_incremental.py"
       ]
     },
     {
@@ -6794,7 +6788,7 @@
       "module": "alpharank.features.indicators",
       "path": "src/alpharank/features/indicators.py",
       "readers": [
-        "scripts/_old/run_full_backtest.py",
+        "scripts/_archive/2026-08-20/run_full_backtest.py",
         "src/alpharank/data/processing.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py"
@@ -7032,7 +7026,7 @@
       "module": "alpharank.models.xgboost",
       "path": "src/alpharank/models/xgboost.py",
       "readers": [
-        "scripts/_old/run_full_backtest.py"
+        "scripts/_archive/2026-08-20/run_full_backtest.py"
       ]
     },
     {
@@ -8134,7 +8128,7 @@
       "module": "alpharank.utils.data_utils",
       "path": "src/alpharank/utils/data_utils.py",
       "readers": [
-        "scripts/_old/run_full_backtest.py"
+        "scripts/_archive/2026-08-20/run_full_backtest.py"
       ]
     },
     {
@@ -8169,7 +8163,7 @@
       "module": "alpharank.utils.metrics",
       "path": "src/alpharank/utils/metrics.py",
       "readers": [
-        "scripts/_old/run_full_backtest.py"
+        "scripts/_archive/2026-08-20/run_full_backtest.py"
       ]
     },
     {
@@ -8232,7 +8226,7 @@
       "module": "alpharank.visualization.financial_comparison",
       "path": "src/alpharank/visualization/financial_comparison.py",
       "readers": [
-        "scripts/generate_financial_report.py"
+        "scripts/_archive/2026-08-20/generate_financial_report.py"
       ]
     },
     {
@@ -8283,7 +8277,7 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 118,
+    "active_entrypoint_count": 112,
     "internal_edge_count": 673,
     "library_count": 161,
     "python_file_count": 280,

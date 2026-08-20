@@ -23,7 +23,7 @@ def tracked_maintained_python_paths(root: Path) -> tuple[Path, ...]:
         for relative_path in relative_paths
         if relative_path
         and (relative_path.startswith("src/") or relative_path.startswith("scripts/"))
-        and not relative_path.startswith("scripts/_old/")
+        and not relative_path.startswith(("scripts/_archive/", "scripts/_old/"))
     )
 
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from alpharank.quality.code_inventory import (
     _has_main_guard,
+    _is_archived_script,
     _resolve_imports,
     validate_code_inventory,
 )
@@ -35,3 +36,9 @@ def test_imports_and_main_guard_are_resolved_without_importing_code() -> None:
 
     assert _resolve_imports(tree, modules) == {"src/alpharank/portfolio/engine.py"}
     assert _has_main_guard(tree) is True
+
+
+def test_archive_paths_are_not_active_entrypoints() -> None:
+    assert _is_archived_script("scripts/_archive/2026-08-20/old.py") is True
+    assert _is_archived_script("scripts/_old/compatibility.py") is True
+    assert _is_archived_script("scripts/run_legacy.py") is False

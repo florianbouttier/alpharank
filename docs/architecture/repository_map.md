@@ -132,6 +132,9 @@ Le registre
 [`code_dependency_inventory_v1.json`](code_dependency_inventory_v1.json)
 énumère les fichiers Python suivis, leurs imports internes, les commandes de
 scripts détectables statiquement et les lecteurs inverses. Il distingue les
-entrées actives de `scripts/_old/` et fige les six commandes publiques de
-`scripts/README.md`. Toute modification du graphe doit régénérer ce registre
-explicitement et rester contrôlée par la CI.
+entrées actives de `scripts/_archive/` et fige les six commandes publiques de
+`scripts/README.md`. L'audit de déplacement et les hashes antérieurs sont
+conservés dans
+[`script_archival_audit_v1.json`](script_archival_audit_v1.json). Toute
+modification du graphe doit régénérer ce registre explicitement et rester
+contrôlée par la CI.

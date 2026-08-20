@@ -47,7 +47,7 @@ def build_code_inventory(root: Path) -> dict[str, object]:
             if target != path:
                 edges.add((path, target, "command"))
         is_script = path.startswith("scripts/")
-        archived = path.startswith("scripts/_old/")
+        archived = _is_archived_script(path)
         node_rows.append(
             {
                 "path": path,
@@ -220,6 +220,10 @@ def _module_name(path: str) -> str:
     if module_path.endswith("/__init__"):
         module_path = module_path[: -len("/__init__")]
     return module_path.replace("/", ".")
+
+
+def _is_archived_script(path: str) -> bool:
+    return path.startswith(("scripts/_archive/", "scripts/_old/"))
 
 
 def _has_main_guard(tree: ast.Module) -> bool:
