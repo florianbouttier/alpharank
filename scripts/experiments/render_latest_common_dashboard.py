@@ -21,10 +21,8 @@ from alpharank.portfolio.attribution import (  # noqa: E402
     portfolio_return_attribution,
     reference_return_attribution,
 )
+from alpharank.portfolio.comparison import subperiod_metric_grid  # noqa: E402
 from alpharank.portfolio.lineage import load_manifest  # noqa: E402
-from alpharank.portfolio.performance import (  # noqa: E402
-    advanced_performance_statistics,
-)
 
 
 PERIOD_METRIC_FIELDS = (
@@ -79,20 +77,16 @@ def _wide_monthly(monthly: pl.DataFrame) -> pl.DataFrame:
 def _period_metrics(monthly: pl.DataFrame) -> dict[str, list[list[float | None]]]:
     strategies = monthly["strategy"].unique().sort().to_list()
     wide = _wide_monthly(monthly)
-    benchmark = wide["SPY total return"].to_numpy()
-    months = wide["holding_month"].to_list()
-    output: dict[str, list[list[float | None]]] = {}
-    for start in range(len(months)):
-        for end in range(start, len(months)):
-            rows: list[list[float | None]] = []
-            for strategy in strategies:
-                stats = advanced_performance_statistics(
-                    wide[strategy].to_numpy()[start : end + 1],
-                    benchmark_returns=benchmark[start : end + 1],
-                )
-                rows.append([_clean(stats[field]) for field in PERIOD_METRIC_FIELDS])
-            output[f"{months[start].isoformat()}|{months[end].isoformat()}"] = rows
-    return output
+    raw = subperiod_metric_grid(
+        wide,
+        strategy_columns=strategies,
+        benchmark_column="SPY total return",
+        metric_fields=PERIOD_METRIC_FIELDS,
+    )
+    return {
+        period: [[_clean(value) for value in row] for row in rows]
+        for period, rows in raw.items()
+    }
 
 
 def _attribution(

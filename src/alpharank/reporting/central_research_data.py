@@ -16,12 +16,12 @@ from alpharank.portfolio.attribution import (
     portfolio_return_attribution,
     reference_return_attribution,
 )
+from alpharank.portfolio.comparison import subperiod_metric_grid
 from alpharank.portfolio.lineage import (
     input_hashes_from_manifest,
     load_manifest,
     require_matching_data_contexts,
 )
-from alpharank.portfolio.performance import advanced_performance_statistics
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 TOPN_DIR = PROJECT_ROOT / (
@@ -492,20 +492,15 @@ PERIOD_METRIC_FIELDS = (
 
 def _period_metrics(monthly: pl.DataFrame) -> dict[str, list[list[float | None]]]:
     series = ("alpha_top5_return", "legacy_return", "spy_return")
-    benchmark = monthly["spy_return"].to_numpy()
-    months = monthly["holding_month"].to_list()
-    output: dict[str, list[list[float | None]]] = {}
-    for start in range(len(months)):
-        for end in range(start, len(months)):
-            rows: list[list[float | None]] = []
-            for column in series:
-                stats = advanced_performance_statistics(
-                    monthly[column].to_numpy()[start : end + 1],
-                    benchmark_returns=benchmark[start : end + 1],
-                )
-                rows.append([_clean(stats[field]) for field in PERIOD_METRIC_FIELDS])
-            output[f"{months[start].isoformat()}|{months[end].isoformat()}"] = rows
-    return output
+    raw = subperiod_metric_grid(
+        monthly,
+        strategy_columns=series,
+        benchmark_column="spy_return",
+        metric_fields=PERIOD_METRIC_FIELDS,
+    )
+    return {
+        period: [[_clean(value) for value in row] for row in rows] for period, rows in raw.items()
+    }
 
 
 def _drawdowns(monthly: pl.DataFrame) -> list[dict[str, Any]]:

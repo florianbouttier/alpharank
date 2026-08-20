@@ -442,12 +442,17 @@
     {
       "kind": "import",
       "source": "scripts/experiments/render_latest_common_dashboard.py",
-      "target": "src/alpharank/portfolio/lineage.py"
+      "target": "src/alpharank/portfolio/comparison.py"
     },
     {
       "kind": "import",
       "source": "scripts/experiments/render_latest_common_dashboard.py",
-      "target": "src/alpharank/portfolio/performance.py"
+      "target": "src/alpharank/portfolio/lineage.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/experiments/render_start_year_performance.py",
+      "target": "src/alpharank/portfolio/comparison.py"
     },
     {
       "kind": "import",
@@ -2931,6 +2936,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/portfolio/comparison.py",
+      "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/portfolio/lineage.py",
       "target": "src/alpharank/data/price_eligibility.py"
     },
@@ -3232,12 +3242,12 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/central_research_data.py",
-      "target": "src/alpharank/portfolio/lineage.py"
+      "target": "src/alpharank/portfolio/comparison.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/reporting/central_research_data.py",
-      "target": "src/alpharank/portfolio/performance.py"
+      "target": "src/alpharank/portfolio/lineage.py"
     },
     {
       "kind": "import",
@@ -3723,8 +3733,8 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/portfolio/attribution.py",
-        "src/alpharank/portfolio/lineage.py",
-        "src/alpharank/portfolio/performance.py"
+        "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/lineage.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -3770,6 +3780,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/portfolio/comparison.py",
         "src/alpharank/portfolio/performance.py",
         "src/alpharank/portfolio/simulation.py"
       ],
@@ -7283,7 +7294,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/portfolio/performance.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -7292,12 +7305,15 @@
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
         "scripts/build_legacy_common_replay.py",
+        "scripts/experiments/render_latest_common_dashboard.py",
+        "scripts/experiments/render_start_year_performance.py",
         "scripts/experiments/run_legacy_ema_risk_heads.py",
         "scripts/experiments/run_topn_allocation_comparison.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/common_v2.py",
         "src/alpharank/portfolio/__init__.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/reporting/central_research_data.py"
       ]
     },
     {
@@ -7398,7 +7414,6 @@
         "scripts/experiments/compare_multihorizon_feature_modes.py",
         "scripts/experiments/confirm_locked_challenger.py",
         "scripts/experiments/render_central_research_dashboard.py",
-        "scripts/experiments/render_latest_common_dashboard.py",
         "scripts/experiments/render_start_year_performance.py",
         "scripts/experiments/run_legacy_ema_risk_heads.py",
         "scripts/experiments/run_topn_allocation_comparison.py",
@@ -7410,8 +7425,8 @@
         "src/alpharank/multihorizon/trading.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/artifacts.py",
+        "src/alpharank/portfolio/comparison.py",
         "src/alpharank/reconciliation_v2.py",
-        "src/alpharank/reporting/central_research_data.py",
         "src/alpharank/strategy/analytics.py"
       ]
     },
@@ -7707,8 +7722,8 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/portfolio/attribution.py",
-        "src/alpharank/portfolio/lineage.py",
-        "src/alpharank/portfolio/performance.py"
+        "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/lineage.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -8026,7 +8041,7 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 117,
-    "internal_edge_count": 643,
+    "internal_edge_count": 645,
     "library_count": 159,
     "python_file_count": 277,
     "script_count": 118,

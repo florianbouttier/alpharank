@@ -11,10 +11,8 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.portfolio.performance import (  # noqa: E402
-    advanced_performance_statistics,
-    annual_returns,
-)
+from alpharank.portfolio.comparison import performance_by_start_year
+from alpharank.portfolio.performance import annual_returns  # noqa: E402
 from alpharank.portfolio.simulation import simulate_weighted_portfolio  # noqa: E402
 
 STRATEGIES = ("Boosting Top 5", "Boosting Top 10", "Legacy", "SPY total return")
@@ -30,9 +28,7 @@ def _series_sources(
     sources["Legacy"] = legacy_monthly.filter(
         pl.col("strategy") == "Combined_Frequency"
     ).with_columns(pl.lit("Legacy").alias("strategy"))
-    sources["SPY total return"] = legacy_monthly.filter(
-        pl.col("strategy") == "SPY total return"
-    )
+    sources["SPY total return"] = legacy_monthly.filter(pl.col("strategy") == "SPY total return")
     return sources
 
 
@@ -46,48 +42,13 @@ def build_start_year_performance(
 
     common_end = common_monthly["holding_month"].max()
     sources = _series_sources(common_monthly, legacy_monthly)
-    benchmark = sources["SPY total return"].select(
-        "holding_month",
-        pl.col("net_return").alias("benchmark_return"),
+    return performance_by_start_year(
+        sources,
+        benchmark_strategy="SPY total return",
+        strategy_order=STRATEGIES,
+        first_year=first_year,
+        end_month=common_end,
     )
-    rows: list[dict] = []
-    for start_year in range(first_year, common_end.year + 1):
-        requested_start = date(start_year, 1, 1)
-        for strategy in STRATEGIES:
-            frame = (
-                sources[strategy]
-                .filter(
-                    pl.col("holding_month").is_between(
-                        requested_start,
-                        common_end,
-                    )
-                )
-                .join(benchmark, on="holding_month", how="inner")
-                .sort("holding_month")
-            )
-            if frame.is_empty():
-                continue
-            effective_start = frame["holding_month"].min()
-            metrics = advanced_performance_statistics(
-                frame["net_return"].to_numpy(),
-                benchmark_returns=frame["benchmark_return"].to_numpy(),
-            )
-            rows.append(
-                {
-                    "requested_start_year": start_year,
-                    "strategy": strategy,
-                    "effective_start_month": effective_start,
-                    "end_month": common_end,
-                    "months": frame.height,
-                    "coverage": (
-                        "full_from_january"
-                        if effective_start == requested_start
-                        else f"partial_from_{effective_start:%Y-%m}"
-                    ),
-                    **metrics,
-                }
-            )
-    return pl.DataFrame(rows).sort(["requested_start_year", "strategy"])
 
 
 def build_calendar_returns(
@@ -109,7 +70,9 @@ def build_calendar_returns(
             frame["net_return"].to_numpy(),
             holding_months=frame["holding_month"].to_list(),
         ).with_columns(pl.lit(strategy).alias("strategy"))
-        parts.append(yearly.select("year", "strategy", "months", "is_full_calendar_year", "annual_return"))
+        parts.append(
+            yearly.select("year", "strategy", "months", "is_full_calendar_year", "annual_return")
+        )
     return pl.concat(parts, how="vertical").sort(["year", "strategy"])
 
 
@@ -134,21 +97,15 @@ def render(
     first_year: int = 2010,
 ) -> Path:
     common_monthly = pl.read_parquet(common_dir / "comparison_common_monthly.parquet")
-    comparison_manifest = json.loads(
-        (common_dir / "manifest.json").read_text(encoding="utf-8")
-    )
-    transaction_cost_bps = comparison_manifest.get(
-        "transaction_cost_policy", {}
-    ).get(
+    comparison_manifest = json.loads((common_dir / "manifest.json").read_text(encoding="utf-8"))
+    transaction_cost_bps = comparison_manifest.get("transaction_cost_policy", {}).get(
         "bps_times_turnover",
         comparison_manifest.get("transaction_cost_bps_times_turnover", 0.0),
     )
-    legacy_monthly_source = pl.read_parquet(
-        legacy_run_dir / "legacy_common_monthly.parquet"
+    legacy_monthly_source = pl.read_parquet(legacy_run_dir / "legacy_common_monthly.parquet")
+    legacy_holdings = pl.read_parquet(legacy_run_dir / "legacy_common_holdings.parquet").filter(
+        pl.col("strategy") == "Combined_Frequency"
     )
-    legacy_holdings = pl.read_parquet(
-        legacy_run_dir / "legacy_common_holdings.parquet"
-    ).filter(pl.col("strategy") == "Combined_Frequency")
     legacy_net = simulate_weighted_portfolio(
         legacy_holdings,
         transaction_cost_bps=transaction_cost_bps,
@@ -157,9 +114,7 @@ def render(
     legacy_monthly = pl.concat(
         [
             legacy_net,
-            legacy_monthly_source.filter(
-                pl.col("strategy") == "SPY total return"
-            ),
+            legacy_monthly_source.filter(pl.col("strategy") == "SPY total return"),
         ],
         how="diagonal_relaxed",
     )
@@ -220,7 +175,18 @@ th{background:#eef2f6;color:#46526a;font-size:12px;text-transform:uppercase}th:n
 <p class="note">Boosting commence hors echantillon en aout 2011. Les lignes 2010 et 2011 indiquent donc explicitement une couverture partielle; aucun rendement Boosting anterieur n'est invente. Legacy et SPY utilisent leur historique disponible sur le meme snapshot.</p>
 <h2>CAGR depuis chaque annee</h2>"""
         + _table(
-            ["Depart demande", "Strategie", "Depart effectif", "Fin", "Mois", "CAGR", "Rendement total", "Sharpe", "Max DD", "Couverture"],
+            [
+                "Depart demande",
+                "Strategie",
+                "Depart effectif",
+                "Fin",
+                "Mois",
+                "CAGR",
+                "Rendement total",
+                "Sharpe",
+                "Max DD",
+                "Couverture",
+            ],
             cagr_rows,
         )
         + "<h2>Rendements calendaires</h2>"

@@ -7,6 +7,8 @@ HTML.
 `render_central_research_dashboard.py` ne porte que le rendu et l'orchestration
 du rapport central ; ses calculs sont propriétaires de
 `src/alpharank/reporting/central_research_data.py`.
+Les commandes de comparaison temporelle délèguent leurs KPI et calendriers à
+`src/alpharank/portfolio/comparison.py`.
 
 Règles :
 
