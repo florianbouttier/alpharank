@@ -7,11 +7,11 @@ from alpharank.data.prices.composition import (
     compose_hybrid_price_history,
     roll_forward_validated_price_history,
 )
+from alpharank.data.prices.contracts import ADJUSTMENT_POLICY_VERSION, PRICE_LINEAGE_COLUMNS
 from alpharank.data.prices.history import (
     build_persistent_price_history_registry,
     persistent_history_summary,
 )
-from alpharank.data.prices.contracts import ADJUSTMENT_POLICY_VERSION, PRICE_LINEAGE_COLUMNS
 
 
 def _lineage(
@@ -135,6 +135,63 @@ def test_inactive_tail_after_long_symbol_gap_is_not_attached() -> None:
     )
 
 
+def test_active_reused_symbol_cannot_inherit_the_old_security_history() -> None:
+    registry = pl.DataFrame(
+        {
+            "source_ticker": ["SNDK", "SNDK"],
+            "canonical_ticker": ["SNDK_OLD", "SNDK"],
+            "security_id": ["old", "new"],
+            "issuer_cik": ["0001000180", "0002023554"],
+            "valid_from": ["2005-01-01", "2025-02-24"],
+            "valid_to": ["2016-05-12", None],
+            "identity_status": ["historical", "current"],
+            "evidence": ["fixture-old", "fixture-new"],
+        }
+    )
+    previous = pl.concat(
+        [
+            _lineage(
+                "SNDK.US",
+                ["2016-05-12"],
+                [75.0],
+                source="eodhd_frozen_history",
+                vintage="seed",
+            ),
+            _lineage(
+                "SNDK.US",
+                ["2025-02-20", "2025-02-24"],
+                [48.0, 50.0],
+                source="yfinance",
+                vintage="old",
+            ),
+        ]
+    )
+    fresh = _lineage(
+        "SNDK.US",
+        ["2025-02-20", "2025-02-24", "2025-02-25"],
+        [48.0, 50.0, 51.0],
+        source="yfinance",
+        vintage="fresh",
+    )
+
+    result = roll_forward_validated_price_history(
+        previous_validated_lineage=previous,
+        active_yahoo_vintage=fresh,
+        active_tickers=["SNDK"],
+        active_resolution_vintage_id="fresh",
+        security_identity_registry=registry,
+    )
+
+    assert result.prices.select("ticker", "date").to_dicts() == [
+        {"ticker": "SNDK.US", "date": "2025-02-24"},
+        {"ticker": "SNDK.US", "date": "2025-02-25"},
+        {"ticker": "SNDK_OLD.US", "date": "2016-05-12"},
+    ]
+    identity = result.composition_report["security_identity"]
+    assert identity["previous_validated_lineage"]["rejected_rows"] == 1
+    assert identity["active_yahoo_vintage"]["rejected_rows"] == 1
+
+
 def test_roll_forward_preserves_inactive_and_replaces_active() -> None:
     previous = pl.concat(
         [
@@ -238,9 +295,7 @@ def test_roll_forward_preserves_confirmed_terminal_active_ticker() -> None:
             _lineage("EA.US", ["2026-08-10"], [209.7], source="yfinance", vintage="old"),
         ]
     )
-    fresh = _lineage(
-        "A.US", ["2026-08-14"], [11.0], source="yfinance", vintage="fresh"
-    )
+    fresh = _lineage("A.US", ["2026-08-14"], [11.0], source="yfinance", vintage="fresh")
 
     result = roll_forward_validated_price_history(
         previous_validated_lineage=previous,
@@ -258,6 +313,4 @@ def test_roll_forward_preserves_confirmed_terminal_active_ticker() -> None:
         active_tickers=["A", "EA"],
         preserved_terminal_tickers=["EA"],
     )
-    assert persistent_history_summary(registry)["non_eodhd_persisted_tickers"] == [
-        "EA.US"
-    ]
+    assert persistent_history_summary(registry)["non_eodhd_persisted_tickers"] == ["EA.US"]

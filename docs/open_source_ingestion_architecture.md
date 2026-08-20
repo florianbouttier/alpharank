@@ -272,6 +272,25 @@ Provider completeness and DEF completeness are separate fields in the run
 report. A partial Yahoo response may therefore be reconstructible from reviewed
 prior exact keys, but it is never described as a complete current download.
 
+### Reused ticker identities
+
+`src/alpharank/data/open_source/reference/security_identity_registry.csv` is
+the canonical interval registry for a market symbol assigned to more than one
+security. Each row binds a source ticker to a distinct `security_id`, issuer CIK
+and inclusive validity interval. The registry is applied before composing
+prices, constituents or SEC tables and is checked again when the model-input
+snapshot is assembled. A row outside every declared interval fails closed; it
+is never attached to the nearest or current issuer.
+
+For `SNDK`, the former SanDisk is preserved as `SNDK_OLD`, CIK `0001000180`,
+through 2016-05-12. The current Sandisk is `SNDK`, CIK `0002023554`, from its
+2025-02-24 regular-way listing. No price, constituent membership, fundamental
+or derived feature can cross the interval gap. SEC identity remediation may
+overlay only these registered identities on the last validated package; every
+non-target row must remain byte-for-byte equivalent after canonical sorting.
+Run manifests record the policy id, registry SHA-256 and interval audit. Raw
+provider observations and earlier diagnostic packages remain immutable.
+
 Existing EODHD files are registered through
 `alpharank_immutable_raw_file_v1`: the local paid archive is never redownloaded
 or rewritten, and byte-identical source ids share one content-addressed object

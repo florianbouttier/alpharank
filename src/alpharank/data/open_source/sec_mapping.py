@@ -4,6 +4,8 @@ from pathlib import Path
 
 import polars as pl
 
+from alpharank.data.security_identity import load_security_identity_registry
+
 
 def resolve_sec_company_mapping(
     *,
@@ -12,7 +14,11 @@ def resolve_sec_company_mapping(
     reference_data_dir: Path | None = None,
     existing_general_reference_lineage: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
-    requested = tuple(sorted({str(ticker).replace(".US", "") for ticker in requested_tickers if str(ticker).strip()}))
+    requested = tuple(
+        sorted(
+            {str(ticker).replace(".US", "") for ticker in requested_tickers if str(ticker).strip()}
+        )
+    )
     if not requested:
         return _empty_mapping_frame()
 
@@ -23,13 +29,17 @@ def resolve_sec_company_mapping(
 
     combined = (
         pl.concat([manual_bridge, live, lineage_bridge, eodhd_bridge], how="diagonal_relaxed")
-        if not manual_bridge.is_empty() or not live.is_empty() or not lineage_bridge.is_empty() or not eodhd_bridge.is_empty()
+        if not manual_bridge.is_empty()
+        or not live.is_empty()
+        or not lineage_bridge.is_empty()
+        or not eodhd_bridge.is_empty()
         else _empty_mapping_frame()
     )
     if combined.is_empty():
         return combined
 
     combined = _expand_requested_ticker_aliases(combined, requested=requested)
+    combined = _filter_reused_symbols_to_current_identity(combined)
 
     return (
         combined.sort(
@@ -78,7 +88,9 @@ def load_sec_historical_ticker_bridge(reference_data_dir: Path | None = None) ->
     candidate_paths: list[Path] = []
     if reference_data_dir is not None:
         candidate_paths.append(reference_data_dir / "sec" / "manual_historical_ticker_bridge.csv")
-    candidate_paths.append(Path(__file__).with_name("reference") / "sec_historical_ticker_bridge.csv")
+    candidate_paths.append(
+        Path(__file__).with_name("reference") / "sec_historical_ticker_bridge.csv"
+    )
 
     for path in candidate_paths:
         if not path.exists():
@@ -146,7 +158,9 @@ def _prepare_live_sec_mapping(sec_mapping_all: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _prepare_raw_lineage_bridge(existing_general_reference_lineage: pl.DataFrame | None) -> pl.DataFrame:
+def _prepare_raw_lineage_bridge(
+    existing_general_reference_lineage: pl.DataFrame | None,
+) -> pl.DataFrame:
     if existing_general_reference_lineage is None or existing_general_reference_lineage.is_empty():
         return _empty_mapping_frame()
     required = {"ticker", "sec_name", "sec_exchange", "sec_cik"}
@@ -240,4 +254,24 @@ def _empty_mapping_frame() -> pl.DataFrame:
             "mapping_source": pl.String,
             "mapping_priority": pl.Int64,
         }
+    )
+
+
+def _filter_reused_symbols_to_current_identity(mapping: pl.DataFrame) -> pl.DataFrame:
+    """Never resolve an active reused symbol to its historical issuer."""
+
+    identities = load_security_identity_registry().filter(pl.col("identity_status") == "current")
+    if identities.is_empty() or mapping.is_empty():
+        return mapping
+    expected = identities.select(
+        pl.col("source_ticker").alias("ticker"),
+        pl.col("issuer_cik").alias("_current_identity_cik"),
+    )
+    return (
+        mapping.join(expected, on="ticker", how="left")
+        .filter(
+            pl.col("_current_identity_cik").is_null()
+            | (pl.col("cik") == pl.col("_current_identity_cik"))
+        )
+        .drop("_current_identity_cik")
     )

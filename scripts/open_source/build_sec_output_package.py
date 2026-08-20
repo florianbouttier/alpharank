@@ -2,17 +2,17 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime, timezone
 import hashlib
-import json
 import os
-from pathlib import Path
 import re
 import shutil
+from datetime import date, datetime, timezone
+from pathlib import Path
 
 import polars as pl
 
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_fundamental_outputs
+from alpharank.data.open_source.revision_guard import audit_historical_revisions
 from alpharank.data.open_source.sec_mapping import load_sec_historical_ticker_bridge
 from alpharank.data.open_source.sec_only import (
     build_sec_only_earnings,
@@ -20,9 +20,13 @@ from alpharank.data.open_source.sec_only import (
     build_sec_only_general_reference_from_raw_lineage,
 )
 from alpharank.data.open_source.storage import utc_now_iso, write_json
-from alpharank.data.open_source.revision_guard import audit_historical_revisions
 from alpharank.data.output_history import snapshot_output_directory
-
+from alpharank.data.security_identity import (
+    SECURITY_IDENTITY_POLICY_ID,
+    apply_security_identity_policy,
+    apply_security_identity_reference_policy,
+    load_security_identity_registry,
+)
 
 RAW_FILE_NAMES = (
     "financials_sec_companyfacts.parquet",
@@ -46,6 +50,7 @@ def main(
     expected_through: str | None = None,
     allow_historical_revisions: bool = False,
     revision_review_note: str | None = None,
+    identity_remediation_only: bool = False,
 ) -> None:
     project_root = Path(__file__).resolve().parents[2]
     resolved_raw_source_dir = (
@@ -71,69 +76,124 @@ def main(
     )
     expected_through = expected_through or date.today().isoformat()
     if allow_historical_revisions and not revision_review_note:
-        raise ValueError(
-            "--revision-review-note is required when historical revisions are allowed"
-        )
+        raise ValueError("--revision-review-note is required when historical revisions are allowed")
 
-    sec_companyfacts = pl.read_parquet(resolved_raw_source_dir / "financials_sec_companyfacts.parquet")
+    sec_companyfacts = pl.read_parquet(
+        resolved_raw_source_dir / "financials_sec_companyfacts.parquet"
+    )
     sec_filing = pl.read_parquet(resolved_raw_source_dir / "financials_sec_filing.parquet")
     sec_calendar = pl.read_parquet(resolved_raw_source_dir / "earnings_sec_calendar.parquet")
     sec_actuals = pl.read_parquet(resolved_raw_source_dir / "earnings_sec_actuals.parquet")
-    general_reference_lineage_raw = pl.read_parquet(resolved_raw_source_dir / "general_reference_lineage.parquet")
+    general_reference_lineage_raw = pl.read_parquet(
+        resolved_raw_source_dir / "general_reference_lineage.parquet"
+    )
     historical_bridge = load_sec_historical_ticker_bridge(resolved_reference_data_dir)
+    security_identities = load_security_identity_registry()
+    historical_bridge_without_reused_symbols = historical_bridge.filter(
+        ~pl.col("ticker").is_in(security_identities.get_column("source_ticker").unique().to_list())
+    )
 
     sec_companyfacts = _filter_frame_by_historical_windows(
         sec_companyfacts,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         date_col="date",
     )
     sec_companyfacts = _filter_frame_by_bridge_cik(
         sec_companyfacts,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         accession_col="accession_number",
     )
     sec_filing = _filter_frame_by_historical_windows(
         sec_filing,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         date_col="date",
     )
     sec_filing = _filter_frame_by_bridge_cik(
         sec_filing,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         accession_col="accession_number",
     )
     sec_calendar = _filter_frame_by_historical_windows(
         sec_calendar,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         date_col="period_end",
     )
     sec_calendar = _filter_frame_by_bridge_cik(
         sec_calendar,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         accession_col="accession_number",
     )
     sec_actuals = _filter_frame_by_historical_windows(
         sec_actuals,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         date_col="period_end",
     )
     sec_actuals = _filter_frame_by_bridge_cik(
         sec_actuals,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
         ticker_col="ticker",
         accession_col="accession_number",
     )
+    dated_identity_results = {
+        "financials_sec_companyfacts": apply_security_identity_policy(
+            sec_companyfacts,
+            ticker_column="ticker",
+            date_column="date",
+            registry=security_identities,
+        ),
+        "financials_sec_filing": apply_security_identity_policy(
+            sec_filing,
+            ticker_column="ticker",
+            date_column="date",
+            registry=security_identities,
+        ),
+        "earnings_sec_calendar": apply_security_identity_policy(
+            sec_calendar,
+            ticker_column="ticker",
+            date_column="period_end",
+            registry=security_identities,
+        ),
+        "earnings_sec_actuals": apply_security_identity_policy(
+            sec_actuals,
+            ticker_column="ticker",
+            date_column="period_end",
+            registry=security_identities,
+        ),
+    }
+    sec_companyfacts = dated_identity_results["financials_sec_companyfacts"].frame
+    sec_filing = dated_identity_results["financials_sec_filing"].frame
+    sec_calendar = dated_identity_results["earnings_sec_calendar"].frame
+    sec_actuals = dated_identity_results["earnings_sec_actuals"].frame
     general_reference_lineage_raw = _override_general_reference_lineage_from_bridge(
         general_reference_lineage_raw,
-        bridge=historical_bridge,
+        bridge=historical_bridge_without_reused_symbols,
     )
+    general_identity_result = apply_security_identity_reference_policy(
+        general_reference_lineage_raw,
+        ticker_column="ticker",
+        registry=security_identities,
+    )
+    if general_identity_result.rejected.height:
+        raise RuntimeError(
+            "SEC general reference contains an unregistered reused-symbol CIK: "
+            f"{general_identity_result.rejected.select('ticker').head(20).to_dicts()}"
+        )
+    general_reference_lineage_raw = general_identity_result.frame
+    security_identity_report = {
+        "policy_id": SECURITY_IDENTITY_POLICY_ID,
+        "registry": _file_record(
+            Path(security_identities.get_column("registry_path").drop_nulls().unique().item())
+        ),
+        "datasets": {name: result.report for name, result in dated_identity_results.items()},
+        "general_reference": general_identity_result.report,
+    }
 
     consolidated_financials, consolidated_lineage, source_summary = build_sec_only_financials(
         sec_companyfacts=sec_companyfacts,
@@ -144,9 +204,31 @@ def main(
         sec_actuals=sec_actuals,
         sec_financials=consolidated_financials,
     )
-    general_reference, general_reference_lineage = build_sec_only_general_reference_from_raw_lineage(
-        general_reference_lineage_raw
+    general_reference, general_reference_lineage = (
+        build_sec_only_general_reference_from_raw_lineage(general_reference_lineage_raw)
     )
+    identity_overlay_report: dict[str, object] | None = None
+    if identity_remediation_only:
+        (
+            general_reference,
+            general_reference_lineage,
+            consolidated_financials,
+            consolidated_lineage,
+            earnings_consolidated,
+            earnings_lineage,
+            earnings_long,
+            identity_overlay_report,
+        ) = _overlay_identity_remediation(
+            previous_output_dir=resolved_previous_output_dir,
+            registry=security_identities,
+            general_reference=general_reference,
+            general_reference_lineage=general_reference_lineage,
+            consolidated_financials=consolidated_financials,
+            consolidated_lineage=consolidated_lineage,
+            earnings_consolidated=earnings_consolidated,
+            earnings_lineage=earnings_lineage,
+            earnings_long=earnings_long,
+        )
     _validate_sec_only_lineage(
         consolidated_lineage=consolidated_lineage,
         earnings_lineage=earnings_lineage,
@@ -165,10 +247,16 @@ def main(
         output_dir=staging_dir,
         align_shares_with_earnings_semantics=False,
     )
+    if identity_remediation_only:
+        if identity_overlay_report is None:
+            raise RuntimeError("Identity overlay report was not initialized")
+        identity_overlay_report["legacy_outputs"] = _overlay_legacy_identity_outputs(
+            previous_output_dir=resolved_previous_output_dir,
+            candidate_paths=legacy_paths,
+            registry=security_identities,
+        )
 
-    raw_records = {
-        name: _file_record(resolved_raw_source_dir / name) for name in RAW_FILE_NAMES
-    }
+    raw_records = {name: _file_record(resolved_raw_source_dir / name) for name in RAW_FILE_NAMES}
     source_run_ids = sorted(
         {
             str(value)
@@ -205,6 +293,10 @@ def main(
         staging_dir / "lineage" / "historical_revision_guard.json",
         historical_revision_guard,
     )
+    write_json(
+        staging_dir / "lineage" / "security_identity_report.json",
+        security_identity_report,
+    )
 
     manifest = {
         "run_id": run_id,
@@ -216,6 +308,8 @@ def main(
         "source_run_ids": source_run_ids,
         "raw_sources": raw_records,
         "historical_revision_guard": historical_revision_guard,
+        "security_identity": security_identity_report,
+        "identity_overlay": identity_overlay_report,
         "revision_review": {
             "required": historical_revision_guard["historical_revisions_detected"],
             "approved": allow_historical_revisions,
@@ -245,19 +339,39 @@ def main(
                 "outstanding_shares",
                 "epsActual",
             ],
-            "derived_from_sec": ["free_cash_flow", "epsActual (fallback only when SEC published EPS is missing)"],
-            "missing_by_design": ["epsEstimate", "surprisePercent", "US_Finalprice.parquet", "SP500Price.parquet"],
+            "derived_from_sec": [
+                "free_cash_flow",
+                "epsActual (fallback only when SEC published EPS is missing)",
+            ],
+            "missing_by_design": [
+                "epsEstimate",
+                "surprisePercent",
+                "US_Finalprice.parquet",
+                "SP500Price.parquet",
+            ],
         },
         "summary": {
             "general_rows": general_reference.height,
             "financial_rows": consolidated_financials.height,
             "earnings_rows": earnings_consolidated.height,
-            "financial_tickers": consolidated_financials.get_column("ticker").n_unique() if not consolidated_financials.is_empty() else 0,
-            "earnings_tickers": earnings_consolidated.get_column("ticker").n_unique() if not earnings_consolidated.is_empty() else 0,
-            "financial_date_min": consolidated_financials.get_column("date").min() if not consolidated_financials.is_empty() else None,
-            "financial_date_max": consolidated_financials.get_column("date").max() if not consolidated_financials.is_empty() else None,
-            "earnings_period_end_min": earnings_consolidated.get_column("period_end").min() if not earnings_consolidated.is_empty() else None,
-            "earnings_period_end_max": earnings_consolidated.get_column("period_end").max() if not earnings_consolidated.is_empty() else None,
+            "financial_tickers": consolidated_financials.get_column("ticker").n_unique()
+            if not consolidated_financials.is_empty()
+            else 0,
+            "earnings_tickers": earnings_consolidated.get_column("ticker").n_unique()
+            if not earnings_consolidated.is_empty()
+            else 0,
+            "financial_date_min": consolidated_financials.get_column("date").min()
+            if not consolidated_financials.is_empty()
+            else None,
+            "financial_date_max": consolidated_financials.get_column("date").max()
+            if not consolidated_financials.is_empty()
+            else None,
+            "earnings_period_end_min": earnings_consolidated.get_column("period_end").min()
+            if not earnings_consolidated.is_empty()
+            else None,
+            "earnings_period_end_max": earnings_consolidated.get_column("period_end").max()
+            if not earnings_consolidated.is_empty()
+            else None,
         },
     }
     if (
@@ -299,7 +413,9 @@ def main(
 
 def _parse_args() -> argparse.Namespace:
     project_root = Path(__file__).resolve().parents[2]
-    parser = argparse.ArgumentParser(description="Build and publish the strict SEC-only fundamentals package.")
+    parser = argparse.ArgumentParser(
+        description="Build and publish the strict SEC-only fundamentals package."
+    )
     parser.add_argument(
         "--raw-source-dir",
         type=Path,
@@ -330,7 +446,234 @@ def _parse_args() -> argparse.Namespace:
         "--revision-review-note",
         help="Required audit note explaining reviewed historical revisions.",
     )
+    parser.add_argument(
+        "--identity-remediation-only",
+        action="store_true",
+        help=(
+            "Freeze all non-target rows from --previous-output-dir and replace only "
+            "symbols declared in the security identity registry."
+        ),
+    )
     return parser.parse_args()
+
+
+def _overlay_identity_remediation(
+    *,
+    previous_output_dir: Path,
+    registry: pl.DataFrame,
+    general_reference: pl.DataFrame,
+    general_reference_lineage: pl.DataFrame,
+    consolidated_financials: pl.DataFrame,
+    consolidated_lineage: pl.DataFrame,
+    earnings_consolidated: pl.DataFrame,
+    earnings_lineage: pl.DataFrame,
+    earnings_long: pl.DataFrame,
+) -> tuple[
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    pl.DataFrame,
+    dict[str, object],
+]:
+    """Replace registered reused symbols without revising unrelated SEC history."""
+    lineage_dir = previous_output_dir / "lineage"
+    frame_specs = {
+        "general_reference": (
+            general_reference,
+            lineage_dir / "general_reference.parquet",
+        ),
+        "general_reference_lineage": (
+            general_reference_lineage,
+            lineage_dir / "general_reference_lineage.parquet",
+        ),
+        "financials_sec_consolidated": (
+            consolidated_financials,
+            lineage_dir / "financials_sec_consolidated.parquet",
+        ),
+        "financials_sec_lineage": (
+            consolidated_lineage,
+            lineage_dir / "financials_sec_lineage.parquet",
+        ),
+        "earnings_sec_consolidated": (
+            earnings_consolidated,
+            lineage_dir / "earnings_sec_consolidated.parquet",
+        ),
+        "earnings_sec_lineage": (
+            earnings_lineage,
+            lineage_dir / "earnings_sec_lineage.parquet",
+        ),
+        "earnings_sec_long": (
+            earnings_long,
+            lineage_dir / "earnings_sec_long.parquet",
+        ),
+    }
+    missing = [str(path) for _, path in frame_specs.values() if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            "Identity remediation requires a complete previous SEC lineage package: "
+            + ", ".join(missing)
+        )
+
+    source_tickers, output_tickers, targeted = _identity_target_tickers(registry)
+    overlaid: dict[str, pl.DataFrame] = {}
+    datasets: dict[str, object] = {}
+    for name, (candidate, previous_path) in frame_specs.items():
+        previous = pl.read_parquet(previous_path)
+        if "ticker" not in previous.columns or "ticker" not in candidate.columns:
+            raise ValueError(f"Identity overlay dataset {name} must contain ticker")
+        frozen = previous.filter(~pl.col("ticker").is_in(targeted))
+        replacement = candidate.filter(pl.col("ticker").is_in(targeted))
+        merged = pl.concat([frozen, replacement], how="diagonal_relaxed")
+        identity_validation: dict[str, object] | None = None
+        if "date" in merged.columns:
+            merged, identity_validation = _filter_canonical_identity_intervals(
+                merged,
+                ticker_column="ticker",
+                date_column="date",
+                registry=registry,
+            )
+        sort_columns = [
+            column
+            for column in ("ticker", "date", "period_end", "filing_date", "metric")
+            if column in merged.columns
+        ]
+        if sort_columns:
+            merged = merged.sort(sort_columns)
+        overlaid[name] = merged
+        datasets[name] = {
+            "previous_rows": previous.height,
+            "frozen_non_target_rows": frozen.height,
+            "candidate_target_rows": replacement.height,
+            "published_rows": merged.height,
+            "previous_sha256": _sha256(previous_path),
+            "identity_validation": identity_validation,
+        }
+
+    report = {
+        "mode": "registered_security_identity_only",
+        "previous_output_dir": str(previous_output_dir),
+        "source_tickers": source_tickers,
+        "published_tickers": output_tickers,
+        "datasets": datasets,
+    }
+    return (
+        overlaid["general_reference"],
+        overlaid["general_reference_lineage"],
+        overlaid["financials_sec_consolidated"],
+        overlaid["financials_sec_lineage"],
+        overlaid["earnings_sec_consolidated"],
+        overlaid["earnings_sec_lineage"],
+        overlaid["earnings_sec_long"],
+        report,
+    )
+
+
+def _overlay_legacy_identity_outputs(
+    *,
+    previous_output_dir: Path,
+    candidate_paths: dict[str, Path],
+    registry: pl.DataFrame,
+) -> dict[str, object]:
+    """Keep published non-target legacy rows byte-equivalent at the data level."""
+    _, _, targeted = _identity_target_tickers(registry)
+    report: dict[str, object] = {}
+    for file_name, candidate_path in candidate_paths.items():
+        previous_path = previous_output_dir / file_name
+        if not previous_path.is_file():
+            raise FileNotFoundError(
+                f"Identity remediation requires previous legacy output {previous_path}"
+            )
+        previous = pl.read_parquet(previous_path)
+        candidate = pl.read_parquet(candidate_path)
+        ticker_column = "Ticker" if "Ticker" in previous.columns else "ticker"
+        if ticker_column not in candidate.columns:
+            raise ValueError(f"Identity overlay output {file_name} must contain {ticker_column}")
+        frozen = previous.filter(~pl.col(ticker_column).is_in(targeted))
+        replacement = candidate.filter(pl.col(ticker_column).is_in(targeted))
+        merged = pl.concat([frozen, replacement], how="diagonal_relaxed")
+        identity_validation: dict[str, object] | None = None
+        if "date" in merged.columns:
+            merged, identity_validation = _filter_canonical_identity_intervals(
+                merged,
+                ticker_column=ticker_column,
+                date_column="date",
+                registry=registry,
+            )
+        sort_columns = [
+            column
+            for column in (ticker_column, "date", "reportDate", "filing_date")
+            if column in merged.columns
+        ]
+        if sort_columns:
+            merged = merged.sort(sort_columns)
+        merged.write_parquet(candidate_path)
+        report[file_name] = {
+            "previous_rows": previous.height,
+            "frozen_non_target_rows": frozen.height,
+            "candidate_target_rows": replacement.height,
+            "published_rows": merged.height,
+            "previous_sha256": _sha256(previous_path),
+            "identity_validation": identity_validation,
+        }
+    return report
+
+
+def _identity_target_tickers(
+    registry: pl.DataFrame,
+) -> tuple[list[str], list[str], list[str]]:
+    source_tickers = registry.get_column("source_ticker").unique().to_list()
+    output_tickers = sorted(
+        {
+            f"{value}.US"
+            for value in registry.get_column("canonical_ticker").drop_nulls().unique().to_list()
+        }
+    )
+    source_roots = {f"{value}.US" for value in source_tickers}
+    targeted = sorted(source_roots | set(output_tickers))
+    return source_tickers, output_tickers, targeted
+
+
+def _filter_canonical_identity_intervals(
+    frame: pl.DataFrame,
+    *,
+    ticker_column: str,
+    date_column: str,
+    registry: pl.DataFrame,
+) -> tuple[pl.DataFrame, dict[str, object]]:
+    """Drop canonical identity rows that fall outside their own validity interval."""
+    original_columns = frame.columns
+    windows = registry.select(
+        (pl.col("canonical_ticker") + pl.lit(".US")).alias("_identity_ticker"),
+        pl.col("valid_from").cast(pl.String).str.to_date(strict=False).alias("_valid_from"),
+        pl.col("valid_to").cast(pl.String).str.to_date(strict=False).alias("_valid_to"),
+    )
+    canonical_tickers = windows.get_column("_identity_ticker").to_list()
+    working = frame.with_row_index("_identity_row").with_columns(
+        pl.col(ticker_column).cast(pl.String).str.to_uppercase().alias("_identity_ticker"),
+        pl.col(date_column).cast(pl.String).str.to_date(strict=False).alias("_identity_date"),
+    )
+    targeted = working.filter(pl.col("_identity_ticker").is_in(canonical_tickers))
+    accepted = targeted.join(windows, on="_identity_ticker", how="inner").filter(
+        pl.col("_identity_date").is_not_null()
+        & (pl.col("_identity_date") >= pl.col("_valid_from"))
+        & (pl.col("_valid_to").is_null() | (pl.col("_identity_date") <= pl.col("_valid_to")))
+    )
+    accepted_rows = accepted.get_column("_identity_row").to_list()
+    rejected = targeted.filter(~pl.col("_identity_row").is_in(accepted_rows))
+    published = working.filter(
+        ~pl.col("_identity_ticker").is_in(canonical_tickers)
+        | pl.col("_identity_row").is_in(accepted_rows)
+    ).select(original_columns)
+    return published, {
+        "policy_id": SECURITY_IDENTITY_POLICY_ID,
+        "targeted_rows": targeted.height,
+        "accepted_rows": len(accepted_rows),
+        "rejected_rows": rejected.height,
+        "canonical_tickers": canonical_tickers,
+    }
 
 
 def publish_sec_output_package(
@@ -379,7 +722,11 @@ def publish_sec_output_package(
         "earnings_sec_lineage.parquet": earnings_lineage,
         "earnings_sec_long.parquet": earnings_long,
     }
-    allowed_lineage_files = set(lineage_outputs) | {"manifest.json"}
+    allowed_lineage_files = set(lineage_outputs) | {
+        "historical_revision_guard.json",
+        "manifest.json",
+        "security_identity_report.json",
+    }
     for existing in lineage_dir.iterdir():
         if existing.name in allowed_lineage_files:
             continue
@@ -406,9 +753,7 @@ def _validate_sec_only_lineage(
     earnings_lineage: pl.DataFrame,
 ) -> None:
     financial_source_col = (
-        "selected_source"
-        if "selected_source" in consolidated_lineage.columns
-        else "source"
+        "selected_source" if "selected_source" in consolidated_lineage.columns else "source"
     )
     financial_sources = set(
         consolidated_lineage.get_column(financial_source_col)
@@ -426,11 +771,7 @@ def _validate_sec_only_lineage(
         if column not in earnings_lineage.columns:
             continue
         sources = set(
-            earnings_lineage.get_column(column)
-            .drop_nulls()
-            .cast(pl.String)
-            .unique()
-            .to_list()
+            earnings_lineage.get_column(column).drop_nulls().cast(pl.String).unique().to_list()
         )
         forbidden = sorted(sources - ALLOWED_EARNINGS_SOURCES)
         if forbidden:
@@ -477,7 +818,12 @@ def _filter_frame_by_historical_windows(
     ticker_col: str,
     date_col: str,
 ) -> pl.DataFrame:
-    if frame.is_empty() or bridge.is_empty() or ticker_col not in frame.columns or date_col not in frame.columns:
+    if (
+        frame.is_empty()
+        or bridge.is_empty()
+        or ticker_col not in frame.columns
+        or date_col not in frame.columns
+    ):
         return frame
     windows = (
         bridge.select(
@@ -529,18 +875,28 @@ def _override_general_reference_lineage_from_bridge(
     if "name" in result.columns:
         updates.append(pl.coalesce([pl.col("_bridge_name"), pl.col("name")]).alias("name"))
     if "exchange" in result.columns:
-        updates.append(pl.coalesce([pl.col("_bridge_exchange"), pl.col("exchange")]).alias("exchange"))
+        updates.append(
+            pl.coalesce([pl.col("_bridge_exchange"), pl.col("exchange")]).alias("exchange")
+        )
     if "cik" in result.columns:
         updates.append(pl.coalesce([pl.col("_bridge_cik"), pl.col("cik")]).alias("cik"))
     if "sec_name" in result.columns:
         updates.append(pl.coalesce([pl.col("_bridge_name"), pl.col("sec_name")]).alias("sec_name"))
     if "sec_exchange" in result.columns:
-        updates.append(pl.coalesce([pl.col("_bridge_exchange"), pl.col("sec_exchange")]).alias("sec_exchange"))
+        updates.append(
+            pl.coalesce([pl.col("_bridge_exchange"), pl.col("sec_exchange")]).alias("sec_exchange")
+        )
     if "sec_cik" in result.columns:
         updates.append(pl.coalesce([pl.col("_bridge_cik"), pl.col("sec_cik")]).alias("sec_cik"))
     if updates:
         result = result.with_columns(updates)
-    return result.drop([column for column in ["_bridge_name", "_bridge_exchange", "_bridge_cik"] if column in result.columns])
+    return result.drop(
+        [
+            column
+            for column in ["_bridge_name", "_bridge_exchange", "_bridge_cik"]
+            if column in result.columns
+        ]
+    )
 
 
 def _filter_frame_by_bridge_cik(
@@ -550,7 +906,12 @@ def _filter_frame_by_bridge_cik(
     ticker_col: str,
     accession_col: str,
 ) -> pl.DataFrame:
-    if frame.is_empty() or bridge.is_empty() or ticker_col not in frame.columns or accession_col not in frame.columns:
+    if (
+        frame.is_empty()
+        or bridge.is_empty()
+        or ticker_col not in frame.columns
+        or accession_col not in frame.columns
+    ):
         return frame
     expected = bridge.select(
         [
@@ -560,7 +921,9 @@ def _filter_frame_by_bridge_cik(
     ).unique(subset=[ticker_col], keep="first")
     return (
         frame.join(expected, on=ticker_col, how="left")
-        .with_columns(pl.col(accession_col).cast(pl.Utf8).str.extract(r"(\d{10})").alias("_accession_cik"))
+        .with_columns(
+            pl.col(accession_col).cast(pl.Utf8).str.extract(r"(\d{10})").alias("_accession_cik")
+        )
         .filter(
             pl.col("_bridge_cik").is_null()
             | pl.col("_accession_cik").is_null()
@@ -599,4 +962,5 @@ if __name__ == "__main__":
         expected_through=args.expected_through,
         allow_historical_revisions=args.allow_historical_revisions,
         revision_review_note=args.revision_review_note,
+        identity_remediation_only=args.identity_remediation_only,
     )

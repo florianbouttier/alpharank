@@ -1,0 +1,3 @@
+source_ticker,canonical_ticker,security_id,issuer_cik,valid_from,valid_to,identity_status,evidence
+SNDK,SNDK_OLD,sec-cik-0001000180,0001000180,1990-01-01,2016-05-12,historical,sec_form_15_2016-05-23
+SNDK,SNDK,sec-cik-0002023554,0002023554,2025-02-24,,current,sec_8-k_2025-02-24

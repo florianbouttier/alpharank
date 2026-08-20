@@ -2,21 +2,26 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
 import hashlib
-from io import BytesIO
 import json
 import os
-from pathlib import Path
 import shutil
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+from io import BytesIO
+from pathlib import Path
 from typing import Any, Mapping
 
 import polars as pl
 
 from alpharank.data.prices.history import PERSISTENT_PRICE_HISTORY_POLICY_ID
+from alpharank.data.security_identity import (
+    SECURITY_IDENTITY_POLICY_ID,
+    assert_security_identity_compliance,
+    assert_security_identity_reference_compliance,
+    load_security_identity_registry,
+)
 from alpharank.data.snapshot_storage import copy_snapshot_file
-
 
 PRICE_FILES = (
     "US_Finalprice.parquet",
@@ -68,19 +73,17 @@ def build_composed_model_snapshot(
         expected_through=expected_through,
     )
     sec_manifest = _validate_sec_package(sec_package_dir)
-    source_price_identity = _price_payload_identity(
-        price_package_dir / "US_Finalprice.parquet"
+    security_identity = _validate_security_identity_packages(
+        price_package_dir=price_package_dir,
+        price_manifest=price_manifest,
+        sec_package_dir=sec_package_dir,
+        sec_manifest=sec_manifest,
     )
+    source_price_identity = _price_payload_identity(price_package_dir / "US_Finalprice.parquet")
 
     sources = {
-        **{
-            f"price/{name}": _file_record(price_package_dir / name)
-            for name in PRICE_FILES
-        },
-        **{
-            f"sec/{name}": _file_record(sec_package_dir / name)
-            for name in SEC_FILES
-        },
+        **{f"price/{name}": _file_record(price_package_dir / name) for name in PRICE_FILES},
+        **{f"sec/{name}": _file_record(sec_package_dir / name) for name in SEC_FILES},
         **{
             f"sec/{name}": _file_record(sec_package_dir / name)
             for name in OPTIONAL_SEC_FILES
@@ -89,23 +92,16 @@ def build_composed_model_snapshot(
     }
     composition_payload = {
         "contract_version": 2,
-        "source_files": {
-            key: record["sha256"] for key, record in sorted(sources.items())
-        },
-        "price_manifest_sha256": _sha256(
-            price_package_dir / "lineage" / "manifest.json"
-        ),
+        "source_files": {key: record["sha256"] for key, record in sorted(sources.items())},
+        "price_manifest_sha256": _sha256(price_package_dir / "lineage" / "manifest.json"),
         "persistent_price_registry_sha256": (
-            _sha256(
-                price_package_dir
-                / "lineage"
-                / "persistent_price_history_registry.parquet"
-            )
+            _sha256(price_package_dir / "lineage" / "persistent_price_history_registry.parquet")
             if int(price_manifest.get("contract_version", 1)) >= 2
             else None
         ),
         "price_run_id": price_manifest.get("run_id"),
         "sec_run_id": sec_manifest.get("run_id"),
+        "security_identity_registry_sha256": security_identity.get("registry_sha256"),
     }
     composition_id = hashlib.sha256(
         json.dumps(composition_payload, sort_keys=True).encode("utf-8")
@@ -125,9 +121,7 @@ def build_composed_model_snapshot(
     storage_modes: list[str] = []
     try:
         for name in PRICE_FILES:
-            storage_modes.append(
-                copy_snapshot_file(price_package_dir / name, staging_dir / name)
-            )
+            storage_modes.append(copy_snapshot_file(price_package_dir / name, staging_dir / name))
         for name in (*SEC_FILES, *OPTIONAL_SEC_FILES):
             source = sec_package_dir / name
             if source.exists():
@@ -149,30 +143,19 @@ def build_composed_model_snapshot(
             for name in (*PRICE_FILES, *SEC_FILES, *OPTIONAL_SEC_FILES)
             if (staging_dir / name).exists()
         }
-        expected_hashes = {
-            Path(key).name: record["sha256"] for key, record in sources.items()
-        }
+        expected_hashes = {Path(key).name: record["sha256"] for key, record in sources.items()}
         if output_hashes != expected_hashes:
             raise RuntimeError("Composed snapshot copy verification failed")
-        snapshot_price_identity = _price_payload_identity(
-            staging_dir / "US_Finalprice.parquet"
-        )
+        snapshot_price_identity = _price_payload_identity(staging_dir / "US_Finalprice.parquet")
         if snapshot_price_identity != source_price_identity:
             raise RuntimeError("Composed snapshot changed the canonical price payload")
-        persistent_registry_copied = int(
-            price_manifest.get("contract_version", 1)
-        ) >= 2
+        persistent_registry_copied = int(price_manifest.get("contract_version", 1)) >= 2
         if persistent_registry_copied:
             source_registry = (
-                price_package_dir
-                / "lineage"
-                / "persistent_price_history_registry.parquet"
+                price_package_dir / "lineage" / "persistent_price_history_registry.parquet"
             )
             copied_registry = (
-                staging_dir
-                / "lineage"
-                / "prices"
-                / "persistent_price_history_registry.parquet"
+                staging_dir / "lineage" / "prices" / "persistent_price_history_registry.parquet"
             )
             if _sha256(copied_registry) != _sha256(source_registry):
                 raise RuntimeError("Composed snapshot changed the price registry")
@@ -187,22 +170,19 @@ def build_composed_model_snapshot(
                 "prices": {
                     "path": str(price_package_dir),
                     "run_id": price_manifest.get("run_id"),
-                    "manifest_sha256": _sha256(
-                        price_package_dir / "lineage" / "manifest.json"
-                    ),
+                    "manifest_sha256": _sha256(price_package_dir / "lineage" / "manifest.json"),
                 },
                 "sec": {
                     "path": str(sec_package_dir),
                     "run_id": sec_manifest.get("run_id"),
-                    "manifest_sha256": _sha256(
-                        sec_package_dir / "lineage" / "manifest.json"
-                    ),
+                    "manifest_sha256": _sha256(sec_package_dir / "lineage" / "manifest.json"),
                 },
             },
             "source_files": sources,
             "output_sha256": output_hashes,
             "data_freshness": price_manifest.get("data_freshness", {}),
             "price_payload_identity": snapshot_price_identity,
+            "security_identity": security_identity,
             "validation": {
                 "price_contract": (
                     "full_ingestion + preceding validated published lineage + "
@@ -212,14 +192,14 @@ def build_composed_model_snapshot(
                 "same_snapshot_for_legacy_and_boosting": True,
                 "price_payload_preserved_exactly": True,
                 "persistent_price_registry_copied": persistent_registry_copied,
+                "security_identity_policy_applied": security_identity["policy_required"],
                 "passed": True,
             },
             "storage": {
                 "strategy": "copy_on_write_with_physical_copy_fallback",
                 "file_count": len(storage_modes),
                 "storage_mode_counts": {
-                    mode: storage_modes.count(mode)
-                    for mode in sorted(set(storage_modes))
+                    mode: storage_modes.count(mode) for mode in sorted(set(storage_modes))
                 },
             },
         }
@@ -261,28 +241,17 @@ def validate_composed_model_snapshot(snapshot_dir: Path) -> dict[str, Any]:
     expected = manifest.get("output_sha256")
     if not isinstance(expected, Mapping):
         raise RuntimeError("Composed snapshot manifest has no output hashes")
-    observed = {
-        str(name): _sha256(snapshot_dir / str(name)) for name in expected
-    }
+    observed = {str(name): _sha256(snapshot_dir / str(name)) for name in expected}
     if observed != dict(expected):
-        differing = sorted(
-            name for name in expected if observed.get(name) != expected.get(name)
-        )
+        differing = sorted(name for name in expected if observed.get(name) != expected.get(name))
         raise RuntimeError(f"Composed snapshot hash mismatch: {differing}")
     expected_identity = manifest.get("price_payload_identity")
     if expected_identity is not None:
-        observed_identity = _price_payload_identity(
-            snapshot_dir / "US_Finalprice.parquet"
-        )
+        observed_identity = _price_payload_identity(snapshot_dir / "US_Finalprice.parquet")
         if observed_identity != expected_identity:
             raise RuntimeError("Composed snapshot price identity mismatch")
     if manifest.get("validation", {}).get("persistent_price_registry_copied"):
-        registry = (
-            snapshot_dir
-            / "lineage"
-            / "prices"
-            / "persistent_price_history_registry.parquet"
-        )
+        registry = snapshot_dir / "lineage" / "prices" / "persistent_price_history_registry.parquet"
         if not registry.is_file():
             raise RuntimeError("Composed snapshot lost its persistent price registry")
     return {
@@ -325,18 +294,14 @@ def _validate_price_package(
         validation = manifest.get("validation")
         if (
             not isinstance(validation, Mapping)
-            or validation.get("all_previous_validated_inactive_history_preserved")
-            is not True
-            or validation.get("open_source_only_inactive_history_persisted")
-            is not True
+            or validation.get("all_previous_validated_inactive_history_preserved") is not True
+            or validation.get("open_source_only_inactive_history_persisted") is not True
         ):
             raise RuntimeError("Price package did not prove persistent inactive history")
         registry = package_dir / "lineage" / "persistent_price_history_registry.parquet"
         if not registry.is_file():
             raise RuntimeError("Price package is missing its persistent-history registry")
-        registry_record = manifest.get("artifacts", {}).get(
-            "persistent_price_history_registry", {}
-        )
+        registry_record = manifest.get("artifacts", {}).get("persistent_price_history_registry", {})
         if not registry_record.get("sha256"):
             raise RuntimeError("Persistent-history registry has no manifest hash")
         if _sha256(registry) != registry_record["sha256"]:
@@ -369,9 +334,7 @@ def _validate_sec_package(package_dir: Path) -> dict[str, Any]:
         raise RuntimeError("SEC package is missing value-level lineage")
     financials = pl.scan_parquet(financial_path)
     financial_schema = financials.collect_schema()
-    source_column = (
-        "selected_source" if "selected_source" in financial_schema else "source"
-    )
+    source_column = "selected_source" if "selected_source" in financial_schema else "source"
     invalid_financial = (
         financials.filter(
             pl.col(source_column).is_not_null()
@@ -407,6 +370,103 @@ def _validate_sec_package(package_dir: Path) -> dict[str, Any]:
     return manifest
 
 
+def _validate_security_identity_packages(
+    *,
+    price_package_dir: Path,
+    price_manifest: Mapping[str, Any],
+    sec_package_dir: Path,
+    sec_manifest: Mapping[str, Any],
+) -> dict[str, Any]:
+    registry = load_security_identity_registry()
+    identity_roots = set(registry.get_column("canonical_ticker").to_list()) | set(
+        registry.get_column("source_ticker").to_list()
+    )
+    dated_files = (
+        (price_package_dir / "US_Finalprice.parquet", "ticker", "date"),
+        (price_package_dir / "SP500_Constituents.csv", "Ticker", "Date"),
+        (sec_package_dir / "US_Income_statement.parquet", "ticker", "date"),
+        (sec_package_dir / "US_Balance_sheet.parquet", "ticker", "date"),
+        (sec_package_dir / "US_Cash_flow.parquet", "ticker", "date"),
+        (sec_package_dir / "US_Earnings.parquet", "ticker", "date"),
+        (sec_package_dir / "US_share.parquet", "ticker", "date"),
+    )
+    checked_files: list[str] = []
+    policy_required = False
+    for path, ticker_column, date_column in dated_files:
+        if not path.is_file():
+            continue
+        frame = (
+            pl.read_csv(path, infer_schema_length=0)
+            if path.suffix == ".csv"
+            else pl.read_parquet(path)
+        )
+        if ticker_column not in frame.columns or date_column not in frame.columns:
+            continue
+        roots = set(
+            frame.get_column(ticker_column)
+            .drop_nulls()
+            .cast(pl.String)
+            .str.to_uppercase()
+            .str.replace(r"\.US$", "")
+            .unique()
+            .to_list()
+        )
+        if not roots.intersection(identity_roots):
+            continue
+        policy_required = True
+        assert_security_identity_compliance(
+            frame,
+            ticker_column=ticker_column,
+            date_column=date_column,
+            registry=registry,
+        )
+        checked_files.append(path.name)
+
+    general_path = sec_package_dir / "US_General.parquet"
+    if general_path.is_file():
+        general = pl.read_parquet(general_path)
+        if {"Code", "CIK"}.issubset(general.columns):
+            roots = set(
+                general.get_column("Code")
+                .drop_nulls()
+                .cast(pl.String)
+                .str.to_uppercase()
+                .str.replace(r"\.US$", "")
+                .unique()
+                .to_list()
+            )
+            if roots.intersection(identity_roots):
+                policy_required = True
+                assert_security_identity_reference_compliance(
+                    general,
+                    ticker_column="Code",
+                    cik_columns=("CIK",),
+                    registry=registry,
+                )
+                checked_files.append(general_path.name)
+
+    if policy_required:
+        price_policy = (
+            price_manifest.get("source_refresh_contract", {})
+            .get("security_identity", {})
+            .get("policy_id")
+        )
+        sec_policy = sec_manifest.get("security_identity", {}).get("policy_id")
+        if price_policy != SECURITY_IDENTITY_POLICY_ID:
+            raise RuntimeError("Price package does not declare the security identity policy")
+        if sec_policy != SECURITY_IDENTITY_POLICY_ID:
+            raise RuntimeError("SEC package does not declare the security identity policy")
+    registry_path = Path(registry.get_column("registry_path").drop_nulls().unique().item())
+    return {
+        "policy_id": SECURITY_IDENTITY_POLICY_ID,
+        "policy_required": policy_required,
+        "registry_path": str(registry_path),
+        "registry_sha256": _sha256(registry_path),
+        "checked_files": sorted(checked_files),
+        "passed": True,
+    }
+
+
 def _require_files(directory: Path, names: tuple[str, ...]) -> None:
     missing = [name for name in names if not (directory / name).is_file()]
     if missing:
@@ -425,17 +485,13 @@ def _price_payload_identity(path: Path) -> dict[str, Any]:
     frame = pl.read_parquet(path)
     ticker_column = "ticker" if "ticker" in frame.columns else "Ticker"
     date_column = "date" if "date" in frame.columns else "Date"
-    missing = [
-        column for column in (ticker_column, date_column) if column not in frame.columns
-    ]
+    missing = [column for column in (ticker_column, date_column) if column not in frame.columns]
     if missing:
         raise RuntimeError(f"Canonical price payload has no key columns: {missing}")
     canonical = frame.sort(ticker_column, date_column).select(sorted(frame.columns))
     buffer = BytesIO()
     canonical.write_ipc(buffer, compression="uncompressed")
-    unique_key_count = frame.select(
-        pl.struct(ticker_column, date_column).n_unique()
-    ).item()
+    unique_key_count = frame.select(pl.struct(ticker_column, date_column).n_unique()).item()
     return {
         "sha256": _sha256(path),
         "size_bytes": path.stat().st_size,

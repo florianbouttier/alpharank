@@ -6,7 +6,11 @@ from typing import Sequence
 
 import polars as pl
 
-from alpharank.data.prices.contracts import PriceGatePolicy, PRODUCTION_PRICE_GATE_POLICY
+from alpharank.data.prices.contracts import PRODUCTION_PRICE_GATE_POLICY, PriceGatePolicy
+from alpharank.data.security_identity import (
+    apply_security_identity_policy,
+    assert_security_identity_compliance,
+)
 
 
 @dataclass(frozen=True)
@@ -28,27 +32,39 @@ def audit_price_candidate(
     policy: PriceGatePolicy = PRODUCTION_PRICE_GATE_POLICY,
     active_resolution_vintage_id: str | None = None,
 ) -> PriceGateResult:
+    assert_security_identity_compliance(
+        candidate_prices,
+        ticker_column="ticker",
+        date_column="date",
+    )
+    assert_security_identity_compliance(
+        candidate_lineage,
+        ticker_column="ticker",
+        date_column="date",
+    )
     candidate = _normalize_prices(candidate_prices)
     lineage = _normalize_lineage(candidate_lineage)
     _require_unique(candidate, label="candidate prices")
     _require_unique(lineage, label="candidate price lineage")
-    if candidate.select(["ticker", "date"]).join(
-        lineage.select(["ticker", "date"]), on=["ticker", "date"], how="anti"
-    ).height:
+    if (
+        candidate.select(["ticker", "date"])
+        .join(lineage.select(["ticker", "date"]), on=["ticker", "date"], how="anti")
+        .height
+    ):
         raise RuntimeError("Candidate price lineage does not cover every selected price row")
-    if lineage.select(["ticker", "date"]).join(
-        candidate.select(["ticker", "date"]), on=["ticker", "date"], how="anti"
-    ).height:
+    if (
+        lineage.select(["ticker", "date"])
+        .join(candidate.select(["ticker", "date"]), on=["ticker", "date"], how="anti")
+        .height
+    ):
         raise RuntimeError("Candidate price lineage contains keys absent from selected prices")
 
     active = [_normalize_ticker(ticker) for ticker in active_tickers]
     active_lineage = lineage.filter(pl.col("ticker").is_in(active))
     active_non_yahoo_rows = active_lineage.filter(pl.col("source") != "yfinance").height
     active_yahoo_lineage = active_lineage.filter(pl.col("source") == "yfinance")
-    active_vintages = (
-        active_yahoo_lineage
-        .group_by("ticker")
-        .agg(pl.col("source_vintage_id").n_unique().alias("vintage_count"))
+    active_vintages = active_yahoo_lineage.group_by("ticker").agg(
+        pl.col("source_vintage_id").n_unique().alias("vintage_count")
     )
     active_global_vintages = (
         active_yahoo_lineage.select(pl.col("source_vintage_id").drop_nulls().unique())
@@ -63,9 +79,7 @@ def audit_price_candidate(
         current_resolution = active_yahoo_lineage.filter(
             pl.col("source_vintage_id") == active_resolution_vintage_id
         )
-        current_resolution_tickers = set(
-            current_resolution.get_column("ticker").unique().to_list()
-        )
+        current_resolution_tickers = set(current_resolution.get_column("ticker").unique().to_list())
         carried_active = active_yahoo_lineage.filter(
             pl.col("source_vintage_id") != active_resolution_vintage_id
         )
@@ -75,34 +89,49 @@ def audit_price_candidate(
             if carried_active.height
             else 0
         )
-    refreshed_active = set(active_vintages.get_column("ticker").to_list()) if not active_vintages.is_empty() else set()
+    refreshed_active = (
+        set(active_vintages.get_column("ticker").to_list())
+        if not active_vintages.is_empty()
+        else set()
+    )
     missing_active = sorted(set(active) - refreshed_active)
 
     transition_findings = _transition_factor_findings(lineage, policy=policy)
-    recent_cutoff = date.fromisoformat(expected_through) - timedelta(days=policy.recent_mutable_calendar_days)
+    recent_cutoff = date.fromisoformat(expected_through) - timedelta(
+        days=policy.recent_mutable_calendar_days
+    )
+    previous_identity = (
+        apply_security_identity_policy(
+            previous_prices,
+            ticker_column="ticker",
+            date_column="date",
+        )
+        if previous_prices is not None and not previous_prices.is_empty()
+        else None
+    )
+    identity_normalized_previous = (
+        previous_identity.frame if previous_identity is not None else previous_prices
+    )
     revisions = (
-        _daily_return_revisions(_normalize_prices(previous_prices), candidate)
+        _daily_return_revisions(_normalize_prices(identity_normalized_previous), candidate)
         if previous_prices is not None and not previous_prices.is_empty()
         else _empty_revision_frame()
     )
     historical_revisions = revisions.filter(pl.col("date") < recent_cutoff)
     material_old_revisions = historical_revisions.filter(
-        pl.col("absolute_daily_return_difference")
-        > policy.historical_return_revision_threshold
+        pl.col("absolute_daily_return_difference") > policy.historical_return_revision_threshold
     )
     return_availability_changes = historical_revisions.filter(
-        pl.col("previous_daily_return").is_null()
-        | pl.col("candidate_daily_return").is_null()
+        pl.col("previous_daily_return").is_null() | pl.col("candidate_daily_return").is_null()
     )
     historical_key_removals = pl.DataFrame(
         schema={"ticker": pl.String, "date": pl.Date, "adjusted_close": pl.Float64}
     )
     if previous_prices is not None and not previous_prices.is_empty():
-        previous = _normalize_prices(previous_prices)
+        previous = _normalize_prices(identity_normalized_previous)
         historical_key_removals = (
             previous.filter(
-                (pl.col("date") < recent_cutoff)
-                & pl.col("adjusted_close").is_not_null()
+                (pl.col("date") < recent_cutoff) & pl.col("adjusted_close").is_not_null()
             )
             .join(
                 candidate.select("ticker", "date"),
@@ -116,7 +145,12 @@ def audit_price_candidate(
 
     missing_seed_keys = 0
     if expected_eodhd_keys is not None and not expected_eodhd_keys.is_empty():
-        seed_keys = expected_eodhd_keys.select(
+        seed_identity = apply_security_identity_policy(
+            expected_eodhd_keys,
+            ticker_column="ticker",
+            date_column="date",
+        )
+        seed_keys = seed_identity.frame.select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
             pl.col("date").cast(pl.Date, strict=False),
         ).unique()
@@ -159,7 +193,9 @@ def audit_price_candidate(
         "candidate_tickers": candidate.select(pl.col("ticker").n_unique()).item(),
         "active_ticker_count": len(active),
         "missing_active_yahoo_tickers": missing_active,
-        "mixed_active_yahoo_vintage_tickers": mixed_active.get_column("ticker").to_list() if mixed_active.height else [],
+        "mixed_active_yahoo_vintage_tickers": mixed_active.get_column("ticker").to_list()
+        if mixed_active.height
+        else [],
         "active_global_yahoo_vintage_ids": active_global_vintages,
         "active_resolution_vintage_id": active_resolution_vintage_id,
         "active_tickers_without_current_resolution_observation": missing_current_resolution,
@@ -176,7 +212,9 @@ def audit_price_candidate(
         ),
         "historical_return_revision_examples": material_old_revisions.with_columns(
             pl.col("date").cast(pl.String)
-        ).head(20).to_dicts(),
+        )
+        .head(20)
+        .to_dicts(),
         "historical_price_keys_removed": removed_old_keys,
         "historical_price_key_removal_tickers": (
             historical_key_removals.select(pl.col("ticker").n_unique()).item()
@@ -185,10 +223,18 @@ def audit_price_candidate(
         ),
         "historical_price_key_removal_examples": historical_key_removals.with_columns(
             pl.col("date").cast(pl.String)
-        ).head(20).to_dicts(),
+        )
+        .head(20)
+        .to_dicts(),
         "missing_inactive_eodhd_seed_keys": missing_seed_keys,
         "historical_revision_override_enabled": policy.allow_historical_price_revisions,
         "historical_key_removal_override_enabled": policy.allow_historical_price_key_removals,
+        "security_identity_policy": {
+            "candidate_compliant": True,
+            "previous_rows_rejected": (
+                previous_identity.rejected.height if previous_identity is not None else 0
+            ),
+        },
         "blocking_reasons": blocking_reasons,
         "passed": not blocking_reasons,
     }
@@ -228,7 +274,9 @@ def _transition_factor_findings(lineage: pl.DataFrame, *, policy: PriceGatePolic
             (
                 (pl.col("source_vintage_id") != pl.col("previous_source_vintage_id"))
                 | (pl.col("source") != pl.col("previous_source"))
-            ).fill_null(False).alias("is_transition"),
+            )
+            .fill_null(False)
+            .alias("is_transition"),
             ((pl.col("adjustment_factor") / pl.col("previous_adjustment_factor")) - 1.0)
             .abs()
             .alias("absolute_factor_jump"),
@@ -266,14 +314,20 @@ def _daily_return_revisions(previous: pl.DataFrame, candidate: pl.DataFrame) -> 
 
 
 def _daily_returns(frame: pl.DataFrame, prefix: str) -> pl.DataFrame:
-    return frame.sort(["ticker", "date"]).with_columns(
-        pl.col("adjusted_close").pct_change().over("ticker").alias(f"{prefix}_daily_return")
-    ).select("ticker", "date", f"{prefix}_daily_return")
+    return (
+        frame.sort(["ticker", "date"])
+        .with_columns(
+            pl.col("adjusted_close").pct_change().over("ticker").alias(f"{prefix}_daily_return")
+        )
+        .select("ticker", "date", f"{prefix}_daily_return")
+    )
 
 
 def _normalize_prices(frame: pl.DataFrame | None) -> pl.DataFrame:
     if frame is None or frame.is_empty():
-        return pl.DataFrame(schema={"ticker": pl.String, "date": pl.Date, "adjusted_close": pl.Float64})
+        return pl.DataFrame(
+            schema={"ticker": pl.String, "date": pl.Date, "adjusted_close": pl.Float64}
+        )
     date_expr = (
         pl.col("date").str.to_date(strict=False)
         if frame.schema.get("date") == pl.String

@@ -44,7 +44,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 5 | `DOC-010` | découpler les tests des chemins documentaires historiques | lot DOC ci-dessous | fait |
 | 6 | `QUAL-002` | configurer Ruff sans reformatage global | lot QUAL ci-dessous | fait |
 | 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | fait |
-| 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | à faire — bloque la publication économique |
+| 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.

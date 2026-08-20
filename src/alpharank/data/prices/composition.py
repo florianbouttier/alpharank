@@ -10,8 +10,12 @@ from alpharank.data.prices.contracts import (
     ADJUSTMENT_POLICY_VERSION,
     PRICE_LINEAGE_COLUMNS,
     PRICE_VALUE_COLUMNS,
-    PriceGatePolicy,
     PRODUCTION_PRICE_GATE_POLICY,
+    PriceGatePolicy,
+)
+from alpharank.data.security_identity import (
+    SecurityIdentityApplication,
+    apply_security_identity_policy,
 )
 
 
@@ -29,25 +33,34 @@ def compose_hybrid_price_history(
     retained_open_history: pl.DataFrame | None,
     active_tickers: Sequence[str],
     policy: PriceGatePolicy = PRODUCTION_PRICE_GATE_POLICY,
+    security_identity_registry: pl.DataFrame | None = None,
 ) -> HybridPriceResult:
     """Compose one Yahoo vintage for active names over an immutable EODHD base."""
 
     active = {_normalize_ticker(ticker) for ticker in active_tickers}
-    seed = _ensure_lineage(eodhd_seed)
-    yahoo = _ensure_lineage(active_yahoo_vintage).filter(
-        pl.col("ticker").is_in(sorted(active))
+    seed_identity = _apply_price_identity(
+        eodhd_seed,
+        registry=security_identity_registry,
     )
+    yahoo_identity = _apply_price_identity(
+        active_yahoo_vintage,
+        registry=security_identity_registry,
+    )
+    retained_identity = _apply_price_identity(
+        retained_open_history,
+        registry=security_identity_registry,
+    )
+    seed = _ensure_lineage(seed_identity.frame)
+    yahoo = _ensure_lineage(yahoo_identity.frame).filter(pl.col("ticker").is_in(sorted(active)))
     retained = (
-        _ensure_lineage(retained_open_history)
-        if retained_open_history is not None and not retained_open_history.is_empty()
+        _ensure_lineage(retained_identity.frame)
+        if not retained_identity.frame.is_empty()
         else pl.DataFrame(schema=seed.schema)
     )
 
     inactive_seed = seed.filter(~pl.col("ticker").is_in(sorted(active)))
     active_yahoo_tickers = (
-        set(yahoo.get_column("ticker").unique().to_list())
-        if not yahoo.is_empty()
-        else set()
+        set(yahoo.get_column("ticker").unique().to_list()) if not yahoo.is_empty() else set()
     )
     missing_active = sorted(active - active_yahoo_tickers)
 
@@ -106,14 +119,17 @@ def compose_hybrid_price_history(
         "eodhd_seed_rows_selected": lineage.filter(
             pl.col("source") == "eodhd_frozen_history"
         ).height,
-        "eodhd_seed_tickers_selected": lineage.filter(
-            pl.col("source") == "eodhd_frozen_history"
-        )
+        "eodhd_seed_tickers_selected": lineage.filter(pl.col("source") == "eodhd_frozen_history")
         .select(pl.col("ticker").n_unique())
         .item(),
         "bridged_inactive_tickers": len(bridge_rows),
         "bridges": bridge_rows,
         "unresolved_inactive_tails": unresolved_tails,
+        "security_identity": {
+            "eodhd_seed": seed_identity.report,
+            "active_yahoo_vintage": yahoo_identity.report,
+            "retained_open_history": retained_identity.report,
+        },
     }
     return HybridPriceResult(prices=prices, lineage=lineage, composition_report=report)
 
@@ -125,6 +141,7 @@ def roll_forward_validated_price_history(
     active_tickers: Sequence[str],
     preserved_terminal_tickers: Sequence[str] = (),
     active_resolution_vintage_id: str | None = None,
+    security_identity_registry: pl.DataFrame | None = None,
 ) -> HybridPriceResult:
     """Keep validated history while resolving active rows from one audited run."""
 
@@ -136,30 +153,34 @@ def roll_forward_validated_price_history(
             f"Terminal preservation exceptions are not in the active snapshot: {invalid_terminal}"
         )
     refreshable_active = active - terminal
-    previous = _ensure_lineage(previous_validated_lineage)
-    yahoo = _ensure_lineage(active_yahoo_vintage).filter(
+    previous_identity = _apply_price_identity(
+        previous_validated_lineage,
+        registry=security_identity_registry,
+    )
+    yahoo_identity = _apply_price_identity(
+        active_yahoo_vintage,
+        registry=security_identity_registry,
+    )
+    previous = _ensure_lineage(previous_identity.frame)
+    yahoo = _ensure_lineage(yahoo_identity.frame).filter(
         pl.col("ticker").is_in(sorted(refreshable_active))
     )
     yahoo_tickers = set(yahoo.get_column("ticker").unique().to_list())
     missing_active = sorted(refreshable_active - yahoo_tickers)
     if missing_active:
         raise RuntimeError(
-            "Fresh Yahoo vintage does not cover every active ticker: "
-            f"{missing_active[:20]}"
+            f"Fresh Yahoo vintage does not cover every active ticker: {missing_active[:20]}"
         )
     vintages = yahoo.select(pl.col("source_vintage_id").drop_nulls().unique())
     carried = pl.DataFrame(schema=yahoo.schema)
     if active_resolution_vintage_id is None:
         if vintages.height != 1:
             raise RuntimeError(
-                "Fresh active universe must use exactly one Yahoo vintage; "
-                f"found={vintages.height}"
+                f"Fresh active universe must use exactly one Yahoo vintage; found={vintages.height}"
             )
         active_resolution_vintage_id = str(vintages.item())
     else:
-        current = yahoo.filter(
-            pl.col("source_vintage_id") == active_resolution_vintage_id
-        )
+        current = yahoo.filter(pl.col("source_vintage_id") == active_resolution_vintage_id)
         current_tickers = set(current.get_column("ticker").unique().to_list())
         missing_current = sorted(refreshable_active - current_tickers)
         if missing_current:
@@ -167,9 +188,7 @@ def roll_forward_validated_price_history(
                 "Active Yahoo resolution contains no current-run observation for: "
                 f"{missing_current[:20]}"
             )
-        carried = yahoo.filter(
-            pl.col("source_vintage_id") != active_resolution_vintage_id
-        )
+        carried = yahoo.filter(pl.col("source_vintage_id") != active_resolution_vintage_id)
         if carried.height:
             comparison_columns = [
                 *PRICE_VALUE_COLUMNS,
@@ -184,9 +203,7 @@ def roll_forward_validated_price_history(
                 .select(comparison_columns)
                 .sort(["ticker", "date"])
             )
-            observed_carried = carried.select(comparison_columns).sort(
-                ["ticker", "date"]
-            )
+            observed_carried = carried.select(comparison_columns).sort(["ticker", "date"])
             if previous_carried.height != carried.height or not previous_carried.equals(
                 observed_carried,
                 null_equal=True,
@@ -206,9 +223,7 @@ def roll_forward_validated_price_history(
         .unique()
         .to_list()
     )
-    preserved_open_source_only = preserved.filter(
-        ~pl.col("ticker").is_in(preserved_eodhd_tickers)
-    )
+    preserved_open_source_only = preserved.filter(~pl.col("ticker").is_in(preserved_eodhd_tickers))
     lineage = (
         pl.concat([preserved, yahoo], how="diagonal_relaxed")
         .sort(["ticker", "date"])
@@ -216,9 +231,9 @@ def roll_forward_validated_price_history(
         .select(PRICE_LINEAGE_COLUMNS)
     )
     expected_preserved = preserved.select(PRICE_LINEAGE_COLUMNS).sort(["ticker", "date"])
-    observed_preserved = lineage.filter(
-        ~pl.col("ticker").is_in(sorted(refreshable_active))
-    ).sort(["ticker", "date"])
+    observed_preserved = lineage.filter(~pl.col("ticker").is_in(sorted(refreshable_active))).sort(
+        ["ticker", "date"]
+    )
     if not expected_preserved.equals(observed_preserved, null_equal=True):
         raise RuntimeError("Preserved validated price history changed during roll-forward")
 
@@ -231,9 +246,7 @@ def roll_forward_validated_price_history(
             "adjustment_policy_version": ADJUSTMENT_POLICY_VERSION,
             "previous_rows": previous.height,
             "preserved_history_rows": preserved.height,
-            "preserved_history_tickers": preserved.select(
-                pl.col("ticker").n_unique()
-            ).item(),
+            "preserved_history_tickers": preserved.select(pl.col("ticker").n_unique()).item(),
             "preserved_open_source_only_rows": preserved_open_source_only.height,
             "preserved_open_source_only_tickers": preserved_open_source_only.select(
                 pl.col("ticker").n_unique()
@@ -249,13 +262,15 @@ def roll_forward_validated_price_history(
             ),
             "audited_carried_active_rows": carried.height,
             "audited_carried_active_tickers": (
-                carried.select(pl.col("ticker").n_unique()).item()
-                if carried.height
-                else 0
+                carried.select(pl.col("ticker").n_unique()).item() if carried.height else 0
             ),
             "candidate_rows": lineage.height,
             "candidate_tickers": lineage.select(pl.col("ticker").n_unique()).item(),
             "missing_active_yahoo_tickers": [],
+            "security_identity": {
+                "previous_validated_lineage": previous_identity.report,
+                "active_yahoo_vintage": yahoo_identity.report,
+            },
         },
     )
 
@@ -268,10 +283,7 @@ def _build_return_ledger_extension(
     policy: PriceGatePolicy,
 ) -> tuple[pl.DataFrame | None, dict[str, object]]:
     tail_dates = (
-        open_history.filter(pl.col("date") > seed_last)
-        .select("date")
-        .unique()
-        .sort("date")
+        open_history.filter(pl.col("date") > seed_last).select("date").unique().sort("date")
     )
     first_tail = tail_dates.select(pl.col("date").min()).item()
     gap_days = (date.fromisoformat(first_tail) - date.fromisoformat(seed_last)).days
@@ -284,9 +296,7 @@ def _build_return_ledger_extension(
         }
 
     vintage_rows = (
-        open_history.sort(
-            ["source", "source_vintage_id", "date", "ingested_at"]
-        )
+        open_history.sort(["source", "source_vintage_id", "date", "ingested_at"])
         .unique(
             subset=["source", "source_vintage_id", "date"],
             keep="last",
@@ -310,9 +320,7 @@ def _build_return_ledger_extension(
         .unique(subset=["date"], keep="last", maintain_order=True)
         .sort("date")
     )
-    missing_return_dates = tail_dates.join(
-        return_rows.select("date"), on="date", how="anti"
-    )
+    missing_return_dates = tail_dates.join(return_rows.select("date"), on="date", how="anti")
     if missing_return_dates.height:
         return None, {
             "reason": "incomplete_return_ledger",
@@ -328,18 +336,17 @@ def _build_return_ledger_extension(
     anchor = ticker_seed.sort("date").tail(1).row(0, named=True)
     anchor_adjusted = float(anchor["adjusted_close"])
     anchor_close = float(anchor["close"])
-    anchor_adjustment_factor = (
-        anchor_adjusted / anchor_close if anchor_close else 1.0
-    )
+    anchor_adjustment_factor = anchor_adjusted / anchor_close if anchor_close else 1.0
     extension = return_rows.with_columns(
-        (pl.lit(anchor_adjusted) * (pl.col("source_daily_return") + 1.0).cum_prod())
-        .alias("synthetic_adjusted_close"),
+        (pl.lit(anchor_adjusted) * (pl.col("source_daily_return") + 1.0).cum_prod()).alias(
+            "synthetic_adjusted_close"
+        ),
         pl.col("source_vintage_id").alias("underlying_return_vintage"),
     ).with_columns(
-        (pl.col("synthetic_adjusted_close") / pl.col("adjusted_close"))
-        .alias("adjustment_bridge_factor"),
-        (pl.col("synthetic_adjusted_close") / anchor_adjustment_factor)
-        .alias("synthetic_close"),
+        (pl.col("synthetic_adjusted_close") / pl.col("adjusted_close")).alias(
+            "adjustment_bridge_factor"
+        ),
+        (pl.col("synthetic_adjusted_close") / anchor_adjustment_factor).alias("synthetic_close"),
     )
     for column in ("open", "high", "low"):
         extension = extension.with_columns(
@@ -374,9 +381,7 @@ def _build_return_ledger_extension(
 
 def _ensure_lineage(frame: pl.DataFrame) -> pl.DataFrame:
     if frame.is_empty():
-        return pl.DataFrame(
-            schema={column: pl.String for column in PRICE_LINEAGE_COLUMNS}
-        )
+        return pl.DataFrame(schema={column: pl.String for column in PRICE_LINEAGE_COLUMNS})
     date_expr = (
         pl.col("date").str.to_date(strict=False)
         if frame.schema.get("date") == pl.String
@@ -386,9 +391,7 @@ def _ensure_lineage(frame: pl.DataFrame) -> pl.DataFrame:
         date_expr.dt.strftime("%Y-%m-%d").alias("date"),
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
         pl.col("adjusted_close").cast(pl.Float64, strict=False),
-    ).filter(
-        pl.col("adjusted_close").is_not_null() & (pl.col("adjusted_close") > 0)
-    )
+    ).filter(pl.col("adjusted_close").is_not_null() & (pl.col("adjusted_close") > 0))
     defaults: dict[str, pl.Expr] = {
         "source_vintage_id": (
             pl.col("ingestion_run_id")
@@ -417,3 +420,30 @@ def _ensure_lineage(frame: pl.DataFrame) -> pl.DataFrame:
 def _normalize_ticker(ticker: str) -> str:
     value = str(ticker).upper()
     return value if value.endswith(".US") else f"{value}.US"
+
+
+def _apply_price_identity(
+    frame: pl.DataFrame | None,
+    *,
+    registry: pl.DataFrame | None,
+) -> SecurityIdentityApplication:
+    if frame is None or frame.is_empty():
+        empty = frame if frame is not None else pl.DataFrame()
+        return SecurityIdentityApplication(
+            frame=empty,
+            rejected=empty.clear(),
+            report={
+                "policy_id": "security_identity_intervals_v1",
+                "targeted_rows": 0,
+                "accepted_rows": 0,
+                "rejected_rows": 0,
+                "security_identity_count": 0,
+                "canonical_tickers": [],
+            },
+        )
+    return apply_security_identity_policy(
+        frame,
+        ticker_column="ticker",
+        date_column="date",
+        registry=registry,
+    )

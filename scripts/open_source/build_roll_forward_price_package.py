@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import shutil
+from datetime import date, datetime, timezone
+from pathlib import Path
 
 import polars as pl
 
@@ -22,6 +22,11 @@ from alpharank.data.prices import (
     validate_price_candidate,
 )
 from alpharank.data.prices.contracts import PRODUCTION_PRICE_GATE_POLICY
+from alpharank.data.security_identity import (
+    SECURITY_IDENTITY_POLICY_ID,
+    apply_security_identity_policy,
+    load_security_identity_registry,
+)
 
 
 def main() -> None:
@@ -44,6 +49,7 @@ def main() -> None:
         previous_lineage_path = previous_source.lineage_path
     previous_lineage = pl.read_parquet(previous_lineage_path)
     fresh_yahoo = pl.read_parquet(args.fresh_yahoo_vintage.resolve())
+    security_identities = load_security_identity_registry()
     base_manifest = _read_json(base_dir / "lineage" / "manifest.json")
     active_resolution_vintage_id = _resolve_active_resolution_vintage_id(
         base_manifest=base_manifest,
@@ -67,6 +73,7 @@ def main() -> None:
         active_tickers=active_tickers,
         preserved_terminal_tickers=terminal_tickers,
         active_resolution_vintage_id=active_resolution_vintage_id,
+        security_identity_registry=security_identities,
     )
     seed = load_eodhd_seed(args.eodhd_seed.resolve(), start_date=args.start_date)
     gate = audit_price_candidate(
@@ -87,17 +94,18 @@ def main() -> None:
     history_summary = persistent_history_summary(history_registry)
 
     result.prices.write_parquet(output_dir / "US_Finalprice.parquet")
-    result.lineage.write_parquet(
-        output_dir / "lineage" / "prices_open_source_lineage.parquet"
-    )
+    result.lineage.write_parquet(output_dir / "lineage" / "prices_open_source_lineage.parquet")
     history_registry.write_parquet(
         output_dir / "lineage" / "persistent_price_history_registry.parquet"
     )
     shutil.copy2(base_dir / "SP500Price.parquet", output_dir / "SP500Price.parquet")
-    shutil.copy2(
-        base_dir / "SP500_Constituents.csv",
-        output_dir / "SP500_Constituents.csv",
+    constituents_identity = apply_security_identity_policy(
+        pl.read_csv(base_dir / "SP500_Constituents.csv", infer_schema_length=0),
+        ticker_column="Ticker",
+        date_column="Date",
+        registry=security_identities,
     )
+    constituents_identity.frame.write_csv(output_dir / "SP500_Constituents.csv")
     gate.daily_return_revisions.write_parquet(
         output_dir / "audit" / "price_daily_return_revisions.parquet"
     )
@@ -117,17 +125,11 @@ def main() -> None:
     source_contract["previous_validated_price_lineage"] = {
         **_file_record(previous_lineage_path),
         "resolution": (
-            "explicit_cli_path"
-            if previous_source is None
-            else "latest_composed_model_snapshot"
+            "explicit_cli_path" if previous_source is None else "latest_composed_model_snapshot"
         ),
-        "composition_id": (
-            previous_source.composition_id if previous_source is not None else None
-        ),
+        "composition_id": (previous_source.composition_id if previous_source is not None else None),
     }
-    source_contract["fresh_yahoo_vintage"] = _file_record(
-        args.fresh_yahoo_vintage.resolve()
-    )
+    source_contract["fresh_yahoo_vintage"] = _file_record(args.fresh_yahoo_vintage.resolve())
     source_contract["eodhd_price_seed"] = seed.manifest()
     source_contract["persistent_price_history"] = {
         **history_summary,
@@ -137,6 +139,14 @@ def main() -> None:
             "including histories first acquired from Yahoo and absent from EODHD."
         ),
         "routine_deletion_allowed": False,
+    }
+    source_contract["security_identity"] = {
+        "policy_id": SECURITY_IDENTITY_POLICY_ID,
+        "registry": _file_record(
+            Path(security_identities.get_column("registry_path").drop_nulls().unique().item())
+        ),
+        "price_lineage": result.composition_report["security_identity"],
+        "constituents": constituents_identity.report,
     }
     source_contract["policy"] = {
         **source_contract["policy"],
@@ -171,15 +181,14 @@ def main() -> None:
                 "audited_carried_active_rows"
             ],
             "price_revision_guard_passed": gate.report["passed"],
+            "security_identity_policy_applied": True,
         },
         "artifacts": {
             "price_lineage": _file_record(
                 output_dir / "lineage" / "prices_open_source_lineage.parquet"
             ),
             "persistent_price_history_registry": _file_record(
-                output_dir
-                / "lineage"
-                / "persistent_price_history_registry.parquet"
+                output_dir / "lineage" / "persistent_price_history_registry.parquet"
             ),
         },
     }
@@ -264,20 +273,14 @@ def _resolve_active_resolution_vintage_id(
         else None
     )
     if vintage_column is None:
-        raise RuntimeError(
-            "Fresh Yahoo vintage does not carry a source or ingestion run id"
-        )
+        raise RuntimeError("Fresh Yahoo vintage does not carry a source or ingestion run id")
     observed_vintages = {
         str(value)
-        for value in fresh_yahoo.get_column(vintage_column)
-        .drop_nulls()
-        .unique()
-        .to_list()
+        for value in fresh_yahoo.get_column(vintage_column).drop_nulls().unique().to_list()
     }
     if run_id not in observed_vintages:
         raise RuntimeError(
-            "Fresh Yahoo vintage has no observation from the full-ingestion run; "
-            f"run_id={run_id}"
+            f"Fresh Yahoo vintage has no observation from the full-ingestion run; run_id={run_id}"
         )
     return run_id
 
@@ -288,9 +291,7 @@ def _validated_terminal_tickers(
     registry_path: Path,
     expected_through: str,
 ) -> tuple[str, ...]:
-    requested_normalized = {
-        str(ticker).upper().removesuffix(".US") for ticker in requested
-    }
+    requested_normalized = {str(ticker).upper().removesuffix(".US") for ticker in requested}
     if not requested_normalized:
         return ()
     registry = _read_json(registry_path)

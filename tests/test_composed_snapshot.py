@@ -26,9 +26,7 @@ def _write_price_package(root: Path) -> None:
     )
     for name in PRICE_FILES:
         if name.endswith(".csv"):
-            (root / name).write_text(
-                "Date,Ticker,Name\n2026-08-01,AAA,AAA\n", encoding="utf-8"
-            )
+            (root / name).write_text("Date,Ticker,Name\n2026-08-01,AAA,AAA\n", encoding="utf-8")
         else:
             price.write_parquet(root / name)
     manifest = {
@@ -42,9 +40,7 @@ def _write_price_package(root: Path) -> None:
         "data_freshness": {"prices": {"max_market_date": "2026-08-14"}},
     }
     (root / "lineage").mkdir()
-    (root / "lineage" / "manifest.json").write_text(
-        json.dumps(manifest), encoding="utf-8"
-    )
+    (root / "lineage" / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def _upgrade_price_package_to_persistent_v2(root: Path) -> None:
@@ -82,9 +78,9 @@ def _write_sec_package(root: Path, *, source: str = "sec_companyfacts") -> None:
         frame.write_parquet(root / name)
     lineage = root / "lineage"
     lineage.mkdir()
-    pl.DataFrame(
-        {"ticker": ["AAA.US"], "selected_source": [source]}
-    ).write_parquet(lineage / "financials_sec_lineage.parquet")
+    pl.DataFrame({"ticker": ["AAA.US"], "selected_source": [source]}).write_parquet(
+        lineage / "financials_sec_lineage.parquet"
+    )
     pl.DataFrame(
         {
             "ticker": ["AAA.US"],
@@ -152,6 +148,33 @@ def test_composed_snapshot_rejects_stale_prices(tmp_path: Path) -> None:
         )
 
 
+def test_composed_snapshot_rejects_prelisting_data_on_reused_symbol(
+    tmp_path: Path,
+) -> None:
+    price = tmp_path / "price"
+    sec = tmp_path / "sec"
+    _write_price_package(price)
+    _write_sec_package(sec)
+    pl.DataFrame(
+        {
+            "ticker": ["SNDK.US"],
+            "date": ["2016-04-03"],
+            "adjusted_close": [75.0],
+        }
+    ).write_parquet(price / "US_Finalprice.parquet")
+    (price / "SP500_Constituents.csv").write_text(
+        "Date,Ticker,Name\n2016-04-01,SNDK,SanDisk\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="security identity interval"):
+        build_composed_model_snapshot(
+            price_package_dir=price,
+            sec_package_dir=sec,
+            history_root=tmp_path / "history",
+        )
+
+
 def test_composed_snapshot_rejects_v2_price_without_persistent_history(tmp_path: Path) -> None:
     price = tmp_path / "price"
     sec = tmp_path / "sec"
@@ -197,9 +220,6 @@ def test_price_registry_promotion_preserves_payload(tmp_path: Path) -> None:
     assert identity["duplicate_key_count"] == 0
     assert result.manifest["validation"]["persistent_price_registry_copied"] is True
     assert (
-        result.snapshot_dir
-        / "lineage"
-        / "prices"
-        / "persistent_price_history_registry.parquet"
+        result.snapshot_dir / "lineage" / "prices" / "persistent_price_history_registry.parquet"
     ).is_file()
     assert validate_composed_model_snapshot(result.snapshot_dir)["passed"] is True
