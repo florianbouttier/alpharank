@@ -1,14 +1,9 @@
-"""AlphaRank core library.
-
-Public surface:
-- ``alpharank.legacy`` for the legacy production workflow
-- ``alpharank.boosting`` for the experimental boosting workflow
-"""
+"""AlphaRank core library with an intentional package-level API."""
 
 from importlib import import_module
 from types import ModuleType
 
-__all__ = ["legacy", "boosting"]
+__all__ = ["replay"]
 
 
 def __getattr__(name: str) -> ModuleType:

@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.replay_validation import (
+from alpharank.replay import (
     ReplayValidationError,
     create_recomputable_replay_package,
     validate_and_recompute_replay_package,

@@ -177,7 +177,7 @@ les plus faciles à déplacer.
 | `CODE-008` | centraliser les commandes de comparaison aujourd'hui dupliquées | fait | grilles temporelles et années de départ déléguées au moteur économique partagé |
 | `CODE-009` | remplacer les captures générales et `print()` par des erreurs et journaux explicites | fait | zéro `print()` bibliothèque, zéro capture nue ou générale hors frontière journalisée ; contexte de run structuré |
 | `CODE-010` | déplacer les scripts réellement obsolètes après audit des lecteurs | fait | sept scripts archivés avec hashes et zéro lecteur actif ; candidat SEC encore lu conservé |
-| `CODE-011` | attribuer ou déplacer les modules transverses `*_v2`, gouvernance et replay dans des packages nommés | à faire | propriétaire et API publique documentés |
+| `CODE-011` | attribuer ou déplacer les modules transverses `*_v2`, gouvernance et replay dans des packages nommés | fait | six implémentations sous `replay/`, façades compatibles et registre d'API ; gouvernance attribuée |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.

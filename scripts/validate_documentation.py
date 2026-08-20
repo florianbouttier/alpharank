@@ -36,6 +36,7 @@ REQUIRED_README_DIRS = (
     "src/alpharank/portfolio/adapters",
     "src/alpharank/production",
     "src/alpharank/quality",
+    "src/alpharank/replay",
     "src/alpharank/strategy",
     "src/alpharank/utils",
     "src/alpharank/visualization",

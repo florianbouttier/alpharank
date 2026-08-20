@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.common_v2 import build_common_v2_comparison
+from alpharank.replay import build_common_v2_comparison
 
 
 def main() -> None:

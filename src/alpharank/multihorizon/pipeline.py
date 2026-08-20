@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import sys
 from dataclasses import asdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import polars as pl
 import numpy as np
+import polars as pl
 
-from alpharank.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.multihorizon.config import (
     APPROVED_TARGET_CENSORING_POLICY_ID,
@@ -42,6 +41,7 @@ from alpharank.multihorizon.modeling import fit_booster
 from alpharank.multihorizon.preprocessing import fit_fold_preprocessor
 from alpharank.multihorizon.splits import horizon_walk_forward_windows
 from alpharank.multihorizon.tuning import tune_with_purged_cpcv
+from alpharank.replay import validate_causal_v2_snapshot
 
 
 def _prediction_frame(

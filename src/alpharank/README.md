@@ -7,6 +7,8 @@
 - `backtest/` : pipeline Boosting historique et composants génériques.
 - `portfolio/` : contrat de holdings, simulation et KPI partagés.
 - `production/` : orchestration testable des commandes canoniques.
+- `replay/` : snapshots causaux, replays Legacy/Boosting, comparaison commune,
+  rapprochement méthodologique et package recalculable.
 - `governance_contracts/` : implémentations des contrats de baseline,
   promotion, confirmation, parité économique et provenance runtime ;
   `governance.py` reste leur façade publique stable.
@@ -20,6 +22,12 @@
 
 `observability.py` fournit le logger structuré commun. Les commandes durables y
 lient `run_id`, `snapshot_id`, composant et étape avant le premier jalon métier.
+
+Les modules racine `*_v2.py`, `causal_snapshot.py` et `replay_validation.py`
+sont uniquement des façades de compatibilité. Leur propriétaire et leur API
+sont enregistrés dans
+`docs/architecture/root_module_ownership_v1.json`; tout nouveau lecteur interne
+importe `alpharank.replay` ou l'un de ses modules nommés.
 
 Séparer la génération des signaux Legacy/Boosting, puis utiliser
 `portfolio/` pour toute comparaison de performance.

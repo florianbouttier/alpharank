@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.reconciliation_v2 import validate_v1_v2_reconciliation
+from alpharank.replay import validate_v1_v2_reconciliation
 
 
 def main() -> None:

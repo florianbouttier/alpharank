@@ -7,8 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.causal_snapshot import validate_causal_v2_snapshot
-from alpharank.legacy_v2 import validate_legacy_v2_replay
+from alpharank.replay import validate_causal_v2_snapshot, validate_legacy_v2_replay
 
 
 def main() -> None:

@@ -40,6 +40,8 @@ TARGETED_CI_TESTS = (
         "tests/test_methodology_ci.py",
         "tests/test_observability.py",
         "tests/test_recomputable_replay.py",
+        "tests/test_replay_package_api.py",
+        "tests/test_root_module_ownership.py",
         "tests/test_ruff_baseline.py",
         "tests/test_script_path_independence.py",
         "tests/test_script_archival_audit.py",

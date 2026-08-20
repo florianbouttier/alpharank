@@ -297,7 +297,7 @@
     {
       "kind": "import",
       "source": "scripts/build_common_v2_replay.py",
-      "target": "src/alpharank/common_v2.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -327,12 +327,7 @@
     {
       "kind": "import",
       "source": "scripts/build_v1_v2_reconciliation.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/build_v1_v2_reconciliation.py",
-      "target": "src/alpharank/reconciliation_v2.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -1417,7 +1412,7 @@
     {
       "kind": "import",
       "source": "scripts/seal_causal_v2_snapshot.py",
-      "target": "src/alpharank/causal_snapshot.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -1432,12 +1427,7 @@
     {
       "kind": "import",
       "source": "scripts/validate_boosting_v2_run.py",
-      "target": "src/alpharank/boosting_v2.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/validate_boosting_v2_run.py",
-      "target": "src/alpharank/causal_snapshot.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -1467,12 +1457,7 @@
     {
       "kind": "import",
       "source": "scripts/validate_common_v2_replay.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/validate_common_v2_replay.py",
-      "target": "src/alpharank/common_v2.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -1482,17 +1467,12 @@
     {
       "kind": "import",
       "source": "scripts/validate_legacy_v2_run.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
-      "kind": "import",
-      "source": "scripts/validate_legacy_v2_run.py",
-      "target": "src/alpharank/legacy_v2.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
       "source": "scripts/validate_recomputable_replay_package.py",
-      "target": "src/alpharank/replay_validation.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -1507,7 +1487,7 @@
     {
       "kind": "import",
       "source": "scripts/validate_v1_v2_reconciliation.py",
-      "target": "src/alpharank/reconciliation_v2.py"
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -1752,197 +1732,17 @@
     {
       "kind": "import",
       "source": "src/alpharank/boosting_v2.py",
-      "target": "src/alpharank/backtest/model_artifacts.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/boosting_v2.py",
-      "target": "src/alpharank/multihorizon/config.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/boosting_v2.py",
-      "target": "src/alpharank/multihorizon/metrics.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "scripts/seal_causal_v2_snapshot.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/composed_snapshot.py"
+      "target": "src/alpharank/replay/boosting.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/composed_snapshot.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/feature_availability.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/fundamental_coverage.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/price_eligibility.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/price_eligibility.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/prices/history.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/prices/history.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/sector_history.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/data/snapshot_storage.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/governance.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/governance.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/governance_contracts/common.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/governance_contracts/contracts.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/portfolio/execution.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/portfolio/execution.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/portfolio/simulation.py"
-    },
-    {
-      "kind": "command",
-      "source": "src/alpharank/causal_snapshot.py",
-      "target": "src/alpharank/portfolio/terminal_returns.py"
+      "target": "src/alpharank/replay/causal_snapshot.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/backtest/datasets.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/boosting_v2.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/governance.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/legacy_v2.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/adapters/boosting.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/artifacts.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/attribution.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/comparison.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/contracts.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/costs.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/execution.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/simulation.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/terminal_event_registry.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/terminal_price_registry.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/common_v2.py",
-      "target": "src/alpharank/portfolio/terminal_returns.py"
+      "target": "src/alpharank/replay/common.py"
     },
     {
       "kind": "import",
@@ -2632,17 +2432,7 @@
     {
       "kind": "import",
       "source": "src/alpharank/legacy_v2.py",
-      "target": "src/alpharank/portfolio/contracts.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/legacy_v2.py",
-      "target": "src/alpharank/portfolio/costs.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/legacy_v2.py",
-      "target": "src/alpharank/portfolio/simulation.py"
+      "target": "src/alpharank/replay/legacy.py"
     },
     {
       "kind": "import",
@@ -2785,11 +2575,6 @@
       "target": "src/alpharank/backtest/model_artifacts.py"
     },
     {
-      "kind": "import",
-      "source": "src/alpharank/multihorizon/pipeline.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
       "kind": "command",
       "source": "src/alpharank/multihorizon/pipeline.py",
       "target": "src/alpharank/governance.py"
@@ -2883,6 +2668,11 @@
       "kind": "command",
       "source": "src/alpharank/multihorizon/pipeline.py",
       "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/multihorizon/pipeline.py",
+      "target": "src/alpharank/replay/__init__.py"
     },
     {
       "kind": "import",
@@ -3077,11 +2867,6 @@
     {
       "kind": "import",
       "source": "src/alpharank/production/legacy_pipeline.py",
-      "target": "src/alpharank/causal_snapshot.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/production/legacy_pipeline.py",
       "target": "src/alpharank/data/lineage.py"
     },
     {
@@ -3167,11 +2952,6 @@
     {
       "kind": "import",
       "source": "src/alpharank/production/legacy_pipeline.py",
-      "target": "src/alpharank/legacy_v2.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/production/legacy_pipeline.py",
       "target": "src/alpharank/observability.py"
     },
     {
@@ -3233,6 +3013,16 @@
       "kind": "import",
       "source": "src/alpharank/production/legacy_pipeline.py",
       "target": "src/alpharank/portfolio/terminal_event_registry.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/replay/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/production/legacy_pipeline.py",
+      "target": "src/alpharank/replay/legacy.py"
     },
     {
       "kind": "command",
@@ -3317,27 +3107,252 @@
     {
       "kind": "import",
       "source": "src/alpharank/reconciliation_v2.py",
-      "target": "src/alpharank/common_v2.py"
+      "target": "src/alpharank/replay/reconciliation.py"
     },
     {
       "kind": "import",
-      "source": "src/alpharank/reconciliation_v2.py",
+      "source": "src/alpharank/replay/boosting.py",
+      "target": "src/alpharank/backtest/model_artifacts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/boosting.py",
+      "target": "src/alpharank/multihorizon/config.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/boosting.py",
+      "target": "src/alpharank/multihorizon/metrics.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "scripts/seal_causal_v2_snapshot.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/causal_snapshot.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/composed_snapshot.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/composed_snapshot.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/feature_availability.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/fundamental_coverage.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/price_eligibility.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/price_eligibility.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/prices/history.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/prices/history.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/sector_history.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/data/snapshot_storage.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
       "target": "src/alpharank/governance.py"
     },
     {
       "kind": "import",
-      "source": "src/alpharank/reconciliation_v2.py",
-      "target": "src/alpharank/portfolio/performance.py"
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/governance_contracts/contracts.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/governance_contracts/runtime_provenance.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/portfolio/execution.py"
     },
     {
       "kind": "import",
-      "source": "src/alpharank/reconciliation_v2.py",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/portfolio/execution.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "command",
+      "source": "src/alpharank/replay/causal_snapshot.py",
+      "target": "src/alpharank/portfolio/terminal_returns.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/backtest/datasets.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/adapters/boosting.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/artifacts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/attribution.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/comparison.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/costs.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/execution.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
       "target": "src/alpharank/portfolio/terminal_event_registry.py"
     },
     {
       "kind": "import",
-      "source": "src/alpharank/replay_validation.py",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/terminal_price_registry.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/portfolio/terminal_returns.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/replay/boosting.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/replay/causal_snapshot.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/common.py",
+      "target": "src/alpharank/replay/legacy.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/legacy.py",
+      "target": "src/alpharank/portfolio/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/legacy.py",
+      "target": "src/alpharank/portfolio/costs.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/legacy.py",
       "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/reconciliation.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/reconciliation.py",
+      "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/reconciliation.py",
+      "target": "src/alpharank/portfolio/terminal_event_registry.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/reconciliation.py",
+      "target": "src/alpharank/replay/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/validation.py",
+      "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay_validation.py",
+      "target": "src/alpharank/replay/validation.py"
     },
     {
       "kind": "import",
@@ -3655,7 +3670,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/common_v2.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -3685,8 +3700,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/reconciliation_v2.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -5018,7 +5032,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/causal_snapshot.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -5026,7 +5040,7 @@
       "module": "scripts.seal_causal_v2_snapshot",
       "path": "scripts/seal_causal_v2_snapshot.py",
       "readers": [
-        "src/alpharank/causal_snapshot.py"
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -5059,8 +5073,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/boosting_v2.py",
-        "src/alpharank/causal_snapshot.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -5092,8 +5105,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/common_v2.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -5146,8 +5158,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/legacy_v2.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -5173,7 +5184,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/replay_validation.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -5212,7 +5223,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
-        "src/alpharank/reconciliation_v2.py"
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -5344,8 +5355,8 @@
       "path": "src/alpharank/backtest/datasets.py",
       "readers": [
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/common_v2.py",
-        "src/alpharank/multihorizon/data.py"
+        "src/alpharank/multihorizon/data.py",
+        "src/alpharank/replay/common.py"
       ]
     },
     {
@@ -5451,8 +5462,8 @@
       "path": "src/alpharank/backtest/model_artifacts.py",
       "readers": [
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/boosting_v2.py",
-        "src/alpharank/multihorizon/pipeline.py"
+        "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/replay/boosting.py"
       ]
     },
     {
@@ -5587,94 +5598,43 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/backtest/model_artifacts.py",
-        "src/alpharank/multihorizon/config.py",
-        "src/alpharank/multihorizon/metrics.py"
+        "src/alpharank/replay/boosting.py"
       ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
       "module": "alpharank.boosting_v2",
       "path": "src/alpharank/boosting_v2.py",
-      "readers": [
-        "scripts/validate_boosting_v2_run.py",
-        "src/alpharank/common_v2.py"
-      ]
+      "readers": []
     },
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/price_eligibility.py",
-        "src/alpharank/data/prices/history.py",
-        "src/alpharank/data/snapshot_storage.py",
-        "src/alpharank/governance.py",
-        "src/alpharank/portfolio/execution.py"
+        "src/alpharank/replay/causal_snapshot.py"
       ],
-      "invokes": [
-        "scripts/seal_causal_v2_snapshot.py",
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/feature_availability.py",
-        "src/alpharank/data/fundamental_coverage.py",
-        "src/alpharank/data/price_eligibility.py",
-        "src/alpharank/data/prices/history.py",
-        "src/alpharank/data/sector_history.py",
-        "src/alpharank/governance.py",
-        "src/alpharank/governance_contracts/common.py",
-        "src/alpharank/governance_contracts/contracts.py",
-        "src/alpharank/governance_contracts/runtime_provenance.py",
-        "src/alpharank/portfolio/execution.py",
-        "src/alpharank/portfolio/simulation.py",
-        "src/alpharank/portfolio/terminal_returns.py"
-      ],
+      "invokes": [],
       "layer": "library",
       "lifecycle": "active",
       "module": "alpharank.causal_snapshot",
       "path": "src/alpharank/causal_snapshot.py",
       "readers": [
-        "scripts/build_v1_v2_reconciliation.py",
-        "scripts/seal_causal_v2_snapshot.py",
-        "scripts/validate_boosting_v2_run.py",
-        "scripts/validate_common_v2_replay.py",
-        "scripts/validate_legacy_v2_run.py",
-        "src/alpharank/common_v2.py",
-        "src/alpharank/multihorizon/pipeline.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/backtest/datasets.py",
-        "src/alpharank/boosting_v2.py",
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/governance.py",
-        "src/alpharank/legacy_v2.py",
-        "src/alpharank/portfolio/adapters/boosting.py",
-        "src/alpharank/portfolio/artifacts.py",
-        "src/alpharank/portfolio/attribution.py",
-        "src/alpharank/portfolio/comparison.py",
-        "src/alpharank/portfolio/contracts.py",
-        "src/alpharank/portfolio/costs.py",
-        "src/alpharank/portfolio/execution.py",
-        "src/alpharank/portfolio/simulation.py",
-        "src/alpharank/portfolio/terminal_event_registry.py",
-        "src/alpharank/portfolio/terminal_price_registry.py",
-        "src/alpharank/portfolio/terminal_returns.py"
+        "src/alpharank/replay/common.py"
       ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
       "module": "alpharank.common_v2",
       "path": "src/alpharank/common_v2.py",
-      "readers": [
-        "scripts/build_common_v2_replay.py",
-        "scripts/validate_common_v2_replay.py",
-        "src/alpharank/reconciliation_v2.py"
-      ]
+      "readers": []
     },
     {
       "declared_public_entrypoint": false,
@@ -5691,8 +5651,8 @@
       "path": "src/alpharank/data/composed_snapshot.py",
       "readers": [
         "scripts/open_source/build_composed_model_snapshot.py",
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/data/warehouse_migration.py"
+        "src/alpharank/data/warehouse_migration.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -5724,7 +5684,7 @@
       "module": "alpharank.data.feature_availability",
       "path": "src/alpharank/data/feature_availability.py",
       "readers": [
-        "src/alpharank/causal_snapshot.py"
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -5739,7 +5699,7 @@
       "module": "alpharank.data.fundamental_coverage",
       "path": "src/alpharank/data/fundamental_coverage.py",
       "readers": [
-        "src/alpharank/causal_snapshot.py"
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -6469,11 +6429,11 @@
       "path": "src/alpharank/data/price_eligibility.py",
       "readers": [
         "scripts/run_legacy.py",
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/multihorizon/config.py",
         "src/alpharank/multihorizon/data.py",
         "src/alpharank/portfolio/lineage.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -6576,9 +6536,9 @@
       "module": "alpharank.data.prices.history",
       "path": "src/alpharank/data/prices/history.py",
       "readers": [
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/prices/__init__.py"
+        "src/alpharank/data/prices/__init__.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -6649,7 +6609,7 @@
       "module": "alpharank.data.sector_history",
       "path": "src/alpharank/data/sector_history.py",
       "readers": [
-        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/replay/causal_snapshot.py",
         "src/alpharank/strategy/legacy_selection.py"
       ]
     },
@@ -6698,7 +6658,6 @@
       "path": "src/alpharank/data/snapshot_storage.py",
       "readers": [
         "scripts/open_source/compact_output_history.py",
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/data/composed_snapshot.py",
         "src/alpharank/data/open_source/raw_archive.py",
         "src/alpharank/data/open_source/sec_raw_versions.py",
@@ -6706,7 +6665,8 @@
         "src/alpharank/data/output_history.py",
         "src/alpharank/data/warehouse_migration.py",
         "src/alpharank/governance_contracts/baseline.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -6810,11 +6770,11 @@
         "scripts/seal_methodology_baseline.py",
         "scripts/validate_economic_prefix.py",
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/multihorizon/pipeline.py",
         "src/alpharank/production/legacy_pipeline.py",
-        "src/alpharank/reconciliation_v2.py"
+        "src/alpharank/replay/causal_snapshot.py",
+        "src/alpharank/replay/common.py",
+        "src/alpharank/replay/reconciliation.py"
       ]
     },
     {
@@ -6866,13 +6826,13 @@
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/governance_contracts/baseline.py",
         "src/alpharank/governance_contracts/confirmation.py",
         "src/alpharank/governance_contracts/promotion.py",
         "src/alpharank/governance_contracts/runtime_provenance.py",
         "src/alpharank/multihorizon/pipeline.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -6903,14 +6863,14 @@
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/governance_contracts/__init__.py",
         "src/alpharank/governance_contracts/baseline.py",
         "src/alpharank/governance_contracts/confirmation.py",
         "src/alpharank/governance_contracts/economic_prefix.py",
         "src/alpharank/governance_contracts/runtime_provenance.py",
         "src/alpharank/multihorizon/pipeline.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
@@ -6958,30 +6918,24 @@
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/governance_contracts/__init__.py",
         "src/alpharank/multihorizon/pipeline.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/causal_snapshot.py"
       ]
     },
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/portfolio/contracts.py",
-        "src/alpharank/portfolio/costs.py",
-        "src/alpharank/portfolio/simulation.py"
+        "src/alpharank/replay/legacy.py"
       ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
       "module": "alpharank.legacy_v2",
       "path": "src/alpharank/legacy_v2.py",
-      "readers": [
-        "scripts/validate_legacy_v2_run.py",
-        "src/alpharank/common_v2.py",
-        "src/alpharank/production/legacy_pipeline.py"
-      ]
+      "readers": []
     },
     {
       "declared_public_entrypoint": false,
@@ -7060,10 +7014,10 @@
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
         "scripts/experiments/run_multihorizon_boosting.py",
-        "src/alpharank/boosting_v2.py",
         "src/alpharank/multihorizon/__init__.py",
         "src/alpharank/multihorizon/data.py",
-        "src/alpharank/multihorizon/pipeline.py"
+        "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/replay/boosting.py"
       ]
     },
     {
@@ -7169,9 +7123,9 @@
       "readers": [
         "scripts/experiments/confirm_locked_challenger.py",
         "scripts/experiments/summarize_multihorizon_run.py",
-        "src/alpharank/boosting_v2.py",
         "src/alpharank/multihorizon/pipeline.py",
-        "src/alpharank/multihorizon/risk.py"
+        "src/alpharank/multihorizon/risk.py",
+        "src/alpharank/replay/boosting.py"
       ]
     },
     {
@@ -7197,7 +7151,6 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/backtest/model_artifacts.py",
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/governance.py",
         "src/alpharank/multihorizon/config.py",
         "src/alpharank/multihorizon/data.py",
@@ -7207,7 +7160,8 @@
         "src/alpharank/multihorizon/modeling.py",
         "src/alpharank/multihorizon/preprocessing.py",
         "src/alpharank/multihorizon/splits.py",
-        "src/alpharank/multihorizon/tuning.py"
+        "src/alpharank/multihorizon/tuning.py",
+        "src/alpharank/replay/__init__.py"
       ],
       "invokes": [
         "scripts/experiments/run_multihorizon_boosting.py",
@@ -7411,9 +7365,9 @@
       "path": "src/alpharank/portfolio/adapters/boosting.py",
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/multihorizon/trading.py",
-        "src/alpharank/portfolio/adapters/__init__.py"
+        "src/alpharank/portfolio/adapters/__init__.py",
+        "src/alpharank/replay/common.py"
       ]
     },
     {
@@ -7467,9 +7421,9 @@
         "scripts/experiments/run_legacy_ema_risk_heads.py",
         "scripts/experiments/run_topn_allocation_comparison.py",
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/portfolio/__init__.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/common.py"
       ]
     },
     {
@@ -7485,8 +7439,8 @@
       "path": "src/alpharank/portfolio/attribution.py",
       "readers": [
         "scripts/experiments/render_latest_common_dashboard.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/replay/common.py",
         "src/alpharank/reporting/central_research_data.py"
       ]
     },
@@ -7524,9 +7478,9 @@
         "scripts/experiments/run_legacy_ema_risk_heads.py",
         "scripts/experiments/run_topn_allocation_comparison.py",
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/common.py",
         "src/alpharank/reporting/central_research_data.py"
       ]
     },
@@ -7540,12 +7494,12 @@
       "module": "alpharank.portfolio.contracts",
       "path": "src/alpharank/portfolio/contracts.py",
       "readers": [
-        "src/alpharank/common_v2.py",
-        "src/alpharank/legacy_v2.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/attribution.py",
-        "src/alpharank/portfolio/simulation.py"
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/replay/common.py",
+        "src/alpharank/replay/legacy.py"
       ]
     },
     {
@@ -7558,11 +7512,11 @@
       "module": "alpharank.portfolio.costs",
       "path": "src/alpharank/portfolio/costs.py",
       "readers": [
-        "src/alpharank/common_v2.py",
-        "src/alpharank/legacy_v2.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/simulation.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/common.py",
+        "src/alpharank/replay/legacy.py"
       ]
     },
     {
@@ -7576,10 +7530,10 @@
       "path": "src/alpharank/portfolio/execution.py",
       "readers": [
         "scripts/experiments/build_execution_convention_bridge.py",
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/portfolio/__init__.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/causal_snapshot.py",
+        "src/alpharank/replay/common.py"
       ]
     },
     {
@@ -7640,7 +7594,7 @@
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/comparison.py",
-        "src/alpharank/reconciliation_v2.py",
+        "src/alpharank/replay/reconciliation.py",
         "src/alpharank/strategy/analytics.py"
       ]
     },
@@ -7665,15 +7619,15 @@
         "scripts/validate_common_portfolio_engine.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/backtest/portfolio.py",
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/common_v2.py",
-        "src/alpharank/legacy_v2.py",
         "src/alpharank/multihorizon/pipeline.py",
         "src/alpharank/multihorizon/risk.py",
         "src/alpharank/multihorizon/trading.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/production/legacy_pipeline.py",
-        "src/alpharank/replay_validation.py",
+        "src/alpharank/replay/causal_snapshot.py",
+        "src/alpharank/replay/common.py",
+        "src/alpharank/replay/legacy.py",
+        "src/alpharank/replay/validation.py",
         "src/alpharank/strategy/legacy_aggregation.py"
       ]
     },
@@ -7689,9 +7643,9 @@
       "readers": [
         "scripts/build_common_legacy_boosting_replay.py",
         "scripts/validate_terminal_event_registry.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/production/legacy_pipeline.py",
-        "src/alpharank/reconciliation_v2.py",
+        "src/alpharank/replay/common.py",
+        "src/alpharank/replay/reconciliation.py",
         "src/alpharank/strategy/legacy_selection.py"
       ]
     },
@@ -7706,7 +7660,7 @@
       "path": "src/alpharank/portfolio/terminal_price_registry.py",
       "readers": [
         "scripts/validate_terminal_price_registry.py",
-        "src/alpharank/common_v2.py"
+        "src/alpharank/replay/common.py"
       ]
     },
     {
@@ -7719,10 +7673,10 @@
       "module": "alpharank.portfolio.terminal_returns",
       "path": "src/alpharank/portfolio/terminal_returns.py",
       "readers": [
-        "src/alpharank/causal_snapshot.py",
-        "src/alpharank/common_v2.py",
         "src/alpharank/portfolio/__init__.py",
-        "src/alpharank/portfolio/adapters/boosting.py"
+        "src/alpharank/portfolio/adapters/boosting.py",
+        "src/alpharank/replay/causal_snapshot.py",
+        "src/alpharank/replay/common.py"
       ]
     },
     {
@@ -7742,7 +7696,6 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/causal_snapshot.py",
         "src/alpharank/data/lineage.py",
         "src/alpharank/data/price_eligibility.py",
         "src/alpharank/data/processing.py",
@@ -7750,7 +7703,6 @@
         "src/alpharank/data/ticker_integrity.py",
         "src/alpharank/features/indicators.py",
         "src/alpharank/governance.py",
-        "src/alpharank/legacy_v2.py",
         "src/alpharank/observability.py",
         "src/alpharank/portfolio/adapters/legacy.py",
         "src/alpharank/portfolio/artifacts.py",
@@ -7760,6 +7712,8 @@
         "src/alpharank/portfolio/execution.py",
         "src/alpharank/portfolio/simulation.py",
         "src/alpharank/portfolio/terminal_event_registry.py",
+        "src/alpharank/replay/__init__.py",
+        "src/alpharank/replay/legacy.py",
         "src/alpharank/strategy/legacy.py",
         "src/alpharank/strategy/search_protocol.py",
         "src/alpharank/utils/frame_backend.py",
@@ -7904,19 +7858,159 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/common_v2.py",
-        "src/alpharank/governance.py",
-        "src/alpharank/portfolio/performance.py",
-        "src/alpharank/portfolio/terminal_event_registry.py"
+        "src/alpharank/replay/reconciliation.py"
       ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
       "module": "alpharank.reconciliation_v2",
       "path": "src/alpharank/reconciliation_v2.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay",
+      "path": "src/alpharank/replay/__init__.py",
       "readers": [
+        "scripts/build_common_v2_replay.py",
         "scripts/build_v1_v2_reconciliation.py",
-        "scripts/validate_v1_v2_reconciliation.py"
+        "scripts/seal_causal_v2_snapshot.py",
+        "scripts/validate_boosting_v2_run.py",
+        "scripts/validate_common_v2_replay.py",
+        "scripts/validate_legacy_v2_run.py",
+        "scripts/validate_recomputable_replay_package.py",
+        "scripts/validate_v1_v2_reconciliation.py",
+        "src/alpharank/multihorizon/pipeline.py",
+        "src/alpharank/production/legacy_pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/backtest/model_artifacts.py",
+        "src/alpharank/multihorizon/config.py",
+        "src/alpharank/multihorizon/metrics.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.boosting",
+      "path": "src/alpharank/replay/boosting.py",
+      "readers": [
+        "src/alpharank/boosting_v2.py",
+        "src/alpharank/replay/common.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/composed_snapshot.py",
+        "src/alpharank/data/price_eligibility.py",
+        "src/alpharank/data/prices/history.py",
+        "src/alpharank/data/snapshot_storage.py",
+        "src/alpharank/governance.py",
+        "src/alpharank/portfolio/execution.py"
+      ],
+      "invokes": [
+        "scripts/seal_causal_v2_snapshot.py",
+        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/data/composed_snapshot.py",
+        "src/alpharank/data/feature_availability.py",
+        "src/alpharank/data/fundamental_coverage.py",
+        "src/alpharank/data/price_eligibility.py",
+        "src/alpharank/data/prices/history.py",
+        "src/alpharank/data/sector_history.py",
+        "src/alpharank/governance.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/governance_contracts/contracts.py",
+        "src/alpharank/governance_contracts/runtime_provenance.py",
+        "src/alpharank/portfolio/execution.py",
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/portfolio/terminal_returns.py",
+        "src/alpharank/replay/causal_snapshot.py"
+      ],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.causal_snapshot",
+      "path": "src/alpharank/replay/causal_snapshot.py",
+      "readers": [
+        "src/alpharank/causal_snapshot.py",
+        "src/alpharank/replay/common.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/backtest/datasets.py",
+        "src/alpharank/governance.py",
+        "src/alpharank/portfolio/adapters/boosting.py",
+        "src/alpharank/portfolio/artifacts.py",
+        "src/alpharank/portfolio/attribution.py",
+        "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/contracts.py",
+        "src/alpharank/portfolio/costs.py",
+        "src/alpharank/portfolio/execution.py",
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/portfolio/terminal_event_registry.py",
+        "src/alpharank/portfolio/terminal_price_registry.py",
+        "src/alpharank/portfolio/terminal_returns.py",
+        "src/alpharank/replay/boosting.py",
+        "src/alpharank/replay/causal_snapshot.py",
+        "src/alpharank/replay/legacy.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.common",
+      "path": "src/alpharank/replay/common.py",
+      "readers": [
+        "src/alpharank/common_v2.py",
+        "src/alpharank/replay/reconciliation.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/contracts.py",
+        "src/alpharank/portfolio/costs.py",
+        "src/alpharank/portfolio/simulation.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.legacy",
+      "path": "src/alpharank/replay/legacy.py",
+      "readers": [
+        "src/alpharank/legacy_v2.py",
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/common.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance.py",
+        "src/alpharank/portfolio/performance.py",
+        "src/alpharank/portfolio/terminal_event_registry.py",
+        "src/alpharank/replay/common.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.reconciliation",
+      "path": "src/alpharank/replay/reconciliation.py",
+      "readers": [
+        "src/alpharank/reconciliation_v2.py"
       ]
     },
     {
@@ -7928,11 +8022,24 @@
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
+      "module": "alpharank.replay.validation",
+      "path": "src/alpharank/replay/validation.py",
+      "readers": [
+        "src/alpharank/replay_validation.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/replay/validation.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
       "module": "alpharank.replay_validation",
       "path": "src/alpharank/replay_validation.py",
-      "readers": [
-        "scripts/validate_recomputable_replay_package.py"
-      ]
+      "readers": []
     },
     {
       "declared_public_entrypoint": false,
@@ -8278,10 +8385,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 112,
-    "internal_edge_count": 673,
-    "library_count": 161,
-    "python_file_count": 280,
+    "internal_edge_count": 676,
+    "library_count": 168,
+    "python_file_count": 287,
     "script_count": 119,
-    "unread_node_count": 107
+    "unread_node_count": 112
   }
 }

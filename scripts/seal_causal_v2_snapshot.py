@@ -5,15 +5,14 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
-from alpharank.causal_snapshot import (
+from alpharank.replay import (
     seal_causal_v2_snapshot,
     validate_causal_v2_snapshot,
 )
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 

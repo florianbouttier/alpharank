@@ -33,6 +33,8 @@ src/alpharank/
     ├── multihorizon/   signal Boosting actuel
     ├── portfolio/      simulation et KPI partagés
     ├── data/           chargement, lignée et ingestion
+    ├── replay/         contrats causaux et replays recalculables
+    ├── governance_contracts/ validations de promotion et provenance
     └── backtest/       pipeline de recherche historique
 
 scripts/
@@ -138,3 +140,8 @@ conservés dans
 [`script_archival_audit_v1.json`](script_archival_audit_v1.json). Toute
 modification du graphe doit régénérer ce registre explicitement et rester
 contrôlée par la CI.
+
+Les quelques modules encore directement sous `src/alpharank/` sont attribués
+dans [`root_module_ownership_v1.json`](root_module_ownership_v1.json). Les six
+anciens noms de replay y sont déclarés comme façades ; les implémentations et
+l'API canonique vivent sous `alpharank.replay`.

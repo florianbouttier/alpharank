@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.replay_validation import validate_and_recompute_replay_package
+from alpharank.replay import validate_and_recompute_replay_package
 
 
 def main() -> None:

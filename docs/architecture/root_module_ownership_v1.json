@@ -1,0 +1,142 @@
+{
+  "compatibility_policy": "Internal readers use the owner package; root replay facades preserve historical imports.",
+  "modules": [
+    {
+      "owner_package": "alpharank",
+      "path": "src/alpharank/__init__.py",
+      "public_api": [
+        "replay"
+      ],
+      "role": "package_api"
+    },
+    {
+      "owner_module": "alpharank.replay.boosting",
+      "owner_package": "alpharank.replay",
+      "path": "src/alpharank/boosting_v2.py",
+      "public_api": [
+        "validate_boosting_v2_replay"
+      ],
+      "role": "compatibility_facade"
+    },
+    {
+      "owner_module": "alpharank.replay.causal_snapshot",
+      "owner_package": "alpharank.replay",
+      "path": "src/alpharank/causal_snapshot.py",
+      "public_api": [
+        "CAUSAL_SNAPSHOT_CONTRACT_VERSION",
+        "CAUSAL_SNAPSHOT_MANIFEST_NAME",
+        "CAUSAL_SNAPSHOT_SEAL_NAME",
+        "REQUIRED_POLICY_FILES",
+        "REQUIRED_CRITICAL_FILES",
+        "CausalSnapshotValidationError",
+        "seal_causal_v2_snapshot",
+        "validate_causal_v2_snapshot"
+      ],
+      "role": "compatibility_facade"
+    },
+    {
+      "owner_module": "alpharank.replay.common",
+      "owner_package": "alpharank.replay",
+      "path": "src/alpharank/common_v2.py",
+      "public_api": [
+        "COMMON_V2_TOLERANCE",
+        "standard_v2_cost_model",
+        "gate_boosting_predictions_for_holding_membership",
+        "gate_boosting_predictions_for_execution_open",
+        "gate_boosting_predictions_for_pre_execution_blocks",
+        "build_common_v2_comparison",
+        "validate_common_v2_replay"
+      ],
+      "role": "compatibility_facade"
+    },
+    {
+      "owner_package": "alpharank.governance_contracts",
+      "path": "src/alpharank/governance.py",
+      "public_api": [
+        "APPROVED_NUMERIC_TOLERANCE",
+        "BASELINE_CONTRACT_VERSION",
+        "BASELINE_MANIFEST_NAME",
+        "BASELINE_SEAL_NAME",
+        "ECONOMIC_PREFIX_CONTRACT_VERSION",
+        "RUNTIME_PROVENANCE_CONTRACT_VERSION",
+        "SEALED_CONFIRMATION_CONTRACT_VERSION",
+        "BaselineValidationError",
+        "EconomicPrefixError",
+        "RuntimeProvenanceError",
+        "SealedConfirmationError",
+        "capture_runtime_provenance",
+        "compare_economic_prefix",
+        "create_sealed_confirmation_protocol",
+        "open_sealed_confirmation",
+        "os",
+        "promote_methodology_version",
+        "register_confirmation_experiment",
+        "require_stable_economic_prefix",
+        "reserve_run_directory",
+        "rollback_methodology_version",
+        "seal_baseline_package",
+        "validate_baseline_package",
+        "validate_confirmation_for_promotion",
+        "validate_runtime_provenance"
+      ],
+      "role": "stable_facade"
+    },
+    {
+      "owner_module": "alpharank.replay.legacy",
+      "owner_package": "alpharank.replay",
+      "path": "src/alpharank/legacy_v2.py",
+      "public_api": [
+        "LEGACY_V2_TOLERANCE",
+        "HOLDING_MONTH_MEMBERSHIP_POLICY_ID",
+        "require_holding_month_membership",
+        "validate_legacy_v2_replay"
+      ],
+      "role": "compatibility_facade"
+    },
+    {
+      "owner_package": "alpharank",
+      "path": "src/alpharank/observability.py",
+      "public_api": [
+        "RunLogContext",
+        "RunLoggerAdapter",
+        "configure_run_logging",
+        "current_run_log_context",
+        "get_run_logger",
+        "reset_run_log_context",
+        "set_run_log_context"
+      ],
+      "role": "runtime_observability"
+    },
+    {
+      "owner_module": "alpharank.replay.reconciliation",
+      "owner_package": "alpharank.replay",
+      "path": "src/alpharank/reconciliation_v2.py",
+      "public_api": [
+        "RECONCILIATION_TOLERANCE",
+        "build_v1_v2_reconciliation",
+        "reconcile_economic_frames",
+        "validate_v1_v2_reconciliation"
+      ],
+      "role": "compatibility_facade"
+    },
+    {
+      "owner_module": "alpharank.replay.validation",
+      "owner_package": "alpharank.replay",
+      "path": "src/alpharank/replay_validation.py",
+      "public_api": [
+        "REPLAY_CONTRACT_VERSION",
+        "REPLAY_MANIFEST_NAME",
+        "REPLAY_SEAL_NAME",
+        "ReplayValidationError",
+        "ReplayArtifact",
+        "default_replay_code_paths",
+        "create_recomputable_replay_package",
+        "validate_and_recompute_replay_package"
+      ],
+      "role": "compatibility_facade"
+    }
+  ],
+  "registry_id": "alpharank_root_module_ownership_v1",
+  "schema_version": 1,
+  "task_id": "CODE-011"
+}

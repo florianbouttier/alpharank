@@ -4,7 +4,7 @@ from datetime import date
 
 import polars as pl
 
-from alpharank.reconciliation_v2 import reconcile_economic_frames
+from alpharank.replay.reconciliation import reconcile_economic_frames
 
 
 def test_v1_v2_reconciliation_is_complete() -> None:

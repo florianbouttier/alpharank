@@ -17,7 +17,6 @@ from typing import Any, Dict, Optional
 import pandas as pd
 import polars as pl
 
-from alpharank.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.data.lineage import load_latest_manifest, write_manifest
 from alpharank.data.price_eligibility import (
     STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
@@ -34,10 +33,6 @@ from alpharank.data.ticker_integrity import (
 )
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
-from alpharank.legacy_v2 import (
-    HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
-    require_holding_month_membership,
-)
 from alpharank.observability import get_run_logger, set_run_log_context
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
@@ -58,6 +53,11 @@ from alpharank.portfolio.execution import (
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
+from alpharank.replay import validate_causal_v2_snapshot
+from alpharank.replay.legacy import (
+    HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
+    require_holding_month_membership,
+)
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.strategy.search_protocol import write_legacy_search_audit
 from alpharank.utils.frame_backend import (

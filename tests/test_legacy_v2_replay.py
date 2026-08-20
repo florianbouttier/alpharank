@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-from datetime import date, datetime, timezone
 import hashlib
 import json
+from dataclasses import asdict
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import polars as pl
 import pytest
 
-from alpharank.legacy_v2 import (
+from alpharank.portfolio.costs import TransactionCostModel
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.replay.legacy import (
     HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
     require_holding_month_membership,
     validate_legacy_v2_replay,
 )
-from alpharank.portfolio.costs import TransactionCostModel
-from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
 def test_legacy_v2_run_is_replayable(tmp_path: Path) -> None:

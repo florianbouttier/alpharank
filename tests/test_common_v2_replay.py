@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-from datetime import date, datetime, timezone
 import hashlib
 import json
+from dataclasses import asdict
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import polars as pl
 
-from alpharank.common_v2 import (
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
+from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.replay.common import (
     gate_boosting_predictions_for_execution_open,
     gate_boosting_predictions_for_holding_membership,
     gate_boosting_predictions_for_pre_execution_blocks,
     standard_v2_cost_model,
     validate_common_v2_replay,
 )
-from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
-from alpharank.portfolio.comparison import reference_monthly_series
-from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
 def test_common_v2_replay_is_comparison_eligible(tmp_path: Path) -> None:

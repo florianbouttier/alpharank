@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
 import hashlib
 import json
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,10 +12,10 @@ import pytest
 import xgboost as xgb
 
 from alpharank.backtest.model_artifacts import serialize_fold_model
-from alpharank.boosting_v2 import validate_boosting_v2_replay
 from alpharank.multihorizon.config import LATEST_COMMON_COMPARISON_PROFILE
 from alpharank.multihorizon.metrics import build_prediction_portfolios
 from alpharank.multihorizon.preprocessing import FoldPreprocessor
+from alpharank.replay import validate_boosting_v2_replay
 
 
 def test_boosting_v2_replay_is_serialized_and_causal(tmp_path: Path) -> None:
