@@ -125,7 +125,7 @@ La carte détaillée se trouve dans
 | `DOC-005` | rendre le registre méthodologique visible à la racine sans perdre son historique | fait | registre détaillé conservé à la racine et pointeur historique maintenu |
 | `DOC-006` | documenter la réalité et la cible des données | fait | carte du dépôt, cycle de vie et pointeur de snapshot documentés |
 | `DOC-007` | supprimer le premier doublon de rôle entre `AGENT.md` et `AGENTS.md` sans perdre le guide historique | fait | ancien guide singulier archivé |
-| `DOC-008` | vérifier tous les README locaux et liens | prêt à committer | validateur documentaire et tests de structure verts |
+| `DOC-008` | vérifier tous les README locaux et liens | fait | validateur documentaire et test de structure verts |
 | `DOC-009` | découper le catalogue Boosting en synthèse courante et journaux datés | à faire | page courante courte, entrées historiques intactes |
 | `DOC-010` | retirer les chemins documentaires de la logique des tests avant le classement final par thème | à faire | les tests valident le contenu, pas un ancien emplacement |
 | `DOC-011` | formaliser le standard Python détaillé | fait | règles et checklist dans `docs/standards/python.md` |
