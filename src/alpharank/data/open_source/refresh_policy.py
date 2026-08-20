@@ -22,6 +22,7 @@ class SourceRefreshPolicy:
     simfin_refresh_days: int = 0
     historical_revision_guard_days: int = 730
     allow_historical_revisions: bool = False
+    historical_revision_review_note: str | None = None
     require_eodhd_price_seed: bool = True
     historical_price_return_revision_threshold: float = 0.0001
     price_transition_factor_jump_threshold: float = 0.0001

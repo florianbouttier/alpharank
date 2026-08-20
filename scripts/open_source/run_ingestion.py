@@ -35,6 +35,11 @@ def main() -> None:
         help="Publish after explicit review even when fundamentals older than two years changed.",
     )
     parser.add_argument(
+        "--historical-revision-review-note",
+        default=None,
+        help="Required review justification persisted with an approved historical revision migration.",
+    )
+    parser.add_argument(
         "--allow-historical-price-revisions",
         action="store_true",
         help="Migration-only override for reviewed historical adjusted-return revisions.",
@@ -45,6 +50,17 @@ def main() -> None:
         help="Migration-only override for reviewed historical price row removals.",
     )
     args = parser.parse_args()
+    revision_review_note = (args.historical_revision_review_note or "").strip() or None
+    if args.allow_historical_revisions and revision_review_note is None:
+        parser.error(
+            "--historical-revision-review-note is required with "
+            "--allow-historical-revisions"
+        )
+    if revision_review_note is not None and not args.allow_historical_revisions:
+        parser.error(
+            "--historical-revision-review-note requires "
+            "--allow-historical-revisions"
+        )
 
     result = run_open_source_ingestion(
         mode=args.mode,
@@ -67,6 +83,7 @@ def main() -> None:
         source_refresh_policy=replace(
             PRODUCTION_SOURCE_REFRESH_POLICY,
             allow_historical_revisions=args.allow_historical_revisions,
+            historical_revision_review_note=revision_review_note,
             allow_historical_price_revisions=args.allow_historical_price_revisions,
             allow_historical_price_key_removals=(
                 args.allow_historical_price_key_removals

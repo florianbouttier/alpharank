@@ -81,7 +81,10 @@ def test_ingestion_revision_guard_writes_report_and_contract(tmp_path: Path) -> 
         run_id="test_run",
         legacy_paths={"income": candidate},
         expected_through="2026-08-13",
-        source_refresh_policy=SourceRefreshPolicy(allow_historical_revisions=True),
+        source_refresh_policy=SourceRefreshPolicy(
+            allow_historical_revisions=True,
+            historical_revision_review_note="Reviewed migration ticket LIVE-014.",
+        ),
         source_refresh_contract=contract,
     )
 
@@ -90,6 +93,36 @@ def test_ingestion_revision_guard_writes_report_and_contract(tmp_path: Path) -> 
     assert json.loads(report_path.read_text()) == report
     assert contract["historical_revision_guard"] == report
     assert report["override_enabled"] is True
+    assert report["approval_recorded"] is True
+    assert report["revision_review_note"] == "Reviewed migration ticket LIVE-014."
+
+
+def test_ingestion_revision_override_requires_review_note(tmp_path: Path) -> None:
+    paths = OpenSourceLivePaths(tmp_path / "open_source" / "official")
+    paths.ensure()
+    candidate = tmp_path / "candidate" / "US_Income_statement.parquet"
+    candidate.parent.mkdir()
+    _income("100").write_parquet(paths.output_dir / candidate.name)
+    _income("101").write_parquet(candidate)
+
+    with pytest.raises(RuntimeError, match="requires a non-empty review note"):
+        _audit_and_validate_historical_revisions(
+            paths=paths,
+            run_id="test_run",
+            legacy_paths={"income": candidate},
+            expected_through="2026-08-13",
+            source_refresh_policy=SourceRefreshPolicy(
+                allow_historical_revisions=True,
+            ),
+            source_refresh_contract={},
+        )
+
+    report = json.loads(
+        (paths.run_dir("test_run") / "historical_revision_guard.json").read_text()
+    )
+    assert report["override_enabled"] is True
+    assert report["approval_recorded"] is False
+    assert report["revision_review_note"] is None
 
 
 def test_ingestion_revision_guard_blocks_without_explicit_override(tmp_path: Path) -> None:

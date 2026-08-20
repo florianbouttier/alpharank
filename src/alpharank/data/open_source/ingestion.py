@@ -137,7 +137,12 @@ def _audit_and_validate_historical_revisions(
         expected_through=expected_through,
         guard_days=source_refresh_policy.historical_revision_guard_days,
     )
+    review_note = (source_refresh_policy.historical_revision_review_note or "").strip()
     report["override_enabled"] = source_refresh_policy.allow_historical_revisions
+    report["revision_review_note"] = review_note or None
+    report["approval_recorded"] = bool(
+        source_refresh_policy.allow_historical_revisions and review_note
+    )
     source_refresh_contract["historical_revision_guard"] = report
     write_json(paths.run_dir(run_id) / "historical_revision_guard.json", report)
     if (
@@ -148,6 +153,11 @@ def _audit_and_validate_historical_revisions(
             "Historical fundamental revisions require explicit review; "
             f"blocked_datasets={report['blocked_datasets']}. "
             "No package was published."
+        )
+    if report["historical_revisions_detected"] and not review_note:
+        raise RuntimeError(
+            "Historical fundamental revision approval requires a non-empty "
+            "review note. No package was published."
         )
     return report
 

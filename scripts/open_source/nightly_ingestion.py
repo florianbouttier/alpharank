@@ -34,6 +34,9 @@ FINANCIAL_LOOKBACK_YEARS = 2
 USER_AGENT = "Florian Bouttier florianbouttier@example.com"
 TICKERS: tuple[str, ...] | None = None
 ALLOW_HISTORICAL_REVISIONS = os.environ.get("ALPHARANK_ALLOW_HISTORICAL_REVISIONS") == "1"
+HISTORICAL_REVISION_REVIEW_NOTE = (
+    os.environ.get("ALPHARANK_HISTORICAL_REVISION_REVIEW_NOTE", "").strip() or None
+)
 ALLOW_HISTORICAL_PRICE_REVISIONS = (
     os.environ.get("ALPHARANK_ALLOW_HISTORICAL_PRICE_REVISIONS") == "1"
 )
@@ -88,6 +91,11 @@ def default_nightly_tickers(
 
 
 def main() -> None:
+    if ALLOW_HISTORICAL_REVISIONS and not HISTORICAL_REVISION_REVIEW_NOTE:
+        raise RuntimeError(
+            "ALPHARANK_HISTORICAL_REVISION_REVIEW_NOTE is required when "
+            "ALPHARANK_ALLOW_HISTORICAL_REVISIONS=1"
+        )
     current_sp500 = _load_latest_sp500_tickers(REFERENCE_DATA_DIR)
     existing_live = load_existing_live_tickers(LIVE_DIR)
     active_tickers = TICKERS or default_nightly_tickers(reference_data_dir=REFERENCE_DATA_DIR, live_dir=LIVE_DIR)
@@ -139,6 +147,8 @@ def main() -> None:
     print(f"[{started_at}] Starting nightly ingestion")
     print(f"Universe tickers: {len(active_tickers)}")
     print(f"Historical revision override: {ALLOW_HISTORICAL_REVISIONS}")
+    if HISTORICAL_REVISION_REVIEW_NOTE:
+        print("Historical revision review note: recorded")
     print(
         "Historical price revision override: "
         f"{ALLOW_HISTORICAL_PRICE_REVISIONS}"
@@ -166,6 +176,7 @@ def main() -> None:
             source_refresh_policy=replace(
                 PRODUCTION_SOURCE_REFRESH_POLICY,
                 allow_historical_revisions=ALLOW_HISTORICAL_REVISIONS,
+                historical_revision_review_note=HISTORICAL_REVISION_REVIEW_NOTE,
                 allow_historical_price_revisions=ALLOW_HISTORICAL_PRICE_REVISIONS,
                 allow_historical_price_key_removals=(
                     ALLOW_HISTORICAL_PRICE_KEY_REMOVALS
