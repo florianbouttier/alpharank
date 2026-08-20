@@ -17,6 +17,7 @@ if str(PROJECT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
+from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.lineage import (
@@ -118,6 +119,7 @@ def build_comparison(
     ):
         if not path.exists():
             raise FileNotFoundError(path)
+    output_dir = reserve_run_directory(output_dir)
 
     boosting_manifest = load_manifest(boosting_manifest_path)
     comparison_profile = validate_latest_common_comparison_profile(
@@ -142,6 +144,11 @@ def build_comparison(
         legacy_manifest_path,
         boosting_manifest_path,
     )
+    if not all(
+        check.get("passed", False)
+        for check in (lineage, ticker_exclusion_check, price_eligibility_check)
+    ):
+        raise ValueError("Common replay lineage gates did not all pass.")
 
     expected_snapshot = (legacy_run_dir / "input_snapshot").resolve()
     declared_snapshot = _declared_path(boosting_manifest["config"]["data_dir"]).resolve()
@@ -162,6 +169,45 @@ def build_comparison(
     all_predictions = pl.read_parquet(predictions_path)
     portfolio_maturity = split_completed_portfolio_months(all_predictions)
     terminal_registry = load_terminal_event_registry()
+    runtime_provenance = capture_runtime_provenance(
+        project_root=PROJECT_ROOT,
+        entrypoint="scripts/build_common_legacy_boosting_replay.py",
+        command_argv=[sys.executable, *sys.argv],
+        resolved_config={
+            "transaction_cost_bps_times_turnover": transaction_cost_bps,
+            "top_n_values": [5, 10],
+            "timing_contract": "decision_month=t; holding_month=t+1",
+            "missing_return_policy": "raise_after_selection",
+            "benchmark": "SPY total return from adjusted_close",
+        },
+        seeds={},
+        critical_files=(
+            "scripts/build_common_legacy_boosting_replay.py",
+            "src/alpharank/data/terminal_eligibility.py",
+            "src/alpharank/governance.py",
+            "src/alpharank/multihorizon/config.py",
+            "src/alpharank/portfolio/adapters/boosting.py",
+            "src/alpharank/portfolio/artifacts.py",
+            "src/alpharank/portfolio/lineage.py",
+            "src/alpharank/portfolio/maturity.py",
+            "src/alpharank/portfolio/simulation.py",
+            "src/alpharank/portfolio/terminal_event_registry.py",
+            "configs/data_quality/terminal_shareholder_events_v1.json",
+        ),
+        data_identifiers={
+            "legacy_manifest_sha256": _hash(legacy_manifest_path),
+            "boosting_manifest_sha256": _hash(boosting_manifest_path),
+            "boosting_predictions_sha256": _hash(predictions_path),
+            "input_snapshot_dir": str(expected_snapshot),
+            "matching_input_keys": lineage["matching_keys"],
+        },
+        patch_path=output_dir / "runtime_git_patch.json",
+    )
+    if runtime_provenance["git"]["dirty"]:
+        raise ValueError(
+            "A publishable common replay must run from a clean Git worktree. "
+            f"Patch evidence was retained in {output_dir}."
+        )
     completed_predictions_before_gate = portfolio_maturity.completed_predictions.height
     score_only_predictions_before_gate = portfolio_maturity.score_only_predictions.height
     predictions, completed_terminal_blocks = _gate_boosting_terminal_entries(
@@ -304,6 +350,9 @@ def build_comparison(
         json.dumps(
             {
                 "status": "canonical_common_strategy_replay",
+                "methodology_status": "validated_same_snapshot_common_replay",
+                "comparison_eligible": True,
+                "publication_eligible": True,
                 "timing_contract": "decision_month=t; holding_month=t+1",
                 "calendar": {
                     "start_holding_month": str(common_start),
@@ -320,6 +369,7 @@ def build_comparison(
                 "lineage_check": lineage,
                 "ticker_exclusion_check": ticker_exclusion_check,
                 "price_eligibility_check": price_eligibility_check,
+                "runtime_provenance": runtime_provenance,
                 "sources": {
                     "legacy_run_manifest": {
                         "path": str(legacy_manifest_path.resolve()),
