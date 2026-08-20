@@ -7,6 +7,10 @@ from alpharank.data.sector_history import (
     SECTOR_HISTORY_LINEAGE_COLUMNS,
     resolve_point_in_time_sectors,
 )
+from alpharank.data.terminal_eligibility import (
+    TERMINAL_ENTRY_POLICY_ID,
+    apply_terminal_entry_gate,
+)
 from alpharank.strategy.search_protocol import (
     LEGACY_SEARCH_SPACE,
     LOCKED_LEGACY_ANCHORS,
@@ -14,6 +18,7 @@ from alpharank.strategy.search_protocol import (
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
 import datetime
 from scipy import stats
 from tqdm import tqdm
@@ -51,6 +56,36 @@ def _attach_legacy_sector_policy(
         .cast(pl.Datetime)
         .dt.replace_time_zone("UTC")
         .alias("decision_at")
+    )
+    terminal_registry = load_terminal_event_registry()
+    terminal_gate = apply_terminal_entry_gate(
+        decision_candidates,
+        terminal_registry.terminal_entry_blocks(),
+    )
+    blocked_by_month = (
+        terminal_gate.blocked.group_by("year_month")
+        .agg(pl.len().alias("terminal_entry_blocked_candidates"))
+        if terminal_gate.blocked.height
+        else pl.DataFrame(
+            schema={
+                "year_month": decision_candidates.schema["year_month"],
+                "terminal_entry_blocked_candidates": pl.UInt32,
+            }
+        )
+    )
+    decision_candidates = terminal_gate.eligible.join(
+        blocked_by_month,
+        on="year_month",
+        how="left",
+    ).with_columns(
+        pl.col("terminal_entry_blocked_candidates")
+        .fill_null(0)
+        .cast(pl.UInt32),
+        pl.lit(TERMINAL_ENTRY_POLICY_ID).alias("terminal_entry_policy_id"),
+        pl.lit(terminal_registry.payload["registry_id"]).alias(
+            "terminal_entry_registry_id"
+        ),
+        pl.lit(terminal_registry.sha256).alias("terminal_entry_registry_sha256"),
     )
     required_history = {
         "ticker",

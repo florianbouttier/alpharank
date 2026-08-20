@@ -55,6 +55,7 @@ from alpharank.portfolio.execution import (
 )
 from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
+from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.strategy.search_protocol import write_legacy_search_audit
 from alpharank.utils.frame_backend import (
@@ -423,6 +424,9 @@ def _code_context(project_root: Path) -> Dict[str, Any]:
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/publishing.py",
+        "src/alpharank/data/terminal_eligibility.py",
+        "src/alpharank/portfolio/terminal_event_registry.py",
+        "configs/data_quality/terminal_shareholder_events_v1.json",
     ]
     file_hashes = {
         path: _sha256_path(project_root / path)
@@ -707,6 +711,7 @@ def run_pipeline(
         if ticker_exclusion_registry is not None
         else None
     )
+    terminal_event_registry = load_terminal_event_registry()
     legacy_exclusions = ("SII.US", "CBE.US", "TIE.US")
     ticker_to_exclude = normalize_tickers(
         (
@@ -755,6 +760,9 @@ def run_pipeline(
             if audited_registry is not None
             else None
         ),
+        "terminal_entry_registry": str(terminal_event_registry.path),
+        "terminal_entry_registry_id": terminal_event_registry.payload["registry_id"],
+        "terminal_entry_registry_sha256": terminal_event_registry.sha256,
         "decision_data_completed_through_month": str(
             completed_through_month(payload["sp500_price"])
         ),
@@ -790,6 +798,9 @@ def run_pipeline(
             "src/alpharank/portfolio/execution.py",
             "src/alpharank/portfolio/costs.py",
             "src/alpharank/data/price_eligibility.py",
+            "src/alpharank/data/terminal_eligibility.py",
+            "src/alpharank/portfolio/terminal_event_registry.py",
+            "configs/data_quality/terminal_shareholder_events_v1.json",
             "src/alpharank/governance.py",
         ),
         data_identifiers={

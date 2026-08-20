@@ -56,6 +56,22 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
     )
     assert frc["entry_allowed"] is False
 
+    entry_blocks = registry.terminal_entry_blocks()
+    assert entry_blocks.height == 7
+    expected_months = {
+        "KRFT.US": date(2015, 8, 1),
+        "HSP.US": date(2015, 10, 1),
+        "WFM.US": date(2017, 9, 1),
+        "ESRX.US": date(2019, 1, 1),
+        "NFX.US": date(2019, 3, 1),
+        "NLSN.US": date(2022, 11, 1),
+        "FRC.US": date(2023, 5, 1),
+    }
+    assert {
+        row["ticker"]: row["blocked_from_holding_month"]
+        for row in entry_blocks.to_dicts()
+    } == expected_months
+
 
 def test_reviewed_registry_projects_to_terminal_return_contract() -> None:
     registry = load_terminal_event_registry()

@@ -123,6 +123,46 @@ class TerminalEventRegistry:
             ["ticker", "effective_date"]
         )
 
+    def terminal_entry_blocks(self) -> pl.DataFrame:
+        """Return the first holding month in which each event forbids entry.
+
+        A merger or acquisition that occurs during an already-open holding
+        month is resolved through shareholder consideration. It blocks new
+        entry from the following month. A pre-open trading suspension blocks
+        entry in its effective month because no regular-session execution is
+        possible.
+        """
+
+        rows: list[dict[str, Any]] = []
+        for event in self.events:
+            resolution = event["portfolio_resolution"]
+            effective_date = _parse_date(
+                event["effective_date"], field="effective_date"
+            )
+            effective_month = effective_date.replace(day=1)
+            if resolution["mode"] == "pre_execution_trading_suspension":
+                blocked_from_holding_month = effective_month
+                rule = "pre_open_suspension_blocks_effective_month"
+            else:
+                blocked_from_holding_month = _next_month(effective_month)
+                rule = "terminal_consideration_blocks_following_month"
+            rows.append(
+                {
+                    "terminal_event_id": event["event_id"],
+                    "ticker": event["ticker"],
+                    "effective_date": effective_date,
+                    "known_at": _parse_datetime(
+                        event["known_at"], field="known_at"
+                    ),
+                    "blocked_from_holding_month": blocked_from_holding_month,
+                    "entry_allowed": False,
+                    "entry_block_rule": rule,
+                }
+            )
+        return pl.DataFrame(rows, infer_schema_length=None).sort(
+            ["ticker", "blocked_from_holding_month"]
+        )
+
 
 def load_terminal_event_registry(
     path: Path = DEFAULT_TERMINAL_EVENT_REGISTRY,
@@ -141,6 +181,12 @@ def load_terminal_event_registry(
         sha256=hashlib.sha256(raw).hexdigest(),
         payload=payload,
     )
+
+
+def _next_month(value: date) -> date:
+    if value.month == 12:
+        return date(value.year + 1, 1, 1)
+    return date(value.year, value.month + 1, 1)
 
 
 def verify_terminal_event_source_hashes(
