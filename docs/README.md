@@ -40,6 +40,8 @@ dupliquer les contrats métier :
   carte machine-lisible des emplacements actuels et de leurs lecteurs.
 - [`architecture/data_reader_migration_v1.json`](architecture/data_reader_migration_v1.json) :
   comparaison ancien/MART et décision de migration de chaque lecteur Legacy.
+- [`architecture/legacy_data_archive_policy_v1.json`](architecture/legacy_data_archive_policy_v1.json) :
+  gel, archivage par référence et procédure de retour arrière des anciennes racines.
 
 ## Standards de développement
 

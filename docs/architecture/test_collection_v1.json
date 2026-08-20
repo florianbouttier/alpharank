@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 448,
+  "node_count": 450,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -74,6 +74,8 @@
     "test_governance_runtime_provenance.py::test_manifest_captures_complete_runtime_provenance",
     "test_governance_runtime_provenance.py::test_runtime_provenance_rejects_missing_required_field",
     "test_governance_sealed_confirmation.py::test_sealed_period_is_single_use",
+    "test_historical_archive_policy.py::test_archive_policy_defines_observation_and_exact_rollback",
+    "test_historical_archive_policy.py::test_frozen_legacy_root_rejects_governed_write",
     "test_historical_data_migration.py::test_historical_catalog_detects_source_mutation",
     "test_historical_data_migration.py::test_historical_roots_are_referenced_by_hash_without_copy",
     "test_legacy_pipeline_ownership.py::test_legacy_pipeline_runtime_provenance_hashes_its_owner",
@@ -451,7 +453,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "3a3c36ac1ed9379516745dccea616d56366bbc406afcf86d78ccf16b4e968b20",
+  "node_ids_sha256": "c481f4e0e01aa77cb8f35975f1f9bfca760576d2af63396a0e53f5dbb4130778",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

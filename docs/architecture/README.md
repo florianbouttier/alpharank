@@ -13,6 +13,8 @@ runs ni redécrire les deux modèles.
   fichiers/packages de données actuels, volumes observés et lecteurs actifs.
 - [`data_reader_migration_v1.json`](data_reader_migration_v1.json) : comparaison
   hashée ancien/MART et décision explicite pour chaque lecteur Legacy actif.
+- [`legacy_data_archive_policy_v1.json`](legacy_data_archive_policy_v1.json) :
+  gel contractuel, fenêtre d'observation et retour arrière des anciennes racines.
 - [`test_catalog_v1.json`](test_catalog_v1.json) : domaine, suite, durée et
   résultat observé de chaque fichier de test suivi.
 - [`test_collection_v1.json`](test_collection_v1.json) : collecte Pytest

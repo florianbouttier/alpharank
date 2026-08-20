@@ -45,6 +45,7 @@
         "scripts/open_source/run_sec_q4_fix2_candidate.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_source.py",
+        "src/alpharank/data/legacy_archive_policy.py",
         "src/alpharank/data/open_source/ingestion.py",
         "src/alpharank/data/open_source/pipeline.py",
         "src/alpharank/data/open_source/sec.py",
@@ -729,7 +730,7 @@
   "static_references": [
     {
       "location_id": "data_root",
-      "reader_count": "44",
+      "reader_count": "45",
       "reference": "data"
     },
     {
@@ -1028,7 +1029,7 @@
     "file_location_count": 10,
     "location_count": 35,
     "package_location_count": 25,
-    "reader_edge_count": 276,
+    "reader_edge_count": 277,
     "static_reference_count": 59
   }
 }

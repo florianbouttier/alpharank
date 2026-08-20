@@ -1,0 +1,241 @@
+{
+  "catalog_id": "d6f2b964ae022375efd4768dc5ec8533666902e651023bbfd06e8ff11fe56e4f",
+  "contract": "alpharank_legacy_data_archive_policy_v1",
+  "file_count": 13979,
+  "observation": {
+    "archive_not_before": "2026-09-19",
+    "minimum_days": 30,
+    "promotion_condition": "No governed write and no undeclared reader during the full window.",
+    "started_at": "2026-08-20",
+    "state": "open"
+  },
+  "physical_actions": {
+    "copy_count": 0,
+    "download_count": 0,
+    "payload_deleted": false,
+    "payload_moved": false,
+    "permissions_changed": false
+  },
+  "reader_registry_composition_id": "9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad",
+  "rollback": {
+    "available": true,
+    "steps": [
+      "Stop the affected run before it publishes results.",
+      "Resolve the root by root_id from this policy.",
+      "Verify its inventory_sha256 against the immutable historical catalog.",
+      "Restore only the affected reader's explicit path; do not change a canonical default.",
+      "Record the exception and restart the observation window."
+    ],
+    "trigger": "A declared replay or transition cannot resolve its explicit legacy input."
+  },
+  "root_count": 18,
+  "roots": [
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 49,
+      "inventory_sha256": "be5ac5ae21efecd0c6391791727a56509d0c9197d0ac920befb73aa5ab346f4f",
+      "root_id": "eodhd_archive",
+      "size_bytes": 1011901141,
+      "source_kind": "directory",
+      "source_path": "data/eodhd",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "ab623256d3a966d07e982a88df5cc06b6f7e00ab7e65a92510d2d4ce27d8fbe0",
+      "root_id": "legacy_balance",
+      "size_bytes": 20291055,
+      "source_kind": "file",
+      "source_path": "data/US_Balance_sheet.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "eb5f69c8403f8136755eaa5f2bd01715a7ba1d3c235ddfc8b0e20ac77150bc37",
+      "root_id": "legacy_benchmark",
+      "size_bytes": 377625,
+      "source_kind": "file",
+      "source_path": "data/SP500Price.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "78b00d696b46656fe3fcfd0b6a03a06c440c40ed58d0e9ceb318b75fcd238150",
+      "root_id": "legacy_cash_flow",
+      "size_bytes": 8847984,
+      "source_kind": "file",
+      "source_path": "data/US_Cash_flow.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "e38a1a87d1d88fc6622c8f1f38bea31efb1056a882ff42bbace77680a78da2b3",
+      "root_id": "legacy_constituents",
+      "size_bytes": 6830910,
+      "source_kind": "file",
+      "source_path": "data/SP500_Constituents.csv",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 14,
+      "inventory_sha256": "70c2c513a10672f101c0f2b2282e1a1cdc60eb87a7fa28c49087acb91b9c8a79",
+      "root_id": "legacy_data_outputs",
+      "size_bytes": 136083778,
+      "source_kind": "directory",
+      "source_path": "data/outputs",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "56ce5c4da6cf9e8a1c33f07ab772ee2433309d7345721b9dea593a127a21f70b",
+      "root_id": "legacy_earnings",
+      "size_bytes": 731545,
+      "source_kind": "file",
+      "source_path": "data/US_Earnings.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "8df4ac3034557ff74a6c935fce44e1cd9744bd036b7663b71c6c2e5731fd175c",
+      "root_id": "legacy_final_price",
+      "size_bytes": 155393079,
+      "source_kind": "file",
+      "source_path": "data/US_Finalprice.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "00632cde56e8a287743173e8779dc4ccf1a057bdef66196a1652d7cb46c71cb8",
+      "root_id": "legacy_general",
+      "size_bytes": 684738,
+      "source_kind": "file",
+      "source_path": "data/US_General.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "712fbcc40fbf9a9b83841927b6de365c4e2351859d9da77f672a0920ae42cb7f",
+      "root_id": "legacy_income",
+      "size_bytes": 8720839,
+      "source_kind": "file",
+      "source_path": "data/US_Income_statement.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "6bd675233d093566421ecd47c23dd197d7aa5731e1749076040b557fd168d84b",
+      "root_id": "legacy_latest_pointer",
+      "size_bytes": 5008,
+      "source_kind": "file",
+      "source_path": "data/latest_snapshot.json",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1,
+      "inventory_sha256": "7e4d8e6216309a3ffed0c5cb274be01759f5f8ccbeb42eecd49278ccb55b373b",
+      "root_id": "legacy_shares",
+      "size_bytes": 1022128,
+      "source_kind": "file",
+      "source_path": "data/US_share.parquet",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 50,
+      "inventory_sha256": "d713b4221f3903484582634433dce2b04e645c909229869312f32594add29171",
+      "root_id": "local_snapshots",
+      "size_bytes": 1012196075,
+      "source_kind": "directory",
+      "source_path": "data/_snapshots",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 7140,
+      "inventory_sha256": "829ec6c1e8ff74fe65512e30c2caed4dcc29d9b2f315ec2ef4f02bdf6c87de89",
+      "root_id": "open_source_archive",
+      "size_bytes": 356196566,
+      "source_kind": "directory",
+      "source_path": "data/open_source/archive",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 3276,
+      "inventory_sha256": "95687e8aefbdcab10ff67c0d6e135c760e94ca2df06531abb0d81929c34d550b",
+      "root_id": "open_source_history",
+      "size_bytes": 25335259294,
+      "source_kind": "directory",
+      "source_path": "data/open_source/history",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 2375,
+      "inventory_sha256": "a054146e1fd24e6e4dde44aa2d8e7bb38ebef63507515b87126d67adf5ecb12a",
+      "root_id": "open_source_official",
+      "size_bytes": 2512675159,
+      "source_kind": "directory",
+      "source_path": "data/open_source/official",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 24,
+      "inventory_sha256": "0d3dbddf8dfe039a791fb669e9fae7d73586e3aae862b1225505cc687183e6d6",
+      "root_id": "open_source_output",
+      "size_bytes": 248629135,
+      "source_kind": "directory",
+      "source_path": "data/open_source/output",
+      "write_policy": "deny_for_governed_repository_code"
+    },
+    {
+      "archive_mode": "catalog_reference_without_payload_move",
+      "archive_state": "read_only_observation",
+      "file_count": 1041,
+      "inventory_sha256": "897a2a9fe304f0be47e208a6050e0f41b25f21835cfb5f518e98f3d5d5d5a770",
+      "root_id": "sec_legacy",
+      "size_bytes": 930105079,
+      "source_kind": "directory",
+      "source_path": "data/sec",
+      "write_policy": "deny_for_governed_repository_code"
+    }
+  ],
+  "total_source_bytes": 31745951138,
+  "validation": {
+    "all_catalogued_roots_frozen_by_contract": true,
+    "archive_is_reference_only": true,
+    "automatic_deletion": false,
+    "observation_window_defined": true,
+    "passed": true,
+    "rollback_defined": true
+  }
+}

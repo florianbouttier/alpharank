@@ -137,6 +137,14 @@ nommer explicitement : les hashes prouvent que huit des neuf fichiers modèle
 Legacy ne sont pas identiques au MART courant, donc une substitution silencieuse
 modifierait les données économiques.
 
+Les anciennes racines cataloguées sont gelées pour le code gouverné par
+[`legacy_data_archive_policy_v1.json`](legacy_data_archive_policy_v1.json).
+La période d'observation court du 20 août au 19 septembre 2026. L'archive reste
+une référence vers les octets hashés : aucune permission système n'est modifiée,
+aucun payload n'est déplacé et aucune suppression automatique n'est autorisée.
+Le même contrat décrit le retour arrière lecteur par lecteur si un replay
+explicite ne peut plus résoudre sa source.
+
 Le détail et les tâches sont dans [`../../ROADMAP.md`](../../ROADMAP.md). Le
 contrat des couches est dans [`data_lifecycle.md`](data_lifecycle.md) et les
 règles de placement sont dans

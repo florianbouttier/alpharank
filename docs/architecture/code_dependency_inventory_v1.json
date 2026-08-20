@@ -54,6 +54,7 @@
     "scripts/maintenance/build_code_inventory.py",
     "scripts/maintenance/build_data_location_inventory.py",
     "scripts/maintenance/build_data_reader_migration.py",
+    "scripts/maintenance/build_legacy_archive_policy.py",
     "scripts/maintenance/build_test_catalog.py",
     "scripts/maintenance/build_test_collection.py",
     "scripts/maintenance/catalog_historical_data_roots.py",
@@ -853,6 +854,11 @@
       "kind": "import",
       "source": "scripts/maintenance/build_data_reader_migration.py",
       "target": "src/alpharank/data/reader_migration.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/maintenance/build_legacy_archive_policy.py",
+      "target": "src/alpharank/data/legacy_archive_policy.py"
     },
     {
       "kind": "import",
@@ -4516,6 +4522,19 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/data/legacy_archive_policy.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.maintenance.build_legacy_archive_policy",
+      "path": "scripts/maintenance/build_legacy_archive_policy.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/quality/test_catalog.py",
         "src/alpharank/quality/test_suites.py"
       ],
@@ -5942,6 +5961,19 @@
       "path": "src/alpharank/data/historical_migration.py",
       "readers": [
         "scripts/maintenance/catalog_historical_data_roots.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.legacy_archive_policy",
+      "path": "src/alpharank/data/legacy_archive_policy.py",
+      "readers": [
+        "scripts/maintenance/build_legacy_archive_policy.py"
       ]
     },
     {
@@ -8775,11 +8807,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 117,
-    "internal_edge_count": 703,
-    "library_count": 179,
-    "python_file_count": 303,
-    "script_count": 124,
-    "unread_node_count": 118
+    "active_entrypoint_count": 118,
+    "internal_edge_count": 704,
+    "library_count": 180,
+    "python_file_count": 305,
+    "script_count": 125,
+    "unread_node_count": 119
   }
 }
