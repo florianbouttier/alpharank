@@ -7,7 +7,7 @@ import polars as pl
 import pytest
 
 from scripts.open_source import nightly_ingestion
-from scripts.open_source.install_nightly_launchd import build_plist
+from scripts.open_source.ingestion.install_nightly_launchd import build_plist
 from scripts.open_source.nightly_ingestion import LIVE_DIR, START_DATE, default_nightly_tickers, load_existing_live_tickers
 
 
@@ -21,7 +21,7 @@ def test_launchd_plist_points_to_repo_python_script() -> None:
     program_arguments = plist["ProgramArguments"]
     assert isinstance(program_arguments, list)
     assert str(program_arguments[0]).endswith("/.venv/bin/python")
-    assert str(program_arguments[1]).endswith("/scripts/open_source/nightly_ingestion.py")
+    assert str(program_arguments[1]).endswith("/scripts/open_source/ingestion/nightly_ingestion.py")
     env = plist["EnvironmentVariables"]
     assert env["HOME"]
     assert env["TMPDIR"] == "/tmp"

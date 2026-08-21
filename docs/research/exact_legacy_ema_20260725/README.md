@@ -260,11 +260,11 @@ Remaining risks:
 
 Runner:
 
-`scripts/experiments/run_multihorizon_boosting.py`
+`scripts/experiments/operations/run_multihorizon_boosting.py`
 
 Comparison:
 
-`scripts/experiments/compare_multihorizon_feature_modes.py`
+`scripts/experiments/operations/compare_multihorizon_feature_modes.py`
 
 Corrected runs:
 

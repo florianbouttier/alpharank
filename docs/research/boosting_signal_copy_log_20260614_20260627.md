@@ -242,7 +242,7 @@ Decision :
 | 2026-06-16 | run `outputs/generalized_ema_expert_sweep_20260616_234440` | sweep memoire/top experts sur candidats EMA observes |
 | 2026-06-16 | run `outputs/generalized_ema_expert_sweep_20260616_234500` | sweep memoire/top experts sur voisins EMA |
 | 2026-06-16 | run `outputs/generalized_ema_expert_models_20260616_234556` | training sur le meilleur cadre EMA generalisable |
-| 2026-06-20 | script `scripts/experiments/run_tradable_ema_regression_optuna.py` | nouvelle regression EMA tradable avec Optuna random startup puis TPE et warm starts JSON |
+| 2026-06-20 | script `scripts/experiments/modeling/run_tradable_ema_regression_optuna.py` | nouvelle regression EMA tradable avec Optuna random startup puis TPE et warm starts JSON |
 | 2026-06-20 | run `outputs/tradable_ema_regression_optuna_20260620_231702` | baseline sans warm-start, 23 mois test |
 | 2026-06-20 | run `outputs/tradable_ema_regression_optuna_20260620_232506` | regression warm-startee, 23 mois test |
 | 2026-06-21 | run `outputs/tradable_ema_regression_optuna_20260621_001753` | regression warm-startee corrigee mlcraft, 23 mois test |
@@ -252,25 +252,25 @@ Decision :
 | 2026-06-26 | run `outputs/tradable_technical_regression_optuna_20260626_212142` | regression avec toutes les features techniques disponibles, test court |
 | 2026-06-27 | run `outputs/tradable_technical_trading_backtest_20260627_012929` | backtest trading du score technique complet |
 | 2026-06-27 | run `outputs/tradable_ema_trading_backtest_20260627_012929` | backtest EMA-only sur la meme periode courte que le run technique |
-| 2026-06-27 | script `scripts/experiments/run_tradable_ema_residual_regression.py` | test residual : base EMA-only puis regression du residu sur technique non-EMA |
+| 2026-06-27 | script `scripts/experiments/modeling/run_tradable_ema_residual_regression.py` | test residual : base EMA-only puis regression du residu sur technique non-EMA |
 | 2026-06-27 | run `outputs/tradable_ema_residual_regression_20260627_020253` | residual regression, 23 mois test, shrinkages 0.25/0.50/1.00 |
 | 2026-06-27 | runs `outputs/ema_plus_residual_0_25_trading_backtest_20260627_020626`, `outputs/ema_plus_residual_0_50_trading_backtest_20260627_020654`, `outputs/ema_base_trading_backtest_20260627_020633` | backtests residual et base EMA fixe comparable |
-| 2026-06-27 | script `scripts/experiments/run_tradable_ema_regression_optuna.py` | ajout d'objectifs Optuna sans Legacy : rendement top K et precision top K en validation |
+| 2026-06-27 | script `scripts/experiments/modeling/run_tradable_ema_regression_optuna.py` | ajout d'objectifs Optuna sans Legacy : rendement top K et precision top K en validation |
 | 2026-06-27 | runs `outputs/tradable_ema_regression_optuna_20260627_021449` a `outputs/tradable_ema_regression_optuna_20260627_023621` | sweep court sans objectif Legacy, sans warm-start, objectifs rendement top 10 et precision top 10/20/30/50 |
 | 2026-06-27 | runs `outputs/tradable_ema_trading_backtest_20260627_024211`, `024213`, `024215`, `024216`, `024218` | backtests du sweep sans objectif Legacy |
 | 2026-06-27 | runs `outputs/tradable_ema_regression_optuna_20260627_121144`, `125020`, `133211`, `140859`, `144652` | sweep 2015+ sans objectif Legacy, 136 folds mensuels par objectif |
 | 2026-06-27 | runs `outputs/tradable_ema_trading_backtest_20260627_152139`, `152141`, `152143`, `152145`, `152147` | backtests 2015+ des cinq objectifs Optuna propres |
-| 2026-06-27 | script `scripts/experiments/analyze_legacy_factor_exposures.py`, run `outputs/legacy_factor_exposure_20260627_154437` | diagnostic Legacy 2015+ : exposition features, secteurs, tickers, blocs EMA atomiques |
-| 2026-06-27 | script `scripts/experiments/build_deterministic_signal_predictions.py`, run `outputs/deterministic_signal_predictions_20260627_154617` | generation de predictions deterministes tradables pour tester les scores EMA simples |
+| 2026-06-27 | script `scripts/experiments/modeling/analyze_legacy_factor_exposures.py`, run `outputs/legacy_factor_exposure_20260627_154437` | diagnostic Legacy 2015+ : exposition features, secteurs, tickers, blocs EMA atomiques |
+| 2026-06-27 | script `scripts/experiments/modeling/build_deterministic_signal_predictions.py`, run `outputs/deterministic_signal_predictions_20260627_154617` | generation de predictions deterministes tradables pour tester les scores EMA simples |
 | 2026-06-27 | runs `outputs/ema_ratio_2_12_rank_month_trading_backtest_20260627_154632`, `outputs/ema_ratio_3_12_rank_month_trading_backtest_20260627_154632`, `outputs/technical_z_mean_trading_backtest_20260627_154632`, `outputs/technical_rank_mean_trading_backtest_20260627_154632` | backtests 2015+ des temoins deterministes EMA / technique |
-| 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_top_return_classifier.py`, run `outputs/portfolio_boosting_top_return_classifier_20260627_225903` | boosting seul mlcraft : classifier top 10% futur rendement relatif, baseline Optuna enqueued |
-| 2026-06-27 | script `scripts/experiments/run_portfolio_boosting_rank_regression.py`, runs `outputs/portfolio_boosting_rank_regression_20260627_230913`, `outputs/portfolio_boosting_rank_regression_20260627_233738` | boosting seul mlcraft : regression du rang mensuel futur, test baseline puis 3 trials/fold |
-| 2026-06-28 | script `scripts/experiments/run_portfolio_boosting_risk_overlay.py`, runs `outputs/portfolio_boosting_risk_overlay_20260628_013024`, `013037`, `013107`, `013108` | overlays de risque boosting seul : exposition fixe, confiance score, qualite validation, cash/SPY |
-| 2026-06-28 | script `scripts/experiments/run_ema_anchor_residual_strategy.py`, run proxy `outputs/ema_anchor_residual_strategy_20260628_031118`, run exact dominant `outputs/ema_anchor_residual_strategy_20260628_131004`, run fixed init-score `outputs/ema_anchor_residual_strategy_20260628_170654`, run mensuel init-score `outputs/ema_anchor_residual_strategy_20260628_194954` | test idee EMA primaire puis regression des residus; run principal = EMA Legacy exacte repetee chaque mois + residu init score/base_margin |
-| 2026-06-29 | script `scripts/experiments/analyze_ema_anchor_recomposition_gap.py`, run `outputs/ema_anchor_recomposition_gap_20260629_005116` | diagnostic de l'ecart : l'EMA brute recompose/performe, le booster base ecrase le ranking avec trop peu de scores distincts |
-| 2026-06-30 | script `scripts/experiments/run_ema_raw_calibrated_residual_strategy.py`, run `outputs/ema_raw_calibrated_residual_strategy_20260630_002942` | test propre : EMA brute calibree en prediction train-only + residu XGBoost `base_margin` shrinke ; le residu degrade, l'EMA brute/calibree reste le meilleur score |
-| 2026-07-04 | script `scripts/experiments/run_portfolio_boosting_exact_ema_rank.py`, runs `outputs/portfolio_boosting_exact_ema_rank_20260704_174140`, `outputs/portfolio_boosting_exact_ema_rank_20260704_180500` | boosting-only sur EMA exactes comme variables ; le run `mean_active` top7 warm-starte devient le meilleur pur boosting EMA exact mais reste sous Legacy |
-| 2026-07-05 | script `scripts/experiments/run_portfolio_boosting_exact_ema_variants.py`, run `outputs/portfolio_boosting_exact_ema_variants_20260705_153914` | trois variantes pure boosting sur les memes EMA exactes : ranking pairwise mensuel, regression robuste active, et two-head rendement/proba/risque ; two-head top5 approche Legacy en rendement mais avec drawdown trop eleve |
+| 2026-06-27 | script `scripts/experiments/modeling/run_portfolio_boosting_top_return_classifier.py`, run `outputs/portfolio_boosting_top_return_classifier_20260627_225903` | boosting seul mlcraft : classifier top 10% futur rendement relatif, baseline Optuna enqueued |
+| 2026-06-27 | script `scripts/experiments/modeling/run_portfolio_boosting_rank_regression.py`, runs `outputs/portfolio_boosting_rank_regression_20260627_230913`, `outputs/portfolio_boosting_rank_regression_20260627_233738` | boosting seul mlcraft : regression du rang mensuel futur, test baseline puis 3 trials/fold |
+| 2026-06-28 | script `scripts/experiments/modeling/run_portfolio_boosting_risk_overlay.py`, runs `outputs/portfolio_boosting_risk_overlay_20260628_013024`, `013037`, `013107`, `013108` | overlays de risque boosting seul : exposition fixe, confiance score, qualite validation, cash/SPY |
+| 2026-06-28 | script `scripts/experiments/modeling/run_ema_anchor_residual_strategy.py`, run proxy `outputs/ema_anchor_residual_strategy_20260628_031118`, run exact dominant `outputs/ema_anchor_residual_strategy_20260628_131004`, run fixed init-score `outputs/ema_anchor_residual_strategy_20260628_170654`, run mensuel init-score `outputs/ema_anchor_residual_strategy_20260628_194954` | test idee EMA primaire puis regression des residus; run principal = EMA Legacy exacte repetee chaque mois + residu init score/base_margin |
+| 2026-06-29 | script `scripts/experiments/modeling/analyze_ema_anchor_recomposition_gap.py`, run `outputs/ema_anchor_recomposition_gap_20260629_005116` | diagnostic de l'ecart : l'EMA brute recompose/performe, le booster base ecrase le ranking avec trop peu de scores distincts |
+| 2026-06-30 | script `scripts/experiments/modeling/run_ema_raw_calibrated_residual_strategy.py`, run `outputs/ema_raw_calibrated_residual_strategy_20260630_002942` | test propre : EMA brute calibree en prediction train-only + residu XGBoost `base_margin` shrinke ; le residu degrade, l'EMA brute/calibree reste le meilleur score |
+| 2026-07-04 | script `scripts/experiments/modeling/run_portfolio_boosting_exact_ema_rank.py`, runs `outputs/portfolio_boosting_exact_ema_rank_20260704_174140`, `outputs/portfolio_boosting_exact_ema_rank_20260704_180500` | boosting-only sur EMA exactes comme variables ; le run `mean_active` top7 warm-starte devient le meilleur pur boosting EMA exact mais reste sous Legacy |
+| 2026-07-05 | script `scripts/experiments/modeling/run_portfolio_boosting_exact_ema_variants.py`, run `outputs/portfolio_boosting_exact_ema_variants_20260705_153914` | trois variantes pure boosting sur les memes EMA exactes : ranking pairwise mensuel, regression robuste active, et two-head rendement/proba/risque ; two-head top5 approche Legacy en rendement mais avec drawdown trop eleve |
 
 Runs principaux :
 
@@ -386,7 +386,7 @@ Features :
 
 Les 7 modeles ci-dessous ont ete construits dans :
 
-- script : `scripts/experiments/run_signal_copy_models.py`
+- script : `scripts/experiments/modeling/run_signal_copy_models.py`
 - commit : `f7d1b29 add legacy clone signal diagnostics`
 - date de construction : 2026-06-14
 - run : `outputs/signal_copy_models_20260614_214711`
@@ -567,7 +567,7 @@ Statut :
 
 Construit le 2026-06-20 / 2026-06-21 dans :
 
-- script : `scripts/experiments/run_tradable_ema_regression_optuna.py`
+- script : `scripts/experiments/modeling/run_tradable_ema_regression_optuna.py`
 - run court corrige : `outputs/tradable_ema_regression_optuna_20260621_001753`
 - run large corrige : `outputs/tradable_ema_regression_optuna_20260621_003954`
 - warm-start actuel a reutiliser :
@@ -722,7 +722,7 @@ l'objectif Optuna quand on evalue un modele de trading.
 
 Changement code :
 
-- script modifie : `scripts/experiments/run_tradable_ema_regression_optuna.py`
+- script modifie : `scripts/experiments/modeling/run_tradable_ema_regression_optuna.py`
 - nouveaux objectifs :
   - `val_topk_mean_return` : moyenne mensuelle du rendement relatif futur du
     top K en validation ;
@@ -894,7 +894,7 @@ Variables :
 
 Protocole :
 
-- script : `scripts/experiments/run_portfolio_boosting_top_return_classifier.py`
+- script : `scripts/experiments/modeling/run_portfolio_boosting_top_return_classifier.py`
 - run propre baseline : `outputs/portfolio_boosting_top_return_classifier_20260627_225903`
 - librairie : `mlcraft` + backend XGBoost classification ;
 - tuning : baseline Optuna enqueued, `n_trials=1` sur ce run ;
@@ -953,7 +953,7 @@ variable Legacy dans le modele.
 
 Protocole baseline :
 
-- script : `scripts/experiments/run_portfolio_boosting_rank_regression.py`
+- script : `scripts/experiments/modeling/run_portfolio_boosting_rank_regression.py`
 - run baseline : `outputs/portfolio_boosting_rank_regression_20260627_230913`
 - librairie : `mlcraft` + backend XGBoost regression ;
 - tuning : baseline Optuna enqueued, `n_trials=1` ;
@@ -1053,7 +1053,7 @@ grille EMA declaree a l'avance, pas une liste extraite des runs Legacy.
 
 Protocole commun :
 
-- script : `scripts/experiments/run_portfolio_boosting_exact_ema_rank.py`
+- script : `scripts/experiments/modeling/run_portfolio_boosting_exact_ema_rank.py`
 - librairie : `mlcraft` + backend XGBoost regression ;
 - split : train passe, validation 12 mois, test 1 mois, rotation mensuelle ;
 - periode de performance : `2015-02` a `2026-04` ;
@@ -1259,7 +1259,7 @@ toutes les autres variables.
 
 Implementation testee initialement en proxy :
 
-- script : `scripts/experiments/run_ema_anchor_residual_strategy.py`
+- script : `scripts/experiments/modeling/run_ema_anchor_residual_strategy.py`
 - run : `outputs/ema_anchor_residual_strategy_20260628_031118`
 - periode test : `2015-02` a `2026-04`
 - protocole : walk-forward mensuel, train passe, validation 12 mois, test 1 mois
@@ -1359,7 +1359,7 @@ Cette etape a ete executee ensuite dans le run exact ci-dessous.
 
 Run exact EMA Legacy du 2026-06-28 :
 
-- script : `scripts/experiments/run_ema_anchor_residual_strategy.py`
+- script : `scripts/experiments/modeling/run_ema_anchor_residual_strategy.py`
 - run : `outputs/ema_anchor_residual_strategy_20260628_131004`
 - mode : `legacy_exact_dominant`
 - periode test : `2015-02` a `2026-04`
@@ -1452,10 +1452,10 @@ Prochaine experience logique :
 
 Run fixe `34-7` avec residu init-score :
 
-- script : `scripts/experiments/run_ema_anchor_residual_strategy.py`
+- script : `scripts/experiments/modeling/run_ema_anchor_residual_strategy.py`
 - run : `outputs/ema_anchor_residual_strategy_20260628_170654`
 - commande :
-  `./.venv/bin/python scripts/experiments/run_ema_anchor_residual_strategy.py --top-n 5 7 10 20 30 50 --anchor-mode fixed_exact --fixed-ema-pair 34-7 --residual-mode init_score`
+  `./.venv/bin/python scripts/experiments/modeling/run_ema_anchor_residual_strategy.py --top-n 5 7 10 20 30 50 --anchor-mode fixed_exact --fixed-ema-pair 34-7 --residual-mode init_score`
 - interpretation du couple : `34-7` suit le format texte Legacy
   `n_long-n_short`, donc `n_long=34`, `n_short=7`
 - EMA primaire : `EMA(close_vs_index, 7) / EMA(close_vs_index, 34)`
@@ -1507,10 +1507,10 @@ Lecture :
 
 Run principal : EMA Legacy mensuelle repetee + residu init-score :
 
-- script : `scripts/experiments/run_ema_anchor_residual_strategy.py`
+- script : `scripts/experiments/modeling/run_ema_anchor_residual_strategy.py`
 - run : `outputs/ema_anchor_residual_strategy_20260628_194954`
 - commande :
-  `./.venv/bin/python scripts/experiments/run_ema_anchor_residual_strategy.py --top-n 5 7 10 20 30 50 --anchor-mode legacy_exact_dominant --residual-mode init_score`
+  `./.venv/bin/python scripts/experiments/modeling/run_ema_anchor_residual_strategy.py --top-n 5 7 10 20 30 50 --anchor-mode legacy_exact_dominant --residual-mode init_score`
 - mode : `legacy_exact_dominant`
 - residu : `init_score`
 - principe : a chaque mois, prendre le couple EMA `n_short/n_long` du modele
@@ -1564,7 +1564,7 @@ Lecture :
 Diagnostic du 2026-06-29 : pourquoi `EMA seule top20` semblait faire seulement
 `+149.8%` / CAGR `8.5%` :
 
-- script : `scripts/experiments/analyze_ema_anchor_recomposition_gap.py`
+- script : `scripts/experiments/modeling/analyze_ema_anchor_recomposition_gap.py`
 - run : `outputs/ema_anchor_recomposition_gap_20260629_005116`
 - conclusion : le chiffre `+149.8%` ne mesure pas le top20 de l'EMA brute. Il
   mesure le top20 de la prediction du booster base entraine sur l'EMA.
@@ -1619,10 +1619,10 @@ score EMA brut, pas depuis une prediction booster EMA aplatie.
 
 Construit dans :
 
-- script : `scripts/experiments/run_ema_raw_calibrated_residual_strategy.py`
+- script : `scripts/experiments/modeling/run_ema_raw_calibrated_residual_strategy.py`
 - run principal : `outputs/ema_raw_calibrated_residual_strategy_20260630_002942`
 - commande :
-  `./.venv/bin/python scripts/experiments/run_ema_raw_calibrated_residual_strategy.py --top-n 5 7 10 20 30 50 --residual-shrinkages 0.1 0.25 0.5 1.0`
+  `./.venv/bin/python scripts/experiments/modeling/run_ema_raw_calibrated_residual_strategy.py --top-n 5 7 10 20 30 50 --residual-shrinkages 0.1 0.25 0.5 1.0`
 
 But :
 
@@ -1702,7 +1702,7 @@ Lecture :
 
 Construit dans :
 
-- script : `scripts/experiments/run_tradable_ema_regression_trading_backtest.py`
+- script : `scripts/experiments/modeling/run_tradable_ema_regression_trading_backtest.py`
 - run : `outputs/tradable_ema_regression_trading_backtest_20260626_110356`
 - rapport HTML :
   `outputs/tradable_ema_regression_trading_backtest_20260626_110356/trading_backtest_comparison.html`
@@ -1819,7 +1819,7 @@ Lecture :
 
 Construit dans :
 
-- script : `scripts/experiments/run_tradable_ema_residual_regression.py`
+- script : `scripts/experiments/modeling/run_tradable_ema_residual_regression.py`
 - run : `outputs/tradable_ema_residual_regression_20260627_020253`
 - backtest shrinkage `0.25` :
   `outputs/ema_plus_residual_0_25_trading_backtest_20260627_020626`
@@ -1935,7 +1935,7 @@ Lecture trading :
 
 Construit le 2026-06-15 dans :
 
-- script : `scripts/experiments/run_ema_rich_future_target_models.py`
+- script : `scripts/experiments/modeling/run_ema_rich_future_target_models.py`
 - run verifie : `outputs/ema_rich_future_target_20260615_201243`
 
 But :
@@ -2014,7 +2014,7 @@ Lecture :
 
 Construit le 2026-06-16 dans :
 
-- script : `scripts/experiments/run_legacy_atomic_recomposition.py`
+- script : `scripts/experiments/legacy/run_legacy_atomic_recomposition.py`
 - run verifie : `outputs/legacy_atomic_recomposition_20260616_122045`
 
 But :
@@ -2063,8 +2063,8 @@ Lecture :
 
 Construit le 2026-06-16 dans :
 
-- builder : `scripts/experiments/build_legacy_atomic_feature_frame.py`
-- training : `scripts/experiments/run_atomic_feature_future_target_models.py`
+- builder : `scripts/experiments/modeling/build_legacy_atomic_feature_frame.py`
+- training : `scripts/experiments/modeling/run_atomic_feature_future_target_models.py`
 - frame : `outputs/legacy_atomic_feature_frame_20260616_195618`
 - run training : `outputs/atomic_feature_future_target_20260616_200236`
 
@@ -2121,9 +2121,9 @@ Lecture :
 
 Construit le 2026-06-16 dans :
 
-- builder : `scripts/experiments/build_generalized_ema_expert_frame.py`
-- training : `scripts/experiments/run_generalized_ema_expert_models.py`
-- sweep : `scripts/experiments/sweep_generalized_ema_expert_params.py`
+- builder : `scripts/experiments/modeling/build_generalized_ema_expert_frame.py`
+- training : `scripts/experiments/modeling/run_generalized_ema_expert_models.py`
+- sweep : `scripts/experiments/modeling/sweep_generalized_ema_expert_params.py`
 - frame : `outputs/generalized_ema_expert_frame_20260616_231854`
 - run training : `outputs/generalized_ema_expert_models_20260616_232041`
 
@@ -2391,7 +2391,7 @@ outputs/legacy_factor_exposure_20260627_154437
 Script :
 
 ```text
-scripts/experiments/analyze_legacy_factor_exposures.py
+scripts/experiments/modeling/analyze_legacy_factor_exposures.py
 ```
 
 Fenetre :
@@ -2522,7 +2522,7 @@ outputs/return_forecast_calibration_20260627_161954
 Script :
 
 ```text
-scripts/experiments/analyze_return_forecast_calibration.py
+scripts/experiments/reports/analyze_return_forecast_calibration.py
 ```
 
 Objectif :
@@ -2583,8 +2583,8 @@ outputs/portfolio_boosting_blend_backtest_20260627_171645
 Scripts :
 
 ```text
-scripts/experiments/run_portfolio_boosting_top_return_classifier.py
-scripts/experiments/run_portfolio_boosting_blend_backtest.py
+scripts/experiments/modeling/run_portfolio_boosting_top_return_classifier.py
+scripts/experiments/portfolio/run_portfolio_boosting_blend_backtest.py
 ```
 
 Ce qui est appris :

@@ -13,7 +13,7 @@ Commande :
 
 ```bash
 ./.venv/bin/python \
-  scripts/experiments/render_central_research_dashboard.py
+  scripts/experiments/reports/render_central_research_dashboard.py
 ```
 
 Rapport :
@@ -65,7 +65,7 @@ Commande :
 
 ```bash
 ./.venv/bin/python \
-  scripts/experiments/render_central_research_dashboard.py
+  scripts/experiments/reports/render_central_research_dashboard.py
 ```
 
 Résultat : l'onglet backtest explique désormais explicitement la chaîne mois
@@ -241,7 +241,7 @@ mensuels Top 5/Top 10 du run
 `legacy_20260713_201639_spy_total_return`.
 
 Commande/run :
-`scripts/experiments/render_central_research_dashboard.py --output-dir outputs/research_dashboard/legacy_ema_alpha_central_20260811_cagr_attribution`.
+`scripts/experiments/reports/render_central_research_dashboard.py --output-dir outputs/research_dashboard/legacy_ema_alpha_central_20260811_cagr_attribution`.
 Le moteur commun produit 5 408 lignes d'attribution. Chaque rendement mensuel
 simple et chaque CAGR sont réconciliés à `1e-12`; les coûts restent une ligne
 séparée.

@@ -63,5 +63,5 @@ weighting.
 ## Source code
 
 - `src/alpharank/multihorizon/`: research package.
-- `scripts/experiments/run_multihorizon_boosting.py`: reproducible CLI.
+- `scripts/experiments/operations/run_multihorizon_boosting.py`: reproducible CLI.
 - sibling `mlcraft`: generic grouped XGBoost ranking support.

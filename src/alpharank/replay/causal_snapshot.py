@@ -97,7 +97,7 @@ def seal_causal_v2_snapshot(
     try:
         runtime = capture_runtime_provenance(
             project_root=root,
-            entrypoint="scripts/seal_causal_v2_snapshot.py",
+            entrypoint="scripts/replay/seal_causal_v2_snapshot.py",
             command_argv=command_argv,
             resolved_config={
                 "causal_snapshot_contract_version": CAUSAL_SNAPSHOT_CONTRACT_VERSION,

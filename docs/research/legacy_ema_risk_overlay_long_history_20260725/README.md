@@ -81,7 +81,7 @@ All heads use:
 Long-history alpha:
 
 ```bash
-./.venv/bin/python scripts/experiments/run_multihorizon_boosting.py \
+./.venv/bin/python scripts/experiments/operations/run_multihorizon_boosting.py \
   --data-dir outputs/2026-07-19/runs/20260719_194418/input_snapshot \
   --legacy-detailed outputs/2026-07-19/runs/20260719_194418/legacy_detailed_returns_polars.parquet \
   --legacy-monthly outputs/2026-07-19/runs/20260719_194418/legacy_monthly_returns_polars.parquet \
@@ -96,7 +96,7 @@ Long-history alpha:
 Risk heads and allocation:
 
 ```bash
-./.venv/bin/python scripts/experiments/run_legacy_ema_risk_heads.py \
+./.venv/bin/python scripts/experiments/legacy/run_legacy_ema_risk_heads.py \
   --spec configs/research/legacy_ema_risk_overlay_long_history_v1.json \
   --output-dir outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725 \
   --bootstrap-samples 2000 --shap-sample-per-fold 30
@@ -105,7 +105,7 @@ Risk heads and allocation:
 HTML papers:
 
 ```bash
-./.venv/bin/python scripts/experiments/render_legacy_ema_risk_papers.py \
+./.venv/bin/python scripts/experiments/legacy/render_legacy_ema_risk_papers.py \
   --spec configs/research/legacy_ema_risk_overlay_long_history_v1.json \
   --output-dir outputs/multihorizon_boosting/legacy_ema_risk_overlay_long_history_v1_20260725
 ```

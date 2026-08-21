@@ -31,7 +31,7 @@
       "decision": "archived",
       "historical_references": [],
       "last_commit": "27bc1d67cb8052ef2136faa5010c492d0450d7cd",
-      "replacement": "scripts/open_source/run_ingestion.py; frozen EODHD prices remain immutable",
+      "replacement": "scripts/open_source/ingestion/run_ingestion.py; frozen EODHD prices remain immutable",
       "sha256_before_move": "05d21ccc8608a5b21a3425de9c20eef86f205ef7326ec1df690e407507227a80",
       "size_bytes": 5078,
       "source_path": "scripts/download_data.py"
@@ -42,7 +42,7 @@
       "decision": "archived",
       "historical_references": [],
       "last_commit": "2b19752d1eab008895f3ba9af06d404d959c8899",
-      "replacement": "scripts/open_source/run_ingestion.py; frozen EODHD prices remain immutable",
+      "replacement": "scripts/open_source/ingestion/run_ingestion.py; frozen EODHD prices remain immutable",
       "sha256_before_move": "7ff37a53c9e253ae4fa964f57012412bbb5b90a0ce65a55284847330a5e6b1c7",
       "size_bytes": 9731,
       "source_path": "scripts/download_data_incremental.py"
@@ -53,7 +53,7 @@
       "decision": "archived",
       "historical_references": [],
       "last_commit": "46e1697d8f878882f88f035415ac14fa28f0d182",
-      "replacement": "scripts/open_source/build_sec_fundamental_explorer.py",
+      "replacement": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
       "sha256_before_move": "01529ba9327ccfc4e2e29d333d6e686dde1437768b87f95e482160f0193fa5f4",
       "size_bytes": 3585,
       "source_path": "scripts/generate_financial_report.py"
@@ -96,7 +96,7 @@
       "replacement": null,
       "sha256_before_move": "b1e7a3ee0bfe323e0d789372e688c545188396547e98f6c8e7700353274051e3",
       "size_bytes": 10957,
-      "source_path": "scripts/open_source/run_sec_q4_fix2_candidate.py"
+      "source_path": "scripts/open_source/audit/run_sec_q4_fix2_candidate.py"
     }
   ],
   "inventory_id": "alpharank_script_archival_audit_v1",

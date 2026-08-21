@@ -8,7 +8,7 @@ and Boosting.
   a mixed-source research package.
 - Each folder under `history/` contains hybrid EODHD/open prices, strict
   SEC-only fundamentals, both source lineages, and `lineage/manifest.json`.
-- Rebuild with `scripts/open_source/build_composed_model_snapshot.py` only after
+- Rebuild with `scripts/open_source/publication/build_composed_model_snapshot.py` only after
   the independent price and SEC publication guards pass.
 - Old history folders are immutable replay evidence and must not be edited.
 

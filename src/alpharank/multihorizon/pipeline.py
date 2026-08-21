@@ -219,12 +219,12 @@ def run_multihorizon_research(config: MultiHorizonConfig) -> Path:
             )
     runtime_provenance = capture_runtime_provenance(
         project_root=project_root,
-        entrypoint="scripts/experiments/run_multihorizon_boosting.py",
+        entrypoint="scripts/experiments/operations/run_multihorizon_boosting.py",
         command_argv=[sys.executable, *sys.argv],
         resolved_config=_jsonable_config(config),
         seeds={"random_seed": config.random_seed},
         critical_files=(
-            "scripts/experiments/run_multihorizon_boosting.py",
+            "scripts/experiments/operations/run_multihorizon_boosting.py",
             "src/alpharank/multihorizon/pipeline.py",
             "src/alpharank/multihorizon/data.py",
             "src/alpharank/multihorizon/modeling.py",

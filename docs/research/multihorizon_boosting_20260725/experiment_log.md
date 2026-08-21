@@ -64,7 +64,7 @@ explicitly passed.
 ## Screening command
 
 ```bash
-./.venv/bin/python scripts/experiments/run_multihorizon_boosting.py \
+./.venv/bin/python scripts/experiments/operations/run_multihorizon_boosting.py \
   --data-dir outputs/2026-07-19/runs/20260719_194418/input_snapshot \
   --legacy-detailed outputs/2026-07-19/runs/20260719_194418/legacy_detailed_returns_polars.parquet \
   --legacy-monthly outputs/2026-07-19/runs/20260719_194418/legacy_monthly_returns_polars.parquet \

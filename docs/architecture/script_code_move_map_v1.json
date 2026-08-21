@@ -1,0 +1,501 @@
+{
+  "map_id": "python-script-responsibility-move-v1",
+  "roadmap_task": "CODEORG-003",
+  "behavior_change": false,
+  "scope": "tracked Python command implementations under scripts/",
+  "module_limit": 20,
+  "move_count": 90,
+  "moves": [
+    {
+      "from": "scripts/benchmark_legacy_backends.py",
+      "to": "scripts/research/benchmark_legacy_backends.py"
+    },
+    {
+      "from": "scripts/compare_legacy_input_ablation.py",
+      "to": "scripts/research/compare_legacy_input_ablation.py"
+    },
+    {
+      "from": "scripts/render_methodology_v2_study.py",
+      "to": "scripts/research/render_methodology_v2_study.py"
+    },
+    {
+      "from": "scripts/build_common_v2_replay.py",
+      "to": "scripts/replay/build_common_v2_replay.py"
+    },
+    {
+      "from": "scripts/build_v1_v2_reconciliation.py",
+      "to": "scripts/replay/build_v1_v2_reconciliation.py"
+    },
+    {
+      "from": "scripts/seal_causal_v2_snapshot.py",
+      "to": "scripts/replay/seal_causal_v2_snapshot.py"
+    },
+    {
+      "from": "scripts/seal_methodology_baseline.py",
+      "to": "scripts/replay/seal_methodology_baseline.py"
+    },
+    {
+      "from": "scripts/validate_boosting_v2_run.py",
+      "to": "scripts/replay/validate_boosting_v2_run.py"
+    },
+    {
+      "from": "scripts/validate_common_v2_replay.py",
+      "to": "scripts/replay/validate_common_v2_replay.py"
+    },
+    {
+      "from": "scripts/validate_economic_prefix.py",
+      "to": "scripts/replay/validate_economic_prefix.py"
+    },
+    {
+      "from": "scripts/validate_legacy_v2_run.py",
+      "to": "scripts/replay/validate_legacy_v2_run.py"
+    },
+    {
+      "from": "scripts/validate_recomputable_replay_package.py",
+      "to": "scripts/replay/validate_recomputable_replay_package.py"
+    },
+    {
+      "from": "scripts/validate_v1_v2_reconciliation.py",
+      "to": "scripts/replay/validate_v1_v2_reconciliation.py"
+    },
+    {
+      "from": "scripts/audit_data_lineage.py",
+      "to": "scripts/validation/audit_data_lineage.py"
+    },
+    {
+      "from": "scripts/open_source/audit_price_snapshot_vintages.py",
+      "to": "scripts/open_source/audit/audit_price_snapshot_vintages.py"
+    },
+    {
+      "from": "scripts/open_source/audit_sec_earnings_coverage.py",
+      "to": "scripts/open_source/audit/audit_sec_earnings_coverage.py"
+    },
+    {
+      "from": "scripts/open_source/probe_sec_earnings_tickers.py",
+      "to": "scripts/open_source/audit/probe_sec_earnings_tickers.py"
+    },
+    {
+      "from": "scripts/open_source/probe_sec_sp500_history_sample.py",
+      "to": "scripts/open_source/audit/probe_sec_sp500_history_sample.py"
+    },
+    {
+      "from": "scripts/open_source/probe_sp500_entry_pe_coverage.py",
+      "to": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py"
+    },
+    {
+      "from": "scripts/open_source/run_sec_q4_fix2_candidate.py",
+      "to": "scripts/open_source/audit/run_sec_q4_fix2_candidate.py"
+    },
+    {
+      "from": "scripts/open_source/backfill_sec_core_history.py",
+      "to": "scripts/open_source/ingestion/backfill_sec_core_history.py"
+    },
+    {
+      "from": "scripts/open_source/install_nightly_launchd.py",
+      "to": "scripts/open_source/ingestion/install_nightly_launchd.py"
+    },
+    {
+      "from": "scripts/open_source/nightly_ingestion.py",
+      "to": "scripts/open_source/ingestion/nightly_ingestion.py"
+    },
+    {
+      "from": "scripts/open_source/refresh_current_constituent_prices.py",
+      "to": "scripts/open_source/ingestion/refresh_current_constituent_prices.py"
+    },
+    {
+      "from": "scripts/open_source/refresh_reference_layers.py",
+      "to": "scripts/open_source/ingestion/refresh_reference_layers.py"
+    },
+    {
+      "from": "scripts/open_source/refresh_sec_companyfacts_from_cache.py",
+      "to": "scripts/open_source/ingestion/refresh_sec_companyfacts_from_cache.py"
+    },
+    {
+      "from": "scripts/open_source/refresh_sp500_constituents.py",
+      "to": "scripts/open_source/ingestion/refresh_sp500_constituents.py"
+    },
+    {
+      "from": "scripts/open_source/repair_price_history.py",
+      "to": "scripts/open_source/ingestion/repair_price_history.py"
+    },
+    {
+      "from": "scripts/open_source/restore_price_tickers_from_snapshot.py",
+      "to": "scripts/open_source/ingestion/restore_price_tickers_from_snapshot.py"
+    },
+    {
+      "from": "scripts/open_source/run_cadrage_2025.py",
+      "to": "scripts/open_source/ingestion/run_cadrage_2025.py"
+    },
+    {
+      "from": "scripts/open_source/run_ingestion.py",
+      "to": "scripts/open_source/ingestion/run_ingestion.py"
+    },
+    {
+      "from": "scripts/open_source/run_price_transition.py",
+      "to": "scripts/open_source/ingestion/run_price_transition.py"
+    },
+    {
+      "from": "scripts/open_source/build_composed_model_snapshot.py",
+      "to": "scripts/open_source/publication/build_composed_model_snapshot.py"
+    },
+    {
+      "from": "scripts/open_source/build_hybrid_price_candidate.py",
+      "to": "scripts/open_source/publication/build_hybrid_price_candidate.py"
+    },
+    {
+      "from": "scripts/open_source/build_output_package.py",
+      "to": "scripts/open_source/publication/build_output_package.py"
+    },
+    {
+      "from": "scripts/open_source/build_roll_forward_price_package.py",
+      "to": "scripts/open_source/publication/build_roll_forward_price_package.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_metric_hybrid_package.py",
+      "to": "scripts/open_source/publication/build_sec_metric_hybrid_package.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_output_package.py",
+      "to": "scripts/open_source/publication/build_sec_output_package.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_output_package_with_backfill.py",
+      "to": "scripts/open_source/publication/build_sec_output_package_with_backfill.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_overlay_package.py",
+      "to": "scripts/open_source/publication/build_sec_overlay_package.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_raw_version_candidate.py",
+      "to": "scripts/open_source/publication/build_sec_raw_version_candidate.py"
+    },
+    {
+      "from": "scripts/open_source/compact_output_history.py",
+      "to": "scripts/open_source/publication/compact_output_history.py"
+    },
+    {
+      "from": "scripts/open_source/promote_definitive_mart.py",
+      "to": "scripts/open_source/publication/promote_definitive_mart.py"
+    },
+    {
+      "from": "scripts/open_source/build_financial_statement_dashboard.py",
+      "to": "scripts/open_source/reporting/build_financial_statement_dashboard.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_core_kpi_yearly_report.py",
+      "to": "scripts/open_source/reporting/build_sec_core_kpi_yearly_report.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_fundamental_explorer.py",
+      "to": "scripts/open_source/reporting/build_sec_fundamental_explorer.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_kpi_scenario_comparison.py",
+      "to": "scripts/open_source/reporting/build_sec_kpi_scenario_comparison.py"
+    },
+    {
+      "from": "scripts/open_source/build_sec_quality_dashboard.py",
+      "to": "scripts/open_source/reporting/build_sec_quality_dashboard.py"
+    },
+    {
+      "from": "scripts/open_source/rebuild_reports.py",
+      "to": "scripts/open_source/reporting/rebuild_reports.py"
+    },
+    {
+      "from": "scripts/experiments/analyze_ema_anchor_recomposition_gap.py",
+      "to": "scripts/experiments/modeling/analyze_ema_anchor_recomposition_gap.py"
+    },
+    {
+      "from": "scripts/experiments/analyze_legacy_factor_exposures.py",
+      "to": "scripts/experiments/modeling/analyze_legacy_factor_exposures.py"
+    },
+    {
+      "from": "scripts/experiments/build_deterministic_signal_predictions.py",
+      "to": "scripts/experiments/modeling/build_deterministic_signal_predictions.py"
+    },
+    {
+      "from": "scripts/experiments/build_generalized_ema_expert_frame.py",
+      "to": "scripts/experiments/modeling/build_generalized_ema_expert_frame.py"
+    },
+    {
+      "from": "scripts/experiments/build_legacy_atomic_feature_frame.py",
+      "to": "scripts/experiments/modeling/build_legacy_atomic_feature_frame.py"
+    },
+    {
+      "from": "scripts/experiments/run_atomic_feature_future_target_models.py",
+      "to": "scripts/experiments/modeling/run_atomic_feature_future_target_models.py"
+    },
+    {
+      "from": "scripts/experiments/run_ema_anchor_residual_strategy.py",
+      "to": "scripts/experiments/modeling/run_ema_anchor_residual_strategy.py"
+    },
+    {
+      "from": "scripts/experiments/run_ema_raw_calibrated_residual_strategy.py",
+      "to": "scripts/experiments/modeling/run_ema_raw_calibrated_residual_strategy.py"
+    },
+    {
+      "from": "scripts/experiments/run_ema_rich_future_target_models.py",
+      "to": "scripts/experiments/modeling/run_ema_rich_future_target_models.py"
+    },
+    {
+      "from": "scripts/experiments/run_generalized_ema_expert_models.py",
+      "to": "scripts/experiments/modeling/run_generalized_ema_expert_models.py"
+    },
+    {
+      "from": "scripts/experiments/run_portfolio_boosting_exact_ema_rank.py",
+      "to": "scripts/experiments/modeling/run_portfolio_boosting_exact_ema_rank.py"
+    },
+    {
+      "from": "scripts/experiments/run_portfolio_boosting_exact_ema_variants.py",
+      "to": "scripts/experiments/modeling/run_portfolio_boosting_exact_ema_variants.py"
+    },
+    {
+      "from": "scripts/experiments/run_portfolio_boosting_rank_regression.py",
+      "to": "scripts/experiments/modeling/run_portfolio_boosting_rank_regression.py"
+    },
+    {
+      "from": "scripts/experiments/run_portfolio_boosting_risk_overlay.py",
+      "to": "scripts/experiments/modeling/run_portfolio_boosting_risk_overlay.py"
+    },
+    {
+      "from": "scripts/experiments/run_portfolio_boosting_top_return_classifier.py",
+      "to": "scripts/experiments/modeling/run_portfolio_boosting_top_return_classifier.py"
+    },
+    {
+      "from": "scripts/experiments/run_signal_copy_models.py",
+      "to": "scripts/experiments/modeling/run_signal_copy_models.py"
+    },
+    {
+      "from": "scripts/experiments/run_tradable_ema_regression_optuna.py",
+      "to": "scripts/experiments/modeling/run_tradable_ema_regression_optuna.py"
+    },
+    {
+      "from": "scripts/experiments/run_tradable_ema_regression_trading_backtest.py",
+      "to": "scripts/experiments/modeling/run_tradable_ema_regression_trading_backtest.py"
+    },
+    {
+      "from": "scripts/experiments/run_tradable_ema_residual_regression.py",
+      "to": "scripts/experiments/modeling/run_tradable_ema_residual_regression.py"
+    },
+    {
+      "from": "scripts/experiments/sweep_generalized_ema_expert_params.py",
+      "to": "scripts/experiments/modeling/sweep_generalized_ema_expert_params.py"
+    },
+    {
+      "from": "scripts/experiments/run_portfolio_boosting_blend_backtest.py",
+      "to": "scripts/experiments/portfolio/run_portfolio_boosting_blend_backtest.py"
+    },
+    {
+      "from": "scripts/experiments/analyze_legacy_return_attribution.py",
+      "to": "scripts/experiments/legacy/analyze_legacy_return_attribution.py"
+    },
+    {
+      "from": "scripts/experiments/audit_historical_ticker_price_integrity.py",
+      "to": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py"
+    },
+    {
+      "from": "scripts/experiments/render_annual_allocation_returns.py",
+      "to": "scripts/experiments/legacy/render_annual_allocation_returns.py"
+    },
+    {
+      "from": "scripts/experiments/render_legacy_attribution_reports.py",
+      "to": "scripts/experiments/legacy/render_legacy_attribution_reports.py"
+    },
+    {
+      "from": "scripts/experiments/render_legacy_ema_risk_papers.py",
+      "to": "scripts/experiments/legacy/render_legacy_ema_risk_papers.py"
+    },
+    {
+      "from": "scripts/experiments/run_legacy_atomic_recomposition.py",
+      "to": "scripts/experiments/legacy/run_legacy_atomic_recomposition.py"
+    },
+    {
+      "from": "scripts/experiments/run_legacy_ema_risk_heads.py",
+      "to": "scripts/experiments/legacy/run_legacy_ema_risk_heads.py"
+    },
+    {
+      "from": "scripts/experiments/run_topn_allocation_comparison.py",
+      "to": "scripts/experiments/legacy/run_topn_allocation_comparison.py"
+    },
+    {
+      "from": "scripts/experiments/compare_multihorizon_feature_modes.py",
+      "to": "scripts/experiments/operations/compare_multihorizon_feature_modes.py"
+    },
+    {
+      "from": "scripts/experiments/confirm_locked_challenger.py",
+      "to": "scripts/experiments/operations/confirm_locked_challenger.py"
+    },
+    {
+      "from": "scripts/experiments/run_live_alpha_portfolio.py",
+      "to": "scripts/experiments/operations/run_live_alpha_portfolio.py"
+    },
+    {
+      "from": "scripts/experiments/run_multihorizon_boosting.py",
+      "to": "scripts/experiments/operations/run_multihorizon_boosting.py"
+    },
+    {
+      "from": "scripts/experiments/build_execution_convention_bridge.py",
+      "to": "scripts/experiments/protocols/build_execution_convention_bridge.py"
+    },
+    {
+      "from": "scripts/experiments/run_residual_init_score_experiment.py",
+      "to": "scripts/experiments/protocols/run_residual_init_score_experiment.py"
+    },
+    {
+      "from": "scripts/experiments/analyze_return_forecast_calibration.py",
+      "to": "scripts/experiments/reports/analyze_return_forecast_calibration.py"
+    },
+    {
+      "from": "scripts/experiments/render_alpha_shap_portfolio_report.py",
+      "to": "scripts/experiments/reports/render_alpha_shap_portfolio_report.py"
+    },
+    {
+      "from": "scripts/experiments/render_central_research_dashboard.py",
+      "to": "scripts/experiments/reports/render_central_research_dashboard.py"
+    },
+    {
+      "from": "scripts/experiments/render_locked_challenger_papers.py",
+      "to": "scripts/experiments/reports/render_locked_challenger_papers.py"
+    },
+    {
+      "from": "scripts/experiments/render_start_year_performance.py",
+      "to": "scripts/experiments/reports/render_start_year_performance.py"
+    },
+    {
+      "from": "scripts/experiments/summarize_multihorizon_run.py",
+      "to": "scripts/experiments/reports/summarize_multihorizon_run.py"
+    }
+  ],
+  "stable_facade_count": 32,
+  "stable_facades": [
+    {
+      "path": "scripts/open_source/audit_price_snapshot_vintages.py",
+      "implementation": "scripts/open_source/audit/audit_price_snapshot_vintages.py"
+    },
+    {
+      "path": "scripts/open_source/build_composed_model_snapshot.py",
+      "implementation": "scripts/open_source/publication/build_composed_model_snapshot.py"
+    },
+    {
+      "path": "scripts/open_source/build_roll_forward_price_package.py",
+      "implementation": "scripts/open_source/publication/build_roll_forward_price_package.py"
+    },
+    {
+      "path": "scripts/open_source/build_sec_core_kpi_yearly_report.py",
+      "implementation": "scripts/open_source/reporting/build_sec_core_kpi_yearly_report.py"
+    },
+    {
+      "path": "scripts/open_source/build_sec_kpi_scenario_comparison.py",
+      "implementation": "scripts/open_source/reporting/build_sec_kpi_scenario_comparison.py"
+    },
+    {
+      "path": "scripts/open_source/build_sec_metric_hybrid_package.py",
+      "implementation": "scripts/open_source/publication/build_sec_metric_hybrid_package.py"
+    },
+    {
+      "path": "scripts/open_source/build_sec_output_package.py",
+      "implementation": "scripts/open_source/publication/build_sec_output_package.py"
+    },
+    {
+      "path": "scripts/open_source/build_sec_overlay_package.py",
+      "implementation": "scripts/open_source/publication/build_sec_overlay_package.py"
+    },
+    {
+      "path": "scripts/open_source/build_sec_quality_dashboard.py",
+      "implementation": "scripts/open_source/reporting/build_sec_quality_dashboard.py"
+    },
+    {
+      "path": "scripts/open_source/compact_output_history.py",
+      "implementation": "scripts/open_source/publication/compact_output_history.py"
+    },
+    {
+      "path": "scripts/open_source/nightly_ingestion.py",
+      "implementation": "scripts/open_source/ingestion/nightly_ingestion.py"
+    },
+    {
+      "path": "scripts/open_source/promote_definitive_mart.py",
+      "implementation": "scripts/open_source/publication/promote_definitive_mart.py"
+    },
+    {
+      "path": "scripts/open_source/refresh_current_constituent_prices.py",
+      "implementation": "scripts/open_source/ingestion/refresh_current_constituent_prices.py"
+    },
+    {
+      "path": "scripts/open_source/refresh_sec_companyfacts_from_cache.py",
+      "implementation": "scripts/open_source/ingestion/refresh_sec_companyfacts_from_cache.py"
+    },
+    {
+      "path": "scripts/open_source/refresh_sp500_constituents.py",
+      "implementation": "scripts/open_source/ingestion/refresh_sp500_constituents.py"
+    },
+    {
+      "path": "scripts/open_source/restore_price_tickers_from_snapshot.py",
+      "implementation": "scripts/open_source/ingestion/restore_price_tickers_from_snapshot.py"
+    },
+    {
+      "path": "scripts/open_source/run_ingestion.py",
+      "implementation": "scripts/open_source/ingestion/run_ingestion.py"
+    },
+    {
+      "path": "scripts/open_source/run_sec_q4_fix2_candidate.py",
+      "implementation": "scripts/open_source/audit/run_sec_q4_fix2_candidate.py"
+    },
+    {
+      "path": "scripts/experiments/analyze_legacy_return_attribution.py",
+      "implementation": "scripts/experiments/legacy/analyze_legacy_return_attribution.py"
+    },
+    {
+      "path": "scripts/experiments/audit_historical_ticker_price_integrity.py",
+      "implementation": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py"
+    },
+    {
+      "path": "scripts/experiments/compare_multihorizon_feature_modes.py",
+      "implementation": "scripts/experiments/operations/compare_multihorizon_feature_modes.py"
+    },
+    {
+      "path": "scripts/experiments/confirm_locked_challenger.py",
+      "implementation": "scripts/experiments/operations/confirm_locked_challenger.py"
+    },
+    {
+      "path": "scripts/experiments/render_alpha_shap_portfolio_report.py",
+      "implementation": "scripts/experiments/reports/render_alpha_shap_portfolio_report.py"
+    },
+    {
+      "path": "scripts/experiments/render_central_research_dashboard.py",
+      "implementation": "scripts/experiments/reports/render_central_research_dashboard.py"
+    },
+    {
+      "path": "scripts/experiments/render_legacy_attribution_reports.py",
+      "implementation": "scripts/experiments/legacy/render_legacy_attribution_reports.py"
+    },
+    {
+      "path": "scripts/experiments/render_legacy_ema_risk_papers.py",
+      "implementation": "scripts/experiments/legacy/render_legacy_ema_risk_papers.py"
+    },
+    {
+      "path": "scripts/experiments/render_locked_challenger_papers.py",
+      "implementation": "scripts/experiments/reports/render_locked_challenger_papers.py"
+    },
+    {
+      "path": "scripts/experiments/render_start_year_performance.py",
+      "implementation": "scripts/experiments/reports/render_start_year_performance.py"
+    },
+    {
+      "path": "scripts/experiments/run_legacy_ema_risk_heads.py",
+      "implementation": "scripts/experiments/legacy/run_legacy_ema_risk_heads.py"
+    },
+    {
+      "path": "scripts/experiments/run_live_alpha_portfolio.py",
+      "implementation": "scripts/experiments/operations/run_live_alpha_portfolio.py"
+    },
+    {
+      "path": "scripts/experiments/run_multihorizon_boosting.py",
+      "implementation": "scripts/experiments/operations/run_multihorizon_boosting.py"
+    },
+    {
+      "path": "scripts/experiments/run_topn_allocation_comparison.py",
+      "implementation": "scripts/experiments/legacy/run_topn_allocation_comparison.py"
+    }
+  ]
+}

@@ -5,8 +5,8 @@
       "directory": "scripts",
       "exception_reference": null,
       "limit": 20,
-      "passed": false,
-      "python_file_count": 29
+      "passed": true,
+      "python_file_count": 15
     },
     {
       "directory": "scripts/_archive/2026-08-20",
@@ -19,8 +19,50 @@
       "directory": "scripts/experiments",
       "exception_reference": null,
       "limit": 20,
-      "passed": false,
-      "python_file_count": 42
+      "passed": true,
+      "python_file_count": 15
+    },
+    {
+      "directory": "scripts/experiments/legacy",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 8
+    },
+    {
+      "directory": "scripts/experiments/modeling",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 20
+    },
+    {
+      "directory": "scripts/experiments/operations",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 4
+    },
+    {
+      "directory": "scripts/experiments/portfolio",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 1
+    },
+    {
+      "directory": "scripts/experiments/protocols",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 2
+    },
+    {
+      "directory": "scripts/experiments/reports",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 6
     },
     {
       "directory": "scripts/maintenance",
@@ -33,8 +75,36 @@
       "directory": "scripts/open_source",
       "exception_reference": null,
       "limit": 20,
-      "passed": false,
-      "python_file_count": 35
+      "passed": true,
+      "python_file_count": 18
+    },
+    {
+      "directory": "scripts/open_source/audit",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 6
+    },
+    {
+      "directory": "scripts/open_source/ingestion",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 12
+    },
+    {
+      "directory": "scripts/open_source/publication",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 11
+    },
+    {
+      "directory": "scripts/open_source/reporting",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 6
     },
     {
       "directory": "scripts/quality",
@@ -42,6 +112,27 @@
       "limit": 20,
       "passed": true,
       "python_file_count": 5
+    },
+    {
+      "directory": "scripts/replay",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 10
+    },
+    {
+      "directory": "scripts/research",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 3
+    },
+    {
+      "directory": "scripts/validation",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 1
     },
     {
       "directory": "src",
@@ -216,7 +307,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 7
+      "python_file_count": 8
     },
     {
       "directory": "src/alpharank/visualization",
@@ -275,36 +366,15 @@
       "python_file_count": 1
     }
   ],
-  "directory_count": 39,
+  "directory_count": 52,
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
-  "python_file_count": 442,
+  "python_file_count": 475,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
-  "violation_count": 5,
+  "violation_count": 2,
   "violations": [
-    {
-      "directory": "scripts",
-      "exception_reference": null,
-      "limit": 20,
-      "passed": false,
-      "python_file_count": 29
-    },
-    {
-      "directory": "scripts/experiments",
-      "exception_reference": null,
-      "limit": 20,
-      "passed": false,
-      "python_file_count": 42
-    },
-    {
-      "directory": "scripts/open_source",
-      "exception_reference": null,
-      "limit": 20,
-      "passed": false,
-      "python_file_count": 35
-    },
     {
       "directory": "tests/integration",
       "exception_reference": null,

@@ -139,27 +139,27 @@
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
     },
     {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_balance",
+      "old_path": "data/US_Balance_sheet.parquet",
+      "reader": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_balance",
+      "old_path": "data/US_Balance_sheet.parquet",
+      "reader": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
+    },
+    {
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_balance",
       "old_path": "data/US_Balance_sheet.parquet",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_balance",
-      "old_path": "data/US_Balance_sheet.parquet",
-      "reader": "scripts/open_source/build_sec_output_package_with_backfill.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_balance",
-      "old_path": "data/US_Balance_sheet.parquet",
-      "reader": "scripts/open_source/probe_sp500_entry_pe_coverage.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
     },
     {
@@ -254,7 +254,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_benchmark",
       "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/experiments/legacy/analyze_legacy_return_attribution.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
     },
@@ -262,7 +262,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_benchmark",
       "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/experiments/analyze_legacy_return_attribution.py",
+      "reader": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
     },
@@ -270,7 +270,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_benchmark",
       "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/experiments/audit_historical_ticker_price_integrity.py",
+      "reader": "scripts/experiments/legacy/run_legacy_ema_risk_heads.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
     },
@@ -278,7 +278,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_benchmark",
       "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/experiments/build_execution_convention_bridge.py",
+      "reader": "scripts/experiments/operations/run_live_alpha_portfolio.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
     },
@@ -286,56 +286,56 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_benchmark",
       "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/experiments/run_legacy_ema_risk_heads.py",
+      "reader": "scripts/experiments/protocols/build_execution_convention_bridge.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_benchmark",
+      "old_path": "data/SP500Price.parquet",
+      "reader": "scripts/open_source/audit/audit_price_snapshot_vintages.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_benchmark",
+      "old_path": "data/SP500Price.parquet",
+      "reader": "scripts/open_source/publication/build_output_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_benchmark",
+      "old_path": "data/SP500Price.parquet",
+      "reader": "scripts/open_source/publication/build_roll_forward_price_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_benchmark",
+      "old_path": "data/SP500Price.parquet",
+      "reader": "scripts/open_source/publication/build_sec_output_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_benchmark",
+      "old_path": "data/SP500Price.parquet",
+      "reader": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
     },
     {
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_benchmark",
       "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/experiments/run_live_alpha_portfolio.py",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_benchmark",
-      "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/open_source/audit_price_snapshot_vintages.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_benchmark",
-      "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/open_source/build_output_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_benchmark",
-      "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/open_source/build_roll_forward_price_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_benchmark",
-      "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/open_source/build_sec_output_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_benchmark",
-      "old_path": "data/SP500Price.parquet",
-      "reader": "scripts/open_source/build_sec_output_package_with_backfill.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500Price.parquet"
     },
     {
@@ -419,27 +419,27 @@
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Cash_flow.parquet"
     },
     {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_cash_flow",
+      "old_path": "data/US_Cash_flow.parquet",
+      "reader": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Cash_flow.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_cash_flow",
+      "old_path": "data/US_Cash_flow.parquet",
+      "reader": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Cash_flow.parquet"
+    },
+    {
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_cash_flow",
       "old_path": "data/US_Cash_flow.parquet",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Cash_flow.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_cash_flow",
-      "old_path": "data/US_Cash_flow.parquet",
-      "reader": "scripts/open_source/build_sec_output_package_with_backfill.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Cash_flow.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_cash_flow",
-      "old_path": "data/US_Cash_flow.parquet",
-      "reader": "scripts/open_source/probe_sp500_entry_pe_coverage.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Cash_flow.parquet"
     },
     {
@@ -526,88 +526,88 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_constituents",
       "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/ingestion/refresh_current_constituent_prices.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/ingestion/refresh_sp500_constituents.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/publication/build_output_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/publication/build_roll_forward_price_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/publication/build_sec_metric_hybrid_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/publication/build_sec_output_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_constituents",
+      "old_path": "data/SP500_Constituents.csv",
+      "reader": "scripts/open_source/publication/build_sec_overlay_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
     },
     {
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_constituents",
       "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/experiments/audit_historical_ticker_price_integrity.py",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/build_output_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/build_roll_forward_price_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/build_sec_metric_hybrid_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/build_sec_output_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/build_sec_output_package_with_backfill.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/build_sec_overlay_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/probe_sp500_entry_pe_coverage.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/refresh_current_constituent_prices.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "scripts/open_source/refresh_sp500_constituents.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
     },
     {
@@ -723,27 +723,27 @@
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
     },
     {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_earnings",
+      "old_path": "data/US_Earnings.parquet",
+      "reader": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_earnings",
+      "old_path": "data/US_Earnings.parquet",
+      "reader": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
+    },
+    {
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_earnings",
       "old_path": "data/US_Earnings.parquet",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_earnings",
-      "old_path": "data/US_Earnings.parquet",
-      "reader": "scripts/open_source/build_sec_fundamental_explorer.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_earnings",
-      "old_path": "data/US_Earnings.parquet",
-      "reader": "scripts/open_source/probe_sp500_entry_pe_coverage.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
     },
     {
@@ -838,7 +838,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_general",
       "old_path": "data/US_General.parquet",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
     },
@@ -846,7 +846,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_general",
       "old_path": "data/US_General.parquet",
-      "reader": "scripts/experiments/audit_historical_ticker_price_integrity.py",
+      "reader": "scripts/experiments/legacy/run_legacy_ema_risk_heads.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
     },
@@ -854,7 +854,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_general",
       "old_path": "data/US_General.parquet",
-      "reader": "scripts/experiments/build_generalized_ema_expert_frame.py",
+      "reader": "scripts/experiments/legacy/run_topn_allocation_comparison.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
     },
@@ -862,7 +862,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_general",
       "old_path": "data/US_General.parquet",
-      "reader": "scripts/experiments/confirm_locked_challenger.py",
+      "reader": "scripts/experiments/modeling/build_generalized_ema_expert_frame.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
     },
@@ -870,15 +870,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_general",
       "old_path": "data/US_General.parquet",
-      "reader": "scripts/experiments/run_legacy_ema_risk_heads.py",
-      "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
-    },
-    {
-      "decision": "explicit_historical_or_research_input",
-      "location_id": "legacy_general",
-      "old_path": "data/US_General.parquet",
-      "reader": "scripts/experiments/run_topn_allocation_comparison.py",
+      "reader": "scripts/experiments/operations/confirm_locked_challenger.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
     },
@@ -886,7 +878,7 @@
       "decision": "transition_pipeline_input",
       "location_id": "legacy_general",
       "old_path": "data/US_General.parquet",
-      "reader": "scripts/open_source/build_sec_fundamental_explorer.py",
+      "reader": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
       "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
     },
@@ -894,8 +886,16 @@
       "decision": "transition_pipeline_input",
       "location_id": "legacy_general",
       "old_path": "data/US_General.parquet",
-      "reader": "scripts/open_source/build_sec_quality_dashboard.py",
+      "reader": "scripts/open_source/reporting/build_sec_quality_dashboard.py",
       "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
+    },
+    {
+      "decision": "explicit_historical_or_research_input",
+      "location_id": "legacy_general",
+      "old_path": "data/US_General.parquet",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
+      "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_General.parquet"
     },
     {
@@ -963,35 +963,35 @@
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
     },
     {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_income",
+      "old_path": "data/US_Income_statement.parquet",
+      "reader": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_income",
+      "old_path": "data/US_Income_statement.parquet",
+      "reader": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_income",
+      "old_path": "data/US_Income_statement.parquet",
+      "reader": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
+    },
+    {
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_income",
       "old_path": "data/US_Income_statement.parquet",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_income",
-      "old_path": "data/US_Income_statement.parquet",
-      "reader": "scripts/open_source/build_sec_fundamental_explorer.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_income",
-      "old_path": "data/US_Income_statement.parquet",
-      "reader": "scripts/open_source/build_sec_output_package_with_backfill.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_income",
-      "old_path": "data/US_Income_statement.parquet",
-      "reader": "scripts/open_source/probe_sp500_entry_pe_coverage.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
     },
     {
@@ -1102,7 +1102,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_prices",
       "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/compare_legacy_input_ablation.py",
+      "reader": "scripts/experiments/legacy/analyze_legacy_return_attribution.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
     },
@@ -1110,7 +1110,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_prices",
       "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/experiments/analyze_legacy_return_attribution.py",
+      "reader": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
     },
@@ -1118,88 +1118,88 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_prices",
       "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/experiments/audit_historical_ticker_price_integrity.py",
+      "reader": "scripts/experiments/protocols/build_execution_convention_bridge.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/audit/audit_price_snapshot_vintages.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/ingestion/nightly_ingestion.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/publication/build_hybrid_price_candidate.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/publication/build_output_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/publication/build_roll_forward_price_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/publication/build_sec_output_package.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
+    },
+    {
+      "decision": "transition_pipeline_input",
+      "location_id": "legacy_prices",
+      "old_path": "data/US_Finalprice.parquet",
+      "reader": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
+      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
     },
     {
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_prices",
       "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/experiments/build_execution_convention_bridge.py",
+      "reader": "scripts/research/compare_legacy_input_ablation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/audit_price_snapshot_vintages.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/build_hybrid_price_candidate.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/build_output_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/build_roll_forward_price_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/build_sec_fundamental_explorer.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/build_sec_output_package.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/build_sec_output_package_with_backfill.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/nightly_ingestion.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
-    },
-    {
-      "decision": "transition_pipeline_input",
-      "location_id": "legacy_prices",
-      "old_path": "data/US_Finalprice.parquet",
-      "reader": "scripts/open_source/probe_sp500_entry_pe_coverage.py",
-      "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
     },
     {
@@ -1318,7 +1318,7 @@
       "decision": "transition_pipeline_input",
       "location_id": "legacy_shares",
       "old_path": "data/US_share.parquet",
-      "reader": "scripts/open_source/build_sec_fundamental_explorer.py",
+      "reader": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
       "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_share.parquet"
     },
@@ -1326,7 +1326,7 @@
       "decision": "transition_pipeline_input",
       "location_id": "legacy_shares",
       "old_path": "data/US_share.parquet",
-      "reader": "scripts/open_source/build_sec_quality_dashboard.py",
+      "reader": "scripts/open_source/reporting/build_sec_quality_dashboard.py",
       "reason": "The transition pipeline keeps an explicit source path until its differing bytes are reconciled.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_share.parquet"
     },

@@ -22,7 +22,7 @@ du Boosting ni être modifiée en place.
 
 La façade publique reste `src/alpharank/governance.py`; les implémentations sont
 attribuées par contrat dans `src/alpharank/governance_contracts/`. Le package de
-baseline est créé avec `scripts/seal_methodology_baseline.py`. Chaque fichier
+baseline est créé avec `scripts/replay/seal_methodology_baseline.py`. Chaque fichier
 du payload possède une taille et un SHA-256 dans `baseline_manifest.json`. Le
 SHA-256 du manifeste est conservé séparément dans
 `baseline_manifest.sha256`. Les fichiers et répertoires perdent tous leurs bits
@@ -85,7 +85,7 @@ le manifeste, son sceau détaché et l'intégralité du payload concordent.
 
 ## Garde du préfixe économique
 
-`scripts/validate_economic_prefix.py` compare une référence publiée et un
+`scripts/replay/validate_economic_prefix.py` compare une référence publiée et un
 candidat de migration. Le dernier mois de la référence définit le préfixe ; les
 nouveaux mois du candidat restent hors comparaison. Les clés
 stratégie/décision/détention/ticker, les rangs et les champs de décision sont

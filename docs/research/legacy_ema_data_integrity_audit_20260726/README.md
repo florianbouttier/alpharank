@@ -294,7 +294,7 @@ Commande :
 
 ```bash
 ./.venv/bin/python \
-  scripts/experiments/audit_historical_ticker_price_integrity.py
+  scripts/experiments/legacy/audit_historical_ticker_price_integrity.py
 ```
 
 Entrées :
@@ -439,7 +439,7 @@ Les trois rapports reliés sont :
   mois et métrique fondamentale.
 
 Le script reproductible est
-`scripts/experiments/analyze_legacy_return_attribution.py`. Il publie :
+`scripts/experiments/legacy/analyze_legacy_return_attribution.py`. Il publie :
 
 - `ticker_contributions.csv` : contribution agrégée des 374 tickers ;
 - `ticker_month_contributions.csv` : chaque position ticker/mois ;
@@ -447,7 +447,7 @@ Le script reproductible est
 - `summary.json` et `README.md` : contrôles et synthèse.
 
 Le générateur de restitution est
-`scripts/experiments/render_legacy_attribution_reports.py`. Les CSV restent des
+`scripts/experiments/legacy/render_legacy_attribution_reports.py`. Les CSV restent des
 artefacts machine de contrôle ; ils ne sont plus le point d'entrée utilisateur.
 
 La décomposition additive porte sur `log(1 + rendement)`. La somme des

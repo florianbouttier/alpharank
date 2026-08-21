@@ -622,7 +622,7 @@ Commande :
 
 ```bash
 ./.venv/bin/python \
-  scripts/experiments/run_topn_allocation_comparison.py
+  scripts/experiments/legacy/run_topn_allocation_comparison.py
 ```
 
 Run :
@@ -680,7 +680,7 @@ Commande :
 
 ```bash
 ./.venv/bin/python \
-  scripts/experiments/render_alpha_shap_portfolio_report.py
+  scripts/experiments/reports/render_alpha_shap_portfolio_report.py
 ```
 
 Précision d'interprétation : les SHAP expliquent la marge brute XGBoost
@@ -717,10 +717,10 @@ Données :
 Commandes :
 
 ```bash
-./.venv/bin/python scripts/open_source/refresh_sp500_constituents.py \
+./.venv/bin/python scripts/open_source/ingestion/refresh_sp500_constituents.py \
   --target-month 2026-07-01
 
-./.venv/bin/python scripts/open_source/refresh_current_constituent_prices.py
+./.venv/bin/python scripts/open_source/ingestion/refresh_current_constituent_prices.py
 
 ./.venv/bin/python scripts/run_legacy.py \
   --n-trials 30 \

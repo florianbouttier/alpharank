@@ -71,7 +71,7 @@ fail-closed promotion sequence:
    submissions, current-member Yahoo histories, SPY, and membership must pass
    freshness checks;
 2. roll the latest validated price lineage forward with
-   `scripts/open_source/build_roll_forward_price_package.py`; by default it
+   `scripts/open_source/publication/build_roll_forward_price_package.py`; by default it
    resolves that lineage from `data/model_inputs/manifests/latest.json`.
    Inactive histories remain byte-stable, including tickers first downloaded
    from Yahoo and absent from EODHD. Active histories come from one new Yahoo
@@ -79,11 +79,11 @@ fail-closed promotion sequence:
    trajectory, and the historical return/key gates must pass without routine
    overrides;
 3. build the strict SEC-only package with
-   `scripts/open_source/build_sec_output_package.py`; the 730-day revision guard
+   `scripts/open_source/publication/build_sec_output_package.py`; the 730-day revision guard
    must pass without `--allow-historical-revisions` now that the one-time raw
    version migration is complete;
 4. compose both validated packages with
-   `scripts/open_source/build_composed_model_snapshot.py`; update
+   `scripts/open_source/publication/build_composed_model_snapshot.py`; update
    `data/model_inputs/manifests/latest.json` only after all source hashes and
    source allowlists pass;
 5. launch Legacy on that immutable path, launch Boosting on the exact retained
@@ -225,7 +225,7 @@ Code ownership is explicit:
   gates;
 - `src/alpharank/data/prices/contracts.py`: versioned lineage columns and
   production thresholds;
-- `scripts/open_source/build_hybrid_price_candidate.py`: deterministic,
+- `scripts/open_source/publication/build_hybrid_price_candidate.py`: deterministic,
   non-publishing migration/review entrypoint;
 - `src/alpharank/data/ingestion/orchestration.py`: transactional orchestration
   before any target or output publication.
@@ -366,7 +366,7 @@ permission to promote incomplete current data.
 The migration command is:
 
 ```bash
-./.venv/bin/python scripts/open_source/promote_definitive_mart.py \
+./.venv/bin/python scripts/open_source/publication/promote_definitive_mart.py \
   --migration-id live008_2a01288bab06 \
   --eodhd-root data/eodhd \
   --source-pointer data/model_inputs/manifests/latest.json \
@@ -611,8 +611,8 @@ which allows subsequent snapshots to share the same blocks. Existing snapshots
 can be compacted without changing any path or content:
 
 ```bash
-./.venv/bin/python scripts/open_source/compact_output_history.py --dry-run
-./.venv/bin/python scripts/open_source/compact_output_history.py
+./.venv/bin/python scripts/open_source/publication/compact_output_history.py --dry-run
+./.venv/bin/python scripts/open_source/publication/compact_output_history.py
 ```
 
 The compactor hashes candidate files, clones only exact duplicates, verifies the
@@ -992,7 +992,7 @@ Important limitation:
 
 ## Nightly Universe Policy
 
-The nightly runner in `scripts/open_source/nightly_ingestion.py` now defaults to:
+The nightly runner in `scripts/open_source/ingestion/nightly_ingestion.py` now defaults to:
 
 - current S&P 500 universe from `SP500_Constituents.csv`
 - union existing official tickers already present in `data/open_source/official/raw/`

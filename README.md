@@ -77,8 +77,8 @@ L'explication de `raw -> stg -> def -> mart -> snapshot` est dans
 | recherche/backtest Boosting | `scripts/run_backtest.py` |
 | comparaison commune | `scripts/build_common_legacy_boosting_replay.py` |
 | validation stricte Legacy | `scripts/validate_legacy_replay_package.py` |
-| ingestion open source | `scripts/open_source/run_ingestion.py` |
-| composition du snapshot | `scripts/open_source/build_composed_model_snapshot.py` |
+| ingestion open source | `scripts/open_source/ingestion/run_ingestion.py` |
+| composition du snapshot | `scripts/open_source/publication/build_composed_model_snapshot.py` |
 | validation documentaire | `scripts/validate_documentation.py` |
 
 Avant une production mensuelle, lire le

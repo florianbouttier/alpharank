@@ -8,8 +8,8 @@ import polars as pl
 from alpharank.reporting import sec_quality_data
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SEC_SCRIPT = PROJECT_ROOT / "scripts/open_source/build_sec_quality_dashboard.py"
-CENTRAL_SCRIPT = PROJECT_ROOT / "scripts/experiments/render_central_research_dashboard.py"
+SEC_SCRIPT = PROJECT_ROOT / "scripts/open_source/reporting/build_sec_quality_dashboard.py"
+CENTRAL_SCRIPT = PROJECT_ROOT / "scripts/experiments/reports/render_central_research_dashboard.py"
 
 
 def _load_sec_script():

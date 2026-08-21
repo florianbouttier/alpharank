@@ -28,7 +28,7 @@ def test_causal_v2_snapshot_is_sealed_and_complete(tmp_path: Path) -> None:
         source_snapshot_dir=source,
         package_dir=package,
         project_root=project,
-        command_argv=["python", "scripts/seal_causal_v2_snapshot.py"],
+        command_argv=["python", "scripts/replay/seal_causal_v2_snapshot.py"],
         implementation_commit=_git(project, "rev-parse", "HEAD"),
         sealed_at=datetime(2026, 8, 18, 12, tzinfo=timezone.utc),
     )

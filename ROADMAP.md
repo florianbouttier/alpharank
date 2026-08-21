@@ -47,7 +47,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | fait |
 | 9 | `CODEORG-001` | imposer un plafond de modules Python et inventorier les violations | lot CODEORG ci-dessous | fait |
 | 10 | `CODEORG-002` | ranger les responsabilités data sans changer les API économiques | lot CODEORG ci-dessous | fait |
-| 11 | `CODEORG-003` | classer les scripts par responsabilité et conserver les commandes publiques | lot CODEORG ci-dessous | à faire |
+| 11 | `CODEORG-003` | classer les scripts par responsabilité et conserver les commandes publiques | lot CODEORG ci-dessous | fait |
 | 12 | `CODEORG-004` | classer les tests unitaires et d'intégration par domaine | lot CODEORG ci-dessous | à faire |
 | 13 | `CODEORG-005` | activer le plafond en CI après zéro violation | lot CODEORG ci-dessous | à faire |
 
@@ -198,7 +198,7 @@ change dans ce lot.
 | --- | --- | --- | --- |
 | `CODEORG-001` | fixer le plafond à 20 fichiers `.py`, dérogation uniquement approuvée par le propriétaire, et inventorier les violations courantes | fait | politique versionnée, validateur testé ; 435 fichiers dans 32 dossiers, 7 violations et zéro dérogation |
 | `CODEORG-002` | répartir `src/alpharank/data` et l'empilement `data/open_source` selon contrats, sources, entrepôt, lignée, qualité et publication | fait | 48 déplacements inventoriés ; dossiers data entre 4 et 13 modules, collecte complète et tests data verts, aucun calcul modifié |
-| `CODEORG-003` | répartir la racine des scripts, `scripts/open_source` et `scripts/experiments` par usage durable | à faire | commandes publiques conservées, inventaire des appels à jour et scripts exécutables hors dépôt |
+| `CODEORG-003` | répartir la racine des scripts, `scripts/open_source` et `scripts/experiments` par usage durable | fait | 90 implémentations déplacées et 32 façades stables inventoriées ; racines à 15, 19 et 16 fichiers avec le worktree courant ; 6 commandes exécutées hors dépôt, 32 façades importées et 26 tests ciblés verts |
 | `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | à faire | mêmes fonctions, corps AST, assertions et collecte canonique |
 | `CODEORG-005` | activer le contrôle bloquant dans la gate statique | à faire | zéro dossier au-dessus de 20, zéro exception et CI ciblée verte |
 

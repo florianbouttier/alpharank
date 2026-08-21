@@ -8,6 +8,9 @@ des arguments.
 
 - `open_source/` : ingestion, reconstruction, composition et audits de données.
 - `experiments/` : expériences et générateurs de rapports R&D.
+- `research/` : comparaisons et rendus méthodologiques.
+- `replay/` : construction, scellement et validation des replays.
+- `validation/` : audits sans mutation.
 - `quality/` : contrôles statiques différentiels sans mutation des sources.
 - `maintenance/` : inventaires et opérations de rangement réversibles.
 - `_archive/` : scripts sans lecteur actif, conservés avec provenance et date.
