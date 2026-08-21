@@ -20,6 +20,10 @@ STATIC_CHECKS = (
     ("scripts/quality/check_config_schemas.py",),
     ("scripts/quality/check_dependencies.py",),
     ("scripts/maintenance/build_code_inventory.py",),
+    (
+        "scripts/maintenance/build_python_directory_inventory.py",
+        "--enforce-limit",
+    ),
     ("scripts/maintenance/build_data_location_inventory.py",),
     ("-m", "mypy"),
     ("scripts/validate_documentation.py",),
@@ -45,6 +49,7 @@ TARGETED_CI_TESTS = (
         "tests/unit/governance/test_replay_package_api.py",
         "tests/unit/data/test_raw_provider_contracts.py",
         "tests/unit/quality/test_root_module_ownership.py",
+        "tests/unit/quality/test_python_directory_limits.py",
         "tests/unit/quality/test_ruff_baseline.py",
         "tests/unit/quality/test_script_path_independence.py",
         "tests/unit/quality/test_script_archival_audit.py",

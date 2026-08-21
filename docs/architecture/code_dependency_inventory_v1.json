@@ -1568,6 +1568,11 @@
     {
       "kind": "command",
       "source": "scripts/quality/run_ci_checks.py",
+      "target": "scripts/maintenance/build_python_directory_inventory.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/quality/run_ci_checks.py",
       "target": "scripts/quality/check_config_schemas.py"
     },
     {
@@ -4858,7 +4863,9 @@
       "lifecycle": "active",
       "module": "scripts.maintenance.build_python_directory_inventory",
       "path": "scripts/maintenance/build_python_directory_inventory.py",
-      "readers": []
+      "readers": [
+        "scripts/quality/run_ci_checks.py"
+      ]
     },
     {
       "declared_public_entrypoint": false,
@@ -5755,6 +5762,7 @@
       "invokes": [
         "scripts/maintenance/build_code_inventory.py",
         "scripts/maintenance/build_data_location_inventory.py",
+        "scripts/maintenance/build_python_directory_inventory.py",
         "scripts/quality/check_config_schemas.py",
         "scripts/quality/check_dependencies.py",
         "scripts/quality/check_error_handling.py",
@@ -9603,10 +9611,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 153,
-    "internal_edge_count": 735,
+    "internal_edge_count": 736,
     "library_count": 191,
     "python_file_count": 351,
     "script_count": 160,
-    "unread_node_count": 161
+    "unread_node_count": 160
   }
 }

@@ -10,4 +10,5 @@ without hiding or rewriting the existing findings.
   the first matching rule wins and the explicit default is `unit`.
 - `python_directory_policy_v1.json` fixe le plafond absolu de fichiers Python
   par dossier. Une exception est interdite sans approbation explicite,
-  nominative, datée et reliée à une tâche de roadmap.
+  nominative, datée et reliée à une tâche de roadmap. La gate statique exécute
+  l'inventaire avec `--enforce-limit` et bloque tout dépassement.
