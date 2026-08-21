@@ -41,7 +41,7 @@
           "request_identity_fields": ["original_path", "observed_at"]
         }
       ],
-      "ingestion_modules": ["src/alpharank/data/warehouse_migration.py"],
+      "ingestion_modules": ["src/alpharank/data/warehouse/migration.py"],
       "live_download_allowed": false,
       "migration_status": "catalogued_by_hash",
       "provider_id": "eodhd",
@@ -60,7 +60,7 @@
           "request_identity_fields": ["ticker_scope", "start_date", "end_date", "endpoint"]
         }
       ],
-      "ingestion_modules": ["src/alpharank/data/open_source/yahoo.py", "src/alpharank/data/open_source/ingestion.py"],
+      "ingestion_modules": ["src/alpharank/data/sources/yahoo.py", "src/alpharank/data/ingestion/orchestration.py"],
       "live_download_allowed": true,
       "migration_status": "price_delta_archive_active_other_datasets_declared",
       "provider_id": "yfinance",
@@ -136,7 +136,7 @@
           "request_identity_fields": ["dataset_name", "market", "variant"]
         }
       ],
-      "ingestion_modules": ["src/alpharank/data/open_source/simfin.py"],
+      "ingestion_modules": ["src/alpharank/data/sources/simfin.py"],
       "live_download_allowed": true,
       "migration_status": "declared_pending_receipt_migration",
       "provider_id": "simfin",
@@ -155,7 +155,7 @@
           "request_identity_fields": ["ticker", "request_url"]
         }
       ],
-      "ingestion_modules": ["src/alpharank/data/open_source/stockanalysis.py"],
+      "ingestion_modules": ["src/alpharank/data/sources/stockanalysis.py"],
       "live_download_allowed": true,
       "migration_status": "declared_pending_receipt_migration",
       "provider_id": "stockanalysis",
@@ -174,7 +174,7 @@
           "request_identity_fields": ["event_id", "source_url", "observed_at"]
         }
       ],
-      "ingestion_modules": ["src/alpharank/data/open_source/constituents.py"],
+      "ingestion_modules": ["src/alpharank/data/sources/constituents.py"],
       "live_download_allowed": false,
       "migration_status": "reviewed_registry_declared_pending_raw_reference",
       "provider_id": "sp500_membership",

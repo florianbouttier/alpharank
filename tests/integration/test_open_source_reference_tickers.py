@@ -5,10 +5,10 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion_prices import (
+from alpharank.data.ingestion.prices import (
     _load_reference_tickers as load_ingestion_reference_tickers,
 )
-from alpharank.data.open_source.transition import (
+from alpharank.data.ingestion.transition import (
     _load_reference_tickers as load_transition_reference_tickers,
 )
 

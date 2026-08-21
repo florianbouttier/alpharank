@@ -10,9 +10,9 @@ from pathlib import Path
 import polars as pl
 
 from alpharank.data.open_source import run_open_source_ingestion
-from alpharank.data.open_source.ingestion_prices import _load_latest_sp500_tickers
-from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
-from alpharank.data.open_source.storage import (
+from alpharank.data.ingestion.prices import _load_latest_sp500_tickers
+from alpharank.data.ingestion.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
+from alpharank.data.ingestion.storage import (
     new_run_id,
     read_json,
     release_json_lock,

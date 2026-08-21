@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import polars as pl
 import pytest
 
-from alpharank.data.sector_history import resolve_point_in_time_sectors
+from alpharank.data.contracts.sector_history import resolve_point_in_time_sectors
 
 
 def _at(year: int, month: int, day: int) -> datetime:

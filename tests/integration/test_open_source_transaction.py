@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from alpharank.data.open_source.ingestion import _resolve_open_source_data_layout
-from alpharank.data.open_source.storage import OpenSourceLivePaths
-from alpharank.data.open_source.transaction import OpenSourceStoreTransaction
+from alpharank.data.ingestion.orchestration import _resolve_open_source_data_layout
+from alpharank.data.ingestion.storage import OpenSourceLivePaths
+from alpharank.data.ingestion.transaction import OpenSourceStoreTransaction
 
 
 def _seed_store(tmp_path: Path) -> tuple[Path, Path]:

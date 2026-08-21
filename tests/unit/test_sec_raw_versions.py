@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from alpharank.data.open_source.sec_raw_versions import (
+from alpharank.data.sources.sec_raw_versions import (
     rebuild_full_companyfacts_versions,
 )
 

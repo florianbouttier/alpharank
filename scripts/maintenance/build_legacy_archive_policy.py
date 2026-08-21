@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.data.legacy_archive_policy import (
+from alpharank.data.lineage.legacy_archive_policy import (
     build_legacy_archive_policy,
     validate_legacy_archive_policy,
     write_legacy_archive_policy,

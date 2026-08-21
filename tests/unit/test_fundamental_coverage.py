@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from alpharank.data.fundamental_coverage import apply_missing_fundamentals_policy
+from alpharank.data.contracts.fundamental_coverage import apply_missing_fundamentals_policy
 
 
 POLICY = {

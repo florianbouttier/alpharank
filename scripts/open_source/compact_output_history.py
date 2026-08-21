@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Iterable
 
-from alpharank.data.snapshot_storage import copy_snapshot_file
+from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

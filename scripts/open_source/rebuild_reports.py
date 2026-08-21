@@ -6,7 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.benchmark import (
+from alpharank.data.quality.benchmark import (
     build_audited_metric_catalog,
     build_error_detail_tables,
     build_error_summary_tables,

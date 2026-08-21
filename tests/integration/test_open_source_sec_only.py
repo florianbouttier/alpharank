@@ -5,7 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.sec_only import (
+from alpharank.data.sources.sec_only import (
     build_sec_only_earnings,
     build_sec_only_financials,
     build_sec_only_general_reference_from_raw_lineage,

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion_prices import _load_latest_sp500_tickers
-from alpharank.data.open_source.storage import write_json
+from alpharank.data.ingestion.prices import _load_latest_sp500_tickers
+from alpharank.data.ingestion.storage import write_json
 from alpharank.data.prices import (
     audit_price_candidate,
     compose_hybrid_price_history,

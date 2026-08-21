@@ -1,0 +1,623 @@
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+import time
+from typing import Iterable, Sequence
+
+import pandas as pd
+import polars as pl
+import yfinance as yf
+from yfinance.exceptions import YFException
+
+from alpharank.data.ingestion.config import GENERAL_COLUMNS, PRICE_COLUMNS, specs_for_statement
+from alpharank.observability import get_run_logger
+
+
+LOGGER = get_run_logger(__name__)
+YAHOO_RECOVERABLE_ERRORS = (KeyError, OSError, RuntimeError, TypeError, ValueError, YFException)
+
+
+class YahooFinanceClient:
+    def __init__(self, *, cache_dir: str | Path | None = None) -> None:
+        self._ticker_cache: dict[str, yf.Ticker] = {}
+        self._quarterly_financial_cache: dict[str, pl.DataFrame] = {}
+        self._downloaded_split_rows: dict[tuple[str, str], dict[str, object]] = {}
+        self._cache_dir = Path(cache_dir).expanduser().resolve() if cache_dir else None
+        if self._cache_dir is not None:
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            yf.set_tz_cache_location(str(self._cache_dir))
+
+    def _ticker(self, symbol: str) -> yf.Ticker:
+        yahoo_symbol = _normalize_yahoo_symbol(symbol)
+        ticker = self._ticker_cache.get(yahoo_symbol)
+        if ticker is None:
+            ticker = yf.Ticker(yahoo_symbol)
+            self._ticker_cache[yahoo_symbol] = ticker
+        return ticker
+
+    def _fresh_ticker(self, symbol: str) -> yf.Ticker:
+        yahoo_symbol = _normalize_yahoo_symbol(symbol)
+        ticker = yf.Ticker(yahoo_symbol)
+        self._ticker_cache[yahoo_symbol] = ticker
+        return ticker
+
+    def download_prices(self, tickers: Iterable[str], start_date: str, end_date: str, chunk_size: int = 50) -> pl.DataFrame:
+        frames: list[pl.DataFrame] = []
+        tickers = list(tickers)
+        for start_idx in range(0, len(tickers), chunk_size):
+            chunk = tickers[start_idx : start_idx + chunk_size]
+            yahoo_symbols = [_normalize_yahoo_symbol(ticker) for ticker in chunk]
+            history = _download_with_retries(yahoo_symbols, start_date, end_date)
+            for ticker, yahoo_symbol in zip(chunk, yahoo_symbols):
+                self._record_downloaded_splits(
+                    history,
+                    request_symbol=yahoo_symbol,
+                    ticker=ticker,
+                )
+                frame = _extract_price_frame(history, request_symbol=yahoo_symbol, ticker=ticker)
+                if frame is None:
+                    frame = _download_single_ticker_frame(ticker, start_date, end_date)
+                if frame is not None:
+                    frames.append(frame)
+
+        return pl.concat(frames, how="vertical") if frames else pl.DataFrame(schema={c: pl.String for c in PRICE_COLUMNS})
+
+    def fetch_stock_splits(self, tickers: Iterable[str]) -> pl.DataFrame:
+        rows: list[dict[str, object]] = []
+        ticker_roots = sorted({str(value).upper().removesuffix(".US") for value in tickers})
+        for ticker in ticker_roots:
+            downloaded = [
+                row
+                for (row_ticker, _), row in self._downloaded_split_rows.items()
+                if row_ticker == f"{ticker}.US"
+            ]
+            if downloaded:
+                rows.extend(downloaded)
+                continue
+            actions = self._fetch_actions_with_retries(ticker)
+            if actions is None or actions.empty or "Stock Splits" not in actions.columns:
+                continue
+            for timestamp, ratio in actions["Stock Splits"].items():
+                numeric_ratio = float(ratio)
+                if numeric_ratio <= 0.0:
+                    continue
+                rows.append(
+                    {
+                        "ticker": f"{ticker}.US",
+                        "date": pd.Timestamp(timestamp).strftime("%Y-%m-%d"),
+                        "split_ratio": numeric_ratio,
+                        "source": "yahoo_actions",
+                    }
+                )
+        if not rows:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "date": pl.String,
+                    "split_ratio": pl.Float64,
+                    "source": pl.String,
+                }
+            )
+        return (
+            pl.DataFrame(rows)
+            .unique(subset=["ticker", "date", "split_ratio"], keep="first")
+            .sort(["ticker", "date"])
+        )
+
+    def _record_downloaded_splits(
+        self,
+        history: pd.DataFrame,
+        *,
+        request_symbol: str,
+        ticker: str,
+    ) -> None:
+        if history is None or history.empty:
+            return
+        ticker_frame = history
+        if isinstance(history.columns, pd.MultiIndex):
+            if request_symbol not in history.columns.get_level_values(0):
+                return
+            ticker_frame = history[request_symbol]
+        if "Stock Splits" not in ticker_frame.columns:
+            return
+        normalized_ticker = f"{str(ticker).upper().removesuffix('.US')}.US"
+        for timestamp, ratio in ticker_frame["Stock Splits"].items():
+            numeric_ratio = float(ratio) if pd.notna(ratio) else 0.0
+            if numeric_ratio <= 0.0:
+                continue
+            event_date = pd.Timestamp(timestamp).strftime("%Y-%m-%d")
+            self._downloaded_split_rows[(normalized_ticker, event_date)] = {
+                "ticker": normalized_ticker,
+                "date": event_date,
+                "split_ratio": numeric_ratio,
+                "source": "yahoo_price_download_actions",
+            }
+
+    def _fetch_actions_with_retries(
+        self,
+        ticker: str,
+        *,
+        retries: int = 5,
+    ) -> pd.DataFrame | None:
+        last_error: BaseException | None = None
+        for attempt in range(retries):
+            ticker_object = self._ticker(ticker) if attempt == 0 else self._fresh_ticker(ticker)
+            try:
+                actions = ticker_object.actions
+            except YAHOO_RECOVERABLE_ERRORS as exc:
+                last_error = exc
+                actions = None
+            if actions is not None and not actions.empty and "Stock Splits" in actions.columns:
+                return actions
+            if attempt + 1 < retries:
+                time.sleep(float(attempt + 1))
+        if last_error is not None:
+            LOGGER.warning(
+                "Yahoo split actions unavailable after retries",
+                extra={"ticker": ticker, "result": "skipped", "error": str(last_error)},
+            )
+        return None
+
+    def fetch_company_metadata(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
+        rows: list[dict[str, object]] = []
+        ticker_list = list(tickers)
+        if not ticker_list:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "name": pl.String,
+                    "exchange": pl.String,
+                    "sector_raw_value": pl.String,
+                    "industry": pl.String,
+                }
+            )
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(self._fetch_ticker_metadata, ticker): ticker for ticker in ticker_list}
+            for future in as_completed(futures):
+                try:
+                    row = future.result()
+                except YAHOO_RECOVERABLE_ERRORS as exc:
+                    LOGGER.warning(
+                        "Yahoo company metadata worker failed",
+                        extra={
+                            "ticker": futures[future],
+                            "result": "skipped",
+                            "error": str(exc),
+                        },
+                    )
+                    row = None
+                if row is not None:
+                    rows.append(row)
+
+        if not rows:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "name": pl.String,
+                    "exchange": pl.String,
+                    "sector_raw_value": pl.String,
+                    "industry": pl.String,
+                }
+            )
+        return pl.DataFrame(rows).sort("ticker")
+
+    def fetch_general_reference(self, tickers: Iterable[str], sec_mapping: pl.DataFrame) -> pl.DataFrame:
+        mapping = sec_mapping.with_columns(pl.col("cik").cast(pl.Utf8).str.zfill(10))
+        yahoo_metadata = self.fetch_company_metadata(tickers)
+        rows: list[dict[str, object]] = []
+        for ticker in tickers:
+            match = mapping.filter(pl.col("ticker") == ticker).select(["name", "exchange", "cik"]).to_dicts()
+            if not match:
+                continue
+            item = match[0]
+            yahoo_match = (
+                yahoo_metadata.filter(pl.col("ticker") == f"{ticker}.US")
+                .select(["name", "exchange", "sector_raw_value", "industry"])
+                .to_dicts()
+            )
+            yahoo_item = yahoo_match[0] if yahoo_match else {}
+            rows.append(
+                {
+                    "ticker": f"{ticker}.US",
+                    "name": str(yahoo_item.get("name") or item["name"]),
+                    "exchange": str(item["exchange"]),
+                    "cik": str(item["cik"]),
+                    "source": "open_source_general",
+                    "Sector": str(yahoo_item.get("sector_raw_value")) if yahoo_item.get("sector_raw_value") is not None else None,
+                    "industry": str(yahoo_item.get("industry")) if yahoo_item.get("industry") is not None else None,
+                    "sector_source": "yfinance" if yahoo_item.get("sector_raw_value") is not None else None,
+                    "sector_raw_value": str(yahoo_item.get("sector_raw_value")) if yahoo_item.get("sector_raw_value") is not None else None,
+                    "sic": None,
+                    "sic_description": None,
+                    "mapping_rule": "yfinance:sector" if yahoo_item.get("sector_raw_value") is not None else None,
+                }
+            )
+        return pl.DataFrame(rows).select(GENERAL_COLUMNS) if rows else pl.DataFrame(schema={c: pl.String for c in GENERAL_COLUMNS})
+
+    def fetch_earnings_dates(
+        self,
+        tickers: Iterable[str],
+        limit: int = 100,
+        max_workers: int = 6,
+    ) -> pl.DataFrame:
+        rows: list[dict[str, object]] = []
+        effective_limit = max(8, min(int(limit), 100))
+        ticker_list = sorted({str(ticker).upper().removesuffix(".US") for ticker in tickers})
+        with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(ticker_list) or 1))) as executor:
+            futures = {
+                executor.submit(self._fetch_ticker_earnings_rows, ticker, effective_limit): ticker
+                for ticker in ticker_list
+            }
+            for future in as_completed(futures):
+                try:
+                    rows.extend(future.result())
+                except YAHOO_RECOVERABLE_ERRORS as exc:
+                    LOGGER.warning(
+                        "Yahoo earnings worker failed",
+                        extra={
+                            "ticker": futures[future],
+                            "result": "skipped",
+                            "error": str(exc),
+                        },
+                    )
+                    continue
+        if not rows:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.String,
+                    "reportDate": pl.String,
+                    "earningsDatetime": pl.String,
+                    "period_end": pl.String,
+                    "epsEstimate": pl.Float64,
+                    "epsActual": pl.Float64,
+                    "surprisePercent": pl.Float64,
+                    "source": pl.String,
+                }
+            )
+        return (
+            pl.DataFrame(rows)
+            .sort(["ticker", "reportDate", "earningsDatetime"])
+            .unique(subset=["ticker", "reportDate", "source"], keep="last", maintain_order=True)
+            .sort(["ticker", "reportDate"])
+        )
+
+    def _fetch_ticker_earnings_rows(self, ticker: str, limit: int) -> list[dict[str, object]]:
+        history = _safe_get_earnings_dates(self._ticker(ticker), ticker=ticker, limit=limit)
+        if history is None or history.empty:
+            history = _safe_get_earnings_dates(self._fresh_ticker(ticker), ticker=ticker, limit=limit)
+        if history is None or history.empty:
+            return []
+        frame = history.reset_index()
+        date_col = frame.columns[0]
+        if date_col not in frame.columns:
+            return []
+        rows: list[dict[str, object]] = []
+        for record in frame.to_dict(orient="records"):
+            timestamp = pd.Timestamp(record[date_col])
+            earnings_date = timestamp.tz_localize(None) if getattr(timestamp, "tzinfo", None) else timestamp
+            rows.append(
+                {
+                    "ticker": f"{ticker}.US",
+                    "reportDate": earnings_date.strftime("%Y-%m-%d"),
+                    "earningsDatetime": earnings_date.strftime("%Y-%m-%d %H:%M:%S"),
+                    "period_end": None,
+                    "epsEstimate": _as_float(record.get("EPS Estimate")),
+                    "epsActual": _as_float(record.get("Reported EPS")),
+                    "surprisePercent": _as_float(record.get("Surprise(%)")),
+                    "source": "yfinance",
+                }
+            )
+        return rows
+
+    def fetch_quarterly_financials(self, tickers: Iterable[str], max_workers: int = 2) -> pl.DataFrame:
+        frames: list[pl.DataFrame] = []
+        ticker_list = sorted({str(ticker).upper().removesuffix(".US") for ticker in tickers})
+
+        def fetch_one(ticker: str) -> pl.DataFrame:
+            cached = self._quarterly_financial_cache.get(ticker)
+            if cached is not None:
+                return cached
+            ticker_frames = _fetch_ticker_financial_frames(ticker)
+            frame = pl.concat(ticker_frames, how="vertical") if ticker_frames else _empty_financial_frame()
+            self._quarterly_financial_cache[ticker] = frame
+            return frame
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(fetch_one, ticker): ticker for ticker in ticker_list}
+            for future in as_completed(futures):
+                try:
+                    frame = future.result()
+                except YAHOO_RECOVERABLE_ERRORS as exc:
+                    LOGGER.warning(
+                        "Yahoo financial worker failed",
+                        extra={
+                            "ticker": futures[future],
+                            "result": "skipped",
+                            "error": str(exc),
+                        },
+                    )
+                    frame = _empty_financial_frame()
+                if not frame.is_empty():
+                    frames.append(frame)
+        return pl.concat(frames, how="vertical") if frames else _empty_financial_frame()
+
+    def normalize_earnings_long(self, earnings_dates: pl.DataFrame) -> pl.DataFrame:
+        if earnings_dates.is_empty():
+            return _empty_financial_frame()
+
+        frames: list[pl.DataFrame] = []
+        metric_map = {
+            "eps_actual": "epsActual",
+            "eps_estimate": "epsEstimate",
+            "surprise_percent": "surprisePercent",
+        }
+        for metric, column in metric_map.items():
+            frames.append(
+                earnings_dates.select(
+                    [
+                        pl.col("ticker"),
+                        pl.lit("earnings").alias("statement"),
+                        pl.lit(metric).alias("metric"),
+                        pl.coalesce([pl.col("period_end"), pl.col("reportDate")]).alias("date"),
+                        pl.col("reportDate").alias("filing_date"),
+                        pl.col(column).cast(pl.Float64, strict=False).alias("value"),
+                        pl.lit("yfinance").alias("source"),
+                        pl.lit(column).alias("source_label"),
+                    ]
+                ).filter(pl.col("value").is_not_null())
+            )
+        return pl.concat(frames, how="vertical").sort(["ticker", "metric", "date"])
+
+    def audit_price_availability(
+        self,
+        tickers: Sequence[str],
+        start_date: str,
+        end_date: str,
+        chunk_size: int = 20,
+    ) -> pl.DataFrame:
+        rows: list[dict[str, object]] = []
+        for start_idx in range(0, len(tickers), chunk_size):
+            chunk = list(tickers[start_idx : start_idx + chunk_size])
+            yahoo_symbols = [_normalize_yahoo_symbol(ticker) for ticker in chunk]
+            history = _download_with_retries(yahoo_symbols, start_date, end_date)
+            for ticker, yahoo_symbol in zip(chunk, yahoo_symbols):
+                available = _history_has_prices(history, yahoo_symbol)
+                if not available:
+                    single = _download_with_retries([yahoo_symbol], start_date, end_date)
+                    available = _history_has_prices(single, yahoo_symbol)
+                rows.append(
+                    {
+                        "ticker": f"{ticker}.US",
+                        "ticker_root": ticker,
+                        "yahoo_price_available": available,
+                    }
+                )
+        return pl.DataFrame(rows).sort("ticker") if rows else pl.DataFrame(
+            schema={"ticker": pl.String, "ticker_root": pl.String, "yahoo_price_available": pl.Boolean}
+        )
+
+    def _fetch_ticker_metadata(self, ticker: str) -> dict[str, object] | None:
+        info = _safe_get_info(self._ticker(ticker), ticker=ticker)
+        if not info:
+            return None
+        sector = info.get("sectorDisp") or info.get("sector")
+        industry = info.get("industryDisp") or info.get("industry")
+        exchange = info.get("fullExchangeName") or info.get("exchange")
+        name = info.get("longName") or info.get("shortName") or info.get("displayName")
+        if not any(value is not None for value in (name, exchange, sector, industry)):
+            return None
+        return {
+            "ticker": f"{ticker}.US",
+            "name": str(name) if name is not None else None,
+            "exchange": str(exchange) if exchange is not None else None,
+            "sector_raw_value": str(sector) if sector is not None else None,
+            "industry": str(industry) if industry is not None else None,
+        }
+
+
+def _extract_statement_frame(ticker: str, statement: str, wide: pd.DataFrame) -> pl.DataFrame:
+    rows: list[dict[str, object]] = []
+    for spec in specs_for_statement(statement):
+        label = next((candidate for candidate in spec.yfinance_rows if candidate in wide.index), None)
+        if label is None:
+            continue
+        for column, value in wide.loc[label].items():
+            if pd.isna(value):
+                continue
+            numeric_value = float(value)
+            if spec.metric == "capital_expenditures":
+                numeric_value = abs(numeric_value)
+            rows.append(
+                {
+                    "ticker": f"{ticker}.US",
+                    "statement": statement,
+                    "metric": spec.metric,
+                    "date": pd.Timestamp(column).strftime("%Y-%m-%d"),
+                    "filing_date": None,
+                    "value": numeric_value,
+                    "source": "yfinance",
+                    "source_label": label,
+                }
+            )
+    return pl.DataFrame(rows) if rows else _empty_financial_frame()
+
+
+def _fetch_ticker_financial_frames(ticker: str) -> list[pl.DataFrame]:
+    ticker_obj = yf.Ticker(_normalize_yahoo_symbol(ticker))
+    statement_map = {
+        "income_statement": lambda current: current.quarterly_income_stmt,
+        "balance_sheet": lambda current: current.quarterly_balance_sheet,
+        "cash_flow": lambda current: current.quarterly_cashflow,
+        "shares": lambda current: current.quarterly_balance_sheet,
+    }
+    frames: list[pl.DataFrame] = []
+    for statement, getter in statement_map.items():
+        try:
+            wide = getter(ticker_obj)
+        except YAHOO_RECOVERABLE_ERRORS as exc:
+            LOGGER.warning(
+                "Yahoo financial statement unavailable",
+                extra={
+                    "ticker": ticker,
+                    "statement": statement,
+                    "result": "skipped",
+                    "error": str(exc),
+                },
+            )
+            continue
+        if wide is None or wide.empty:
+            continue
+        frame = _extract_statement_frame(ticker, statement, wide)
+        if not frame.is_empty():
+            frames.append(frame)
+    return frames
+
+
+def _empty_financial_frame() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "ticker": pl.String,
+            "statement": pl.String,
+            "metric": pl.String,
+            "date": pl.String,
+            "filing_date": pl.String,
+            "value": pl.Float64,
+            "source": pl.String,
+            "source_label": pl.String,
+        }
+    )
+
+
+def _as_float(value: object) -> float | None:
+    if value is None or pd.isna(value):
+        return None
+    return float(value)
+
+
+def _extract_price_frame(history: pd.DataFrame, *, request_symbol: str, ticker: str) -> pl.DataFrame | None:
+    if history is None or history.empty:
+        return None
+    if isinstance(history.columns, pd.MultiIndex):
+        if request_symbol not in history.columns.get_level_values(0):
+            return None
+        ticker_history = history[request_symbol]
+    else:
+        ticker_history = history
+    if ticker_history.empty or ticker_history.dropna(how="all").empty:
+        return None
+
+    ticker_history = ticker_history.reset_index()
+    ticker_history.columns = [col[0] if isinstance(col, tuple) else col for col in ticker_history.columns]
+    frame = pl.from_pandas(ticker_history, include_index=False).rename(
+        {
+            "Date": "date",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Adj Close": "adjusted_close",
+            "Volume": "volume",
+        }
+    )
+    return (
+        frame.select(
+            [
+                pl.col("date").cast(pl.Date, strict=False).dt.strftime("%Y-%m-%d").alias("date"),
+                pl.col("open").cast(pl.Float64, strict=False).alias("open"),
+                pl.col("high").cast(pl.Float64, strict=False).alias("high"),
+                pl.col("low").cast(pl.Float64, strict=False).alias("low"),
+                pl.col("close").cast(pl.Float64, strict=False).alias("close"),
+                pl.col("volume").cast(pl.Float64, strict=False).alias("volume"),
+                pl.col("adjusted_close").cast(pl.Float64, strict=False).alias("adjusted_close"),
+            ]
+        )
+        .with_columns(pl.lit(f"{ticker}.US").alias("ticker"))
+        .select(PRICE_COLUMNS)
+    )
+
+
+def _download_with_retries(chunk: list[str], start_date: str, end_date: str, retries: int = 3) -> pd.DataFrame:
+    last_history = pd.DataFrame()
+    for attempt in range(retries):
+        try:
+            history = yf.download(
+                chunk,
+                start=start_date,
+                end=end_date,
+                auto_adjust=False,
+                actions=True,
+                progress=False,
+                threads=False,
+                group_by="ticker",
+            )
+        except YAHOO_RECOVERABLE_ERRORS as exc:
+            LOGGER.warning(
+                "Yahoo price download attempt failed",
+                extra={
+                    "tickers": chunk,
+                    "attempt": attempt + 1,
+                    "result": "retrying",
+                    "error": str(exc),
+                },
+            )
+            history = pd.DataFrame()
+        last_history = history
+        if not history.empty:
+            return history
+        time.sleep(2 * (attempt + 1))
+    return last_history
+
+
+def _download_single_ticker_frame(ticker: str, start_date: str, end_date: str) -> pl.DataFrame | None:
+    yahoo_symbol = _normalize_yahoo_symbol(ticker)
+    history = _download_with_retries([yahoo_symbol], start_date, end_date)
+    return _extract_price_frame(history, request_symbol=yahoo_symbol, ticker=ticker)
+
+
+def _safe_get_earnings_dates(ticker_obj: yf.Ticker, *, ticker: str, limit: int, retries: int = 3) -> pd.DataFrame | None:
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            history = ticker_obj.get_earnings_dates(limit=limit)
+        except YAHOO_RECOVERABLE_ERRORS as exc:
+            last_error = exc
+            history = None
+        if history is not None and not history.empty:
+            if "Earnings Date" in history.columns or getattr(history.index, "name", None) == "Earnings Date":
+                return history
+        time.sleep(1.0 * (attempt + 1))
+    if last_error is not None:
+        LOGGER.warning(
+            "Yahoo earnings fetch skipped after retries",
+            extra={"ticker": ticker, "result": "skipped", "error": str(last_error)},
+        )
+    return None
+
+
+def _safe_get_info(ticker_obj: yf.Ticker, *, ticker: str) -> dict[str, object] | None:
+    try:
+        info = ticker_obj.get_info()
+    except YAHOO_RECOVERABLE_ERRORS as exc:
+        LOGGER.warning(
+            "Yahoo metadata fetch skipped",
+            extra={"ticker": ticker, "result": "skipped", "error": str(exc)},
+        )
+        return None
+    return info if isinstance(info, dict) else None
+
+
+def _history_has_prices(history: pd.DataFrame, ticker: str) -> bool:
+    if history is None or history.empty:
+        return False
+    if isinstance(history.columns, pd.MultiIndex):
+        if ticker not in history.columns.get_level_values(0):
+            return False
+        ticker_frame = history[ticker]
+        return not ticker_frame.dropna(how="all").empty
+    return not history.dropna(how="all").empty
+
+
+def _normalize_yahoo_symbol(symbol: str) -> str:
+    return str(symbol).replace(".", "-")

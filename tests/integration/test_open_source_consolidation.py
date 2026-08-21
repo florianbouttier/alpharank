@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from alpharank.data.open_source.consolidation import (
+from alpharank.data.publishing.consolidation import (
     FinancialSourceInput,
     consolidate_financial_sources,
     consolidate_financial_sources_with_share_quality,

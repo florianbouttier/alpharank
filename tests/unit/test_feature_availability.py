@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from alpharank.data.feature_availability import (
+from alpharank.data.contracts.feature_availability import (
     materialize_feature_availability,
     select_features_at_decisions,
 )

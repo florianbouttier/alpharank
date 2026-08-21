@@ -12,8 +12,8 @@ from urllib.parse import urlencode
 import polars as pl
 import requests
 
-from alpharank.data.open_source.config import METRIC_SPECS
-from alpharank.data.open_source.earnings import SEC_EPS_TAGS, build_sec_filing_earnings_actuals, empty_earnings_actuals_frame
+from alpharank.data.ingestion.config import METRIC_SPECS
+from alpharank.data.sources.earnings import SEC_EPS_TAGS, build_sec_filing_earnings_actuals, empty_earnings_actuals_frame
 from alpharank.data.open_source.sec import (
     _derive_free_cash_flow,
     _empty_sec_frame,

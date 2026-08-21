@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 
-from alpharank.data.output_history import snapshot_output_directory
+from alpharank.data.lineage.output_history import snapshot_output_directory
 
 
 EXACT_NAMES = (

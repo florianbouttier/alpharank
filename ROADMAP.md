@@ -46,7 +46,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | fait |
 | 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | fait |
 | 9 | `CODEORG-001` | imposer un plafond de modules Python et inventorier les violations | lot CODEORG ci-dessous | fait |
-| 10 | `CODEORG-002` | ranger les responsabilités data sans changer les API économiques | lot CODEORG ci-dessous | à faire |
+| 10 | `CODEORG-002` | ranger les responsabilités data sans changer les API économiques | lot CODEORG ci-dessous | fait |
 | 11 | `CODEORG-003` | classer les scripts par responsabilité et conserver les commandes publiques | lot CODEORG ci-dessous | à faire |
 | 12 | `CODEORG-004` | classer les tests unitaires et d'intégration par domaine | lot CODEORG ci-dessous | à faire |
 | 13 | `CODEORG-005` | activer le plafond en CI après zéro violation | lot CODEORG ci-dessous | à faire |
@@ -83,7 +83,7 @@ identifiants propres. Aucun commit global de nettoyage ne les a absorbés.
 | --- | --- | --- |
 | Bibliothèque | 134 fichiers Python ; 9 dépassent 1 000 lignes | responsabilités difficiles à isoler et à tester |
 | Scripts | 114 fichiers Python ; 35 directement à la racine de `scripts/` ; 6 dépassent 1 000 lignes | les points d'entrée et la logique métier se confondent |
-| Plus gros fichier | `src/alpharank/data/open_source/ingestion.py`, 3 608 lignes | risque élevé pour toute modification d'ingestion |
+| Plus gros fichier | `src/alpharank/data/ingestion/orchestration.py`, 3 608 lignes | risque élevé pour toute modification d'ingestion |
 | Imports | 35 fichiers modifient `sys.path` | le comportement dépend du dossier depuis lequel la commande est lancée |
 | Gestion d'erreur | 4 `except:` nus et 104 captures générales de `Exception` dans `src/` et `scripts/` | des échecs peuvent être masqués ou mal expliqués |
 | Sorties console | 580 appels à `print()` hors tests | journaux hétérogènes et difficiles à relier à un run |
@@ -197,7 +197,7 @@ change dans ce lot.
 | ID | Action | Statut | Contrôle obligatoire |
 | --- | --- | --- | --- |
 | `CODEORG-001` | fixer le plafond à 20 fichiers `.py`, dérogation uniquement approuvée par le propriétaire, et inventorier les violations courantes | fait | politique versionnée, validateur testé ; 435 fichiers dans 32 dossiers, 7 violations et zéro dérogation |
-| `CODEORG-002` | répartir `src/alpharank/data` et l'empilement `data/open_source` selon contrats, sources, entrepôt, lignée, qualité et publication | à faire | imports inventoriés, tests data verts et aucune modification de calcul |
+| `CODEORG-002` | répartir `src/alpharank/data` et l'empilement `data/open_source` selon contrats, sources, entrepôt, lignée, qualité et publication | fait | 48 déplacements inventoriés ; dossiers data entre 4 et 13 modules, collecte complète et tests data verts, aucun calcul modifié |
 | `CODEORG-003` | répartir la racine des scripts, `scripts/open_source` et `scripts/experiments` par usage durable | à faire | commandes publiques conservées, inventaire des appels à jour et scripts exécutables hors dépôt |
 | `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | à faire | mêmes fonctions, corps AST, assertions et collecte canonique |
 | `CODEORG-005` | activer le contrôle bloquant dans la gate statique | à faire | zéro dossier au-dessus de 20, zéro exception et CI ciblée verte |

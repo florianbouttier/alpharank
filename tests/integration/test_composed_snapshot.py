@@ -7,7 +7,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.composed_snapshot import (
+from alpharank.data.publishing.composed_snapshot import (
     PRICE_FILES,
     SEC_FILES,
     build_composed_model_snapshot,

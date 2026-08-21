@@ -4,7 +4,7 @@
     {
       "current_role": "mixed_generation_root",
       "exists": true,
-      "file_count": 16273,
+      "file_count": 16286,
       "kind": "package",
       "location_id": "data_root",
       "migration_status": "observed",
@@ -45,20 +45,20 @@
         "scripts/open_source/run_sec_q4_fix2_candidate.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_source.py",
-        "src/alpharank/data/legacy_archive_policy.py",
-        "src/alpharank/data/open_source/ingestion.py",
-        "src/alpharank/data/open_source/pipeline.py",
+        "src/alpharank/data/ingestion/cadrage.py",
+        "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/lineage/legacy_archive_policy.py",
         "src/alpharank/data/open_source/sec.py",
         "src/alpharank/data/open_source/sec_filing.py",
-        "src/alpharank/data/open_source/simfin.py",
-        "src/alpharank/data/open_source/stockanalysis.py",
-        "src/alpharank/data/reader_migration.py",
-        "src/alpharank/data/warehouse_migration.py",
+        "src/alpharank/data/sources/simfin.py",
+        "src/alpharank/data/sources/stockanalysis.py",
+        "src/alpharank/data/warehouse/migration.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/causal_snapshot.py",
         "src/alpharank/replay/validation.py"
       ],
-      "size_bytes": 35996776377,
+      "size_bytes": 36229932524,
       "target_role": "routing_only"
     },
     {
@@ -89,13 +89,13 @@
         "scripts/validate_terminal_price_registry.py",
         "src/alpharank/backtest/data_loading.py",
         "src/alpharank/backtest/data_source.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/open_source/benchmark.py",
-        "src/alpharank/data/open_source/ingestion.py",
-        "src/alpharank/data/open_source/ingestion_prices.py",
+        "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/ingestion/prices.py",
+        "src/alpharank/data/ingestion/transition.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/transition.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/quality/benchmark.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
         "src/alpharank/reporting/central_research_data.py"
@@ -129,10 +129,10 @@
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_loading.py",
         "src/alpharank/backtest/data_source.py",
-        "src/alpharank/data/composed_snapshot.py",
+        "src/alpharank/data/ingestion/transition.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/transition.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 377625,
@@ -162,12 +162,12 @@
         "scripts/open_source/refresh_sp500_constituents.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_loading.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/open_source/benchmark.py",
-        "src/alpharank/data/open_source/ingestion.py",
-        "src/alpharank/data/open_source/ingestion_prices.py",
-        "src/alpharank/data/open_source/publishing.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/ingestion/prices.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/publishing/open_source_package.py",
+        "src/alpharank/data/quality/benchmark.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/multihorizon/live.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
@@ -196,10 +196,10 @@
         "scripts/open_source/build_sec_fundamental_explorer.py",
         "scripts/open_source/build_sec_quality_dashboard.py",
         "scripts/sync_eodhd_output.py",
-        "src/alpharank/data/composed_snapshot.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/open_source/sec_mapping.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 684738,
@@ -222,11 +222,11 @@
         "scripts/open_source/probe_sp500_entry_pe_coverage.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_loading.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/open_source/config.py",
+        "src/alpharank/data/ingestion/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/revision_guard.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/quality/revision_guard.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 8720839,
@@ -248,11 +248,11 @@
         "scripts/open_source/probe_sp500_entry_pe_coverage.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_loading.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/open_source/config.py",
+        "src/alpharank/data/ingestion/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/revision_guard.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/quality/revision_guard.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 20291055,
@@ -274,11 +274,11 @@
         "scripts/open_source/probe_sp500_entry_pe_coverage.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_loading.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/open_source/config.py",
+        "src/alpharank/data/ingestion/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/revision_guard.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/quality/revision_guard.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 8847984,
@@ -300,12 +300,12 @@
         "scripts/open_source/probe_sp500_entry_pe_coverage.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_loading.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/open_source/benchmark.py",
-        "src/alpharank/data/open_source/config.py",
+        "src/alpharank/data/ingestion/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/revision_guard.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/quality/benchmark.py",
+        "src/alpharank/data/quality/revision_guard.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 731545,
@@ -323,13 +323,13 @@
         "scripts/open_source/build_sec_fundamental_explorer.py",
         "scripts/open_source/build_sec_quality_dashboard.py",
         "scripts/sync_eodhd_output.py",
-        "src/alpharank/data/composed_snapshot.py",
-        "src/alpharank/data/open_source/benchmark.py",
-        "src/alpharank/data/open_source/config.py",
-        "src/alpharank/data/open_source/financial_audit.py",
+        "src/alpharank/data/ingestion/config.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/revision_guard.py",
-        "src/alpharank/data/reader_migration.py"
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/quality/benchmark.py",
+        "src/alpharank/data/quality/financial_audit.py",
+        "src/alpharank/data/quality/revision_guard.py",
+        "src/alpharank/data/warehouse/reader_migration.py"
       ],
       "size_bytes": 1022128,
       "target_role": "warehouse/def then mart"
@@ -344,7 +344,7 @@
       "path": "data/latest_snapshot.json",
       "readers": [
         "src/alpharank/backtest/pipeline.py",
-        "src/alpharank/data/lineage.py",
+        "src/alpharank/data/lineage/snapshots.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 5008,
@@ -380,7 +380,7 @@
         "scripts/open_source/probe_sp500_entry_pe_coverage.py",
         "scripts/sync_eodhd_output.py",
         "src/alpharank/backtest/data_source.py",
-        "src/alpharank/data/warehouse_migration.py"
+        "src/alpharank/data/warehouse/migration.py"
       ],
       "size_bytes": 1011901141,
       "target_role": "warehouse/raw/eodhd"
@@ -388,7 +388,7 @@
     {
       "current_role": "disposable_transport_cache",
       "exists": true,
-      "file_count": 2,
+      "file_count": 0,
       "kind": "package",
       "location_id": "open_source_cache",
       "migration_status": "retained",
@@ -401,11 +401,11 @@
         "scripts/open_source/refresh_current_constituent_prices.py",
         "scripts/open_source/refresh_sec_companyfacts_from_cache.py",
         "scripts/open_source/run_sec_q4_fix2_candidate.py",
-        "src/alpharank/data/open_source/pipeline.py",
-        "src/alpharank/data/open_source/simfin.py",
-        "src/alpharank/data/open_source/stockanalysis.py"
+        "src/alpharank/data/ingestion/cadrage.py",
+        "src/alpharank/data/sources/simfin.py",
+        "src/alpharank/data/sources/stockanalysis.py"
       ],
-      "size_bytes": 16384,
+      "size_bytes": 0,
       "target_role": "outside_raw_contract"
     },
     {
@@ -444,7 +444,7 @@
         "scripts/compare_legacy_eodhd_vs_open_source.py",
         "scripts/open_source/rebuild_reports.py",
         "scripts/open_source/run_price_transition.py",
-        "src/alpharank/data/open_source/pipeline.py"
+        "src/alpharank/data/ingestion/cadrage.py"
       ],
       "size_bytes": 1516695542,
       "target_role": "run_or_research_evidence"
@@ -468,7 +468,7 @@
     {
       "current_role": "mixed_source_ingestion_store",
       "exists": true,
-      "file_count": 2375,
+      "file_count": 2388,
       "kind": "package",
       "location_id": "open_source_official",
       "migration_status": "transition",
@@ -485,9 +485,9 @@
         "scripts/open_source/repair_price_history.py",
         "scripts/open_source/restore_price_tickers_from_snapshot.py",
         "scripts/open_source/run_sec_q4_fix2_candidate.py",
-        "src/alpharank/data/open_source/ingestion.py"
+        "src/alpharank/data/ingestion/orchestration.py"
       ],
-      "size_bytes": 2512675159,
+      "size_bytes": 2611420903,
       "target_role": "warehouse_layers"
     },
     {
@@ -533,19 +533,19 @@
         "scripts/open_source/nightly_ingestion.py",
         "src/alpharank/reporting/central_research_data.py"
       ],
-      "size_bytes": 87865,
+      "size_bytes": 88294,
       "target_role": "warehouse/manifests"
     },
     {
       "current_role": "ingestion_run_evidence",
       "exists": true,
-      "file_count": 2333,
+      "file_count": 2346,
       "kind": "package",
       "location_id": "open_source_runs",
       "migration_status": "transition",
       "path": "data/open_source/official/runs",
       "readers": [],
-      "size_bytes": 2199048915,
+      "size_bytes": 2297794230,
       "target_role": "warehouse/raw receipts"
     },
     {
@@ -591,7 +591,7 @@
     {
       "current_role": "canonical_transformation_root",
       "exists": true,
-      "file_count": 176,
+      "file_count": 178,
       "kind": "package",
       "location_id": "warehouse",
       "migration_status": "target",
@@ -599,24 +599,24 @@
       "readers": [
         "scripts/open_source/promote_definitive_mart.py",
         "src/alpharank/backtest/data_source.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
-      "size_bytes": 2394993541,
+      "size_bytes": 2529420328,
       "target_role": "warehouse"
     },
     {
       "current_role": "provider_observations_and_receipts",
       "exists": true,
-      "file_count": 88,
+      "file_count": 90,
       "kind": "package",
       "location_id": "warehouse_raw",
       "migration_status": "target",
       "path": "data/warehouse/raw",
       "readers": [
-        "src/alpharank/data/raw_contracts.py"
+        "src/alpharank/data/contracts/raw_contracts.py"
       ],
-      "size_bytes": 1573530412,
+      "size_bytes": 1707957199,
       "target_role": "warehouse/raw"
     },
     {
@@ -691,7 +691,7 @@
         "scripts/open_source/build_roll_forward_price_package.py",
         "scripts/open_source/promote_definitive_mart.py",
         "src/alpharank/backtest/data_source.py",
-        "src/alpharank/data/reader_migration.py",
+        "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
       "size_bytes": 1010,
@@ -740,8 +740,18 @@
     },
     {
       "location_id": "data_root",
-      "reader_count": "2",
-      "reference": "data/composed_snapshot.py"
+      "reader_count": "1",
+      "reference": "data/contracts/feature_availability.py"
+    },
+    {
+      "location_id": "data_root",
+      "reader_count": "1",
+      "reference": "data/contracts/fundamental_coverage.py"
+    },
+    {
+      "location_id": "data_root",
+      "reader_count": "1",
+      "reference": "data/contracts/sector_history.py"
     },
     {
       "location_id": "eodhd_archive",
@@ -771,17 +781,7 @@
     {
       "location_id": "data_root",
       "reader_count": "1",
-      "reference": "data/feature_availability.py"
-    },
-    {
-      "location_id": "data_root",
-      "reader_count": "1",
-      "reference": "data/fundamental_coverage.py"
-    },
-    {
-      "location_id": "data_root",
-      "reader_count": "1",
-      "reference": "data/mart.py"
+      "reference": "data/ingestion/cadrage.py"
     },
     {
       "location_id": "data_root",
@@ -955,16 +955,6 @@
     },
     {
       "location_id": "data_root",
-      "reader_count": "1",
-      "reference": "data/open_source/pipeline.py"
-    },
-    {
-      "location_id": "data_root",
-      "reader_count": "1",
-      "reference": "data/open_source/publishing.py"
-    },
-    {
-      "location_id": "data_root",
       "reader_count": "3",
       "reference": "data/price_eligibility.py"
     },
@@ -994,6 +984,16 @@
       "reference": "data/production/latest.json"
     },
     {
+      "location_id": "data_root",
+      "reader_count": "2",
+      "reference": "data/publishing/composed_snapshot.py"
+    },
+    {
+      "location_id": "data_root",
+      "reader_count": "1",
+      "reference": "data/publishing/open_source_package.py"
+    },
+    {
       "location_id": "sec_legacy",
       "reader_count": "6",
       "reference": "data/sec"
@@ -1005,11 +1005,6 @@
     },
     {
       "location_id": "data_root",
-      "reader_count": "1",
-      "reference": "data/sector_history.py"
-    },
-    {
-      "location_id": "data_root",
       "reader_count": "2",
       "reference": "data/terminal_eligibility.py"
     },
@@ -1017,6 +1012,11 @@
       "location_id": "warehouse",
       "reader_count": "4",
       "reference": "data/warehouse"
+    },
+    {
+      "location_id": "warehouse",
+      "reader_count": "1",
+      "reference": "data/warehouse/mart.py"
     },
     {
       "location_id": "warehouse_raw",

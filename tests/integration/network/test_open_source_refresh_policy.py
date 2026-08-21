@@ -5,16 +5,16 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion_prices import (
+from alpharank.data.ingestion.prices import (
     _drop_refreshed_partitions,
     _required_failure_tickers,
     _resolve_sec_mapping_coverage,
 )
-from alpharank.data.open_source.ingestion_reference import _fetch_sec_companyfacts_bundle
-from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
+from alpharank.data.ingestion.reference import _fetch_sec_companyfacts_bundle
+from alpharank.data.ingestion.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
-from alpharank.data.open_source.stockanalysis import StockAnalysisClient
+from alpharank.data.sources.stockanalysis import StockAnalysisClient
 
 
 class _Response:
@@ -109,7 +109,7 @@ def test_stockanalysis_refresh_ignores_and_does_not_replace_disk_cache(tmp_path:
     client = StockAnalysisClient(cache_dir=cache_dir, refresh_cache=True, persist_cache=False)
 
     monkeypatch.setattr(
-        "alpharank.data.open_source.stockanalysis.requests.get",
+        "alpharank.data.sources.stockanalysis.requests.get",
         lambda *args, **kwargs: _Response({"status": 200, "data": [{"t": "fresh"}]}),
     )
 
@@ -142,7 +142,7 @@ def test_companyfacts_bundle_discards_each_company_payload(monkeypatch) -> None:
 
     client = Client()
     monkeypatch.setattr(
-        "alpharank.data.open_source.ingestion_reference._extract_sec_companyfacts_earnings_actuals",
+        "alpharank.data.ingestion.reference._extract_sec_companyfacts_earnings_actuals",
         lambda sec_client, ticker, cik: pl.DataFrame({"ticker": [ticker], "cik": [cik]}),
     )
     mapping = pl.DataFrame({"ticker": ["AAPL", "MSFT"], "cik": ["1", "2"]})

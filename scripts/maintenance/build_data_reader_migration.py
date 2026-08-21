@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.data.reader_migration import (
+from alpharank.data.warehouse.reader_migration import (
     build_reader_migration_registry,
     validate_reader_migration_registry,
     write_reader_migration_registry,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.freshness import (
+from alpharank.data.quality.freshness import (
     build_data_freshness_summary,
     validate_data_freshness,
 )

@@ -6,8 +6,8 @@ from datetime import date
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.ingestion_frames import _with_price_ingestion_metadata
-from alpharank.data.open_source.ingestion_prices import (
+from alpharank.data.ingestion.frames import _with_price_ingestion_metadata
+from alpharank.data.ingestion.prices import (
     _complete_yahoo_history_against_validated,
     _confirmed_terminal_price_tickers,
     _consolidate_price_sources,

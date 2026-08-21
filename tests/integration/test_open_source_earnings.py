@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import polars as pl
 
-from alpharank.data.open_source.earnings import (
+from alpharank.data.sources.earnings import (
     build_sec_companyfacts_earnings_actuals,
     consolidate_earnings,
     resolve_earnings_calendar_duplicates,
 )
-from alpharank.data.open_source.ingestion_frames import _with_financial_ingestion_metadata
-from alpharank.data.open_source.ingestion_reference import (
+from alpharank.data.ingestion.frames import _with_financial_ingestion_metadata
+from alpharank.data.ingestion.reference import (
     _identify_sec_filing_fallback_tickers,
     _identify_yfinance_financial_fallback_tickers,
 )

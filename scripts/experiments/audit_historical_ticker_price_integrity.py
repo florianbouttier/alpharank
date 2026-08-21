@@ -12,7 +12,7 @@ from typing import Any, Iterable
 import numpy as np
 import polars as pl
 
-from alpharank.data.ticker_integrity import (  # noqa: E402
+from alpharank.data.contracts.ticker_integrity import (  # noqa: E402
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     load_ticker_exclusion_registry,
 )

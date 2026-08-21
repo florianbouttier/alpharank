@@ -5,7 +5,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-from alpharank.data.open_source.financial_audit import build_financial_statement_audit_dashboard
+from alpharank.data.quality.financial_audit import build_financial_statement_audit_dashboard
 
 
 def main() -> None:

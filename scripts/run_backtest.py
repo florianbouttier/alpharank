@@ -19,7 +19,7 @@ from alpharank.backtest import (
     run_backtest_from_learning,
     run_learning_phase,
 )
-from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+from alpharank.data.contracts.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.observability import configure_run_logging
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+from alpharank.data.contracts.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.multihorizon.live import (
     LiveAlphaConfig,
     previous_completed_month,

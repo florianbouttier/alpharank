@@ -3,7 +3,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from alpharank.data.staging import normalize_staging_observations
+from alpharank.data.warehouse.staging import normalize_staging_observations
 
 VALUE_SCHEMA = {
     "ticker": pl.String,

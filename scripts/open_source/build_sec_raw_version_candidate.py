@@ -5,7 +5,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.data.open_source.sec_raw_versions import (
+from alpharank.data.sources.sec_raw_versions import (
     build_sec_raw_version_candidate,
 )
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from alpharank.data.definitive import select_definitive_observations
+from alpharank.data.warehouse.definitive import select_definitive_observations
 
 
 def _staged(rows: list[dict[str, object]]) -> pl.DataFrame:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.fundamental_quality import (
+from alpharank.data.quality.fundamental_quality import (
     audit_fundamental_quality,
     quarantine_implausible_share_candidates,
     validate_fundamental_quality,

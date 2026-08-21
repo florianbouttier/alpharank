@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from alpharank.data.historical_migration import (
+from alpharank.data.warehouse.historical_migration import (
     build_historical_root_catalog,
     validate_historical_root_catalog,
     write_historical_root_catalog,

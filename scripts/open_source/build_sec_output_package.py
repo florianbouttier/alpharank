@@ -12,15 +12,15 @@ from pathlib import Path
 import polars as pl
 
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_fundamental_outputs
-from alpharank.data.open_source.revision_guard import audit_historical_revisions
+from alpharank.data.quality.revision_guard import audit_historical_revisions
 from alpharank.data.open_source.sec_mapping import load_sec_historical_ticker_bridge
-from alpharank.data.open_source.sec_only import (
+from alpharank.data.sources.sec_only import (
     build_sec_only_earnings,
     build_sec_only_financials,
     build_sec_only_general_reference_from_raw_lineage,
 )
-from alpharank.data.open_source.storage import utc_now_iso, write_json
-from alpharank.data.output_history import snapshot_output_directory
+from alpharank.data.ingestion.storage import utc_now_iso, write_json
+from alpharank.data.lineage.output_history import snapshot_output_directory
 from alpharank.data.security_identity import (
     SECURITY_IDENTITY_POLICY_ID,
     apply_security_identity_policy,

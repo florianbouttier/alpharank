@@ -227,7 +227,7 @@ Code ownership is explicit:
   production thresholds;
 - `scripts/open_source/build_hybrid_price_candidate.py`: deterministic,
   non-publishing migration/review entrypoint;
-- `src/alpharank/data/open_source/ingestion.py`: transactional orchestration
+- `src/alpharank/data/ingestion/orchestration.py`: transactional orchestration
   before any target or output publication.
 
 ## Canonical RAW / STG / DEF / MART Layers
@@ -275,13 +275,13 @@ what the provider returned; it does not silently carry a missing value forward.
 That business decision belongs in DEF, where any reused prior ticker/date must
 retain the original source run id and an explicit carried-forward reason.
 
-Canonical STG normalization lives in `src/alpharank/data/staging.py`. It accepts
+Canonical STG normalization lives in `src/alpharank/data/warehouse/staging.py`. It accepts
 no provider priority and rejects selection columns; conflicting observations
 remain separate rows identified by business key, provider and RAW receipt. The
 legacy `stage_yahoo_prices` import remains compatible but its implementation now
 belongs to that STG module.
 
-Canonical source choice lives in `src/alpharank/data/definitive.py`. Its
+Canonical source choice lives in `src/alpharank/data/warehouse/definitive.py`. Its
 point-in-time contract rejects undeclared sources, ignores receipts later than
 the declared knowledge cutoff and emits one decision row per business key with
 the selected receipt, payload hash, rule version and reason. A missing preferred
@@ -486,11 +486,11 @@ ingestion succeeds.
 
 I verified this in code:
 
-- `src/alpharank/data/open_source/storage.py`
+- `src/alpharank/data/ingestion/storage.py`
   `upsert_parquet(...)` concatenates `existing + delta`, then keeps the latest row for the same natural key.
-- `src/alpharank/data/open_source/ingestion.py`
+- `src/alpharank/data/ingestion/orchestration.py`
   target outputs are rebuilt from the full `raw/*.parquet`, not only from the current nightly delta.
-- `src/alpharank/data/open_source/transaction.py`
+- `src/alpharank/data/ingestion/transaction.py`
   deletion is limited to transaction rollback/recovery and newly-created failed
   snapshots; there is no production purge path for canonical history.
 

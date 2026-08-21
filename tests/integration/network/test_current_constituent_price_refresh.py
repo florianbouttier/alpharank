@@ -4,7 +4,7 @@ from datetime import date
 
 import polars as pl
 
-from alpharank.data.open_source.constituents import (
+from alpharank.data.sources.constituents import (
     current_constituent_price_coverage,
 )
 

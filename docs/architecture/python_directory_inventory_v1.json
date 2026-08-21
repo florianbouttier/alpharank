@@ -68,18 +68,67 @@
       "directory": "src/alpharank/data",
       "exception_reference": null,
       "limit": 20,
-      "passed": false,
-      "python_file_count": 25
+      "passed": true,
+      "python_file_count": 5
+    },
+    {
+      "directory": "src/alpharank/data/contracts",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 8
+    },
+    {
+      "directory": "src/alpharank/data/ingestion",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 13
+    },
+    {
+      "directory": "src/alpharank/data/lineage",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 4
     },
     {
       "directory": "src/alpharank/data/open_source",
       "exception_reference": null,
       "limit": 20,
-      "passed": false,
-      "python_file_count": 34
+      "passed": true,
+      "python_file_count": 6
     },
     {
       "directory": "src/alpharank/data/prices",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 8
+    },
+    {
+      "directory": "src/alpharank/data/publishing",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
+    },
+    {
+      "directory": "src/alpharank/data/quality",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 6
+    },
+    {
+      "directory": "src/alpharank/data/sources",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 9
+    },
+    {
+      "directory": "src/alpharank/data/warehouse",
       "exception_reference": null,
       "limit": 20,
       "passed": true,
@@ -226,14 +275,14 @@
       "python_file_count": 1
     }
   ],
-  "directory_count": 32,
+  "directory_count": 39,
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
-  "python_file_count": 435,
+  "python_file_count": 442,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
-  "violation_count": 7,
+  "violation_count": 5,
   "violations": [
     {
       "directory": "scripts",
@@ -255,20 +304,6 @@
       "limit": 20,
       "passed": false,
       "python_file_count": 35
-    },
-    {
-      "directory": "src/alpharank/data",
-      "exception_reference": null,
-      "limit": 20,
-      "passed": false,
-      "python_file_count": 25
-    },
-    {
-      "directory": "src/alpharank/data/open_source",
-      "exception_reference": null,
-      "limit": 20,
-      "passed": false,
-      "python_file_count": 34
     },
     {
       "directory": "tests/integration",

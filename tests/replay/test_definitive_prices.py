@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from alpharank.data.open_source.definitive_prices import (
+from alpharank.data.publishing.definitive_prices import (
     bootstrap_definitive_prices,
     build_definitive_prices,
     stage_yahoo_prices,

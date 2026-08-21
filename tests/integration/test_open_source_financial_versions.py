@@ -4,8 +4,8 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion_reference import _upsert_financial_dataset
-from alpharank.data.open_source.storage import OpenSourceLivePaths
+from alpharank.data.ingestion.reference import _upsert_financial_dataset
+from alpharank.data.ingestion.storage import OpenSourceLivePaths
 
 
 def test_sec_raw_upsert_preserves_distinct_filing_versions(tmp_path: Path) -> None:

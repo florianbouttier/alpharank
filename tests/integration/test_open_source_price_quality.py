@@ -12,7 +12,7 @@ from alpharank.data.open_source.price_quality import (
     load_reviewed_extreme_price_moves,
     repair_confirmed_split_discontinuities,
 )
-from alpharank.data.open_source.storage import merge_upsert_frames
+from alpharank.data.ingestion.storage import merge_upsert_frames
 
 
 def test_price_quality_flags_partial_split_scale() -> None:

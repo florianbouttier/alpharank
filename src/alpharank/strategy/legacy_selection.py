@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
-from alpharank.data.sector_history import (
+from alpharank.data.contracts.sector_history import (
     SECTOR_HISTORY_LINEAGE_COLUMNS,
     resolve_point_in_time_sectors,
 )

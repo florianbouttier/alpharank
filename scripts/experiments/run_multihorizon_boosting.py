@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+from alpharank.data.contracts.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.multihorizon import MultiHorizonConfig, run_multihorizon_research
 from alpharank.multihorizon.config import (
     LATEST_COMMON_COMPARISON_PROFILE,

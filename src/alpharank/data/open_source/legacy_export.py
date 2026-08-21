@@ -5,8 +5,8 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.config import GENERAL_COLUMNS, METRIC_SPECS
-from alpharank.data.open_source.storage import coerce_schema
+from alpharank.data.ingestion.config import GENERAL_COLUMNS, METRIC_SPECS
+from alpharank.data.ingestion.storage import coerce_schema
 
 
 LEGACY_STATEMENT_FILES = {

@@ -12,7 +12,7 @@ import numpy as np
 import polars as pl
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+from alpharank.data.contracts.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.multihorizon.confirmation import paired_block_bootstrap
 from alpharank.multihorizon.data import build_research_frame
 from alpharank.multihorizon.explain import compute_shap_sample, write_shap_outputs

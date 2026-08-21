@@ -6,7 +6,7 @@ from typing import Any
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.constituents import (
+from alpharank.data.sources.constituents import (
     membership_at_decision_time,
     refresh_monthly_constituents,
     resolve_constituent_snapshot_duplicates,

@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.storage import (
+from alpharank.data.ingestion.storage import (
     acquire_process_json_lock,
     release_json_lock,
     try_acquire_json_lock,

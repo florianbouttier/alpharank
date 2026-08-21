@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from alpharank.data.open_source import run_open_source_ingestion
-from alpharank.data.open_source.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
+from alpharank.data.ingestion.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
 from alpharank.observability import configure_run_logging
 
 

@@ -7,11 +7,11 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.ingestion import _run_open_source_ingestion_in_place
-from alpharank.data.open_source.ingestion_frames import _audit_and_validate_historical_revisions
-from alpharank.data.open_source.refresh_policy import SourceRefreshPolicy
-from alpharank.data.open_source.revision_guard import audit_historical_revisions
-from alpharank.data.open_source.storage import OpenSourceLivePaths
+from alpharank.data.ingestion.orchestration import _run_open_source_ingestion_in_place
+from alpharank.data.ingestion.frames import _audit_and_validate_historical_revisions
+from alpharank.data.ingestion.refresh_policy import SourceRefreshPolicy
+from alpharank.data.quality.revision_guard import audit_historical_revisions
+from alpharank.data.ingestion.storage import OpenSourceLivePaths
 
 
 def _income(value: str, *, date: str = "2020-03-31") -> pl.DataFrame:

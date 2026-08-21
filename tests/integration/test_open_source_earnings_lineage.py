@@ -4,21 +4,21 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.benchmark import normalize_eodhd_earnings
-from alpharank.data.open_source.earnings import (
+from alpharank.data.quality.benchmark import normalize_eodhd_earnings
+from alpharank.data.sources.earnings import (
     align_sec_actuals_to_calendar,
     build_sec_companyfacts_earnings_actuals,
     consolidate_earnings,
 )
-from alpharank.data.open_source.general_reference import build_general_reference
-from alpharank.data.open_source.ingestion_prices import (
+from alpharank.data.sources.general_reference import build_general_reference
+from alpharank.data.ingestion.prices import (
     _canonicalize_price_tickers,
     _identify_price_history_backfill_tickers,
 )
-from alpharank.data.open_source.ingestion_reference import (
+from alpharank.data.ingestion.reference import (
     _filter_earnings_years,
 )
-from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
+from alpharank.data.ingestion.cadrage import _combine_sec_earnings_actuals
 from alpharank.data.open_source.sec import (
     _normalize_share_candidate_scales,
     _select_share_facts,

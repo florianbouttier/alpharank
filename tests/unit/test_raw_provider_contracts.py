@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from alpharank.data.raw_contracts import (
+from alpharank.data.contracts.raw_contracts import (
     load_raw_provider_contracts,
     provider_contract,
 )
-from alpharank.data.warehouse import WarehousePaths
+from alpharank.data.warehouse.paths import WarehousePaths
 
 
 def test_every_raw_provider_targets_its_own_warehouse_root() -> None:

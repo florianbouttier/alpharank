@@ -10,7 +10,7 @@ from typing import Any
 from alpharank.data.price_eligibility import (
     STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
 )
-from alpharank.data.ticker_integrity import (
+from alpharank.data.contracts.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
 )
 from alpharank.observability import configure_run_logging

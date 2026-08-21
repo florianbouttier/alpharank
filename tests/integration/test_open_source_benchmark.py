@@ -4,7 +4,7 @@ from datetime import date
 
 import polars as pl
 
-from alpharank.data.open_source.benchmark import build_price_alignment
+from alpharank.data.quality.benchmark import build_price_alignment
 
 
 def test_build_price_alignment_accepts_mixed_date_types() -> None:

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion_frames import (
+from alpharank.data.ingestion.frames import (
     _concat_or_empty,
     _empty_raw_financial_base,
     _filter_financial_year,
@@ -18,11 +18,11 @@ from alpharank.data.open_source.ingestion_frames import (
     _with_general_ingestion_metadata,
     _with_general_lineage_ingestion_metadata,
 )
-from alpharank.data.open_source.ingestion_prices import (
+from alpharank.data.ingestion.prices import (
     _identify_general_reference_refresh_tickers,
     _load_reference_tickers,
 )
-from alpharank.data.open_source.ingestion_reference import (
+from alpharank.data.ingestion.reference import (
     _fetch_sec_company_profiles,
     _fetch_sec_earnings_actuals,
     _fetch_sec_earnings_calendar,
@@ -34,8 +34,8 @@ from alpharank.data.open_source.ingestion_reference import (
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
-from alpharank.data.open_source.sec_only import build_sec_only_general_reference
-from alpharank.data.open_source.storage import (
+from alpharank.data.sources.sec_only import build_sec_only_general_reference
+from alpharank.data.ingestion.storage import (
     OpenSourceLivePaths,
     append_run_delta,
     new_run_id,

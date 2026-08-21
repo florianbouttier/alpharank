@@ -9,7 +9,7 @@ from alpharank.backtest.features import (
     compute_technical_features,
 )
 from alpharank.backtest.fundamentals import _asof_join_monthly
-from alpharank.data.point_in_time import join_point_in_time_attributes
+from alpharank.data.contracts.point_in_time import join_point_in_time_attributes
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
 
 

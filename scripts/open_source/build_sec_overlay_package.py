@@ -8,7 +8,7 @@ from pathlib import Path
 import polars as pl
 
 from alpharank.data.open_source.legacy_export import export_legacy_compatible_fundamental_outputs
-from alpharank.data.open_source.storage import utc_now_iso
+from alpharank.data.ingestion.storage import utc_now_iso
 from alpharank.utils.module_loading import load_module_from_path
 
 SCRIPT_DIR = Path(__file__).resolve().parent

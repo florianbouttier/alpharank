@@ -13,12 +13,12 @@ from pathlib import Path
 from typing import Any, Mapping
 from uuid import uuid4
 
-from alpharank.data.composed_snapshot import validate_composed_model_snapshot
+from alpharank.data.publishing.composed_snapshot import validate_composed_model_snapshot
 from alpharank.data.price_eligibility import (
     STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
 )
 from alpharank.data.prices.history import PERSISTENT_PRICE_HISTORY_POLICY_ID
-from alpharank.data.snapshot_storage import copy_snapshot_file
+from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
 from alpharank.governance import (
     capture_runtime_provenance,
     validate_runtime_provenance,
@@ -38,12 +38,12 @@ REQUIRED_POLICY_FILES = {
 REQUIRED_CRITICAL_FILES = (
     "src/alpharank/causal_snapshot.py",
     "src/alpharank/replay/causal_snapshot.py",
-    "src/alpharank/data/composed_snapshot.py",
-    "src/alpharank/data/feature_availability.py",
-    "src/alpharank/data/fundamental_coverage.py",
+    "src/alpharank/data/publishing/composed_snapshot.py",
+    "src/alpharank/data/contracts/feature_availability.py",
+    "src/alpharank/data/contracts/fundamental_coverage.py",
     "src/alpharank/data/price_eligibility.py",
     "src/alpharank/data/prices/history.py",
-    "src/alpharank/data/sector_history.py",
+    "src/alpharank/data/contracts/sector_history.py",
     "src/alpharank/portfolio/execution.py",
     "src/alpharank/portfolio/simulation.py",
     "src/alpharank/portfolio/terminal_returns.py",

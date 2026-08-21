@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from alpharank.data.historical_migration import (
+from alpharank.data.warehouse.historical_migration import (
     build_historical_catalog_summary,
     build_historical_root_catalog,
     validate_historical_root_catalog,

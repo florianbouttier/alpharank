@@ -7,7 +7,7 @@ from typing import Mapping, Tuple
 import hashlib
 import json
 
-from alpharank.data.ticker_integrity import load_ticker_exclusion_registry
+from alpharank.data.contracts.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.data.price_eligibility import (
     STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
     monthly_price_eligibility_policy,

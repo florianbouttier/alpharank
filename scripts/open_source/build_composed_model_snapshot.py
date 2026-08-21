@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from alpharank.data.composed_snapshot import (
+from alpharank.data.publishing.composed_snapshot import (
     build_composed_model_snapshot,
     validate_composed_model_snapshot,
 )

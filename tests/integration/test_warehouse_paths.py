@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from alpharank.data.warehouse import WarehousePaths
+from alpharank.data.warehouse.paths import WarehousePaths
 
 
 def test_warehouse_paths_expose_raw_stg_def_and_mart(tmp_path: Path) -> None:

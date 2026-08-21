@@ -17,20 +17,20 @@ from typing import Any, Dict, Optional
 import pandas as pd
 import polars as pl
 
-from alpharank.data.lineage import load_latest_manifest, write_manifest
-from alpharank.data.mart import MartInputResolution, resolve_mart_model_input
+from alpharank.data.lineage.snapshots import load_latest_manifest, write_manifest
+from alpharank.data.warehouse.mart import MartInputResolution, resolve_mart_model_input
 from alpharank.data.price_eligibility import (
     STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
     build_monthly_price_eligibility,
     monthly_price_eligibility_policy,
 )
 from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
-from alpharank.data.snapshot_publication import (
+from alpharank.data.publishing.snapshot_publication import (
     SNAPSHOT_POINTER_CONTRACT,
     validate_snapshot_publication,
 )
-from alpharank.data.snapshot_storage import copy_snapshot_file
-from alpharank.data.ticker_integrity import (
+from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
+from alpharank.data.contracts.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     exclude_tickers_from_frame,
     load_ticker_exclusion_registry,
@@ -431,11 +431,11 @@ def _code_context(project_root: Path) -> Dict[str, Any]:
         "scripts/run_legacy.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/data/processing.py",
-        "src/alpharank/data/mart.py",
+        "src/alpharank/data/warehouse/mart.py",
         "src/alpharank/strategy/legacy.py",
         "src/alpharank/data/open_source/legacy_export.py",
-        "src/alpharank/data/open_source/pipeline.py",
-        "src/alpharank/data/open_source/publishing.py",
+        "src/alpharank/data/ingestion/cadrage.py",
+        "src/alpharank/data/publishing/open_source_package.py",
         "src/alpharank/data/terminal_eligibility.py",
         "src/alpharank/portfolio/terminal_event_registry.py",
         "configs/data_quality/terminal_shareholder_events_v1.json",
@@ -840,7 +840,7 @@ def run_pipeline(
             "src/alpharank/production/legacy_pipeline.py",
             "src/alpharank/causal_snapshot.py",
             "src/alpharank/data/processing.py",
-            "src/alpharank/data/mart.py",
+            "src/alpharank/data/warehouse/mart.py",
             "src/alpharank/strategy/legacy.py",
             "src/alpharank/portfolio/simulation.py",
             "src/alpharank/portfolio/execution.py",

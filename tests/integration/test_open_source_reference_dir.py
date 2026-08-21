@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from alpharank.data.open_source.benchmark import resolve_eodhd_output_dir
+from alpharank.data.quality.benchmark import resolve_eodhd_output_dir
 
 
 def test_resolve_eodhd_output_dir_prefers_nested_mirror_when_root_is_not_packaged(tmp_path: Path) -> None:

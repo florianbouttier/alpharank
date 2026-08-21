@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from alpharank.backtest.config import BacktestConfig
-from alpharank.data.mart import resolve_mart_model_input
+from alpharank.data.warehouse.mart import resolve_mart_model_input
 
 
 @dataclass(frozen=True)

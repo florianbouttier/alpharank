@@ -1,17 +1,18 @@
-# Ingestion open source
+# Compatibilité open source
 
-Implémentation réutilisable de l'ingestion : Yahoo, SEC, SimFin et
-StockAnalysis, consolidation, qualité, fraîcheur, transactions atomiques et
-publication.
+Ce dossier conserve la façade publique `alpharank.data.open_source`, les trois
+modules SEC dont les lecteurs historiques utilisent encore le chemin, deux
+contrats de compatibilité Legacy et les petits registres de référence.
 
-Le pipeline actif est séparé par responsabilité :
+L'implémentation active est désormais séparée par responsabilité dans le parent :
 
-- `ingestion.py` orchestre les transactions et conserve la façade historique ;
-- `ingestion_frames.py` possède les schémas et normalisations communes ;
-- `ingestion_prices.py` possède acquisition, conservation et validation prix ;
-- `ingestion_reference.py` possède référentiel, résultats et fondamentaux.
+- `../sources/` : adaptateurs Yahoo, SEC-only, SimFin et StockAnalysis ;
+- `../ingestion/` : orchestration, transactions et stockage ;
+- `../quality/` : diagnostics fournisseurs ;
+- `../publishing/` : consolidation et publication.
 
-Les modules d'étape ne dépendent jamais de l'orchestrateur.
+Les modules d'étape ne dépendent jamais de l'orchestrateur. Aucun nouveau
+provider, audit ou publisher n'est placé dans cette façade.
 
 ## Dossier enfant
 

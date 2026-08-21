@@ -52,7 +52,7 @@ from alpharank.backtest.time_folds import (
     rolling_fold_windows,
     walk_forward_windows,
 )
-from alpharank.data.lineage import load_latest_manifest, write_manifest
+from alpharank.data.lineage.snapshots import load_latest_manifest, write_manifest
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.multihorizon.preprocessing import (
     FoldPreprocessor,

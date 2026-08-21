@@ -4,7 +4,7 @@ import json
 
 import polars as pl
 
-from alpharank.data.ticker_integrity import (
+from alpharank.data.contracts.ticker_integrity import (
     exclude_tickers_from_frame,
     load_ticker_exclusion_registry,
 )

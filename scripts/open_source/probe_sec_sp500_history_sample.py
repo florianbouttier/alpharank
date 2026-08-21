@@ -9,15 +9,15 @@ import random
 
 import polars as pl
 
-from alpharank.data.open_source.benchmark import load_sp500_tickers_for_year
-from alpharank.data.open_source.consolidation import FinancialSourceInput, consolidate_financial_sources
-from alpharank.data.open_source.earnings import (
+from alpharank.data.quality.benchmark import load_sp500_tickers_for_year
+from alpharank.data.publishing.consolidation import FinancialSourceInput, consolidate_financial_sources
+from alpharank.data.sources.earnings import (
     align_sec_actuals_to_calendar,
     build_sec_companyfacts_earnings_actuals,
     empty_earnings_actuals_frame,
     empty_earnings_calendar_frame,
 )
-from alpharank.data.open_source.pipeline import _combine_sec_earnings_actuals
+from alpharank.data.ingestion.cadrage import _combine_sec_earnings_actuals
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 

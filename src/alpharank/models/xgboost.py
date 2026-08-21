@@ -16,7 +16,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import TimeSeriesSplit
 
 from alpharank.strategy.base import BaseStrategy
-from alpharank.data.datasets import clean_to_category
+from alpharank.data.contracts.datasets import clean_to_category
 from alpharank.models.shap_analysis import run_shap_analysis
 from alpharank.observability import get_run_logger
 from alpharank.utils.xgboost_runtime import load_xgboost

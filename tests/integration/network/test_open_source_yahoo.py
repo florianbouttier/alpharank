@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import polars as pl
 
-from alpharank.data.open_source.yahoo import YahooFinanceClient, _normalize_yahoo_symbol
+from alpharank.data.sources.yahoo import YahooFinanceClient, _normalize_yahoo_symbol
 
 
 class _FakeTicker:
@@ -33,7 +33,7 @@ def test_stock_split_fetch_retries_with_fresh_ticker(monkeypatch) -> None:
     client = YahooFinanceClient()
     monkeypatch.setattr(client, "_ticker", lambda ticker: FakeSplitTicker(empty_actions))
     monkeypatch.setattr(client, "_fresh_ticker", lambda ticker: FakeSplitTicker(split_actions))
-    monkeypatch.setattr("alpharank.data.open_source.yahoo.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("alpharank.data.sources.yahoo.time.sleep", lambda seconds: None)
 
     splits = client.fetch_stock_splits(["MNST"])
 
@@ -144,7 +144,7 @@ def test_quarterly_financials_are_fetched_once_per_run(tmp_path: Path, monkeypat
             )
         ]
 
-    monkeypatch.setattr("alpharank.data.open_source.yahoo._fetch_ticker_financial_frames", fetch)
+    monkeypatch.setattr("alpharank.data.sources.yahoo._fetch_ticker_financial_frames", fetch)
 
     assert client.fetch_quarterly_financials(["AAPL"]).height == 1
     assert client.fetch_quarterly_financials(["AAPL.US"]).height == 1

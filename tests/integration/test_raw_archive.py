@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.raw_archive import (
+from alpharank.data.ingestion.raw_archive import (
     archive_raw_frame_delta,
     reconstruct_raw_frame,
     record_raw_download,

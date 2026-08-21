@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Mapping
 from uuid import uuid4
 
-from alpharank.data.snapshot_storage import copy_snapshot_file
+from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
 from alpharank.governance_contracts.common import (
     files_under as _files_under,
 )

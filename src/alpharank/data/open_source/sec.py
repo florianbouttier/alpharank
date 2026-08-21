@@ -11,7 +11,7 @@ from typing import Any, Iterable
 import polars as pl
 import requests
 
-from alpharank.data.open_source.config import METRIC_SPECS
+from alpharank.data.ingestion.config import METRIC_SPECS
 
 REVENUE_COMPONENT_INTEREST_TAGS: tuple[str, ...] = (
     "InterestAndDividendIncomeOperating",
@@ -77,7 +77,7 @@ class SecCompanyFactsClient:
         if not row.is_empty():
             return row.select(pl.col("cik").cast(pl.Int64)).item()
         # Apply normalization overrides
-        from alpharank.data.open_source.backfill import normalize_sec_ticker
+        from alpharank.data.ingestion.backfill import normalize_sec_ticker
         normalized = normalize_sec_ticker(ticker_root)
         if normalized != ticker_root:
             row = mapping.filter(pl.col("ticker") == normalized)

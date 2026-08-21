@@ -7,9 +7,9 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.mart import resolve_mart_model_input
-from alpharank.data.snapshot_publication import validate_snapshot_publication
-from alpharank.data.warehouse_migration import (
+from alpharank.data.warehouse.mart import resolve_mart_model_input
+from alpharank.data.publishing.snapshot_publication import validate_snapshot_publication
+from alpharank.data.warehouse.migration import (
     catalog_existing_eodhd,
     migrate_validated_snapshot_to_warehouse,
     promote_mart_pointer,

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.earnings import build_sec_companyfacts_earnings_actuals
+from alpharank.data.sources.earnings import build_sec_companyfacts_earnings_actuals
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 
 

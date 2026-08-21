@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.open_source.publishing import publish_open_source_output_package
+from alpharank.data.publishing.open_source_package import publish_open_source_output_package
 
 
 def test_publisher_rejects_diagnostic_source_refresh_contract(tmp_path: Path) -> None:

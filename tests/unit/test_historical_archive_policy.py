@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from alpharank.data.legacy_archive_policy import (
+from alpharank.data.lineage.legacy_archive_policy import (
     assert_legacy_path_not_writable,
     build_legacy_archive_policy,
     validate_legacy_archive_policy,

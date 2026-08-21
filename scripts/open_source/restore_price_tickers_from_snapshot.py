@@ -6,8 +6,8 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.ingestion_frames import _with_price_ingestion_metadata
-from alpharank.data.open_source.storage import (
+from alpharank.data.ingestion.frames import _with_price_ingestion_metadata
+from alpharank.data.ingestion.storage import (
     OpenSourceLivePaths,
     acquire_process_json_lock,
     append_run_delta,

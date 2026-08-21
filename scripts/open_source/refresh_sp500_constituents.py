@@ -10,7 +10,7 @@ import tempfile
 
 import polars as pl
 
-from alpharank.data.open_source.constituents import (
+from alpharank.data.sources.constituents import (
     load_constituent_change_registry,
     refresh_monthly_constituents,
     sha256_file,

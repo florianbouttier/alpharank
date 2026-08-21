@@ -6,7 +6,7 @@ from dataclasses import asdict
 import json
 from pathlib import Path
 
-from alpharank.data.warehouse_migration import migrate_validated_snapshot_to_warehouse
+from alpharank.data.warehouse.migration import migrate_validated_snapshot_to_warehouse
 
 
 def main() -> int:
