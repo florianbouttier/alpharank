@@ -67,6 +67,7 @@ symbole observé et `security_id` pour l'identité durable.
 | fonction | 50 lignes | revue bloquante au-delà de 80 |
 | module de bibliothèque | 500 lignes | plan de découpage au-delà de 800 |
 | script | 150 lignes | maximum 250 |
+| fichiers `.py` directement dans un dossier | 12 à 15 | maximum 20, `__init__.py` compris |
 | paramètres de fonction | 5 | config nommée au-delà |
 | complexité cyclomatique | 8 | maximum 10 |
 | niveaux d'imbrication | 3 | maximum 4 |
@@ -74,6 +75,12 @@ symbole observé et `security_id` pour l'identité durable.
 Une fonction a un verbe et une responsabilité. Une classe représente un objet,
 un service ou une politique stable ; elle ne sert pas à cacher un fichier de
 fonctions dans un état mutable.
+
+Le plafond de 20 modules se contourne uniquement par une approbation explicite
+du propriétaire enregistrée selon
+[`repository.md`](repository.md). Un fichier long mais cohérent n'est pas
+découpé artificiellement pour réduire sa taille ; inversement, plusieurs
+responsabilités ne restent pas empilées dans un dossier plat.
 
 Préférer :
 

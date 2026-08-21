@@ -20,6 +20,8 @@ and tool output, but it must not contain portfolio, data or model logic.
   keys or structural drift recursively before execution.
 - `code_inventory.py` maps tracked Python entrypoints, imports, command edges
   and reverse readers without importing application modules.
+- `python_directories.py` limite à vingt le nombre de fichiers Python directement
+  stockés dans un dossier et refuse toute dérogation sans approbation nominative.
 - `data_locations.py` maps each current data file/package to its target role
   and tracks active Python readers without copying or hashing payloads.
 

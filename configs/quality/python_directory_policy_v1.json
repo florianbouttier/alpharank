@@ -1,0 +1,13 @@
+{
+  "approved_exceptions": [],
+  "counted_filename_pattern": "*.py",
+  "effective_after_task": "CODEORG-005",
+  "maximum_files_per_directory": 20,
+  "policy_id": "python_directory_policy_v1",
+  "schema_version": 1,
+  "scope_roots": [
+    "src",
+    "scripts",
+    "tests"
+  ]
+}

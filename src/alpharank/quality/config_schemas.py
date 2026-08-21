@@ -46,6 +46,10 @@ CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("configs/data_quality/terminal_successor_prices_v1.json",),
     ),
     ("ruff_baseline", ("configs/quality/ruff_baseline_v1.json",)),
+    (
+        "python_directory_policy",
+        ("configs/quality/python_directory_policy_v1.json",),
+    ),
     ("pytest_suite_policy", ("configs/quality/test_suites_v1.json",)),
     (
         "approved_terminal_target_censoring",

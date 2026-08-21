@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-20.**
+**Dernière mise à jour : 2026-08-21.**
 
 **Statut : seule source des priorités actives.**
 
@@ -45,6 +45,11 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 6 | `QUAL-002` | configurer Ruff sans reformatage global | lot QUAL ci-dessous | fait |
 | 7 | `METH-001` | matérialiser la clôture comme convention runtime canonique | `LEG-005` | fait |
 | 8 | `METH-002` | séparer les deux identités SNDK et reconstruire les résultats | `LIVE-022` | fait |
+| 9 | `CODEORG-001` | imposer un plafond de modules Python et inventorier les violations | lot CODEORG ci-dessous | fait |
+| 10 | `CODEORG-002` | ranger les responsabilités data sans changer les API économiques | lot CODEORG ci-dessous | à faire |
+| 11 | `CODEORG-003` | classer les scripts par responsabilité et conserver les commandes publiques | lot CODEORG ci-dessous | à faire |
+| 12 | `CODEORG-004` | classer les tests unitaires et d'intégration par domaine | lot CODEORG ci-dessous | à faire |
+| 13 | `CODEORG-005` | activer le plafond en CI après zéro violation | lot CODEORG ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -182,7 +187,22 @@ les plus faciles à déplacer.
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 
-## 10. Lot TEST — rendre les preuves navigables
+## 10. Lot CODEORG — empêcher les dossiers Python de redevenir des piles
+
+Le plafond porte sur les fichiers directement présents dans un dossier : un
+sous-package n'est acceptable que s'il possède une responsabilité et une
+frontière de dépendance compréhensibles. Aucun résultat data ou économique ne
+change dans ce lot.
+
+| ID | Action | Statut | Contrôle obligatoire |
+| --- | --- | --- | --- |
+| `CODEORG-001` | fixer le plafond à 20 fichiers `.py`, dérogation uniquement approuvée par le propriétaire, et inventorier les violations courantes | fait | politique versionnée, validateur testé ; 435 fichiers dans 32 dossiers, 7 violations et zéro dérogation |
+| `CODEORG-002` | répartir `src/alpharank/data` et l'empilement `data/open_source` selon contrats, sources, entrepôt, lignée, qualité et publication | à faire | imports inventoriés, tests data verts et aucune modification de calcul |
+| `CODEORG-003` | répartir la racine des scripts, `scripts/open_source` et `scripts/experiments` par usage durable | à faire | commandes publiques conservées, inventaire des appels à jour et scripts exécutables hors dépôt |
+| `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | à faire | mêmes fonctions, corps AST, assertions et collecte canonique |
+| `CODEORG-005` | activer le contrôle bloquant dans la gate statique | à faire | zéro dossier au-dessus de 20, zéro exception et CI ciblée verte |
+
+## 11. Lot TEST — rendre les preuves navigables
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
@@ -191,7 +211,7 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 | `TESTORG-003` | découper les deux fichiers de tests de plus de 1 000 lignes | fait | 42 scénarios et 127 assertions préservés bit à bit au niveau AST ; aucun module de test au-dessus de 1 000 lignes |
 | `TESTORG-004` | centraliser uniquement les fixtures réellement partagées | fait | une seule fixture racine isole le contexte de run entre suites ; helpers métier et fixtures Pytest restent locaux ou natifs |
 
-## 11. Lot DATA — converger sans retélécharger ni perdre une révision
+## 12. Lot DATA — converger sans retélécharger ni perdre une révision
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
@@ -210,7 +230,7 @@ Aucune suppression physique de données n'est autorisée par ce lot. Une éventu
 politique de rétention fera l'objet d'une décision séparée après mesure des
 doublons exacts et preuve de récupération.
 
-## 12. Lot RUN — remettre de l'ordre dans résultats et journaux
+## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
@@ -221,7 +241,7 @@ doublons exacts et preuve de récupération.
 | `RUNORG-005` | produire des pointeurs `latest` atomiques sans copier les résultats | fait | pointeur atomique vers un run publié, manifeste et arbre hashés, copie immuable du pointeur, zéro copie de résultat |
 | `RUNORG-006` | mesurer les doublons exacts et proposer une rétention réversible | fait | 3 866 groupes SHA-256, 10 404 copies et 11,32 Go récupérables mesurés ; proposition réversible, zéro suppression |
 
-## 13. Ordre d'exécution et portes de décision
+## 14. Ordre d'exécution et portes de décision
 
 1. **Documentation** : terminer `DOC-*`, sans code ni donnée.
 2. **Validation des normes** : le propriétaire approuve ou modifie

@@ -174,6 +174,15 @@ reste dans son domaine. Un module commun est accepté seulement s'il est :
 
 ## 5. Modules et API publiques
 
+- Un dossier maintenu sous `src/`, `scripts/` ou `tests/` contient au maximum
+  **20 fichiers `.py` directement**, `__init__.py` compris. Les sous-dossiers
+  doivent exprimer des responsabilités métier ou techniques nommées, jamais
+  servir de tranches numériques (`part_1`, `part_2`).
+- Dépasser ce plafond est bloquant. Une dérogation n'existe que si le
+  propriétaire l'approuve explicitement ; elle est alors nominative, datée,
+  motivée et reliée à un `TASK-ID` dans
+  `configs/quality/python_directory_policy_v1.json`. Un agent ne crée jamais
+  seul une exception et aucune dette existante n'est automatiquement exemptée.
 - Chaque package expose son API dans `__init__.py` avec une liste courte et
   intentionnelle.
 - Un consommateur n'importe pas un sous-module privé d'un autre domaine.

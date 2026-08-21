@@ -1,0 +1,288 @@
+{
+  "approved_exception_count": 0,
+  "directories": [
+    {
+      "directory": "scripts",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 29
+    },
+    {
+      "directory": "scripts/_archive/2026-08-20",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
+    },
+    {
+      "directory": "scripts/experiments",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 42
+    },
+    {
+      "directory": "scripts/maintenance",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 10
+    },
+    {
+      "directory": "scripts/open_source",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 35
+    },
+    {
+      "directory": "scripts/quality",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 5
+    },
+    {
+      "directory": "src",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 1
+    },
+    {
+      "directory": "src/alpharank",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 9
+    },
+    {
+      "directory": "src/alpharank/backtest",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 17
+    },
+    {
+      "directory": "src/alpharank/data",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 25
+    },
+    {
+      "directory": "src/alpharank/data/open_source",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 34
+    },
+    {
+      "directory": "src/alpharank/data/prices",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 8
+    },
+    {
+      "directory": "src/alpharank/features",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 1
+    },
+    {
+      "directory": "src/alpharank/governance_contracts",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 10
+    },
+    {
+      "directory": "src/alpharank/models",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 3
+    },
+    {
+      "directory": "src/alpharank/multihorizon",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 15
+    },
+    {
+      "directory": "src/alpharank/portfolio",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 16
+    },
+    {
+      "directory": "src/alpharank/portfolio/adapters",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 3
+    },
+    {
+      "directory": "src/alpharank/production",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 2
+    },
+    {
+      "directory": "src/alpharank/quality",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 12
+    },
+    {
+      "directory": "src/alpharank/replay",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
+    },
+    {
+      "directory": "src/alpharank/reporting",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 3
+    },
+    {
+      "directory": "src/alpharank/strategy",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 8
+    },
+    {
+      "directory": "src/alpharank/utils",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
+    },
+    {
+      "directory": "src/alpharank/visualization",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 3
+    },
+    {
+      "directory": "tests",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 1
+    },
+    {
+      "directory": "tests/integration",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 38
+    },
+    {
+      "directory": "tests/integration/network",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 3
+    },
+    {
+      "directory": "tests/production",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 4
+    },
+    {
+      "directory": "tests/replay",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 9
+    },
+    {
+      "directory": "tests/unit",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 67
+    },
+    {
+      "directory": "tests/unit/quality",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 1
+    }
+  ],
+  "directory_count": 32,
+  "inventory_id": "alpharank_python_directory_inventory_v1",
+  "maximum_files_per_directory": 20,
+  "policy_id": "python_directory_policy_v1",
+  "python_file_count": 435,
+  "schema_version": 1,
+  "source_policy": "tracked_files_only",
+  "violation_count": 7,
+  "violations": [
+    {
+      "directory": "scripts",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 29
+    },
+    {
+      "directory": "scripts/experiments",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 42
+    },
+    {
+      "directory": "scripts/open_source",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 35
+    },
+    {
+      "directory": "src/alpharank/data",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 25
+    },
+    {
+      "directory": "src/alpharank/data/open_source",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 34
+    },
+    {
+      "directory": "tests/integration",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 38
+    },
+    {
+      "directory": "tests/unit",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": false,
+      "python_file_count": 67
+    }
+  ]
+}

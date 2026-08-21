@@ -1149,6 +1149,57 @@
     },
     {
       "example_files": [
+        "configs/quality/python_directory_policy_v1.json"
+      ],
+      "family_id": "python_directory_policy",
+      "patterns": [
+        "configs/quality/python_directory_policy_v1.json"
+      ],
+      "schema": {
+        "additional_properties": false,
+        "properties": {
+          "approved_exceptions": {
+            "items": {
+              "type": "any"
+            },
+            "type": "array"
+          },
+          "counted_filename_pattern": {
+            "type": "string"
+          },
+          "effective_after_task": {
+            "type": "string"
+          },
+          "maximum_files_per_directory": {
+            "type": "integer"
+          },
+          "policy_id": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "scope_roots": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "approved_exceptions",
+          "counted_filename_pattern",
+          "effective_after_task",
+          "maximum_files_per_directory",
+          "policy_id",
+          "schema_version",
+          "scope_roots"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "example_files": [
         "configs/quality/test_suites_v1.json"
       ],
       "family_id": "pytest_suite_policy",
