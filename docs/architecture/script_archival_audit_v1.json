@@ -85,7 +85,7 @@
     {
       "active_readers": [
         "docs/sec_open_source_status.md",
-        "tests/unit/test_run_sec_q4_fix2_candidate.py"
+        "tests/unit/data/test_run_sec_q4_fix2_candidate.py"
       ],
       "archive_path": null,
       "decision": "retained",

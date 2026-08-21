@@ -1,11 +1,4 @@
-# Contrôles qualité unitaires
+# Tests unitaires qualité du dépôt
 
-Responsabilité : tests isolés des politiques de qualité du dépôt.
-
-Entrées : configurations versionnées et petits dépôts Git temporaires.
-
-Sorties : preuves déterministes sur les inventaires et refus de régression.
-
-Dossiers enfants : aucun.
-
-Interdit ici : logique métier, accès réseau et artefact de production.
+Validateurs de structure, documentation, configuration, inventaires, collecte
+Pytest, règles Ruff et indépendance des commandes.

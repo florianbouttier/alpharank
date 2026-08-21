@@ -22,6 +22,23 @@ ALLOWED_TEST_DOMAINS = (
     "replay_governance",
     "reporting",
 )
+DIRECTORY_TEST_DOMAINS = {
+    "backtest": "backtest",
+    "boosting": "boosting",
+    "data": "data",
+    "fundamentals": "data",
+    "governance": "replay_governance",
+    "ingestion": "data",
+    "legacy": "legacy",
+    "network": "data",
+    "portfolio": "portfolio",
+    "prices": "data",
+    "publishing": "data",
+    "quality": "quality_tooling",
+    "replay": "replay_governance",
+    "reporting": "reporting",
+    "warehouse": "data",
+}
 
 
 class TestMeasurement(TypedDict):
@@ -132,9 +149,19 @@ def build_test_catalog(
 
 
 def classify_test_domain(path: str) -> str:
-    """Assign one stable business or tooling owner from the test filename."""
+    """Assign one stable owner from the domain directory, then the filename."""
 
-    name = Path(path).stem.removeprefix("test_")
+    parsed_path = Path(path)
+    parts = parsed_path.parts
+    if len(parts) > 3 and parts[:2] in {
+        ("tests", "unit"),
+        ("tests", "integration"),
+    }:
+        directory_domain = DIRECTORY_TEST_DOMAINS.get(parts[2])
+        if directory_domain is not None:
+            return directory_domain
+
+    name = parsed_path.stem.removeprefix("test_")
     if name.startswith(("backtest_", "mlcraft_", "alpha_shap_")):
         return "backtest"
     if name.startswith("multihorizon_"):

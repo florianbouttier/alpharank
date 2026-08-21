@@ -26,7 +26,8 @@
     {
       "suite": "integration",
       "patterns": [
-        "tests/integration/test_*.py"
+        "tests/integration/test_*.py",
+        "tests/integration/**/test_*.py"
       ]
     }
   ]

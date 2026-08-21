@@ -49,7 +49,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 10 | `CODEORG-002` | ranger les responsabilités data sans changer les API économiques | lot CODEORG ci-dessous | fait |
 | 11 | `CODEORG-003` | classer les scripts par responsabilité et conserver les commandes publiques | lot CODEORG ci-dessous | fait |
 | 12 | `CODEORG-006` | restaurer le mode exécutable perdu pendant le déplacement d'une commande | lot CODEORG ci-dessous | fait |
-| 13 | `CODEORG-004` | classer les tests unitaires et d'intégration par domaine | lot CODEORG ci-dessous | à faire |
+| 13 | `CODEORG-004` | classer les tests unitaires et d'intégration par domaine | lot CODEORG ci-dessous | fait |
 | 14 | `CODEORG-005` | activer le plafond en CI après zéro violation | lot CODEORG ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
@@ -201,7 +201,7 @@ change dans ce lot.
 | `CODEORG-002` | répartir `src/alpharank/data` et l'empilement `data/open_source` selon contrats, sources, entrepôt, lignée, qualité et publication | fait | 48 déplacements inventoriés ; dossiers data entre 4 et 13 modules, collecte complète et tests data verts, aucun calcul modifié |
 | `CODEORG-003` | répartir la racine des scripts, `scripts/open_source` et `scripts/experiments` par usage durable | fait | 90 implémentations déplacées et 32 façades stables inventoriées ; racines à 15, 19 et 16 fichiers avec le worktree courant ; 6 commandes exécutées hors dépôt, 32 façades importées et 26 tests ciblés verts |
 | `CODEORG-006` | restaurer le mode exécutable de `build_sec_output_package_with_backfill.py` après son déplacement | fait | contenu inchangé, mode indexé `100755`, compilation et chargement hors dépôt validés sans lancer la publication |
-| `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | à faire | mêmes fonctions, corps AST, assertions et collecte canonique |
+| `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | fait | 100 déplacements ; signatures identiques pour 339 tests et 1 105 assertions ; collecte de 465 scénarios sans retrait, les 3 ajouts provenant de CODEORG-001/003 ; zéro dossier au-dessus du plafond |
 | `CODEORG-005` | activer le contrôle bloquant dans la gate statique | à faire | zéro dossier au-dessus de 20, zéro exception et CI ciblée verte |
 
 ## 11. Lot TEST — rendre les preuves navigables

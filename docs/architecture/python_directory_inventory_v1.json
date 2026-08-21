@@ -327,8 +327,22 @@
       "directory": "tests/integration",
       "exception_reference": null,
       "limit": 20,
-      "passed": false,
-      "python_file_count": 38
+      "passed": true,
+      "python_file_count": 2
+    },
+    {
+      "directory": "tests/integration/fundamentals",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
+    },
+    {
+      "directory": "tests/integration/ingestion",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 8
     },
     {
       "directory": "tests/integration/network",
@@ -336,6 +350,34 @@
       "limit": 20,
       "passed": true,
       "python_file_count": 3
+    },
+    {
+      "directory": "tests/integration/prices",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 9
+    },
+    {
+      "directory": "tests/integration/publishing",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
+    },
+    {
+      "directory": "tests/integration/replay",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 1
+    },
+    {
+      "directory": "tests/integration/warehouse",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 4
     },
     {
       "directory": "tests/production",
@@ -355,39 +397,73 @@
       "directory": "tests/unit",
       "exception_reference": null,
       "limit": 20,
-      "passed": false,
-      "python_file_count": 67
+      "passed": true,
+      "python_file_count": 3
+    },
+    {
+      "directory": "tests/unit/backtest",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 6
+    },
+    {
+      "directory": "tests/unit/boosting",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 5
+    },
+    {
+      "directory": "tests/unit/data",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 14
+    },
+    {
+      "directory": "tests/unit/governance",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
+    },
+    {
+      "directory": "tests/unit/legacy",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 4
+    },
+    {
+      "directory": "tests/unit/portfolio",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 8
     },
     {
       "directory": "tests/unit/quality",
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 1
+      "python_file_count": 14
+    },
+    {
+      "directory": "tests/unit/reporting",
+      "exception_reference": null,
+      "limit": 20,
+      "passed": true,
+      "python_file_count": 7
     }
   ],
-  "directory_count": 52,
+  "directory_count": 65,
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
   "python_file_count": 475,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
-  "violation_count": 2,
-  "violations": [
-    {
-      "directory": "tests/integration",
-      "exception_reference": null,
-      "limit": 20,
-      "passed": false,
-      "python_file_count": 38
-    },
-    {
-      "directory": "tests/unit",
-      "exception_reference": null,
-      "limit": 20,
-      "passed": false,
-      "python_file_count": 67
-    }
-  ]
+  "violation_count": 0,
+  "violations": []
 }

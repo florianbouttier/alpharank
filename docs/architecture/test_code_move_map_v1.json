@@ -1,0 +1,934 @@
+{
+  "canonicalization": "test filename plus selectors; parent directories ignored",
+  "map_id": "alpharank_test_domain_move_map_v1",
+  "move_count": 100,
+  "moved_assertion_count": 1105,
+  "moved_test_function_count": 339,
+  "moves": [
+    {
+      "body_signature": {
+        "assertion_count": 11,
+        "test_ast_sha256": "1ef7286a4fcc7ca0d4707a7158fcc469b3b6b1c8cbece2e4fc489699da9b2334",
+        "test_count": 4
+      },
+      "source": "tests/unit/test_backtest_data_source.py",
+      "target": "tests/unit/backtest/test_backtest_data_source.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "ac08b14b0f7c5063c3b9da236b42eb4dd011c6feb94e26c0dfaaff41016f1d13",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_backtest_model_artifacts.py",
+      "target": "tests/unit/backtest/test_backtest_model_artifacts.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 5,
+        "test_ast_sha256": "4f7c6fa894755af3d811a4cea10c4ae3af5df850ba59372d3cf7ce5d1cd013ad",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_backtest_portfolio.py",
+      "target": "tests/unit/backtest/test_backtest_portfolio.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 5,
+        "test_ast_sha256": "8f5d2ec17cac9f456ac82b483f35c751114a1296ce487e73e163f8f2d6f263e5",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_backtest_preprocessing.py",
+      "target": "tests/unit/backtest/test_backtest_preprocessing.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 14,
+        "test_ast_sha256": "4884b7744e329a227a3cd407c3f85e4b2c6ced53bd3a296e19d4c0826c17d694",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_backtest_time_folds.py",
+      "target": "tests/unit/backtest/test_backtest_time_folds.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 13,
+        "test_ast_sha256": "2760c26794977f7960a4a3498e4f902d897dd45e8cf0212d182a2488181d331f",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_mlcraft_adapter.py",
+      "target": "tests/unit/backtest/test_mlcraft_adapter.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 14,
+        "test_ast_sha256": "5f1024338632497f5129cf09f5b9f8d9035c4ffed257979bbffcc5e8390c38da",
+        "test_count": 6
+      },
+      "source": "tests/unit/test_multihorizon_confirmation.py",
+      "target": "tests/unit/boosting/test_multihorizon_confirmation.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "0a23509b0d4bdea09101a122b39ab3911afe43cb92d430800530364e6cab622b",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_multihorizon_explain.py",
+      "target": "tests/unit/boosting/test_multihorizon_explain.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 5,
+        "test_ast_sha256": "eaddb509e4c5d987e9b6bc28e721aa9cf0cf2cb149d410df002fa558d2e3d85b",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_multihorizon_live.py",
+      "target": "tests/unit/boosting/test_multihorizon_live.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 62,
+        "test_ast_sha256": "fd9290b64f78c4646e06bce45e6922be8e15ab7dd6fd0608bb2402293e04ec2b",
+        "test_count": 28
+      },
+      "source": "tests/unit/test_multihorizon_research.py",
+      "target": "tests/unit/boosting/test_multihorizon_research.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 8,
+        "test_ast_sha256": "46669f38d9a36020256930058ccc31a7bcaf8bbff70823eb5e6abb748dcda118",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_multihorizon_trading.py",
+      "target": "tests/unit/boosting/test_multihorizon_trading.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 10,
+        "test_ast_sha256": "c0e6f45932da9cc2dfdb33d35f491c3d763ae7a0f7538056ed51f061e93d42ba",
+        "test_count": 4
+      },
+      "source": "tests/unit/test_definitive.py",
+      "target": "tests/unit/data/test_definitive.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "f4796b4c48c2371b1edee83684c773b5f814c5e7bcc744bbd616666c4d02970f",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_feature_availability.py",
+      "target": "tests/unit/data/test_feature_availability.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "e07ffee43a7e250c00253fc29f8e36f791084e0b730f27c118a0847024fdb472",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_fundamental_coverage.py",
+      "target": "tests/unit/data/test_fundamental_coverage.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "c7f2919cdb27b82b813f47e0133d3fd58d99e4f573c7a19d9f87079a8f8adbfb",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_fundamental_processing.py",
+      "target": "tests/unit/data/test_fundamental_processing.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "3f1e4a977118e167e9235fcf8f7d57417cbb236ceb0aec6fe40cd61913294494",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_historical_archive_policy.py",
+      "target": "tests/unit/data/test_historical_archive_policy.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 5,
+        "test_ast_sha256": "ebd0019e03d306576e977b5b0592af63bc2809b5deec32e57553e5f83b7fb0d5",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_output_history_compaction.py",
+      "target": "tests/unit/data/test_output_history_compaction.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "3a7d452cb9449f5c4305313c62289be064f9e5843a46c99d123dbb4157af7b70",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_raw_provider_contracts.py",
+      "target": "tests/unit/data/test_raw_provider_contracts.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 1,
+        "test_ast_sha256": "93ba87cd2f0a8767df6d5e5591d006a7e89ee29dc85f5220b30d209b4b161315",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_run_sec_q4_fix2_candidate.py",
+      "target": "tests/unit/data/test_run_sec_q4_fix2_candidate.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 8,
+        "test_ast_sha256": "f3c4a21a0acea59a86a76731b31edd878d95f527c0b1ec77e32c37dbc9678e08",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_sec_output_identity_overlay.py",
+      "target": "tests/unit/data/test_sec_output_identity_overlay.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 1,
+        "test_ast_sha256": "cbae06dc65e58936b4bbb8cf5b22bff2fea7628f03abfa7696f6c6be084afd76",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_sec_raw_versions.py",
+      "target": "tests/unit/data/test_sec_raw_versions.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 7,
+        "test_ast_sha256": "a7059625718cd118d160c5fc78b0c6a672b1c592d89193ed68c8ef7f14deb201",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_sector_history.py",
+      "target": "tests/unit/data/test_sector_history.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 10,
+        "test_ast_sha256": "b73db0a24ff0f6e507eeb1294052a36d53617f2af9836a3ec8571c4a8de35f51",
+        "test_count": 5
+      },
+      "source": "tests/unit/test_security_identity.py",
+      "target": "tests/unit/data/test_security_identity.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "dddb9f67011cbb2cc39de88d91375385ff872b5c4b7bdaea07ce2ed9ad6f0ec6",
+        "test_count": 4
+      },
+      "source": "tests/unit/test_staging.py",
+      "target": "tests/unit/data/test_staging.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 5,
+        "test_ast_sha256": "17ba16f11c0fc707e473fd9cb935d5d0983d5a62b9cb7742e718c2b4a2a67c8e",
+        "test_count": 4
+      },
+      "source": "tests/unit/test_ticker_integrity.py",
+      "target": "tests/unit/data/test_ticker_integrity.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 8,
+        "test_ast_sha256": "1dac0ed160a12e4afa48c220c2953260365be23ae5b5ccf72b3c0437de328a98",
+        "test_count": 4
+      },
+      "source": "tests/unit/test_governance_baseline.py",
+      "target": "tests/unit/governance/test_governance_baseline.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 2,
+        "test_ast_sha256": "e335e41622d3de1e07b087decd623c05171cfaf0dd982916333ed58fce8d508f",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_governance_run_directory.py",
+      "target": "tests/unit/governance/test_governance_run_directory.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "effca3139fa27ed7c0bd816613a10a6c212acdd08e7d02e6a9f8f114139e3b15",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_governance_runtime_provenance.py",
+      "target": "tests/unit/governance/test_governance_runtime_provenance.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "bc87dce8b2a353a535a3a30f6e5e253a016b9bd2d5a3e4cd278a9301070570cb",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_governance_sealed_confirmation.py",
+      "target": "tests/unit/governance/test_governance_sealed_confirmation.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "dbfcc5d93dd28f0d1b5f5984bcca12bf5fdeb7c04b7abe7a283b63da0d9a7fb0",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_replay_package_api.py",
+      "target": "tests/unit/governance/test_replay_package_api.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "18a25769068f883de9c83cc7bd383a05db4cd9eebd2ac3945ec8022296e243a1",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_run_retention.py",
+      "target": "tests/unit/governance/test_run_retention.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 17,
+        "test_ast_sha256": "aa6f5e147d75021f522d4f9ee0a5db1ecbf2885cc83f981722fc28ca9bf9e9dd",
+        "test_count": 10
+      },
+      "source": "tests/unit/test_run_root_inventory.py",
+      "target": "tests/unit/governance/test_run_root_inventory.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "7843083febcb578654b9e727dc16af1989a371f79cb59f2e2b2c5b3b37f305e7",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_legacy_pipeline_ownership.py",
+      "target": "tests/unit/legacy/test_legacy_pipeline_ownership.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 10,
+        "test_ast_sha256": "990e651babe38ae67f7dfb3760c719d70f3b212261c04a230845dfe190f4daba",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_legacy_search_protocol.py",
+      "target": "tests/unit/legacy/test_legacy_search_protocol.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 12,
+        "test_ast_sha256": "7ece6a2a2a4de1967ae0e8b274fe5efa9f635644be2032a390a834c3cfb42845",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_strategy_legacy.py",
+      "target": "tests/unit/legacy/test_strategy_legacy.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "083e876c8bd175094fcc1d88520277173627365a292fca38ae39133b1e0e98e6",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_strategy_legacy_modules.py",
+      "target": "tests/unit/legacy/test_strategy_legacy_modules.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 14,
+        "test_ast_sha256": "2e7811f8900b8df069efe73f0225e6a7e8aded4e7dc6eefa06b04b07ecf73860",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_portfolio_attribution.py",
+      "target": "tests/unit/portfolio/test_portfolio_attribution.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "00e3e0053b70530a97c7818a2e330a8dbd56702b1a747158841f9c168dfa0bc6",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_portfolio_benchmark.py",
+      "target": "tests/unit/portfolio/test_portfolio_benchmark.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 2,
+        "test_ast_sha256": "3ac6abf8f8011ea91b155c440584ac972e5f709ab281f9b61992aabfe969bceb",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_portfolio_comparison.py",
+      "target": "tests/unit/portfolio/test_portfolio_comparison.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 41,
+        "test_ast_sha256": "e37371ef73e06ca8ae1ea51d8f7181b22dd208e01cb9f207dcc11688cb7da8e3",
+        "test_count": 7
+      },
+      "source": "tests/unit/test_portfolio_execution.py",
+      "target": "tests/unit/portfolio/test_portfolio_execution.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "ed3614c97915d6a9815d609415d64cef3c7e6e79cc86a665491a52ff2fa0728c",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_portfolio_maturity.py",
+      "target": "tests/unit/portfolio/test_portfolio_maturity.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 5,
+        "test_ast_sha256": "81e45aa294a4f1b4cdb5898161763b17140e79b1dfd9dffe9e39219d5cf90239",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_terminal_entry_eligibility.py",
+      "target": "tests/unit/portfolio/test_terminal_entry_eligibility.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 30,
+        "test_ast_sha256": "d2c1af1609063ccb60bf827e18dc5e207b50fbf8b811154e3187038205b700c3",
+        "test_count": 4
+      },
+      "source": "tests/unit/test_terminal_event_registry.py",
+      "target": "tests/unit/portfolio/test_terminal_event_registry.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "4a1a83209091a0a6b9750d4bd436c9ebef4d51d4aa817c070aa5bf2aa439de58",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_terminal_price_registry.py",
+      "target": "tests/unit/portfolio/test_terminal_price_registry.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "34dcdf0469062a18dc6dbc556449ea0e4fc704eddfd0b5e460446ba8d12c3892",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_code_inventory.py",
+      "target": "tests/unit/quality/test_code_inventory.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "e17ff15f31673c49fd235478844345c2312022decad3104b9bcfee5204eeeab0",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_config_schemas.py",
+      "target": "tests/unit/quality/test_config_schemas.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 7,
+        "test_ast_sha256": "1255d518f3a647b0699e890789e8d17c49b3ddd5b618d5b8c096c5b831783d90",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_data_location_inventory.py",
+      "target": "tests/unit/quality/test_data_location_inventory.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "2f92b8a73caa3bf914ba4d6d02c13420fe9d6545f2541611dba67d77c22dfa95",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_dependency_sync.py",
+      "target": "tests/unit/quality/test_dependency_sync.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 1,
+        "test_ast_sha256": "c2275b1017c16060b1532ea2676573f284947a638d6270dbed698ab30f9d4a3b",
+        "test_count": 1
+      },
+      "source": "tests/unit/test_documentation_structure.py",
+      "target": "tests/unit/quality/test_documentation_structure.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "f98d591e378fcc9a589396b72a0a280e47fe823184545463f244690ee9d773b3",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_error_handling_policy.py",
+      "target": "tests/unit/quality/test_error_handling_policy.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "66859851914b97d976517bbf886683f584c83ef349173b0b216947ad0ce4af61",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_observability.py",
+      "target": "tests/unit/quality/test_observability.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "f3aedcaeaf16c6bceb85bcd4d33f8cd8c47f047755e4b7f1b48f954329da04bc",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_root_module_ownership.py",
+      "target": "tests/unit/quality/test_root_module_ownership.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "ae1f39a021a0949471a1c7ac184b93b4cd81625e556cea6870bc09c7bfe5e71b",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_ruff_baseline.py",
+      "target": "tests/unit/quality/test_ruff_baseline.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "2f9c0f1026233c5c5022ad8091550b82b9306a71b1c7f2d37cafbb031eeca39d",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_script_archival_audit.py",
+      "target": "tests/unit/quality/test_script_archival_audit.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "01d057e3e4b5132d101b7d54042f8acb5ad9240964df892acfc59151e12dc3f8",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_script_path_independence.py",
+      "target": "tests/unit/quality/test_script_path_independence.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 15,
+        "test_ast_sha256": "16319ca6b7f4b71c742fda2ebac674776adb6ab8b491ff43430df87e364030e7",
+        "test_count": 4
+      },
+      "source": "tests/unit/test_test_catalog.py",
+      "target": "tests/unit/quality/test_test_catalog.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 9,
+        "test_ast_sha256": "d9cc3d6fa0441d22dda5abdd36fea5741fa0472c59fc5bd9782237cb737e6dc2",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_test_suite_classification.py",
+      "target": "tests/unit/quality/test_test_suite_classification.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 11,
+        "test_ast_sha256": "d9ea01613c9257d3dc20b20151e3b8dcd33262f6c2fde1ac99a7d596fbb35a1b",
+        "test_count": 3
+      },
+      "source": "tests/unit/test_alpha_shap_portfolio_report.py",
+      "target": "tests/unit/reporting/test_alpha_shap_portfolio_report.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 62,
+        "test_ast_sha256": "68141b17ad0d81d42ae17f6450e138630a24259f8e13db73835618ea7b7d3f90",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_central_research_dashboard.py",
+      "target": "tests/unit/reporting/test_central_research_dashboard.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "4cfe1c5d80e143cb5d60e2b7a1fbca5bc9d931e139da289dea95e66f7e4cf165",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_dashboard_boundaries.py",
+      "target": "tests/unit/reporting/test_dashboard_boundaries.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 10,
+        "test_ast_sha256": "5d6a8e2f879306ce58cf87ab05c4b4ff01465d564c313295ad6b2fa3e4a119fd",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_methodology_v2_study.py",
+      "target": "tests/unit/reporting/test_methodology_v2_study.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 10,
+        "test_ast_sha256": "4837b3de954802285766ebf7672a2136d75811b03a56527bf496c1b7151cc99b",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_sec_core_kpi_yearly_report.py",
+      "target": "tests/unit/reporting/test_sec_core_kpi_yearly_report.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "6f93082a14302705cfa4ab30ddd7bf6ef263dfc22acac6db41a9b78d53af163f",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_sec_kpi_scenario_comparison.py",
+      "target": "tests/unit/reporting/test_sec_kpi_scenario_comparison.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 3,
+        "test_ast_sha256": "44d6a34668ab4b27be0284da6a9197af5082dc7f92d793d8849c5859d05de950",
+        "test_count": 2
+      },
+      "source": "tests/unit/test_start_year_performance.py",
+      "target": "tests/unit/reporting/test_start_year_performance.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 10,
+        "test_ast_sha256": "eafb9c7df57e2cc7762aff10c147bf9039e11d6ecef98aba4d8dc66dce3bbc6e",
+        "test_count": 4
+      },
+      "source": "tests/integration/test_open_source_consolidation.py",
+      "target": "tests/integration/fundamentals/test_open_source_consolidation.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 49,
+        "test_ast_sha256": "28770de40a8edebb3cf9c4bc762ea17af91ad8d0a038500bdd1558d058218564",
+        "test_count": 14
+      },
+      "source": "tests/integration/test_open_source_earnings.py",
+      "target": "tests/integration/fundamentals/test_open_source_earnings.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 45,
+        "test_ast_sha256": "57402839143bbf21112829106f52eea52de84148cd6434b4bad189b426ee5ca5",
+        "test_count": 16
+      },
+      "source": "tests/integration/test_open_source_earnings_lineage.py",
+      "target": "tests/integration/fundamentals/test_open_source_earnings_lineage.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 19,
+        "test_ast_sha256": "07648d90eb24f5269f4655f25a832a8f3d5acda7ef54fd39874dbc45537da152",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_open_source_financial_audit.py",
+      "target": "tests/integration/fundamentals/test_open_source_financial_audit.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 1,
+        "test_ast_sha256": "5782bb9c1b6d1da1fd6101155a2e5c27b19bda022a33a6cf605e6478eab47070",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_open_source_financial_versions.py",
+      "target": "tests/integration/fundamentals/test_open_source_financial_versions.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 7,
+        "test_ast_sha256": "5bc9df9901613dfbc871f9e1230708cbd971f9d917d9a70165b07529f61f77ca",
+        "test_count": 4
+      },
+      "source": "tests/integration/test_open_source_fundamental_quality.py",
+      "target": "tests/integration/fundamentals/test_open_source_fundamental_quality.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "412357c68b12e04ff04c55ccd1a2f52c3304d517ae9b193f166df86dcc0a5ccb",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_open_source_sec_metric_hybrid_package.py",
+      "target": "tests/integration/fundamentals/test_open_source_sec_metric_hybrid_package.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 19,
+        "test_ast_sha256": "2649c85d08ebab9d88af93201591f6cf6613da8dcc1d335132b883b11f141492",
+        "test_count": 5
+      },
+      "source": "tests/integration/test_open_source_constituents.py",
+      "target": "tests/integration/ingestion/test_open_source_constituents.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 8,
+        "test_ast_sha256": "4ccc0cd95ee3dbe81373c7949f3f589b35e5c50dd3280b18162836ab512ba172",
+        "test_count": 3
+      },
+      "source": "tests/integration/test_open_source_freshness.py",
+      "target": "tests/integration/ingestion/test_open_source_freshness.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 4,
+        "test_ast_sha256": "4fb56f4fa7ea7d51979359e0030017423323b3ad1609e7cf3867aae5a98d9869",
+        "test_count": 2
+      },
+      "source": "tests/integration/test_open_source_ingestion_modules.py",
+      "target": "tests/integration/ingestion/test_open_source_ingestion_modules.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 2,
+        "test_ast_sha256": "547b7295ee4f935ae9ebfb6ccdbc54345024b3123265e7f5d5e8dea6fe50b685",
+        "test_count": 2
+      },
+      "source": "tests/integration/test_open_source_reference_dir.py",
+      "target": "tests/integration/ingestion/test_open_source_reference_dir.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 2,
+        "test_ast_sha256": "0ca75a18716acb20350277f2960b70ab72457cd334667bd272d336cdd7cdb03a",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_open_source_reference_tickers.py",
+      "target": "tests/integration/ingestion/test_open_source_reference_tickers.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 17,
+        "test_ast_sha256": "951dfa31cfa8e0f61c68ce8a4e3f89b44c58c6415124df4478d529770fee794b",
+        "test_count": 6
+      },
+      "source": "tests/integration/test_open_source_revision_guard.py",
+      "target": "tests/integration/ingestion/test_open_source_revision_guard.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 12,
+        "test_ast_sha256": "b75770d9062f758cc9de4a2ef638fba447297d84e265941db0f635c9d31982a7",
+        "test_count": 4
+      },
+      "source": "tests/integration/test_open_source_storage.py",
+      "target": "tests/integration/ingestion/test_open_source_storage.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 12,
+        "test_ast_sha256": "41e9409551e8163554a56ac22a5ddac08b73926315cb22ad20bd9dbaac55e114",
+        "test_count": 3
+      },
+      "source": "tests/integration/test_open_source_transaction.py",
+      "target": "tests/integration/ingestion/test_open_source_transaction.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 2,
+        "test_ast_sha256": "8e62a3cad986a71071c47b37a961f1efc6ec7cb05317abe0a10d05a6768fd01c",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_open_source_benchmark.py",
+      "target": "tests/integration/prices/test_open_source_benchmark.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 40,
+        "test_ast_sha256": "733c33cf6998d3adbc14a331ff721852494159994aa7275476e5f9bf66f3f97d",
+        "test_count": 12
+      },
+      "source": "tests/integration/test_open_source_price_fallback.py",
+      "target": "tests/integration/prices/test_open_source_price_fallback.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 14,
+        "test_ast_sha256": "1ffeca6d6ee411f071d03fd7e53d86ff2d5a72374aed13871f9f1a67da747037",
+        "test_count": 7
+      },
+      "source": "tests/integration/test_open_source_price_quality.py",
+      "target": "tests/integration/prices/test_open_source_price_quality.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 2,
+        "test_ast_sha256": "61d9a2fdfb8388122cb348ed92e0300e9d7b2ad6737030ec79b1522144b0802b",
+        "test_count": 2
+      },
+      "source": "tests/integration/test_persistent_price_history.py",
+      "target": "tests/integration/prices/test_persistent_price_history.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 29,
+        "test_ast_sha256": "618b55efe4b86d25343730eed40807adabe8ecc04bebef732445f087e7636ed6",
+        "test_count": 7
+      },
+      "source": "tests/integration/test_price_composition.py",
+      "target": "tests/integration/prices/test_price_composition.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 5,
+        "test_ast_sha256": "9692695ed99939a686532e9da8db231653e4e1a85f7fefed2c892124f63284a2",
+        "test_count": 2
+      },
+      "source": "tests/integration/test_price_corporate_actions.py",
+      "target": "tests/integration/prices/test_price_corporate_actions.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 13,
+        "test_ast_sha256": "d347d3cd79b871571a6e7c467b3f5153b3db51abb63f8be2266dd1aa62cf74c7",
+        "test_count": 5
+      },
+      "source": "tests/integration/test_price_gates.py",
+      "target": "tests/integration/prices/test_price_gates.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 10,
+        "test_ast_sha256": "7643e3b343327fd939dd55fc967b38d0c66e04a1a4854b7ca1ebee1b9623aa45",
+        "test_count": 4
+      },
+      "source": "tests/integration/test_price_revisions.py",
+      "target": "tests/integration/prices/test_price_revisions.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 7,
+        "test_ast_sha256": "1844e7ca9866711b1b23113823557575ef63883128ff1c66273bf774d1af8a39",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_price_seed.py",
+      "target": "tests/integration/prices/test_price_seed.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 0,
+        "test_ast_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "test_count": 0
+      },
+      "source": "tests/integration/_legacy_export_support.py",
+      "target": "tests/integration/publishing/_legacy_export_support.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 1,
+        "test_ast_sha256": "39ac54305080547b9cc5a64107bfd2ddbac9b37a2bc39f5e987d600cae0dd1a7",
+        "test_count": 2
+      },
+      "source": "tests/integration/test_build_roll_forward_price_package.py",
+      "target": "tests/integration/publishing/test_build_roll_forward_price_package.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 12,
+        "test_ast_sha256": "bf6a6f6526c0bb72ac25d038ffaa41ee14068e2ce061db3a0bbd42f609967058",
+        "test_count": 6
+      },
+      "source": "tests/integration/test_composed_snapshot.py",
+      "target": "tests/integration/publishing/test_composed_snapshot.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 16,
+        "test_ast_sha256": "5804cac64511c20bb45f44aecb446a42a87ab0feae0c542f4cc98b82609847f2",
+        "test_count": 5
+      },
+      "source": "tests/integration/test_open_source_legacy_export.py",
+      "target": "tests/integration/publishing/test_open_source_legacy_export.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 17,
+        "test_ast_sha256": "581c1e775965264345d3c3706f94b51ab8e2ff07fe2855e949f4bfe9bbbbaa42",
+        "test_count": 7
+      },
+      "source": "tests/integration/test_open_source_legacy_export_semantics.py",
+      "target": "tests/integration/publishing/test_open_source_legacy_export_semantics.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 21,
+        "test_ast_sha256": "c5d82bcb9734c4d342a10177cc5a77b86b38fe8563b50c657b41cc90f5357933",
+        "test_count": 2
+      },
+      "source": "tests/integration/test_open_source_publishing.py",
+      "target": "tests/integration/publishing/test_open_source_publishing.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 29,
+        "test_ast_sha256": "724ef5160fb4bdf771c6b729d4bc2e45a82b2e52f4dbb624f189cefe73629373",
+        "test_count": 7
+      },
+      "source": "tests/integration/test_open_source_sec_overlay_package.py",
+      "target": "tests/integration/publishing/test_open_source_sec_overlay_package.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 12,
+        "test_ast_sha256": "7797f9aba2dedd2d8d2b1c19533c86968e76a3a09cec73cd6c4b942d1019de51",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_causal_snapshot.py",
+      "target": "tests/integration/replay/test_causal_snapshot.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 7,
+        "test_ast_sha256": "fcc5b4ecdbd4b5f7f31cfc61ce55ee3d755460c10da44bdb9c3dd1efc3472ec9",
+        "test_count": 2
+      },
+      "source": "tests/integration/test_historical_data_migration.py",
+      "target": "tests/integration/warehouse/test_historical_data_migration.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 31,
+        "test_ast_sha256": "c062362a5d27c5cbc5d65427c9d58b8f75d7aa8ace1f8a377df1db656d5d35b1",
+        "test_count": 8
+      },
+      "source": "tests/integration/test_raw_archive.py",
+      "target": "tests/integration/warehouse/test_raw_archive.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 8,
+        "test_ast_sha256": "0fa495840a9421c5c9cbe595422502ef7ab556bbc1a21a23e803c5f6b4489008",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_reader_migration.py",
+      "target": "tests/integration/warehouse/test_reader_migration.py"
+    },
+    {
+      "body_signature": {
+        "assertion_count": 6,
+        "test_ast_sha256": "0d29b36a4be51327ead62404c680e57ddbac5213a154fdd89089a4a7711cd258",
+        "test_count": 1
+      },
+      "source": "tests/integration/test_warehouse_paths.py",
+      "target": "tests/integration/warehouse/test_warehouse_paths.py"
+    }
+  ],
+  "roadmap_task": "CODEORG-004",
+  "root_compatibility_anchors": [
+    {
+      "path": "tests/unit/test_methodology_ci.py",
+      "reason": "repository root is resolved inside the test body; retained to preserve its AST"
+    },
+    {
+      "path": "tests/unit/test_methodology_documentation_contract.py",
+      "reason": "repository root is resolved inside the test body; retained to preserve its AST"
+    },
+    {
+      "path": "tests/unit/test_portfolio_engine.py",
+      "reason": "owner worktree change preserved in place"
+    },
+    {
+      "path": "tests/integration/test_open_source_sec_only.py",
+      "reason": "repository root is resolved inside the test body; retained to preserve its AST"
+    },
+    {
+      "path": "tests/integration/test_open_source_sec_mapping.py",
+      "reason": "owner worktree change preserved in place"
+    }
+  ],
+  "schema_version": 1,
+  "test_module_move_count": 99
+}

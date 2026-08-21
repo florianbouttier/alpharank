@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 462,
+  "node_count": 465,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -342,6 +342,8 @@
     "test_price_revisions.py::test_reviewed_price_revision_creates_immutable_diff[stock_split]",
     "test_price_revisions.py::test_reviewed_price_revision_creates_immutable_diff[vendor_correction]",
     "test_price_seed.py::test_load_eodhd_seed_is_hashed_normalized_and_immutable",
+    "test_python_directory_limits.py::test_exception_requires_explicit_owner_approval_fields",
+    "test_python_directory_limits.py::test_inventory_rejects_a_directory_above_the_default_limit",
     "test_raw_archive.py::test_failed_raw_download_attempt_keeps_receipt_without_payload",
     "test_raw_archive.py::test_identical_raw_download_stores_no_price_rows_twice",
     "test_raw_archive.py::test_immutable_eodhd_content_is_stored_once_for_multiple_source_ids",
@@ -399,6 +401,7 @@
     "test_run_sec_q4_fix2_candidate.py::test_load_target_tickers_aggregates_top_tickers_from_default_kpi_year_pairs",
     "test_script_archival_audit.py::test_archived_scripts_preserve_bytes_and_have_no_active_readers",
     "test_script_archival_audit.py::test_candidate_with_current_readers_is_retained",
+    "test_script_path_independence.py::test_compatibility_facade_resolves_to_the_implementation_module",
     "test_script_path_independence.py::test_no_tracked_python_file_mutates_sys_path",
     "test_script_path_independence.py::test_representative_commands_start_outside_repository",
     "test_sec_core_kpi_yearly_report.py::test_build_worst_year_brief_selects_worst_year_and_top_tickers",
@@ -465,7 +468,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "787982441be8ccb2a9a504ba12470c315108607864722b611000db0d3170c8c0",
+  "node_ids_sha256": "fd3a0cdf0ccf4af3e917e26a4d2b9e5eccd3223ff2307dc3f4814aa0741971ae",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }
