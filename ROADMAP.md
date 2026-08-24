@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-21.**
+**Dernière mise à jour : 2026-08-24.**
 
 **Statut : seule source des priorités actives.**
 
@@ -51,6 +51,17 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 12 | `CODEORG-006` | restaurer le mode exécutable perdu pendant le déplacement d'une commande | lot CODEORG ci-dessous | fait |
 | 13 | `CODEORG-004` | classer les tests unitaires et d'intégration par domaine | lot CODEORG ci-dessous | fait |
 | 14 | `CODEORG-005` | activer le plafond en CI après zéro violation | lot CODEORG ci-dessous | fait |
+| 15 | `DOC-018` | ouvrir le lot de qualité résiduelle mesuré le 24 août | lots ci-dessous | fait |
+| 16 | `METH-003` | compléter les métriques communes sans changer les rendements | lot METH ci-dessous | à faire |
+| 17 | `DATA-011` | reconstruire la couverture SEC historique sans promotion implicite | lot DATA ci-dessous | à faire |
+| 18 | `CODE-012` | extraire la construction du replay commun hors du script public | lot CODE ci-dessous | à faire |
+| 19 | `METH-004` | mesurer Boosting sur l'univers de valorisation Legacy causal | lot METH ci-dessous | à faire |
+| 20 | `CODEORG-007` | retirer le dashboard applicatif du dépôt AlphaRank | lot CODEORG ci-dessous | à faire |
+| 21 | `QUAL-011` | supprimer les erreurs statiques pouvant casser au runtime | lot QUAL ci-dessous | à faire |
+| 22 | `QUAL-012` | rendre toute la suite autonome dans un checkout propre | lot QUAL ci-dessous | à faire |
+| 23 | `QUAL-013` | bloquer toute nouvelle dette de taille ou de complexité | lot QUAL ci-dessous | à faire |
+| 24 | `QUAL-014` | étendre le typage strict à un package métier | lot QUAL ci-dessous | à faire |
+| 25 | `DOC-019` | rafraîchir les preuves chiffrées de la roadmap | lot DOC ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -140,6 +151,8 @@ La carte détaillée se trouve dans
 | `DOC-015` | formaliser le contrat Git tâche/commit/preuves | fait | `docs/standards/git.md` et liens normatifs |
 | `DOC-016` | clarifier roadmap maître et registre méthodologique | fait | une seule liste de priorités actives, historique intégral conservé |
 | `DOC-017` | supprimer le pointeur singulier `AGENT.md` après audit de ses lecteurs | fait | aucun lecteur actif, `AGENTS.md` seule source normative, ancien guide conservé dans l'archive |
+| `DOC-018` | ouvrir le lot de qualité résiduelle après audit du commit propre et du worktree | fait | onze tâches ordonnées, chacune isolée par son identifiant et son commit |
+| `DOC-019` | rafraîchir les compteurs de configurations, tests, code et dossiers après le lot | à faire | nombres recalculés depuis les validateurs canoniques, sans recopier les diagnostics initiaux |
 
 `DOC-010` a retiré des tests les chemins documentaires historiques. Les contrats
 restent directement sous `docs/` pour leurs lecteurs humains et liens publics ;
@@ -165,6 +178,10 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-008` | rendre la CI AlphaRank autonome et isoler le contrôle Portfolio dans un job inter-projets explicite | fait | job `alpharank` autonome et job `portfolio-integration` séparé |
 | `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | fait | 14 familles et 18 fichiers contrôlés récursivement avant les tests |
 | `QUAL-010` | corriger la gate CI pour un checkout sans artefacts locaux | fait | `--group ci` statique et huit tests ciblés verts depuis un dépôt temporaire propre |
+| `QUAL-011` | supprimer en priorité `F821`, `F403` et `F405` de la baseline Ruff | à faire | zéro nom indéfini, zéro import étoile et tests des branches corrigées |
+| `QUAL-012` | rendre la suite Pytest complète autonome dans un checkout sans `outputs/` locaux | à faire | collecte complète verte depuis un clone propre, sans masquer un test par défaut |
+| `QUAL-013` | mesurer taille de module, longueur de fonction et complexité puis bloquer toute régression | à faire | baseline versionnée et gate différentielle ; aucun nouveau dépassement des limites Python |
+| `QUAL-014` | étendre Mypy strict au prochain package métier compatible | à faire | package explicitement ajouté, zéro erreur et impossibilité de réduire silencieusement le périmètre |
 
 ## 9. Lot CODE — découper sans changer les résultats
 
@@ -184,6 +201,7 @@ les plus faciles à déplacer.
 | `CODE-009` | remplacer les captures générales et `print()` par des erreurs et journaux explicites | fait | zéro `print()` bibliothèque, zéro capture nue ou générale hors frontière journalisée ; contexte de run structuré |
 | `CODE-010` | déplacer les scripts réellement obsolètes après audit des lecteurs | fait | sept scripts archivés avec hashes et zéro lecteur actif ; candidat SEC encore lu conservé |
 | `CODE-011` | attribuer ou déplacer les modules transverses `*_v2`, gouvernance et replay dans des packages nommés | fait | six implémentations sous `replay/`, façades compatibles et registre d'API ; gouvernance attribuée |
+| `CODE-012` | déplacer la construction testable du replay commun depuis le script public vers `src/alpharank/replay/` | à faire | script mince, API publique testée et sorties de caractérisation inchangées |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
@@ -203,6 +221,7 @@ change dans ce lot.
 | `CODEORG-006` | restaurer le mode exécutable de `build_sec_output_package_with_backfill.py` après son déplacement | fait | contenu inchangé, mode indexé `100755`, compilation et chargement hors dépôt validés sans lancer la publication |
 | `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | fait | 100 déplacements ; signatures identiques pour 339 tests et 1 105 assertions ; collecte de 465 scénarios sans retrait, les 3 ajouts provenant de CODEORG-001/003 ; zéro dossier au-dessus du plafond |
 | `CODEORG-005` | activer le contrôle bloquant dans la gate statique | fait | gate `--enforce-limit` verte sur 475 fichiers et 65 dossiers, zéro violation, zéro exception et 45 tests CI ciblés verts |
+| `CODEORG-007` | retirer d'AlphaRank le dashboard interactif et conserver seulement calculs, contrats et artefacts machine-lisibles | à faire | aucun générateur de dashboard applicatif actif ; rapports d'audit statiques conservés ; lecteurs et inventaires régénérés |
 
 ## 11. Lot TEST — rendre les preuves navigables
 
@@ -227,10 +246,18 @@ change dans ce lot.
 | `DATA-008` | migrer les racines historiques par référence/hash avant toute copie | fait | 18 racines, 13 979 fichiers et 31,75 Go référencés par SHA-256 ; zéro téléchargement et zéro copie |
 | `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | fait | 159 arêtes lecteur/emplacement classées ; 10 chemins ancien/MART comparés par SHA-256, deux entrées par défaut basculées |
 | `DATA-010` | rendre les anciennes racines en lecture seule puis les archiver | fait | gel contractuel de 18 racines, observation 2026-08-20 au 2026-09-19, archive par référence et retour arrière hashé |
+| `DATA-011` | étendre le bridge ticker/CIK historique et fournir une reconstruction SEC candidate | à faire | identités versionnées, fallback filing-level auditable, aucune mutation du snapshot courant et tests de réutilisation de symbole |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
 doublons exacts et preuve de récupération.
+
+## 12 bis. Lot METH — preuves économiques complémentaires
+
+| ID | Action | Statut | Critère de fin |
+| --- | --- | --- | --- |
+| `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | à faire | formules centralisées, cas sans benchmark explicite et rendements historiques inchangés |
+| `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | à faire | registre causal par ticker-mois, variantes natives et appariées, snapshot identique et aucune promotion de Boosting |
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 
