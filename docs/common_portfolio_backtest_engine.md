@@ -348,7 +348,7 @@ ingestion: 20260816_103942
 composed snapshot: data/model_inputs/history/alpharank_input_20260816_120458_2a01288bab06
 Legacy run: outputs/production_refresh_20260816/legacy_runs_v3/2026-08-16/runs/20260816_142810
 Boosting run: outputs/production_refresh_20260816/boosting_latest_common_v3
-common replay: outputs/production_refresh_20260816/common_replay_v3
+common replay: outputs/production_refresh_20260816/common_replay_v4_sec_universe
 holding calendar: 2011-08 through 2026-07, 180 realized months
 benchmark: SPY total return from adjusted_close
 transaction costs: 10 bps times turnover for Boosting and Legacy
@@ -365,6 +365,8 @@ August return and therefore cannot enter performance.
 | --- | ---: | ---: | ---: | ---: |
 | Boosting Top 5 | 28.1562% | 41.4778% | 0.6306 | -51.9717% |
 | Boosting Top 10 | 26.5717% | 33.4204% | 0.7352 | -25.3178% |
+| Boosting Top 15 | 24.3051% | 30.7396% | 0.7256 | -25.5978% |
+| Boosting Top 20 | 20.6066% | 28.6445% | 0.6496 | -31.9839% |
 | Legacy | 18.9965% | 23.1727% | 0.7335 | -25.7052% |
 | SPY total return | 14.3975% | 14.3014% | 0.8669 | -23.9272% |
 
@@ -372,6 +374,41 @@ These figures use the common cost and calendar convention. Standalone Legacy
 production retains its historical zero-cost convention. Boosting remains R&D;
 its higher CAGR is paired with much higher volatility, and Top 5 has a 51.97%
 maximum drawdown.
+
+### SEC/PE-universe sensitivity
+
+`common_replay_v4_sec_universe` reconstructs Legacy's point-in-time valuation
+eligibility for every one of the 88,948 Boosting test predictions. The registry
+contains 75,824 eligible ticker-months, 5,581 observations with PE at or below
+zero, 2,434 with PE at or above 100, 2,086 without a point-in-time PE despite
+some SEC rows, and 3,023 with no SEC source row. The matched variants filter the
+Boosting predictions to the same `0 < PE < 100` universe before ranking.
+
+| Strategy on Legacy PE universe | CAGR | Volatility | Sharpe | Max drawdown |
+| --- | ---: | ---: | ---: | ---: |
+| Boosting Top 5 | 29.7055% | 29.2400% | 0.9475 | -25.7806% |
+| Boosting Top 10 | 26.0726% | 26.1535% | 0.9204 | -21.8392% |
+| Boosting Top 15 | 20.8325% | 23.8169% | 0.7907 | -26.1402% |
+| Boosting Top 20 | 19.9549% | 22.2000% | 0.8088 | -25.8106% |
+
+Top 10 loses only 0.50 percentage point of CAGR after imposing Legacy's SEC/PE
+eligibility, while volatility falls by 7.27 points and maximum drawdown improves
+by 3.48 points. This rejects the narrow hypothesis that Top 10's historical
+advantage is mainly caused by selecting names unavailable to Legacy because of
+SEC coverage. It does not by itself prove absence of universe, model-selection,
+or data-snooping bias.
+
+A 50,000-draw circular block bootstrap with 12-month blocks is stored in
+`paired_block_bootstrap_top10_matched.csv`. Matched Top 10 minus Legacy has an
+annualized arithmetic-return difference of +6.49 points, but its 95% interval
+[-3.18, +15.92] crosses zero. Against SPY the difference is +12.09 points with
+a 95% interval [+5.54, +19.56]. The same-data result is therefore strong enough
+to continue validation, but not sufficient to replace Legacy.
+
+The retained machine-readable evidence is stored with
+`common_replay_v4_sec_universe`: performance, monthly returns, the valuation
+registry and `paired_block_bootstrap_top10_matched.csv`. It is a research
+diagnostic, not a promotion or an application dashboard contract.
 
 ## Retained Same-Raw-Snapshot Reference — 2026-08-11
 
@@ -425,7 +462,7 @@ true historical point-in-time feed.
 ## Tests
 
 Core tests are in `tests/unit/test_portfolio_engine.py` and
-`tests/unit/test_portfolio_attribution.py`. They cover timing,
+`tests/unit/portfolio/test_portfolio_attribution.py`. They cover timing,
 lookahead rejection, missing-return handling, adapter equivalence, turnover,
 calendar alignment, and complete-year performance. Existing backtest and
 multi-horizon tests exercise the compatibility wrappers.

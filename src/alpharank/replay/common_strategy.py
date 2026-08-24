@@ -31,8 +31,12 @@ from alpharank.portfolio.terminal_event_registry import (
     TerminalEventRegistry,
     load_terminal_event_registry,
 )
+from alpharank.strategy.legacy_valuation import (
+    build_legacy_valuation_registry,
+    filter_predictions_to_legacy_valuation_universe,
+)
 
-DEFAULT_TOP_N_VALUES = (5, 10)
+DEFAULT_TOP_N_VALUES = (5, 10, 15, 20)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +50,7 @@ class CommonStrategyReplayConfig:
     command_argv: tuple[str, ...]
     transaction_cost_bps: float = 10.0
     top_n_values: tuple[int, ...] = DEFAULT_TOP_N_VALUES
+    include_legacy_valuation_universe: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +95,8 @@ class PortfolioFrames:
     holdings: pl.DataFrame
     monthly: pl.DataFrame
     live_holdings: pl.DataFrame
+    valuation_registry: pl.DataFrame
+    universe_summary: tuple[dict[str, object], ...]
     expected_months: pl.DataFrame
     common_start: object
     common_end: object
@@ -117,6 +124,7 @@ def build_common_strategy_replay(config: CommonStrategyReplayConfig) -> Path:
         gated=gated,
         top_n_values=top_n_values,
         transaction_cost_bps=config.transaction_cost_bps,
+        include_legacy_valuation_universe=config.include_legacy_valuation_universe,
     )
     artifacts = _write_artifacts(
         destination,
@@ -145,14 +153,30 @@ def build_native_boosting_holdings(
     """Build the characterized native Top-N holdings without universe filtering."""
 
     values = _validated_top_n(top_n_values)
+    return _build_boosting_holdings(
+        (("native", predictions),),
+        top_n_values=values,
+    )
+
+
+def _build_boosting_holdings(
+    prediction_sets: Sequence[tuple[str, pl.DataFrame]],
+    *,
+    top_n_values: Sequence[int],
+) -> pl.DataFrame:
     return pl.concat(
         [
             boosting_predictions_to_holdings(
-                predictions,
-                strategy=f"Boosting Top {top_n}",
+                prediction_frame,
+                strategy=(
+                    f"Boosting Top {top_n}"
+                    if universe == "native"
+                    else f"Boosting Top {top_n} | Legacy PE universe"
+                ),
                 top_n=top_n,
             )
-            for top_n in values
+            for universe, prediction_frame in prediction_sets
+            for top_n in top_n_values
         ],
         how="diagonal_relaxed",
     )
@@ -298,6 +322,7 @@ def _critical_files() -> tuple[str, ...]:
         "src/alpharank/portfolio/simulation.py",
         "src/alpharank/portfolio/terminal_event_registry.py",
         "src/alpharank/replay/common_strategy.py",
+        "src/alpharank/strategy/legacy_valuation.py",
         "configs/data_quality/terminal_shareholder_events_v1.json",
     )
 
@@ -375,8 +400,17 @@ def _build_portfolio_frames(
     gated: GatedPredictionFrames,
     top_n_values: tuple[int, ...],
     transaction_cost_bps: float,
+    include_legacy_valuation_universe: bool,
 ) -> PortfolioFrames:
-    boosting_holdings = build_native_boosting_holdings(gated.completed, top_n_values=top_n_values)
+    prediction_sets, valuation_registry = _prediction_universes(
+        inputs,
+        predictions=gated.completed,
+        include_legacy_valuation_universe=include_legacy_valuation_universe,
+    )
+    boosting_holdings = _build_boosting_holdings(
+        prediction_sets,
+        top_n_values=top_n_values,
+    )
     _reject_censored_holdings(boosting_holdings)
     live_holdings = (
         build_native_boosting_holdings(gated.live, top_n_values=top_n_values)
@@ -402,10 +436,36 @@ def _build_portfolio_frames(
         holdings=pl.concat([boosting_holdings, legacy_holdings], how="diagonal_relaxed"),
         monthly=pl.concat([boosting_monthly, references], how="diagonal_relaxed"),
         live_holdings=live_holdings,
+        valuation_registry=valuation_registry,
+        universe_summary=tuple(
+            {
+                "universe": universe,
+                "rows": frame.height,
+                "tickers": frame["ticker"].n_unique(),
+                "months": frame["decision_month"].n_unique(),
+            }
+            for universe, frame in prediction_sets
+        ),
         expected_months=expected_months,
         common_start=common_start,
         common_end=common_end,
     )
+
+
+def _prediction_universes(
+    inputs: CommonReplayInputs,
+    *,
+    predictions: pl.DataFrame,
+    include_legacy_valuation_universe: bool,
+) -> tuple[tuple[tuple[str, pl.DataFrame], ...], pl.DataFrame]:
+    if not include_legacy_valuation_universe:
+        return (("native", predictions),), pl.DataFrame()
+    registry = build_legacy_valuation_registry(
+        snapshot_dir=inputs.snapshot_dir,
+        candidates=predictions,
+    )
+    matched = filter_predictions_to_legacy_valuation_universe(predictions, registry)
+    return (("native", predictions), ("legacy_valuation", matched)), registry
 
 
 def _build_legacy_references(
@@ -511,6 +571,8 @@ def _write_artifacts(
     artifacts.update(_write_terminal_journal(output_dir, terminal_journal))
     if not portfolios.live_holdings.is_empty():
         artifacts.update(_write_live_holdings(output_dir, portfolios.live_holdings))
+    if not portfolios.valuation_registry.is_empty():
+        artifacts.update(_write_valuation_registry(output_dir, portfolios.valuation_registry))
     return artifacts
 
 
@@ -530,6 +592,28 @@ def _write_live_holdings(output_dir: Path, holdings: pl.DataFrame) -> dict[str, 
     return {
         "boosting_live_score_holdings": parquet_path,
         "boosting_live_score_holdings_csv": csv_path,
+    }
+
+
+def _write_valuation_registry(
+    output_dir: Path,
+    registry: pl.DataFrame,
+) -> dict[str, Path]:
+    registry_path = output_dir / "legacy_valuation_eligibility.parquet"
+    summary_path = output_dir / "legacy_valuation_eligibility_summary.csv"
+    registry.write_parquet(registry_path)
+    (
+        registry.group_by("eligibility_reason")
+        .agg(
+            pl.len().alias("ticker_months"),
+            pl.col("ticker").n_unique().alias("unique_tickers"),
+        )
+        .sort("ticker_months", descending=True)
+        .write_csv(summary_path)
+    )
+    return {
+        "legacy_valuation_eligibility": registry_path,
+        "legacy_valuation_eligibility_summary": summary_path,
     }
 
 
@@ -559,7 +643,10 @@ def _write_manifest(
             "latest_month_status": "complete_realized_one_month_return",
         },
         "transaction_cost_policy": {
-            "strategies": [f"Boosting Top {value}" for value in top_n_values] + ["Legacy"],
+            "strategies": _costed_strategy_names(
+                top_n_values,
+                include_legacy_valuation_universe=(config.include_legacy_valuation_universe),
+            ),
             "bps_times_turnover": config.transaction_cost_bps,
             "benchmark": "SPY total return has no simulated trading cost",
         },
@@ -575,6 +662,17 @@ def _write_manifest(
             "results": checks.boosting_manifest.get("results"),
         },
         "terminal_entry_gate": _terminal_gate_manifest(gated, terminal_registry),
+        "boosting_allocation": {
+            "top_n_values": list(top_n_values),
+            "universes": list(portfolios.universe_summary),
+            "native": "historical membership plus shared monthly price gate",
+            "legacy_valuation": (
+                "native universe intersected at decision month with Legacy's "
+                "point-in-time market-cap and 0 < PE < 100 gate"
+                if config.include_legacy_valuation_universe
+                else None
+            ),
+        },
         "artifacts": {
             name: {"path": str(path.resolve()), "sha256": _hash(path)}
             for name, path in artifacts.items()
@@ -583,6 +681,20 @@ def _write_manifest(
     path = output_dir / "manifest.json"
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def _costed_strategy_names(
+    top_n_values: Sequence[int],
+    *,
+    include_legacy_valuation_universe: bool,
+) -> list[str]:
+    native = [f"Boosting Top {value}" for value in top_n_values]
+    matched = (
+        [f"Boosting Top {value} | Legacy PE universe" for value in top_n_values]
+        if include_legacy_valuation_universe
+        else []
+    )
+    return [*native, *matched, "Legacy"]
 
 
 def _manifest_sources(inputs: CommonReplayInputs) -> dict[str, dict[str, str]]:

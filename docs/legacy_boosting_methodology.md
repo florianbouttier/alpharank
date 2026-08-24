@@ -1,9 +1,9 @@
 # Legacy And Boosting Methodologies
 
-Last updated: 2026-08-16
+Last updated: 2026-08-17
 
 This document is the source of truth for signal generation in the two methods
-shown by the common research dashboard. Portfolio simulation, benchmarks,
+compared by the common replay. Portfolio simulation, benchmarks,
 performance metrics, lineage validation, and CAGR attribution are documented
 separately in [`common_portfolio_backtest_engine.md`](./common_portfolio_backtest_engine.md).
 
@@ -20,9 +20,7 @@ The current replay is built from one immutable composed input snapshot:
 - Boosting run:
   `outputs/production_refresh_20260816/boosting_latest_common_v3`;
 - common replay:
-  `outputs/production_refresh_20260816/common_replay_v3`;
-- research dashboard:
-  `outputs/research_dashboard/alpharank_common_20260816_pit_validated`;
+  `outputs/production_refresh_20260816/common_replay_v4_sec_universe`;
 - input lineage: all seven required hashes, the ten-ticker quarantine, and the
   monthly price-eligibility policy match;
 - decision calendar with realized one-month returns: 2011-07 through 2026-06;
@@ -415,10 +413,20 @@ replay passes matching input hashes, ticker exclusions, and monthly price
 eligibility. Its complete realized holding calendar is August 2011 through
 July 2026; Boosting has no OOS portfolio before August 2011. On that exact
 calendar, with 10 bps times turnover for both strategies and no simulated cost
-for SPY, CAGR is 28.1562% for Boosting Top 5, 26.5717% for Boosting Top 10,
-18.9965% for Legacy, and 14.3975% for SPY total return. These are research
+for SPY, native-universe CAGR is 28.1562% for Boosting Top 5, 26.5717% for Top
+10, 24.3051% for Top 15, 20.6066% for Top 20, 18.9965% for Legacy, and 14.3975%
+for SPY total return. These are research
 results, not a promotion of Boosting into the canonical monthly production
 workflow.
+
+`src/alpharank/strategy/legacy_valuation.py` reruns the exact Legacy PE
+construction on the immutable snapshot and labels every Boosting prediction
+before allocation. `scripts/build_common_legacy_boosting_replay.py` can then
+produce both the native Boosting portfolios and variants restricted to Legacy's
+point-in-time `0 < PE < 100` universe. The matched Top 10 CAGR is 26.0726%, with
+26.1535% volatility, 0.9204 Sharpe, and -21.8392% maximum drawdown. This is the
+required diagnostic for SEC-coverage asymmetry; it is not a substitute for
+chronological out-of-sample validation.
 
 Boosting retains 88,948 test predictions and exactly 88,948 SHAP rows over 181
 decision months. SHAP is exhaustive, not sampled. There are 16 outer folds;

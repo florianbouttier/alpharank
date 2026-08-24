@@ -9,5 +9,6 @@ optimisation annuelle, votes et agrégation `Combined_Equal` /
 contraintes point-in-time et extrait les positions mensuelles, tandis que
 `legacy_artifacts.py` prépare les tableaux de comparaison. `base.py` porte le
 contrat, `analytics.py` les calculs de diagnostic et `portfolio.py` la
-compatibilité historique. Les performances publiées passent ensuite par
-`../portfolio/`.
+compatibilité historique. `legacy_valuation.py` reconstruit le filtre PE
+point-in-time uniquement pour comparer des univers avant classement. Les
+performances publiées passent ensuite par `../portfolio/`.

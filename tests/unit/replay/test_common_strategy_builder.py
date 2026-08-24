@@ -20,7 +20,7 @@ def test_common_strategy_builder_is_exposed_by_replay_package() -> None:
     assert public_replay_builder is build_common_strategy_replay
 
 
-def test_native_holdings_preserve_historical_top_5_and_top_10_outputs() -> None:
+def test_native_holdings_include_all_declared_top_n_variants() -> None:
     predictions = pl.DataFrame(
         {
             "decision_month": [date(2025, 1, 1)] * 12,
@@ -36,6 +36,8 @@ def test_native_holdings_preserve_historical_top_5_and_top_10_outputs() -> None:
     counts = holdings.group_by("strategy").len().sort("strategy")
     assert counts.to_dicts() == [
         {"strategy": "Boosting Top 10", "len": 10},
+        {"strategy": "Boosting Top 15", "len": 12},
+        {"strategy": "Boosting Top 20", "len": 12},
         {"strategy": "Boosting Top 5", "len": 5},
     ]
     assert holdings.filter(pl.col("strategy") == "Boosting Top 5")["ticker"].to_list() == [

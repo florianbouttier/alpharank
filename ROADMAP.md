@@ -257,7 +257,7 @@ doublons exacts et preuve de récupération.
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
 | `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | fait | formules centralisées dans `portfolio/performance.py`, cas sans benchmark et vide testés ; aucun rendement mensuel modifié |
-| `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | à faire | registre causal par ticker-mois, variantes natives et appariées, snapshot identique et aucune promotion de Boosting |
+| `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | fait | registre causal de 88 948 ticker-mois, variantes Top 5/10/15/20 natives et appariées sur le même snapshot, bootstrap de 50 000 tirages et aucune promotion de Boosting |
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 
