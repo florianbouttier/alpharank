@@ -1,0 +1,2824 @@
+{
+  "baseline_id": "python_size_baseline_v1",
+  "policy": {
+    "complexity_maximum": 10,
+    "exception_policy": "owner_approval_required",
+    "excluded_directories": [
+      "_archive",
+      "_old"
+    ],
+    "function_maximum_lines": 80,
+    "library_module_maximum_lines": 800,
+    "scope_roots": [
+      "src",
+      "scripts",
+      "tests"
+    ],
+    "script_module_maximum_lines": 250
+  },
+  "schema_version": 1,
+  "summary": {
+    "tracked_python_file_count": 474,
+    "violation_count": 349,
+    "violations_by_kind": {
+      "complexity": 68,
+      "function_lines": 210,
+      "module_lines": 71
+    }
+  },
+  "tool_version_at_baseline": "ruff 0.16.3",
+  "violations": [
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 60,
+      "measured": 12,
+      "path": "scripts/audit_open_source_snapshot_revisions.py",
+      "symbol": "_compare_frames"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 949,
+      "measured": 11,
+      "path": "scripts/compare_legacy_eodhd_vs_open_source.py",
+      "symbol": "_build_acceptance_gates"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 1480,
+      "measured": 13,
+      "path": "scripts/compare_legacy_eodhd_vs_open_source.py",
+      "symbol": "_write_report"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 84,
+      "measured": 14,
+      "path": "scripts/experiments/legacy/analyze_legacy_return_attribution.py",
+      "symbol": "build_attribution"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 93,
+      "measured": 11,
+      "path": "scripts/open_source/ingestion/nightly_ingestion.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 44,
+      "measured": 11,
+      "path": "scripts/open_source/publication/build_sec_output_package.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 679,
+      "measured": 12,
+      "path": "scripts/open_source/publication/build_sec_output_package.py",
+      "symbol": "publish_sec_output_package"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 202,
+      "measured": 19,
+      "path": "scripts/portfolio_allocation.py",
+      "symbol": "allocate_buy_only_equal_weight"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 450,
+      "measured": 11,
+      "path": "scripts/portfolio_allocation.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 78,
+      "measured": 13,
+      "path": "scripts/validate_documentation.py",
+      "symbol": "validate"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 32,
+      "measured": 24,
+      "path": "scripts/validate_legacy_replay_package.py",
+      "symbol": "validate_manifest"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 712,
+      "measured": 11,
+      "path": "src/alpharank/backtest/application.py",
+      "symbol": "_plot_metric_heatmap"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 145,
+      "measured": 12,
+      "path": "src/alpharank/backtest/config.py",
+      "symbol": "BacktestConfig.__post_init__"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 99,
+      "measured": 18,
+      "path": "src/alpharank/backtest/features.py",
+      "symbol": "compute_technical_features"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 819,
+      "measured": 29,
+      "path": "src/alpharank/backtest/pipeline.py",
+      "symbol": "run_learning_phase"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 671,
+      "measured": 13,
+      "path": "src/alpharank/backtest/reporting.py",
+      "symbol": "write_backtest_audit_report"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 557,
+      "measured": 19,
+      "path": "src/alpharank/backtest/reporting.py",
+      "symbol": "write_html_report"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 247,
+      "measured": 16,
+      "path": "src/alpharank/backtest/tuning.py",
+      "symbol": "tune_and_fit_fold"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 20,
+      "measured": 22,
+      "path": "src/alpharank/data/contracts/raw_contracts.py",
+      "symbol": "load_raw_provider_contracts"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 77,
+      "measured": 11,
+      "path": "src/alpharank/data/ingestion/cadrage.py",
+      "symbol": "run_open_source_cadrage"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 1011,
+      "measured": 23,
+      "path": "src/alpharank/data/ingestion/orchestration.py",
+      "symbol": "_run_open_source_ingestion_in_place"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 390,
+      "measured": 12,
+      "path": "src/alpharank/data/ingestion/raw_archive.py",
+      "symbol": "_reconstruct_internal"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 162,
+      "measured": 17,
+      "path": "src/alpharank/data/ingestion/raw_archive.py",
+      "symbol": "archive_raw_frame_delta"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 50,
+      "measured": 12,
+      "path": "src/alpharank/data/ingestion/raw_archive.py",
+      "symbol": "record_raw_download"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 140,
+      "measured": 11,
+      "path": "src/alpharank/data/open_source/price_quality.py",
+      "symbol": "load_reviewed_extreme_price_moves"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 24,
+      "measured": 15,
+      "path": "src/alpharank/data/prices/gates.py",
+      "symbol": "audit_price_candidate"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 350,
+      "measured": 20,
+      "path": "src/alpharank/data/processing.py",
+      "symbol": "FundamentalProcessor.calculate_fundamental_ratios"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 265,
+      "measured": 15,
+      "path": "src/alpharank/data/publishing/composed_snapshot.py",
+      "symbol": "_validate_price_package"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 373,
+      "measured": 11,
+      "path": "src/alpharank/data/publishing/composed_snapshot.py",
+      "symbol": "_validate_security_identity_packages"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 58,
+      "measured": 12,
+      "path": "src/alpharank/data/publishing/composed_snapshot.py",
+      "symbol": "build_composed_model_snapshot"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 21,
+      "measured": 14,
+      "path": "src/alpharank/data/publishing/open_source_package.py",
+      "symbol": "publish_open_source_output_package"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 104,
+      "measured": 12,
+      "path": "src/alpharank/data/publishing/snapshot_publication.py",
+      "symbol": "validate_snapshot_publication"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 446,
+      "measured": 12,
+      "path": "src/alpharank/data/sources/constituents.py",
+      "symbol": "_apply_operation"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 46,
+      "measured": 11,
+      "path": "src/alpharank/data/sources/constituents.py",
+      "symbol": "validate_membership_event_lineage"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 855,
+      "measured": 14,
+      "path": "src/alpharank/data/sources/sec_only.py",
+      "symbol": "_canonicalize_ticker_quarters"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 23,
+      "measured": 17,
+      "path": "src/alpharank/data/warehouse/definitive.py",
+      "symbol": "select_definitive_observations"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 116,
+      "measured": 11,
+      "path": "src/alpharank/data/warehouse/historical_migration.py",
+      "symbol": "validate_historical_root_catalog"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 43,
+      "measured": 12,
+      "path": "src/alpharank/data/warehouse/staging.py",
+      "symbol": "normalize_staging_observations"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 158,
+      "measured": 25,
+      "path": "src/alpharank/governance_contracts/baseline.py",
+      "symbol": "validate_baseline_package"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 127,
+      "measured": 18,
+      "path": "src/alpharank/governance_contracts/runtime_provenance.py",
+      "symbol": "validate_runtime_provenance"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 147,
+      "measured": 16,
+      "path": "src/alpharank/multihorizon/config.py",
+      "symbol": "MultiHorizonConfig.__post_init__"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 202,
+      "measured": 16,
+      "path": "src/alpharank/multihorizon/confirmation.py",
+      "symbol": "meta_walk_forward_selection"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 189,
+      "measured": 26,
+      "path": "src/alpharank/multihorizon/pipeline.py",
+      "symbol": "run_multihorizon_research"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 152,
+      "measured": 11,
+      "path": "src/alpharank/portfolio/allocation.py",
+      "symbol": "constrained_inverse_risk_weights"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 87,
+      "measured": 11,
+      "path": "src/alpharank/portfolio/contracts.py",
+      "symbol": "validate_causal_timing"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 252,
+      "measured": 13,
+      "path": "src/alpharank/portfolio/execution.py",
+      "symbol": "build_execution_return_bridge"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 22,
+      "measured": 15,
+      "path": "src/alpharank/portfolio/simulation.py",
+      "symbol": "simulate_weighted_portfolio"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 278,
+      "measured": 11,
+      "path": "src/alpharank/portfolio/terminal_event_registry.py",
+      "symbol": "_validate_event"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 446,
+      "measured": 11,
+      "path": "src/alpharank/portfolio/terminal_event_registry.py",
+      "symbol": "_validate_sources"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 356,
+      "measured": 16,
+      "path": "src/alpharank/portfolio/terminal_event_registry.py",
+      "symbol": "_validate_terminal_consideration"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 190,
+      "measured": 23,
+      "path": "src/alpharank/portfolio/terminal_price_registry.py",
+      "symbol": "_validate_registry"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 61,
+      "measured": 12,
+      "path": "src/alpharank/portfolio/terminal_returns.py",
+      "symbol": "resolve_terminal_shareholder_returns"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 658,
+      "measured": 18,
+      "path": "src/alpharank/production/legacy_pipeline.py",
+      "symbol": "run_pipeline"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 113,
+      "measured": 12,
+      "path": "src/alpharank/quality/config_schemas.py",
+      "symbol": "validate_config_schema_registry"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 226,
+      "measured": 12,
+      "path": "src/alpharank/quality/config_schemas.py",
+      "symbol": "validate_config_value"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 242,
+      "measured": 11,
+      "path": "src/alpharank/quality/data_locations.py",
+      "symbol": "_path_parts"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 18,
+      "measured": 24,
+      "path": "src/alpharank/replay/boosting.py",
+      "symbol": "validate_boosting_v2_replay"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 249,
+      "measured": 22,
+      "path": "src/alpharank/replay/causal_snapshot.py",
+      "symbol": "validate_causal_v2_snapshot"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 601,
+      "measured": 15,
+      "path": "src/alpharank/replay/common.py",
+      "symbol": "validate_common_v2_replay"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 71,
+      "measured": 23,
+      "path": "src/alpharank/replay/legacy.py",
+      "symbol": "validate_legacy_v2_replay"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 182,
+      "measured": 11,
+      "path": "src/alpharank/replay/reconciliation.py",
+      "symbol": "reconcile_economic_frames"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 150,
+      "measured": 13,
+      "path": "src/alpharank/replay/validation.py",
+      "symbol": "validate_and_recompute_replay_package"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 28,
+      "measured": 12,
+      "path": "src/alpharank/strategy/legacy_aggregation.py",
+      "symbol": "aggregate_portfolios"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 14,
+      "measured": 20,
+      "path": "src/alpharank/strategy/legacy_artifacts.py",
+      "symbol": "compare_models"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 93,
+      "measured": 13,
+      "path": "src/alpharank/strategy/legacy_selection.py",
+      "symbol": "get_portfolio_at_month"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 60,
+      "measured": 31,
+      "path": "src/alpharank/utils/metrics.py",
+      "symbol": "compare_models"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 411,
+      "measured": 27,
+      "path": "src/alpharank/visualization/plotting.py",
+      "symbol": "PortfolioVisualizer.make_comparison_report"
+    },
+    {
+      "kind": "complexity",
+      "limit": 10,
+      "line": 92,
+      "measured": 20,
+      "path": "src/alpharank/visualization/plotting.py",
+      "symbol": "PortfolioVisualizer.make_portfolio_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 60,
+      "measured": 147,
+      "path": "scripts/audit_open_source_snapshot_revisions.py",
+      "symbol": "_compare_frames"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 33,
+      "measured": 105,
+      "path": "scripts/build_legacy_common_replay.py",
+      "symbol": "build_replay"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 949,
+      "measured": 241,
+      "path": "scripts/compare_legacy_eodhd_vs_open_source.py",
+      "symbol": "_build_acceptance_gates"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 1227,
+      "measured": 109,
+      "path": "scripts/compare_legacy_eodhd_vs_open_source.py",
+      "symbol": "_build_focus_ticker_diagnostics"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 186,
+      "measured": 89,
+      "path": "scripts/compare_legacy_eodhd_vs_open_source.py",
+      "symbol": "_prepare_aligned_datasets"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 1480,
+      "measured": 619,
+      "path": "scripts/compare_legacy_eodhd_vs_open_source.py",
+      "symbol": "_write_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 84,
+      "measured": 313,
+      "path": "scripts/experiments/legacy/analyze_legacy_return_attribution.py",
+      "symbol": "build_attribution"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 77,
+      "measured": 142,
+      "path": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
+      "symbol": "_price_audit_rows"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 564,
+      "measured": 251,
+      "path": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
+      "symbol": "_render_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 221,
+      "measured": 120,
+      "path": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
+      "symbol": "_screen_held_universe"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 817,
+      "measured": 152,
+      "path": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 124,
+      "measured": 272,
+      "path": "scripts/experiments/legacy/render_annual_allocation_returns.py",
+      "symbol": "render_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 77,
+      "measured": 97,
+      "path": "scripts/experiments/legacy/render_legacy_attribution_reports.py",
+      "symbol": "_preprocessing_payload"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 46,
+      "measured": 85,
+      "path": "scripts/experiments/legacy/render_legacy_ema_risk_papers.py",
+      "symbol": "_line_svg"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 332,
+      "measured": 329,
+      "path": "scripts/experiments/legacy/render_legacy_ema_risk_papers.py",
+      "symbol": "_results_page"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 161,
+      "measured": 169,
+      "path": "scripts/experiments/legacy/render_legacy_ema_risk_papers.py",
+      "symbol": "_shell"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 188,
+      "measured": 88,
+      "path": "scripts/experiments/legacy/run_legacy_ema_risk_heads.py",
+      "symbol": "_reference_window_rows"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 389,
+      "measured": 505,
+      "path": "scripts/experiments/legacy/run_legacy_ema_risk_heads.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 436,
+      "measured": 236,
+      "path": "scripts/experiments/legacy/run_topn_allocation_comparison.py",
+      "symbol": "_render_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 674,
+      "measured": 163,
+      "path": "scripts/experiments/legacy/run_topn_allocation_comparison.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 328,
+      "measured": 104,
+      "path": "scripts/experiments/modeling/analyze_legacy_factor_exposures.py",
+      "symbol": "_write_markdown_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 113,
+      "measured": 127,
+      "path": "scripts/experiments/modeling/run_atomic_feature_future_target_models.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 448,
+      "measured": 95,
+      "path": "scripts/experiments/modeling/run_ema_anchor_residual_strategy.py",
+      "symbol": "_write_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 545,
+      "measured": 174,
+      "path": "scripts/experiments/modeling/run_ema_anchor_residual_strategy.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 189,
+      "measured": 169,
+      "path": "scripts/experiments/modeling/run_ema_raw_calibrated_residual_strategy.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 144,
+      "measured": 136,
+      "path": "scripts/experiments/modeling/run_ema_rich_future_target_models.py",
+      "symbol": "run_experiment"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 94,
+      "measured": 105,
+      "path": "scripts/experiments/modeling/run_generalized_ema_expert_models.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 186,
+      "measured": 131,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_exact_ema_rank.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 427,
+      "measured": 199,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_exact_ema_variants.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 404,
+      "measured": 127,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_rank_regression.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 359,
+      "measured": 124,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_top_return_classifier.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 344,
+      "measured": 226,
+      "path": "scripts/experiments/modeling/run_signal_copy_models.py",
+      "symbol": "run_experiment"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 501,
+      "measured": 141,
+      "path": "scripts/experiments/modeling/run_tradable_ema_regression_optuna.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 199,
+      "measured": 81,
+      "path": "scripts/experiments/modeling/run_tradable_ema_regression_trading_backtest.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 201,
+      "measured": 123,
+      "path": "scripts/experiments/modeling/run_tradable_ema_residual_regression.py",
+      "symbol": "run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 139,
+      "measured": 142,
+      "path": "scripts/experiments/operations/confirm_locked_challenger.py",
+      "symbol": "_evaluate_partial_holdout"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 283,
+      "measured": 111,
+      "path": "scripts/experiments/operations/confirm_locked_challenger.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 23,
+      "measured": 149,
+      "path": "scripts/experiments/operations/run_multihorizon_boosting.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 29,
+      "measured": 145,
+      "path": "scripts/experiments/protocols/build_execution_convention_bridge.py",
+      "symbol": "build_bridge"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 251,
+      "measured": 136,
+      "path": "scripts/experiments/protocols/run_residual_init_score_experiment.py",
+      "symbol": "run_experiment"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 323,
+      "measured": 82,
+      "path": "scripts/experiments/reports/render_alpha_shap_portfolio_report.py",
+      "symbol": "_monthly_portfolios"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 503,
+      "measured": 252,
+      "path": "scripts/experiments/reports/render_alpha_shap_portfolio_report.py",
+      "symbol": "_render_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 757,
+      "measured": 101,
+      "path": "scripts/experiments/reports/render_alpha_shap_portfolio_report.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 76,
+      "measured": 111,
+      "path": "scripts/experiments/reports/render_locked_challenger_papers.py",
+      "symbol": "_document"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 247,
+      "measured": 283,
+      "path": "scripts/experiments/reports/render_locked_challenger_papers.py",
+      "symbol": "_results_paper"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 92,
+      "measured": 106,
+      "path": "scripts/experiments/reports/render_start_year_performance.py",
+      "symbol": "render"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 53,
+      "measured": 123,
+      "path": "scripts/experiments/reports/summarize_multihorizon_run.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 319,
+      "measured": 178,
+      "path": "scripts/open_source/audit/audit_price_snapshot_vintages.py",
+      "symbol": "_render_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 542,
+      "measured": 232,
+      "path": "scripts/open_source/audit/audit_price_snapshot_vintages.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 23,
+      "measured": 138,
+      "path": "scripts/open_source/audit/audit_sec_earnings_coverage.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 221,
+      "measured": 88,
+      "path": "scripts/open_source/audit/probe_sec_earnings_tickers.py",
+      "symbol": "_render_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 20,
+      "measured": 156,
+      "path": "scripts/open_source/audit/probe_sec_earnings_tickers.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 501,
+      "measured": 109,
+      "path": "scripts/open_source/audit/probe_sec_sp500_history_sample.py",
+      "symbol": "_render_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 37,
+      "measured": 140,
+      "path": "scripts/open_source/audit/probe_sec_sp500_history_sample.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 22,
+      "measured": 97,
+      "path": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 87,
+      "measured": 192,
+      "path": "scripts/open_source/audit/run_sec_q4_fix2_candidate.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 95,
+      "measured": 257,
+      "path": "scripts/open_source/ingestion/backfill_sec_core_history.py",
+      "symbol": "_run_backfill"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 93,
+      "measured": 160,
+      "path": "scripts/open_source/ingestion/nightly_ingestion.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 47,
+      "measured": 310,
+      "path": "scripts/open_source/ingestion/refresh_current_constituent_prices.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 38,
+      "measured": 125,
+      "path": "scripts/open_source/ingestion/refresh_sec_companyfacts_from_cache.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 25,
+      "measured": 82,
+      "path": "scripts/open_source/ingestion/refresh_sp500_constituents.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 24,
+      "measured": 87,
+      "path": "scripts/open_source/ingestion/restore_price_tickers_from_snapshot.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 13,
+      "measured": 102,
+      "path": "scripts/open_source/ingestion/run_ingestion.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 24,
+      "measured": 152,
+      "path": "scripts/open_source/publication/build_hybrid_price_candidate.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 30,
+      "measured": 119,
+      "path": "scripts/open_source/publication/build_output_package.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 32,
+      "measured": 166,
+      "path": "scripts/open_source/publication/build_roll_forward_price_package.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 166,
+      "measured": 131,
+      "path": "scripts/open_source/publication/build_sec_metric_hybrid_package.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 460,
+      "measured": 112,
+      "path": "scripts/open_source/publication/build_sec_output_package.py",
+      "symbol": "_overlay_identity_remediation"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 44,
+      "measured": 368,
+      "path": "scripts/open_source/publication/build_sec_output_package.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 35,
+      "measured": 195,
+      "path": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 226,
+      "measured": 130,
+      "path": "scripts/open_source/publication/build_sec_overlay_package.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 285,
+      "measured": 162,
+      "path": "scripts/open_source/reporting/build_sec_core_kpi_yearly_report.py",
+      "symbol": "_render_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 169,
+      "measured": 92,
+      "path": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
+      "symbol": "_build_quarter_metric_matrix"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 316,
+      "measured": 285,
+      "path": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
+      "symbol": "_render_index_page"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 739,
+      "measured": 257,
+      "path": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
+      "symbol": "_render_ticker_page"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 178,
+      "measured": 390,
+      "path": "scripts/open_source/reporting/build_sec_quality_dashboard.py",
+      "symbol": "_render_dashboard_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 614,
+      "measured": 129,
+      "path": "scripts/open_source/reporting/build_sec_quality_dashboard.py",
+      "symbol": "_render_ticker_page"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 30,
+      "measured": 132,
+      "path": "scripts/open_source/reporting/build_sec_quality_dashboard.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 33,
+      "measured": 111,
+      "path": "scripts/open_source/reporting/rebuild_reports.py",
+      "symbol": "main"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 202,
+      "measured": 147,
+      "path": "scripts/portfolio_allocation.py",
+      "symbol": "allocate_buy_only_equal_weight"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 88,
+      "measured": 146,
+      "path": "scripts/research/render_methodology_v2_study.py",
+      "symbol": "_performance_rows"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 296,
+      "measured": 91,
+      "path": "scripts/research/render_methodology_v2_study.py",
+      "symbol": "build_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 27,
+      "measured": 105,
+      "path": "scripts/validate_common_portfolio_engine.py",
+      "symbol": "validate_legacy"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 32,
+      "measured": 85,
+      "path": "scripts/validate_legacy_replay_package.py",
+      "symbol": "validate_manifest"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 921,
+      "measured": 152,
+      "path": "src/alpharank/backtest/application.py",
+      "symbol": "_build_comparison_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 712,
+      "measured": 118,
+      "path": "src/alpharank/backtest/application.py",
+      "symbol": "_plot_metric_heatmap"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 89,
+      "measured": 120,
+      "path": "src/alpharank/backtest/datasets.py",
+      "symbol": "build_model_frame"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 99,
+      "measured": 172,
+      "path": "src/alpharank/backtest/features.py",
+      "symbol": "compute_technical_features"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 159,
+      "measured": 195,
+      "path": "src/alpharank/backtest/fundamentals.py",
+      "symbol": "build_monthly_fundamental_features"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 583,
+      "measured": 152,
+      "path": "src/alpharank/backtest/pipeline.py",
+      "symbol": "_build_prediction_debug_frames"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 1407,
+      "measured": 234,
+      "path": "src/alpharank/backtest/pipeline.py",
+      "symbol": "_finalize_backtest_run"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 1280,
+      "measured": 125,
+      "path": "src/alpharank/backtest/pipeline.py",
+      "symbol": "run_backtest_phase"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 819,
+      "measured": 459,
+      "path": "src/alpharank/backtest/pipeline.py",
+      "symbol": "run_learning_phase"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 671,
+      "measured": 209,
+      "path": "src/alpharank/backtest/reporting.py",
+      "symbol": "write_backtest_audit_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 557,
+      "measured": 112,
+      "path": "src/alpharank/backtest/reporting.py",
+      "symbol": "write_html_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 247,
+      "measured": 230,
+      "path": "src/alpharank/backtest/tuning.py",
+      "symbol": "tune_and_fit_fold"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 21,
+      "measured": 110,
+      "path": "src/alpharank/data/contracts/sector_history.py",
+      "symbol": "resolve_point_in_time_sectors"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 320,
+      "measured": 90,
+      "path": "src/alpharank/data/ingestion/backfill.py",
+      "symbol": "apply_financial_backfills"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 101,
+      "measured": 110,
+      "path": "src/alpharank/data/ingestion/backfill.py",
+      "symbol": "backfill_from_eodhd"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 370,
+      "measured": 176,
+      "path": "src/alpharank/data/ingestion/cadrage.py",
+      "symbol": "_write_outputs"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 77,
+      "measured": 291,
+      "path": "src/alpharank/data/ingestion/cadrage.py",
+      "symbol": "run_open_source_cadrage"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 1011,
+      "measured": 945,
+      "path": "src/alpharank/data/ingestion/orchestration.py",
+      "symbol": "_run_open_source_ingestion_in_place"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 1958,
+      "measured": 153,
+      "path": "src/alpharank/data/ingestion/orchestration.py",
+      "symbol": "_write_live_audit"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 637,
+      "measured": 323,
+      "path": "src/alpharank/data/ingestion/orchestration.py",
+      "symbol": "refresh_open_source_reference_layers"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 358,
+      "measured": 277,
+      "path": "src/alpharank/data/ingestion/orchestration.py",
+      "symbol": "repair_open_source_price_history"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 342,
+      "measured": 170,
+      "path": "src/alpharank/data/ingestion/prices.py",
+      "symbol": "_complete_yahoo_history_against_validated"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 695,
+      "measured": 169,
+      "path": "src/alpharank/data/ingestion/prices.py",
+      "symbol": "_prepare_canonical_hybrid_price_merge"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 162,
+      "measured": 165,
+      "path": "src/alpharank/data/ingestion/raw_archive.py",
+      "symbol": "archive_raw_frame_delta"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 50,
+      "measured": 110,
+      "path": "src/alpharank/data/ingestion/raw_archive.py",
+      "symbol": "record_raw_download"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 34,
+      "measured": 145,
+      "path": "src/alpharank/data/ingestion/transition.py",
+      "symbol": "run_open_source_price_transition"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 15,
+      "measured": 88,
+      "path": "src/alpharank/data/lineage/legacy_archive_policy.py",
+      "symbol": "build_legacy_archive_policy"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 289,
+      "measured": 162,
+      "path": "src/alpharank/data/open_source/legacy_export.py",
+      "symbol": "_align_balance_shares_with_earnings_semantics"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 278,
+      "measured": 102,
+      "path": "src/alpharank/data/prices/composition.py",
+      "symbol": "_build_return_ledger_extension"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 29,
+      "measured": 106,
+      "path": "src/alpharank/data/prices/composition.py",
+      "symbol": "compose_hybrid_price_history"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 137,
+      "measured": 139,
+      "path": "src/alpharank/data/prices/composition.py",
+      "symbol": "roll_forward_validated_price_history"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 24,
+      "measured": 223,
+      "path": "src/alpharank/data/prices/gates.py",
+      "symbol": "audit_price_candidate"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 53,
+      "measured": 142,
+      "path": "src/alpharank/data/prices/revisions.py",
+      "symbol": "build_price_revision_package"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 695,
+      "measured": 104,
+      "path": "src/alpharank/data/processing.py",
+      "symbol": "FundamentalProcessor.calculate_all_ratios"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 349,
+      "measured": 241,
+      "path": "src/alpharank/data/processing.py",
+      "symbol": "FundamentalProcessor.calculate_fundamental_ratios"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 591,
+      "measured": 103,
+      "path": "src/alpharank/data/processing.py",
+      "symbol": "FundamentalProcessor.calculate_pe_ratios"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 373,
+      "measured": 95,
+      "path": "src/alpharank/data/publishing/composed_snapshot.py",
+      "symbol": "_validate_security_identity_packages"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 58,
+      "measured": 171,
+      "path": "src/alpharank/data/publishing/composed_snapshot.py",
+      "symbol": "build_composed_model_snapshot"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 37,
+      "measured": 118,
+      "path": "src/alpharank/data/publishing/definitive_prices.py",
+      "symbol": "build_definitive_prices"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 21,
+      "measured": 103,
+      "path": "src/alpharank/data/publishing/open_source_package.py",
+      "symbol": "publish_open_source_output_package"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 678,
+      "measured": 126,
+      "path": "src/alpharank/data/quality/benchmark.py",
+      "symbol": "_build_nearest_alignment"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 471,
+      "measured": 183,
+      "path": "src/alpharank/data/quality/benchmark.py",
+      "symbol": "write_detail_reports"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 563,
+      "measured": 101,
+      "path": "src/alpharank/data/quality/financial_audit.py",
+      "symbol": "_build_summary_payload"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 731,
+      "measured": 516,
+      "path": "src/alpharank/data/quality/financial_audit.py",
+      "symbol": "_render_dashboard_html"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 299,
+      "measured": 172,
+      "path": "src/alpharank/data/quality/financial_audit.py",
+      "symbol": "build_financial_alignment_with_metadata"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 91,
+      "measured": 115,
+      "path": "src/alpharank/data/quality/financial_audit.py",
+      "symbol": "build_financial_statement_audit_dashboard_from_frames"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 208,
+      "measured": 89,
+      "path": "src/alpharank/data/quality/financial_audit.py",
+      "symbol": "normalize_output_financials_between"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 54,
+      "measured": 111,
+      "path": "src/alpharank/data/security_identity.py",
+      "symbol": "apply_security_identity_policy"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 219,
+      "measured": 96,
+      "path": "src/alpharank/data/security_identity.py",
+      "symbol": "apply_security_identity_reference_policy"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 89,
+      "measured": 121,
+      "path": "src/alpharank/data/sources/constituents.py",
+      "symbol": "refresh_monthly_constituents"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 788,
+      "measured": 113,
+      "path": "src/alpharank/data/sources/earnings.py",
+      "symbol": "_match_yahoo_to_sec_calendar"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 507,
+      "measured": 236,
+      "path": "src/alpharank/data/sources/earnings.py",
+      "symbol": "consolidate_earnings"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 34,
+      "measured": 89,
+      "path": "src/alpharank/data/sources/general_reference.py",
+      "symbol": "build_general_reference"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 228,
+      "measured": 104,
+      "path": "src/alpharank/data/sources/sec_only.py",
+      "symbol": "_append_missing_derived_earnings_from_financials"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 413,
+      "measured": 175,
+      "path": "src/alpharank/data/sources/sec_only.py",
+      "symbol": "_build_sec_derived_eps_actuals"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 726,
+      "measured": 98,
+      "path": "src/alpharank/data/sources/sec_only.py",
+      "symbol": "_canonicalize_quarter_fields"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 855,
+      "measured": 105,
+      "path": "src/alpharank/data/sources/sec_only.py",
+      "symbol": "_canonicalize_ticker_quarters"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 55,
+      "measured": 90,
+      "path": "src/alpharank/data/terminal_eligibility.py",
+      "symbol": "apply_terminal_entry_gate"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 23,
+      "measured": 159,
+      "path": "src/alpharank/data/warehouse/definitive.py",
+      "symbol": "select_definitive_observations"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 17,
+      "measured": 85,
+      "path": "src/alpharank/data/warehouse/historical_migration.py",
+      "symbol": "build_historical_root_catalog"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 163,
+      "measured": 85,
+      "path": "src/alpharank/data/warehouse/migration.py",
+      "symbol": "catalog_existing_eodhd"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 41,
+      "measured": 120,
+      "path": "src/alpharank/data/warehouse/migration.py",
+      "symbol": "migrate_validated_snapshot_to_warehouse"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 33,
+      "measured": 104,
+      "path": "src/alpharank/data/warehouse/reader_migration.py",
+      "symbol": "build_reader_migration_registry"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 37,
+      "measured": 119,
+      "path": "src/alpharank/governance_contracts/baseline.py",
+      "symbol": "seal_baseline_package"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 158,
+      "measured": 100,
+      "path": "src/alpharank/governance_contracts/baseline.py",
+      "symbol": "validate_baseline_package"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 25,
+      "measured": 102,
+      "path": "src/alpharank/governance_contracts/economic_prefix.py",
+      "symbol": "compare_economic_prefix"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 15,
+      "measured": 97,
+      "path": "src/alpharank/governance_contracts/run_retention.py",
+      "symbol": "build_run_retention_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 29,
+      "measured": 96,
+      "path": "src/alpharank/governance_contracts/runtime_provenance.py",
+      "symbol": "capture_runtime_provenance"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 127,
+      "measured": 98,
+      "path": "src/alpharank/governance_contracts/runtime_provenance.py",
+      "symbol": "validate_runtime_provenance"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 104,
+      "measured": 102,
+      "path": "src/alpharank/models/xgboost.py",
+      "symbol": "XGBoostModel.optimize_hyperparameters"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 326,
+      "measured": 98,
+      "path": "src/alpharank/multihorizon/confirmation.py",
+      "symbol": "holdings_and_concentration"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 202,
+      "measured": 122,
+      "path": "src/alpharank/multihorizon/confirmation.py",
+      "symbol": "meta_walk_forward_selection"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 211,
+      "measured": 208,
+      "path": "src/alpharank/multihorizon/data.py",
+      "symbol": "_add_multihorizon_targets"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 718,
+      "measured": 151,
+      "path": "src/alpharank/multihorizon/data.py",
+      "symbol": "build_research_frame"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 49,
+      "measured": 220,
+      "path": "src/alpharank/multihorizon/live.py",
+      "symbol": "run_live_alpha"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 105,
+      "measured": 114,
+      "path": "src/alpharank/multihorizon/metrics.py",
+      "symbol": "score_predictions"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 189,
+      "measured": 627,
+      "path": "src/alpharank/multihorizon/pipeline.py",
+      "symbol": "run_multihorizon_research"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 105,
+      "measured": 106,
+      "path": "src/alpharank/multihorizon/risk.py",
+      "symbol": "add_daily_forward_risk_targets"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 355,
+      "measured": 98,
+      "path": "src/alpharank/multihorizon/risk.py",
+      "symbol": "build_risk_weighted_backtest"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 29,
+      "measured": 121,
+      "path": "src/alpharank/portfolio/attribution.py",
+      "symbol": "portfolio_return_attribution"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 87,
+      "measured": 99,
+      "path": "src/alpharank/portfolio/contracts.py",
+      "symbol": "validate_causal_timing"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 426,
+      "measured": 139,
+      "path": "src/alpharank/portfolio/execution.py",
+      "symbol": "apply_next_session_open_holding_returns"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 252,
+      "measured": 120,
+      "path": "src/alpharank/portfolio/execution.py",
+      "symbol": "build_execution_return_bridge"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 97,
+      "measured": 88,
+      "path": "src/alpharank/portfolio/execution.py",
+      "symbol": "build_execution_sensitivity_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 22,
+      "measured": 131,
+      "path": "src/alpharank/portfolio/maturity.py",
+      "symbol": "split_completed_portfolio_months"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 67,
+      "measured": 153,
+      "path": "src/alpharank/portfolio/performance.py",
+      "symbol": "advanced_performance_statistics"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 22,
+      "measured": 136,
+      "path": "src/alpharank/portfolio/simulation.py",
+      "symbol": "simulate_weighted_portfolio"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 225,
+      "measured": 112,
+      "path": "src/alpharank/portfolio/terminal_returns.py",
+      "symbol": "resolve_provisional_terminal_shareholder_returns"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 61,
+      "measured": 162,
+      "path": "src/alpharank/portfolio/terminal_returns.py",
+      "symbol": "resolve_terminal_shareholder_returns"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 260,
+      "measured": 84,
+      "path": "src/alpharank/production/legacy_pipeline.py",
+      "symbol": "_open_source_lineage_context"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 658,
+      "measured": 963,
+      "path": "src/alpharank/production/legacy_pipeline.py",
+      "symbol": "run_pipeline"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 18,
+      "measured": 202,
+      "path": "src/alpharank/replay/boosting.py",
+      "symbol": "validate_boosting_v2_replay"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 61,
+      "measured": 186,
+      "path": "src/alpharank/replay/causal_snapshot.py",
+      "symbol": "seal_causal_v2_snapshot"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 249,
+      "measured": 96,
+      "path": "src/alpharank/replay/causal_snapshot.py",
+      "symbol": "validate_causal_v2_snapshot"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 170,
+      "measured": 429,
+      "path": "src/alpharank/replay/common.py",
+      "symbol": "build_common_v2_comparison"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 601,
+      "measured": 118,
+      "path": "src/alpharank/replay/common.py",
+      "symbol": "validate_common_v2_replay"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 71,
+      "measured": 133,
+      "path": "src/alpharank/replay/legacy.py",
+      "symbol": "validate_legacy_v2_replay"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 20,
+      "measured": 160,
+      "path": "src/alpharank/replay/reconciliation.py",
+      "symbol": "build_v1_v2_reconciliation"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 182,
+      "measured": 106,
+      "path": "src/alpharank/replay/reconciliation.py",
+      "symbol": "reconcile_economic_frames"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 120,
+      "measured": 187,
+      "path": "src/alpharank/reporting/sec_quality_data.py",
+      "symbol": "_build_quarterly_presence"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 480,
+      "measured": 88,
+      "path": "src/alpharank/reporting/sec_quality_data.py",
+      "symbol": "_build_ticker_gap_summary"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 119,
+      "measured": 86,
+      "path": "src/alpharank/strategy/legacy.py",
+      "symbol": "StrategyLearner.fiting"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 339,
+      "measured": 117,
+      "path": "src/alpharank/strategy/legacy.py",
+      "symbol": "StrategyLearner.learning_process_technical"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 206,
+      "measured": 132,
+      "path": "src/alpharank/strategy/legacy.py",
+      "symbol": "StrategyLearner.return_from_training"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 28,
+      "measured": 137,
+      "path": "src/alpharank/strategy/legacy_aggregation.py",
+      "symbol": "aggregate_portfolios"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 14,
+      "measured": 124,
+      "path": "src/alpharank/strategy/legacy_artifacts.py",
+      "symbol": "compare_models"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 48,
+      "measured": 83,
+      "path": "src/alpharank/strategy/search_protocol.py",
+      "symbol": "write_legacy_search_audit"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 60,
+      "measured": 259,
+      "path": "src/alpharank/utils/metrics.py",
+      "symbol": "compare_models"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 190,
+      "measured": 119,
+      "path": "src/alpharank/visualization/financial_comparison.py",
+      "symbol": "FinancialReportGenerator.generate_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 410,
+      "measured": 366,
+      "path": "src/alpharank/visualization/plotting.py",
+      "symbol": "PortfolioVisualizer.make_comparison_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 91,
+      "measured": 318,
+      "path": "src/alpharank/visualization/plotting.py",
+      "symbol": "PortfolioVisualizer.make_portfolio_report"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 10,
+      "measured": 104,
+      "path": "tests/integration/fundamentals/test_open_source_financial_audit.py",
+      "symbol": "test_build_financial_statement_audit_dashboard_writes_expected_outputs"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 233,
+      "measured": 97,
+      "path": "tests/integration/publishing/test_open_source_legacy_export.py",
+      "symbol": "test_export_legacy_compatible_outputs_aligns_balance_shares_with_earnings_semantics"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 13,
+      "measured": 141,
+      "path": "tests/integration/publishing/test_open_source_legacy_export.py",
+      "symbol": "test_export_legacy_compatible_outputs_aligns_to_reference_schemas"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 332,
+      "measured": 141,
+      "path": "tests/integration/publishing/test_open_source_legacy_export.py",
+      "symbol": "test_export_legacy_compatible_outputs_preserves_exact_earnings_period_end"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 468,
+      "measured": 82,
+      "path": "tests/integration/publishing/test_open_source_legacy_export_semantics.py",
+      "symbol": "test_export_legacy_compatible_outputs_can_skip_earnings_implied_share_alignment"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 178,
+      "measured": 86,
+      "path": "tests/integration/publishing/test_open_source_legacy_export_semantics.py",
+      "symbol": "test_export_legacy_compatible_outputs_keeps_distinct_dates_even_when_filing_date_matches"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 90,
+      "measured": 86,
+      "path": "tests/integration/publishing/test_open_source_legacy_export_semantics.py",
+      "symbol": "test_export_legacy_compatible_outputs_prefers_vendor_revenue_for_reits_and_financials"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 36,
+      "measured": 87,
+      "path": "tests/integration/publishing/test_open_source_publishing.py",
+      "symbol": "test_publish_open_source_output_package_writes_exact_outputs_and_lineage"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 268,
+      "measured": 85,
+      "path": "tests/integration/test_open_source_sec_only.py",
+      "symbol": "test_build_sec_only_earnings_appends_derived_eps_without_calendar_row"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 21,
+      "measured": 119,
+      "path": "tests/replay/test_boosting_v2_replay.py",
+      "symbol": "test_boosting_v2_replay_is_serialized_and_causal"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 20,
+      "measured": 138,
+      "path": "tests/replay/test_future_mutation_invariance.py",
+      "symbol": "test_future_mutations_do_not_change_past_decisions"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 9,
+      "measured": 97,
+      "path": "tests/unit/data/test_fundamental_processing.py",
+      "symbol": "_statement_frames"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 80,
+      "measured": 101,
+      "path": "tests/unit/legacy/test_strategy_legacy.py",
+      "symbol": "test_legacy_sector_cap_uses_pit_sector"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 19,
+      "measured": 88,
+      "path": "tests/unit/reporting/test_methodology_v2_study.py",
+      "symbol": "_write_study_inputs"
+    },
+    {
+      "kind": "function_lines",
+      "limit": 80,
+      "line": 234,
+      "measured": 95,
+      "path": "tests/unit/test_portfolio_engine.py",
+      "symbol": "test_terminal_return_is_included"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 349,
+      "path": "scripts/audit_open_source_snapshot_revisions.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 2148,
+      "path": "scripts/compare_legacy_eodhd_vs_open_source.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 420,
+      "path": "scripts/experiments/legacy/analyze_legacy_return_attribution.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 972,
+      "path": "scripts/experiments/legacy/audit_historical_ticker_price_integrity.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 419,
+      "path": "scripts/experiments/legacy/render_annual_allocation_returns.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 415,
+      "path": "scripts/experiments/legacy/render_legacy_attribution_reports.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 831,
+      "path": "scripts/experiments/legacy/render_legacy_ema_risk_papers.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 897,
+      "path": "scripts/experiments/legacy/run_legacy_ema_risk_heads.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 840,
+      "path": "scripts/experiments/legacy/run_topn_allocation_comparison.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 328,
+      "path": "scripts/experiments/modeling/analyze_ema_anchor_recomposition_gap.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 507,
+      "path": "scripts/experiments/modeling/analyze_legacy_factor_exposures.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 392,
+      "path": "scripts/experiments/modeling/build_generalized_ema_expert_frame.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 264,
+      "path": "scripts/experiments/modeling/run_atomic_feature_future_target_models.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 781,
+      "path": "scripts/experiments/modeling/run_ema_anchor_residual_strategy.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 394,
+      "path": "scripts/experiments/modeling/run_ema_raw_calibrated_residual_strategy.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 306,
+      "path": "scripts/experiments/modeling/run_ema_rich_future_target_models.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 369,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_exact_ema_rank.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 672,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_exact_ema_variants.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 583,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_rank_regression.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 308,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_risk_overlay.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 533,
+      "path": "scripts/experiments/modeling/run_portfolio_boosting_top_return_classifier.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 600,
+      "path": "scripts/experiments/modeling/run_signal_copy_models.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 704,
+      "path": "scripts/experiments/modeling/run_tradable_ema_regression_optuna.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 312,
+      "path": "scripts/experiments/modeling/run_tradable_ema_regression_trading_backtest.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 362,
+      "path": "scripts/experiments/modeling/run_tradable_ema_residual_regression.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 397,
+      "path": "scripts/experiments/operations/confirm_locked_challenger.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 420,
+      "path": "scripts/experiments/protocols/run_residual_init_score_experiment.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 301,
+      "path": "scripts/experiments/reports/analyze_return_forecast_calibration.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 861,
+      "path": "scripts/experiments/reports/render_alpha_shap_portfolio_report.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 568,
+      "path": "scripts/experiments/reports/render_locked_challenger_papers.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 777,
+      "path": "scripts/open_source/audit/audit_price_snapshot_vintages.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 334,
+      "path": "scripts/open_source/audit/audit_sec_earnings_coverage.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 312,
+      "path": "scripts/open_source/audit/probe_sec_earnings_tickers.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 619,
+      "path": "scripts/open_source/audit/probe_sec_sp500_history_sample.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 400,
+      "path": "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 286,
+      "path": "scripts/open_source/audit/run_sec_q4_fix2_candidate.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 415,
+      "path": "scripts/open_source/ingestion/backfill_sec_core_history.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 256,
+      "path": "scripts/open_source/ingestion/nightly_ingestion.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 505,
+      "path": "scripts/open_source/ingestion/refresh_current_constituent_prices.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 336,
+      "path": "scripts/open_source/publication/build_roll_forward_price_package.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 300,
+      "path": "scripts/open_source/publication/build_sec_metric_hybrid_package.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 966,
+      "path": "scripts/open_source/publication/build_sec_output_package.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 411,
+      "path": "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 359,
+      "path": "scripts/open_source/publication/build_sec_overlay_package.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 450,
+      "path": "scripts/open_source/reporting/build_sec_core_kpi_yearly_report.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 1077,
+      "path": "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 825,
+      "path": "scripts/open_source/reporting/build_sec_quality_dashboard.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 518,
+      "path": "scripts/portfolio_allocation.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 279,
+      "path": "scripts/research/compare_legacy_input_ablation.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 405,
+      "path": "scripts/research/render_methodology_v2_study.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 401,
+      "path": "scripts/run_backtest.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 267,
+      "path": "scripts/run_backtest_application.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 255,
+      "path": "scripts/run_legacy.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 250,
+      "line": 1,
+      "measured": 287,
+      "path": "scripts/validate_common_portfolio_engine.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1152,
+      "path": "src/alpharank/backtest/application.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1691,
+      "path": "src/alpharank/backtest/pipeline.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 879,
+      "path": "src/alpharank/backtest/reporting.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 869,
+      "path": "src/alpharank/data/ingestion/cadrage.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 2110,
+      "path": "src/alpharank/data/ingestion/orchestration.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1006,
+      "path": "src/alpharank/data/ingestion/prices.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 906,
+      "path": "src/alpharank/data/open_source/legacy_export.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1015,
+      "path": "src/alpharank/data/open_source/sec.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1196,
+      "path": "src/alpharank/data/quality/benchmark.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1412,
+      "path": "src/alpharank/data/quality/financial_audit.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 900,
+      "path": "src/alpharank/data/sources/earnings.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1413,
+      "path": "src/alpharank/data/sources/sec_only.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 868,
+      "path": "src/alpharank/multihorizon/data.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 815,
+      "path": "src/alpharank/multihorizon/pipeline.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1620,
+      "path": "src/alpharank/production/legacy_pipeline.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 826,
+      "path": "src/alpharank/replay/common.py",
+      "symbol": "<module>"
+    },
+    {
+      "kind": "module_lines",
+      "limit": 800,
+      "line": 1,
+      "measured": 1118,
+      "path": "src/alpharank/strategy/legacy.py",
+      "symbol": "<module>"
+    }
+  ]
+}

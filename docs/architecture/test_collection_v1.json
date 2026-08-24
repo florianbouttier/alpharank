@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 476,
+  "node_count": 478,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -350,6 +350,8 @@
     "test_price_seed.py::test_load_eodhd_seed_is_hashed_normalized_and_immutable",
     "test_python_directory_limits.py::test_exception_requires_explicit_owner_approval_fields",
     "test_python_directory_limits.py::test_inventory_rejects_a_directory_above_the_default_limit",
+    "test_python_size.py::test_differential_size_gate_allows_reductions",
+    "test_python_size.py::test_differential_size_gate_rejects_new_and_increased_debt",
     "test_raw_archive.py::test_failed_raw_download_attempt_keeps_receipt_without_payload",
     "test_raw_archive.py::test_identical_raw_download_stores_no_price_rows_twice",
     "test_raw_archive.py::test_immutable_eodhd_content_is_stored_once_for_multiple_source_ids",
@@ -479,7 +481,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "5c75ee0d6d7c2dd091cbba499bcadd4709397bc404fe7acaa208c72759872bfb",
+  "node_ids_sha256": "32e775aabff669619d46b9d23187d5bbadba33e5738012f2952d823a5f7a751e",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

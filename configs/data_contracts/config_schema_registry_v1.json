@@ -1149,6 +1149,152 @@
     },
     {
       "example_files": [
+        "configs/quality/python_size_baseline_v1.json"
+      ],
+      "family_id": "python_size_baseline",
+      "patterns": [
+        "configs/quality/python_size_baseline_v1.json"
+      ],
+      "schema": {
+        "additional_properties": false,
+        "properties": {
+          "baseline_id": {
+            "type": "string"
+          },
+          "policy": {
+            "additional_properties": false,
+            "properties": {
+              "complexity_maximum": {
+                "type": "integer"
+              },
+              "exception_policy": {
+                "type": "string"
+              },
+              "excluded_directories": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "function_maximum_lines": {
+                "type": "integer"
+              },
+              "library_module_maximum_lines": {
+                "type": "integer"
+              },
+              "scope_roots": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "script_module_maximum_lines": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "complexity_maximum",
+              "exception_policy",
+              "excluded_directories",
+              "function_maximum_lines",
+              "library_module_maximum_lines",
+              "scope_roots",
+              "script_module_maximum_lines"
+            ],
+            "type": "object"
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "summary": {
+            "additional_properties": false,
+            "properties": {
+              "tracked_python_file_count": {
+                "type": "integer"
+              },
+              "violation_count": {
+                "type": "integer"
+              },
+              "violations_by_kind": {
+                "additional_properties": false,
+                "properties": {
+                  "complexity": {
+                    "type": "integer"
+                  },
+                  "function_lines": {
+                    "type": "integer"
+                  },
+                  "module_lines": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "complexity",
+                  "function_lines",
+                  "module_lines"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "tracked_python_file_count",
+              "violation_count",
+              "violations_by_kind"
+            ],
+            "type": "object"
+          },
+          "tool_version_at_baseline": {
+            "type": "string"
+          },
+          "violations": {
+            "items": {
+              "additional_properties": false,
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": "integer"
+                },
+                "line": {
+                  "type": "integer"
+                },
+                "measured": {
+                  "type": "integer"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "limit",
+                "line",
+                "measured",
+                "path",
+                "symbol"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "baseline_id",
+          "policy",
+          "schema_version",
+          "summary",
+          "tool_version_at_baseline",
+          "violations"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "example_files": [
         "configs/quality/python_directory_policy_v1.json"
       ],
       "family_id": "python_directory_policy",

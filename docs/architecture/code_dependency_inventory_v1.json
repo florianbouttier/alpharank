@@ -125,6 +125,7 @@
     "scripts/quality/check_config_schemas.py",
     "scripts/quality/check_dependencies.py",
     "scripts/quality/check_error_handling.py",
+    "scripts/quality/check_python_size.py",
     "scripts/quality/check_ruff_baseline.py",
     "scripts/quality/run_ci_checks.py",
     "scripts/replay/build_common_v2_replay.py",
@@ -1435,6 +1436,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/quality/check_python_size.py",
+      "target": "src/alpharank/quality/python_size.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/quality/check_ruff_baseline.py",
       "target": "src/alpharank/quality/ruff_baseline.py"
     },
@@ -1467,6 +1473,11 @@
       "kind": "command",
       "source": "scripts/quality/run_ci_checks.py",
       "target": "scripts/quality/check_error_handling.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/quality/run_ci_checks.py",
+      "target": "scripts/quality/check_python_size.py"
     },
     {
       "kind": "command",
@@ -5704,6 +5715,21 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/quality/python_size.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.quality.check_python_size",
+      "path": "scripts/quality/check_python_size.py",
+      "readers": [
+        "scripts/quality/run_ci_checks.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/quality/ruff_baseline.py"
       ],
       "invokes": [],
@@ -5726,6 +5752,7 @@
         "scripts/quality/check_config_schemas.py",
         "scripts/quality/check_dependencies.py",
         "scripts/quality/check_error_handling.py",
+        "scripts/quality/check_python_size.py",
         "scripts/quality/check_ruff_baseline.py",
         "scripts/validate_documentation.py",
         "scripts/validate_markdown_links.py"
@@ -8942,6 +8969,19 @@
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
+      "module": "alpharank.quality.python_size",
+      "path": "src/alpharank/quality/python_size.py",
+      "readers": [
+        "scripts/quality/check_python_size.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
       "module": "alpharank.quality.ruff_baseline",
       "path": "src/alpharank/quality/ruff_baseline.py",
       "readers": [
@@ -9623,11 +9663,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 151,
-    "internal_edge_count": 738,
-    "library_count": 193,
-    "python_file_count": 351,
-    "script_count": 158,
+    "active_entrypoint_count": 152,
+    "internal_edge_count": 740,
+    "library_count": 194,
+    "python_file_count": 353,
+    "script_count": 159,
     "unread_node_count": 158
   }
 }

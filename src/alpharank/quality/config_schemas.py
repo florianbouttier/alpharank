@@ -47,6 +47,10 @@ CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     ("ruff_baseline", ("configs/quality/ruff_baseline_v1.json",)),
     (
+        "python_size_baseline",
+        ("configs/quality/python_size_baseline_v1.json",),
+    ),
+    (
         "python_directory_policy",
         ("configs/quality/python_directory_policy_v1.json",),
     ),

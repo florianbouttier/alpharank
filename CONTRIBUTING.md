@@ -304,6 +304,19 @@ fait échouer le contrôle ; une alerte corrigée peut disparaître sans régén
 baseline. Sa réécriture exige une tâche de roadmap et une revue explicite du
 rapport complet.
 
+La taille et la complexité suivent la même règle différentielle : maximum 800
+lignes pour un module de bibliothèque, 250 pour un script, 80 pour une fonction
+et une complexité cyclomatique de 10. La dette historique est figée ; une
+nouvelle violation ou l'aggravation d'une violation existante bloque la CI.
+
+```bash
+python scripts/quality/check_python_size.py
+```
+
+La baseline ne contient aucune exception libre. Un dépassement nouveau exige
+l'approbation explicite du propriétaire et une tâche de roadmap dédiée avant
+toute évolution du contrat.
+
 Le typage strict est activé progressivement sur la liste `tool.mypy.files` de
 `pyproject.toml`. La commande canonique est :
 
