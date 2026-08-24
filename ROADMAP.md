@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-24.**
+**Dernière mise à jour : 2026-08-25.**
 
 **Statut : seule source des priorités actives.**
 
@@ -64,7 +64,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 25 | `DOC-019` | rafraîchir les preuves chiffrées de la roadmap | lot DOC ci-dessous | fait |
 | 26 | `DOC-020` | rendre le replay après refresh obligatoire et canonique | lot DOC ci-dessous | fait |
 | 27 | `REPLAY-001` | attribuer tout drift data jusqu'aux deux portefeuilles | lot REPLAY ci-dessous | fait |
-| 28 | `DATA-012` | exécuter le refresh complet et les deux replays scellés | lot DATA ci-dessous | à faire |
+| 28 | `DATA-012` | exécuter le refresh complet et les deux replays scellés | lot DATA ci-dessous | fait |
 | 29 | `REPLAY-002` | détailler les écarts de provenance sans faux drift de chemin | lot REPLAY ci-dessous | fait |
 | 30 | `REPLAY-003` | rendre le statut de chaque source explicite après un arrêt amont | lot REPLAY ci-dessous | fait |
 
@@ -75,10 +75,11 @@ Transition achevée : les travaux `DOC-001` à `DOC-013` et `QUAL-001`, commenc�
 avant l'activation du contrat Git, ont été redécoupés puis committés sous leurs
 identifiants propres. Aucun commit global de nettoyage ne les a absorbés.
 
-Le lot de fiabilité ouvert le 24 août 2026 ajoute deux tâches actives : produire
-le diagnostic exécutable `REPLAY-001`, puis l'appliquer au refresh intégral
-`DATA-012`. La fenêtre d'observation `DATA-010` reste inchangée jusqu'au
-19 septembre 2026 ; aucune archive physique ne sera déclenchée avant sa revue.
+Le lot de fiabilité ouvert le 24 août 2026 est exécuté : le diagnostic
+`REPLAY-001` a été appliqué au refresh intégral `DATA-012`, puis les faux drifts
+de provenance et les statuts de sources ont été durcis par `REPLAY-002/003`.
+La fenêtre d'observation `DATA-010` reste inchangée jusqu'au 19 septembre 2026 ;
+aucune archive physique ne sera déclenchée avant sa revue.
 
 ## 3. Règles de conduite
 
@@ -276,7 +277,7 @@ change dans ce lot.
 | `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | fait | 162 arêtes lecteur/emplacement classées, zéro non classée ; 10 chemins ancien/MART comparés par SHA-256, deux entrées par défaut basculées |
 | `DATA-010` | rendre les anciennes racines en lecture seule puis les archiver | fait | gel contractuel de 18 racines, observation 2026-08-20 au 2026-09-19, archive par référence et retour arrière hashé |
 | `DATA-011` | étendre le bridge ticker/CIK historique et fournir une reconstruction SEC candidate | fait | bridge versionné porté à 75 identités dont 67 ajouts audités ; candidat hashé et bloqué, fallback filing-level tracé, snapshot courant inchangé et tests de réutilisation de symbole |
-| `DATA-012` | retélécharger les sources rafraîchissables, reconstruire un candidat sans promotion et rejouer Legacy puis Boosting | à faire | chaque source reçoit un statut ; mêmes portefeuilles au cutoff commun ou rapport de drift complet, tout écart inexpliqué bloque |
+| `DATA-012` | retélécharger les sources rafraîchissables, reconstruire un candidat sans promotion et rejouer Legacy puis Boosting | fait | bootstrap `20260824_214818` bloqué avant fondamentaux sur 44 révisions Yahoo ; chaque source classée ; snapshot inchangé puis 7 994 holdings Legacy, 88 948 prédictions Boosting et 6 395 holdings communs reproduits sans drift matériel |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des

@@ -501,6 +501,27 @@ AlphaRank stops at the immutable target, scores, weights and price evidence.
 Portfolio owns any interactive allocation view and the reconciliation with
 current holdings or cash; no trade is sent from AlphaRank.
 
+## Refresh reliability replay on 2026-08-24 and 2026-08-25
+
+The bootstrap refresh `20260824_214818` is quarantined and must never be used as
+a model input. Yahoo introduced 44 historical daily-return revisions above 1
+basis point across 30 tickers. The price gate stopped before SEC and fallback
+fundamental acquisition, before snapshot publication, and before either model.
+The canonical pointer therefore still resolves composition `9a2058c9…425ad`.
+
+Legacy run `20260825_000250` and the aligned Boosting/common replays were then
+recomputed from that unchanged canonical snapshot. At the common `2026-07-01`
+cutoff, all 7,994 Legacy positions, 88,948 Boosting predictions and 6,395 common
+positions match the retained baseline, with zero material value difference.
+
+The complete execution record, source-by-source statuses, commands, drift keys
+and report hashes are in
+[`research/data_refresh_replay_20260824_20260825.md`](research/data_refresh_replay_20260824_20260825.md).
+Future refreshes must use
+[`data_refresh_replay_contract.md`](data_refresh_replay_contract.md) and may not
+reuse the blocked candidate or override its revision gate without a separately
+reviewed migration.
+
 ## Boosting Production Candidate
 
 Boosting remains an explicit R&D production candidate; it does not replace the

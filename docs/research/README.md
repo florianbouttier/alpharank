@@ -13,6 +13,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
   replays alignés.
 - `boosting_signal_copy_log_20260820.md` : convention de clôture, SHAP et
   anomalie d'identité SNDK.
+- `data_refresh_replay_20260824_20260825.md` : refresh intégral bloqué sur les
+  révisions Yahoo et preuve d'identité des replays Legacy/Boosting sur le
+  snapshot publié.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
