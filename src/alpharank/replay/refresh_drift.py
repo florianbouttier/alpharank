@@ -19,6 +19,7 @@ from alpharank.replay.refresh_compare import (
     write_frame_diff,
 )
 from alpharank.replay.refresh_provenance import compare_provenance_pairs
+from alpharank.replay.refresh_sources import blocked_refresh_source_statuses
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,6 +181,7 @@ def audit_blocked_refresh(
             ),
             "transition_factor_findings": gate.get("transition_factor_findings"),
         },
+        "source_statuses": blocked_refresh_source_statuses(failed_refresh_run),
         "evidence": evidence,
         "model_execution": {
             "legacy_candidate_executed": False,

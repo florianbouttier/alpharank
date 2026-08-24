@@ -66,6 +66,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 27 | `REPLAY-001` | attribuer tout drift data jusqu'aux deux portefeuilles | lot REPLAY ci-dessous | fait |
 | 28 | `DATA-012` | exécuter le refresh complet et les deux replays scellés | lot DATA ci-dessous | à faire |
 | 29 | `REPLAY-002` | détailler les écarts de provenance sans faux drift de chemin | lot REPLAY ci-dessous | fait |
+| 30 | `REPLAY-003` | rendre le statut de chaque source explicite après un arrêt amont | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -294,6 +295,7 @@ doublons exacts et preuve de récupération.
 | --- | --- | --- | --- |
 | `REPLAY-001` | comparer baseline et candidat depuis les entrées jusqu'aux holdings Legacy et Boosting | fait | audit causal au cutoff, preuves Parquet par clé, comparaison du code/config/runtime et code retour bloquant pour tout statut autre que l'identité historique |
 | `REPLAY-002` | rendre chaque écart code, configuration et runtime directement explicable | fait | chemins de run neutralisés ; valeurs avant/après listées par chemin JSON pour Git, fichiers critiques, paramètres, dépendances et seeds |
+| `REPLAY-003` | conserver un statut machine-lisible pour chaque source après une gate amont | fait | prix Yahoo téléchargés/quarantinés, historiques gelés conservés et acquisitions fondamentales non démarrées distingués explicitement |
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

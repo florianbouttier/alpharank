@@ -106,6 +106,7 @@ def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str
             "src/alpharank/replay/refresh_compare.py",
             "src/alpharank/replay/refresh_drift.py",
             "src/alpharank/replay/refresh_provenance.py",
+            "src/alpharank/replay/refresh_sources.py",
         ),
         data_identifiers={
             "status": status,

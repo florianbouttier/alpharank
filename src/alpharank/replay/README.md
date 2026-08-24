@@ -13,6 +13,8 @@ AlphaRank causal, comparable et recalculable :
   écart non attribué ;
 - `refresh_provenance.py` détaille chaque différence de code, paramètre,
   dépendance et seed sans confondre les chemins de sortie avec la méthode ;
+- `refresh_sources.py` déclare les sources téléchargées, conservées ou non
+  démarrées lorsqu'une gate amont arrête le refresh ;
 - `validation.py` scelle et recalcule un package de replay autonome.
 
 L'API canonique courte est exposée par `alpharank.replay`. Les anciens modules

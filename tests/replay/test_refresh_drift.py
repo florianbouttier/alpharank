@@ -80,6 +80,27 @@ def test_blocked_refresh_preserves_gate_and_hashes_evidence(tmp_path: Path) -> N
         encoding="utf-8",
     )
     pl.DataFrame({"ticker": ["MNST.US"]}).write_parquet(run_dir / "revisions.parquet")
+    (run_dir / "price_validated_key_coverage.json").write_text(
+        json.dumps(
+            {
+                "provider_complete": False,
+                "raw_archive": {"manifest_path": "/raw/yahoo/manifest.json"},
+                "definitive_resolution": {"passed": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "price_composition.json").write_text(
+        json.dumps(
+            {
+                "refreshable_active_ticker_count": 502,
+                "active_yahoo_rows": 2_480_115,
+                "preserved_history_rows": 1_232_112,
+                "preserved_history_tickers": 338,
+            }
+        ),
+        encoding="utf-8",
+    )
 
     report = audit_blocked_refresh(run_dir, tmp_path / "baseline", tmp_path / "audit")
 
@@ -87,11 +108,17 @@ def test_blocked_refresh_preserves_gate_and_hashes_evidence(tmp_path: Path) -> N
     assert not report["promotion_allowed_by_this_gate"]
     assert report["failed_gate"]["historical_daily_return_revisions_over_threshold"] == 45
     assert {Path(item["path"]).name for item in report["evidence"]} == {
+        "price_composition.json",
         "price_revision_guard.json",
+        "price_validated_key_coverage.json",
         "revisions.parquet",
     }
     assert all(len(item["sha256"]) == 64 for item in report["evidence"])
     assert not report["model_execution"]["legacy_candidate_executed"]
+    statuses = {item["source"]: item["status"] for item in report["source_statuses"]}
+    assert statuses["yahoo_prices"] == "downloaded_quarantined"
+    assert statuses["eodhd_price_seed"] == "retained_not_redownloadable"
+    assert statuses["sec_companyfacts"] == "not_started_blocked_upstream"
 
 
 def test_complete_audit_accepts_identical_historical_portfolios(tmp_path: Path) -> None:
