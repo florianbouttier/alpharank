@@ -8,6 +8,9 @@ AlphaRank causal, comparable et recalculable :
 - `common.py` construit et valide la comparaison Legacy/Boosting/SPY ;
 - `common_strategy.py` construit le replay public même snapshot ;
 - `reconciliation.py` explique le pont économique entre méthodologies ;
+- `refresh_compare.py` compare les clés naturelles et les valeurs au cutoff ;
+- `refresh_drift.py` relie le refresh aux deux portefeuilles et bloque tout
+  écart non attribué ;
 - `validation.py` scelle et recalcule un package de replay autonome.
 
 L'API canonique courte est exposée par `alpharank.replay`. Les anciens modules

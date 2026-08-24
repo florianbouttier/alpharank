@@ -8,7 +8,10 @@ from typing import Any
 __all__ = [
     "CausalSnapshotValidationError",
     "CommonStrategyReplayConfig",
+    "ReplayAuditInputs",
     "ReplayValidationError",
+    "audit_blocked_refresh",
+    "audit_refresh_replay",
     "build_common_strategy_replay",
     "build_common_v2_comparison",
     "build_v1_v2_reconciliation",
@@ -25,7 +28,10 @@ __all__ = [
 _PUBLIC_OWNERS = {
     "CausalSnapshotValidationError": "alpharank.replay.causal_snapshot",
     "CommonStrategyReplayConfig": "alpharank.replay.common_strategy",
+    "ReplayAuditInputs": "alpharank.replay.refresh_drift",
     "ReplayValidationError": "alpharank.replay.validation",
+    "audit_blocked_refresh": "alpharank.replay.refresh_drift",
+    "audit_refresh_replay": "alpharank.replay.refresh_drift",
     "build_common_strategy_replay": "alpharank.replay.common_strategy",
     "build_common_v2_comparison": "alpharank.replay.common",
     "build_v1_v2_reconciliation": "alpharank.replay.reconciliation",

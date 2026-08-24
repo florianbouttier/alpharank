@@ -116,3 +116,36 @@ Le fait d'arrêter avant les modèles lorsqu'un candidat est corrompu est une
 preuve de fiabilité, pas un replay réussi. Le rapport doit alors nommer les
 sources, clés et seuils qui ont empêché les deux backtests de consommer cette
 donnée.
+
+## 8. Commande canonique d'audit
+
+Après un candidat valide et les deux replays, la comparaison s'exécute avec :
+
+```bash
+python scripts/validation/audit_refresh_replay.py \
+  --baseline-snapshot <snapshot-publie> \
+  --candidate-snapshot <snapshot-candidat> \
+  --baseline-legacy <run-legacy-publie> \
+  --candidate-legacy <run-legacy-candidat> \
+  --baseline-boosting <run-boosting-publie> \
+  --candidate-boosting <run-boosting-candidat> \
+  --baseline-common <replay-commun-publie> \
+  --candidate-common <replay-commun-candidat> \
+  --historical-cutoff YYYY-MM-DD \
+  --output-dir <racine-audit>
+```
+
+Si une gate data arrête le candidat avant les modèles, le même outil produit
+la conclusion obligatoire sans lancer les backtests sur une donnée invalide :
+
+```bash
+python scripts/validation/audit_refresh_replay.py \
+  --baseline-snapshot <snapshot-publie> \
+  --failed-refresh-run <data/open_source/official/runs/RUN_ID> \
+  --output-dir <racine-audit>
+```
+
+Le code retour vaut zéro seulement pour
+`identical_historical_portfolios`. Toute autre classification retourne `2`,
+conserve les clés de divergence en Parquet et interdit la promotion jusqu'à la
+revue prévue par ce contrat.

@@ -63,7 +63,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 24 | `QUAL-014` | étendre le typage strict à un package métier | lot QUAL ci-dessous | fait |
 | 25 | `DOC-019` | rafraîchir les preuves chiffrées de la roadmap | lot DOC ci-dessous | fait |
 | 26 | `DOC-020` | rendre le replay après refresh obligatoire et canonique | lot DOC ci-dessous | fait |
-| 27 | `REPLAY-001` | attribuer tout drift data jusqu'aux deux portefeuilles | lot REPLAY ci-dessous | à faire |
+| 27 | `REPLAY-001` | attribuer tout drift data jusqu'aux deux portefeuilles | lot REPLAY ci-dessous | fait |
 | 28 | `DATA-012` | exécuter le refresh complet et les deux replays scellés | lot DATA ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
@@ -291,7 +291,7 @@ doublons exacts et preuve de récupération.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `REPLAY-001` | comparer baseline et candidat depuis les entrées jusqu'aux holdings Legacy et Boosting | à faire | hashes, clés et valeurs data, univers, prédictions, positions, poids et rendements rapprochés ; cause classée data/code/config/runtime ou écart inexpliqué bloquant |
+| `REPLAY-001` | comparer baseline et candidat depuis les entrées jusqu'aux holdings Legacy et Boosting | fait | audit causal au cutoff, preuves Parquet par clé, comparaison du code/config/runtime et code retour bloquant pour tout statut autre que l'identité historique |
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 
