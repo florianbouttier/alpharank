@@ -6,6 +6,9 @@ import numpy as np
 import polars as pl
 import pytest
 
+from alpharank.data.price_eligibility import (
+    price_eligibility_policy_from_manifest,
+)
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
 from alpharank.portfolio.adapters.legacy import legacy_detailed_to_holdings
 from alpharank.portfolio.allocation import (
@@ -15,18 +18,15 @@ from alpharank.portfolio.allocation import (
 from alpharank.portfolio.comparison import align_return_series
 from alpharank.portfolio.contracts import validate_holdings
 from alpharank.portfolio.costs import TransactionCostModel
-from alpharank.portfolio.performance import (
-    advanced_performance_statistics,
-    annual_returns,
-    legacy_report_statistics,
-)
 from alpharank.portfolio.lineage import (
     compare_input_hashes,
     compare_ticker_exclusions,
     ticker_exclusions_from_manifest,
 )
-from alpharank.data.price_eligibility import (
-    price_eligibility_policy_from_manifest,
+from alpharank.portfolio.performance import (
+    advanced_performance_statistics,
+    annual_returns,
+    legacy_report_statistics,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
@@ -519,6 +519,26 @@ def test_advanced_statistics_use_the_same_canonical_base() -> None:
     assert advanced["sharpe"] == pytest.approx(base["sharpe"])
     assert advanced["sortino"] > advanced["sharpe"]
     assert advanced["benchmark_hit_rate"] == pytest.approx(0.75)
+    benchmark_stats = legacy_report_statistics(
+        benchmark,
+        holding_months=[date(2020, month, 1) for month in range(1, 5)],
+    )
+    assert advanced["annualized_excess_return"] == pytest.approx(
+        base["cagr"] - benchmark_stats["cagr"]
+    )
+    assert advanced["tracking_error"] == pytest.approx(
+        np.std(returns - benchmark, ddof=1) * np.sqrt(12.0)
+    )
+    assert np.isfinite(advanced["skewness"])
+    assert np.isfinite(advanced["excess_kurtosis"])
+
+    without_benchmark = advanced_performance_statistics(returns)
+    assert np.isnan(without_benchmark["annualized_excess_return"])
+    assert np.isnan(without_benchmark["tracking_error"])
+
+    empty = advanced_performance_statistics(np.asarray([]))
+    assert np.isnan(empty["skewness"])
+    assert np.isnan(empty["excess_kurtosis"])
 
 
 def test_comparison_lineage_rejects_distinct_data_snapshots() -> None:

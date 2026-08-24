@@ -52,7 +52,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 13 | `CODEORG-004` | classer les tests unitaires et d'intégration par domaine | lot CODEORG ci-dessous | fait |
 | 14 | `CODEORG-005` | activer le plafond en CI après zéro violation | lot CODEORG ci-dessous | fait |
 | 15 | `DOC-018` | ouvrir le lot de qualité résiduelle mesuré le 24 août | lots ci-dessous | fait |
-| 16 | `METH-003` | compléter les métriques communes sans changer les rendements | lot METH ci-dessous | à faire |
+| 16 | `METH-003` | compléter les métriques communes sans changer les rendements | lot METH ci-dessous | fait |
 | 17 | `DATA-011` | reconstruire la couverture SEC historique sans promotion implicite | lot DATA ci-dessous | à faire |
 | 18 | `CODE-012` | extraire la construction du replay commun hors du script public | lot CODE ci-dessous | à faire |
 | 19 | `METH-004` | mesurer Boosting sur l'univers de valorisation Legacy causal | lot METH ci-dessous | à faire |
@@ -256,7 +256,7 @@ doublons exacts et preuve de récupération.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | à faire | formules centralisées, cas sans benchmark explicite et rendements historiques inchangés |
+| `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | fait | formules centralisées dans `portfolio/performance.py`, cas sans benchmark et vide testés ; aucun rendement mensuel modifié |
 | `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | à faire | registre causal par ticker-mois, variantes natives et appariées, snapshot identique et aucune promotion de Boosting |
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux

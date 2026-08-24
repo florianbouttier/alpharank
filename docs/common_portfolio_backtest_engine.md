@@ -197,12 +197,20 @@ The older arithmetic Sharpe remains available only through the explicit
 `sharpe_convention="arithmetic"` compatibility option. New Alpha/Legacy/SPY
 comparisons must use the Legacy convention.
 
-`advanced_performance_statistics()` extends the same canonical base with
-Sortino, Calmar, information ratio, beta, alpha, correlation, benchmark hit
-rate, historical VaR/CVaR, Omega and upside/downside capture. The interactive
-research center precomputes every contiguous start/end window with this
-function; its browser code no longer owns a separate implementation of the
-headline performance statistics.
+`advanced_performance_statistics()` étend la même base canonique avec Sortino,
+Calmar, information ratio, beta, alpha, corrélation, taux de surperformance du
+benchmark, VaR/CVaR historique, Omega et capture haussière/baissière. Il expose
+également :
+
+- `annualized_excess_return`, défini comme le CAGR de la stratégie moins le CAGR
+  du benchmark sur le même calendrier ;
+- `tracking_error`, écart-type échantillon des rendements mensuels actifs
+  multiplié par `sqrt(12)` ;
+- `skewness` et `excess_kurtosis`, moments centrés de population des rendements
+  mensuels, la kurtosis étant exprimée relativement à la loi normale.
+
+Sans benchmark, les deux premières métriques restent explicitement `NaN`. Les
+consommateurs utilisent cette fonction commune et ne réimplémentent aucun KPI.
 
 ## Exact CAGR Attribution
 

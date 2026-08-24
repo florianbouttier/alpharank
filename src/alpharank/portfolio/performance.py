@@ -104,6 +104,8 @@ def advanced_performance_statistics(
                 for key in (
                     "sortino",
                     "calmar",
+                    "annualized_excess_return",
+                    "tracking_error",
                     "information_ratio",
                     "beta",
                     "alpha",
@@ -114,6 +116,8 @@ def advanced_performance_statistics(
                     "omega",
                     "up_capture",
                     "down_capture",
+                    "skewness",
+                    "excess_kurtosis",
                 )
             },
         }
@@ -133,10 +137,24 @@ def advanced_performance_statistics(
     tail = values[values <= var_95]
     gains = float(values[values > 0.0].sum())
     losses = abs(float(values[values < 0.0].sum()))
+    centered = values - float(np.mean(values))
+    population_std = float(np.std(values, ddof=0))
+    skewness = (
+        float(np.mean(centered**3) / population_std**3)
+        if population_std > 0.0
+        else float("nan")
+    )
+    excess_kurtosis = (
+        float(np.mean(centered**4) / population_std**4 - 3.0)
+        if population_std > 0.0
+        else float("nan")
+    )
     result = {
         **base,
         "sortino": float(sortino),
         "calmar": float(calmar),
+        "annualized_excess_return": float("nan"),
+        "tracking_error": float("nan"),
         "var_95": var_95,
         "cvar_95": float(np.mean(tail)) if tail.size else float("nan"),
         "omega": gains / losses if losses > 0.0 else float("nan"),
@@ -147,12 +165,19 @@ def advanced_performance_statistics(
         "benchmark_hit_rate": float("nan"),
         "up_capture": float("nan"),
         "down_capture": float("nan"),
+        "skewness": skewness,
+        "excess_kurtosis": excess_kurtosis,
     }
     if benchmark is None or values.size < 2:
         return result
 
     active = values - benchmark
     tracking_error = float(np.std(active, ddof=1) * math.sqrt(12.0))
+    benchmark_base = performance_statistics(
+        benchmark,
+        risk_free_rate=risk_free_rate,
+        sharpe_convention="legacy",
+    )
     benchmark_variance = float(np.var(benchmark, ddof=1))
     covariance = float(np.cov(values, benchmark, ddof=1)[0, 1])
     beta = covariance / benchmark_variance if benchmark_variance > 0.0 else float("nan")
@@ -169,6 +194,8 @@ def advanced_performance_statistics(
     up = benchmark > 0.0
     down = benchmark < 0.0
     result.update(
+        annualized_excess_return=base["cagr"] - benchmark_base["cagr"],
+        tracking_error=tracking_error,
         information_ratio=(
             12.0 * float(np.mean(active)) / tracking_error
             if tracking_error > 0.0
