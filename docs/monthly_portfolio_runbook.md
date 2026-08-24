@@ -309,6 +309,14 @@ complete reproducibility package.
 
 ## Derived Data Replay Gate
 
+Le contrat obligatoire de comparaison après refresh est
+[`data_refresh_replay_contract.md`](data_refresh_replay_contract.md). Un nouveau
+snapshot ne peut pas être promu sur la seule base de contrôles de fraîcheur :
+Legacy et Boosting sont rejoués au cutoff historique commun. Le résultat doit
+être soit une identité des portefeuilles, soit une attribution exhaustive des
+écarts à des révisions data sourcées. Toute différence restante de code,
+configuration, runtime ou origine inconnue bloque la promotion.
+
 The input snapshot is necessary but not sufficient. The first derived monthly
 selection checkpoint, `polars_stocks_selections.parquet`, must also be
 recomputable bit-for-bit from the retained `input_snapshot/` and the recorded

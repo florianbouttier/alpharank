@@ -154,6 +154,10 @@ dans le trailer `Roadmap-Task`; le hash se résout avec Git.
   terminal ne sont jamais confondus.
 - Une anomalie conserve les données reçues et bloque la promotion ; elle ne les
   supprime pas pour faire passer un contrôle.
+- Tout refresh complet compare le snapshot publié et le candidat au même cutoff,
+  rejoue Legacy puis Boosting, et rapproche entrées, univers, scores, positions,
+  poids et rendements. Si les portefeuilles historiques changent, chaque écart
+  doit remonter à une révision data sourcée ; un écart inexpliqué bloque.
 
 ## 10. Invariants méthodologiques
 

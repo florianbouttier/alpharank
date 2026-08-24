@@ -62,6 +62,9 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 23 | `QUAL-013` | bloquer toute nouvelle dette de taille ou de complexité | lot QUAL ci-dessous | fait |
 | 24 | `QUAL-014` | étendre le typage strict à un package métier | lot QUAL ci-dessous | fait |
 | 25 | `DOC-019` | rafraîchir les preuves chiffrées de la roadmap | lot DOC ci-dessous | fait |
+| 26 | `DOC-020` | rendre le replay après refresh obligatoire et canonique | lot DOC ci-dessous | fait |
+| 27 | `REPLAY-001` | attribuer tout drift data jusqu'aux deux portefeuilles | lot REPLAY ci-dessous | à faire |
+| 28 | `DATA-012` | exécuter le refresh complet et les deux replays scellés | lot DATA ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -70,10 +73,10 @@ Transition achevée : les travaux `DOC-001` à `DOC-013` et `QUAL-001`, commenc�
 avant l'activation du contrat Git, ont été redécoupés puis committés sous leurs
 identifiants propres. Aucun commit global de nettoyage ne les a absorbés.
 
-Aucune tâche d'implémentation de cette roadmap n'est ouverte au 24 août 2026.
-La seule échéance calendaire restante est la fin, le 19 septembre 2026, de la
-fenêtre d'observation des racines historiques définie par `DATA-010` ; aucune
-archive physique ne sera déclenchée avant sa revue.
+Le lot de fiabilité ouvert le 24 août 2026 ajoute deux tâches actives : produire
+le diagnostic exécutable `REPLAY-001`, puis l'appliquer au refresh intégral
+`DATA-012`. La fenêtre d'observation `DATA-010` reste inchangée jusqu'au
+19 septembre 2026 ; aucune archive physique ne sera déclenchée avant sa revue.
 
 ## 3. Règles de conduite
 
@@ -176,6 +179,7 @@ La carte détaillée se trouve dans
 | `DOC-017` | supprimer le pointeur singulier `AGENT.md` après audit de ses lecteurs | fait | aucun lecteur actif, `AGENTS.md` seule source normative, ancien guide conservé dans l'archive |
 | `DOC-018` | ouvrir le lot de qualité résiduelle après audit du commit propre et du worktree | fait | onze tâches ordonnées, chacune isolée par son identifiant et son commit |
 | `DOC-019` | rafraîchir les compteurs de configurations, tests, code et dossiers après le lot | fait | état courant séparé du diagnostic initial, inventaires canoniques régénérés et 479 tests verts |
+| `DOC-020` | formaliser l'invariant refresh, replay et attribution du drift | fait | règle inscrite dans les normes agents/développement, contrat canonique indexé et tâches d'exécution séparées |
 
 `DOC-010` a retiré des tests les chemins documentaires historiques. Les contrats
 restent directement sous `docs/` pour leurs lecteurs humains et liens publics ;
@@ -270,6 +274,7 @@ change dans ce lot.
 | `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | fait | 162 arêtes lecteur/emplacement classées, zéro non classée ; 10 chemins ancien/MART comparés par SHA-256, deux entrées par défaut basculées |
 | `DATA-010` | rendre les anciennes racines en lecture seule puis les archiver | fait | gel contractuel de 18 racines, observation 2026-08-20 au 2026-09-19, archive par référence et retour arrière hashé |
 | `DATA-011` | étendre le bridge ticker/CIK historique et fournir une reconstruction SEC candidate | fait | bridge versionné porté à 75 identités dont 67 ajouts audités ; candidat hashé et bloqué, fallback filing-level tracé, snapshot courant inchangé et tests de réutilisation de symbole |
+| `DATA-012` | retélécharger les sources rafraîchissables, reconstruire un candidat sans promotion et rejouer Legacy puis Boosting | à faire | chaque source reçoit un statut ; mêmes portefeuilles au cutoff commun ou rapport de drift complet, tout écart inexpliqué bloque |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -281,6 +286,12 @@ doublons exacts et preuve de récupération.
 | --- | --- | --- | --- |
 | `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | fait | formules centralisées dans `portfolio/performance.py`, cas sans benchmark et vide testés ; aucun rendement mensuel modifié |
 | `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | fait | registre causal de 88 948 ticker-mois, variantes Top 5/10/15/20 natives et appariées sur le même snapshot, bootstrap de 50 000 tirages et aucune promotion de Boosting |
+
+## 12 ter. Lot REPLAY — relier chaque refresh aux portefeuilles
+
+| ID | Action | Statut | Critère de fin |
+| --- | --- | --- | --- |
+| `REPLAY-001` | comparer baseline et candidat depuis les entrées jusqu'aux holdings Legacy et Boosting | à faire | hashes, clés et valeurs data, univers, prédictions, positions, poids et rendements rapprochés ; cause classée data/code/config/runtime ou écart inexpliqué bloquant |
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

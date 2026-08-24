@@ -47,6 +47,9 @@ décision d'architecture ; elle n'est pas cachée dans un commentaire.
    ses contrôles de promotion.
 8. Une documentation courante décrit l'état courant ; une preuve datée va dans
    les archives.
+9. Tout refresh complet rejoue Legacy et Boosting au même cutoff historique :
+   les portefeuilles doivent être identiques, ou chaque différence doit être
+   reliée à une révision data précise ; un écart inexpliqué bloque la promotion.
 
 ## 2. Langue et vocabulaire
 

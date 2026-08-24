@@ -70,6 +70,7 @@ code et aux nouvelles données :
 | Organisation des chemins de runs | [`run_organization.md`](run_organization.md) |
 | Référence des features | [`backtest_feature_reference.md`](backtest_feature_reference.md) |
 | Ingestion open source | [`open_source_ingestion_architecture.md`](open_source_ingestion_architecture.md) |
+| Refresh et reproductibilité des portefeuilles | [`data_refresh_replay_contract.md`](data_refresh_replay_contract.md) |
 | Fondamentaux SEC | [`sec_fundamentals_contract.md`](sec_fundamentals_contract.md) |
 | Robustesse et migrations SEC | [`sec_data_robustness_plan.md`](sec_data_robustness_plan.md) |
 | État courant de la couverture SEC | [`sec_open_source_status.md`](sec_open_source_status.md) |
