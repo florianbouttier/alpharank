@@ -62,7 +62,13 @@ def test_resolve_sec_company_mapping_uses_historical_bridges(tmp_path: Path) -> 
         "eodhd_cik_bridge",
         "eodhd_cik_bridge",
     ]
-    assert mapping["cik"].to_list() == ["0000320193", "0000944868", "0000448271", "0000051644", "0001618921"]
+    assert mapping["cik"].to_list() == [
+        "0000320193",
+        "0000944868",
+        "0000448271",
+        "0000051644",
+        "0001618921",
+    ]
 
 
 def test_resolve_sec_company_mapping_expands_dot_share_class_aliases() -> None:
@@ -87,3 +93,26 @@ def test_resolve_sec_company_mapping_expands_dot_share_class_aliases() -> None:
         "0001067983",
         "0001067983",
     ]
+
+
+def test_manual_history_prevents_reused_ticker_cik_contamination() -> None:
+    live = pl.DataFrame(
+        {
+            "ticker": ["YHOO", "XL", "IGT"],
+            "name": ["New Yahoo", "XL Fleet", "IGT PLC"],
+            "exchange": ["NASDAQ", "NYSE", "NYSE"],
+            "cik": [1962736, 1772720, 1619762],
+        }
+    )
+
+    mapping = resolve_sec_company_mapping(
+        requested_tickers=["YHOO", "XL", "IGT"],
+        sec_mapping_all=live,
+    ).sort("ticker")
+
+    assert mapping["cik"].to_list() == [
+        "0000353944",
+        "0000875159",
+        "0001011006",
+    ]
+    assert mapping["mapping_source"].unique().to_list() == ["sec_manual_historical_bridge"]

@@ -405,3 +405,23 @@ porter `source_refresh_contract.snapshot_scope=full_ingestion` et exposer
 La fraicheur doit toujours distinguer la fin de periode fiscale de la date de
 filing SEC. La premiere peut etre en juin pour un snapshot d'aout; la seconde
 doit passer le seuil de fraicheur et prouver que SEC a reellement ete interroge.
+
+## Reconstruction de la couverture SEC historique - 2026-08-16
+
+Le snapshot modele immutable courant reste inchange. Une reconstruction
+candidate separee a audite les 67 identites de tickers historiques qui
+manquaient auparavant dans le chemin de mapping SEC:
+
+- bridge: `src/alpharank/data/open_source/reference/sec_historical_ticker_bridge.csv`;
+- run: `outputs/production_refresh_20260816/sec_historical_reconstruction_67_v3`;
+- 67/67 identites ticker-vers-CIK telechargees et concordantes;
+- 63/67 identites avec des lignes financieres SEC lisibles par machine;
+- 17 971 lignes candidates Companyfacts/filing-level reconstruites;
+- FRC, MIL, RX et SBNY restent sans ligne exploitable par ce chemin
+  d'extraction.
+
+Cette candidate n'est volontairement pas fusionnee dans le package officiel.
+Sa promotion exige la revue des identites, le garde de revision du package
+complet, un nouveau snapshot immutable et de nouveaux runs Legacy/Boosting.
+La comparaison courante reste donc reproductible et le passe n'est pas reecrit
+silencieusement.

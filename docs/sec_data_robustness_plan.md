@@ -129,7 +129,7 @@ production history.
   rows drift outside an explicit allowed window.
 - History gate: after publication, historize the final package under
   `data/open_source/history/output/open_source_output_*/`; this is now covered
-  by `tests/integration/test_open_source_publishing.py`.
+  by `tests/integration/publishing/test_open_source_publishing.py`.
 - Lineage gate: fail publication if `snapshot_manifest.json`, copied lineage
   `manifest.json`, and ingestion run manifest disagree on run id. The publish
   order now prevents stale lineage manifests in newly retained snapshots; a
@@ -494,3 +494,18 @@ The price and SEC packages are composed and hash-validated under
 `outputs/production_refresh_20260816/composed_history/alpharank_input_20260816_115416_2a01288bab06`.
 Legacy and Boosting must both consume the Legacy run's retained copy of this
 exact snapshot before their performance can be compared.
+
+## Historical identity reconstruction gate
+
+`scripts/open_source/ingestion/reconstruct_historical_sec_companyfacts.py`
+consumes the versioned historical ticker-to-CIK bridge, fetches SEC Companyfacts
+and submissions, and attempts a filing-level fallback. Its output is always a
+candidate. It may enter a model snapshot only after all identities pass review,
+the source package is rebuilt immutably, revision guards explain every changed
+historical value, and both methods are rerun on that exact new snapshot.
+
+The 2026-08-16 audit fetched all 67 targeted identities, reconstructed 17,971
+rows for 63, and left four names without usable machine-readable facts. This
+closes most of the mapping gap without pretending that present-day SEC coverage
+was historically knowable. Eligibility remains based on filing availability at
+each decision date, never on whether a ticker can be resolved today.

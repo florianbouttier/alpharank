@@ -6,6 +6,10 @@ import polars as pl
 
 from alpharank.data.security_identity import load_security_identity_registry
 
+SEC_HISTORICAL_TICKER_BRIDGE_PATH = (
+    Path(__file__).with_name("reference") / "sec_historical_ticker_bridge.csv"
+)
+
 
 def resolve_sec_company_mapping(
     *,
@@ -88,51 +92,57 @@ def load_sec_historical_ticker_bridge(reference_data_dir: Path | None = None) ->
     candidate_paths: list[Path] = []
     if reference_data_dir is not None:
         candidate_paths.append(reference_data_dir / "sec" / "manual_historical_ticker_bridge.csv")
-    candidate_paths.append(
-        Path(__file__).with_name("reference") / "sec_historical_ticker_bridge.csv"
-    )
+    candidate_paths.append(SEC_HISTORICAL_TICKER_BRIDGE_PATH)
 
     for path in candidate_paths:
         if not path.exists():
             continue
-        frame = pl.read_csv(path)
-        required = {"ticker", "name", "exchange", "cik"}
-        if not required.issubset(frame.columns):
-            continue
-        prepared = (
-            frame.select(
-                [
-                    pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"),
-                    pl.col("name").cast(pl.Utf8).alias("name"),
-                    pl.col("exchange").cast(pl.Utf8).alias("exchange"),
-                    pl.col("cik").cast(pl.Utf8).str.extract(r"(\d+)").str.zfill(10).alias("cik"),
-                    *(
-                        [pl.col("start_date").cast(pl.Utf8)]
-                        if "start_date" in frame.columns
-                        else [pl.lit(None).cast(pl.Utf8).alias("start_date")]
-                    ),
-                    *(
-                        [pl.col("end_date").cast(pl.Utf8)]
-                        if "end_date" in frame.columns
-                        else [pl.lit(None).cast(pl.Utf8).alias("end_date")]
-                    ),
-                    *(
-                        [pl.col("mapping_source").cast(pl.Utf8)]
-                        if "mapping_source" in frame.columns
-                        else [pl.lit("sec_manual_historical_bridge").alias("mapping_source")]
-                    ),
-                    *(
-                        [pl.col("mapping_priority").cast(pl.Int64, strict=False)]
-                        if "mapping_priority" in frame.columns
-                        else [pl.lit(0).cast(pl.Int64).alias("mapping_priority")]
-                    ),
-                ]
-            )
-            .filter(pl.col("ticker").is_not_null() & pl.col("cik").is_not_null())
-            .unique(subset=["ticker"], keep="first", maintain_order=True)
-        )
-        return _ensure_mapping_columns(prepared)
+        return load_sec_historical_ticker_bridge_file(path)
     return _empty_mapping_frame()
+
+
+def load_sec_historical_ticker_bridge_file(path: Path) -> pl.DataFrame:
+    """Load one explicit, versioned historical ticker-to-CIK bridge."""
+
+    frame = pl.read_csv(path)
+    required = {"ticker", "name", "exchange", "cik"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"Historical SEC bridge {path} is missing columns: {missing}")
+    prepared = (
+        frame.select(
+            [
+                pl.col("ticker").cast(pl.Utf8).str.replace(r"\.US$", "").alias("ticker"),
+                pl.col("name").cast(pl.Utf8).alias("name"),
+                pl.col("exchange").cast(pl.Utf8).alias("exchange"),
+                pl.col("cik").cast(pl.Utf8).str.extract(r"(\d+)").str.zfill(10).alias("cik"),
+                *(
+                    [pl.col("start_date").cast(pl.Utf8)]
+                    if "start_date" in frame.columns
+                    else [pl.lit(None).cast(pl.Utf8).alias("start_date")]
+                ),
+                *(
+                    [pl.col("end_date").cast(pl.Utf8)]
+                    if "end_date" in frame.columns
+                    else [pl.lit(None).cast(pl.Utf8).alias("end_date")]
+                ),
+                *(
+                    [pl.col("mapping_source").cast(pl.Utf8)]
+                    if "mapping_source" in frame.columns
+                    else [pl.lit("sec_manual_historical_bridge").alias("mapping_source")]
+                ),
+                *(
+                    [pl.col("mapping_priority").cast(pl.Int64, strict=False)]
+                    if "mapping_priority" in frame.columns
+                    else [pl.lit(0).cast(pl.Int64).alias("mapping_priority")]
+                ),
+            ]
+        )
+        .filter(pl.col("ticker").is_not_null() & pl.col("cik").is_not_null())
+        .sort(["ticker", "mapping_priority", "cik"])
+        .unique(subset=["ticker"], keep="first", maintain_order=True)
+    )
+    return _ensure_mapping_columns(prepared)
 
 
 def _prepare_live_sec_mapping(sec_mapping_all: pl.DataFrame) -> pl.DataFrame:

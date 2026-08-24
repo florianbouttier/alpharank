@@ -246,7 +246,7 @@ change dans ce lot.
 | `DATA-008` | migrer les racines historiques par référence/hash avant toute copie | fait | 18 racines, 13 979 fichiers et 31,75 Go référencés par SHA-256 ; zéro téléchargement et zéro copie |
 | `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | fait | 159 arêtes lecteur/emplacement classées ; 10 chemins ancien/MART comparés par SHA-256, deux entrées par défaut basculées |
 | `DATA-010` | rendre les anciennes racines en lecture seule puis les archiver | fait | gel contractuel de 18 racines, observation 2026-08-20 au 2026-09-19, archive par référence et retour arrière hashé |
-| `DATA-011` | étendre le bridge ticker/CIK historique et fournir une reconstruction SEC candidate | à faire | identités versionnées, fallback filing-level auditable, aucune mutation du snapshot courant et tests de réutilisation de symbole |
+| `DATA-011` | étendre le bridge ticker/CIK historique et fournir une reconstruction SEC candidate | fait | bridge versionné porté à 75 identités dont 67 ajouts audités ; candidat hashé et bloqué, fallback filing-level tracé, snapshot courant inchangé et tests de réutilisation de symbole |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des

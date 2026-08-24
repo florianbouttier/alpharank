@@ -3,7 +3,10 @@
 Pour le statut courant du package, le package recommande a date et les derniers resultats de couverture, lire aussi `docs/sec_open_source_status.md`.
 Pour le plan de robustesse data/replay suite a l'incident de drift de juin 2026, lire aussi `docs/sec_data_robustness_plan.md`.
 
-Ce document fixe le contrat officiel du package `data/sec/output`.
+Ce document fixe le contrat officiel des fondamentaux SEC-only. Le chemin
+`data/sec/output` est une ancienne baseline qui conserve cette interface ; les
+nouveaux runs utilisent le package immutable intégré au snapshot pointé par
+`data/model_inputs/manifests/latest.json`.
 
 Le but est d'avoir un package fondamental simple a comprendre:
 
@@ -13,7 +16,7 @@ Le but est d'avoir un package fondamental simple a comprendre:
 
 ## Perimetre
 
-`data/sec/output` est un package **fondamentaux SEC-only**.
+Un package conforme est un package **fondamentaux SEC-only**.
 
 Il contient:
 
