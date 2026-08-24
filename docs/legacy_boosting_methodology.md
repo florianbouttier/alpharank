@@ -378,11 +378,7 @@ src/alpharank/portfolio/
         v
 scripts/build_common_legacy_boosting_replay.py
         |
-        v
-scripts/experiments/render_central_research_dashboard.py
-        |
-        v
-interactive HTML research site
+        +---- auditable Parquet / CSV / JSON artifacts
 ```
 
 ## Ownership And Change Rules
@@ -397,8 +393,10 @@ interactive HTML research site
 | Walk-forward and purge | `src/alpharank/multihorizon/splits.py` |
 | XGBoost fitting | `src/alpharank/multihorizon/modeling.py` |
 | Shared holdings and simulation | `src/alpharank/portfolio/` |
-| Common Legacy/Boosting lineage gate | `scripts/build_common_legacy_boosting_replay.py` |
-| Public research HTML | `scripts/experiments/render_central_research_dashboard.py` |
+| Common Legacy/Boosting lineage gate | `src/alpharank/replay/common_strategy.py` |
+
+Portfolio owns interactive monitoring and allocation views. AlphaRank publishes
+only the underlying immutable calculations, manifests and audit artifacts.
 
 Do not implement another local CAGR, Sharpe, drawdown, benchmark, portfolio
 return, or lineage comparison. Signal changes belong to the method-specific

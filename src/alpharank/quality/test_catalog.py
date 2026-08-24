@@ -187,14 +187,10 @@ def classify_test_domain(path: str) -> str:
         return "replay_governance"
     if name.startswith(
         (
-            "central_research_dashboard",
-            "dashboard_boundaries",
-            "latest_common_dashboard",
             "methodology_v2_study",
             "sec_core_kpi_",
             "sec_kpi_",
             "start_year_performance",
-            "strategy_comparison_report",
         )
     ):
         return "reporting"

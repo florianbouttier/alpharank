@@ -13,10 +13,13 @@ Les artefacts audités du 16 août 2026 sont figés comme témoin historique :
 - Legacy : run `20260816_142810` ;
 - Boosting : `outputs/production_refresh_20260816/boosting_latest_common_v3` ;
 - comparaison : `outputs/production_refresh_20260816/common_replay_v3` ;
-- dashboard : `outputs/research_dashboard/alpharank_common_20260816_pit_validated`.
+- ancien rendu HTML conservé comme preuve secondaire :
+  `outputs/research_dashboard/alpharank_common_20260816_pit_validated`.
 
 Cette baseline conserve les entrées, configurations, prédictions, positions,
-rendements et rapports qui ont produit les métriques auditées. Son statut est
+rendements et anciens rendus qui ont produit les métriques auditées. Le code de
+dashboard n'est plus une responsabilité AlphaRank ; Portfolio possède les vues
+interactives. Son statut est
 `audited_biased_not_causal`. Elle ne doit jamais être présentée comme validation
 du Boosting ni être modifiée en place.
 

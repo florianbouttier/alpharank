@@ -18,7 +18,7 @@
     }
   ],
   "inventory_id": "alpharank_data_location_inventory_v1",
-  "observed_at": "2026-08-20",
+  "observed_at": "2026-08-24",
   "path_comparisons": [
     {
       "byte_equivalent": false,
@@ -224,6 +224,14 @@
       "old_path": "data/US_Balance_sheet.parquet",
       "reader": "src/alpharank/production/legacy_pipeline.py",
       "reason": "Production resolves the MART pointer before the shared loader reads filenames.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
+    },
+    {
+      "decision": "explicit_historical_or_research_input",
+      "location_id": "legacy_balance",
+      "old_path": "data/US_Balance_sheet.parquet",
+      "reader": "src/alpharank/strategy/legacy_valuation.py",
+      "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Balance_sheet.parquet"
     },
     {
@@ -508,6 +516,14 @@
     },
     {
       "decision": "explicit_historical_or_research_input",
+      "location_id": "legacy_cash_flow",
+      "old_path": "data/US_Cash_flow.parquet",
+      "reader": "src/alpharank/strategy/legacy_valuation.py",
+      "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Cash_flow.parquet"
+    },
+    {
+      "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_constituents",
       "old_path": "data/SP500_Constituents.csv",
       "reader": "scripts/audit_open_source_snapshot_revisions.py",
@@ -700,14 +716,6 @@
     },
     {
       "decision": "explicit_historical_or_research_input",
-      "location_id": "legacy_constituents",
-      "old_path": "data/SP500_Constituents.csv",
-      "reader": "src/alpharank/reporting/central_research_data.py",
-      "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
-      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/SP500_Constituents.csv"
-    },
-    {
-      "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_earnings",
       "old_path": "data/US_Earnings.parquet",
       "reader": "scripts/audit_open_source_snapshot_revisions.py",
@@ -816,6 +824,14 @@
       "old_path": "data/US_Earnings.parquet",
       "reader": "src/alpharank/production/legacy_pipeline.py",
       "reason": "Production resolves the MART pointer before the shared loader reads filenames.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
+    },
+    {
+      "decision": "explicit_historical_or_research_input",
+      "location_id": "legacy_earnings",
+      "old_path": "data/US_Earnings.parquet",
+      "reader": "src/alpharank/strategy/legacy_valuation.py",
+      "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Earnings.parquet"
     },
     {
@@ -1056,6 +1072,14 @@
       "old_path": "data/US_Income_statement.parquet",
       "reader": "src/alpharank/production/legacy_pipeline.py",
       "reason": "Production resolves the MART pointer before the shared loader reads filenames.",
+      "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
+    },
+    {
+      "decision": "explicit_historical_or_research_input",
+      "location_id": "legacy_income",
+      "old_path": "data/US_Income_statement.parquet",
+      "reader": "src/alpharank/strategy/legacy_valuation.py",
+      "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Income_statement.parquet"
     },
     {
@@ -1310,7 +1334,7 @@
       "decision": "explicit_historical_or_research_input",
       "location_id": "legacy_prices",
       "old_path": "data/US_Finalprice.parquet",
-      "reader": "src/alpharank/reporting/central_research_data.py",
+      "reader": "src/alpharank/strategy/legacy_valuation.py",
       "reason": "The reader remains explicit because the legacy and MART bytes are not assumed equivalent.",
       "target_path": "data/warehouse/mart/alpharank_input_9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad/US_Finalprice.parquet"
     },
@@ -1397,11 +1421,11 @@
   ],
   "summary": {
     "byte_equivalent_path_count": 1,
-    "classified_reader_edge_count": 159,
+    "classified_reader_edge_count": 162,
     "compared_path_count": 10,
     "default_entrypoint_count": 2,
     "different_path_count": 9,
-    "reader_edge_count": 159,
+    "reader_edge_count": 162,
     "unclassified_reader_edge_count": 0
   },
   "validation": {

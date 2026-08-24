@@ -17,8 +17,13 @@ same task.
 
 ## Required Input Composition
 
-There is currently no single folder that satisfies the clarified production
-contract. A new official monthly snapshot must be composed from:
+The production composition contract is implemented. New official runs resolve
+`data/model_inputs/manifests/latest.json`, freeze that pointer once, and pass the
+resolved immutable directory explicitly to `scripts/run_legacy.py`.
+
+The validated 2026-08-16 reference resolves
+`data/model_inputs/history/alpharank_input_20260816_120458_2a01288bab06`.
+Every future official snapshot must continue to combine:
 
 - approved hybrid prices: frozen EODHD history for delisted/former constituents
   plus audited open-source extensions and corporate-action corrections;
@@ -30,15 +35,13 @@ contract. A new official monthly snapshot must be composed from:
 used for a new production recommendation: retained T1 selected 19,243 non-SEC
 fundamental values, and its price layer is still missing the frozen EODHD seed.
 The old T1/T2 Legacy runs remain valid evidence of what the old package
-produced, but they are not SEC-only production runs.
+produced, but they are not SEC-only production runs. Never reconstruct a model
+input by manually copying unmanifested files.
 
-Until the composed-package builder and validator exist, the monthly production
-workflow is blocked at data assembly. Do not work around this by manually
-copying unmanifested files into one folder.
-
-Before composing a future model snapshot, extend the membership calendar,
-refresh the price research store, and rebuild/historize the SEC-only package.
-The following ingestion command alone does not create a production model input:
+For a new month, extend the membership calendar, run the full ingestion, build
+the guarded price package, build the SEC-only package, then compose and promote
+a new immutable snapshot. The following ingestion commands alone do not create
+a production model input:
 
 ```bash
 ./.venv/bin/python scripts/open_source/refresh_sp500_constituents.py \
@@ -428,7 +431,7 @@ at holding month July 2026; this is expected because August is not complete.
 The aligned Boosting replay is
 `outputs/production_refresh_20260816/boosting_latest_common_v3`, and the
 same-snapshot common comparison is
-`outputs/production_refresh_20260816/common_replay_v3`.
+`outputs/production_refresh_20260816/common_replay_v4_sec_universe`.
 
 The price package passed without a historical revision override: zero removed
 old keys, zero old return-availability changes, zero old daily-return changes
@@ -451,6 +454,44 @@ filing version. The manifest records the migration note and exhaustive
 historical revision guard. Do not regenerate this migration with an unlabelled
 `--allow-historical-revisions` flag: the CLI requires
 `--revision-review-note`.
+
+## Retained 2026-08-20 target valued at the 2026-08-19 close
+
+The retained full ingestion is `20260820_011146`; the composed immutable input
+has composition id `9a2058c9…425ad`. The aligned artifacts are Legacy
+`20260820_055245`, Boosting `boosting_latest_common_live021_final_r2`, and common
+replay `common_replay_live021_final`.
+
+The snapshot contains stock and SPY prices through the 2026-08-19 session. The
+monthly ranking still stops at the completed July month, as recorded by
+`run_config.decision_data_completed_through_month=2026-07-01`. Therefore:
+
+- the signal cutoff is the 2026-07-31 close;
+- the August target is the latest valid monthly target;
+- the 2026-08-19 close can value a requested order on that date, but the first
+  nineteen August days must not rerank the strategy;
+- buying on August 19 is a late entry into the August holding window, not a new
+  mid-month AlphaRank signal.
+
+The exact retained target, before considering any current holdings or cash, is:
+
+- Boosting Top 5, 20% each: `CHTR`, `BSX`, `ZTS`, `LULU`, `DELL`;
+- Boosting Top 10, 10% each: `CHTR`, `BSX`, `ZTS`, `LULU`, `DELL`, `TTD`,
+  `FISV`, `ACN`, `INTU`, `IT`;
+- Legacy `Combined_Frequency`: `AMAT` 20%, `DELL` 20%, `MRVL` 20%, `MU` 20%,
+  `FLEX` 10%, `HPE` 10%.
+
+All 15 distinct selected tickers have one exact retained close on 2026-08-19.
+The current SNDK identity defect affects historical Boosting analysis but SNDK
+is absent from all three current baskets. FISV is the valid 2026 trading symbol
+for Fiserv after its return to Nasdaq in November 2025, corroborated by the
+[Fiserv announcement](https://investors.fiserv.com/news-releases/news-release-details/fiserv-announces-transfer-stock-exchange-listing-nasdaq) and 2026 SEC filings.
+
+The machine-readable Boosting target is retained in
+`outputs/production_refresh_20260820/common_replay_live021_final/boosting_live_score_holdings.parquet`.
+AlphaRank stops at the immutable target, scores, weights and price evidence.
+Portfolio owns any interactive allocation view and the reconciliation with
+current holdings or cash; no trade is sent from AlphaRank.
 
 ## Boosting Production Candidate
 

@@ -6,10 +6,57 @@
 
 # Codex Handoff
 
-Last updated: 2026-08-16
+Last updated: 2026-08-20
 Branch at write time: `data-backfill-fixes`
 
+Pour un onboarding, commencer par `../../README.md` puis `../README.md`. Ce
+fichier est un journal chronologique détaillé et peut contenir des références
+historiques volontairement conservées. Les références aux dashboards décrivent
+des artefacts passés : depuis `CODEORG-007`, leur code n'est plus maintenu dans
+AlphaRank et toute interface interactive appartient à Portfolio.
+
 This file is the practical handoff for a new Codex session on this repository. It summarizes the active architecture, the decisions already made with the user, the sensitive parts of the codebase, and the recent history that matters for continuation.
+
+## 0.0d Close convention analysis and exhaustive research center - 2026-08-20
+
+The user reconfirmed the AlphaRank economic convention: simulate the purchase at
+the reference close and measure adjusted-close to adjusted-close over the held
+month. `next_session_open_v1`, introduced by `LEG-003` on 2026-08-18, remains a
+mandatory sensitivity and is no longer the canonical default. `LEG-005` tracks
+the still-required runtime/manifest correction; previous artifacts remain
+immutable.
+
+The complete local diagnostic is
+`outputs/production_refresh_20260820/dashboard_live021_analysis_close_v1/html/alpharank_research_center.html`.
+It exposes the permanent KPI table for Legacy, Boosting Top 5, Boosting Top 10
+and SPY; all annual returns and start-year CAGRs; every monthly portfolio and
+line-level return contribution; every model-fold metric; and ticker-level SHAP
+drill-down. SHAP coverage is exhaustive: 88,948 rows for 88,948 predictions,
+181 months and all 195 schema variables with both input values and SHAP values.
+
+The current 180-month close-to-close net CAGRs are 28.5174% for Boosting Top 5,
+23.0916% for Boosting Top 10, 22.0295% for Legacy and 14.3975% for SPY. These
+must not be called publishable. At identical 2012-01 through 2024-12 dates,
+Legacy is 17.0905% versus the prior validated 16.4033%, only +0.6871 percentage
+point. The larger full-period difference comes primarily from the unusually
+strong 2025-2026 tail and from a newly diagnosed security-identity defect.
+
+Specifically, old SanDisk (removed in 2016) and the new Sandisk listing reusing
+SNDK in 2025 are still joined through the old identity/CIK. The exact current
+bridge attributed to SNDK is +4.6879 percentage points of Top 5 CAGR and +1.9435
+point of Top 10 CAGR; Legacy has no SNDK position. `LIVE-022` must split those
+identities and rebuild Legacy, Boosting, the common replay and the dashboard
+before economic publication. The dashboard manifest is deliberately marked
+`diagnostic_same_snapshot_dashboard_identity_review_required`.
+
+The actionable August view is now
+`outputs/production_refresh_20260820/dashboard_live021_trade_20260819_v1/html/alpharank_research_center.html`.
+It opens on `Quoi acheter` and values the retained August target at the exact
+2026-08-19 session close. The ranking uses only the completed July month; buying
+on August 19 is explicitly labelled a late entry, not a new mid-month signal.
+All 15 distinct selected tickers have one exact close for the requested session,
+and SNDK is absent from the current Top 5, Top 10 and Legacy baskets. The page
+uses no Portfolio or IBKR state and sends no order.
 
 ## 0.0c Full guarded refresh and composed snapshot - 2026-08-16
 
@@ -37,10 +84,13 @@ Legacy `input_snapshot/`; compare only after matching-hash validation.
 
 The completed aligned runs are Legacy `20260816_142810`, Boosting
 `outputs/production_refresh_20260816/boosting_latest_common_v3`, and common
-replay `outputs/production_refresh_20260816/common_replay_v3`. The common replay
+replay `outputs/production_refresh_20260816/common_replay_v4_sec_universe`. The common replay
 passes all lineage, exclusion-registry, and liquidity-policy gates over 180
 realized holding months from 2011-08 through 2026-07. The interactive report is
 `outputs/research_dashboard/alpharank_common_20260816_pit_validated/html/alpharank_research_center.html`.
+The dedicated performance page is `html/strategy_comparison.html`; it adds
+Top 15/20, native versus Legacy-PE-matched universes, all start-year and annual
+KPI tables, and paired block-bootstrap evidence.
 Boosting has 88,948 predictions and 88,948 exhaustive SHAP rows over 181
 decision months. July 2026 is score-only and produces an August target; it is
 not included in performance because August is incomplete.
@@ -236,7 +286,7 @@ This file is the central cross-track note. Do not create scattered experiment
 notes when one of these canonical documents already fits:
 
 - Boosting / Legacy-copy R&D:
-  [`docs/boosting_signal_copy_model_catalog.md`](../research/boosting_signal_copy_model_catalog.md)
+  [`docs/research/boosting_signal_copy_model_catalog.md`](../research/boosting_signal_copy_model_catalog.md)
 - Detailed 2026-07-25 multi-horizon protocol and run log:
   [`docs/research/multihorizon_boosting_20260725/`](../research/multihorizon_boosting_20260725/)
 - Corrected exact Legacy EMA comparison, trading and SHAP:
@@ -260,9 +310,9 @@ notes when one of these canonical documents already fits:
 - SEC data robustness and replay incident:
   [`docs/sec_data_robustness_plan.md`](../sec_data_robustness_plan.md)
 - SEC/open-source audit appendices:
-  [`docs/audit_donnees_financieres_2025.md`](./reports/audit_donnees_financieres_2025.md),
-  [`docs/rapport_couverture_sp500_revenue_netincome.md`](./reports/rapport_couverture_sp500_revenue_netincome.md),
-  [`docs/rapport_trous_ticker_par_ticker.md`](./reports/rapport_trous_ticker_par_ticker.md)
+  [`docs/archive/reports/audit_donnees_financieres_2025.md`](./reports/audit_donnees_financieres_2025.md),
+  [`docs/archive/reports/rapport_couverture_sp500_revenue_netincome.md`](./reports/rapport_couverture_sp500_revenue_netincome.md),
+  [`docs/archive/reports/rapport_trous_ticker_par_ticker.md`](./reports/rapport_trous_ticker_par_ticker.md)
 - Backtest feature formulas:
   [`docs/backtest_feature_reference.md`](../backtest_feature_reference.md)
 - Open-source ingestion architecture:
@@ -479,7 +529,7 @@ Current conclusion:
   fixed concentrated top 5.
 
 Detailed source of truth:
-[`docs/boosting_signal_copy_model_catalog.md`](../research/boosting_signal_copy_model_catalog.md).
+[`docs/research/boosting_signal_copy_model_catalog.md`](../research/boosting_signal_copy_model_catalog.md).
 
 ### Monthly Portfolio / Replayability
 
@@ -594,7 +644,7 @@ The user currently cares about both, but with different intent:
 - `src/alpharank/data/`: shared data transforms
 - `src/alpharank/strategy/`: legacy strategy path
 - `src/alpharank/visualization/`: reporting / plotting helpers
-- `src/_old/`: archived code, not for new work
+- `scripts/_old/`: archived entry scripts, not for new work
 
 Canonical reference for backtest formulas and feature construction:
 

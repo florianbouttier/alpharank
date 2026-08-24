@@ -221,7 +221,7 @@ change dans ce lot.
 | `CODEORG-006` | restaurer le mode exécutable de `build_sec_output_package_with_backfill.py` après son déplacement | fait | contenu inchangé, mode indexé `100755`, compilation et chargement hors dépôt validés sans lancer la publication |
 | `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | fait | 100 déplacements ; signatures identiques pour 339 tests et 1 105 assertions ; collecte de 465 scénarios sans retrait, les 3 ajouts provenant de CODEORG-001/003 ; zéro dossier au-dessus du plafond |
 | `CODEORG-005` | activer le contrôle bloquant dans la gate statique | fait | gate `--enforce-limit` verte sur 475 fichiers et 65 dossiers, zéro violation, zéro exception et 45 tests CI ciblés verts |
-| `CODEORG-007` | retirer d'AlphaRank le dashboard interactif et conserver seulement calculs, contrats et artefacts machine-lisibles | à faire | aucun générateur de dashboard applicatif actif ; rapports d'audit statiques conservés ; lecteurs et inventaires régénérés |
+| `CODEORG-007` | retirer d'AlphaRank le dashboard interactif et conserver seulement calculs, contrats et artefacts machine-lisibles | fait | quatre propriétaires applicatifs et deux tests dédiés retirés ; rapports d'audit statiques conservés, Portfolio déclaré propriétaire de l'interface et inventaires régénérés |
 
 ## 11. Lot TEST — rendre les preuves navigables
 
