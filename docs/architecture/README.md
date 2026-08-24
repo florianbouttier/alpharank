@@ -9,6 +9,10 @@ runs ni redécrire les deux modèles.
   `mart`, des snapshots et des sorties.
 - [`code_dependency_inventory_v1.json`](code_dependency_inventory_v1.json) :
   graphe versionné des points d'entrée, imports et lecteurs Python suivis.
+- [`python_directory_inventory_v1.json`](python_directory_inventory_v1.json) :
+  nombre de modules par dossier et preuve du respect du plafond de 20 fichiers.
+- [`../../configs/quality/python_size_baseline_v1.json`](../../configs/quality/python_size_baseline_v1.json) :
+  dette historique de taille et complexité, bloquée contre toute aggravation.
 - [`data_location_inventory_v1.json`](data_location_inventory_v1.json) :
   fichiers/packages de données actuels, volumes observés et lecteurs actifs.
 - [`data_reader_migration_v1.json`](data_reader_migration_v1.json) : comparaison

@@ -53,15 +53,15 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 14 | `CODEORG-005` | activer le plafond en CI après zéro violation | lot CODEORG ci-dessous | fait |
 | 15 | `DOC-018` | ouvrir le lot de qualité résiduelle mesuré le 24 août | lots ci-dessous | fait |
 | 16 | `METH-003` | compléter les métriques communes sans changer les rendements | lot METH ci-dessous | fait |
-| 17 | `DATA-011` | reconstruire la couverture SEC historique sans promotion implicite | lot DATA ci-dessous | à faire |
-| 18 | `CODE-012` | extraire la construction du replay commun hors du script public | lot CODE ci-dessous | à faire |
-| 19 | `METH-004` | mesurer Boosting sur l'univers de valorisation Legacy causal | lot METH ci-dessous | à faire |
-| 20 | `CODEORG-007` | retirer le dashboard applicatif du dépôt AlphaRank | lot CODEORG ci-dessous | à faire |
-| 21 | `QUAL-011` | supprimer les erreurs statiques pouvant casser au runtime | lot QUAL ci-dessous | à faire |
-| 22 | `QUAL-012` | rendre toute la suite autonome dans un checkout propre | lot QUAL ci-dessous | à faire |
-| 23 | `QUAL-013` | bloquer toute nouvelle dette de taille ou de complexité | lot QUAL ci-dessous | à faire |
-| 24 | `QUAL-014` | étendre le typage strict à un package métier | lot QUAL ci-dessous | à faire |
-| 25 | `DOC-019` | rafraîchir les preuves chiffrées de la roadmap | lot DOC ci-dessous | à faire |
+| 17 | `DATA-011` | reconstruire la couverture SEC historique sans promotion implicite | lot DATA ci-dessous | fait |
+| 18 | `CODE-012` | extraire la construction du replay commun hors du script public | lot CODE ci-dessous | fait |
+| 19 | `METH-004` | mesurer Boosting sur l'univers de valorisation Legacy causal | lot METH ci-dessous | fait |
+| 20 | `CODEORG-007` | retirer le dashboard applicatif du dépôt AlphaRank | lot CODEORG ci-dessous | fait |
+| 21 | `QUAL-011` | supprimer les erreurs statiques pouvant casser au runtime | lot QUAL ci-dessous | fait |
+| 22 | `QUAL-012` | rendre toute la suite autonome dans un checkout propre | lot QUAL ci-dessous | fait |
+| 23 | `QUAL-013` | bloquer toute nouvelle dette de taille ou de complexité | lot QUAL ci-dessous | fait |
+| 24 | `QUAL-014` | étendre le typage strict à un package métier | lot QUAL ci-dessous | fait |
+| 25 | `DOC-019` | rafraîchir les preuves chiffrées de la roadmap | lot DOC ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -69,6 +69,11 @@ Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pa
 Transition achevée : les travaux `DOC-001` à `DOC-013` et `QUAL-001`, commencés
 avant l'activation du contrat Git, ont été redécoupés puis committés sous leurs
 identifiants propres. Aucun commit global de nettoyage ne les a absorbés.
+
+Aucune tâche d'implémentation de cette roadmap n'est ouverte au 24 août 2026.
+La seule échéance calendaire restante est la fin, le 19 septembre 2026, de la
+fenêtre d'observation des racines historiques définie par `DATA-010` ; aucune
+archive physique ne sera déclenchée avant sa revue.
 
 ## 3. Règles de conduite
 
@@ -113,6 +118,24 @@ identifiants propres. Aucun commit global de nettoyage ne les a absorbés.
 Ces nombres sont un diagnostic initial, pas un jugement fichier par fichier. Un
 gros fichier n'est pas supprimé ou découpé uniquement parce qu'il est gros.
 
+## 4 bis. État courant mesuré au 24 août 2026
+
+| Contrôle canonique | État courant |
+| --- | --- |
+| Graphe Python maintenu | 194 modules de bibliothèque, 159 scripts, 353 fichiers de code et 152 points d'entrée actifs |
+| Dossiers Python | 481 fichiers suivis dans 67 dossiers ; zéro dossier au-dessus du plafond de 20 et zéro dérogation |
+| Tests | 125 fichiers, 479 cas collectés et exécutés, zéro échec ; la suite ne dépend plus d'un `outputs/` local |
+| Configurations | 17 familles, 21 fichiers JSON et zéro erreur de schéma |
+| Ruff | 276 alertes historiques restantes ; zéro `F821`, `F403` ou `F405`, et aucune nouvelle régression autorisée |
+| Taille et complexité | 474 fichiers maintenus mesurés ; 349 dépassements historiques : 71 modules, 210 fonctions et 68 complexités, tous bloqués contre l'aggravation |
+| Mypy strict | 32 modules couverts dans `alpharank.quality` et tout `alpharank.portfolio`, zéro erreur |
+| Données | 35 emplacements, 279 arêtes statiques lecteur/emplacement et 162 arêtes de migration classées, zéro non classée |
+| Interface | zéro dashboard applicatif AlphaRank ; Portfolio possède l'interface interactive, AlphaRank conserve seulement les rapports d'audit statiques |
+
+Ces nombres proviennent des inventaires versionnés sous `docs/architecture/`,
+de la baseline de taille sous `configs/quality/` et des commandes de validation,
+pas d'une recopie de l'état des lieux initial.
+
 ## 5. Cible lisible
 
 ```text
@@ -152,7 +175,7 @@ La carte détaillée se trouve dans
 | `DOC-016` | clarifier roadmap maître et registre méthodologique | fait | une seule liste de priorités actives, historique intégral conservé |
 | `DOC-017` | supprimer le pointeur singulier `AGENT.md` après audit de ses lecteurs | fait | aucun lecteur actif, `AGENTS.md` seule source normative, ancien guide conservé dans l'archive |
 | `DOC-018` | ouvrir le lot de qualité résiduelle après audit du commit propre et du worktree | fait | onze tâches ordonnées, chacune isolée par son identifiant et son commit |
-| `DOC-019` | rafraîchir les compteurs de configurations, tests, code et dossiers après le lot | à faire | nombres recalculés depuis les validateurs canoniques, sans recopier les diagnostics initiaux |
+| `DOC-019` | rafraîchir les compteurs de configurations, tests, code et dossiers après le lot | fait | état courant séparé du diagnostic initial, inventaires canoniques régénérés et 479 tests verts |
 
 `DOC-010` a retiré des tests les chemins documentaires historiques. Les contrats
 restent directement sous `docs/` pour leurs lecteurs humains et liens publics ;
@@ -176,10 +199,10 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-006` | ajouter les contrôles de documentation, lint et tests ciblés en CI | fait | six groupes CI appelables par la même commande locale |
 | `QUAL-007` | choisir `pyproject.toml` comme source des dépendances et générer ou vérifier les autres fichiers | fait | vues pip et Conda déterministes, vérifiées dans la gate statique |
 | `QUAL-008` | rendre la CI AlphaRank autonome et isoler le contrôle Portfolio dans un job inter-projets explicite | fait | job `alpharank` autonome et job `portfolio-integration` séparé |
-| `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | fait | 14 familles et 18 fichiers contrôlés récursivement avant les tests |
-| `QUAL-010` | corriger la gate CI pour un checkout sans artefacts locaux | fait | `--group ci` statique et huit tests ciblés verts depuis un dépôt temporaire propre |
+| `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | fait | 17 familles et 21 fichiers contrôlés récursivement avant les tests |
+| `QUAL-010` | corriger la gate CI pour un checkout sans artefacts locaux | fait | `--group ci` statique et 48 tests ciblés verts depuis un dépôt temporaire propre |
 | `QUAL-011` | supprimer en priorité `F821`, `F403` et `F405` de la baseline Ruff | fait | zéro `F821`, `F403` ou `F405` ; branches multihorizon, service EODHD et refresh de référence couvertes |
-| `QUAL-012` | rendre la suite Pytest complète autonome dans un checkout sans `outputs/` locaux | fait | fixtures synthétiques à la place des `outputs/` locaux et 476 tests verts sans masquage |
+| `QUAL-012` | rendre la suite Pytest complète autonome dans un checkout sans `outputs/` locaux | fait | fixtures synthétiques à la place des `outputs/` locaux et 479 tests verts sans masquage |
 | `QUAL-013` | mesurer taille de module, longueur de fonction et complexité puis bloquer toute régression | fait | baseline versionnée sur 800/250/80/10 et gate différentielle sans exception implicite |
 | `QUAL-014` | étendre Mypy strict au prochain package métier compatible | fait | package `alpharank.portfolio` entier ajouté, zéro erreur et périmètre verrouillé par test |
 
@@ -215,19 +238,19 @@ change dans ce lot.
 
 | ID | Action | Statut | Contrôle obligatoire |
 | --- | --- | --- | --- |
-| `CODEORG-001` | fixer le plafond à 20 fichiers `.py`, dérogation uniquement approuvée par le propriétaire, et inventorier les violations courantes | fait | politique versionnée, validateur testé ; 435 fichiers dans 32 dossiers, 7 violations et zéro dérogation |
+| `CODEORG-001` | fixer le plafond à 20 fichiers `.py`, dérogation uniquement approuvée par le propriétaire, et inventorier les violations courantes | fait | politique versionnée, validateur testé ; 481 fichiers dans 67 dossiers, zéro violation et zéro dérogation |
 | `CODEORG-002` | répartir `src/alpharank/data` et l'empilement `data/open_source` selon contrats, sources, entrepôt, lignée, qualité et publication | fait | 48 déplacements inventoriés ; dossiers data entre 4 et 13 modules, collecte complète et tests data verts, aucun calcul modifié |
 | `CODEORG-003` | répartir la racine des scripts, `scripts/open_source` et `scripts/experiments` par usage durable | fait | 90 implémentations déplacées et 32 façades stables inventoriées ; racines à 15, 19 et 16 fichiers avec le worktree courant ; 6 commandes exécutées hors dépôt, 32 façades importées et 26 tests ciblés verts |
 | `CODEORG-006` | restaurer le mode exécutable de `build_sec_output_package_with_backfill.py` après son déplacement | fait | contenu inchangé, mode indexé `100755`, compilation et chargement hors dépôt validés sans lancer la publication |
 | `CODEORG-004` | répartir `tests/unit` et `tests/integration` par domaine miroir | fait | 100 déplacements ; signatures identiques pour 339 tests et 1 105 assertions ; collecte de 465 scénarios sans retrait, les 3 ajouts provenant de CODEORG-001/003 ; zéro dossier au-dessus du plafond |
-| `CODEORG-005` | activer le contrôle bloquant dans la gate statique | fait | gate `--enforce-limit` verte sur 475 fichiers et 65 dossiers, zéro violation, zéro exception et 45 tests CI ciblés verts |
+| `CODEORG-005` | activer le contrôle bloquant dans la gate statique | fait | gate `--enforce-limit` verte sur 481 fichiers et 67 dossiers, zéro violation, zéro exception et 48 tests CI ciblés verts |
 | `CODEORG-007` | retirer d'AlphaRank le dashboard interactif et conserver seulement calculs, contrats et artefacts machine-lisibles | fait | quatre propriétaires applicatifs et deux tests dédiés retirés ; rapports d'audit statiques conservés, Portfolio déclaré propriétaire de l'interface et inventaires régénérés |
 
 ## 11. Lot TEST — rendre les preuves navigables
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `TESTORG-001` | cataloguer les tests par domaine, niveau, réseau et durée | fait | catalogue courant : 111 fichiers et 421 cas mesurés, dont trois dépendances locales explicites |
+| `TESTORG-001` | cataloguer les tests par domaine, niveau, réseau et durée | fait | catalogue courant : 125 fichiers et 479 cas verts, sans dépendance implicite à des artefacts locaux |
 | `TESTORG-002` | créer une arborescence `unit`, `integration`, `replay` et `production` sans changer la découverte Pytest | fait | 419 identifiants canoniques identiques avant/après ; réseau isolé sous `integration/network` |
 | `TESTORG-003` | découper les deux fichiers de tests de plus de 1 000 lignes | fait | 42 scénarios et 127 assertions préservés bit à bit au niveau AST ; aucun module de test au-dessus de 1 000 lignes |
 | `TESTORG-004` | centraliser uniquement les fixtures réellement partagées | fait | une seule fixture racine isole le contexte de run entre suites ; helpers métier et fixtures Pytest restent locaux ou natifs |
@@ -236,7 +259,7 @@ change dans ce lot.
 
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
-| `DATA-001` | figer le dictionnaire des emplacements actuels et de leurs lecteurs | fait | 35 fichiers/packages, 59 références statiques et 263 arêtes lecteur-emplacement dans un inventaire machine-lisible |
+| `DATA-001` | figer le dictionnaire des emplacements actuels et de leurs lecteurs | fait | 35 fichiers/packages, 58 références statiques et 279 arêtes lecteur-emplacement dans un inventaire machine-lisible |
 | `DATA-002` | déclarer `warehouse/raw` comme cible de toutes les sources brutes, EODHD inclus | fait | huit fournisseurs ont une racine RAW unique, des datasets déclarés et des contrats communs de reçu/manifeste |
 | `DATA-003` | enregistrer chaque téléchargement par reçu et hash ; réutiliser le payload s'il est identique | fait | reçu immuable par tentative, échecs inclus ; objet adressé par SHA-256 et manifeste fournisseur vérifié |
 | `DATA-004` | normaliser uniquement dans `stg` | fait | contrat STG sans priorité ni sélection ; conflits fournisseur conservés comme observations distinctes |
@@ -244,7 +267,7 @@ change dans ce lot.
 | `DATA-006` | construire les entrées AlphaRank uniquement depuis `mart` | fait | Legacy résout par défaut un mart canonique ; neuf hashes DEF, mart et snapshot source sont identiques |
 | `DATA-007` | définir le snapshot comme publication immuable du mart, pas comme couche concurrente | fait | publication par référence sans copie, inventaire exhaustif hashé et pointeur atomique validé |
 | `DATA-008` | migrer les racines historiques par référence/hash avant toute copie | fait | 18 racines, 13 979 fichiers et 31,75 Go référencés par SHA-256 ; zéro téléchargement et zéro copie |
-| `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | fait | 159 arêtes lecteur/emplacement classées ; 10 chemins ancien/MART comparés par SHA-256, deux entrées par défaut basculées |
+| `DATA-009` | basculer les lecteurs un par un vers les emplacements canoniques | fait | 162 arêtes lecteur/emplacement classées, zéro non classée ; 10 chemins ancien/MART comparés par SHA-256, deux entrées par défaut basculées |
 | `DATA-010` | rendre les anciennes racines en lecture seule puis les archiver | fait | gel contractuel de 18 racines, observation 2026-08-20 au 2026-09-19, archive par référence et retour arrière hashé |
 | `DATA-011` | étendre le bridge ticker/CIK historique et fournir une reconstruction SEC candidate | fait | bridge versionné porté à 75 identités dont 67 ajouts audités ; candidat hashé et bloqué, fallback filing-level tracé, snapshot courant inchangé et tests de réutilisation de symbole |
 

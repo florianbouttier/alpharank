@@ -2,7 +2,14 @@
 
 **Rôle : document canonique d'architecture du dépôt.**
 
-**État observé : 2026-08-20.**
+**État observé : 2026-08-24.**
+
+Les inventaires courants comptent 353 fichiers de code maintenu, 481 fichiers
+Python suivis répartis dans 67 dossiers et aucun dépassement du plafond de 20
+fichiers par dossier. La suite autonome couvre 479 cas dans 125 fichiers, sans
+dépendre d'un dossier `outputs/` local. Ces nombres sont recalculés par les
+inventaires versionnés de ce dossier ; les nombres du diagnostic initial de la
+roadmap restent conservés comme photographie historique.
 
 ## 1. Ce qu'il faut utiliser aujourd'hui
 
@@ -52,6 +59,11 @@ logs/
 docs/
     règles courantes, recherche reproductible et archives séparées
 ```
+
+AlphaRank ne porte plus de dashboard applicatif. L'interface interactive de
+suivi et d'allocation appartient au dépôt Portfolio ; les rendus HTML encore
+produits ici sont uniquement des rapports statiques d'audit data ou
+méthodologique.
 
 ## 3. Pourquoi `data/` semble incohérent
 
