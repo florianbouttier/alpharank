@@ -4,14 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from datetime import date
 from pathlib import Path
 
+from alpharank.governance import capture_runtime_provenance
 from alpharank.replay.refresh_drift import (
     ReplayAuditInputs,
     audit_blocked_refresh,
     audit_refresh_replay,
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def parse_args() -> argparse.Namespace:
@@ -44,8 +49,14 @@ def main() -> int:
         )
     else:
         report = audit_refresh_replay(_complete_inputs(args), args.output_dir)
+    report["audit_runtime_provenance"] = _capture_audit_provenance(args, report["status"])
+    report_path = args.output_dir / "refresh_replay_report.json"
+    report_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     print(f"Refresh replay status: {report['status']}")
-    print(f"Report: {(args.output_dir / 'refresh_replay_report.json').resolve()}")
+    print(f"Report: {report_path.resolve()}")
     return 0 if report["status"] == "identical_historical_portfolios" else 2
 
 
@@ -73,6 +84,40 @@ def _complete_inputs(args: argparse.Namespace) -> ReplayAuditInputs:
         baseline_common=args.baseline_common,
         candidate_common=args.candidate_common,
         historical_cutoff=args.historical_cutoff,
+    )
+
+
+def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str, object]:
+    mode = "blocked_refresh" if args.failed_refresh_run else "complete_replay"
+    return capture_runtime_provenance(
+        project_root=PROJECT_ROOT,
+        entrypoint="scripts/validation/audit_refresh_replay.py",
+        command_argv=(sys.executable, *sys.argv),
+        resolved_config={
+            "mode": mode,
+            "historical_cutoff": (
+                args.historical_cutoff.isoformat() if args.historical_cutoff else None
+            ),
+            "materiality_tolerance": 1e-12,
+        },
+        seeds={"comparison": "deterministic_no_randomness"},
+        critical_files=(
+            "scripts/validation/audit_refresh_replay.py",
+            "src/alpharank/replay/refresh_compare.py",
+            "src/alpharank/replay/refresh_drift.py",
+            "src/alpharank/replay/refresh_provenance.py",
+        ),
+        data_identifiers={
+            "status": status,
+            "baseline_snapshot": str(args.baseline_snapshot.resolve()),
+            "candidate_snapshot": (
+                str(args.candidate_snapshot.resolve()) if args.candidate_snapshot else None
+            ),
+            "failed_refresh_run": (
+                str(args.failed_refresh_run.resolve()) if args.failed_refresh_run else None
+            ),
+        },
+        patch_path=args.output_dir / "runtime_git_patch.json",
     )
 
 

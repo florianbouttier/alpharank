@@ -12,6 +12,11 @@ from alpharank.replay.refresh_drift import (
     audit_blocked_refresh,
     audit_refresh_replay,
 )
+from alpharank.replay.refresh_provenance import (
+    compare_provenance_pairs,
+    mapping_differences,
+    stable_config,
+)
 
 
 def test_compare_frames_ignores_rows_after_historical_cutoff() -> None:
@@ -115,6 +120,47 @@ def test_complete_audit_classifies_changed_code_before_data_attribution(tmp_path
     assert report["status"] == "code_config_runtime_drift"
     assert report["portfolio_attribution"]["first_divergent_stage"] == "common_portfolio"
     assert report["portfolio_attribution"]["portfolio_drift_rows"] == 1
+
+
+def test_stable_config_ignores_run_paths_but_preserves_policy() -> None:
+    baseline = {
+        "run_output_dir": "/baseline/run",
+        "source_input_files": {"prices": "/baseline/prices.parquet"},
+        "minimum_liquidity": 1_000_000,
+    }
+    candidate = {
+        "run_output_dir": "/candidate/run",
+        "source_input_files": {"prices": "/candidate/prices.parquet"},
+        "minimum_liquidity": 1_000_000,
+    }
+
+    assert stable_config(baseline) == stable_config(candidate) == {"minimum_liquidity": 1_000_000}
+
+
+def test_provenance_lists_exact_runtime_difference(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    _write_manifest(baseline)
+    _write_manifest(candidate)
+    payload = json.loads(candidate.read_text(encoding="utf-8"))
+    payload["runtime_provenance"]["resolved_config"]["run_output_dir"] = "/candidate"
+    payload["runtime_provenance"]["dependencies"] = {"polars": "2.0"}
+    candidate.write_text(json.dumps(payload), encoding="utf-8")
+
+    report = compare_provenance_pairs({"legacy": (baseline, candidate)})
+
+    stage = report["stages"]["legacy"]
+    assert stage["config_identical"]
+    assert not stage["runtime_identical"]
+    assert stage["runtime_differences"] == [
+        {"path": "$.dependencies.polars", "baseline": "<missing>", "candidate": "2.0"}
+    ]
+
+
+def test_mapping_differences_uses_machine_readable_paths() -> None:
+    assert mapping_differences({"policy": {"threshold": 1}}, {"policy": {"threshold": 2}}) == [
+        {"path": "$.policy.threshold", "baseline": 1, "candidate": 2}
+    ]
 
 
 def _complete_fixture(tmp_path: Path) -> ReplayAuditInputs:

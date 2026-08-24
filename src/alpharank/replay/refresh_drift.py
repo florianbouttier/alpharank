@@ -18,6 +18,7 @@ from alpharank.replay.refresh_compare import (
     read_table,
     write_frame_diff,
 )
+from alpharank.replay.refresh_provenance import compare_provenance_pairs
 
 
 @dataclass(frozen=True, slots=True)
@@ -254,33 +255,7 @@ def _compare_provenance(inputs: ReplayAuditInputs) -> dict[str, Any]:
             inputs.candidate_common / "manifest.json",
         ),
     }
-    compared = {name: _provenance_pair(*paths) for name, paths in pairs.items()}
-    return {
-        "stages": compared,
-        "all_code_identical": all(item["code_identical"] for item in compared.values()),
-        "all_config_identical": all(item["config_identical"] for item in compared.values()),
-        "all_runtime_identical": all(item["runtime_identical"] for item in compared.values()),
-    }
-
-
-def _provenance_pair(baseline_path: Path, candidate_path: Path) -> dict[str, Any]:
-    baseline = _runtime_provenance(baseline_path)
-    candidate = _runtime_provenance(candidate_path)
-    baseline_config = _stable_value(baseline.get("resolved_config", {}))
-    candidate_config = _stable_value(candidate.get("resolved_config", {}))
-    code_fields = ("git", "critical_file_sha256")
-    runtime_fields = ("runtime", "dependencies_sha256", "seeds")
-    return {
-        "baseline_manifest": str(baseline_path.resolve()),
-        "candidate_manifest": str(candidate_path.resolve()),
-        "code_identical": all(baseline.get(key) == candidate.get(key) for key in code_fields),
-        "config_identical": baseline_config == candidate_config,
-        "runtime_identical": all(baseline.get(key) == candidate.get(key) for key in runtime_fields),
-        "baseline_git_head": baseline.get("git", {}).get("head"),
-        "candidate_git_head": candidate.get("git", {}).get("head"),
-        "baseline_dependencies_sha256": baseline.get("dependencies_sha256"),
-        "candidate_dependencies_sha256": candidate.get("dependencies_sha256"),
-    }
+    return compare_provenance_pairs(pairs)
 
 
 def _build_attribution(
@@ -353,31 +328,6 @@ def _classify(
     if attribution["exhaustively_attributed"]:
         return "explained_data_drift"
     return "unexplained_portfolio_drift"
-
-
-def _runtime_provenance(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Missing replay manifest: {path}")
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    provenance = payload.get("runtime_provenance")
-    if not isinstance(provenance, dict):
-        raise ValueError(f"Manifest has no runtime_provenance object: {path}")
-    return provenance
-
-
-def _stable_value(value: Any, key: str = "") -> Any:
-    ignored = {"data_dir", "input_snapshot_storage", "output_dir", "run_dir", "run_instance_id"}
-    if key in ignored or key.endswith("_path") or key.endswith("_files"):
-        return None
-    if isinstance(value, dict):
-        return {
-            name: stable
-            for name, nested in sorted(value.items())
-            if (stable := _stable_value(nested, name)) is not None
-        }
-    if isinstance(value, list):
-        return [_stable_value(item) for item in value]
-    return value
 
 
 def _hash_refresh_evidence(run_dir: Path) -> list[dict[str, Any]]:

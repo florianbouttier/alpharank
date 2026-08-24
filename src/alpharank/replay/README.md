@@ -11,6 +11,8 @@ AlphaRank causal, comparable et recalculable :
 - `refresh_compare.py` compare les clés naturelles et les valeurs au cutoff ;
 - `refresh_drift.py` relie le refresh aux deux portefeuilles et bloque tout
   écart non attribué ;
+- `refresh_provenance.py` détaille chaque différence de code, paramètre,
+  dépendance et seed sans confondre les chemins de sortie avec la méthode ;
 - `validation.py` scelle et recalcule un package de replay autonome.
 
 L'API canonique courte est exposée par `alpharank.replay`. Les anciens modules
