@@ -7,7 +7,9 @@ from typing import Any
 
 __all__ = [
     "CausalSnapshotValidationError",
+    "CommonStrategyReplayConfig",
     "ReplayValidationError",
+    "build_common_strategy_replay",
     "build_common_v2_comparison",
     "build_v1_v2_reconciliation",
     "create_recomputable_replay_package",
@@ -22,7 +24,9 @@ __all__ = [
 
 _PUBLIC_OWNERS = {
     "CausalSnapshotValidationError": "alpharank.replay.causal_snapshot",
+    "CommonStrategyReplayConfig": "alpharank.replay.common_strategy",
     "ReplayValidationError": "alpharank.replay.validation",
+    "build_common_strategy_replay": "alpharank.replay.common_strategy",
     "build_common_v2_comparison": "alpharank.replay.common",
     "build_v1_v2_reconciliation": "alpharank.replay.reconciliation",
     "create_recomputable_replay_package": "alpharank.replay.validation",

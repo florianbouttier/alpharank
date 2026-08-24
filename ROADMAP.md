@@ -201,7 +201,7 @@ les plus faciles à déplacer.
 | `CODE-009` | remplacer les captures générales et `print()` par des erreurs et journaux explicites | fait | zéro `print()` bibliothèque, zéro capture nue ou générale hors frontière journalisée ; contexte de run structuré |
 | `CODE-010` | déplacer les scripts réellement obsolètes après audit des lecteurs | fait | sept scripts archivés avec hashes et zéro lecteur actif ; candidat SEC encore lu conservé |
 | `CODE-011` | attribuer ou déplacer les modules transverses `*_v2`, gouvernance et replay dans des packages nommés | fait | six implémentations sous `replay/`, façades compatibles et registre d'API ; gouvernance attribuée |
-| `CODE-012` | déplacer la construction testable du replay commun depuis le script public vers `src/alpharank/replay/` | à faire | script mince, API publique testée et sorties de caractérisation inchangées |
+| `CODE-012` | déplacer la construction testable du replay commun depuis le script public vers `src/alpharank/replay/` | fait | script ramené à une façade de 54 lignes, API publique testée et Top 5/10 natifs caractérisés sans changement de sélection |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
