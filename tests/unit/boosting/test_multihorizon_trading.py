@@ -1,9 +1,13 @@
 from datetime import date
 
 import numpy as np
+import polars as pl
 import pytest
 
-from alpharank.multihorizon.trading import legacy_report_statistics
+from alpharank.multihorizon.trading import (
+    legacy_report_statistics,
+    summarize_monthly_backtest,
+)
 
 
 def test_legacy_report_statistics_uses_cagr_sharpe_and_full_years() -> None:
@@ -51,3 +55,23 @@ def test_legacy_report_statistics_rejects_misaligned_inputs() -> None:
             np.array([0.01, 0.02]),
             holding_months=[date(2020, 1, 1)],
         )
+
+
+def test_monthly_summary_computes_tracking_error() -> None:
+    monthly = pl.DataFrame(
+        {
+            "decision_month": [date(2024, 1, 1), date(2024, 2, 1)],
+            "holding_month": [date(2024, 2, 1), date(2024, 3, 1)],
+            "gross_return": [0.03, 0.01],
+            "net_return": [0.02, 0.00],
+            "benchmark_return": [0.01, 0.01],
+            "turnover": [1.0, 0.5],
+            "transaction_cost": [0.01, 0.01],
+        }
+    )
+
+    summary = summarize_monthly_backtest(monthly)
+
+    assert summary["annualized_tracking_error"] == pytest.approx(
+        np.std([0.01, -0.01], ddof=1) * np.sqrt(12.0)
+    )

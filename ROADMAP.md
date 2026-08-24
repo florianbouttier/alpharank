@@ -178,7 +178,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-008` | rendre la CI AlphaRank autonome et isoler le contrôle Portfolio dans un job inter-projets explicite | fait | job `alpharank` autonome et job `portfolio-integration` séparé |
 | `QUAL-009` | définir et valider un schéma versionné pour chaque famille de configuration JSON | fait | 14 familles et 18 fichiers contrôlés récursivement avant les tests |
 | `QUAL-010` | corriger la gate CI pour un checkout sans artefacts locaux | fait | `--group ci` statique et huit tests ciblés verts depuis un dépôt temporaire propre |
-| `QUAL-011` | supprimer en priorité `F821`, `F403` et `F405` de la baseline Ruff | à faire | zéro nom indéfini, zéro import étoile et tests des branches corrigées |
+| `QUAL-011` | supprimer en priorité `F821`, `F403` et `F405` de la baseline Ruff | fait | zéro `F821`, `F403` ou `F405` ; branches multihorizon, service EODHD et refresh de référence couvertes |
 | `QUAL-012` | rendre la suite Pytest complète autonome dans un checkout sans `outputs/` locaux | à faire | collecte complète verte depuis un clone propre, sans masquer un test par défaut |
 | `QUAL-013` | mesurer taille de module, longueur de fonction et complexité puis bloquer toute régression | à faire | baseline versionnée et gate différentielle ; aucun nouveau dépassement des limites Python |
 | `QUAL-014` | étendre Mypy strict au prochain package métier compatible | à faire | package explicitement ajouté, zéro erreur et impossibilité de réduire silencieusement le périmètre |

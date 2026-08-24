@@ -17,10 +17,9 @@ from alpharank.strategy.legacy_selection import (
     attach_legacy_sector_policy,
     get_portfolio_at_month,
 )
-import datetime
+from datetime import datetime
 from scipy import stats
 from tqdm import tqdm
-from datetime import *
 from typing import List, Dict, Any, Optional
 import matplotlib.pyplot as plt
 import optuna
@@ -782,7 +781,7 @@ class StrategyLearner:
         return get_portfolio_at_month(portfolio_output, month=month)
 
     def learning_fundamental(balance, cashflow, income, earnings, general, monthly_return, historical_company, col_learning, earning_choice, list_date_to_maximise_earning_choice, tresh, n_max_sector, list_kpi_toinvert=['pe'], list_kpi_toincrease=['totalrevenue_rolling', 'grossprofit_rolling', 'operatingincome_rolling', 'incomebeforeTax_rolling', 'netincome_rolling', 'ebit_rolling', 'ebitda_rolling', 'freecashflow_rolling', 'epsactual_rolling'], list_ratios_toincrease=['roic', 'netmargin'], list_kpi_toaccelerate=['epsactual_rolling'], list_lag_increase=[1, 4, 4*5], list_ratios_to_augment=["roic_lag4", "roic_lag1", "netmargin_lag4"], list_date_to_maximise=['filing_date_income', 'filing_date_cash', 'filing_date_balance', 'filing_date_earning']):
-        ratios = FundamentalAnalyzer.calculate_fundamental_ratios(balance=balance,
+        ratios = FundamentalProcessor.calculate_fundamental_ratios(balance=balance,
                                                                   cashflow=cashflow,
                                                                   income=income,
                                                                   earnings=earnings,
@@ -791,14 +790,16 @@ class StrategyLearner:
                                                                   list_kpi_toaccelerate=list_kpi_toaccelerate,
                                                                   list_lag_increase=list_lag_increase,
                                                                   list_ratios_to_augment=list_ratios_to_augment,
-                                                                  list_date_to_maximise=list_date_to_maximise)
-        pe = FundamentalAnalyzer.calculate_pe_ratios(balance=balance, 
-                                                     earnings=earnings, 
+                                                                  list_date_to_maximise=list_date_to_maximise,
+                                                                  backend="polars")
+        pe = FundamentalProcessor.calculate_pe_ratios(balance=balance,
+                                                     earnings=earnings,
                                                      cashflow=cashflow,
                                                      income=income, 
                                                      earning_choice=earning_choice,
                                                      monthly_return=monthly_return,
-                                                     list_date_to_maximise=list_date_to_maximise_earning_choice)
+                                                     list_date_to_maximise=list_date_to_maximise_earning_choice,
+                                                     backend="polars")
         ratios['year_month'] = ratios['date'].dt.to_period('M')
         final_merged = []
         list_date_loop = sorted(ratios[ratios['year_month'] >= '2000-01'].dropna(subset=['year_month'])['year_month'].unique())

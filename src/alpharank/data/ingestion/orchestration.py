@@ -332,6 +332,29 @@ def _resolve_open_source_data_layout(
     return official_dir, open_source_root, data_root, resolved_reference_dir
 
 
+def _resolve_active_reference_tickers(
+    ticker_list: Sequence[str],
+    current_tickers: Sequence[str],
+) -> tuple[str, ...]:
+    """Limit strict reference gates to active names when that list is available."""
+
+    active = tuple(sorted(set(current_tickers).intersection(ticker_list)))
+    return active or tuple(ticker_list)
+
+
+def _latest_validated_price_date(prices: pl.DataFrame) -> str:
+    """Return the price cutoff retained by a reference-only refresh."""
+
+    latest = prices.select(
+        pl.col("date").cast(pl.String).str.to_date(strict=False).max()
+    ).item()
+    if latest is None:
+        raise RuntimeError(
+            "Reference refresh requires a non-empty validated price history."
+        )
+    return latest.isoformat()
+
+
 def repair_open_source_price_history(
     *,
     start_date: str = "2005-01-01",
@@ -649,6 +672,11 @@ def refresh_open_source_reference_layers(
         snapshot_scope="reference_refresh",
     )
     ticker_list = tuple(tickers) if tickers is not None else _load_existing_open_source_tickers(paths, reference_data_dir)
+    current_sp500 = set(_load_latest_sp500_tickers(reference_data_dir))
+    price_quality_tickers = _resolve_active_reference_tickers(
+        ticker_list,
+        current_sp500,
+    )
 
     yahoo_client = YahooFinanceClient(
         cache_dir=open_source_root / "_cache" / "yfinance"
@@ -813,6 +841,7 @@ def refresh_open_source_reference_layers(
     )
 
     clean_prices = pl.read_parquet(paths.clean_dir / "prices_open_source.parquet")
+    latest_price_date = _latest_validated_price_date(clean_prices)
     clean_price_lineage = (
         pl.read_parquet(paths.clean_dir / "prices_open_source_lineage.parquet")
         if (paths.clean_dir / "prices_open_source_lineage.parquet").exists()
@@ -843,7 +872,7 @@ def refresh_open_source_reference_layers(
         paths=paths,
         run_id=run_id,
         legacy_paths=legacy_paths,
-        expected_through=end_date,
+        expected_through=latest_price_date,
         source_refresh_policy=source_refresh_policy,
         source_refresh_contract=source_refresh_contract,
     )

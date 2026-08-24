@@ -559,12 +559,18 @@ class EODHDDataService:
         
         return fundamental_data
     
-    def process_fundamental_data(self, fundamental_data: List, data_type: str) -> pd.DataFrame:
+    def process_fundamental_data(
+        self,
+        fundamental_data: List,
+        tickers: List[str],
+        data_type: str,
+    ) -> pd.DataFrame:
         """
         Process and extract specific fundamental data type
         
         Args:
             fundamental_data: List of fundamental data dictionaries
+            tickers: List of corresponding symbols
             data_type: Type of fundamental data to extract
             
         Returns:
