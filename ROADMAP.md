@@ -181,7 +181,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-011` | supprimer en priorité `F821`, `F403` et `F405` de la baseline Ruff | fait | zéro `F821`, `F403` ou `F405` ; branches multihorizon, service EODHD et refresh de référence couvertes |
 | `QUAL-012` | rendre la suite Pytest complète autonome dans un checkout sans `outputs/` locaux | fait | fixtures synthétiques à la place des `outputs/` locaux et 476 tests verts sans masquage |
 | `QUAL-013` | mesurer taille de module, longueur de fonction et complexité puis bloquer toute régression | fait | baseline versionnée sur 800/250/80/10 et gate différentielle sans exception implicite |
-| `QUAL-014` | étendre Mypy strict au prochain package métier compatible | à faire | package explicitement ajouté, zéro erreur et impossibilité de réduire silencieusement le périmètre |
+| `QUAL-014` | étendre Mypy strict au prochain package métier compatible | fait | package `alpharank.portfolio` entier ajouté, zéro erreur et périmètre verrouillé par test |
 
 ## 9. Lot CODE — découper sans changer les résultats
 

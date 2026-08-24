@@ -158,8 +158,8 @@ def resolve_terminal_shareholder_returns(
 
         ticker = row["_terminal_ticker"]
         holding_month = row["_terminal_month"]
-        event = event_lookup.get((ticker, holding_month))
-        if event is None:
+        matched_event = event_lookup.get((ticker, holding_month))
+        if matched_event is None:
             resolution_rows.append(
                 _resolution_row(
                     row_id=row["_terminal_row_id"],
@@ -172,10 +172,10 @@ def resolve_terminal_shareholder_returns(
         start_price = _finite_positive(
             row.get(starting_price_column),
             field=starting_price_column,
-            event_id=event["terminal_event_id"],
+            event_id=matched_event["terminal_event_id"],
         )
         terminal_value, successor_price = _terminal_value(
-            event,
+            matched_event,
             holding_month=holding_month,
             price_lookup=price_lookup,
         )
@@ -185,7 +185,7 @@ def resolve_terminal_shareholder_returns(
                 row_id=row["_terminal_row_id"],
                 realized_return=resolved_return,
                 status="resolved_terminal_event",
-                event=event,
+                event=matched_event,
                 terminal_value=terminal_value,
                 successor_price=successor_price,
             )
@@ -531,6 +531,10 @@ def _finite_non_negative(
         if default is not None:
             return default
         raise ValueError(f"Terminal event {event_id!r} requires explicit {field}.")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(
+            f"Terminal event {event_id!r} requires numeric {field}."
+        )
     numeric = float(value)
     if not math.isfinite(numeric) or numeric < 0.0:
         raise ValueError(

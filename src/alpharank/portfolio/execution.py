@@ -127,8 +127,7 @@ def build_execution_sensitivity_report(
             raise ValueError("signal_cutoff_at must contain timezone-aware datetimes.")
         ticker = str(order["ticker"])
         sessions = [_session_record(row) for row in by_ticker.get(ticker, [])]
-        prior = [row for row in sessions if row["close_at"] <= cutoff]
-        future = [row for row in sessions if row["open_at"] > cutoff]
+        prior, future = _partition_sessions(sessions, cutoff)
         signal_close = prior[-1] if prior else None
         next_session = future[0] if future else None
         vwap_session = next(
@@ -589,18 +588,49 @@ def _scenario_row(
     execution_at: object,
     status: str,
 ) -> dict[str, object]:
-    cutoff = order["signal_cutoff_at"]
+    cutoff = _required_datetime(
+        order["signal_cutoff_at"],
+        field="signal_cutoff_at",
+    )
+    execution_time = (
+        _required_datetime(execution_at, field="execution_at")
+        if execution_at is not None
+        else None
+    )
     return {
         "order_id": order["order_id"],
         "ticker": order["ticker"],
         "signal_cutoff_at": cutoff,
         "scenario": scenario,
         "price": price,
-        "execution_at": execution_at,
+        "execution_at": execution_time,
         "execution_after_signal_cutoff": (
-            bool(execution_at > cutoff) if execution_at is not None else False
+            execution_time > cutoff if execution_time is not None else False
         ),
         "status": status,
         "is_canonical": scenario == policy.canonical_scenario,
         "execution_policy_id": policy.identifier,
     }
+
+
+def _required_datetime(value: object, *, field: str) -> datetime:
+    if not isinstance(value, datetime) or value.tzinfo is None:
+        raise ValueError(f"{field} must be a timezone-aware datetime.")
+    return value
+
+
+def _partition_sessions(
+    sessions: list[dict[str, object]],
+    cutoff: datetime,
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    prior = [
+        row
+        for row in sessions
+        if _required_datetime(row["close_at"], field="close_at") <= cutoff
+    ]
+    future = [
+        row
+        for row in sessions
+        if _required_datetime(row["open_at"], field="open_at") > cutoff
+    ]
+    return prior, future

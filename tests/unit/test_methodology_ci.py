@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
+    import tomli as tomllib
+
 
 def test_alpharank_ci_is_independent_from_portfolio_checkout() -> None:
     root = Path(__file__).resolve().parents[2]
@@ -20,3 +25,14 @@ def test_alpharank_ci_is_independent_from_portfolio_checkout() -> None:
     assert "npm run build" in portfolio_job
 
     assert "python -m pytest -q -p no:cacheprovider" not in workflow
+
+
+def test_strict_mypy_scope_cannot_drop_business_portfolio() -> None:
+    root = Path(__file__).resolve().parents[2]
+    config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert config["tool"]["mypy"]["strict"] is True
+    assert config["tool"]["mypy"]["files"] == [
+        "src/alpharank/quality",
+        "src/alpharank/portfolio",
+    ]

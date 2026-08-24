@@ -231,7 +231,7 @@ def _validate_registry(payload: object) -> None:
         if key in keys:
             raise ValueError(f"Duplicate successor price key: {key}")
         keys.add(key)
-        price = float(observation.get("holding_end_price"))
+        price = _numeric_price(observation.get("holding_end_price"), observation_id)
         if not math.isfinite(price) or price <= 0.0:
             raise ValueError(f"Observation {observation_id} requires a positive price.")
         if observation.get("currency") != "USD":
@@ -286,6 +286,12 @@ def _ticker(value: object) -> str:
     if not ticker.endswith(".US"):
         raise ValueError(f"Terminal successor ticker must end in .US: {ticker!r}.")
     return ticker
+
+
+def _numeric_price(value: object, observation_id: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Observation {observation_id} requires a numeric price.")
+    return float(value)
 
 
 def _non_empty(value: object, *, field: str) -> str:

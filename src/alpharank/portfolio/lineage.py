@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from alpharank.data.price_eligibility import (
     price_eligibility_policy_from_manifest,
@@ -12,7 +12,10 @@ from alpharank.data.price_eligibility import (
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    raw: object = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or not all(isinstance(key, str) for key in raw):
+        raise ValueError(f"Manifest must be a string-keyed object: {path}")
+    return cast(dict[str, Any], raw)
 
 
 def input_hashes_from_manifest(manifest: Mapping[str, Any]) -> dict[str, str]:

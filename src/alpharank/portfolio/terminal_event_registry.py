@@ -559,10 +559,9 @@ def _optional_non_negative(
 
 
 def _non_negative(value: object, *, field: str, event_id: str) -> float:
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"Terminal event {event_id} has invalid {field}.") from error
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Terminal event {event_id} has invalid {field}.")
+    numeric = float(value)
     if numeric < 0.0 or numeric != numeric or numeric in {float("inf"), float("-inf")}:
         raise ValueError(f"Terminal event {event_id} has invalid {field}.")
     return numeric

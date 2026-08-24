@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 478,
+  "node_count": 479,
   "node_ids": [
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
@@ -87,6 +87,7 @@
     "test_legacy_valuation.py::test_registry_assigns_one_causal_reason_per_candidate",
     "test_legacy_valuation.py::test_registry_rejects_ambiguous_ticker_month_valuation",
     "test_methodology_ci.py::test_alpharank_ci_is_independent_from_portfolio_checkout",
+    "test_methodology_ci.py::test_strict_mypy_scope_cannot_drop_business_portfolio",
     "test_methodology_documentation_contract.py::test_documentation_structure_maps_normative_rules_to_code_and_tests",
     "test_methodology_v2_study.py::test_approved_study_builds_complete_report",
     "test_methodology_v2_study.py::test_drawdown_details_reports_recovery",
@@ -481,7 +482,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "32e775aabff669619d46b9d23187d5bbadba33e5738012f2952d823a5f7a751e",
+  "node_ids_sha256": "85ef0679ead7f50739a75c1f6bd5eb41f1cabeb4e2226e9c460ad496e04dec90",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

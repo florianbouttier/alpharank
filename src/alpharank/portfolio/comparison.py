@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import date
-from typing import Any, Sequence
+from datetime import date, datetime
+from typing import Literal, Sequence
 
 import polars as pl
 
@@ -14,7 +14,7 @@ def align_return_series(
     *,
     month_column: str = "holding_month",
     return_column: str = "net_return",
-    how: str = "inner",
+    how: Literal["inner", "full"] = "inner",
 ) -> pl.DataFrame:
     """Align named monthly return series on one explicit calendar."""
 
@@ -155,7 +155,7 @@ def performance_by_start_year(
         month_column,
         pl.col(return_column).alias("benchmark_return"),
     )
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, object]] = []
     for start_year in range(first_year, end_month.year + 1):
         requested_start = date(start_year, 1, 1)
         for strategy in strategy_order:
@@ -173,6 +173,10 @@ def performance_by_start_year(
             if frame.is_empty():
                 continue
             effective_start = frame[month_column].min()
+            if isinstance(effective_start, datetime):
+                effective_start = effective_start.date()
+            if not isinstance(effective_start, date):
+                raise ValueError("Comparison months must contain valid dates.")
             metrics = advanced_performance_statistics(
                 frame[return_column].to_numpy(),
                 benchmark_returns=frame["benchmark_return"].to_numpy(),

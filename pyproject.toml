@@ -73,7 +73,7 @@ docstring-code-format = false
 [tool.mypy]
 python_version = "3.10"
 mypy_path = "src"
-files = ["src/alpharank/quality"]
+files = ["src/alpharank/quality", "src/alpharank/portfolio"]
 explicit_package_bases = true
 strict = true
 show_error_codes = true

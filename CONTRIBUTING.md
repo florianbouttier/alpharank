@@ -324,8 +324,10 @@ Le typage strict est activé progressivement sur la liste `tool.mypy.files` de
 python -m mypy
 ```
 
-Un package rejoint cette liste seulement lorsque la commande est verte sans
-`ignore_missing_imports` global ni suppression non justifiée.
+Les packages `alpharank.quality` et `alpharank.portfolio` constituent le
+périmètre strict courant. Un package rejoint cette liste seulement lorsque la
+commande est verte sans `ignore_missing_imports` global ni suppression non
+justifiée ; un test empêche de retirer silencieusement un périmètre acquis.
 
 Les suites Pytest logiques sont séparées par marqueur sans déplacer les fichiers
 avant `TESTORG-*` :

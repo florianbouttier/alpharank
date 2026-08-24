@@ -146,7 +146,7 @@ def capped_inverse_risk_weights(
         weights[capped_indices] = maximum_weight
         remaining -= maximum_weight * len(capped_indices)
         active[capped_indices] = False
-    return weights / weights.sum()
+    return np.asarray(weights / weights.sum(), dtype=float)
 
 
 def constrained_inverse_risk_weights(
@@ -215,4 +215,4 @@ def constrained_inverse_risk_weights(
         remaining -= allocation
     if remaining > 1e-8:
         raise ValueError("Portfolio constraints are infeasible.")
-    return weights / weights.sum()
+    return np.asarray(weights / weights.sum(), dtype=float)

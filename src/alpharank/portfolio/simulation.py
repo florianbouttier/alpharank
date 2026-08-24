@@ -109,14 +109,7 @@ def simulate_weighted_portfolio(
             if abs(1.0 + benchmark_return) > 1e-12
             else float("nan")
         )
-        sector_count = 0
-        maximum_sector_weight = 0.0
-        if "sector" in month.columns:
-            sectors = month.with_columns(
-                pl.col("sector").fill_null("Unknown").cast(pl.Utf8)
-            ).group_by("sector").agg(pl.col("target_weight").sum().alias("weight"))
-            sector_count = sectors.height
-            maximum_sector_weight = float(sectors["weight"].max())
+        sector_count, maximum_sector_weight = _sector_summary(month)
         rows.append(
             {
                 "strategy": strategy,
@@ -155,3 +148,17 @@ def simulate_weighted_portfolio(
     if validate:
         validate_monthly_returns(result)
     return result
+
+
+def _sector_summary(month: pl.DataFrame) -> tuple[int, float]:
+    if "sector" not in month.columns:
+        return 0, 0.0
+    sectors = (
+        month.with_columns(pl.col("sector").fill_null("Unknown").cast(pl.Utf8))
+        .group_by("sector")
+        .agg(pl.col("target_weight").sum().alias("weight"))
+    )
+    maximum_weight = sectors["weight"].max()
+    if isinstance(maximum_weight, bool) or not isinstance(maximum_weight, (int, float)):
+        raise ValueError("Sector weights must contain finite numbers.")
+    return sectors.height, float(maximum_weight)
