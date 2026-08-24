@@ -40,7 +40,7 @@ def test_versioned_catalog_covers_every_tracked_test_file() -> None:
     assert collect_canonical_node_ids(ROOT, paths) == collection["node_ids"]
 
 
-def test_network_and_failed_measurements_are_explicit() -> None:
+def test_network_and_successful_measurements_are_explicit() -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
     rows = catalog["files"]
 
@@ -49,8 +49,8 @@ def test_network_and_failed_measurements_are_explicit() -> None:
         for row in rows
         if row["suite"] == "network"
     )
-    assert catalog["summary"]["failure_count"] == 3
-    assert catalog["summary"]["outcome_counts"]["failed_missing_local_artifacts"] == 2
+    assert catalog["summary"]["failure_count"] == 0
+    assert catalog["summary"]["outcome_counts"] == {"passed": len(rows)}
 
 
 def test_catalog_reads_nested_suite_junit_classnames(tmp_path: Path) -> None:

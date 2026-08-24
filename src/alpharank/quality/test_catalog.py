@@ -41,7 +41,7 @@ DIRECTORY_TEST_DOMAINS = {
 }
 
 
-class TestMeasurement(TypedDict):
+class CatalogMeasurement(TypedDict):
     """Aggregated JUnit measurement for one tracked test file."""
 
     test_case_count: int
@@ -50,7 +50,7 @@ class TestMeasurement(TypedDict):
     observed_outcome: str
 
 
-class TestCatalogRow(TypedDict):
+class CatalogRow(TypedDict):
     """One reviewable test-catalog entry."""
 
     path: str
@@ -95,7 +95,7 @@ def build_test_catalog(
 
     measurements = _load_junit_measurements(junit_path)
     measurements_by_name = {Path(path).name: row for path, row in measurements.items()}
-    rows: list[TestCatalogRow] = []
+    rows: list[CatalogRow] = []
     for path in sorted(paths):
         measurement = measurements.get(
             path,
@@ -104,7 +104,7 @@ def build_test_catalog(
         suite = classify_test_path(path, policy)
         duration_seconds = round(float(measurement["duration_seconds"]), 6)
         rows.append(
-            TestCatalogRow(
+            CatalogRow(
                 path=path,
                 domain=classify_test_domain(path),
                 suite=suite,
@@ -135,12 +135,8 @@ def build_test_catalog(
             "file_count": len(rows),
             "test_case_count": sum(int(row["test_case_count"]) for row in rows),
             "failure_count": sum(int(row["failure_count"]) for row in rows),
-            "duration_seconds": round(
-                sum(float(row["duration_seconds"]) for row in rows), 6
-            ),
-            "domain_counts": {
-                domain: domains.get(domain, 0) for domain in ALLOWED_TEST_DOMAINS
-            },
+            "duration_seconds": round(sum(float(row["duration_seconds"]) for row in rows), 6),
+            "domain_counts": {domain: domains.get(domain, 0) for domain in ALLOWED_TEST_DOMAINS},
             "suite_counts": dict(sorted(suites.items())),
             "outcome_counts": dict(sorted(outcomes.items())),
         },
@@ -226,7 +222,7 @@ def write_test_catalog(path: Path, catalog: dict[str, object]) -> None:
     )
 
 
-def _load_junit_measurements(path: Path) -> dict[str, TestMeasurement]:
+def _load_junit_measurements(path: Path) -> dict[str, CatalogMeasurement]:
     grouped: dict[str, list[ElementTree.Element]] = defaultdict(list)
     root = ElementTree.parse(path).getroot()
     for case in root.iter("testcase"):
@@ -236,17 +232,13 @@ def _load_junit_measurements(path: Path) -> dict[str, TestMeasurement]:
         test_path = classname.replace(".", "/") + ".py"
         grouped[test_path].append(case)
 
-    measurements: dict[str, TestMeasurement] = {}
+    measurements: dict[str, CatalogMeasurement] = {}
     for test_path, cases in grouped.items():
-        failures = [
-            failure
-            for case in cases
-            if (failure := case.find("failure")) is not None
-        ]
+        failures = [failure for case in cases if (failure := case.find("failure")) is not None]
         missing_local_artifact = any(
             "FileNotFoundError" in (failure.text or "") for failure in failures
         )
-        measurements[test_path] = TestMeasurement(
+        measurements[test_path] = CatalogMeasurement(
             test_case_count=len(cases),
             duration_seconds=sum(float(case.attrib.get("time", "0")) for case in cases),
             failure_count=len(failures),
@@ -261,8 +253,8 @@ def _load_junit_measurements(path: Path) -> dict[str, TestMeasurement]:
     return measurements
 
 
-def _empty_measurement() -> TestMeasurement:
-    return TestMeasurement(
+def _empty_measurement() -> CatalogMeasurement:
+    return CatalogMeasurement(
         test_case_count=0,
         duration_seconds=0.0,
         failure_count=0,

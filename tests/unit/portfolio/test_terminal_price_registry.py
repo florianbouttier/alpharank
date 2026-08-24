@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from copy import deepcopy
-import hashlib
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import polars as pl
@@ -14,25 +13,22 @@ from alpharank.portfolio.terminal_price_registry import (
 )
 
 
-CAUSAL_SNAPSHOT = Path(
-    "outputs/methodology_v2/run_001/v2-causal-snapshot"
-)
-
-
 def test_terminal_successor_prices_match_sealed_snapshot_and_sec_evidence() -> None:
     registry = load_terminal_price_registry()
-    manifest = json.loads(
-        (CAUSAL_SNAPSHOT / "causal_v2_snapshot_manifest.json").read_text(
-            encoding="utf-8"
-        )
+    base = registry.payload["base_snapshot"]
+    prices = pl.DataFrame(
+        {
+            "ticker": ["KHC.US", "CI.US"],
+            "date": ["2015-07-31", "2018-12-31"],
+            "close": [79.47000122070312, 189.9199981689453],
+        }
     )
-    price_path = CAUSAL_SNAPSHOT / "input_snapshot" / "US_Finalprice.parquet"
 
     prices = registry.successor_prices(
-        pl.read_parquet(price_path),
-        snapshot_id=manifest["snapshot_id"],
-        composition_id=manifest["source_snapshot"]["composition_id"],
-        price_artifact_sha256=hashlib.sha256(price_path.read_bytes()).hexdigest(),
+        prices,
+        snapshot_id=base["snapshot_id"],
+        composition_id=base["composition_id"],
+        price_artifact_sha256=base["price_artifact_sha256"],
     )
 
     assert prices.height == 3
@@ -81,9 +77,7 @@ def test_terminal_successor_prices_reject_snapshot_or_reviewed_value_drift(
 
 
 def test_terminal_price_registry_rejects_ambiguous_observation(tmp_path: Path) -> None:
-    payload = deepcopy(
-        json.loads(DEFAULT_TERMINAL_PRICE_REGISTRY.read_text(encoding="utf-8"))
-    )
+    payload = deepcopy(json.loads(DEFAULT_TERMINAL_PRICE_REGISTRY.read_text(encoding="utf-8")))
     payload["observations"].append(deepcopy(payload["observations"][0]))
     payload["observations"][-1]["observation_id"] = "OTHER"
     path = tmp_path / "terminal_prices.json"
