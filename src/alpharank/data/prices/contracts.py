@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-
+from enum import Enum
 
 PRICE_VALUE_COLUMNS = (
     "date",
@@ -31,6 +31,13 @@ PRICE_LINEAGE_COLUMNS = (
 ADJUSTMENT_POLICY_VERSION = "hybrid_price_adjustment_v1"
 EODHD_SOURCE = "eodhd_frozen_history"
 EODHD_DATASET = "prices_eodhd_frozen_seed"
+
+
+class PriceCandidateMode(str, Enum):
+    """How active provider observations are represented in the candidate."""
+
+    FRESH_ACTIVE_VINTAGE = "fresh_active_vintage"
+    VALIDATED_HISTORY_RETURN_EXTENSION = "validated_history_return_extension"
 
 
 @dataclass(frozen=True)

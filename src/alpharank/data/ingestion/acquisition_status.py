@@ -79,6 +79,10 @@ def build_acquisition_status(
         status = _source_status(row_count=row_count, failure_count=len(failures))
         if source == "yahoo_prices" and not price_gate_report.get("passed", False):
             status = "downloaded_quarantined"
+        elif source == "yahoo_prices" and price_gate_report.get(
+            "resolved_provider_blocking_reasons"
+        ):
+            status = "downloaded_revisions_reconciled"
         sources.append(
             {
                 "source": source,

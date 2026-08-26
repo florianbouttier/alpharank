@@ -6,7 +6,11 @@ from typing import Sequence
 
 import polars as pl
 
-from alpharank.data.prices.contracts import PRODUCTION_PRICE_GATE_POLICY, PriceGatePolicy
+from alpharank.data.prices.contracts import (
+    PRODUCTION_PRICE_GATE_POLICY,
+    PriceCandidateMode,
+    PriceGatePolicy,
+)
 from alpharank.data.security_identity import (
     apply_security_identity_policy,
     assert_security_identity_compliance,
@@ -21,6 +25,18 @@ class PriceGateResult:
     historical_key_removals: pl.DataFrame
 
 
+@dataclass(frozen=True, slots=True)
+class ActiveVintageAudit:
+    active_tickers: tuple[str, ...]
+    active_non_yahoo_rows: int
+    mixed_active_tickers: tuple[str, ...]
+    global_vintage_ids: tuple[str, ...]
+    current_resolution_tickers: frozenset[str]
+    carried_active_rows: int
+    carried_active_tickers: int
+    missing_active_tickers: tuple[str, ...]
+
+
 def audit_price_candidate(
     *,
     previous_prices: pl.DataFrame | None,
@@ -31,6 +47,8 @@ def audit_price_candidate(
     expected_through: str,
     policy: PriceGatePolicy = PRODUCTION_PRICE_GATE_POLICY,
     active_resolution_vintage_id: str | None = None,
+    candidate_mode: PriceCandidateMode = PriceCandidateMode.FRESH_ACTIVE_VINTAGE,
+    observed_active_tickers: Sequence[str] = (),
 ) -> PriceGateResult:
     assert_security_identity_compliance(
         candidate_prices,
@@ -59,42 +77,14 @@ def audit_price_candidate(
     ):
         raise RuntimeError("Candidate price lineage contains keys absent from selected prices")
 
-    active = [_normalize_ticker(ticker) for ticker in active_tickers]
-    active_lineage = lineage.filter(pl.col("ticker").is_in(active))
-    active_non_yahoo_rows = active_lineage.filter(pl.col("source") != "yfinance").height
-    active_yahoo_lineage = active_lineage.filter(pl.col("source") == "yfinance")
-    active_vintages = active_yahoo_lineage.group_by("ticker").agg(
-        pl.col("source_vintage_id").n_unique().alias("vintage_count")
+    active_audit = _audit_active_vintages(
+        lineage=lineage,
+        active_tickers=active_tickers,
+        active_resolution_vintage_id=active_resolution_vintage_id,
+        candidate_mode=candidate_mode,
+        observed_active_tickers=observed_active_tickers,
     )
-    active_global_vintages = (
-        active_yahoo_lineage.select(pl.col("source_vintage_id").drop_nulls().unique())
-        .get_column("source_vintage_id")
-        .to_list()
-    )
-    mixed_active = active_vintages.filter(pl.col("vintage_count") != 1)
-    current_resolution_tickers: set[str] = set()
-    carried_active_rows = 0
-    carried_active_tickers = 0
-    if active_resolution_vintage_id is not None:
-        current_resolution = active_yahoo_lineage.filter(
-            pl.col("source_vintage_id") == active_resolution_vintage_id
-        )
-        current_resolution_tickers = set(current_resolution.get_column("ticker").unique().to_list())
-        carried_active = active_yahoo_lineage.filter(
-            pl.col("source_vintage_id") != active_resolution_vintage_id
-        )
-        carried_active_rows = carried_active.height
-        carried_active_tickers = (
-            carried_active.select(pl.col("ticker").n_unique()).item()
-            if carried_active.height
-            else 0
-        )
-    refreshed_active = (
-        set(active_vintages.get_column("ticker").to_list())
-        if not active_vintages.is_empty()
-        else set()
-    )
-    missing_active = sorted(set(active) - refreshed_active)
+    active = list(active_audit.active_tickers)
 
     transition_findings = _transition_factor_findings(lineage, policy=policy)
     recent_cutoff = date.fromisoformat(expected_through) - timedelta(
@@ -113,7 +103,11 @@ def audit_price_candidate(
         previous_identity.frame if previous_identity is not None else previous_prices
     )
     revisions = (
-        _daily_return_revisions(_normalize_prices(identity_normalized_previous), candidate)
+        _daily_return_revisions(
+            _normalize_prices(identity_normalized_previous),
+            candidate,
+            storage_tolerance=policy.historical_return_revision_threshold,
+        )
         if previous_prices is not None and not previous_prices.is_empty()
         else _empty_revision_frame()
     )
@@ -160,20 +154,29 @@ def audit_price_candidate(
         ).height
 
     blocking_reasons: list[str] = []
-    if missing_active:
+    if active_audit.missing_active_tickers:
         blocking_reasons.append("missing_active_full_yahoo_vintage")
     missing_current_resolution = (
-        sorted(set(active) - current_resolution_tickers)
+        sorted(set(active) - active_audit.current_resolution_tickers)
         if active_resolution_vintage_id is not None
         else []
     )
-    if active_resolution_vintage_id is None and mixed_active.height:
+    requires_fresh_vintage = candidate_mode == PriceCandidateMode.FRESH_ACTIVE_VINTAGE
+    if (
+        requires_fresh_vintage
+        and active_resolution_vintage_id is None
+        and active_audit.mixed_active_tickers
+    ):
         blocking_reasons.append("mixed_active_yahoo_vintages")
-    if active_resolution_vintage_id is None and len(active_global_vintages) != 1:
+    if (
+        requires_fresh_vintage
+        and active_resolution_vintage_id is None
+        and len(active_audit.global_vintage_ids) != 1
+    ):
         blocking_reasons.append("active_universe_not_one_global_yahoo_vintage")
     if active_resolution_vintage_id is not None and missing_current_resolution:
         blocking_reasons.append("active_ticker_without_current_resolution_observation")
-    if active_non_yahoo_rows:
+    if requires_fresh_vintage and active_audit.active_non_yahoo_rows:
         blocking_reasons.append("active_universe_contains_non_yahoo_rows")
     if transition_findings.height:
         blocking_reasons.append("adjustment_factor_transition_discontinuity")
@@ -188,22 +191,22 @@ def audit_price_candidate(
 
     report = {
         "gate_version": 1,
+        "candidate_mode": candidate_mode.value,
         "policy": policy.to_manifest(),
         "candidate_rows": candidate.height,
         "candidate_tickers": candidate.select(pl.col("ticker").n_unique()).item(),
         "active_ticker_count": len(active),
-        "missing_active_yahoo_tickers": missing_active,
-        "mixed_active_yahoo_vintage_tickers": mixed_active.get_column("ticker").to_list()
-        if mixed_active.height
-        else [],
-        "active_global_yahoo_vintage_ids": active_global_vintages,
+        "missing_active_yahoo_tickers": list(active_audit.missing_active_tickers),
+        "mixed_active_yahoo_vintage_tickers": list(active_audit.mixed_active_tickers),
+        "active_global_yahoo_vintage_ids": list(active_audit.global_vintage_ids),
         "active_resolution_vintage_id": active_resolution_vintage_id,
         "active_tickers_without_current_resolution_observation": missing_current_resolution,
-        "audited_carried_active_rows": carried_active_rows,
-        "audited_carried_active_tickers": carried_active_tickers,
-        "active_non_yahoo_rows": active_non_yahoo_rows,
+        "audited_carried_active_rows": active_audit.carried_active_rows,
+        "audited_carried_active_tickers": active_audit.carried_active_tickers,
+        "active_non_yahoo_rows": active_audit.active_non_yahoo_rows,
         "transition_factor_findings": transition_findings.height,
         "historical_daily_return_revisions_over_threshold": material_old_revisions.height,
+        "daily_return_audit_storage_tolerance": policy.historical_return_revision_threshold,
         "historical_return_availability_changes": return_availability_changes.height,
         "historical_return_revision_tickers": (
             material_old_revisions.select(pl.col("ticker").n_unique()).item()
@@ -261,6 +264,60 @@ def validate_price_gate_report(report: dict[str, object]) -> None:
         )
 
 
+def _audit_active_vintages(
+    *,
+    lineage: pl.DataFrame,
+    active_tickers: Sequence[str],
+    active_resolution_vintage_id: str | None,
+    candidate_mode: PriceCandidateMode,
+    observed_active_tickers: Sequence[str],
+) -> ActiveVintageAudit:
+    active = tuple(_normalize_ticker(ticker) for ticker in active_tickers)
+    active_lineage = lineage.filter(pl.col("ticker").is_in(active))
+    non_yahoo_rows = active_lineage.filter(pl.col("source") != "yfinance").height
+    yahoo = active_lineage.filter(pl.col("source") == "yfinance")
+    vintages = yahoo.group_by("ticker").agg(
+        pl.col("source_vintage_id").n_unique().alias("vintage_count")
+    )
+    mixed = tuple(
+        vintages.filter(pl.col("vintage_count") != 1).get_column("ticker").to_list()
+    )
+    global_vintages = tuple(
+        yahoo.select(pl.col("source_vintage_id").drop_nulls().unique())
+        .get_column("source_vintage_id")
+        .to_list()
+    )
+    current = {_normalize_ticker(ticker) for ticker in observed_active_tickers}
+    carried_rows = 0
+    carried_tickers = 0
+    if (
+        active_resolution_vintage_id is not None
+        and candidate_mode == PriceCandidateMode.FRESH_ACTIVE_VINTAGE
+    ):
+        current = set(
+            yahoo.filter(pl.col("source_vintage_id") == active_resolution_vintage_id)
+            .get_column("ticker")
+            .unique()
+            .to_list()
+        )
+        carried = yahoo.filter(pl.col("source_vintage_id") != active_resolution_vintage_id)
+        carried_rows = carried.height
+        carried_tickers = (
+            carried.select(pl.col("ticker").n_unique()).item() if carried.height else 0
+        )
+    refreshed = current or set(vintages.get_column("ticker").to_list())
+    return ActiveVintageAudit(
+        active_tickers=active,
+        active_non_yahoo_rows=non_yahoo_rows,
+        mixed_active_tickers=mixed,
+        global_vintage_ids=global_vintages,
+        current_resolution_tickers=frozenset(current),
+        carried_active_rows=carried_rows,
+        carried_active_tickers=carried_tickers,
+        missing_active_tickers=tuple(sorted(set(active) - refreshed)),
+    )
+
+
 def _transition_factor_findings(lineage: pl.DataFrame, *, policy: PriceGatePolicy) -> pl.DataFrame:
     frame = (
         lineage.filter(
@@ -305,16 +362,30 @@ def _transition_factor_findings(lineage: pl.DataFrame, *, policy: PriceGatePolic
     )
 
 
-def _daily_return_revisions(previous: pl.DataFrame, candidate: pl.DataFrame) -> pl.DataFrame:
+def _daily_return_revisions(
+    previous: pl.DataFrame,
+    candidate: pl.DataFrame,
+    *,
+    storage_tolerance: float,
+) -> pl.DataFrame:
     old = _daily_returns(previous, "previous")
     new = _daily_returns(candidate, "candidate")
     difference = pl.col("candidate_daily_return") - pl.col("previous_daily_return")
     return (
         old.join(new, on=["ticker", "date"], how="inner")
-        .filter(pl.col("previous_daily_return").eq_missing(pl.col("candidate_daily_return")).not_())
         .with_columns(
             difference.alias("daily_return_difference"),
             difference.abs().alias("absolute_daily_return_difference"),
+        )
+        .filter(
+            (
+                pl.col("previous_daily_return").is_null()
+                != pl.col("candidate_daily_return").is_null()
+            )
+            | (
+                pl.col("absolute_daily_return_difference")
+                > storage_tolerance
+            )
         )
         .sort("absolute_daily_return_difference", descending=True, nulls_last=True)
     )

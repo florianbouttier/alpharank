@@ -331,11 +331,13 @@ def test_yahoo_gap_keeps_raw_evidence_and_def_carries_exact_previous_key(tmp_pat
         raw_archive_dir=tmp_path / "warehouse" / "raw" / "yahoo" / "prices",
     )
 
-    attempted = pl.read_parquet(tmp_path / "raw" / "prices_yfinance_attempted.parquet")
+    attempted = json.loads((tmp_path / "prices_yfinance_attempted_summary.json").read_text())
     remaining = pl.read_parquet(tmp_path / "price_validated_key_gaps_remaining.parquet")
     report = json.loads((tmp_path / "price_validated_key_coverage.json").read_text())
-    assert attempted["ingestion_run_id"].unique().to_list() == ["20260819_120000"]
-    assert attempted["adjusted_close"].null_count() == 1
+    assert attempted["run_id"] == "20260819_120000"
+    assert attempted["row_count"] == 1
+    assert attempted["run_scoped_full_parquet_copy_written"] is False
+    assert not (tmp_path / "raw" / "prices_yfinance_attempted.parquet").exists()
     assert remaining.select("ticker", "date").to_dicts() == [
         {"ticker": "AAPL.US", "date": date(2025, 1, 3)}
     ]

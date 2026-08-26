@@ -21,3 +21,20 @@ def test_acquisition_status_separates_download_from_publication_gate() -> None:
         "sec_companyfacts": "downloaded",
     }
     assert not report["price_publication_gate_passed"]
+
+
+def test_acquisition_status_names_reconciled_provider_revisions() -> None:
+    report = build_acquisition_status(
+        run_id="run_2",
+        source_rows={"yahoo_prices": 10},
+        source_failures={},
+        price_gate_report={
+            "passed": True,
+            "blocking_reasons": [],
+            "resolved_provider_blocking_reasons": [
+                "unreviewed_historical_return_revisions"
+            ],
+        },
+    )
+
+    assert report["sources"][0]["status"] == "downloaded_revisions_reconciled"

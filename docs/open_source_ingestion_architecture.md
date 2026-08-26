@@ -729,7 +729,7 @@ Status:
 - immutable run artifact
 - if a run fails before manifest write, the partial run folder may exist without becoming the latest successful run
 - a failed Yahoo coverage check retains
-  `raw/prices_yfinance_attempted.parquet`,
+  `prices_yfinance_attempted_summary.json` pointing to the immutable RAW delta,
   `price_validated_key_gaps_initial.parquet`,
   `price_validated_key_gaps_remaining.parquet`, and
   `price_validated_key_coverage.json`; all carry or belong to the same run id

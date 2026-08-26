@@ -62,12 +62,14 @@ The pipeline deliberately separates receiving data from making it usable by the
 model:
 
 1. it assigns one run id before contacting a provider;
-2. it saves the Yahoo price rows actually received in that run's folder,
-   including rows whose adjusted price is empty;
+2. it archives the Yahoo observation in the differential RAW chain, including
+   rows whose adjusted price is empty, and stores only a compact archive pointer
+   in the run folder;
 3. it lists every previously validated ticker/date pair that is missing, retries
    those gaps, and saves both the initial and remaining lists;
-4. if any required old price is still missing, it rejects the run and restores
-   the previously published store;
+4. if a required old provider price is still missing, DEF retains the exact
+   validated prefix for that ticker and records it; the run is rejected only
+   when no valid exact prior key can resolve the gap;
 5. only a successful run rebuilds the cleaned tables from the retained raw
    history and creates a versioned publication;
 6. price and SEC-only packages are then composed into a new immutable model
@@ -76,11 +78,23 @@ model:
    calculates from the copy.
 
 A rejected Yahoo attempt is audit evidence, not a model input. Its folder keeps
-`raw/prices_yfinance_attempted.parquet`, the initial and remaining gap Parquets,
-and `price_validated_key_coverage.json`. The stable nightly status file carries
-the same run id even when the run fails. This makes it possible to explain a
-provider failure without filling a missing price, inventing a delisting, or
-altering the last validated publication.
+`prices_yfinance_attempted_summary.json`, the initial and remaining gap
+Parquets, `price_validated_key_coverage.json`, and the pointer to the immutable
+RAW delta archive. The stable nightly status file carries the same run id even
+when the run fails. This makes it possible to explain a provider failure without
+filling a missing price, inventing a delisting, duplicating the full observation
+or altering the last validated publication.
+
+When a complete provider observation rewrites old adjusted prices, the run
+audits those changes in `price_daily_return_revisions.parquet` and
+`price_revision_diagnostic.json`. The canonical candidate keeps all previously
+validated `ticker,date` rows unchanged and writes only the post-anchor dates in
+`price_return_extension_audit.parquet`, using the provider's new daily returns.
+This resolves a provider restatement without silently approving it; a sourced
+correction overlay remains the only way to replace published history.
+The revision Parquet stores only differences above the versioned 1 bp material
+threshold, plus return-availability changes; smaller provider-level changes are
+not duplicated outside the differential RAW archive.
 
 The durable target layout is `RAW -> STG -> DEF -> MART`. The Yahoo RAW archive
 stores a full logical observation for every ingestion but writes only inserted

@@ -374,6 +374,18 @@ run : chaque source déclarée est tentée et reçoit un statut avant la décisi
 de publication. La quarantaine peut bloquer une valeur ou un package, jamais
 l'enregistrement du téléchargement ni l'audit des autres fournisseurs.
 
+Pour les prix, un refresh complet reste obligatoire mais ne remplace jamais une
+clé `ticker,date` déjà publiée avec une nouvelle valeur fournisseur. Le RAW
+différentiel conserve l'observation et ses changements ; le canonique conserve
+exactement l'historique validé et ajoute uniquement les dates postérieures,
+reconstruites depuis les rendements journaliers du fournisseur et ancrées sur le
+dernier cours validé. Une correction historique exige toujours un overlay
+sourcé et approuvé. Le run conserve séparément le diagnostic des révisions, le
+motif de non-remplacement et les lignes nouvelles effectivement sélectionnées.
+Le détail Parquet des révisions de rendement ne répète que les écarts supérieurs
+au seuil matériel versionné, actuellement 1 point de base, ou un changement de
+disponibilité ; les écarts plus fins restent reconstructibles dans le RAW.
+
 ## 19. Publication et promotion
 
 Ordre obligatoire :

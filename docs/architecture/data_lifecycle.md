@@ -151,6 +151,15 @@ gates de publication ; `acquisition_status.json` conserve leur statut réel. Une
 révision Yahoo peut donc mettre le candidat prix en quarantaine, mais elle ne
 doit plus empêcher les acquisitions SEC, SimFin ou yfinance suivantes.
 
+Après acquisition, deux vues prix restent distinctes : l'observation Yahoo
+complète, archivée sous forme d'événements RAW différentiels, et la vue
+canonique. Cette dernière ne stocke pas une seconde copie de niveaux
+historiques déjà validés : elle garde ces lignes octet pour octet puis ajoute
+seulement un ledger des rendements correspondant aux dates nouvelles. Les
+révisions du fournisseur sont expliquées dans
+`price_revision_diagnostic.json`; elles ne deviennent une correction du passé
+qu'avec un overlay sourcé.
+
 ## 8. Correspondance avec les dossiers actuels
 
 Le relevé machine-lisible daté, avec volumes et lecteurs de code actifs, est

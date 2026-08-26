@@ -50,6 +50,22 @@ def test_uniform_dividend_restatement_does_not_create_material_return_revision()
     assert result.report["passed"] is True
 
 
+def test_floating_noise_is_not_stored_as_a_daily_return_revision() -> None:
+    previous = _prices([100.0, 101.0])
+    candidate = _prices([100.0, 101.0 * (1.0 + 5e-13)])
+    lineage = _lineage(candidate["adjusted_close"].to_list(), ["full", "full"], [100.0, 101.0])
+
+    result = audit_price_candidate(
+        previous_prices=previous,
+        candidate_prices=candidate,
+        candidate_lineage=lineage,
+        active_tickers=["MSFT"],
+        expected_through="2026-08-10",
+    )
+
+    assert result.daily_return_revisions.is_empty()
+
+
 def test_microsoft_mixed_vintage_seam_is_rejected() -> None:
     previous = _prices([383.0, 371.934418])
     candidate = _prices([383.0, 371.934418])

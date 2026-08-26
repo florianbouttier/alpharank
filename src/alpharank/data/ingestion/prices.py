@@ -10,21 +10,17 @@ from typing import Sequence
 import polars as pl
 
 from alpharank.data.ingestion.config import PRICE_COLUMNS
-from alpharank.data.sources.constituents import load_constituent_change_registry
-from alpharank.data.publishing.definitive_prices import (
-    bootstrap_definitive_prices,
-    build_definitive_prices,
-    stage_yahoo_prices,
-)
 from alpharank.data.ingestion.frames import (
     _concat_or_empty,
     _empty_raw_price_frame,
     _with_price_ingestion_metadata,
 )
-from alpharank.data.open_source.price_quality import (
-    assert_no_extreme_adjusted_price_moves,
-    load_reviewed_extreme_price_moves,
+from alpharank.data.ingestion.price_publication_candidate import (
+    PricePublicationContext,
+    build_price_publication_candidate,
+    resolve_incomplete_provider_tickers,
 )
+from alpharank.data.ingestion.price_run_evidence import persist_price_candidate_evidence
 from alpharank.data.ingestion.raw_archive import RAW_DELTA_CONTRACT, archive_raw_frame_delta
 from alpharank.data.ingestion.refresh_policy import SourceRefreshPolicy
 from alpharank.data.ingestion.storage import (
@@ -33,9 +29,11 @@ from alpharank.data.ingestion.storage import (
     utc_now_iso,
     write_json,
 )
-from alpharank.data.sources.yahoo import YahooFinanceClient
+from alpharank.data.open_source.price_quality import (
+    assert_no_extreme_adjusted_price_moves,
+    load_reviewed_extreme_price_moves,
+)
 from alpharank.data.prices import (
-    audit_price_candidate,
     build_persistent_price_history_registry,
     compose_hybrid_price_history,
     load_eodhd_seed,
@@ -43,6 +41,13 @@ from alpharank.data.prices import (
     resolve_previous_validated_price_lineage,
     roll_forward_validated_price_history,
 )
+from alpharank.data.publishing.definitive_prices import (
+    bootstrap_definitive_prices,
+    build_definitive_prices,
+    stage_yahoo_prices,
+)
+from alpharank.data.sources.constituents import load_constituent_change_registry
+from alpharank.data.sources.yahoo import YahooFinanceClient
 
 
 def _resolve_price_start(
@@ -520,17 +525,23 @@ def _write_yahoo_attempt_audit(
     run_id: str | None,
     ingested_at: str | None,
 ) -> None:
-    """Persist an immutable run-scoped record before any publication decision."""
-
-    raw_dir = run_dir / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    attempted = _with_price_ingestion_metadata(
-        candidate,
-        dataset="prices_yfinance_attempted",
-        run_id=run_id or "unknown",
-        ingested_at=ingested_at or utc_now_iso(),
+    dates = candidate.select(
+        pl.col("date").cast(pl.String).min().alias("minimum_date"),
+        pl.col("date").cast(pl.String).max().alias("maximum_date"),
+    ).row(0, named=True)
+    write_json(
+        run_dir / "prices_yfinance_attempted_summary.json",
+        {
+            "contract": "yahoo_price_attempt_summary_v1",
+            "run_id": run_id or "unknown",
+            "ingested_at": ingested_at or utc_now_iso(),
+            "row_count": candidate.height,
+            "ticker_count": candidate.select(pl.col("ticker").n_unique()).item(),
+            **dates,
+            "full_observation_storage": report.get("raw_archive"),
+            "run_scoped_full_parquet_copy_written": False,
+        },
     )
-    attempted.write_parquet(raw_dir / "prices_yfinance_attempted.parquet")
     initial_gaps.write_parquet(run_dir / "price_validated_key_gaps_initial.parquet")
     remaining_gaps.write_parquet(run_dir / "price_validated_key_gaps_remaining.parquet")
     write_json(run_dir / "price_validated_key_coverage.json", report)
@@ -732,7 +743,7 @@ def _prepare_canonical_hybrid_price_merge(
         )
         previous_lineage = pl.read_parquet(previous_source.lineage_path)
         previous_prices = previous_lineage.select(list(PRICE_COLUMNS))
-        hybrid = roll_forward_validated_price_history(
+        provider_hybrid = roll_forward_validated_price_history(
             previous_validated_lineage=previous_lineage,
             active_yahoo_vintage=yahoo_delta,
             active_tickers=active_tickers,
@@ -747,6 +758,7 @@ def _prepare_canonical_hybrid_price_merge(
             "resolution": "latest_composed_model_snapshot",
         }
     else:
+        previous_lineage = None
         previous_path = paths.output_dir / "US_Finalprice.parquet"
         previous_prices = (
             pl.read_parquet(previous_path) if previous_path.exists() else None
@@ -757,13 +769,32 @@ def _prepare_canonical_hybrid_price_merge(
             active_tickers=active_tickers,
             ticker_list=ticker_list,
         )
-        hybrid = compose_hybrid_price_history(
+        provider_hybrid = compose_hybrid_price_history(
             eodhd_seed=seed.frame,
             active_yahoo_vintage=yahoo_delta,
             retained_open_history=retained_open_history,
             active_tickers=active_tickers,
             policy=price_policy,
         )
+
+    publication_candidate = build_price_publication_candidate(
+        provider_hybrid,
+        yahoo_delta,
+        previous_lineage,
+        context=PricePublicationContext(
+            active_tickers=active_tickers,
+            preserved_terminal_tickers=preserved_terminal_tickers,
+            expected_eodhd_keys=seed.frame.select("ticker", "date"),
+            expected_through=expected_through,
+            run_id=run_id,
+            policy=price_policy,
+            incomplete_provider_tickers=resolve_incomplete_provider_tickers(
+                source_refresh_contract
+            ),
+            previous_comparison_prices=previous_prices,
+        ),
+    )
+    hybrid = publication_candidate.hybrid
 
     persistent_registry = build_persistent_price_history_registry(
         hybrid.lineage,
@@ -781,42 +812,13 @@ def _prepare_canonical_hybrid_price_merge(
         "routine_deletion_allowed": False,
     }
 
-    gate = audit_price_candidate(
-        previous_prices=previous_prices,
-        candidate_prices=hybrid.prices,
-        candidate_lineage=hybrid.lineage,
-        active_tickers=tuple(
-            ticker
-            for ticker in active_tickers
-            if f"{str(ticker).upper().removesuffix('.US')}.US"
-            not in {
-                f"{str(terminal).upper().removesuffix('.US')}.US"
-                for terminal in preserved_terminal_tickers
-            }
-        ),
-        expected_eodhd_keys=seed.frame.select("ticker", "date"),
-        expected_through=expected_through,
-        policy=price_policy,
-        active_resolution_vintage_id=run_id,
-    )
-
-    source_refresh_contract["eodhd_price_seed"] = seed.manifest()
-    source_refresh_contract["price_composition"] = hybrid.composition_report
-    source_refresh_contract["price_revision_guard"] = gate.report
     run_dir = paths.run_dir(run_id)
-    write_json(run_dir / "price_composition.json", hybrid.composition_report)
-    write_json(run_dir / "price_revision_guard.json", gate.report)
-    persistent_registry.write_parquet(
-        run_dir / "persistent_price_history_registry.parquet"
-    )
-    gate.daily_return_revisions.write_parquet(
-        run_dir / "price_daily_return_revisions.parquet"
-    )
-    gate.transition_factor_findings.write_parquet(
-        run_dir / "price_transition_factor_findings.parquet"
-    )
-    gate.historical_key_removals.write_parquet(
-        run_dir / "price_historical_key_removals.parquet"
+    persist_price_candidate_evidence(
+        run_dir=run_dir,
+        source_refresh_contract=source_refresh_contract,
+        eodhd_seed_manifest=seed.manifest(),
+        candidate=publication_candidate,
+        persistent_registry=persistent_registry,
     )
     terminal_set = {
         f"{str(ticker).upper().removesuffix('.US')}.US"
