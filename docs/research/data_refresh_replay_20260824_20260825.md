@@ -166,3 +166,71 @@ Décision : aucune promotion data. Le snapshot `9a2058c9…425ad` reste la seule
 entrée de production. La reproductibilité des portefeuilles est démontrée sur
 ce snapshot ; le prochain refresh doit reprendre toute la procédure et ne peut
 avancer que lorsque la gate prix puis les acquisitions suivantes aboutissent.
+
+## Actualisation DATA-013 — run `20260825_001501`
+
+Une seconde ingestion complète a été exécutée le 25 août 2026 avec une date de
+fin demandée au 25 août. Yahoo a livré 2 731 732 lignes pour les 502 tickers
+actifs, du 3 janvier 2005 à la dernière séance fermée du 24 août 2026. Le
+manifeste RAW est
+`data/warehouse/raw/yahoo/prices/runs/20260825_001501/manifest.json`, SHA-256
+`49210435f40ce855406f923e86a1e93265244961d559a8429b4c7d9210d3f2a0`.
+
+Le candidat fusionné contient 3 712 728 lignes et 840 tickers. La gate prix l'a
+mis en quarantaine pour 45 révisions de rendement journalier supérieures à 1 bp
+hors de la fenêtre mutable de sept jours, réparties sur 30 tickers : dix
+révisions `AVB.US` sont antérieures au cutoff commun et l'historique `MNST.US`
+alterne anormalement entre des niveaux proches de 47 et 97 dollars. Aucune clé
+historique n'a été retirée, aucune disponibilité de rendement n'a changé et
+aucune discontinuité de facteur de transition n'a été détectée. La preuve de la
+gate est
+`data/open_source/official/runs/20260825_001501/price_revision_guard.json`,
+SHA-256
+`059c84198248c1ccdd58b0e9c8141c9f279e5125823540c94027280538af65c1`.
+
+L'arrêt a eu lieu avant Yahoo metadata, SEC Companyfacts, SEC Submissions,
+documents de filings, SimFin et le fallback fondamental yfinance. Ces sources
+portent le statut `not_started_blocked_upstream` ; elles ne sont ni déclarées
+rafraîchies ni remplacées par un cache. EODHD reste la graine historique
+conservée et n'a pas été retéléchargé.
+
+Le pointeur `data/model_inputs/manifests/latest.json` est donc resté sur la
+composition immuable
+`9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad`.
+Le rapport bloqué est
+`outputs/data_refresh_replay_20260825/blocked_bootstrap_20260825_001501/refresh_replay_report.json`,
+SHA-256
+`244da0a31c700bfc242361f84bab0238020ce4e8caee41bf090405012ce70995`.
+
+Les deux méthodes ont ensuite été recalculées depuis cette seule entrée
+éligible :
+
+- Legacy :
+  `outputs/data_refresh_replay_20260825/legacy/2026-08-25/runs/20260825_092319`,
+  manifeste SHA-256
+  `2afe7199daf1c3fb9bfaf87074539fe861c23b3727382b3c9f39687bdb9a3361` ;
+- Boosting : `outputs/data_refresh_replay_20260825/boosting`, manifeste SHA-256
+  `177382aa45aa991cb860d3e27db2fa9413c9f451902aa1cabb0a49d4abd83bfe` ;
+- replay commun : `outputs/data_refresh_replay_20260825/common_baseline_profile`,
+  manifeste SHA-256
+  `91b70ea813e8e5d62620ba5dd41054d6cfd85d4be7b38f9f1a2519c578c599c4`.
+
+Au cutoff commun du 1er juillet 2026, le rapport conclut
+`identical_historical_portfolios` :
+
+| Étage | Lignes comparées | Ajouts | Retraits | Valeurs matérielles modifiées | Écart numérique maximal |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| holdings Legacy | 7 994 | 0 | 0 | 0 | `2,78e-17` |
+| simulation Legacy | 594 | 0 | 0 | 0 | `3,33e-16` |
+| prédictions Boosting | 88 948 | 0 | 0 | 0 | `0` |
+| holdings communs | 6 395 | 0 | 0 | 0 | `2,78e-17` |
+| simulation commune | 720 | 0 | 0 | 0 | `3,33e-16` |
+
+Le rapport complet est
+`outputs/data_refresh_replay_20260825/complete_canonical_replay/refresh_replay_report.json`,
+SHA-256
+`55760bbce680f19bceb0c801a4efd9fdcdfa7048bb99d674582df8a2c3499cda`.
+Son autorisation de replay concerne uniquement le snapshot canonique inchangé ;
+elle n'autorise pas la promotion du candidat Yahoo quarantiné. La décision
+DATA-013 reste donc : aucune promotion data, mais téléchargement, diagnostic du
+drift et reproductibilité des deux portefeuilles prouvés et versionnés.

@@ -514,6 +514,15 @@ recomputed from that unchanged canonical snapshot. At the common `2026-07-01`
 cutoff, all 7,994 Legacy positions, 88,948 Boosting predictions and 6,395 common
 positions match the retained baseline, with zero material value difference.
 
+A second full attempt, `20260825_001501`, downloaded 2,731,732 Yahoo rows for
+502 active tickers through the 2026-08-24 session. It was also quarantined
+before fundamentals and publication: 45 historical daily-return revisions over
+1 basis point remained across 30 tickers, including ten pre-cutoff `AVB.US`
+revisions and inconsistent half/double `MNST.US` price levels. Legacy run
+`20260825_092319`, the aligned Boosting run and the common replay were therefore
+recomputed from the still-canonical composition `9a2058c9…425ad`; all five
+portfolio comparison stages remained identical through the common cutoff.
+
 The complete execution record, source-by-source statuses, commands, drift keys
 and report hashes are in
 [`research/data_refresh_replay_20260824_20260825.md`](research/data_refresh_replay_20260824_20260825.md).

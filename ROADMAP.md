@@ -68,6 +68,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 29 | `REPLAY-002` | détailler les écarts de provenance sans faux drift de chemin | lot REPLAY ci-dessous | fait |
 | 30 | `REPLAY-003` | rendre le statut de chaque source explicite après un arrêt amont | lot REPLAY ci-dessous | fait |
 | 31 | `GIT-002` | versionner et publier la preuve de chaque run important | lot GIT ci-dessous | fait |
+| 32 | `DATA-013` | publier la preuve du refresh et des replays du 25 août | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -280,6 +281,7 @@ change dans ce lot.
 | `DATA-010` | rendre les anciennes racines en lecture seule puis les archiver | fait | gel contractuel de 18 racines, observation 2026-08-20 au 2026-09-19, archive par référence et retour arrière hashé |
 | `DATA-011` | étendre le bridge ticker/CIK historique et fournir une reconstruction SEC candidate | fait | bridge versionné porté à 75 identités dont 67 ajouts audités ; candidat hashé et bloqué, fallback filing-level tracé, snapshot courant inchangé et tests de réutilisation de symbole |
 | `DATA-012` | retélécharger les sources rafraîchissables, reconstruire un candidat sans promotion et rejouer Legacy puis Boosting | fait | bootstrap `20260824_214818` bloqué avant fondamentaux sur 44 révisions Yahoo ; chaque source classée ; snapshot inchangé puis 7 994 holdings Legacy, 88 948 prédictions Boosting et 6 395 holdings communs reproduits sans drift matériel |
+| `DATA-013` | versionner et publier la preuve du refresh et des deux replays exécutés le 25 août 2026 | fait | run `20260825_001501` bloqué avant fondamentaux sur 45 révisions Yahoo ; snapshot `9a2058c9…425ad` inchangé, Legacy et Boosting recalculés puis cinq étages comparés sans position ni poids modifié |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
