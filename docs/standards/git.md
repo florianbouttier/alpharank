@@ -75,6 +75,12 @@ CODE-003 — Nettoyer l'ingestion, corriger les données et refaire le dashboard
 12. Vérifier après récupération des références que `main` et `origin/main`
     désignent le même commit.
 
+Un refresh, replay, backtest ou run de production important demandé par le
+propriétaire ne se termine pas seulement par des artefacts ignorés sous
+`data/`, `outputs/` ou `logs/`. Il crée une tâche atomique et met à jour une
+preuve suivie dans le document canonique du run ; cette preuve, son statut
+roadmap et ses hashes sont commités puis poussés selon le cycle ci-dessus.
+
 Une tâche n'est `fait` que lorsque le commit existe et que ses validations sont
 documentées. Pour le suivi visible à distance, elle n'est publiée comme `faite`
 que lorsque ce commit est présent sur `origin/main`. Du code présent uniquement
@@ -90,6 +96,9 @@ et le hash concerné ; pousser ce même commit reste l'action suivante.
 - Dans ce dépôt personnel, cette autorisation inclut le push normal immédiat de
   chaque commit sur `origin/main`. Elle ne permet ni suppression, ni
   réécriture d'historique, ni force-push.
+- Une demande explicite d'exécution d'un run important autorise également le
+  commit et le push de sa preuve suivie, sans autoriser l'indexation des données
+  brutes, modèles, sorties volumineuses ou journaux ignorés.
 - En présence d'un worktree sale, ne pas demander automatiquement de le nettoyer
   ou de le stasher : isoler la tâche par staging sélectif.
 

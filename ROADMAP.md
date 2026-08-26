@@ -67,6 +67,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 28 | `DATA-012` | exécuter le refresh complet et les deux replays scellés | lot DATA ci-dessous | fait |
 | 29 | `REPLAY-002` | détailler les écarts de provenance sans faux drift de chemin | lot REPLAY ci-dessous | fait |
 | 30 | `REPLAY-003` | rendre le statut de chaque source explicite après un arrêt amont | lot REPLAY ci-dessous | fait |
+| 31 | `GIT-002` | versionner et publier la preuve de chaque run important | lot GIT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -193,6 +194,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
 | `GIT-001` | travailler sur `main`, pousser chaque commit et préserver l'ancien `main` sous `main-save` | fait | `main-save` = `c1113ab…`, `main` intégré par fast-forward, publication immédiate inscrite dans les documents normatifs |
+| `GIT-002` | versionner et publier la preuve de chaque refresh, replay, backtest ou run de production important | fait | les artefacts lourds restent ignorés mais une tâche, une preuve canonique, ses hashes, son commit et son push deviennent obligatoires |
 
 ## 8. Lot QUAL — rendre les normes contrôlables
 

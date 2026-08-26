@@ -59,6 +59,10 @@ Lire `docs/standards/git.md` avant tout commit.
 - Aucun commit sans autorisation explicite de l'utilisateur. Une demande
   explicite d'exécuter un lot de roadmap autorise les commits unitaires de ce
   lot jusqu'à changement de direction.
+- Une demande d'exécuter un refresh, un replay, un backtest ou un run de
+  production important exige une preuve suivie dans la roadmap et le document
+  canonique concerné, puis son commit et son push, même lorsque les données,
+  sorties et journaux générés restent volontairement ignorés par Git.
 - Relation stricte **1 tâche de roadmap = 1 commit = 1 identifiant**.
 - Si une tâche nécessite plusieurs commits, la découper dans la roadmap avant
   de coder. Si deux tâches semblent tenir dans un commit, les séparer.
