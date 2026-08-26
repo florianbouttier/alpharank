@@ -2197,6 +2197,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/ingestion/price_run_evidence.py",
+      "target": "src/alpharank/data/open_source/price_quality.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/ingestion/prices.py",
       "target": "src/alpharank/data/ingestion/config.py"
     },
@@ -6975,7 +6980,8 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/data/ingestion/price_publication_candidate.py",
-        "src/alpharank/data/ingestion/storage.py"
+        "src/alpharank/data/ingestion/storage.py",
+        "src/alpharank/data/open_source/price_quality.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -7249,6 +7255,7 @@
       "readers": [
         "scripts/open_source/ingestion/refresh_current_constituent_prices.py",
         "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/ingestion/price_run_evidence.py",
         "src/alpharank/data/ingestion/prices.py"
       ]
     },
@@ -9994,7 +10001,7 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 153,
-    "internal_edge_count": 767,
+    "internal_edge_count": 768,
     "library_count": 204,
     "python_file_count": 364,
     "script_count": 160,

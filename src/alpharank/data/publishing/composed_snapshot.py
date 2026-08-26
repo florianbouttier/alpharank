@@ -280,9 +280,11 @@ def _validate_price_package(
     seed = contract.get("eodhd_price_seed")
     if not isinstance(seed, Mapping) or not seed.get("sha256"):
         raise RuntimeError("Price package does not record the EODHD seed hash")
-    gate = contract.get("price_revision_guard")
+    gate = contract.get(
+        "price_publication_guard", contract.get("price_revision_guard")
+    )
     if not isinstance(gate, Mapping) or gate.get("passed") is not True:
-        raise RuntimeError("Price package did not pass the price revision gate")
+        raise RuntimeError("Price package did not pass the price publication gate")
     if int(manifest.get("contract_version", 1)) >= 2:
         persistent = contract.get("persistent_price_history")
         if (

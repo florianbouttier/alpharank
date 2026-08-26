@@ -7,11 +7,12 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.ingestion.orchestration import _run_open_source_ingestion_in_place
 from alpharank.data.ingestion.frames import _audit_and_validate_historical_revisions
+from alpharank.data.ingestion.orchestration import _run_open_source_ingestion_in_place
+from alpharank.data.ingestion.prices import _prepare_canonical_hybrid_price_merge
 from alpharank.data.ingestion.refresh_policy import SourceRefreshPolicy
-from alpharank.data.quality.revision_guard import audit_historical_revisions
 from alpharank.data.ingestion.storage import OpenSourceLivePaths
+from alpharank.data.quality.revision_guard import audit_historical_revisions
 
 
 def _income(value: str, *, date: str = "2020-03-31") -> pl.DataFrame:
@@ -146,6 +147,7 @@ def test_ingestion_revision_guard_blocks_without_explicit_override(tmp_path: Pat
 
 def test_full_ingestion_guards_historical_revisions_before_publication() -> None:
     source = inspect.getsource(_run_open_source_ingestion_in_place)
+    price_source = inspect.getsource(_prepare_canonical_hybrid_price_merge)
 
     price_guard_position = source.index("_prepare_canonical_hybrid_price_merge(")
     companyfacts_position = source.index("_fetch_sec_companyfacts_bundle(")
@@ -155,6 +157,8 @@ def test_full_ingestion_guards_historical_revisions_before_publication() -> None
     publish_position = source.index("publish_open_source_output_package(")
 
     assert price_guard_position < companyfacts_position
+    assert "persist_extreme_price_move_evidence(" in price_source
+    assert "assert_no_extreme_adjusted_price_moves(" not in price_source
     assert companyfacts_position < acquisition_status_position < price_validation_position
     assert price_validation_position < publish_position
     assert guard_position < publish_position

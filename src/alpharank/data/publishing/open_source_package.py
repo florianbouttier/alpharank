@@ -137,9 +137,11 @@ def _validate_source_refresh_contract(manifest: dict[str, Any] | None) -> None:
     policy = contract.get("policy")
     if not isinstance(policy, dict) or not policy.get("require_eodhd_price_seed"):
         raise RuntimeError("Production publication requires the immutable EODHD price seed")
-    gate = contract.get("price_revision_guard")
+    gate = contract.get(
+        "price_publication_guard", contract.get("price_revision_guard")
+    )
     if not isinstance(gate, dict) or gate.get("passed") is not True:
-        raise RuntimeError("Production publication requires a passed price revision guard")
+        raise RuntimeError("Production publication requires a passed price publication guard")
 
 
 def _copy_if_changed(source: Path, destination: Path) -> None:

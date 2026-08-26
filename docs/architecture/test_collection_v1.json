@@ -1,9 +1,10 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 495,
+  "node_count": 500,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
+    "test_acquisition_status.py::test_price_publication_guard_combines_deferred_price_controls",
     "test_alpha_shap_portfolio_report.py::test_feature_lexicon_decodes_inverted_ema_pair_precisely",
     "test_alpha_shap_portfolio_report.py::test_monthly_portfolios_align_legacy_top5_and_top10",
     "test_alpha_shap_portfolio_report.py::test_sort_catalog_uses_descending_mean_absolute_shap",
@@ -226,8 +227,11 @@
     "test_open_source_price_quality.py::test_full_refresh_split_detection_cannot_be_masked_by_old_adjusted_vintage",
     "test_open_source_price_quality.py::test_merge_upsert_frames_has_no_persistence_side_effect",
     "test_open_source_price_quality.py::test_price_quality_accepts_only_exact_bounded_reviewed_move",
+    "test_open_source_price_quality.py::test_price_quality_does_not_reclassify_old_validated_move_in_bootstrap",
     "test_open_source_price_quality.py::test_price_quality_flags_partial_split_scale",
     "test_open_source_price_quality.py::test_price_quality_ignores_moves_before_refresh_window",
+    "test_open_source_price_quality.py::test_price_quality_reviews_only_new_canonical_keys_with_previous_anchor",
+    "test_open_source_price_quality.py::test_price_review_keys_ignore_validated_history_even_with_bootstrap_cutoff",
     "test_open_source_price_quality.py::test_unconfirmed_split_does_not_repair_jump",
     "test_open_source_publishing.py::test_publish_open_source_output_package_writes_exact_outputs_and_lineage",
     "test_open_source_publishing.py::test_publisher_rejects_diagnostic_source_refresh_contract",
@@ -375,6 +379,7 @@
     "test_recomputable_replay.py::test_replay_recomputes_outputs_from_sealed_inputs",
     "test_reconciliation_v2.py::test_v1_v2_reconciliation_is_complete",
     "test_reconciliation_v2.py::test_v1_v2_reconciliation_names_reviewed_terminal_causes",
+    "test_refresh_drift.py::test_blocked_refresh_prefers_combined_price_publication_guard",
     "test_refresh_drift.py::test_blocked_refresh_preserves_gate_and_hashes_evidence",
     "test_refresh_drift.py::test_blocked_refresh_uses_completed_acquisition_statuses",
     "test_refresh_drift.py::test_compare_frames_ignores_rows_after_historical_cutoff",
@@ -498,7 +503,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "f31c3c6f64812b7e9b6d0995cbe27c39bc06a33456d78657cc467414ba2dc11f",
+  "node_ids_sha256": "0dc7dc39f7457e58a97f73eb874afaac011c8a7e2245b73773782738b67dd973",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

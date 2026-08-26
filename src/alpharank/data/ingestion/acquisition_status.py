@@ -30,9 +30,9 @@ def persist_open_source_acquisition_status(
 ) -> dict[str, Any]:
     """Persist final acquisition statuses immediately before publication gates."""
 
-    price_gate_report = source_refresh_contract.get("price_revision_guard")
-    if not isinstance(price_gate_report, dict):
-        raise RuntimeError("Price revision gate report must be a JSON object")
+    price_gate_report = build_price_publication_guard(source_refresh_contract)
+    source_refresh_contract["price_publication_guard"] = price_gate_report
+    write_json(run_dir / "price_publication_guard.json", price_gate_report)
     status = build_acquisition_status(
         run_id=run_id,
         source_rows={
@@ -62,6 +62,33 @@ def persist_open_source_acquisition_status(
     write_json(run_dir / "source_refresh_contract.json", source_refresh_contract)
     write_json(run_dir / "run_failures.json", run_failures)
     return status
+
+
+def build_price_publication_guard(
+    source_refresh_contract: Mapping[str, object],
+) -> dict[str, Any]:
+    """Combine independent price controls at the publication boundary."""
+
+    revision = source_refresh_contract.get("price_revision_guard")
+    extreme_move = source_refresh_contract.get("price_extreme_move_guard")
+    if not isinstance(revision, Mapping):
+        raise RuntimeError("Price revision gate report must be a JSON object")
+    if not isinstance(extreme_move, Mapping):
+        raise RuntimeError("Price extreme-move gate report must be a JSON object")
+    blocking_reasons = sorted(
+        {
+            *revision.get("blocking_reasons", ()),
+            *extreme_move.get("blocking_reasons", ()),
+        }
+    )
+    return {
+        **revision,
+        "contract": "combined_price_publication_guard_v1",
+        "revision_guard_passed": revision.get("passed") is True,
+        "extreme_move_guard_passed": extreme_move.get("passed") is True,
+        "blocking_reasons": blocking_reasons,
+        "passed": not blocking_reasons,
+    }
 
 
 def build_acquisition_status(

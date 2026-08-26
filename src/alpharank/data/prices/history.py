@@ -44,8 +44,10 @@ def resolve_previous_validated_price_lineage(
     price_lineage_dir = snapshot_dir / "lineage" / "prices"
     price_manifest_path = price_lineage_dir / "manifest.json"
     price_manifest = _read_json(price_manifest_path)
-    gate = price_manifest.get("source_refresh_contract", {}).get(
-        "price_revision_guard", {}
+    source_refresh_contract = price_manifest.get("source_refresh_contract", {})
+    gate = source_refresh_contract.get(
+        "price_publication_guard",
+        source_refresh_contract.get("price_revision_guard", {}),
     )
     if gate.get("passed") is not True:
         raise RuntimeError("Latest composed snapshot price gate is not marked valid")

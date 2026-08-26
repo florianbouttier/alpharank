@@ -160,6 +160,14 @@ révisions du fournisseur sont expliquées dans
 `price_revision_diagnostic.json`; elles ne deviennent une correction du passé
 qu'avec un overlay sourcé.
 
+La gate des mouvements extrêmes ne rejuge pas tout l'historique à chaque
+bootstrap. Elle calcule les rendements avec la série canonique complète afin de
+conserver l'ancre précédente, mais ne classe comme anomalie que les clés
+`ticker,date` réellement ajoutées par le candidat courant. Son rapport
+`price_extreme_move_guard.json` est écrit pendant la préparation puis combiné
+avec la gate de révision dans `price_publication_guard`; la décision est prise
+seulement après les acquisitions SEC et fallbacks déclarées.
+
 ## 8. Correspondance avec les dossiers actuels
 
 Le relevé machine-lisible daté, avec volumes et lecteurs de code actifs, est

@@ -20,7 +20,11 @@ from alpharank.data.ingestion.price_publication_candidate import (
     build_price_publication_candidate,
     resolve_incomplete_provider_tickers,
 )
-from alpharank.data.ingestion.price_run_evidence import persist_price_candidate_evidence
+from alpharank.data.ingestion.price_run_evidence import (
+    ExtremePriceMoveEvidenceContext,
+    persist_extreme_price_move_evidence,
+    persist_price_candidate_evidence,
+)
 from alpharank.data.ingestion.raw_archive import RAW_DELTA_CONTRACT, archive_raw_frame_delta
 from alpharank.data.ingestion.refresh_policy import SourceRefreshPolicy
 from alpharank.data.ingestion.storage import (
@@ -31,7 +35,6 @@ from alpharank.data.ingestion.storage import (
 )
 from alpharank.data.open_source.price_quality import (
     assert_no_extreme_adjusted_price_moves,
-    load_reviewed_extreme_price_moves,
 )
 from alpharank.data.prices import (
     build_persistent_price_history_registry,
@@ -820,38 +823,18 @@ def _prepare_canonical_hybrid_price_merge(
         candidate=publication_candidate,
         persistent_registry=persistent_registry,
     )
-    terminal_set = {
-        f"{str(ticker).upper().removesuffix('.US')}.US"
-        for ticker in preserved_terminal_tickers
-    }
-    quality_tickers = [
-        normalized
-        for ticker in active_tickers
-        if (normalized := f"{str(ticker).upper().removesuffix('.US')}.US")
-        not in terminal_set
-    ]
-    reviewed_moves = None
-    reviewed_move_manifest: dict[str, object] | None = None
-    if reviewed_extreme_price_move_registry_path is not None:
-        reviewed_moves, reviewed_move_manifest = load_reviewed_extreme_price_moves(
-            reviewed_extreme_price_move_registry_path
-        )
-    reviewed_findings = assert_no_extreme_adjusted_price_moves(
-        hybrid.prices,
-        event_since=event_since,
-        tickers=quality_tickers,
-        reviewed_moves=reviewed_moves,
+    persist_extreme_price_move_evidence(
+        run_dir=run_dir,
+        source_refresh_contract=source_refresh_contract,
+        candidate_prices=hybrid.prices,
+        context=ExtremePriceMoveEvidenceContext(
+            previous_prices=previous_prices,
+            event_since=event_since,
+            active_tickers=active_tickers,
+            preserved_terminal_tickers=preserved_terminal_tickers,
+            reviewed_registry_path=reviewed_extreme_price_move_registry_path,
+        ),
     )
-    if reviewed_move_manifest is not None:
-        reviewed_move_report = {
-            **reviewed_move_manifest,
-            "matched_count": reviewed_findings.height,
-            "matched_events": reviewed_findings.with_columns(
-                pl.col("date").cast(pl.String)
-            ).to_dicts(),
-        }
-        source_refresh_contract["reviewed_extreme_price_moves"] = reviewed_move_report
-        write_json(run_dir / "reviewed_extreme_price_moves.json", reviewed_move_report)
     return (
         prospective[0],
         prospective[1],

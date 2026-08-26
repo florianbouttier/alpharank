@@ -382,6 +382,10 @@ reconstruites depuis les rendements journaliers du fournisseur et ancrées sur l
 dernier cours validé. Une correction historique exige toujours un overlay
 sourcé et approuvé. Le run conserve séparément le diagnostic des révisions, le
 motif de non-remplacement et les lignes nouvelles effectivement sélectionnées.
+Le contrôle des mouvements extrêmes porte exclusivement sur ces nouvelles clés
+canoniques, tout en calculant chaque rendement depuis la séance canonique
+précédente. Un bootstrap ne requalifie donc jamais un mouvement historique déjà
+validé comme une anomalie du refresh courant.
 Le détail Parquet des révisions de rendement ne répète que les écarts supérieurs
 au seuil matériel versionné, actuellement 1 point de base, ou un changement de
 disponibilité ; les écarts plus fins restent reconstructibles dans le RAW.

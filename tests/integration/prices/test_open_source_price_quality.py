@@ -5,14 +5,16 @@ from datetime import date
 import polars as pl
 import pytest
 
+from alpharank.data.ingestion.storage import merge_upsert_frames
+from alpharank.data.ingestion.price_run_evidence import _resolve_price_review_keys
 from alpharank.data.open_source.price_quality import (
     assert_no_extreme_adjusted_price_moves,
+    audit_extreme_adjusted_price_moves,
     build_split_detection_prices,
     find_extreme_adjusted_price_moves,
     load_reviewed_extreme_price_moves,
     repair_confirmed_split_discontinuities,
 )
-from alpharank.data.ingestion.storage import merge_upsert_frames
 
 
 def test_price_quality_flags_partial_split_scale() -> None:
@@ -54,6 +56,74 @@ def test_price_quality_ignores_moves_before_refresh_window() -> None:
     )
     findings = find_extreme_adjusted_price_moves(prices, event_since="2026-08-01")
     assert findings.is_empty()
+
+
+def test_price_quality_reviews_only_new_canonical_keys_with_previous_anchor() -> None:
+    prices = pl.DataFrame(
+        {
+            "ticker": ["A.US"] * 4,
+            "date": [
+                date(2020, 1, 1),
+                date(2020, 1, 2),
+                date(2026, 8, 25),
+                date(2026, 8, 26),
+            ],
+            "adjusted_close": [100.0, 50.0, 52.0, 80.0],
+        }
+    )
+
+    result = audit_extreme_adjusted_price_moves(
+        prices,
+        review_keys=pl.DataFrame({"ticker": ["A.US"], "date": [date(2026, 8, 26)]}),
+    )
+
+    assert result.findings.select("ticker", "date").to_dicts() == [
+        {"ticker": "A.US", "date": date(2026, 8, 26)}
+    ]
+    assert result.report["reviewed_key_count"] == 1
+    assert result.report["blocking_reasons"] == ["unreviewed_extreme_adjusted_price_moves"]
+    assert result.report["passed"] is False
+
+
+def test_price_quality_does_not_reclassify_old_validated_move_in_bootstrap() -> None:
+    prices = pl.DataFrame(
+        {
+            "ticker": ["A.US"] * 4,
+            "date": [
+                date(2020, 1, 1),
+                date(2020, 1, 2),
+                date(2026, 8, 25),
+                date(2026, 8, 26),
+            ],
+            "adjusted_close": [100.0, 50.0, 52.0, 53.0],
+        }
+    )
+
+    result = audit_extreme_adjusted_price_moves(
+        prices,
+        review_keys=pl.DataFrame({"ticker": ["A.US"], "date": [date(2026, 8, 26)]}),
+    )
+
+    assert result.findings.is_empty()
+    assert result.report["passed"] is True
+
+
+def test_price_review_keys_ignore_validated_history_even_with_bootstrap_cutoff() -> None:
+    candidate = pl.DataFrame(
+        {
+            "ticker": ["A.US", "A.US", "A.US"],
+            "date": [date(2020, 1, 1), date(2020, 1, 2), date(2026, 8, 26)],
+        }
+    )
+    previous = candidate.head(2)
+
+    keys = _resolve_price_review_keys(
+        candidate_prices=candidate,
+        previous_prices=previous,
+        event_since="2005-01-01",
+    )
+
+    assert keys.to_dicts() == [{"ticker": "A.US", "date": date(2026, 8, 26)}]
 
 
 def test_price_quality_accepts_only_exact_bounded_reviewed_move(tmp_path) -> None:

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import date
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import polars as pl
-
 
 EXTREME_ADJUSTED_RETURN_THRESHOLD = 0.40
 SPLIT_RATIO_RELATIVE_TOLERANCE = 0.15
@@ -19,6 +19,16 @@ REVIEWED_MOVE_BOUND_COLUMNS = (
     "one_day_return_min",
     "one_day_return_max",
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ExtremePriceMoveGateResult:
+    """Recorded review of extreme moves on rows selected for publication."""
+
+    report: dict[str, object]
+    findings: pl.DataFrame
+    reviewed: pl.DataFrame
+    unreviewed: pl.DataFrame
 
 
 def build_split_detection_prices(
@@ -118,23 +128,95 @@ def assert_no_extreme_adjusted_price_moves(
     threshold: float = EXTREME_ADJUSTED_RETURN_THRESHOLD,
     reviewed_moves: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
-    findings = find_extreme_adjusted_price_moves(
+    review_keys = prices.select("ticker", "date").filter(
+        pl.col("date").cast(pl.Date) >= pl.lit(event_since).cast(pl.Date)
+    )
+    result = audit_extreme_adjusted_price_moves(
         prices,
-        event_since=event_since,
+        review_keys=review_keys,
         tickers=tickers,
         threshold=threshold,
+        reviewed_moves=reviewed_moves,
     )
+    if not result.unreviewed.is_empty():
+        examples = result.unreviewed.head(10).to_dicts()
+        raise RuntimeError(
+            "Recent adjusted-close discontinuities require review before publication: "
+            f"count={result.unreviewed.height}, threshold={threshold:.0%}, "
+            f"examples={examples}"
+        )
+    return result.reviewed
+
+
+def audit_extreme_adjusted_price_moves(
+    prices: pl.DataFrame,
+    *,
+    review_keys: pl.DataFrame,
+    tickers: tuple[str, ...] | list[str] | None = None,
+    threshold: float = EXTREME_ADJUSTED_RETURN_THRESHOLD,
+    reviewed_moves: pl.DataFrame | None = None,
+) -> ExtremePriceMoveGateResult:
+    """Audit only candidate keys while calculating returns from full history."""
+
+    keys = _normalize_price_review_keys(review_keys)
+    if keys.is_empty():
+        findings = find_extreme_adjusted_price_moves(
+            prices.head(0), event_since=date.max, tickers=tickers, threshold=threshold
+        )
+    else:
+        event_since = keys.get_column("date").min()
+        findings = find_extreme_adjusted_price_moves(
+            prices,
+            event_since=event_since,
+            tickers=tickers,
+            threshold=threshold,
+        ).join(keys, on=["ticker", "date"], how="inner")
     unreviewed, reviewed = split_reviewed_extreme_price_moves(
         findings,
         reviewed_moves=reviewed_moves,
     )
-    if not unreviewed.is_empty():
-        examples = unreviewed.head(10).to_dicts()
-        raise RuntimeError(
-            "Recent adjusted-close discontinuities require review before publication: "
-            f"count={unreviewed.height}, threshold={threshold:.0%}, examples={examples}"
+    blocking_reasons = (
+        ["unreviewed_extreme_adjusted_price_moves"] if not unreviewed.is_empty() else []
+    )
+    report = {
+        "contract": "candidate_key_extreme_adjusted_move_guard_v1",
+        "selection_rule": "review_only_new_canonical_ticker_date_keys",
+        "reviewed_key_count": keys.height,
+        "threshold": threshold,
+        "finding_count": findings.height,
+        "approved_finding_count": reviewed.height,
+        "unreviewed_finding_count": unreviewed.height,
+        "unreviewed_examples": _serializable_price_move_rows(unreviewed.head(20)),
+        "blocking_reasons": blocking_reasons,
+        "passed": not blocking_reasons,
+    }
+    return ExtremePriceMoveGateResult(
+        report=report,
+        findings=findings,
+        reviewed=reviewed,
+        unreviewed=unreviewed,
+    )
+
+
+def _normalize_price_review_keys(review_keys: pl.DataFrame) -> pl.DataFrame:
+    required = {"ticker", "date"}
+    missing = required - set(review_keys.columns)
+    if missing:
+        raise ValueError(f"Missing price review key columns: {sorted(missing)}")
+    return (
+        review_keys.select(
+            pl.col("ticker").cast(pl.String).str.to_uppercase(),
+            pl.col("date").cast(pl.Date),
         )
-    return reviewed
+        .unique()
+        .sort(["ticker", "date"])
+    )
+
+
+def _serializable_price_move_rows(frame: pl.DataFrame) -> list[dict[str, object]]:
+    if frame.is_empty():
+        return []
+    return frame.with_columns(pl.col("date").cast(pl.String)).to_dicts()
 
 
 def load_reviewed_extreme_price_moves(

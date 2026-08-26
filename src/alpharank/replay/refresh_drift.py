@@ -149,7 +149,9 @@ def audit_blocked_refresh(
 ) -> dict[str, Any]:
     """Turn a failed data gate into an explicit no-model replay report."""
 
-    gate_path = failed_refresh_run / "price_revision_guard.json"
+    gate_path = failed_refresh_run / "price_publication_guard.json"
+    if not gate_path.is_file():
+        gate_path = failed_refresh_run / "price_revision_guard.json"
     if not gate_path.is_file():
         raise FileNotFoundError(f"Missing failed refresh gate: {gate_path}")
     gate = json.loads(gate_path.read_text(encoding="utf-8"))
@@ -163,7 +165,7 @@ def audit_blocked_refresh(
         "refresh_run_id": run_id,
         "baseline_snapshot": str(baseline_snapshot.resolve()),
         "failed_gate": {
-            "name": "price_revision_guard",
+            "name": gate_path.stem,
             "passed": gate.get("passed", False),
             "reasons": gate.get("blocking_reasons", gate.get("failure_reasons", [])),
             "policy": gate.get("policy", {}),

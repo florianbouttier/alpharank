@@ -121,6 +121,34 @@ def test_blocked_refresh_preserves_gate_and_hashes_evidence(tmp_path: Path) -> N
     assert statuses["sec_companyfacts"] == "not_started_blocked_upstream"
 
 
+def test_blocked_refresh_prefers_combined_price_publication_guard(tmp_path: Path) -> None:
+    run_dir = tmp_path / "20260827_001503"
+    run_dir.mkdir()
+    (run_dir / "price_revision_guard.json").write_text(
+        json.dumps({"passed": True, "blocking_reasons": []}), encoding="utf-8"
+    )
+    (run_dir / "price_publication_guard.json").write_text(
+        json.dumps(
+            {
+                "passed": False,
+                "blocking_reasons": ["unreviewed_extreme_adjusted_price_moves"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "acquisition_status.json").write_text(
+        json.dumps({"sources": []}), encoding="utf-8"
+    )
+    (run_dir / "price_composition.json").write_text("{}", encoding="utf-8")
+
+    report = audit_blocked_refresh(run_dir, tmp_path / "baseline", tmp_path / "audit")
+
+    assert report["failed_gate"]["name"] == "price_publication_guard"
+    assert report["failed_gate"]["reasons"] == [
+        "unreviewed_extreme_adjusted_price_moves"
+    ]
+
+
 def test_blocked_refresh_uses_completed_acquisition_statuses(tmp_path: Path) -> None:
     from alpharank.replay.refresh_sources import blocked_refresh_source_statuses
 
