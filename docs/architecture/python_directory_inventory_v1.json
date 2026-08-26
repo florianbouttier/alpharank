@@ -174,7 +174,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 13
+      "python_file_count": 15
     },
     {
       "directory": "src/alpharank/data/lineage",
@@ -286,7 +286,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 11
+      "python_file_count": 12
     },
     {
       "directory": "src/alpharank/reporting",
@@ -419,7 +419,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 16
+      "python_file_count": 17
     },
     {
       "directory": "tests/unit/governance",
@@ -475,7 +475,7 @@
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
-  "python_file_count": 486,
+  "python_file_count": 490,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
   "violation_count": 0,

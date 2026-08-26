@@ -121,6 +121,32 @@ def test_blocked_refresh_preserves_gate_and_hashes_evidence(tmp_path: Path) -> N
     assert statuses["sec_companyfacts"] == "not_started_blocked_upstream"
 
 
+def test_blocked_refresh_uses_completed_acquisition_statuses(tmp_path: Path) -> None:
+    from alpharank.replay.refresh_sources import blocked_refresh_source_statuses
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "price_composition.json").write_text(
+        json.dumps({"preserved_history_rows": 10}), encoding="utf-8"
+    )
+    (run_dir / "acquisition_status.json").write_text(
+        json.dumps(
+            {
+                "sources": [
+                    {"source": "yahoo_prices", "status": "downloaded_quarantined"},
+                    {"source": "sec_companyfacts", "status": "downloaded"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    statuses = {item["source"]: item["status"] for item in blocked_refresh_source_statuses(run_dir)}
+    assert statuses["yahoo_prices"] == "downloaded_quarantined"
+    assert statuses["sec_companyfacts"] == "downloaded"
+    assert statuses["eodhd_price_seed"] == "retained_not_redownloadable"
+
+
 def test_complete_audit_accepts_identical_historical_portfolios(tmp_path: Path) -> None:
     inputs = _complete_fixture(tmp_path)
 

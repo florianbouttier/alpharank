@@ -26,11 +26,10 @@ from alpharank.data.quality.benchmark import (
     write_detail_reports,
     write_html_report,
 )
-from alpharank.data.ingestion.config import PRICE_COLUMNS
-from alpharank.data.publishing.consolidation import (
-    FinancialSourceInput,
-    consolidate_financial_sources_with_share_quality,
+from alpharank.data.ingestion.acquisition_status import (
+    persist_open_source_acquisition_status,
 )
+from alpharank.data.ingestion.config import PRICE_COLUMNS
 from alpharank.data.sources.earnings import (
     empty_earnings_actuals_frame,
     empty_earnings_calendar_frame,
@@ -38,11 +37,6 @@ from alpharank.data.sources.earnings import (
 from alpharank.data.quality.freshness import (
     build_data_freshness_summary,
     validate_data_freshness,
-)
-from alpharank.data.quality.fundamental_quality import (
-    audit_fundamental_quality,
-    quarantine_implausible_share_candidates,
-    validate_fundamental_quality,
 )
 from alpharank.data.sources.general_reference import (
     build_general_reference,
@@ -103,6 +97,7 @@ from alpharank.data.ingestion.frames import (
 from alpharank.data.ingestion.frames import (
     _with_price_ingestion_metadata as _with_price_ingestion_metadata,
 )
+from alpharank.data.ingestion.financial_candidate import build_financial_candidate
 from alpharank.data.ingestion.prices import (
     _canonicalize_price_tickers as _canonicalize_price_tickers,
 )
@@ -257,7 +252,6 @@ from alpharank.data.ingestion.storage import (
     new_run_id,
     upsert_parquet,
     utc_now_iso,
-    write_json,
     write_run_manifest,
 )
 from alpharank.data.ingestion.transaction import OpenSourceStoreTransaction
@@ -266,6 +260,7 @@ from alpharank.data.prices import (
     combine_stock_split_evidence,
     load_confirmed_stock_splits,
     resolve_previous_validated_price_lineage,
+    validate_price_gate_report,
 )
 from alpharank.data.warehouse.paths import WarehousePaths
 
@@ -1220,6 +1215,7 @@ def _run_open_source_ingestion_in_place(
     general_refresh_tickers = tuple(
         sorted(set(general_refresh_tickers).intersection(price_quality_tickers))
     )
+    general_reference_download_rows = 0
     if general_refresh_tickers:
         yahoo_general_metadata = yahoo_client.fetch_company_metadata(general_refresh_tickers)
         sec_profile_frames, _ = _fetch_sec_company_profiles(
@@ -1237,6 +1233,7 @@ def _run_open_source_ingestion_in_place(
             run_id=run_id,
             ingested_at=ingested_at,
         )
+        general_reference_download_rows = general_reference_delta.height
         append_run_delta(paths.run_dir(run_id) / "raw" / "general_reference.parquet", general_reference_delta)
         general_reference = upsert_parquet(
             paths.raw_dir / "general_reference.parquet",
@@ -1736,54 +1733,34 @@ def _run_open_source_ingestion_in_place(
         years=refreshed_years,
     )
 
-    financial_source_frames: list[tuple[str, pl.DataFrame, int]] = [
-        ("sec_companyfacts", raw_sec_financials, 1),
-        ("sec_filing", raw_sec_filing_financials, 2),
-        ("simfin", raw_simfin_financials, 3),
-        ("yfinance", raw_yahoo_financials, 4),
-    ]
-    sanitized_financial_sources: list[FinancialSourceInput] = []
-    share_candidate_quarantine: dict[str, object] = {}
-    for source_name, source_frame, priority in financial_source_frames:
-        sanitized, quarantine_report = quarantine_implausible_share_candidates(
-            source_frame.select(_clean_financial_columns())
-        )
-        share_candidate_quarantine[source_name] = quarantine_report
-        sanitized_financial_sources.append(
-            FinancialSourceInput(
-                source_name=source_name,
-                frame=sanitized,
-                priority=priority,
-            )
-        )
-    source_refresh_contract["share_candidate_quarantine"] = share_candidate_quarantine
-    write_json(
-        paths.run_dir(run_id) / "share_candidate_quarantine.json",
-        share_candidate_quarantine,
+    financial_candidate = build_financial_candidate(
+        run_dir=paths.run_dir(run_id),
+        source_refresh_contract=source_refresh_contract,
+        sec_companyfacts=raw_sec_financials,
+        sec_filing=raw_sec_filing_financials,
+        simfin=raw_simfin_financials,
+        yfinance=raw_yahoo_financials,
     )
-
-    (
-        consolidated_financials,
-        consolidated_lineage,
-        source_summary,
-        share_selection_quality,
-    ) = consolidate_financial_sources_with_share_quality(
-        sanitized_financial_sources
+    consolidated_financials = financial_candidate.consolidated
+    consolidated_lineage = financial_candidate.lineage
+    source_summary = financial_candidate.source_summary
+    acquisition_status = persist_open_source_acquisition_status(
+        run_dir=paths.run_dir(run_id),
+        run_id=run_id,
+        source_refresh_contract=source_refresh_contract,
+        run_failures=run_failures,
+        yahoo_prices=yahoo_prices_delta,
+        yahoo_metadata_rows=general_reference_download_rows,
+        yfinance_earnings=earnings_delta,
+        sec_submissions=earnings_sec_calendar_delta,
+        sec_companyfacts=sec_financial_deltas,
+        sec_filing_documents=sec_filing_deltas,
+        simfin_fundamentals=simfin_deltas,
+        yfinance_fundamentals=yahoo_financial_deltas,
     )
-    source_refresh_contract["share_selection_quality"] = share_selection_quality
-    write_json(
-        paths.run_dir(run_id) / "share_selection_quality.json",
-        share_selection_quality,
+    validate_price_gate_report(
+        {"blocking_reasons": acquisition_status["price_publication_blocking_reasons"]}
     )
-
-    fundamental_quality = audit_fundamental_quality(consolidated_financials)
-    source_refresh_contract["fundamental_quality_guard"] = fundamental_quality
-    write_json(
-        paths.run_dir(run_id) / "fundamental_quality_guard.json",
-        fundamental_quality,
-    )
-    validate_fundamental_quality(fundamental_quality)
-
     clean_prices.write_parquet(paths.clean_dir / "prices_open_source.parquet")
     clean_price_lineage.write_parquet(paths.clean_dir / "prices_open_source_lineage.parquet")
     persistent_price_history_registry.write_parquet(

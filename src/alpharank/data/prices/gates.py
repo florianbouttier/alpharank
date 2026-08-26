@@ -247,10 +247,17 @@ def audit_price_candidate(
 
 
 def validate_price_candidate(result: PriceGateResult) -> None:
-    if result.report["blocking_reasons"]:
+    validate_price_gate_report(result.report)
+
+
+def validate_price_gate_report(report: dict[str, object]) -> None:
+    """Apply a recorded price gate only at the publication boundary."""
+
+    blocking_reasons = report.get("blocking_reasons", [])
+    if blocking_reasons:
         raise RuntimeError(
             "Canonical price candidate failed publication gates: "
-            f"{result.report['blocking_reasons']}. No package was published."
+            f"{blocking_reasons}. No package was published."
         )
 
 

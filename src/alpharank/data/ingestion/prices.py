@@ -42,7 +42,6 @@ from alpharank.data.prices import (
     persistent_history_summary,
     resolve_previous_validated_price_lineage,
     roll_forward_validated_price_history,
-    validate_price_candidate,
 )
 
 
@@ -819,8 +818,6 @@ def _prepare_canonical_hybrid_price_merge(
     gate.historical_key_removals.write_parquet(
         run_dir / "price_historical_key_removals.parquet"
     )
-    validate_price_candidate(gate)
-
     terminal_set = {
         f"{str(ticker).upper().removesuffix('.US')}.US"
         for ticker in preserved_terminal_tickers

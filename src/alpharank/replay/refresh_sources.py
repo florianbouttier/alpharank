@@ -10,6 +10,14 @@ from typing import Any
 def blocked_refresh_source_statuses(failed_refresh_run: Path) -> list[dict[str, Any]]:
     """Describe every declared refresh source after an upstream price failure."""
 
+    acquisition_path = failed_refresh_run / "acquisition_status.json"
+    if acquisition_path.is_file():
+        acquisition = _read_json(acquisition_path)
+        acquired = acquisition.get("sources")
+        if not isinstance(acquired, list):
+            raise ValueError(f"Invalid acquisition source statuses: {acquisition_path}")
+        return [*acquired, *_retained_source_statuses(failed_refresh_run)]
+
     coverage = _read_json(failed_refresh_run / "price_validated_key_coverage.json")
     composition = _read_json(failed_refresh_run / "price_composition.json")
     raw_archive = coverage.get("raw_archive", {})
@@ -46,6 +54,30 @@ def blocked_refresh_source_statuses(failed_refresh_run: Path) -> list[dict[str, 
     ]
     statuses.extend(_upstream_blocked_status(source) for source in _BLOCKED_SOURCES)
     return statuses
+
+
+def _retained_source_statuses(failed_refresh_run: Path) -> list[dict[str, Any]]:
+    composition = _read_json(failed_refresh_run / "price_composition.json")
+    return [
+        {
+            "source": "eodhd_price_seed",
+            "status": "retained_not_redownloadable",
+            "preserved_rows": composition.get("preserved_history_rows"),
+            "preserved_tickers": composition.get("preserved_history_tickers"),
+        },
+        {
+            "source": "previous_validated_open_source_prices",
+            "status": "retained_by_vintage",
+            "preserved_rows": composition.get("preserved_open_source_only_rows"),
+            "preserved_tickers": composition.get("preserved_open_source_only_tickers"),
+            "audited_carried_active_rows": composition.get("audited_carried_active_rows"),
+            "audited_carried_active_tickers": composition.get("audited_carried_active_tickers"),
+        },
+        {
+            "source": "sp500_constituent_registry",
+            "status": "retained_reference_input",
+        },
+    ]
 
 
 def _upstream_blocked_status(source: str) -> dict[str, str]:

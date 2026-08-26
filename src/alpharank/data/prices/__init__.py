@@ -9,7 +9,12 @@ from alpharank.data.prices.corporate_actions import (
     combine_stock_split_evidence,
     load_confirmed_stock_splits,
 )
-from alpharank.data.prices.gates import PriceGateResult, audit_price_candidate, validate_price_candidate
+from alpharank.data.prices.gates import (
+    PriceGateResult,
+    audit_price_candidate,
+    validate_price_candidate,
+    validate_price_gate_report,
+)
 from alpharank.data.prices.history import (
     PERSISTENT_PRICE_HISTORY_POLICY_ID,
     PersistentPriceHistorySource,
@@ -45,4 +50,5 @@ __all__ = [
     "resolve_previous_validated_price_lineage",
     "roll_forward_validated_price_history",
     "validate_price_candidate",
+    "validate_price_gate_report",
 ]

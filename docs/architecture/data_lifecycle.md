@@ -145,6 +145,12 @@ validation. Ses journaux vont sous `logs/` et portent le même `run_id`.
 Un run ne doit pas choisir silencieusement « le dernier fichier présent » si la
 source déclarée manque.
 
+Le téléchargement et la promotion sont deux phases distinctes. Toutes les
+sources indépendantes déclarées par un run sont tentées avant l'application des
+gates de publication ; `acquisition_status.json` conserve leur statut réel. Une
+révision Yahoo peut donc mettre le candidat prix en quarantaine, mais elle ne
+doit plus empêcher les acquisitions SEC, SimFin ou yfinance suivantes.
+
 ## 8. Correspondance avec les dossiers actuels
 
 Le relevé machine-lisible daté, avec volumes et lecteurs de code actifs, est

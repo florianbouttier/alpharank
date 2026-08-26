@@ -148,9 +148,14 @@ def test_full_ingestion_guards_historical_revisions_before_publication() -> None
     source = inspect.getsource(_run_open_source_ingestion_in_place)
 
     price_guard_position = source.index("_prepare_canonical_hybrid_price_merge(")
+    companyfacts_position = source.index("_fetch_sec_companyfacts_bundle(")
+    acquisition_status_position = source.index("persist_open_source_acquisition_status(")
+    price_validation_position = source.index("validate_price_gate_report(")
     guard_position = source.index("_audit_and_validate_historical_revisions(")
     publish_position = source.index("publish_open_source_output_package(")
 
-    assert price_guard_position < publish_position
+    assert price_guard_position < companyfacts_position
+    assert companyfacts_position < acquisition_status_position < price_validation_position
+    assert price_validation_position < publish_position
     assert guard_position < publish_position
     assert "latest_composed_manifest_path" in source

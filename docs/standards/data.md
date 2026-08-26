@@ -369,6 +369,11 @@ Une anomalie possède un niveau : `info`, `warning`, `blocking`, et une politiqu
 versionnée. Un seuil dépassé ne supprime pas les données reçues : il bloque la
 promotion et conserve le candidat pour audit.
 
+Une anomalie d'une source ne coupe pas les acquisitions indépendantes du même
+run : chaque source déclarée est tentée et reçoit un statut avant la décision
+de publication. La quarantaine peut bloquer une valeur ou un package, jamais
+l'enregistrement du téléchargement ni l'audit des autres fournisseurs.
+
 ## 19. Publication et promotion
 
 Ordre obligatoire :

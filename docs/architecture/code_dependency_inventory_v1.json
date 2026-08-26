@@ -151,7 +151,8 @@
     "scripts/validate_markdown_links.py",
     "scripts/validate_terminal_event_registry.py",
     "scripts/validate_terminal_price_registry.py",
-    "scripts/validation/audit_data_lineage.py"
+    "scripts/validation/audit_data_lineage.py",
+    "scripts/validation/audit_refresh_replay.py"
   ],
   "edges": [
     {
@@ -1641,6 +1642,36 @@
     },
     {
       "kind": "import",
+      "source": "scripts/validation/audit_refresh_replay.py",
+      "target": "src/alpharank/governance.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/validation/audit_refresh_replay.py",
+      "target": "src/alpharank/replay/refresh_compare.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/validation/audit_refresh_replay.py",
+      "target": "src/alpharank/replay/refresh_drift.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/validation/audit_refresh_replay.py",
+      "target": "src/alpharank/replay/refresh_drift.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/validation/audit_refresh_replay.py",
+      "target": "src/alpharank/replay/refresh_provenance.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/validation/audit_refresh_replay.py",
+      "target": "src/alpharank/replay/refresh_sources.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/backtest/__init__.py",
       "target": "src/alpharank/backtest/application.py"
     },
@@ -1926,6 +1957,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/ingestion/acquisition_status.py",
+      "target": "src/alpharank/data/ingestion/storage.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/ingestion/cadrage.py",
       "target": "src/alpharank/data/ingestion/config.py"
     },
@@ -1976,6 +2012,26 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/ingestion/financial_candidate.py",
+      "target": "src/alpharank/data/ingestion/frames.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/ingestion/financial_candidate.py",
+      "target": "src/alpharank/data/ingestion/storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/ingestion/financial_candidate.py",
+      "target": "src/alpharank/data/publishing/consolidation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/ingestion/financial_candidate.py",
+      "target": "src/alpharank/data/quality/fundamental_quality.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/ingestion/frames.py",
       "target": "src/alpharank/data/ingestion/refresh_policy.py"
     },
@@ -1997,7 +2053,17 @@
     {
       "kind": "import",
       "source": "src/alpharank/data/ingestion/orchestration.py",
+      "target": "src/alpharank/data/ingestion/acquisition_status.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/ingestion/orchestration.py",
       "target": "src/alpharank/data/ingestion/config.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/ingestion/orchestration.py",
+      "target": "src/alpharank/data/ingestion/financial_candidate.py"
     },
     {
       "kind": "import",
@@ -2062,11 +2128,6 @@
     {
       "kind": "import",
       "source": "src/alpharank/data/ingestion/orchestration.py",
-      "target": "src/alpharank/data/publishing/consolidation.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/data/ingestion/orchestration.py",
       "target": "src/alpharank/data/publishing/open_source_package.py"
     },
     {
@@ -2078,11 +2139,6 @@
       "kind": "import",
       "source": "src/alpharank/data/ingestion/orchestration.py",
       "target": "src/alpharank/data/quality/freshness.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/data/ingestion/orchestration.py",
-      "target": "src/alpharank/data/quality/fundamental_quality.py"
     },
     {
       "kind": "import",
@@ -3703,6 +3759,21 @@
       "kind": "import",
       "source": "src/alpharank/replay/reconciliation.py",
       "target": "src/alpharank/replay/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/refresh_drift.py",
+      "target": "src/alpharank/replay/refresh_compare.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/refresh_drift.py",
+      "target": "src/alpharank/replay/refresh_provenance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/refresh_drift.py",
+      "target": "src/alpharank/replay/refresh_sources.py"
     },
     {
       "kind": "import",
@@ -6100,6 +6171,26 @@
     },
     {
       "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/governance.py",
+        "src/alpharank/replay/refresh_drift.py"
+      ],
+      "invokes": [
+        "scripts/validation/audit_refresh_replay.py",
+        "src/alpharank/replay/refresh_compare.py",
+        "src/alpharank/replay/refresh_drift.py",
+        "src/alpharank/replay/refresh_provenance.py",
+        "src/alpharank/replay/refresh_sources.py"
+      ],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.validation.audit_refresh_replay",
+      "path": "scripts/validation/audit_refresh_replay.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [],
       "invokes": [],
@@ -6641,6 +6732,21 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/ingestion/storage.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.ingestion.acquisition_status",
+      "path": "src/alpharank/data/ingestion/acquisition_status.py",
+      "readers": [
+        "src/alpharank/data/ingestion/orchestration.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [],
       "invokes": [],
       "layer": "library",
@@ -6707,6 +6813,24 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/data/ingestion/frames.py",
+        "src/alpharank/data/ingestion/storage.py",
+        "src/alpharank/data/publishing/consolidation.py",
+        "src/alpharank/data/quality/fundamental_quality.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.ingestion.financial_candidate",
+      "path": "src/alpharank/data/ingestion/financial_candidate.py",
+      "readers": [
+        "src/alpharank/data/ingestion/orchestration.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
         "src/alpharank/data/ingestion/refresh_policy.py",
         "src/alpharank/data/ingestion/storage.py",
         "src/alpharank/data/quality/revision_guard.py",
@@ -6721,6 +6845,7 @@
         "scripts/open_source/ingestion/backfill_sec_core_history.py",
         "scripts/open_source/ingestion/refresh_current_constituent_prices.py",
         "scripts/open_source/ingestion/restore_price_tickers_from_snapshot.py",
+        "src/alpharank/data/ingestion/financial_candidate.py",
         "src/alpharank/data/ingestion/orchestration.py",
         "src/alpharank/data/ingestion/prices.py",
         "src/alpharank/data/ingestion/reference.py"
@@ -6730,7 +6855,9 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/data/ingestion/acquisition_status.py",
         "src/alpharank/data/ingestion/config.py",
+        "src/alpharank/data/ingestion/financial_candidate.py",
         "src/alpharank/data/ingestion/frames.py",
         "src/alpharank/data/ingestion/prices.py",
         "src/alpharank/data/ingestion/reference.py",
@@ -6743,11 +6870,9 @@
         "src/alpharank/data/open_source/sec_filing.py",
         "src/alpharank/data/open_source/sec_mapping.py",
         "src/alpharank/data/prices/__init__.py",
-        "src/alpharank/data/publishing/consolidation.py",
         "src/alpharank/data/publishing/open_source_package.py",
         "src/alpharank/data/quality/benchmark.py",
         "src/alpharank/data/quality/freshness.py",
-        "src/alpharank/data/quality/fundamental_quality.py",
         "src/alpharank/data/sources/earnings.py",
         "src/alpharank/data/sources/general_reference.py",
         "src/alpharank/data/sources/simfin.py",
@@ -6870,6 +6995,8 @@
         "scripts/open_source/publication/build_sec_output_package.py",
         "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
         "scripts/open_source/publication/build_sec_overlay_package.py",
+        "src/alpharank/data/ingestion/acquisition_status.py",
+        "src/alpharank/data/ingestion/financial_candidate.py",
         "src/alpharank/data/ingestion/frames.py",
         "src/alpharank/data/ingestion/orchestration.py",
         "src/alpharank/data/ingestion/prices.py",
@@ -7319,7 +7446,7 @@
       "readers": [
         "scripts/open_source/audit/probe_sec_sp500_history_sample.py",
         "src/alpharank/data/ingestion/cadrage.py",
-        "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/ingestion/financial_candidate.py",
         "src/alpharank/data/sources/sec_only.py"
       ]
     },
@@ -7465,7 +7592,7 @@
       "module": "alpharank.data.quality.fundamental_quality",
       "path": "src/alpharank/data/quality/fundamental_quality.py",
       "readers": [
-        "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/ingestion/financial_candidate.py",
         "src/alpharank/data/publishing/consolidation.py"
       ]
     },
@@ -7851,6 +7978,7 @@
       "readers": [
         "scripts/replay/seal_methodology_baseline.py",
         "scripts/replay/validate_economic_prefix.py",
+        "scripts/validation/audit_refresh_replay.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/multihorizon/pipeline.py",
         "src/alpharank/production/legacy_pipeline.py",
@@ -9248,6 +9376,65 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.refresh_compare",
+      "path": "src/alpharank/replay/refresh_compare.py",
+      "readers": [
+        "scripts/validation/audit_refresh_replay.py",
+        "src/alpharank/replay/refresh_drift.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/replay/refresh_compare.py",
+        "src/alpharank/replay/refresh_provenance.py",
+        "src/alpharank/replay/refresh_sources.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.refresh_drift",
+      "path": "src/alpharank/replay/refresh_drift.py",
+      "readers": [
+        "scripts/validation/audit_refresh_replay.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.refresh_provenance",
+      "path": "src/alpharank/replay/refresh_provenance.py",
+      "readers": [
+        "scripts/validation/audit_refresh_replay.py",
+        "src/alpharank/replay/refresh_drift.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.refresh_sources",
+      "path": "src/alpharank/replay/refresh_sources.py",
+      "readers": [
+        "scripts/validation/audit_refresh_replay.py",
+        "src/alpharank/replay/refresh_drift.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [
         "src/alpharank/portfolio/simulation.py"
       ],
@@ -9663,11 +9850,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 152,
-    "internal_edge_count": 740,
-    "library_count": 194,
-    "python_file_count": 353,
-    "script_count": 159,
-    "unread_node_count": 158
+    "active_entrypoint_count": 153,
+    "internal_edge_count": 754,
+    "library_count": 200,
+    "python_file_count": 360,
+    "script_count": 160,
+    "unread_node_count": 159
   }
 }

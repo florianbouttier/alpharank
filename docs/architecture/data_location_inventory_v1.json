@@ -98,6 +98,7 @@
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
+        "src/alpharank/replay/refresh_compare.py",
         "src/alpharank/strategy/legacy_valuation.py"
       ],
       "size_bytes": 155393079,
@@ -133,7 +134,8 @@
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/publishing/composed_snapshot.py",
         "src/alpharank/data/warehouse/reader_migration.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/refresh_compare.py"
       ],
       "size_bytes": 377625,
       "target_role": "warehouse/raw/eodhd then mart"
@@ -170,7 +172,8 @@
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/multihorizon/live.py",
         "src/alpharank/production/legacy_pipeline.py",
-        "src/alpharank/replay/common.py"
+        "src/alpharank/replay/common.py",
+        "src/alpharank/replay/refresh_compare.py"
       ],
       "size_bytes": 6830910,
       "target_role": "warehouse/raw then mart"
@@ -199,7 +202,8 @@
         "src/alpharank/data/open_source/sec_mapping.py",
         "src/alpharank/data/publishing/composed_snapshot.py",
         "src/alpharank/data/warehouse/reader_migration.py",
-        "src/alpharank/production/legacy_pipeline.py"
+        "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/refresh_compare.py"
       ],
       "size_bytes": 684738,
       "target_role": "warehouse/def then mart"
@@ -227,6 +231,7 @@
         "src/alpharank/data/quality/revision_guard.py",
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/refresh_compare.py",
         "src/alpharank/strategy/legacy_valuation.py"
       ],
       "size_bytes": 8720839,
@@ -254,6 +259,7 @@
         "src/alpharank/data/quality/revision_guard.py",
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/refresh_compare.py",
         "src/alpharank/strategy/legacy_valuation.py"
       ],
       "size_bytes": 20291055,
@@ -281,6 +287,7 @@
         "src/alpharank/data/quality/revision_guard.py",
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/refresh_compare.py",
         "src/alpharank/strategy/legacy_valuation.py"
       ],
       "size_bytes": 8847984,
@@ -309,6 +316,7 @@
         "src/alpharank/data/quality/revision_guard.py",
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
+        "src/alpharank/replay/refresh_compare.py",
         "src/alpharank/strategy/legacy_valuation.py"
       ],
       "size_bytes": 731545,
@@ -1026,7 +1034,7 @@
     "file_location_count": 10,
     "location_count": 35,
     "package_location_count": 25,
-    "reader_edge_count": 279,
+    "reader_edge_count": 287,
     "static_reference_count": 58
   }
 }
