@@ -126,6 +126,28 @@ an identical ingestion adds only a manifest with zero new price rows. Network
 download still occurs because Yahoo does not provide a reliable change feed;
 deduplication happens before durable storage, not before the request.
 
+### Historical replay gate after every full refresh
+
+A complete download is always retained and never refused because its values
+drift. Promotion is a separate decision: before moving `latest.json`, rerun
+Legacy and Boosting on both the published snapshot and the candidate with the
+same code, parameters, seeds, runtime, historical cutoff and common portfolio
+profile.
+
+The gate accepts only one of these two documented outcomes:
+
+- historical holdings and weights are identical within the versioned material
+  tolerance; or
+- a machine-readable report identifies the first divergent data table and
+  keys, compares Legacy positions and Boosting signals, and retains the exact
+  common-replay failure.
+
+If code, configuration or runtime differ, the run is not a data-only
+comparison and must be repeated. If the common replay stops on a selected
+censored return, compare every preceding stage but do not fabricate candidate
+common holdings. The candidate remains available for diagnosis while the
+published snapshot pointer stays unchanged.
+
 DEF resolves the exact `ticker,date` key after STG normalization. A missing or
 null current Yahoo value may reuse the last validated value for that same key;
 the selected row keeps its original ingestion id and the run writes
