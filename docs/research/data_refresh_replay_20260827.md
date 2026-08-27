@@ -189,6 +189,34 @@ Le candidat ne publie aucune table commune : le moteur s'arrête avant de les
 écrire sur la position censurée. Le rapport compare les étages disponibles et
 n'invente pas de holdings pour contourner la gate.
 
+### Rapport humain et séparation globale des causes
+
+Le rapport HTML autonome est
+`outputs/data_refresh_replay_20260827/same_code_audit_data_only/refresh_replay_report.html`,
+SHA-256 `8881cac62b0f888ca565e45abebb7a7727a84386c9a448c84af394ad8f55b971`.
+Son payload d'attribution est `refresh_replay_attribution.json`, SHA-256
+`1aaac44bd2112e4eee39877aa4f9c131659e5f153deea7632ef83f977311cdb1`.
+Ces sorties restent hors Git avec les autres artefacts volumineux ; le présent
+document conserve leurs chemins et empreintes.
+
+Le chiffre de 88 944 ne désigne pas des positions : il compte des lignes de
+score ticker-mois communes. L'ablation globale donne la séparation suivante :
+
+| Effet mesuré | Prix seuls | SEC seuls | Candidat complet | SEC seuls vers complet |
+| --- | ---: | ---: | ---: | ---: |
+| événements de position Legacy | 5 | 9 305 | 9 305 | 6 |
+| scores Boosting modifiés | 45 522 | 88 948 | 88 944 | 28 585 |
+| entrées/sorties Top 10 signal, par sens | 61 | 420 | 421 | non utilisé comme attribution additive |
+
+Le drift Legacy est donc quasi entièrement provoqué par la famille SEC, sans
+masquer les six événements résiduels apportés par les prix après SEC : en juin
+2026, `FLEX.US` remplace `FTNT.US` dans deux stratégies et les poids de
+`KLAC.US` et `TER.US` changent dans `Combined_Frequency`. Le replay commun du
+scénario prix seuls passe et contient 94 entrées, 94 sorties et un poids commun
+modifié, toutes stratégies confondues. Le prix contribue donc réellement au
+drift Boosting global ; il n'explique simplement ni le prix, ni le score, ni le
+rang de `CVC.US`.
+
 ## Attribution causale du blocage CVC
 
 Deux snapshots diagnostics ont été construits sans modifier les packages

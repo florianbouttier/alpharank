@@ -94,11 +94,22 @@ Un run conserve sous une seule racine identifiée :
 - les manifestes des deux snapshots et des quatre runs comparés ;
 - les différences d'univers, scores, positions, poids et rendements ;
 - `refresh_replay_report.json`, conclusion machine-lisible unique ;
+- `refresh_replay_attribution.json`, séparation machine-lisible des effets prix
+  et SEC lorsque les signaux historiques dérivent ;
+- `refresh_replay_report.html`, vue humaine autonome de la conclusion, des
+  ablations, des écarts Top-N, de la gate et de la provenance ;
 - la commande, le runtime, le commit et les hashes du code critique.
 
 Les gros Parquet restent dans les sorties de run, hors Git. Une synthèse datée
 peut être conservée sous `docs/research/`, avec les identifiants et hashes
 nécessaires pour retrouver la preuve complète.
+
+Le HTML est une preuve statique hors Git, jamais un dashboard applicatif. Il
+est généré sans ressource réseau depuis les JSON et Parquet du run. Dès qu'un
+drift atteint Legacy ou Boosting, les scénarios `prix seuls` et `SEC seuls`
+sont obligatoires : le rapport ne peut pas attribuer au SEC un effet seulement
+observé dans le candidat complet, ni appeler « positions » les lignes de score
+ticker-mois.
 
 ## 7. Procédure
 
@@ -167,3 +178,21 @@ Lorsqu'une gate du replay commun a refusé le candidat, remplacer
 ```
 
 Les deux options sont mutuellement exclusives et l'une d'elles est obligatoire.
+
+Quand le rapport JSON conclut à un drift de signal, la vue humaine canonique
+est ensuite construite depuis le contrôle complet et les deux ablations :
+
+```bash
+python scripts/validation/build_refresh_replay_report.py \
+  --audit-report <audit>/refresh_replay_report.json \
+  --price-only-legacy <run-legacy-prix-seuls> \
+  --price-only-boosting <run-boosting-prix-seuls> \
+  --price-only-common <replay-commun-prix-seuls> \
+  --sec-only-legacy <run-legacy-sec-seuls> \
+  --sec-only-boosting <run-boosting-sec-seuls> \
+  --output-html <audit>/refresh_replay_report.html \
+  --output-json <audit>/refresh_replay_attribution.json
+```
+
+Le scénario SEC-seul peut rester bloqué avant publication commune : ses
+signaux sont comparés, mais aucune table de portefeuille refusée n'est inventée.

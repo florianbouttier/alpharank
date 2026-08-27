@@ -71,6 +71,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 32 | `DATA-013` | publier la preuve du refresh et des replays du 25 août | lot DATA ci-dessous | fait |
 | 33 | `DATA-014` | terminer les acquisitions avant la décision de publication prix | lot DATA ci-dessous | fait |
 | 34 | `DATA-015` | conserver l'historique prix validé et n'ajouter que les nouveaux rendements | lot DATA ci-dessous | fait |
+| 35 | `REPLAY-004` | rendre le drift d'un refresh lisible dans un rapport HTML causal | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -316,6 +317,7 @@ doublons exacts et preuve de récupération.
 | `REPLAY-001` | comparer baseline et candidat depuis les entrées jusqu'aux holdings Legacy et Boosting | fait | audit causal au cutoff, preuves Parquet par clé, comparaison du code/config/runtime et code retour bloquant pour tout statut autre que l'identité historique |
 | `REPLAY-002` | rendre chaque écart code, configuration et runtime directement explicable | fait | chemins de run neutralisés ; valeurs avant/après listées par chemin JSON pour Git, fichiers critiques, paramètres, dépendances et seeds |
 | `REPLAY-003` | conserver un statut machine-lisible pour chaque source après une gate amont | fait | prix Yahoo téléchargés/quarantinés, historiques gelés conservés et acquisitions fondamentales non démarrées distingués explicitement |
+| `REPLAY-004` | produire un rapport HTML autonome qui sépare drift prix, SEC, Legacy et Boosting | fait | rapport réel `8881cac6…b971`, payload `1aaac44b…cdb1`, ablations prix/SEC, scores, Top-N, CVC, gate et hashes réunis ; 13 tests ciblés, typage, lint, navigation HTML et absence d'asset externe validés |
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

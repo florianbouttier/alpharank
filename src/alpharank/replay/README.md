@@ -15,6 +15,8 @@ AlphaRank causal, comparable et recalculable :
   dépendance et seed sans confondre les chemins de sortie avec la méthode ;
 - `refresh_sources.py` déclare les sources téléchargées, conservées ou non
   démarrées lorsqu'une gate amont arrête le refresh ;
+- `refresh_attribution.py` compare les quatre scénarios baseline, prix seuls,
+  SEC seuls et candidat complet pour séparer scores, Top-N et positions ;
 - `validation.py` scelle et recalcule un package de replay autonome.
 
 L'API canonique courte est exposée par `alpharank.replay`. Les anciens modules
