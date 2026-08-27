@@ -58,7 +58,7 @@ def reconcile_validated_price_history(
     """Keep every validated key and derive only dates after each ticker anchor."""
 
     previous, current, previous_rejected, current_rejected = _prepare_reconciliation_inputs(
-        previous_validated_lineage, current_yahoo_observation, context.run_id
+        previous_validated_lineage, current_yahoo_observation
     )
     active = {_normalize_ticker(ticker) for ticker in context.active_tickers}
     terminal = {_normalize_ticker(ticker) for ticker in context.preserved_terminal_tickers}
@@ -127,7 +127,6 @@ def reconcile_validated_price_history(
 def _prepare_reconciliation_inputs(
     previous: pl.DataFrame,
     current: pl.DataFrame,
-    run_id: str,
 ) -> tuple[pl.DataFrame, pl.DataFrame, int, int]:
     previous_identity = apply_security_identity_policy(
         previous, ticker_column="ticker", date_column="date"
@@ -136,9 +135,7 @@ def _prepare_reconciliation_inputs(
         current, ticker_column="ticker", date_column="date"
     )
     normalized_previous = _normalize_lineage(previous_identity.frame)
-    normalized_current = _normalize_lineage(current_identity.frame).filter(
-        pl.col("ingestion_run_id") == run_id
-    )
+    normalized_current = _normalize_lineage(current_identity.frame)
     return (
         normalized_previous,
         normalized_current,

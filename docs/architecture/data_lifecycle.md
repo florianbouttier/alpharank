@@ -160,6 +160,11 @@ révisions du fournisseur sont expliquées dans
 `price_revision_diagnostic.json`; elles ne deviennent une correction du passé
 qu'avec un overlay sourcé.
 
+Le RAW différentiel peut ne conserver que les dates nouvelles d'un ticker dans
+le run courant. La résolution DEF réintroduit alors la dernière clé validée
+inchangée comme ancre technique ; son ancien `ingestion_run_id` est conservé et
+ne doit pas empêcher l'ajout des rendements des dates réellement reçues.
+
 La gate des mouvements extrêmes ne rejuge pas tout l'historique à chaque
 bootstrap. Elle calcule les rendements avec la série canonique complète afin de
 conserver l'ancre précédente, mais ne classe comme anomalie que les clés

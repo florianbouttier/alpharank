@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 502,
+  "node_count": 503,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -353,6 +353,7 @@
     "test_price_reconciliation.py::test_reconciliation_blocks_publication_when_provider_anchor_is_missing",
     "test_price_reconciliation.py::test_reconciliation_keeps_validated_rows_and_appends_provider_return",
     "test_price_reconciliation.py::test_reconciliation_retains_reviewed_incomplete_provider_prefix",
+    "test_price_reconciliation.py::test_reconciliation_uses_carried_def_anchor_for_new_provider_dates",
     "test_price_revisions.py::test_price_revision_rejects_evidence_known_after_package",
     "test_price_revisions.py::test_price_revision_rejects_unexplained_historical_change",
     "test_price_revisions.py::test_price_revision_requires_new_vintage",
@@ -505,7 +506,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "6a328faf8ab2ed182ee6e3b574edf622287b40422712539a79f6b095d7710eed",
+  "node_ids_sha256": "8be0ba76bd48db2139db8c0b3fd3b9f93992a5ef6bf5085b8411008be4983632",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

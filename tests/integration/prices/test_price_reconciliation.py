@@ -153,3 +153,37 @@ def test_reconciliation_retains_reviewed_incomplete_provider_prefix() -> None:
         {"ticker": "A.US", "reason": "provider_anchor_for_validated_tail_missing"}
     ]
     assert result.lineage.equals(previous, null_equal=True)
+
+
+def test_reconciliation_uses_carried_def_anchor_for_new_provider_dates() -> None:
+    previous = _lineage(["2026-08-10", "2026-08-11"], [100.0, 101.0], run_id="old")
+    carried_anchor = previous.tail(1)
+    provider_tail = _lineage(["2026-08-12"], [103.02], run_id="run_27")
+    definitive_resolution = pl.concat([carried_anchor, provider_tail])
+
+    result = reconcile_validated_price_history(
+        previous_validated_lineage=previous,
+        current_yahoo_observation=definitive_resolution,
+        context=PriceReconciliationContext(
+            active_tickers=("A",),
+            preserved_terminal_tickers=(),
+            incomplete_provider_tickers=("A",),
+            run_id="run_27",
+        ),
+    )
+
+    assert result.report["passed"] is True
+    assert result.report["retained_incomplete_provider_tickers"] == []
+    assert result.report["return_extension_rows"] == 1
+    assert result.prices.sort("date")["adjusted_close"].to_list() == pytest.approx(
+        [100.0, 101.0, 103.02]
+    )
+    assert result.extension_audit.select(
+        "validated_anchor_date", "date", "provider_daily_return"
+    ).to_dicts() == [
+        {
+            "validated_anchor_date": "2026-08-11",
+            "date": "2026-08-12",
+            "provider_daily_return": pytest.approx(0.02),
+        }
+    ]

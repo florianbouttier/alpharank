@@ -382,6 +382,10 @@ reconstruites depuis les rendements journaliers du fournisseur et ancrées sur l
 dernier cours validé. Une correction historique exige toujours un overlay
 sourcé et approuvé. Le run conserve séparément le diagnostic des révisions, le
 motif de non-remplacement et les lignes nouvelles effectivement sélectionnées.
+Si le payload frais commence après la dernière séance validée, la résolution
+DEF peut fournir cette clé d'ancrage inchangée avec son ancien identifiant de
+run : elle sert uniquement à calculer le premier rendement ajouté et n'est
+jamais republiée comme une nouvelle observation fournisseur.
 Le contrôle des mouvements extrêmes porte exclusivement sur ces nouvelles clés
 canoniques, tout en calculant chaque rendement depuis la séance canonique
 précédente. Un bootstrap ne requalifie donc jamais un mouvement historique déjà
