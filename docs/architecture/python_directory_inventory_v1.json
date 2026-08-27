@@ -132,7 +132,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 2
+      "python_file_count": 3
     },
     {
       "directory": "src",
@@ -286,14 +286,14 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 12
+      "python_file_count": 13
     },
     {
       "directory": "src/alpharank/reporting",
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 2
+      "python_file_count": 6
     },
     {
       "directory": "src/alpharank/strategy",
@@ -391,7 +391,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 10
+      "python_file_count": 11
     },
     {
       "directory": "tests/unit",
@@ -461,7 +461,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 6
+      "python_file_count": 7
     },
     {
       "directory": "tests/unit/strategy",
@@ -475,7 +475,7 @@
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
-  "python_file_count": 503,
+  "python_file_count": 511,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
   "violation_count": 0,

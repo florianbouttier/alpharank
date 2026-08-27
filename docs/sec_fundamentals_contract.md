@@ -335,6 +335,35 @@ Limitation non acceptee:
 
 - melanger silencieusement un autre vendor dans ce package
 
+## Explorateur Des Telechargements SEC
+
+Le rapport statique par entreprise sert a regarder ce que le run a réellement
+telecharge avant consolidation. Il ne lit pas `latest.json`, ne parcourt pas les
+runs pour deviner le plus recent et ne transforme pas une ligne RAW en valeur
+officielle. La commande canonique exige le dossier RAW exact :
+
+```bash
+python scripts/open_source/reporting/build_sec_fundamental_explorer.py \
+  --raw-run-dir data/open_source/official/runs/<run_id>/raw
+```
+
+Le rapport embarque, sans ressource reseau :
+
+- toutes les versions de `financials_sec_companyfacts.parquet` ;
+- les faits de secours filing-level ;
+- le calendrier SEC Submissions et ses accessions ;
+- les EPS extraits de Companyfacts ;
+- le referentiel societe et sa lignee SEC ;
+- les statuts d'acquisition, echecs, nombres de lignes et SHA-256 des sources.
+
+Les graphiques sont regroupes par quarter fiscal, mais la table brute conserve
+chaque date, formulaire, concept source et version deposee. La vue « premiere
+publication » aide a lire la causalite historique ; elle ne supprime jamais les
+amendements du payload. Le résultat vit sous
+`outputs/sec_fundamental_explorer/<run_id>/report.html`, reste hors Git et ne
+deplace aucun pointeur de production. Son `manifest.json` distingue explicitement
+le statut du rapport de toute promotion data.
+
 ## Regle de Documentation
 
 A chaque fois qu'on modifie un de ces points:

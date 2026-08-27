@@ -6,6 +6,11 @@ commande interactive.
 
 - `sec_quality_data.py` construit les tables de couverture, trous trimestriels
   et anomalies d'actions du rapport SEC.
+- `sec_fundamental_explorer.py` vérifie un run RAW explicite, conserve toutes
+  ses versions SEC et prépare le payload de l'explorateur autonome par société.
+- `_sec_explorer_html.py` et `_sec_explorer_script.py` possèdent uniquement le
+  rendu et les interactions locales du rapport ; ils ne sélectionnent aucune
+  valeur fondamentale.
 - `refresh_replay_html.py` rend le rapport humain du refresh sans recalculer
   les scores, holdings ou KPI.
 

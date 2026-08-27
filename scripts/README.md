@@ -23,5 +23,7 @@ des arguments.
 - `validate_legacy_replay_package.py` : validation d'un package Legacy.
 - `validate_common_portfolio_engine.py` : parité mécanique du simulateur.
 - `validate_documentation.py` : couverture des README et liens locaux.
+- `open_source/reporting/build_sec_fundamental_explorer.py` : rapport autonome
+  de toutes les lignes SEC d'un run RAW explicitement choisi.
 
 Lire `../docs/monthly_portfolio_runbook.md` avant un run mensuel.

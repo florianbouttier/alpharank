@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-25.**
+**Dernière mise à jour : 2026-08-27.**
 
 **Statut : seule source des priorités actives.**
 
@@ -72,6 +72,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 33 | `DATA-014` | terminer les acquisitions avant la décision de publication prix | lot DATA ci-dessous | fait |
 | 34 | `DATA-015` | conserver l'historique prix validé et n'ajouter que les nouveaux rendements | lot DATA ci-dessous | fait |
 | 35 | `REPLAY-004` | rendre le drift d'un refresh lisible dans un rapport HTML causal | lot REPLAY ci-dessous | fait |
+| 36 | `DATA-027` | rendre chaque téléchargement SEC explorable par entreprise et trimestre | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -298,10 +299,28 @@ change dans ce lot.
 | `DATA-024` | transmettre les arguments de la façade CLI du package SEC | fait | la commande publique parse désormais les chemins et options avant d'appeler l'implémentation ; `--help` est couvert hors du dépôt, 5 tests ciblés, lint et docs verts, sans changement des transformations SEC |
 | `DATA-025` | auditer un refresh dont le replay commun échoue sur une gate | fait | snapshot, Legacy et signaux Boosting restent comparés ; la raison exacte reçoit le statut `common_replay_blocked`, aucune table commune n'est inventée et la promotion reste interdite ; 11 tests ciblés, lint et docs verts |
 | `DATA-026` | séparer les identifiants de données des paramètres dans la comparaison de provenance | fait | les hashes d'entrée restent comparés comme données sans créer un faux drift de configuration ; les politiques, seeds, code et runtime conservent leurs contrôles indépendants ; 11 tests ciblés, lint et docs verts |
+| `DATA-027` | produire un explorateur SEC autonome par entreprise depuis un run RAW explicite | fait | run `20260827_070654` : 824 sociétés et 638 809 lignes SEC ; rapport `d8285970…20be`, payload `959a922c…8961` ; versions, quarters, lignes brutes, statuts et six hashes sources visibles ; tests, JavaScript, lint, plafond de dossier et docs verts ; gate de taille globale encore rouge sur un fichier non modifié |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
 doublons exacts et preuve de récupération.
+
+### Détail de `DATA-027`
+
+- **Objectif** : filtrer une société et auditer tous ses faits SEC téléchargés,
+  avec graphiques fiscaux trimestriels et preuve ligne à ligne.
+- **Périmètre** : six Parquet SEC/référentiel, statut d'acquisition, générateur
+  statique, tests et contrat SEC.
+- **Hors périmètre** : sélection DEF, package modèle, prix, Portfolio et
+  promotion de `latest.json`.
+- **Acceptation** : run RAW obligatoire, toutes les versions conservées, HTML
+  autonome sans asset réseau, filtre société, export CSV et manifeste hashé.
+- **Validations** : tests unitaires du payload et des refus, syntaxe JavaScript,
+  Ruff, seuils Python et validation documentaire.
+- **Impact** : aucun changement data ou économique ; nouvelle vue d'audit
+  régénérable sur des fichiers immuables.
+- **Rollback** : revenir au générateur précédent ; aucun dataset ni pointeur
+  n'est modifié par la commande.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
