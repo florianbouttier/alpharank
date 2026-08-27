@@ -2602,6 +2602,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/sources/simfin.py",
+      "target": "src/alpharank/data/sources/simfin_transport.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/sources/yahoo.py",
       "target": "src/alpharank/data/ingestion/config.py"
     },
@@ -7914,7 +7919,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/data/ingestion/config.py"
+        "src/alpharank/data/ingestion/config.py",
+        "src/alpharank/data/sources/simfin_transport.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -7924,6 +7930,19 @@
       "readers": [
         "src/alpharank/data/ingestion/cadrage.py",
         "src/alpharank/data/ingestion/orchestration.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.sources.simfin_transport",
+      "path": "src/alpharank/data/sources/simfin_transport.py",
+      "readers": [
+        "src/alpharank/data/sources/simfin.py"
       ]
     },
     {
@@ -10001,9 +10020,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 153,
-    "internal_edge_count": 768,
-    "library_count": 204,
-    "python_file_count": 364,
+    "internal_edge_count": 769,
+    "library_count": 205,
+    "python_file_count": 365,
     "script_count": 160,
     "unread_node_count": 159
   }

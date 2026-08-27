@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 500,
+  "node_count": 502,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -450,6 +450,8 @@
     "test_security_identity.py::test_real_sndk_registry_separates_old_and_new_ciks",
     "test_security_identity.py::test_reference_rows_use_distinct_canonical_tickers_for_each_cik",
     "test_security_identity.py::test_symbol_reuse_maps_rows_to_distinct_security_identities",
+    "test_simfin_transport.py::test_simfin_download_retries_ipv4_and_installs_atomically",
+    "test_simfin_transport.py::test_simfin_source_records_bounded_transport_failure",
     "test_snapshot_revision_audit.py::test_revision_audit_fails_on_duplicate_natural_keys",
     "test_snapshot_revision_audit.py::test_revision_audit_keeps_schema_strict_by_default",
     "test_snapshot_revision_audit.py::test_revision_audit_refuses_removed_columns_in_additive_mode",
@@ -503,7 +505,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "0dc7dc39f7457e58a97f73eb874afaac011c8a7e2245b73773782738b67dd973",
+  "node_ids_sha256": "6a328faf8ab2ed182ee6e3b574edf622287b40422712539a79f6b095d7710eed",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

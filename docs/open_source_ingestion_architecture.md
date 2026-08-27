@@ -427,7 +427,7 @@ Every full ingestion now applies this policy:
 | SEC submissions | every full ingestion | complete company filing index | no |
 | SEC filing XBRL | on demand for bounded fallback years | immutable accession document | no |
 | StockAnalysis | every time it is needed as fallback | full history | no |
-| SimFin | every full ingestion when enabled | full bulk file, then filtered for fallback years | temporary library file |
+| SimFin | every full ingestion when enabled | full bulk file, then filtered for fallback years | temporary library file; bounded connect/read waits and one IPv4 retry before an explicit `source_unavailable` failure |
 
 The SEC/Yahoo/SimFin financial rows described in this table belong to the
 multi-source research store. Before model production, the composed snapshot

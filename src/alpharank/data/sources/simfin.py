@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from datetime import date, datetime
 import os
+from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable
 
-from dotenv import load_dotenv
 import polars as pl
 import simfin as sf
-from simfin.download import _maybe_download_dataset
+from dotenv import load_dotenv
 from simfin.paths import _path_dataset
 
 from alpharank.data.ingestion.config import METRIC_SPECS, MetricSpec
+from alpharank.data.sources.simfin_transport import refresh_simfin_dataset
 
 
 class SimFinClient:
@@ -104,7 +104,12 @@ class SimFinClient:
 
 
 def _load_dataset_frame(dataset: str, ticker_set: set[str] | None, year: int | None, refresh_days: int) -> pl.DataFrame:
-    _maybe_download_dataset(refresh_days=refresh_days, dataset=dataset, market="us", variant="quarterly")
+    refresh_simfin_dataset(
+        refresh_days=refresh_days,
+        dataset=dataset,
+        market="us",
+        variant="quarterly",
+    )
     path = Path(_path_dataset(dataset=dataset, market="us", variant="quarterly"))
     if not path.exists():
         return pl.DataFrame()
@@ -141,7 +146,12 @@ def _load_shareprices_frame(
     end_date: str,
     refresh_days: int,
 ) -> pl.DataFrame:
-    _maybe_download_dataset(refresh_days=refresh_days, dataset="shareprices", market="us", variant="daily")
+    refresh_simfin_dataset(
+        refresh_days=refresh_days,
+        dataset="shareprices",
+        market="us",
+        variant="daily",
+    )
     path = Path(_path_dataset(dataset="shareprices", market="us", variant="daily"))
     if not path.exists() or not tickers:
         return _empty_prices()

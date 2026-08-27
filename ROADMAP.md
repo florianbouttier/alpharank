@@ -287,6 +287,7 @@ change dans ce lot.
 | `DATA-014` | séparer l'acquisition de la décision de publication pour qu'une révision prix ne coupe plus SEC et les fallbacks | fait | la gate prix est appliquée après toutes les sources déclarées ; `acquisition_status.json` distingue téléchargement, échec fournisseur et quarantaine avant toute publication |
 | `DATA-015` | empêcher un refresh Yahoo de recopier ou d'écraser l'historique prix validé | fait | l'observation fournisseur reste dans l'archive RAW différentielle ; le canonique conserve chaque clé validée et ajoute seulement les dates nouvelles via leurs rendements ancrés ; diagnostic et cause de non-remplacement sont persistés |
 | `DATA-016` | limiter la gate des mouvements prix aux nouvelles clés canoniques et différer sa décision jusqu'à la publication | fait | smoke réel sur le run `20260826_224908` : 2 500 nouvelles clés contrôlées avec leur ancre, zéro anomalie et aucun des 76 mouvements anciens requalifié ; gate combinée appliquée après acquisition ; 500 tests et gates statiques/documentaires verts |
+| `DATA-018` | borner le transport SimFin et reprendre en IPv4 quand IPv6 reste bloqué | fait | connexion et lecture bornées ; un échec initial est retenté une fois en IPv4, puis classé explicitement sans bloquer indéfiniment l'ingestion ; archive installée atomiquement et tests de non-régression verts |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
