@@ -102,8 +102,11 @@ run into a new price package:
 This command performs no provider request. It refuses an incomplete acquisition,
 binds prices and SPY to the same run id, recomputes both price gates against the
 current reviewed-move registry, validates full data freshness, and records the
-original acquisition and review hashes in the new manifest. The original run
-folder and its initially failed gate remain unchanged audit evidence.
+original acquisition and review hashes in the new manifest. If the acquisition
+resolved provider revisions through a validated-history return extension, the
+command must replay that same reconciliation and hash-bind its report and
+Parquet audit; it may never fall back to the provider's rewritten history. The
+original run folder and its initially failed gate remain unchanged audit evidence.
 
 When a complete provider observation rewrites old adjusted prices, the run
 audits those changes in `price_daily_return_revisions.parquet` and

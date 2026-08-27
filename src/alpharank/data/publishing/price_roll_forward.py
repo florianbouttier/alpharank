@@ -6,6 +6,11 @@ from dataclasses import dataclass
 
 import polars as pl
 
+from alpharank.data.ingestion.price_publication_candidate import (
+    PricePublicationContext,
+    build_price_publication_candidate,
+    resolve_incomplete_provider_tickers,
+)
 from alpharank.data.open_source.price_quality import (
     ExtremePriceMoveGateResult,
     audit_extreme_adjusted_price_moves,
@@ -15,7 +20,6 @@ from alpharank.data.prices import (
     EodhdSeed,
     HybridPriceResult,
     PriceGateResult,
-    audit_price_candidate,
     build_persistent_price_history_registry,
     load_eodhd_seed,
     persistent_history_summary,
@@ -119,7 +123,7 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         expected_through=request.expected_through,
     )
     refreshable = refreshable_active_tickers(active_tickers, terminal_tickers)
-    result = roll_forward_validated_price_history(
+    provider_result = roll_forward_validated_price_history(
         previous_validated_lineage=previous,
         active_yahoo_vintage=fresh_yahoo,
         active_tickers=active_tickers,
@@ -128,16 +132,25 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         security_identity_registry=identities,
     )
     seed = load_eodhd_seed(request.eodhd_seed_path.resolve(), start_date=request.start_date)
-    revision_gate = audit_price_candidate(
-        previous_prices=previous,
-        candidate_prices=result.prices,
-        candidate_lineage=result.lineage,
-        active_tickers=refreshable,
-        expected_eodhd_keys=seed.frame.select("ticker", "date"),
-        expected_through=request.expected_through,
-        policy=PRODUCTION_PRICE_GATE_POLICY,
-        active_resolution_vintage_id=active_resolution_id,
+    publication_candidate = build_price_publication_candidate(
+        provider_result,
+        fresh_yahoo,
+        previous,
+        context=PricePublicationContext(
+            active_tickers=active_tickers,
+            preserved_terminal_tickers=terminal_tickers,
+            expected_eodhd_keys=seed.frame.select("ticker", "date"),
+            expected_through=request.expected_through,
+            run_id=active_resolution_id,
+            policy=PRODUCTION_PRICE_GATE_POLICY,
+            incomplete_provider_tickers=resolve_incomplete_provider_tickers(
+                dict(request.source_refresh_contract)
+            ),
+            previous_comparison_prices=previous.select(provider_result.prices.columns),
+        ),
     )
+    result = publication_candidate.hybrid
+    revision_gate = publication_candidate.gate
     extreme_gate, reviewed_manifest = _review_extreme_moves(
         request=request,
         previous=previous,

@@ -61,6 +61,12 @@ def build_acquired_price_request(
         "original_price_publication_guard": file_record(
             resolved_run_dir / "price_publication_guard.json"
         ),
+        "original_price_revision_reconciliation": file_record(
+            resolved_run_dir / "price_revision_reconciliation.json"
+        ),
+        "original_price_return_extension_audit": file_record(
+            resolved_run_dir / "price_return_extension_audit.parquet"
+        ),
         "review_registry": file_record(reviewed_move_registry_path.resolve()),
     }
     previous_contract = contract.get("previous_validated_price_lineage")
@@ -140,9 +146,7 @@ def _validate_source_contract(contract: Mapping[str, object]) -> None:
     yahoo = semantics.get("yfinance_prices")
     if not isinstance(yahoo, Mapping):
         raise RuntimeError("Acquisition Yahoo source semantics are missing")
-    if yahoo.get("network_missing_tickers") or yahoo.get(
-        "benchmark_network_missing_tickers"
-    ):
+    if yahoo.get("network_missing_tickers") or yahoo.get("benchmark_network_missing_tickers"):
         raise RuntimeError("Acquisition Yahoo active or benchmark coverage is incomplete")
     for source in ("sec_companyfacts", "sec_submissions"):
         value = semantics.get(source)

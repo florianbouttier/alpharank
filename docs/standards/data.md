@@ -400,7 +400,10 @@ toutes les sources déclarées ont été tentées et que Yahoo, SPY, SEC Company
 et SEC submissions couvrent l'univers actif, puis recalcule les gates avec le
 registre de revue courant. Elle produit un nouveau package candidat et enregistre
 les hashes du statut d'acquisition, du contrat original, de la gate originale et
-du registre de revue ; elle ne modifie jamais les preuves du run acquis.
+du registre de revue ; lorsque le run a réconcilié une révision provider, elle
+rejoue la même extension de rendements et lie aussi par hash son rapport et son
+audit Parquet. Elle ne remplace jamais cet historique par le payload provider
+brut et ne modifie jamais les preuves du run acquis.
 
 ## 19. Publication et promotion
 

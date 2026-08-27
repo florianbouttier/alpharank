@@ -20,7 +20,8 @@ implémentation doit être rangée dans le sous-dossier responsable.
 2. `publication/build_roll_forward_price_package.py` préserve l'historique publié et
    rafraîchit les titres actifs.
 3. `publication/build_acquired_price_package.py` requalifie, sans réseau, un run
-   entièrement acquis dont une gate a été revue après coup.
+   entièrement acquis dont une gate a été revue après coup, en rejouant sa
+   réconciliation de rendements sans reprendre l'historique provider brut.
 4. `publication/build_sec_output_package.py` construit les fondamentaux SEC-only.
 5. `publication/build_composed_model_snapshot.py` assemble un snapshot immutable.
 6. Legacy et Boosting consomment exactement ce snapshot.
