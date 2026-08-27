@@ -104,12 +104,15 @@ nécessaires pour retrouver la preuve complète.
 1. résoudre et sceller la baseline publiée ;
 2. exécuter le refresh complet vers un candidat non promu ;
 3. arrêter et produire `blocked_before_replay` si une gate data échoue ;
-4. sinon construire le snapshot candidat et rejouer Legacy avec sa
+4. si la cause est ensuite revue, reconstruire un nouveau candidat depuis le
+   run acquis et ses hashes, sans recontacter les fournisseurs ni modifier la
+   gate originale ;
+5. construire le snapshot candidat et rejouer Legacy avec sa
    configuration scellée ;
-5. faire consommer au Boosting exactement l'`input_snapshot/` et les holdings
+6. faire consommer au Boosting exactement l'`input_snapshot/` et les holdings
    Legacy du nouveau run ;
-6. exécuter le replay commun et l'audit baseline/candidat ;
-7. refuser la promotion tant que le statut n'est pas recevable et toutes les
+7. exécuter le replay commun et l'audit baseline/candidat ;
+8. refuser la promotion tant que le statut n'est pas recevable et toutes les
    preuves présentes.
 
 Le fait d'arrêter avant les modèles lorsqu'un candidat est corrompu est une

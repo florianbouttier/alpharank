@@ -394,6 +394,14 @@ Le détail Parquet des révisions de rendement ne répète que les écarts supé
 au seuil matériel versionné, actuellement 1 point de base, ou un changement de
 disponibilité ; les écarts plus fins restent reconstructibles dans le RAW.
 
+Une revue terminée après l'acquisition ne déclenche pas un second téléchargement
+identique. La publication différée repart du dossier immuable du run, vérifie que
+toutes les sources déclarées ont été tentées et que Yahoo, SPY, SEC Companyfacts
+et SEC submissions couvrent l'univers actif, puis recalcule les gates avec le
+registre de revue courant. Elle produit un nouveau package candidat et enregistre
+les hashes du statut d'acquisition, du contrat original, de la gate originale et
+du registre de revue ; elle ne modifie jamais les preuves du run acquis.
+
 ## 19. Publication et promotion
 
 Ordre obligatoire :

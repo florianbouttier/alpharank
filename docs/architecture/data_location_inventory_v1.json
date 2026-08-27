@@ -4,7 +4,7 @@
     {
       "current_role": "mixed_generation_root",
       "exists": true,
-      "file_count": 16348,
+      "file_count": 16631,
       "kind": "package",
       "location_id": "data_root",
       "migration_status": "observed",
@@ -58,7 +58,7 @@
         "src/alpharank/replay/common_strategy.py",
         "src/alpharank/replay/validation.py"
       ],
-      "size_bytes": 37150139623,
+      "size_bytes": 39258005656,
       "target_role": "routing_only"
     },
     {
@@ -80,7 +80,6 @@
         "scripts/open_source/ingestion/nightly_ingestion.py",
         "scripts/open_source/publication/build_hybrid_price_candidate.py",
         "scripts/open_source/publication/build_output_package.py",
-        "scripts/open_source/publication/build_roll_forward_price_package.py",
         "scripts/open_source/publication/build_sec_output_package.py",
         "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
         "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
@@ -94,6 +93,7 @@
         "src/alpharank/data/ingestion/transition.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/publishing/price_package_output.py",
         "src/alpharank/data/quality/benchmark.py",
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
@@ -133,6 +133,7 @@
         "src/alpharank/data/ingestion/transition.py",
         "src/alpharank/data/open_source/legacy_export.py",
         "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/publishing/price_package_output.py",
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/refresh_compare.py"
@@ -155,6 +156,7 @@
         "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
         "scripts/open_source/ingestion/refresh_current_constituent_prices.py",
         "scripts/open_source/ingestion/refresh_sp500_constituents.py",
+        "scripts/open_source/publication/build_acquired_price_package.py",
         "scripts/open_source/publication/build_output_package.py",
         "scripts/open_source/publication/build_roll_forward_price_package.py",
         "scripts/open_source/publication/build_sec_metric_hybrid_package.py",
@@ -168,6 +170,7 @@
         "src/alpharank/data/ingestion/prices.py",
         "src/alpharank/data/publishing/composed_snapshot.py",
         "src/alpharank/data/publishing/open_source_package.py",
+        "src/alpharank/data/publishing/price_package_output.py",
         "src/alpharank/data/quality/benchmark.py",
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/multihorizon/live.py",
@@ -175,7 +178,7 @@
         "src/alpharank/replay/common.py",
         "src/alpharank/replay/refresh_compare.py"
       ],
-      "size_bytes": 6830910,
+      "size_bytes": 6830878,
       "target_role": "warehouse/raw then mart"
     },
     {
@@ -399,7 +402,7 @@
     {
       "current_role": "disposable_transport_cache",
       "exists": true,
-      "file_count": 0,
+      "file_count": 10,
       "kind": "package",
       "location_id": "open_source_cache",
       "migration_status": "retained",
@@ -416,19 +419,19 @@
         "src/alpharank/data/sources/simfin.py",
         "src/alpharank/data/sources/stockanalysis.py"
       ],
-      "size_bytes": 0,
+      "size_bytes": 42902182,
       "target_role": "outside_raw_contract"
     },
     {
       "current_role": "transaction_work_area",
       "exists": true,
-      "file_count": 0,
+      "file_count": 62,
       "kind": "package",
       "location_id": "open_source_transactions",
       "migration_status": "retained",
       "path": "data/open_source/_transactions",
       "readers": [],
-      "size_bytes": 0,
+      "size_bytes": 558590621,
       "target_role": "ephemeral_transaction_state"
     },
     {
@@ -479,7 +482,7 @@
     {
       "current_role": "mixed_source_ingestion_store",
       "exists": true,
-      "file_count": 2442,
+      "file_count": 2627,
       "kind": "package",
       "location_id": "open_source_official",
       "migration_status": "transition",
@@ -498,7 +501,7 @@
         "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
         "src/alpharank/data/ingestion/orchestration.py"
       ],
-      "size_bytes": 3009024186,
+      "size_bytes": 3511838627,
       "target_role": "warehouse_layers"
     },
     {
@@ -515,7 +518,7 @@
         "scripts/open_source/publication/build_sec_output_package.py",
         "scripts/open_source/publication/build_sec_output_package_with_backfill.py"
       ],
-      "size_bytes": 71666701,
+      "size_bytes": 67945991,
       "target_role": "warehouse/raw then stg"
     },
     {
@@ -543,19 +546,19 @@
       "readers": [
         "scripts/open_source/ingestion/nightly_ingestion.py"
       ],
-      "size_bytes": 88296,
+      "size_bytes": 88185,
       "target_role": "warehouse/manifests"
     },
     {
       "current_role": "ingestion_run_evidence",
       "exists": true,
-      "file_count": 2400,
+      "file_count": 2585,
       "kind": "package",
       "location_id": "open_source_runs",
       "migration_status": "transition",
       "path": "data/open_source/official/runs",
       "readers": [],
-      "size_bytes": 2695397511,
+      "size_bytes": 3201932773,
       "target_role": "warehouse/raw receipts"
     },
     {
@@ -582,7 +585,7 @@
     {
       "current_role": "sec_only_generations_and_staging",
       "exists": true,
-      "file_count": 1041,
+      "file_count": 1051,
       "kind": "package",
       "location_id": "sec_legacy",
       "migration_status": "transition",
@@ -595,13 +598,13 @@
         "scripts/open_source/reporting/build_sec_fundamental_explorer.py",
         "scripts/open_source/reporting/build_sec_quality_dashboard.py"
       ],
-      "size_bytes": 930105079,
+      "size_bytes": 931266300,
       "target_role": "warehouse/raw stg def"
     },
     {
       "current_role": "canonical_transformation_root",
       "exists": true,
-      "file_count": 186,
+      "file_count": 202,
       "kind": "package",
       "location_id": "warehouse",
       "migration_status": "target",
@@ -612,13 +615,13 @@
         "src/alpharank/data/warehouse/reader_migration.py",
         "src/alpharank/production/legacy_pipeline.py"
       ],
-      "size_bytes": 3052024132,
+      "size_bytes": 4054421732,
       "target_role": "warehouse"
     },
     {
       "current_role": "provider_observations_and_receipts",
       "exists": true,
-      "file_count": 98,
+      "file_count": 114,
       "kind": "package",
       "location_id": "warehouse_raw",
       "migration_status": "target",
@@ -626,7 +629,7 @@
       "readers": [
         "src/alpharank/data/contracts/raw_contracts.py"
       ],
-      "size_bytes": 2230561003,
+      "size_bytes": 3232958603,
       "target_role": "warehouse/raw"
     },
     {
@@ -734,7 +737,7 @@
       "target_role": "archive_by_reference"
     }
   ],
-  "observed_at": "2026-08-24",
+  "observed_at": "2026-08-20",
   "schema_version": 1,
   "scope": "current files and packages; metadata only; no payload copied or downloaded",
   "static_references": [
@@ -745,7 +748,7 @@
     },
     {
       "location_id": "legacy_constituents",
-      "reader_count": "1",
+      "reader_count": "2",
       "reference": "data/SP500_Constituents.csv"
     },
     {
@@ -1034,7 +1037,7 @@
     "file_location_count": 10,
     "location_count": 35,
     "package_location_count": 25,
-    "reader_edge_count": 287,
+    "reader_edge_count": 290,
     "static_reference_count": 58
   }
 }

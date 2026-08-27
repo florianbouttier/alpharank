@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 504,
+  "node_count": 508,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -20,8 +20,11 @@
     "test_backtest_time_folds.py::test_cpcv_splitter_removes_validation_groups_from_training",
     "test_backtest_time_folds.py::test_walk_forward_windows_use_only_past_train_months",
     "test_boosting_v2_replay.py::test_boosting_v2_replay_is_serialized_and_causal",
+    "test_build_roll_forward_price_package.py::test_builder_accepts_completed_quarantined_acquisition_without_network",
+    "test_build_roll_forward_price_package.py::test_builder_binds_acquired_benchmark_to_same_run",
     "test_build_roll_forward_price_package.py::test_builder_binds_audited_carries_to_full_ingestion_run",
     "test_build_roll_forward_price_package.py::test_builder_rejects_a_fresh_vintage_without_current_run_observation",
+    "test_build_roll_forward_price_package.py::test_builder_rejects_incomplete_acquisition_phase",
     "test_causal_snapshot.py::test_causal_v2_snapshot_is_sealed_and_complete",
     "test_code_inventory.py::test_archive_paths_are_not_active_entrypoints",
     "test_code_inventory.py::test_imports_and_main_guard_are_resolved_without_importing_code",
@@ -233,6 +236,7 @@
     "test_open_source_price_quality.py::test_price_quality_ignores_moves_before_refresh_window",
     "test_open_source_price_quality.py::test_price_quality_reviews_only_new_canonical_keys_with_previous_anchor",
     "test_open_source_price_quality.py::test_price_review_keys_ignore_validated_history_even_with_bootstrap_cutoff",
+    "test_open_source_price_quality.py::test_reviewed_price_registry_accepts_bounded_reddit_earnings_move",
     "test_open_source_price_quality.py::test_unconfirmed_split_does_not_repair_jump",
     "test_open_source_publishing.py::test_publish_open_source_output_package_writes_exact_outputs_and_lineage",
     "test_open_source_publishing.py::test_publisher_rejects_diagnostic_source_refresh_contract",
@@ -507,7 +511,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "e12022a7b093e55e228d5bcadedeb4b31d5b5919a96818dec5932129c9da0f5e",
+  "node_ids_sha256": "6a46c552c547015d75db0e6dc20b857b52ec59c67de3fb3c4365ce9e857d162f",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

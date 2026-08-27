@@ -74,6 +74,7 @@
     "scripts/open_source/audit/probe_sp500_entry_pe_coverage.py",
     "scripts/open_source/audit/run_sec_q4_fix2_candidate.py",
     "scripts/open_source/audit_price_snapshot_vintages.py",
+    "scripts/open_source/build_acquired_price_package.py",
     "scripts/open_source/build_composed_model_snapshot.py",
     "scripts/open_source/build_roll_forward_price_package.py",
     "scripts/open_source/build_sec_core_kpi_yearly_report.py",
@@ -98,6 +99,7 @@
     "scripts/open_source/ingestion/run_price_transition.py",
     "scripts/open_source/nightly_ingestion.py",
     "scripts/open_source/promote_definitive_mart.py",
+    "scripts/open_source/publication/build_acquired_price_package.py",
     "scripts/open_source/publication/build_composed_model_snapshot.py",
     "scripts/open_source/publication/build_hybrid_price_candidate.py",
     "scripts/open_source/publication/build_output_package.py",
@@ -977,6 +979,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/open_source/build_acquired_price_package.py",
+      "target": "src/alpharank/utils/script_compat.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/open_source/build_composed_model_snapshot.py",
       "target": "src/alpharank/utils/script_compat.py"
     },
@@ -1217,6 +1224,16 @@
     },
     {
       "kind": "import",
+      "source": "scripts/open_source/publication/build_acquired_price_package.py",
+      "target": "src/alpharank/data/publishing/acquired_price_run.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/publication/build_acquired_price_package.py",
+      "target": "src/alpharank/data/publishing/price_roll_forward.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/open_source/publication/build_composed_model_snapshot.py",
       "target": "src/alpharank/data/publishing/composed_snapshot.py"
     },
@@ -1263,12 +1280,12 @@
     {
       "kind": "import",
       "source": "scripts/open_source/publication/build_roll_forward_price_package.py",
-      "target": "src/alpharank/data/prices/contracts.py"
+      "target": "src/alpharank/data/publishing/price_package_output.py"
     },
     {
       "kind": "import",
       "source": "scripts/open_source/publication/build_roll_forward_price_package.py",
-      "target": "src/alpharank/data/security_identity.py"
+      "target": "src/alpharank/data/publishing/price_roll_forward.py"
     },
     {
       "kind": "import",
@@ -2502,6 +2519,16 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/publishing/acquired_price_run.py",
+      "target": "src/alpharank/data/ingestion/acquisition_status.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/acquired_price_run.py",
+      "target": "src/alpharank/data/publishing/price_package_output.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/publishing/composed_snapshot.py",
       "target": "src/alpharank/data/prices/history.py"
     },
@@ -2534,6 +2561,61 @@
       "kind": "import",
       "source": "src/alpharank/data/publishing/open_source_package.py",
       "target": "src/alpharank/data/lineage/output_history.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_package_output.py",
+      "target": "src/alpharank/data/ingestion/acquisition_status.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_package_output.py",
+      "target": "src/alpharank/data/open_source/price_quality.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_package_output.py",
+      "target": "src/alpharank/data/prices/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_package_output.py",
+      "target": "src/alpharank/data/security_identity.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_roll_forward.py",
+      "target": "src/alpharank/data/open_source/price_quality.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_roll_forward.py",
+      "target": "src/alpharank/data/prices/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_roll_forward.py",
+      "target": "src/alpharank/data/prices/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_roll_forward.py",
+      "target": "src/alpharank/data/publishing/price_package_inputs.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_roll_forward.py",
+      "target": "src/alpharank/data/publishing/price_package_output.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_roll_forward.py",
+      "target": "src/alpharank/data/quality/freshness.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/publishing/price_roll_forward.py",
+      "target": "src/alpharank/data/security_identity.py"
     },
     {
       "kind": "import",
@@ -5149,6 +5231,19 @@
       "invokes": [],
       "layer": "script",
       "lifecycle": "active",
+      "module": "scripts.open_source.build_acquired_price_package",
+      "path": "scripts/open_source/build_acquired_price_package.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/utils/script_compat.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
       "module": "scripts.open_source.build_composed_model_snapshot",
       "path": "scripts/open_source/build_composed_model_snapshot.py",
       "readers": []
@@ -5481,6 +5576,20 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/data/publishing/acquired_price_run.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.open_source.publication.build_acquired_price_package",
+      "path": "scripts/open_source/publication/build_acquired_price_package.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/data/publishing/composed_snapshot.py"
       ],
       "invokes": [],
@@ -5526,8 +5635,8 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/data/prices/__init__.py",
-        "src/alpharank/data/prices/contracts.py",
-        "src/alpharank/data/security_identity.py"
+        "src/alpharank/data/publishing/price_package_output.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -6816,7 +6925,9 @@
       "module": "alpharank.data.ingestion.acquisition_status",
       "path": "src/alpharank/data/ingestion/acquisition_status.py",
       "readers": [
-        "src/alpharank/data/ingestion/orchestration.py"
+        "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/publishing/acquired_price_run.py",
+        "src/alpharank/data/publishing/price_package_output.py"
       ]
     },
     {
@@ -7261,7 +7372,9 @@
         "scripts/open_source/ingestion/refresh_current_constituent_prices.py",
         "src/alpharank/data/ingestion/orchestration.py",
         "src/alpharank/data/ingestion/price_run_evidence.py",
-        "src/alpharank/data/ingestion/prices.py"
+        "src/alpharank/data/ingestion/prices.py",
+        "src/alpharank/data/publishing/price_package_output.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
       ]
     },
     {
@@ -7375,7 +7488,9 @@
         "scripts/open_source/publication/build_roll_forward_price_package.py",
         "src/alpharank/data/ingestion/orchestration.py",
         "src/alpharank/data/ingestion/price_publication_candidate.py",
-        "src/alpharank/data/ingestion/prices.py"
+        "src/alpharank/data/ingestion/prices.py",
+        "src/alpharank/data/publishing/price_package_output.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
       ]
     },
     {
@@ -7405,7 +7520,6 @@
       "path": "src/alpharank/data/prices/contracts.py",
       "readers": [
         "scripts/open_source/publication/build_hybrid_price_candidate.py",
-        "scripts/open_source/publication/build_roll_forward_price_package.py",
         "src/alpharank/data/ingestion/price_publication_candidate.py",
         "src/alpharank/data/ingestion/refresh_policy.py",
         "src/alpharank/data/prices/__init__.py",
@@ -7415,7 +7529,8 @@
         "src/alpharank/data/prices/reconciliation.py",
         "src/alpharank/data/prices/revision_diagnostic.py",
         "src/alpharank/data/prices/revisions.py",
-        "src/alpharank/data/prices/seed.py"
+        "src/alpharank/data/prices/seed.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
       ]
     },
     {
@@ -7569,6 +7684,22 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/data/ingestion/acquisition_status.py",
+        "src/alpharank/data/publishing/price_package_output.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.publishing.acquired_price_run",
+      "path": "src/alpharank/data/publishing/acquired_price_run.py",
+      "readers": [
+        "scripts/open_source/publication/build_acquired_price_package.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
         "src/alpharank/data/prices/history.py",
         "src/alpharank/data/publishing/snapshot_storage.py",
         "src/alpharank/data/security_identity.py"
@@ -7636,6 +7767,61 @@
         "scripts/open_source/publication/build_output_package.py",
         "src/alpharank/data/ingestion/orchestration.py",
         "src/alpharank/production/legacy_pipeline.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.publishing.price_package_inputs",
+      "path": "src/alpharank/data/publishing/price_package_inputs.py",
+      "readers": [
+        "src/alpharank/data/publishing/price_roll_forward.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/ingestion/acquisition_status.py",
+        "src/alpharank/data/open_source/price_quality.py",
+        "src/alpharank/data/prices/__init__.py",
+        "src/alpharank/data/security_identity.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.publishing.price_package_output",
+      "path": "src/alpharank/data/publishing/price_package_output.py",
+      "readers": [
+        "scripts/open_source/publication/build_roll_forward_price_package.py",
+        "src/alpharank/data/publishing/acquired_price_run.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/open_source/price_quality.py",
+        "src/alpharank/data/prices/__init__.py",
+        "src/alpharank/data/prices/contracts.py",
+        "src/alpharank/data/publishing/price_package_inputs.py",
+        "src/alpharank/data/publishing/price_package_output.py",
+        "src/alpharank/data/quality/freshness.py",
+        "src/alpharank/data/security_identity.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.publishing.price_roll_forward",
+      "path": "src/alpharank/data/publishing/price_roll_forward.py",
+      "readers": [
+        "scripts/open_source/publication/build_acquired_price_package.py",
+        "scripts/open_source/publication/build_roll_forward_price_package.py"
       ]
     },
     {
@@ -7733,7 +7919,8 @@
       "module": "alpharank.data.quality.freshness",
       "path": "src/alpharank/data/quality/freshness.py",
       "readers": [
-        "src/alpharank/data/ingestion/orchestration.py"
+        "src/alpharank/data/ingestion/orchestration.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
       ]
     },
     {
@@ -7774,13 +7961,14 @@
       "module": "alpharank.data.security_identity",
       "path": "src/alpharank/data/security_identity.py",
       "readers": [
-        "scripts/open_source/publication/build_roll_forward_price_package.py",
         "scripts/open_source/publication/build_sec_output_package.py",
         "src/alpharank/data/open_source/sec_mapping.py",
         "src/alpharank/data/prices/composition.py",
         "src/alpharank/data/prices/gates.py",
         "src/alpharank/data/prices/reconciliation.py",
-        "src/alpharank/data/publishing/composed_snapshot.py"
+        "src/alpharank/data/publishing/composed_snapshot.py",
+        "src/alpharank/data/publishing/price_package_output.py",
+        "src/alpharank/data/publishing/price_roll_forward.py"
       ]
     },
     {
@@ -9919,6 +10107,7 @@
         "scripts/experiments/run_multihorizon_boosting.py",
         "scripts/experiments/run_topn_allocation_comparison.py",
         "scripts/open_source/audit_price_snapshot_vintages.py",
+        "scripts/open_source/build_acquired_price_package.py",
         "scripts/open_source/build_composed_model_snapshot.py",
         "scripts/open_source/build_roll_forward_price_package.py",
         "scripts/open_source/build_sec_core_kpi_yearly_report.py",
@@ -10019,11 +10208,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 153,
-    "internal_edge_count": 769,
-    "library_count": 205,
-    "python_file_count": 365,
-    "script_count": 160,
-    "unread_node_count": 159
+    "active_entrypoint_count": 155,
+    "internal_edge_count": 785,
+    "library_count": 209,
+    "python_file_count": 371,
+    "script_count": 162,
+    "unread_node_count": 161
   }
 }

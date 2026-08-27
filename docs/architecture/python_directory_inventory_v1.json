@@ -76,7 +76,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 18
+      "python_file_count": 19
     },
     {
       "directory": "scripts/open_source/audit",
@@ -97,7 +97,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 11
+      "python_file_count": 12
     },
     {
       "directory": "scripts/open_source/reporting",
@@ -202,7 +202,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 7
+      "python_file_count": 11
     },
     {
       "directory": "src/alpharank/data/quality",
@@ -475,7 +475,7 @@
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
-  "python_file_count": 497,
+  "python_file_count": 503,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
   "violation_count": 0,
