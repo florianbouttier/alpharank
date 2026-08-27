@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import polars as pl
 import pytest
@@ -185,6 +186,33 @@ def test_price_quality_accepts_only_exact_bounded_reviewed_move(tmp_path) -> Non
             event_since="2026-08-19",
             reviewed_moves=reviewed_moves,
         )
+
+
+def test_reviewed_price_registry_accepts_bounded_reddit_earnings_move() -> None:
+    reviewed_moves, _ = load_reviewed_extreme_price_moves(
+        Path("configs/data_quality/reviewed_extreme_price_moves.json")
+    )
+    prices = pl.DataFrame(
+        {
+            "ticker": ["RDDT.US", "RDDT.US"],
+            "date": [date(2024, 10, 29), date(2024, 10, 30)],
+            "adjusted_close": [81.73999786376953, 116.05000305175781],
+        }
+    )
+
+    reviewed = assert_no_extreme_adjusted_price_moves(
+        prices,
+        event_since="2024-10-30",
+        reviewed_moves=reviewed_moves,
+    )
+
+    assert reviewed.select("ticker", "date", "review_id").to_dicts() == [
+        {
+            "ticker": "RDDT.US",
+            "date": date(2024, 10, 30),
+            "review_id": "rddt-20241030-q3-results-v1",
+        }
+    ]
 
 
 def test_full_refresh_split_detection_cannot_be_masked_by_old_adjusted_vintage() -> None:

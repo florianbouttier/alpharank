@@ -19,6 +19,24 @@
         "https://www.merck.com/news/merck-and-moderna-announce-phase-3-interpath-001-trial-of-intismeran-autogene-plus-keytruda-met-endpoints-of-recurrence-free-survival-rfs-and-distant-metastasis-free-survival-dmfs-in-patient/",
         "https://apnews.com/article/2330dce708b0af215b68570b19d025df"
       ]
+    },
+    {
+      "review_id": "rddt-20241030-q3-results-v1",
+      "ticker": "RDDT.US",
+      "date": "2024-10-30",
+      "prior_adjusted_close_min": 81.73,
+      "prior_adjusted_close_max": 81.75,
+      "adjusted_close_min": 116.04,
+      "adjusted_close_max": 116.06,
+      "one_day_return_min": 0.4196,
+      "one_day_return_max": 0.4199,
+      "known_at": "2024-10-29T21:00:00Z",
+      "reason": "RDDT's approximately 42% session was a real market move after Reddit released third-quarter results following the prior close. The company reported 68% revenue growth, 47% DAUq growth, GAAP profitability and positive fourth-quarter guidance; the bounded Yahoo prices align the move with that disclosure rather than a split or price-scale discontinuity.",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1713445/000171344524000099/rddt-20241029.htm",
+        "https://www.sec.gov/Archives/edgar/data/1713445/000171344524000099/earningspressreleaseq324.htm",
+        "https://investor.redditinc.com/news-events/news-releases/news-details/2024/Reddit-Announces-Third-Quarter-2024-Results/"
+      ]
     }
   ]
 }

@@ -290,6 +290,7 @@ change dans ce lot.
 | `DATA-018` | borner le transport SimFin et reprendre en IPv4 quand IPv6 reste bloqué | fait | connexion et lecture bornées ; un échec initial est retenté une fois en IPv4, puis classé explicitement sans bloquer indéfiniment l'ingestion ; archive installée atomiquement et tests de non-régression verts |
 | `DATA-019` | autoriser l'ancre DEF conservée pour prolonger un ticker dont le payload frais commence après la dernière séance validée | fait | l'ancre garde son ancien `ingestion_run_id`, seules les dates nouvelles sont ajoutées et auditées ; test de non-régression fidèle au blocage EQR/AVB du 27 août |
 | `DATA-020` | enregistrer la fusion AVB/EQR et reconstruire l'univers S&P courant avant le refresh prix | fait | l'événement officiel du 18 août retire AVB, ajoute RDDT, renomme EQR en VMRK et conserve séparément la contrepartie actionnaire AVB ; aucun symbole n'est prolongé comme s'il désignait le même titre ; 504 tests et gates documentaires verts |
+| `DATA-021` | qualifier le mouvement RDDT du 30 octobre 2024 sans relâcher la gate prix | fait | hausse de 41,97 % bornée aux deux prix observés et reliée aux résultats T3 officiels publiés après la clôture précédente ; toute autre valeur reste bloquante et test de non-régression vert |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
