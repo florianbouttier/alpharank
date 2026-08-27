@@ -374,8 +374,18 @@ The targeted price command remains available for diagnosis and repair:
 
 It publishes a package marked
 `snapshot_scope=current_constituent_price_refresh`; it is not the final monthly
-production package. Follow it with the full ingestion described above. The
-resulting full ingestion is production-clean only when:
+production package. Follow it with the full ingestion described above.
+
+The constituent reconstruction must run before the full ingestion. The price
+refresh reads the latest reconstructed monthly snapshot at startup; reversing
+that order would download symbols that an official event has already removed
+and omit their replacements. For August 2026, the sourced events therefore
+remove EA and AVB, add FERG and RDDT, and change EQR to VMRK before Yahoo is
+queried. AVB and VMRK remain distinct securities: the reviewed shareholder
+event values an AVB position as 2.793 VMRK shares and never joins the two price
+series as a one-day AVB return.
+
+The resulting full ingestion is production-clean only when:
 
 - every current constituent has a non-null adjusted price through the same
   recent trading session;

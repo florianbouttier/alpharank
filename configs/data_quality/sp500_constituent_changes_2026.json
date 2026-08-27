@@ -144,6 +144,24 @@
         {"action": "add", "ticker": "FERG", "name": "Ferguson Enterprises"},
         {"action": "remove", "ticker": "EA"}
       ]
+    },
+    {
+      "event_id": "sp500-20260818-rddt-avb-vmrk",
+      "observed_at": "2026-08-13T23:59:59-04:00",
+      "effective_at": "2026-08-18T00:00:00-04:00",
+      "effective_date": "2026-08-18",
+      "confidence": "high",
+      "source_url": "https://press.spglobal.com/2026-08-13-Reddit-Set-to-Join-S-P-500-and-Sun-Communities-to-Join-S-P-MidCap-400",
+      "operations": [
+        {"action": "add", "ticker": "RDDT", "name": "Reddit"},
+        {"action": "remove", "ticker": "AVB"},
+        {
+          "action": "ticker_change",
+          "ticker": "EQR",
+          "new_ticker": "VMRK",
+          "name": "Vivmark Residential"
+        }
+      ]
     }
   ]
 }

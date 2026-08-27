@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 503,
+  "node_count": 504,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -147,6 +147,7 @@
     "test_open_source_consolidation.py::test_consolidate_financial_sources_overrides_share_outlier_with_yahoo",
     "test_open_source_consolidation.py::test_consolidate_financial_sources_preserves_accession_number_in_selected_lineage",
     "test_open_source_consolidation.py::test_share_quality_reselects_fallback_after_cross_source_scale_mismatch",
+    "test_open_source_constituents.py::test_august_registry_separates_avb_from_vivmark_successor",
     "test_open_source_constituents.py::test_constituent_snapshot_has_unique_key",
     "test_open_source_constituents.py::test_membership_effective_at_decision_time",
     "test_open_source_constituents.py::test_membership_event_lineage_is_complete",
@@ -506,7 +507,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "8be0ba76bd48db2139db8c0b3fd3b9f93992a5ef6bf5085b8411008be4983632",
+  "node_ids_sha256": "e12022a7b093e55e228d5bcadedeb4b31d5b5919a96818dec5932129c9da0f5e",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

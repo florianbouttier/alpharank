@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import polars as pl
@@ -83,6 +85,51 @@ def test_refresh_monthly_constituents_obeys_effective_month_and_ticker_change() 
     assert june == {"NEW", "KEPT"}
     assert july == {"NEW", "KEPT"}
     assert len(result.operation_audit) == 3
+
+
+def test_august_registry_separates_avb_from_vivmark_successor() -> None:
+    project_root = Path(__file__).resolve().parents[3]
+    required_tickers = [
+        "CASY",
+        "CTRA",
+        "BK",
+        "EPAM",
+        "POOL",
+        "CPB",
+        "SATS",
+        "CAG",
+        "HON",
+        "EA",
+        "AVB",
+        "EQR",
+    ]
+    tickers = required_tickers + [f"TEST{index:03d}" for index in range(491)]
+    source = pl.DataFrame(
+        {
+            "Date": [date(2026, 4, 1)] * len(tickers),
+            "Ticker": tickers,
+            "Name": [f"Name {ticker}" for ticker in tickers],
+        }
+    )
+    registry = json.loads(
+        (
+            project_root
+            / "configs"
+            / "data_quality"
+            / "sp500_constituent_changes_2026.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    result = refresh_monthly_constituents(
+        source, registry=registry, target_month=date(2026, 8, 1)
+    )
+    august = set(
+        result.frame.filter(pl.col("Date") == date(2026, 8, 1))["Ticker"]
+    )
+
+    assert {"RDDT", "VMRK", "FERG"}.issubset(august)
+    assert {"AVB", "EQR", "EA"}.isdisjoint(august)
+    assert result.frame.filter(pl.col("Date") == date(2026, 8, 1)).height == 503
 
 
 def test_refresh_monthly_constituents_requires_explicit_noop_permission() -> None:

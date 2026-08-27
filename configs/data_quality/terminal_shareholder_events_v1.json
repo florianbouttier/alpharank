@@ -3,7 +3,7 @@
   "registry_id": "terminal_shareholder_events_v1",
   "status": "reviewed_selected_portfolio_events",
   "currency": "USD",
-  "retrieved_at": "2026-08-20T03:33:08Z",
+  "retrieved_at": "2026-08-27T03:36:00Z",
   "source_hash_scope": "sha256 of the HTTP response body after content decoding",
   "events": [
     {
@@ -379,6 +379,46 @@
         }
       ],
       "review_note": "The strategy could not buy FRC at the May 1 regular-session open. The 3.51 rows dated May 1 and May 2 are not treated as NYSE executions, and no zero recovery is invented for a position that should never have been filled."
+    },
+    {
+      "event_id": "AVB-2026-08-17-VMRK",
+      "ticker": "AVB.US",
+      "issuer_name": "AvalonBay Communities, Inc.",
+      "event_type": "stock_merger",
+      "effective_date": "2026-08-17",
+      "known_at": "2026-08-17T16:01:44-04:00",
+      "known_at_basis": "SEC acceptance of AvalonBay's completion filing",
+      "last_primary_trading_date": "2026-08-14",
+      "successor_first_trading_date": "2026-08-18",
+      "portfolio_resolution": {
+        "mode": "terminal_consideration",
+        "allow_entry": true,
+        "cash_per_share": 0.0,
+        "successor_ticker": "VMRK.US",
+        "exchange_ratio": 2.793,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": true,
+        "distributions": [],
+        "shareholder_consideration_status": "complete"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-avb-2026-08-17-vmrk-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/915912/000110465926097833/tm2623381d1_8k.htm",
+          "published_or_accepted_at": "2026-08-17T16:01:44-04:00",
+          "retrieved_at": "2026-08-27T03:36:00Z",
+          "sha256": "111d67a79f0fc647ce05f968a8c45df6f1d53d0c67c18e1d594b39c40ab316cb",
+          "supports": [
+            "August 17 merger completion",
+            "2.793 VMRK shares per AVB share",
+            "AVB removal before the August 17 market open",
+            "VMRK trading from August 18"
+          ]
+        }
+      ],
+      "review_note": "AVB ends on August 14 and its holders receive 2.793 VMRK shares. The post-merger VMRK quote is successor consideration, not a roughly 65% one-day AVB loss or a same-security price continuation."
     }
   ]
 }

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from datetime import date, datetime, timezone
-import json
 from pathlib import Path
 
 import polars as pl
@@ -23,14 +23,14 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
 
     assert registry.path == DEFAULT_TERMINAL_EVENT_REGISTRY.resolve()
     assert len(registry.sha256) == 64
-    assert len(registry.events) == 8
-    assert sum(len(event["source_documents"]) for event in registry.events) == 12
+    assert len(registry.events) == 9
+    assert sum(len(event["source_documents"]) for event in registry.events) == 13
 
     terminal = registry.terminal_consideration_events(
         price_vintage_id="prices-v2"
     )
-    assert terminal.height == 7
-    assert terminal["terminal_event_id"].n_unique() == 7
+    assert terminal.height == 8
+    assert terminal["terminal_event_id"].n_unique() == 8
     assert terminal["price_vintage_id"].unique().to_list() == ["prices-v2"]
 
     kraft = terminal.filter(terminal["ticker"] == "KRFT.US").row(0, named=True)
@@ -46,6 +46,11 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
     assert express_scripts["successor_ticker"] == "CI.US"
     assert express_scripts["exchange_ratio"] == 0.2434
 
+    avalonbay = terminal.filter(terminal["ticker"] == "AVB.US").row(0, named=True)
+    assert avalonbay["successor_ticker"] == "VMRK.US"
+    assert avalonbay["exchange_ratio"] == 2.793
+    assert avalonbay["cash_per_share"] == 0.0
+
     blocks = registry.pre_execution_blocks()
     assert blocks.height == 1
     frc = blocks.row(0, named=True)
@@ -57,7 +62,7 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
     assert frc["entry_allowed"] is False
 
     entry_blocks = registry.terminal_entry_blocks()
-    assert entry_blocks.height == 8
+    assert entry_blocks.height == 9
     expected_months = {
         "KRFT.US": date(2015, 8, 1),
         "HSP.US": date(2015, 10, 1),
@@ -67,6 +72,7 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
         "NFX.US": date(2019, 3, 1),
         "NLSN.US": date(2022, 11, 1),
         "FRC.US": date(2023, 5, 1),
+        "AVB.US": date(2026, 9, 1),
     }
     assert {
         row["ticker"]: row["blocked_from_holding_month"]
