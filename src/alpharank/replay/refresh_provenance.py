@@ -32,6 +32,7 @@ def stable_config(value: Any, key: str = "") -> Any:
         "run_dir",
         "run_instance_id",
         "run_output_dir",
+        "source_input_sha256",
     }
     if key in ignored or key.endswith("_path") or key.endswith("_files") or key.endswith("_dir"):
         return None

@@ -295,6 +295,7 @@ change dans ce lot.
 | `DATA-023` | reproduire la réconciliation canonique lors d'une republication différée | fait | la republication conserve chaque rendement historique validé, ajoute uniquement les nouveaux rendements et lie par hash les preuves de réconciliation ; 11 tests ciblés, lint et package réel sans réseau verts |
 | `DATA-024` | transmettre les arguments de la façade CLI du package SEC | fait | la commande publique parse désormais les chemins et options avant d'appeler l'implémentation ; `--help` est couvert hors du dépôt, 5 tests ciblés, lint et docs verts, sans changement des transformations SEC |
 | `DATA-025` | auditer un refresh dont le replay commun échoue sur une gate | fait | snapshot, Legacy et signaux Boosting restent comparés ; la raison exacte reçoit le statut `common_replay_blocked`, aucune table commune n'est inventée et la promotion reste interdite ; 11 tests ciblés, lint et docs verts |
+| `DATA-026` | séparer les identifiants de données des paramètres dans la comparaison de provenance | fait | les hashes d'entrée restent comparés comme données sans créer un faux drift de configuration ; les politiques, seeds, code et runtime conservent leurs contrôles indépendants ; 11 tests ciblés, lint et docs verts |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des

@@ -227,11 +227,13 @@ def test_stable_config_ignores_run_paths_but_preserves_policy() -> None:
     baseline = {
         "run_output_dir": "/baseline/run",
         "source_input_files": {"prices": "/baseline/prices.parquet"},
+        "source_input_sha256": {"prices": "baseline"},
         "minimum_liquidity": 1_000_000,
     }
     candidate = {
         "run_output_dir": "/candidate/run",
         "source_input_files": {"prices": "/candidate/prices.parquet"},
+        "source_input_sha256": {"prices": "candidate"},
         "minimum_liquidity": 1_000_000,
     }
 
