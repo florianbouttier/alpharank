@@ -33,8 +33,9 @@ class ReplayAuditInputs:
     baseline_boosting: Path
     candidate_boosting: Path
     baseline_common: Path
-    candidate_common: Path
+    candidate_common: Path | None
     historical_cutoff: date
+    common_replay_failure: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,7 +123,13 @@ def audit_refresh_replay(
     replay_diffs = _compare_replay_tables(inputs, output_dir, materiality_tolerance)
     provenance = _compare_provenance(inputs)
     attribution = _build_attribution(snapshot_diffs, replay_diffs, output_dir)
-    status = _classify(snapshot_diffs, replay_diffs, provenance, attribution)
+    status = _classify(
+        snapshot_diffs,
+        replay_diffs,
+        provenance,
+        attribution,
+        common_replay_failure=inputs.common_replay_failure,
+    )
     report = {
         "contract_version": 1,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -136,6 +143,7 @@ def audit_refresh_replay(
         ],
         "provenance_comparison": provenance,
         "portfolio_attribution": attribution,
+        "common_replay_failure": inputs.common_replay_failure,
         "fail_closed_reason": _fail_closed_reason(status),
     }
     _write_json(output_dir / "refresh_replay_report.json", report)
@@ -227,6 +235,8 @@ def _compare_replay_tables(
     roots = _replay_roots(inputs)
     diffs = {}
     for table in REPLAY_TABLES:
+        if table.root_name == "common" and inputs.candidate_common is None:
+            continue
         baseline = read_table(roots[f"baseline_{table.root_name}"], table.spec)
         candidate = read_table(roots[f"candidate_{table.root_name}"], table.spec)
         if table.columns:
@@ -254,11 +264,12 @@ def _compare_provenance(inputs: ReplayAuditInputs) -> dict[str, Any]:
             inputs.baseline_boosting / "manifest.json",
             inputs.candidate_boosting / "manifest.json",
         ),
-        "common": (
+    }
+    if inputs.candidate_common is not None:
+        pairs["common"] = (
             inputs.baseline_common / "manifest.json",
             inputs.candidate_common / "manifest.json",
-        ),
-    }
+        )
     return compare_provenance_pairs(pairs)
 
 
@@ -275,7 +286,15 @@ def _build_attribution(
         ),
         None,
     )
-    portfolio_events = changed_key_events(replay_diffs["common_positions"][1])
+    common_positions = replay_diffs.get("common_positions")
+    if common_positions is None:
+        return _build_blocked_common_attribution(
+            snapshot_diffs,
+            replay_diffs,
+            first_stage=first_stage,
+            output_dir=output_dir,
+        )
+    portfolio_events = changed_key_events(common_positions[1])
     if not portfolio_events.is_empty():
         portfolio_events.write_parquet(output_dir / "portfolio_drift_keys.parquet")
     data_datasets = [name for name, diff in snapshot_diffs.items() if diff.has_historical_drift]
@@ -312,13 +331,49 @@ def _ordered_drift_stages(
     ]
 
 
+def _build_blocked_common_attribution(
+    snapshot_diffs: dict[str, FrameDiff],
+    replay_diffs: dict[str, tuple[str, FrameDiff]],
+    *,
+    first_stage: str | None,
+    output_dir: Path,
+) -> dict[str, Any]:
+    signal_events = changed_key_events(replay_diffs["boosting_predictions"][1])
+    signal_path = output_dir / "boosting_signal_drift_keys.parquet"
+    if not signal_events.is_empty():
+        signal_events.write_parquet(signal_path)
+    return {
+        "first_divergent_stage": first_stage,
+        "data_datasets_with_historical_drift": [
+            name for name, diff in snapshot_diffs.items() if diff.has_historical_drift
+        ],
+        "portfolio_drift_rows": None,
+        "portfolio_drift_keys_path": None,
+        "boosting_signal_drift_rows": signal_events.height,
+        "boosting_signal_drift_keys_path": (
+            str(signal_path.resolve()) if signal_events.height else None
+        ),
+        "exhaustively_attributed": False,
+        "review_status": "blocked_by_common_replay_gate",
+        "explanation": (
+            "The common replay rejected the candidate before publishing portfolio tables. "
+            "Snapshot, Legacy and Boosting signal drift remain fully compared; missing common "
+            "tables are not fabricated."
+        ),
+    }
+
+
 def _classify(
     snapshot_diffs: dict[str, FrameDiff],
     replay_diffs: dict[str, tuple[str, FrameDiff]],
     provenance: dict[str, Any],
     attribution: dict[str, Any],
+    *,
+    common_replay_failure: str | None,
 ) -> str:
     del snapshot_diffs
+    if common_replay_failure is not None:
+        return "common_replay_blocked"
     common_drift = replay_diffs["common_positions"][1].has_historical_drift
     legacy_drift = replay_diffs["legacy_positions"][1].has_historical_drift
     if not common_drift and not legacy_drift:
@@ -370,7 +425,7 @@ def _replay_roots(inputs: ReplayAuditInputs) -> dict[str, Path]:
 
 def _input_paths(inputs: ReplayAuditInputs) -> dict[str, str]:
     return {
-        field: str(getattr(inputs, field).resolve())
+        field: (str(value.resolve()) if (value := getattr(inputs, field)) is not None else None)
         for field in (
             "baseline_snapshot",
             "candidate_snapshot",

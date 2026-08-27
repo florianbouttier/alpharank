@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -136,17 +137,13 @@ def test_blocked_refresh_prefers_combined_price_publication_guard(tmp_path: Path
         ),
         encoding="utf-8",
     )
-    (run_dir / "acquisition_status.json").write_text(
-        json.dumps({"sources": []}), encoding="utf-8"
-    )
+    (run_dir / "acquisition_status.json").write_text(json.dumps({"sources": []}), encoding="utf-8")
     (run_dir / "price_composition.json").write_text("{}", encoding="utf-8")
 
     report = audit_blocked_refresh(run_dir, tmp_path / "baseline", tmp_path / "audit")
 
     assert report["failed_gate"]["name"] == "price_publication_guard"
-    assert report["failed_gate"]["reasons"] == [
-        "unreviewed_extreme_adjusted_price_moves"
-    ]
+    assert report["failed_gate"]["reasons"] == ["unreviewed_extreme_adjusted_price_moves"]
 
 
 def test_blocked_refresh_uses_completed_acquisition_statuses(tmp_path: Path) -> None:
@@ -183,6 +180,29 @@ def test_complete_audit_accepts_identical_historical_portfolios(tmp_path: Path) 
     assert report["status"] == "identical_historical_portfolios"
     assert report["promotion_allowed_by_this_gate"]
     assert report["portfolio_attribution"]["portfolio_drift_rows"] == 0
+
+
+def test_complete_audit_retains_a_common_replay_gate_failure(tmp_path: Path) -> None:
+    inputs = replace(
+        _complete_fixture(tmp_path),
+        candidate_common=None,
+        common_replay_failure="Selected Boosting holding CVC.US uses a censored target.",
+    )
+
+    report = audit_refresh_replay(inputs, tmp_path / "audit")
+
+    assert report["status"] == "common_replay_blocked"
+    assert not report["promotion_allowed_by_this_gate"]
+    assert report["common_replay_failure"] == (
+        "Selected Boosting holding CVC.US uses a censored target."
+    )
+    assert {item["stage"] for item in report["replay_comparison"]} == {
+        "legacy_portfolio",
+        "legacy_simulation",
+        "boosting_signal",
+    }
+    assert report["portfolio_attribution"]["portfolio_drift_rows"] is None
+    assert report["portfolio_attribution"]["review_status"] == ("blocked_by_common_replay_gate")
 
 
 def test_complete_audit_classifies_changed_code_before_data_attribution(tmp_path: Path) -> None:

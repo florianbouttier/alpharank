@@ -77,6 +77,7 @@ risque causal bloquant, même si l'impact économique paraît faible.
 | `identical_historical_portfolios` | mêmes positions et poids au cutoff commun | possible après les autres gates |
 | `explained_data_drift` | différences exhaustivement reliées à des révisions data recevables | revue humaine obligatoire |
 | `blocked_before_replay` | acquisition ou candidat invalide avant les modèles | interdite |
+| `common_replay_blocked` | Legacy et Boosting ont tourné mais une gate du moteur commun refuse de publier les portefeuilles | interdite jusqu'à résolution et attribution |
 | `code_config_runtime_drift` | data identiques mais environnement de calcul différent | interdite jusqu'à rapprochement |
 | `unexplained_portfolio_drift` | au moins une position différente sans cause démontrée | interdite |
 
@@ -115,6 +116,11 @@ nécessaires pour retrouver la preuve complète.
 8. refuser la promotion tant que le statut n'est pas recevable et toutes les
    preuves présentes.
 
+Si le replay commun s'arrête sur une gate méthodologique, l'audit compare quand
+même le snapshot, Legacy et les signaux Boosting avec
+`--common-replay-failure`. Il conserve la raison exacte, n'invente aucune table
+de portefeuille commune et conclut `common_replay_blocked`.
+
 Le fait d'arrêter avant les modèles lorsqu'un candidat est corrompu est une
 preuve de fiabilité, pas un replay réussi. Le rapport doit alors nommer les
 sources, clés et seuils qui ont empêché les deux backtests de consommer cette
@@ -152,3 +158,12 @@ Le code retour vaut zéro seulement pour
 `identical_historical_portfolios`. Toute autre classification retourne `2`,
 conserve les clés de divergence en Parquet et interdit la promotion jusqu'à la
 revue prévue par ce contrat.
+
+Lorsqu'une gate du replay commun a refusé le candidat, remplacer
+`--candidate-common` par :
+
+```bash
+  --common-replay-failure "<raison exacte de la gate>"
+```
+
+Les deux options sont mutuellement exclusives et l'une d'elles est obligatoire.

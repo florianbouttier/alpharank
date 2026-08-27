@@ -33,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate-boosting", type=Path)
     parser.add_argument("--baseline-common", type=Path)
     parser.add_argument("--candidate-common", type=Path)
+    parser.add_argument("--common-replay-failure")
     parser.add_argument("--historical-cutoff", type=date.fromisoformat)
     return parser.parse_args()
 
@@ -68,12 +69,15 @@ def _complete_inputs(args: argparse.Namespace) -> ReplayAuditInputs:
         "baseline_boosting",
         "candidate_boosting",
         "baseline_common",
-        "candidate_common",
         "historical_cutoff",
     )
     missing = [f"--{name.replace('_', '-')}" for name in required if getattr(args, name) is None]
     if missing:
         raise ValueError(f"Complete audit is missing arguments: {', '.join(missing)}")
+    if (args.candidate_common is None) == (args.common_replay_failure is None):
+        raise ValueError(
+            "Complete audit requires exactly one of --candidate-common or --common-replay-failure"
+        )
     return ReplayAuditInputs(
         baseline_snapshot=args.baseline_snapshot,
         candidate_snapshot=args.candidate_snapshot,
@@ -84,11 +88,18 @@ def _complete_inputs(args: argparse.Namespace) -> ReplayAuditInputs:
         baseline_common=args.baseline_common,
         candidate_common=args.candidate_common,
         historical_cutoff=args.historical_cutoff,
+        common_replay_failure=args.common_replay_failure,
     )
 
 
 def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str, object]:
-    mode = "blocked_refresh" if args.failed_refresh_run else "complete_replay"
+    mode = (
+        "blocked_refresh"
+        if args.failed_refresh_run
+        else "complete_replay_common_blocked"
+        if args.common_replay_failure
+        else "complete_replay"
+    )
     return capture_runtime_provenance(
         project_root=PROJECT_ROOT,
         entrypoint="scripts/validation/audit_refresh_replay.py",
