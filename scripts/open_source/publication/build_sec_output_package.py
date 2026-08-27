@@ -11,21 +11,21 @@ from pathlib import Path
 
 import polars as pl
 
-from alpharank.data.open_source.legacy_export import export_legacy_compatible_fundamental_outputs
-from alpharank.data.quality.revision_guard import audit_historical_revisions
-from alpharank.data.open_source.sec_mapping import load_sec_historical_ticker_bridge
-from alpharank.data.sources.sec_only import (
-    build_sec_only_earnings,
-    build_sec_only_financials,
-    build_sec_only_general_reference_from_raw_lineage,
-)
 from alpharank.data.ingestion.storage import utc_now_iso, write_json
 from alpharank.data.lineage.output_history import snapshot_output_directory
+from alpharank.data.open_source.legacy_export import export_legacy_compatible_fundamental_outputs
+from alpharank.data.open_source.sec_mapping import load_sec_historical_ticker_bridge
+from alpharank.data.quality.revision_guard import audit_historical_revisions
 from alpharank.data.security_identity import (
     SECURITY_IDENTITY_POLICY_ID,
     apply_security_identity_policy,
     apply_security_identity_reference_policy,
     load_security_identity_registry,
+)
+from alpharank.data.sources.sec_only import (
+    build_sec_only_earnings,
+    build_sec_only_financials,
+    build_sec_only_general_reference_from_raw_lineage,
 )
 
 RAW_FILE_NAMES = (
@@ -455,6 +455,21 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     return parser.parse_args()
+
+
+def cli() -> None:
+    """Parse public command arguments and build the requested SEC package."""
+    args = _parse_args()
+    main(
+        raw_source_dir=args.raw_source_dir,
+        reference_data_dir=args.reference_data_dir,
+        output_dir=args.output_dir,
+        previous_output_dir=args.previous_output_dir,
+        expected_through=args.expected_through,
+        allow_historical_revisions=args.allow_historical_revisions,
+        revision_review_note=args.revision_review_note,
+        identity_remediation_only=args.identity_remediation_only,
+    )
 
 
 def _overlay_identity_remediation(
@@ -953,14 +968,4 @@ def _write_readme(path: Path) -> None:
 
 
 if __name__ == "__main__":
-    args = _parse_args()
-    main(
-        raw_source_dir=args.raw_source_dir,
-        reference_data_dir=args.reference_data_dir,
-        output_dir=args.output_dir,
-        previous_output_dir=args.previous_output_dir,
-        expected_through=args.expected_through,
-        allow_historical_revisions=args.allow_historical_revisions,
-        revision_review_note=args.revision_review_note,
-        identity_remediation_only=args.identity_remediation_only,
-    )
+    cli()

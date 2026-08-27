@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[3]
 REPRESENTATIVE_COMMANDS = (
     "scripts/build_legacy_common_replay.py",
     "scripts/experiments/modeling/analyze_ema_anchor_recomposition_gap.py",
+    "scripts/open_source/build_sec_output_package.py",
     "scripts/open_source/publication/build_sec_metric_hybrid_package.py",
     "scripts/run_legacy.py",
 )
@@ -42,6 +43,7 @@ def test_representative_commands_start_outside_repository(tmp_path) -> None:
 def test_compatibility_facade_resolves_to_the_implementation_module() -> None:
     module = importlib.import_module("scripts.open_source.nightly_ingestion")
 
-    assert Path(module.__file__).resolve() == (
-        ROOT / "scripts/open_source/ingestion/nightly_ingestion.py"
-    ).resolve()
+    assert (
+        Path(module.__file__).resolve()
+        == (ROOT / "scripts/open_source/ingestion/nightly_ingestion.py").resolve()
+    )

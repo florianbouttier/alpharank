@@ -12,4 +12,4 @@ _IMPLEMENTATION = expose_script_implementation(
 )
 
 if __name__ == "__main__":
-    raise SystemExit(_IMPLEMENTATION.main())
+    raise SystemExit(_IMPLEMENTATION.cli())

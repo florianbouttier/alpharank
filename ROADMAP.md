@@ -293,6 +293,7 @@ change dans ce lot.
 | `DATA-021` | qualifier le mouvement RDDT du 30 octobre 2024 sans relâcher la gate prix | fait | hausse de 41,97 % bornée aux deux prix observés et reliée aux résultats T3 officiels publiés après la clôture précédente ; toute autre valeur reste bloquante et test de non-régression vert |
 | `DATA-022` | republier un run entièrement acquis après revue sans retélécharger les mêmes sources | fait | commande dédiée sans client réseau, package candidat lié par hash au statut, au contrat, à la gate originale et au registre de revue ; ancien script ramené de 336 à 109 lignes, aucune régression de taille/complexité, 27 tests ciblés et 48 gates CI verts |
 | `DATA-023` | reproduire la réconciliation canonique lors d'une republication différée | fait | la republication conserve chaque rendement historique validé, ajoute uniquement les nouveaux rendements et lie par hash les preuves de réconciliation ; 11 tests ciblés, lint et package réel sans réseau verts |
+| `DATA-024` | transmettre les arguments de la façade CLI du package SEC | fait | la commande publique parse désormais les chemins et options avant d'appeler l'implémentation ; `--help` est couvert hors du dépôt, 5 tests ciblés, lint et docs verts, sans changement des transformations SEC |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
