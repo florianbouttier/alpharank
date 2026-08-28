@@ -39,7 +39,7 @@ CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     (
         "terminal_shareholder_events",
-        ("configs/data_quality/terminal_shareholder_events_v1.json",),
+        ("configs/data_quality/terminal_shareholder_events_v*.json",),
     ),
     (
         "terminal_successor_prices",

@@ -23,8 +23,8 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
 
     assert registry.path == DEFAULT_TERMINAL_EVENT_REGISTRY.resolve()
     assert len(registry.sha256) == 64
-    assert len(registry.events) == 9
-    assert sum(len(event["source_documents"]) for event in registry.events) == 13
+    assert len(registry.events) == 13
+    assert sum(len(event["source_documents"]) for event in registry.events) == 17
 
     terminal = registry.terminal_consideration_events(
         price_vintage_id="prices-v2"
@@ -62,15 +62,19 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
     assert frc["entry_allowed"] is False
 
     entry_blocks = registry.terminal_entry_blocks()
-    assert entry_blocks.height == 9
+    assert entry_blocks.height == 13
     expected_months = {
+        "RX.US": date(2010, 3, 1),
         "KRFT.US": date(2015, 8, 1),
         "HSP.US": date(2015, 10, 1),
         "WFM.US": date(2017, 9, 1),
         "ESRX.US": date(2019, 1, 1),
         "SCG.US": date(2019, 1, 1),
         "NFX.US": date(2019, 3, 1),
+        "TSS.US": date(2019, 10, 1),
         "NLSN.US": date(2022, 11, 1),
+        "TWTR.US": date(2022, 11, 1),
+        "ABMD.US": date(2023, 1, 1),
         "FRC.US": date(2023, 5, 1),
         "AVB.US": date(2026, 9, 1),
     }
@@ -248,9 +252,10 @@ def test_terminal_event_registry_rejects_ambiguous_records(
     mutation,
     message: str,
 ) -> None:
-    payload = deepcopy(
-        json.loads(DEFAULT_TERMINAL_EVENT_REGISTRY.read_text(encoding="utf-8"))
-    )
+    payload = deepcopy(load_terminal_event_registry().payload)
+    payload.pop("extends_registry_path", None)
+    payload.pop("extends_registry_id", None)
+    payload.pop("extends_registry_sha256", None)
     mutation(payload)
     path = tmp_path / "terminal_events.json"
     path.write_text(json.dumps(payload), encoding="utf-8")

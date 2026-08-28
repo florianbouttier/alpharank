@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "registry_id": "terminal_shareholder_events_v2",
+  "status": "reviewed_selected_portfolio_events",
+  "currency": "USD",
+  "retrieved_at": "2026-08-28T16:07:47Z",
+  "source_hash_scope": "sha256 of the HTTP response body after content decoding",
+  "extends_registry_path": "terminal_shareholder_events_v1.json",
+  "extends_registry_id": "terminal_shareholder_events_v1",
+  "extends_registry_sha256": "e879c4ae4b8edfc34031bf84d1328b443d45d0ac9ef0dddb479a878dbaf21aa4",
+  "events": [
+    {
+      "event_id": "RX-2010-02-26-PRIVATE",
+      "ticker": "RX.US",
+      "issuer_name": "IMS Health Incorporated",
+      "event_type": "cash_merger",
+      "effective_date": "2010-02-26",
+      "known_at": "2010-03-02T17:24:28-05:00",
+      "known_at_basis": "SEC acceptance used as retrospective evidence; the execution rejection is based on the NYSE suspension before the February 26 open",
+      "last_primary_trading_date": "2010-02-25",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "post_terminal_entry_block",
+        "allow_entry": false,
+        "cash_per_share": null,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "not_evaluated_entry_only"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-rx-2010-03-02-completion-and-suspension",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1058083/000119312510046060/d8k.htm",
+          "published_or_accepted_at": "2010-03-02T17:24:28-05:00",
+          "retrieved_at": "2026-08-28T16:07:47Z",
+          "sha256": "f08509960bd5da33c9320c6310ea83da5b02f2ef62ed878d0e4f42b403190960",
+          "supports": [
+            "February 26 merger completion",
+            "NYSE suspension before the February 26 open",
+            "22.00 cash right"
+          ]
+        }
+      ],
+      "review_note": "The no-SEC universe selected RX for March 2010 after IMS Health had already ceased NYSE trading. This entry-only record rejects that impossible fill without using the 22.00 consideration as a simulated return."
+    },
+    {
+      "event_id": "TSS-2019-09-18-GPN",
+      "ticker": "TSS.US",
+      "issuer_name": "Total System Services, Inc.",
+      "event_type": "stock_merger",
+      "effective_date": "2019-09-18",
+      "known_at": "2019-09-20T17:05:40-04:00",
+      "known_at_basis": "SEC acceptance of Global Payments' filed completion announcement",
+      "last_primary_trading_date": "2019-09-17",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "post_terminal_entry_block",
+        "allow_entry": false,
+        "cash_per_share": null,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "not_evaluated_entry_only"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-gpn-2019-09-20-tsys-completion",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K exhibit 99.1",
+          "url": "https://www.sec.gov/Archives/edgar/data/721683/000119312519250774/d803104dex991.htm",
+          "published_or_accepted_at": "2019-09-20T17:05:40-04:00",
+          "retrieved_at": "2026-08-28T16:07:47Z",
+          "sha256": "104f372cdc85b485c5affc8bf0ba9fef943a5892140557decbfb4e7e3d923a0b",
+          "supports": [
+            "September 18 merger completion",
+            "TSYS combination into Global Payments"
+          ]
+        }
+      ],
+      "review_note": "The no-SEC universe attempted an October 2019 TSS entry after the September merger. This record blocks only post-event entry; it does not value an earlier TSS shareholder position."
+    },
+    {
+      "event_id": "TWTR-2022-10-27-PRIVATE",
+      "ticker": "TWTR.US",
+      "issuer_name": "Twitter, Inc.",
+      "event_type": "cash_merger",
+      "effective_date": "2022-10-27",
+      "known_at": "2022-10-28T20:22:36-04:00",
+      "known_at_basis": "SEC acceptance of Twitter's completion filing",
+      "last_primary_trading_date": "2022-10-27",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "post_terminal_entry_block",
+        "allow_entry": false,
+        "cash_per_share": null,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "not_evaluated_entry_only"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-twtr-2022-10-28-completion-and-suspension",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1418091/000119312522272772/d411753d8k.htm",
+          "published_or_accepted_at": "2022-10-28T20:22:36-04:00",
+          "retrieved_at": "2026-08-28T16:07:47Z",
+          "sha256": "60bfc50d97605692296877358a8150695e9ec7ae13a2df2bed331ddd1f33a653",
+          "supports": [
+            "October 27 merger completion",
+            "NYSE suspension before the October 28 open",
+            "54.20 cash right"
+          ]
+        }
+      ],
+      "review_note": "The no-SEC universe attempted a November 2022 Twitter entry after NYSE trading had ended. The event blocks that fill without inserting the merger cash as a realized return."
+    },
+    {
+      "event_id": "ABMD-2022-12-22-JNJ",
+      "ticker": "ABMD.US",
+      "issuer_name": "ABIOMED, Inc.",
+      "event_type": "cash_merger",
+      "effective_date": "2022-12-22",
+      "known_at": "2022-12-22T16:31:57-05:00",
+      "known_at_basis": "SEC acceptance of Abiomed's completion filing",
+      "last_primary_trading_date": "2022-12-21",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "post_terminal_entry_block",
+        "allow_entry": false,
+        "cash_per_share": null,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "not_evaluated_entry_only"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-abmd-2022-12-22-completion-and-suspension",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/815094/000119312522311074/d353287d8k.htm",
+          "published_or_accepted_at": "2022-12-22T16:31:57-05:00",
+          "retrieved_at": "2026-08-28T16:07:47Z",
+          "sha256": "4cceb151cbeb2f3c0368e996a23dcc1cb658b2bc730dd33466ca862bc2845ab4",
+          "supports": [
+            "December 22 merger completion",
+            "NASDAQ suspension after the December 21 close",
+            "380.00 cash plus a contingent value right"
+          ]
+        }
+      ],
+      "review_note": "The no-SEC universe attempted a January 2023 Abiomed entry after NASDAQ trading had ended. The CVR is deliberately not valued because this record blocks only a new post-event entry."
+    }
+  ]
+}

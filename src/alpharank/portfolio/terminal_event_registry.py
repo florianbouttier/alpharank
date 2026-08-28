@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date, datetime, time
 import hashlib
 import json
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from datetime import date, datetime, time
+from pathlib import Path
 from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -15,14 +15,17 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-
 DEFAULT_TERMINAL_EVENT_REGISTRY = (
     Path(__file__).resolve().parents[3]
     / "configs"
     / "data_quality"
-    / "terminal_shareholder_events_v1.json"
+    / "terminal_shareholder_events_v2.json"
 )
-REGISTRY_ID = "terminal_shareholder_events_v1"
+REGISTRY_ID = "terminal_shareholder_events_v2"
+SUPPORTED_REGISTRY_IDS = {
+    "terminal_shareholder_events_v1",
+    REGISTRY_ID,
+}
 TERMINAL_EVENT_TYPES = {
     "cash_merger",
     "stock_merger",
@@ -85,7 +88,9 @@ class TerminalEventRegistry:
                         float(item["amount_per_share"])
                         for item in resolution["distributions"]
                     ),
-                    "source": f"{REGISTRY_ID}:{primary_source['source_id']}",
+                    "source": (
+                        f"{self.payload['registry_id']}:{primary_source['source_id']}"
+                    ),
                     "source_url": primary_source["url"],
                 }
             )
@@ -148,6 +153,13 @@ class TerminalEventRegistry:
             if resolution["mode"] == "pre_execution_trading_suspension":
                 blocked_from_holding_month = effective_month
                 rule = "pre_open_suspension_blocks_effective_month"
+            elif resolution["mode"] == "post_terminal_entry_block":
+                blocked_from_holding_month = (
+                    effective_month
+                    if last_primary_trading_date < effective_month
+                    else _next_month(effective_month)
+                )
+                rule = "completed_terminal_event_blocks_post_event_entry"
             elif last_primary_trading_date < effective_month:
                 blocked_from_holding_month = effective_month
                 rule = "no_primary_session_blocks_effective_month"
@@ -180,15 +192,41 @@ def load_terminal_event_registry(
     resolved = path.resolve()
     raw = resolved.read_bytes()
     try:
-        payload = json.loads(raw)
+        source_payload = json.loads(raw)
     except json.JSONDecodeError as error:
         raise ValueError(f"Terminal event registry is not valid JSON: {error}") from error
+    payload = _resolve_registry_extension(resolved, source_payload)
     _validate_registry(payload)
     return TerminalEventRegistry(
         path=resolved,
         sha256=hashlib.sha256(raw).hexdigest(),
         payload=payload,
     )
+
+
+def _resolve_registry_extension(path: Path, payload: object) -> object:
+    if not isinstance(payload, dict) or "extends_registry_path" not in payload:
+        return payload
+    base_name = payload.get("extends_registry_path")
+    expected_id = payload.get("extends_registry_id")
+    expected_sha256 = payload.get("extends_registry_sha256")
+    if not isinstance(base_name, str) or Path(base_name).name != base_name:
+        raise ValueError("Terminal event registry extension must name a sibling file.")
+    base_path = path.parent / base_name
+    base_raw = base_path.read_bytes()
+    observed_sha256 = hashlib.sha256(base_raw).hexdigest()
+    if observed_sha256 != expected_sha256:
+        raise ValueError("Terminal event registry extension hash does not match its base.")
+    try:
+        base_payload = json.loads(base_raw)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Base terminal event registry is not valid JSON: {error}") from error
+    _validate_registry(base_payload)
+    if base_payload.get("registry_id") != expected_id:
+        raise ValueError("Terminal event registry extension id does not match its base.")
+    merged = {**base_payload, **payload}
+    merged["events"] = [*base_payload["events"], *payload.get("events", [])]
+    return merged
 
 
 def _next_month(value: date) -> date:
@@ -254,7 +292,7 @@ def _validate_registry(payload: object) -> None:
         raise ValueError("Terminal event registry root must be an object.")
     if payload.get("schema_version") != 1:
         raise ValueError("Unsupported terminal event registry schema version.")
-    if payload.get("registry_id") != REGISTRY_ID:
+    if payload.get("registry_id") not in SUPPORTED_REGISTRY_IDS:
         raise ValueError("Unexpected terminal event registry id.")
     if payload.get("status") != "reviewed_selected_portfolio_events":
         raise ValueError("Terminal event registry is not in reviewed status.")
@@ -333,7 +371,34 @@ def _validate_event(
     resolution = event["portfolio_resolution"]
     if not isinstance(resolution, dict):
         raise ValueError(f"Terminal event {event_id} resolution must be an object.")
-    if event_type in TERMINAL_EVENT_TYPES:
+    _validate_event_resolution(
+        event_id,
+        event_type,
+        resolution,
+        effective=effective,
+        known_at=known_at,
+        last_trade=last_trade,
+    )
+    _validate_sources(
+        event_id,
+        event["source_documents"],
+        known_at=known_at,
+        source_ids=source_ids,
+    )
+
+
+def _validate_event_resolution(
+    event_id: str,
+    event_type: str,
+    resolution: dict[str, Any],
+    *,
+    effective: date,
+    known_at: datetime,
+    last_trade: date,
+) -> None:
+    if resolution.get("mode") == "post_terminal_entry_block":
+        _validate_post_terminal_entry_block(event_id, resolution)
+    elif event_type in TERMINAL_EVENT_TYPES:
         _validate_terminal_consideration(event_id, event_type, resolution)
     elif event_type in PRE_EXECUTION_EVENT_TYPES:
         _validate_pre_execution_block(
@@ -345,12 +410,6 @@ def _validate_event(
         )
     else:
         raise ValueError(f"Unsupported terminal event type: {event_type}")
-    _validate_sources(
-        event_id,
-        event["source_documents"],
-        known_at=known_at,
-        source_ids=source_ids,
-    )
 
 
 def _validate_terminal_consideration(
@@ -441,6 +500,29 @@ def _validate_pre_execution_block(
         raise ValueError(f"Pre-execution event {event_id} was not known before open.")
     if last_trade >= effective:
         raise ValueError(f"Pre-execution event {event_id} lacks a prior final session.")
+
+
+def _validate_post_terminal_entry_block(
+    event_id: str,
+    resolution: dict[str, Any],
+) -> None:
+    _require_resolution_fields(event_id, resolution)
+    if resolution["allow_entry"] is not False:
+        raise ValueError(f"Post-terminal event {event_id} must reject later entry.")
+    if resolution["shareholder_consideration_status"] != "not_evaluated_entry_only":
+        raise ValueError(f"Post-terminal event {event_id} must remain entry-only.")
+    consideration_fields = (
+        "cash_per_share",
+        "successor_ticker",
+        "exchange_ratio",
+        "recovery_per_share",
+    )
+    if any(resolution[field] is not None for field in consideration_fields):
+        raise ValueError(f"Post-terminal event {event_id} contains consideration.")
+    if resolution["requires_successor_holding_end_price"] is not False:
+        raise ValueError(f"Post-terminal event {event_id} cannot require a successor.")
+    if resolution["distributions"] != []:
+        raise ValueError(f"Post-terminal event {event_id} cannot contain distributions.")
 
 
 def _validate_sources(

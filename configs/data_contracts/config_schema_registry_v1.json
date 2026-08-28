@@ -647,11 +647,12 @@
     },
     {
       "example_files": [
-        "configs/data_quality/terminal_shareholder_events_v1.json"
+        "configs/data_quality/terminal_shareholder_events_v1.json",
+        "configs/data_quality/terminal_shareholder_events_v2.json"
       ],
       "family_id": "terminal_shareholder_events",
       "patterns": [
-        "configs/data_quality/terminal_shareholder_events_v1.json"
+        "configs/data_quality/terminal_shareholder_events_v*.json"
       ],
       "schema": {
         "additional_properties": false,
@@ -860,6 +861,15 @@
               "type": "object"
             },
             "type": "array"
+          },
+          "extends_registry_id": {
+            "type": "string"
+          },
+          "extends_registry_path": {
+            "type": "string"
+          },
+          "extends_registry_sha256": {
+            "type": "string"
           },
           "registry_id": {
             "type": "string"

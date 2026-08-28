@@ -95,6 +95,15 @@ that same holding interval. `causal_timing_policy="legacy_month_only"` is an
 explicit reproduction escape hatch for the immutable `v1-audited-biased`
 baseline; it is not admissible for promotion of a corrected methodology.
 
+The reviewed terminal registry has two separate jobs. A
+`terminal_consideration` record values a position that was validly opened
+before an event; a `post_terminal_entry_block` record only rejects a new order
+after primary trading ended and deliberately contains no shareholder value.
+The v2 registry is a hash-bound delta over v1 and adds RX, TSS, TWTR and ABMD,
+the four impossible fills exposed when the Legacy SEC/PE eligibility gate was
+removed. These corporate-action records protect execution realism; they are
+not SEC fundamental features and never enter a model score.
+
 ## Canonical Monthly Contract
 
 The common simulator writes one row per strategy and holding month:

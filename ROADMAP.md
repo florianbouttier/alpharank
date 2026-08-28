@@ -74,6 +74,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 35 | `REPLAY-004` | rendre le drift d'un refresh lisible dans un rapport HTML causal | lot REPLAY ci-dessous | fait |
 | 36 | `DATA-027` | rendre chaque téléchargement SEC explorable par entreprise et trimestre | lot DATA ci-dessous | fait |
 | 37 | `METH-005` | rendre la désactivation des fondamentaux Legacy explicite et reproductible | lot METH ci-dessous | fait |
+| 38 | `DATA-028` | bloquer les entrées post-fusion révélées par l'univers sans SEC | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -138,7 +139,7 @@ gros fichier n'est pas supprimé ou découpé uniquement parce qu'il est gros.
 | Graphe Python maintenu | 194 modules de bibliothèque, 159 scripts, 353 fichiers de code et 152 points d'entrée actifs |
 | Dossiers Python | 481 fichiers suivis dans 67 dossiers ; zéro dossier au-dessus du plafond de 20 et zéro dérogation |
 | Tests | 125 fichiers, 479 cas collectés et exécutés, zéro échec ; la suite ne dépend plus d'un `outputs/` local |
-| Configurations | 17 familles, 21 fichiers JSON et zéro erreur de schéma |
+| Configurations | 17 familles, 22 fichiers JSON et zéro erreur de schéma |
 | Ruff | 276 alertes historiques restantes ; zéro `F821`, `F403` ou `F405`, et aucune nouvelle régression autorisée |
 | Taille et complexité | 474 fichiers maintenus mesurés ; 349 dépassements historiques : 71 modules, 210 fonctions et 68 complexités, tous bloqués contre l'aggravation |
 | Mypy strict | 32 modules couverts dans `alpharank.quality` et tout `alpharank.portfolio`, zéro erreur |
@@ -301,6 +302,7 @@ change dans ce lot.
 | `DATA-025` | auditer un refresh dont le replay commun échoue sur une gate | fait | snapshot, Legacy et signaux Boosting restent comparés ; la raison exacte reçoit le statut `common_replay_blocked`, aucune table commune n'est inventée et la promotion reste interdite ; 11 tests ciblés, lint et docs verts |
 | `DATA-026` | séparer les identifiants de données des paramètres dans la comparaison de provenance | fait | les hashes d'entrée restent comparés comme données sans créer un faux drift de configuration ; les politiques, seeds, code et runtime conservent leurs contrôles indépendants ; 11 tests ciblés, lint et docs verts |
 | `DATA-027` | produire un explorateur SEC autonome par entreprise depuis un run RAW explicite | fait | run `20260827_070654` : 824 sociétés et 638 809 lignes SEC ; rapport `d8285970…20be`, payload `959a922c…8961` ; versions, quarters, lignes brutes, statuts et six hashes sources visibles ; tests, JavaScript, lint, plafond de dossier et docs verts ; gate de taille globale encore rouge sur un fichier non modifié |
+| `DATA-028` | versionner les quatre événements terminaux révélés par le replay sans fondamentaux | fait | registre différentiel v2 lié par hash au v1 ; RX, TSS, TWTR et ABMD bloqués uniquement après leur dernière séance primaire ; quatre pièces SEC refetchées au même SHA-256, sans valoriser une contrepartie actionnaire ni réintroduire un facteur fondamental |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des

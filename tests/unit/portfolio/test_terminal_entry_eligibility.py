@@ -63,6 +63,45 @@ def test_terminal_entry_gate_fails_on_duplicate_ticker_rules() -> None:
         apply_terminal_entry_gate(candidates, blocks)
 
 
+def test_entry_only_events_block_the_four_no_sec_impossible_fills() -> None:
+    candidates = pl.DataFrame(
+        {
+            "year_month": [
+                date(2010, 3, 1),
+                date(2019, 10, 1),
+                date(2022, 11, 1),
+                date(2023, 1, 1),
+            ],
+            "ticker": ["RX.US", "TSS.US", "TWTR.US", "ABMD.US"],
+        }
+    )
+
+    result = apply_terminal_entry_gate(
+        candidates,
+        load_terminal_event_registry().terminal_entry_blocks(),
+    )
+
+    assert result.eligible.is_empty()
+    assert result.blocked.select("ticker", "entry_block_rule").to_dicts() == [
+        {
+            "ticker": "RX.US",
+            "entry_block_rule": "completed_terminal_event_blocks_post_event_entry",
+        },
+        {
+            "ticker": "TSS.US",
+            "entry_block_rule": "completed_terminal_event_blocks_post_event_entry",
+        },
+        {
+            "ticker": "TWTR.US",
+            "entry_block_rule": "completed_terminal_event_blocks_post_event_entry",
+        },
+        {
+            "ticker": "ABMD.US",
+            "entry_block_rule": "completed_terminal_event_blocks_post_event_entry",
+        },
+    ]
+
+
 def test_decision_gate_blocks_terminal_entries_before_ranking() -> None:
     predictions = pl.DataFrame(
         {

@@ -443,6 +443,7 @@ def _code_context(project_root: Path) -> Dict[str, Any]:
         "src/alpharank/data/terminal_eligibility.py",
         "src/alpharank/portfolio/terminal_event_registry.py",
         "configs/data_quality/terminal_shareholder_events_v1.json",
+        "configs/data_quality/terminal_shareholder_events_v2.json",
     ]
     file_hashes = {
         path: _sha256_path(project_root / path)
@@ -856,6 +857,7 @@ def run_pipeline(
             "src/alpharank/data/terminal_eligibility.py",
             "src/alpharank/portfolio/terminal_event_registry.py",
             "configs/data_quality/terminal_shareholder_events_v1.json",
+            "configs/data_quality/terminal_shareholder_events_v2.json",
             "src/alpharank/governance.py",
             "src/alpharank/governance_contracts/common.py",
             "src/alpharank/governance_contracts/contracts.py",
