@@ -65,6 +65,7 @@ def test_run_legacy_cli_enables_versioned_ticker_registry_by_default(
     assert args.minimum_monthly_price_observations == 10
     assert args.minimum_monthly_median_dollar_volume == 1_000_000.0
     assert args.maximum_monthly_ohlc_violation_rate == 0.05
+    assert args.fundamental_eligibility_policy_id == "no_sec_fundamentals_v1"
     assert args.no_checkpoints is False
 
 

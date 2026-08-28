@@ -75,6 +75,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 36 | `DATA-027` | rendre chaque téléchargement SEC explorable par entreprise et trimestre | lot DATA ci-dessous | fait |
 | 37 | `METH-005` | rendre la désactivation des fondamentaux Legacy explicite et reproductible | lot METH ci-dessous | fait |
 | 38 | `DATA-028` | bloquer les entrées post-fusion révélées par l'univers sans SEC | lot DATA ci-dessous | fait |
+| 39 | `REPLAY-005` | promouvoir la politique sans SEC après replay commun strict | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -331,7 +332,7 @@ doublons exacts et preuve de récupération.
 | --- | --- | --- | --- |
 | `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | fait | formules centralisées dans `portfolio/performance.py`, cas sans benchmark et vide testés ; aucun rendement mensuel modifié |
 | `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | fait | registre causal de 88 948 ticker-mois, variantes Top 5/10/15/20 natives et appariées sur le même snapshot, bootstrap de 50 000 tirages et aucune promotion de Boosting |
-| `METH-005` | exposer une politique Legacy sans fondamentaux SEC sans la promouvoir avant replay strict | fait | `no_sec_fundamentals_v1` construit l'univers depuis prix et membership uniquement ; CLI, manifeste et provenance enregistrent le choix ; trois tests de contrat verts, politique PE encore par défaut jusqu'à `REPLAY-005` |
+| `METH-005` | exposer une politique Legacy sans fondamentaux SEC sans la promouvoir avant replay strict | fait | `no_sec_fundamentals_v1` construit l'univers depuis prix et membership uniquement ; CLI, manifeste et provenance enregistrent le choix ; trois tests de contrat verts ; promotion traitée séparément par `REPLAY-005` |
 
 ## 12 ter. Lot REPLAY — relier chaque refresh aux portefeuilles
 
@@ -341,6 +342,29 @@ doublons exacts et preuve de récupération.
 | `REPLAY-002` | rendre chaque écart code, configuration et runtime directement explicable | fait | chemins de run neutralisés ; valeurs avant/après listées par chemin JSON pour Git, fichiers critiques, paramètres, dépendances et seeds |
 | `REPLAY-003` | conserver un statut machine-lisible pour chaque source après une gate amont | fait | prix Yahoo téléchargés/quarantinés, historiques gelés conservés et acquisitions fondamentales non démarrées distingués explicitement |
 | `REPLAY-004` | produire un rapport HTML autonome qui sépare drift prix, SEC, Legacy et Boosting | fait | rapport réel `8881cac6…b971`, payload `1aaac44b…cdb1`, ablations prix/SEC, scores, Top-N, CVC, gate et hashes réunis ; 13 tests ciblés, typage, lint, navigation HTML et absence d'asset externe validés |
+| `REPLAY-005` | rejouer les deux méthodes sans SEC et promouvoir la politique si les gates communes passent | fait | données fraîches au 26 août ; Legacy strict, Boosting EMA-only et replay commun sur 180 mois verts ; 7/7 hashes identiques, 8 entrées terminales bloquées, zéro rendement censuré sélectionné, `publication_eligible=true` ; `no_sec_fundamentals_v1` devient le défaut Legacy |
+
+### Détail de `REPLAY-005`
+
+- **Objectif** : retirer les fondamentaux SEC de la sélection canonique Legacy
+  après un backtest complet de Legacy et Boosting sur les mêmes données fraîches.
+- **Périmètre** : défaut CLI/pipeline Legacy, replay frais du 28 août 2026,
+  documentation méthodologique, runbook et tests de contrat du défaut.
+- **Hors périmètre** : suppression des archives SEC, modification des prix,
+  promotion de Boosting en production ou modification de ses variables EMA-only.
+- **Acceptation** : package Legacy strict valide ; profil Boosting public exact ;
+  replay commun `comparison_eligible=true` et `publication_eligible=true` ; mêmes
+  hashes d'entrée, calendrier et coûts ; aucun rendement censuré sélectionné.
+- **Validations** : 30 essais sur 17 fenêtres et quatre trajectoires Legacy ;
+  16 folds Boosting ; 180 mois communs d'août 2011 à juillet 2026 ; tests ciblés,
+  Ruff et validations documentaires.
+- **Impact** : Legacy ne filtre plus l'univers sur le market cap ou
+  `0 < PE < 100` ; Boosting reste sans feature SEC mais est réappris depuis les
+  EMA gagnantes du nouveau Legacy ; les archives SEC restent disponibles pour
+  audit et recherche.
+- **Rollback** : passer explicitement
+  `--fundamental-eligibility-policy-id legacy_pe_market_cap_v1` dans un replay
+  de compatibilité ; ne pas restaurer silencieusement ce filtre comme défaut.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

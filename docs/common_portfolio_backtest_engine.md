@@ -350,7 +350,52 @@ Legacy, and SPY returns. `scripts/build_common_legacy_boosting_replay.py`
 enforces matching input hashes and rejects a Legacy/Boosting pair that does not
 declare the exact same `input_snapshot/` and full-trajectory ticker exclusions.
 
-## Current Eligible Reference — 2026-08-16
+## Current No-SEC Reference — 2026-08-28
+
+```text
+fresh composed package: outputs/data_refresh_replay_20260827/composed_history/alpharank_input_20260827_122648_5bfbc1d3cb04
+prices and benchmark acquired through: 2026-08-26
+Legacy run: outputs/no_sec_fresh_replay_20260828/legacy/2026-08-28/runs/20260828_184601
+Boosting run: outputs/no_sec_fresh_replay_20260828/boosting
+common replay: outputs/no_sec_fresh_replay_20260828/common_replay
+fundamental eligibility: no_sec_fundamentals_v1
+holding calendar: 2011-08 through 2026-07, 180 realized months
+benchmark: SPY total return from adjusted_close
+transaction costs: 10 bps times turnover for Boosting and Legacy
+```
+
+This is the reference produced by `REPLAY-005`. Legacy selection uses prices,
+historical membership and `monthly_price_eligibility_v1`, with no PE, market
+capitalization or other SEC value. Boosting has no direct fundamental feature;
+it is nevertheless retrained because its point-in-time EMA catalogue comes
+from the winners of that Legacy run. The common replay passes the seven input
+hashes, the ten-ticker exclusion registry, the public Boosting profile and the
+shared price gate. It blocks eight post-terminal prediction rows and selects
+zero approved-censored return.
+
+| Strategy | CAGR | Volatility | Sharpe | Max drawdown |
+| --- | ---: | ---: | ---: | ---: |
+| Boosting Top 5 | 19.9416% | 35.9188% | 0.4995 | -37.2782% |
+| Boosting Top 10 | 19.9271% | 31.4932% | 0.5692 | -31.3583% |
+| Boosting Top 15 | 18.8992% | 29.7037% | 0.5689 | -32.7137% |
+| Boosting Top 20 | 17.8061% | 28.6770% | 0.5512 | -31.8439% |
+| Legacy | 19.6430% | 26.5670% | 0.6641 | -26.4931% |
+| SPY total return | 14.3975% | 14.3014% | 0.8669 | -23.9272% |
+
+The standalone Legacy frequency series starts in February 2010 and has a
+18.7106% CAGR over 198 months. The common table above is the only valid direct
+Legacy/Boosting comparison because it uses their exact shared 180-month
+calendar and the same 10 bps cost convention. Both the common manifest and its
+performance table are retained under the paths above; the output manifest SHA
+is `a7cbd381…4fef4` and the performance-table SHA is `ee039bc1…d6e34`.
+
+The production `latest.json` pointer was still bound to the 20 August snapshot
+when the first no-SEC smoke was launched. That run is retained as an audit
+artifact but is not called “fresh” or used for this promotion; freshness here
+means the explicitly identified composed package acquired through 26 August,
+not whichever package happened to be the last promoted pointer.
+
+## Retained SEC/PE Reference — 2026-08-16
 
 ```text
 ingestion: 20260816_103942

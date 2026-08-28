@@ -65,7 +65,7 @@ from alpharank.replay.legacy import (
 )
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
 from alpharank.strategy.legacy_valuation import (
-    LEGACY_PE_MARKET_CAP_POLICY_ID,
+    NO_SEC_FUNDAMENTALS_POLICY_ID,
     build_legacy_selection_universe,
 )
 from alpharank.strategy.search_protocol import write_legacy_search_audit
@@ -677,7 +677,7 @@ def run_pipeline(
     minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
     minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
     maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
-    fundamental_eligibility_policy_id: str = LEGACY_PE_MARKET_CAP_POLICY_ID,
+    fundamental_eligibility_policy_id: str = NO_SEC_FUNDAMENTALS_POLICY_ID,
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).resolve().parents[3]

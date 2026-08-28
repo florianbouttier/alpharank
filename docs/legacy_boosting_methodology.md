@@ -117,13 +117,15 @@ Observed effect on the current snapshot:
 | 2026-06 | 504 | 502 | 2 | permanent quarantine removes `SW.US`; `SATS.US` has no monthly price rows |
 | 2026-07 | 503 | 502 | 1 | permanent quarantine removes `SW.US`; every remaining member passes the monthly gate |
 
-Legacy's published policy additionally requires historical-index membership,
-available market capitalization, and the fundamental screen `0 < PE < 100`.
-`no_sec_fundamentals_v1` is the explicit replay candidate that replaces this
-gate with the intersection of observed monthly prices and historical membership;
-it does not read or compute a SEC value. Boosting's public feature profile has
-no fundamental feature, but its exact EMA pairs must be relearned from the
-Legacy run produced under the same policy.
+Legacy's published policy is `no_sec_fundamentals_v1`. It intersects observed
+monthly prices, historical membership and the shared price-eligibility gate;
+it does not read or compute a SEC value. The former
+`legacy_pe_market_cap_v1` policy, which additionally required available market
+capitalization and `0 < PE < 100`, remains available only for an explicitly
+labelled compatibility replay. Boosting's public feature profile has no
+fundamental feature, but its exact EMA pairs are relearned from the Legacy run
+produced under the same policy; SEC therefore has no direct model feature and
+the Legacy policy still has an indirect effect on its learned EMA catalogue.
 
 The single code owner is `src/alpharank/data/price_eligibility.py`. Every run
 records the policy id and three thresholds in its manifest. Legacy also writes
@@ -142,7 +144,9 @@ INPUT one immutable composed package:
 2. Copy every required source into run/input_snapshot.
 3. Hash source files, copied files, critical code, and run configuration.
 4. Refuse an unclean open-source package lineage.
-5. Load prices, SPY, historical constituents, sectors, and four fundamentals.
+5. Load prices, SPY and historical constituents. The immutable package still
+   contains the four fundamental files required by its schema, but the default
+   selection policy does not read their values.
 6. Remove the declared versioned historical ticker quarantine from all relevant
    inputs. A new production run uses historical_ticker_exclusions_v1 by default.
 7. Build monthly_price_eligibility_v1 from rows observed in each decision month.
@@ -157,7 +161,12 @@ INPUT one immutable composed package:
 
 9. Apply the manifest's fundamental eligibility policy:
 
-   `legacy_pe_market_cap_v1` builds point-in-time fundamental eligibility:
+   `no_sec_fundamentals_v1`, the production default, intersects observed
+   ticker-month prices with historical S&P membership and performs no
+   fundamental calculation.
+
+   `legacy_pe_market_cap_v1`, retained for compatibility, builds point-in-time
+   fundamental eligibility:
    a. consolidate statements using filing/report dates;
    b. compute rolling net income, shares, revenue, equity, debt, cash, EBITDA;
    c. forward-fill only after the value's available date;
@@ -165,9 +174,8 @@ INPUT one immutable composed package:
    e. retain historical S&P 500 members with market_cap present and 0 < PE < 100;
    f. shift this eligibility by one month before applying it to holdings.
 
-   `no_sec_fundamentals_v1` instead intersects observed ticker-month prices
-   with historical S&P membership and performs none of steps a-f. It remains a
-   candidate until the strict Legacy/Boosting common replay passes.
+   A compatibility PE replay performs steps a-f only when that policy is
+   requested explicitly.
 
 10. Run four independent annual expanding Optuna tracks:
    track 11 = alpha 2, seed 42
@@ -414,28 +422,33 @@ modules; everything after finalized holdings belongs to
 
 ## Validated Reference Run
 
-The current same-data reference is ingestion `20260816_103942`, Legacy run
-`20260816_142810`, and Boosting run `boosting_latest_common_v3`. The common
-replay passes matching input hashes, ticker exclusions, and monthly price
-eligibility. Its complete realized holding calendar is August 2011 through
-July 2026; Boosting has no OOS portfolio before August 2011. On that exact
-calendar, with 10 bps times turnover for both strategies and no simulated cost
-for SPY, native-universe CAGR is 28.1562% for Boosting Top 5, 26.5717% for Top
-10, 24.3051% for Top 15, 20.6066% for Top 20, 18.9965% for Legacy, and 14.3975%
-for SPY total return. These are research
-results, not a promotion of Boosting into the canonical monthly production
+The current same-data reference uses the composed package
+`alpharank_input_20260827_122648_5bfbc1d3cb04`, whose prices and benchmark were
+acquired through 26 August 2026. Legacy run `20260828_184601` declares
+`no_sec_fundamentals_v1`; Boosting uses only the exact point-in-time Legacy
+winner EMA catalogue. The common replay under
+`outputs/no_sec_fresh_replay_20260828/common_replay` passes matching input
+hashes, ticker exclusions, monthly price eligibility and terminal-entry gates.
+Its complete realized holding calendar is August 2011 through July 2026;
+Boosting has no OOS portfolio before August 2011.
+
+On that exact calendar, with 10 bps times turnover for both strategies and no
+simulated cost for SPY, native-universe CAGR is 19.9416% for Boosting Top 5,
+19.9271% for Top 10, 18.8992% for Top 15, 17.8061% for Top 20, 19.6430% for
+Legacy, and 14.3975% for SPY total return. The manifest records
+`comparison_eligible=true`, `publication_eligible=true`, eight post-terminal
+prediction rows blocked and zero selected censored return. Boosting remains a
+research result, not a promotion into the canonical monthly production
 workflow.
 
-`src/alpharank/strategy/legacy_valuation.py` reruns the exact Legacy PE
-construction on the immutable snapshot and labels every Boosting prediction
-before allocation. `scripts/build_common_legacy_boosting_replay.py` can then
-produce both the native Boosting portfolios and variants restricted to Legacy's
-point-in-time `0 < PE < 100` universe. The matched Top 10 CAGR is 26.0726%, with
-26.1535% volatility, 0.9204 Sharpe, and -21.8392% maximum drawdown. This is the
-required diagnostic for SEC-coverage asymmetry; it is not a substitute for
-chronological out-of-sample validation.
+The retained 16 August PE-universe replay remains a diagnostic for SEC coverage
+asymmetry. `src/alpharank/strategy/legacy_valuation.py` can reconstruct its
+point-in-time `0 < PE < 100` universe when explicitly requested; the matched
+Top 10 CAGR was 26.0726%, with 26.1535% volatility, 0.9204 Sharpe, and
+-21.8392% maximum drawdown. Those figures do not describe the current no-SEC
+default and are not a substitute for chronological out-of-sample validation.
 
-Boosting retains 88,948 test predictions and exactly 88,948 SHAP rows over 181
+Boosting retains 88,950 test predictions and exactly 88,950 SHAP rows over 181
 decision months. SHAP is exhaustive, not sampled. There are 16 outer folds;
 the H6 target is mature through decision January 2026, while February through
 July are score-only H6 rows. July's one-month return is deliberately null

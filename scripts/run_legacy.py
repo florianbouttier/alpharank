@@ -41,7 +41,7 @@ from alpharank.production.legacy_pipeline import (
 from alpharank.production.legacy_pipeline import (
     run_pipeline,
 )
-from alpharank.strategy.legacy_valuation import LEGACY_PE_MARKET_CAP_POLICY_ID
+from alpharank.strategy.legacy_valuation import NO_SEC_FUNDAMENTALS_POLICY_ID
 
 
 def main(
@@ -61,7 +61,7 @@ def main(
     minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
     minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
     maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
-    fundamental_eligibility_policy_id: str = LEGACY_PE_MARKET_CAP_POLICY_ID,
+    fundamental_eligibility_policy_id: str = NO_SEC_FUNDAMENTALS_POLICY_ID,
 ) -> None:
     checkpoints_dir = (
         Path(checkpoints_dir).expanduser().resolve() if checkpoints_dir is not None else None
@@ -189,7 +189,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fundamental-eligibility-policy-id",
         choices=("legacy_pe_market_cap_v1", "no_sec_fundamentals_v1"),
-        default=LEGACY_PE_MARKET_CAP_POLICY_ID,
+        default=NO_SEC_FUNDAMENTALS_POLICY_ID,
     )
     parser.add_argument("--log-dir", default="logs/legacy_runs")
     parser.add_argument("--no-log", action="store_true", help="Disable automatic CLI log capture.")
