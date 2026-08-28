@@ -7,11 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from alpharank.data.price_eligibility import (
-    STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
-)
 from alpharank.data.contracts.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
+)
+from alpharank.data.price_eligibility import (
+    STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
 )
 from alpharank.observability import configure_run_logging
 from alpharank.production.legacy_pipeline import (
@@ -41,6 +41,7 @@ from alpharank.production.legacy_pipeline import (
 from alpharank.production.legacy_pipeline import (
     run_pipeline,
 )
+from alpharank.strategy.legacy_valuation import LEGACY_PE_MARKET_CAP_POLICY_ID
 
 
 def main(
@@ -60,20 +61,17 @@ def main(
     minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
     minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
     maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
+    fundamental_eligibility_policy_id: str = LEGACY_PE_MARKET_CAP_POLICY_ID,
 ) -> None:
     checkpoints_dir = (
-        Path(checkpoints_dir).expanduser().resolve()
-        if checkpoints_dir is not None
-        else None
+        Path(checkpoints_dir).expanduser().resolve() if checkpoints_dir is not None else None
     )
     data_dir = Path(data_dir).expanduser().resolve() if data_dir else None
     output_dir = Path(output_dir).expanduser().resolve() if output_dir else None
     final_price_path = Path(final_price_path).expanduser().resolve() if final_price_path else None
     sp500_price_path = Path(sp500_price_path).expanduser().resolve() if sp500_price_path else None
     methodology_manifest = (
-        Path(methodology_manifest).expanduser().resolve()
-        if methodology_manifest
-        else None
+        Path(methodology_manifest).expanduser().resolve() if methodology_manifest else None
     )
     ticker_exclusion_registry = (
         Path(ticker_exclusion_registry).expanduser().resolve()
@@ -101,6 +99,7 @@ def main(
         maximum_monthly_ohlc_violation_rate=(
             maximum_monthly_ohlc_violation_rate
         ),
+        fundamental_eligibility_policy_id=fundamental_eligibility_policy_id,
     )
     print("Artifacts:")
     for k, v in out.artifacts.items():
@@ -180,16 +179,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--minimum-monthly-median-dollar-volume",
         type=float,
-        default=(
-            STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume
-        ),
+        default=STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
     )
     parser.add_argument(
         "--maximum-monthly-ohlc-violation-rate",
         type=float,
-        default=(
-            STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate
-        ),
+        default=STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
+    )
+    parser.add_argument(
+        "--fundamental-eligibility-policy-id",
+        choices=("legacy_pe_market_cap_v1", "no_sec_fundamentals_v1"),
+        default=LEGACY_PE_MARKET_CAP_POLICY_ID,
     )
     parser.add_argument("--log-dir", default="logs/legacy_runs")
     parser.add_argument("--no-log", action="store_true", help="Disable automatic CLI log capture.")
@@ -215,15 +215,14 @@ def _run_cli() -> None:
             else args.ticker_exclusion_registry
         ),
         "price_eligibility_policy_id": args.price_eligibility_policy_id,
-        "minimum_monthly_price_observations": (
-            args.minimum_monthly_price_observations
-        ),
+        "minimum_monthly_price_observations": args.minimum_monthly_price_observations,
         "minimum_monthly_median_dollar_volume": (
             args.minimum_monthly_median_dollar_volume
         ),
         "maximum_monthly_ohlc_violation_rate": (
             args.maximum_monthly_ohlc_violation_rate
         ),
+        "fundamental_eligibility_policy_id": args.fundamental_eligibility_policy_id,
     }
     if args.no_log:
         configure_run_logging()

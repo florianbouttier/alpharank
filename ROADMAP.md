@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-27.**
+**Dernière mise à jour : 2026-08-28.**
 
 **Statut : seule source des priorités actives.**
 
@@ -73,6 +73,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 34 | `DATA-015` | conserver l'historique prix validé et n'ajouter que les nouveaux rendements | lot DATA ci-dessous | fait |
 | 35 | `REPLAY-004` | rendre le drift d'un refresh lisible dans un rapport HTML causal | lot REPLAY ci-dessous | fait |
 | 36 | `DATA-027` | rendre chaque téléchargement SEC explorable par entreprise et trimestre | lot DATA ci-dessous | fait |
+| 37 | `METH-005` | rendre la désactivation des fondamentaux Legacy explicite et reproductible | lot METH ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -328,6 +329,7 @@ doublons exacts et preuve de récupération.
 | --- | --- | --- | --- |
 | `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | fait | formules centralisées dans `portfolio/performance.py`, cas sans benchmark et vide testés ; aucun rendement mensuel modifié |
 | `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | fait | registre causal de 88 948 ticker-mois, variantes Top 5/10/15/20 natives et appariées sur le même snapshot, bootstrap de 50 000 tirages et aucune promotion de Boosting |
+| `METH-005` | exposer une politique Legacy sans fondamentaux SEC sans la promouvoir avant replay strict | fait | `no_sec_fundamentals_v1` construit l'univers depuis prix et membership uniquement ; CLI, manifeste et provenance enregistrent le choix ; trois tests de contrat verts, politique PE encore par défaut jusqu'à `REPLAY-005` |
 
 ## 12 ter. Lot REPLAY — relier chaque refresh aux portefeuilles
 

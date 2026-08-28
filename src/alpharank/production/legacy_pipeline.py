@@ -17,25 +17,25 @@ from typing import Any, Dict, Optional
 import pandas as pd
 import polars as pl
 
-from alpharank.data.lineage.snapshots import load_latest_manifest, write_manifest
-from alpharank.data.warehouse.mart import MartInputResolution, resolve_mart_model_input
-from alpharank.data.price_eligibility import (
-    STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
-    build_monthly_price_eligibility,
-    monthly_price_eligibility_policy,
-)
-from alpharank.data.processing import FundamentalProcessor, IndexDataManager, PricesDataPreprocessor
-from alpharank.data.publishing.snapshot_publication import (
-    SNAPSHOT_POINTER_CONTRACT,
-    validate_snapshot_publication,
-)
-from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
 from alpharank.data.contracts.ticker_integrity import (
     DEFAULT_HISTORICAL_TICKER_EXCLUSION_REGISTRY,
     exclude_tickers_from_frame,
     load_ticker_exclusion_registry,
     normalize_tickers,
 )
+from alpharank.data.lineage.snapshots import load_latest_manifest, write_manifest
+from alpharank.data.price_eligibility import (
+    STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY,
+    build_monthly_price_eligibility,
+    monthly_price_eligibility_policy,
+)
+from alpharank.data.processing import IndexDataManager, PricesDataPreprocessor
+from alpharank.data.publishing.snapshot_publication import (
+    SNAPSHOT_POINTER_CONTRACT,
+    validate_snapshot_publication,
+)
+from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
+from alpharank.data.warehouse.mart import MartInputResolution, resolve_mart_model_input
 from alpharank.features.indicators import TechnicalIndicators
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.observability import get_run_logger, set_run_log_context
@@ -64,6 +64,10 @@ from alpharank.replay.legacy import (
     require_holding_month_membership,
 )
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
+from alpharank.strategy.legacy_valuation import (
+    LEGACY_PE_MARKET_CAP_POLICY_ID,
+    build_legacy_selection_universe,
+)
 from alpharank.strategy.search_protocol import write_legacy_search_audit
 from alpharank.utils.frame_backend import (
     normalize_year_month_to_period,
@@ -672,6 +676,7 @@ def run_pipeline(
     minimum_monthly_price_observations: int = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_observations,
     minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
     maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
+    fundamental_eligibility_policy_id: str = LEGACY_PE_MARKET_CAP_POLICY_ID,
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).resolve().parents[3]
@@ -791,6 +796,7 @@ def run_pipeline(
         "maximum_monthly_ohlc_violation_rate": (
             price_eligibility_policy.maximum_ohlc_violation_rate
         ),
+        "fundamental_eligibility_policy_id": fundamental_eligibility_policy_id,
         "ticker_exclusion_registry": (
             str(audited_registry.path) if audited_registry is not None else None
         ),
@@ -842,6 +848,7 @@ def run_pipeline(
             "src/alpharank/data/processing.py",
             "src/alpharank/data/warehouse/mart.py",
             "src/alpharank/strategy/legacy.py",
+            "src/alpharank/strategy/legacy_valuation.py",
             "src/alpharank/portfolio/simulation.py",
             "src/alpharank/portfolio/execution.py",
             "src/alpharank/portfolio/costs.py",
@@ -1019,45 +1026,18 @@ def run_pipeline(
         f"{backend}_final_price_vs_index",
     )
 
-    LOGGER.info("Calculating fundamental ratios")
-    stocks_selections = to_polars(
-        FundamentalProcessor.calculate_pe_ratios(
-            balance=balance_sheet,
-            earnings=earnings,
-            cashflow=cash_flow,
-            income=income_statement,
-            earning_choice="netincome_rolling",
-            monthly_return=to_pandas(monthly_return),
-            list_date_to_maximise=["filing_date_income", "filing_date_balance"],
-            backend=backend,
-        )
+    LOGGER.info(
+        "Building Legacy selection universe",
+        extra={"fundamental_eligibility_policy_id": fundamental_eligibility_policy_id},
     )
-    _ = FundamentalProcessor.calculate_all_ratios(
-        balance_sheet=balance_sheet,
-        income_statement=income_statement,
+    stocks_selections = build_legacy_selection_universe(
+        policy_id=fundamental_eligibility_policy_id,
+        monthly_return=monthly_return,
+        historical_membership=eligible_historical_company,
+        balance=balance_sheet,
         cash_flow=cash_flow,
         earnings=earnings,
-        monthly_return=to_pandas(monthly_return),
-        backend=backend,
-    )
-
-    stocks_selections = (
-        stocks_selections
-        .with_columns(pl.col("year_month").cast(pl.Date, strict=False))
-        .filter(
-            (pl.col("pe") < 100)
-            & (pl.col("pe") > 0)
-            & pl.col("pe").is_not_null()
-            & pl.col("market_cap").is_not_null()
-        )
-        .join(
-            eligible_historical_company.select(
-                pl.col("year_month").cast(pl.Date, strict=False).alias("year_month"),
-                pl.col("ticker"),
-            ),
-            how="inner",
-            on=["ticker", "year_month"],
-        )
+        income=income_statement,
     )
     membership_gate_summary: dict[str, object] | None = None
     if methodology_identity is not None:

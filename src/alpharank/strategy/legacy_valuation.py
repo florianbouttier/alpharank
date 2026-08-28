@@ -13,6 +13,11 @@ from alpharank.utils.frame_backend import to_pandas, to_polars
 
 LEGACY_MINIMUM_PE = 0.0
 LEGACY_MAXIMUM_PE = 100.0
+LEGACY_PE_MARKET_CAP_POLICY_ID = "legacy_pe_market_cap_v1"
+NO_SEC_FUNDAMENTALS_POLICY_ID = "no_sec_fundamentals_v1"
+SUPPORTED_FUNDAMENTAL_ELIGIBILITY_POLICY_IDS = frozenset(
+    {LEGACY_PE_MARKET_CAP_POLICY_ID, NO_SEC_FUNDAMENTALS_POLICY_ID}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +29,76 @@ class LegacyValuationInputs:
     cash_flow: Path
     earnings: Path
     income: Path
+
+
+def build_legacy_selection_universe(
+    *,
+    policy_id: str,
+    monthly_return: pl.DataFrame,
+    historical_membership: pl.DataFrame,
+    balance: pl.DataFrame | None = None,
+    cash_flow: pl.DataFrame | None = None,
+    earnings: pl.DataFrame | None = None,
+    income: pl.DataFrame | None = None,
+) -> pl.DataFrame:
+    """Build Legacy candidate keys under one explicit fundamental policy.
+
+    ``no_sec_fundamentals_v1`` uses only observed monthly prices and historical
+    index membership. It neither reads nor computes any fundamental value.
+    """
+
+    _require_supported_policy(policy_id)
+    membership = _normalized_membership(historical_membership)
+    if policy_id == NO_SEC_FUNDAMENTALS_POLICY_ID:
+        return (
+            monthly_return.select(
+                pl.col("ticker").cast(pl.String),
+                pl.col("year_month").cast(pl.Date, strict=False),
+            )
+            .unique()
+            .join(membership, on=["ticker", "year_month"], how="inner")
+            .sort(["year_month", "ticker"])
+        )
+
+    fundamental_frames = {
+        "balance": balance,
+        "cash_flow": cash_flow,
+        "earnings": earnings,
+        "income": income,
+    }
+    missing = sorted(name for name, frame in fundamental_frames.items() if frame is None)
+    if missing:
+        raise ValueError("Legacy PE policy requires fundamental frames: " + ", ".join(missing))
+    valuation = to_polars(
+        FundamentalProcessor.calculate_pe_ratios(
+            balance=balance,
+            earnings=earnings,
+            cashflow=cash_flow,
+            income=income,
+            earning_choice="netincome_rolling",
+            monthly_return=to_pandas(monthly_return),
+            list_date_to_maximise=["filing_date_income", "filing_date_balance"],
+            backend="polars",
+        )
+    )
+    _ = FundamentalProcessor.calculate_all_ratios(
+        balance_sheet=balance,
+        income_statement=income,
+        cash_flow=cash_flow,
+        earnings=earnings,
+        monthly_return=to_pandas(monthly_return),
+        backend="polars",
+    )
+    return (
+        valuation.with_columns(pl.col("year_month").cast(pl.Date, strict=False))
+        .filter(
+            (pl.col("pe") < LEGACY_MAXIMUM_PE)
+            & (pl.col("pe") > LEGACY_MINIMUM_PE)
+            & pl.col("pe").is_not_null()
+            & pl.col("market_cap").is_not_null()
+        )
+        .join(membership, on=["ticker", "year_month"], how="inner")
+    )
 
 
 def build_legacy_valuation_registry(
@@ -131,6 +206,26 @@ def _resolve_inputs(snapshot_dir: Path) -> LegacyValuationInputs:
     if missing:
         raise FileNotFoundError("Missing snapshot inputs:\n" + "\n".join(map(str, missing)))
     return inputs
+
+
+def _normalized_membership(frame: pl.DataFrame) -> pl.DataFrame:
+    required = {"ticker", "year_month"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"Historical membership is missing columns: {', '.join(missing)}")
+    return frame.select(
+        pl.col("ticker").cast(pl.String),
+        pl.col("year_month").cast(pl.Date, strict=False),
+    ).unique()
+
+
+def _require_supported_policy(policy_id: str) -> None:
+    if policy_id not in SUPPORTED_FUNDAMENTAL_ELIGIBILITY_POLICY_IDS:
+        supported = ", ".join(sorted(SUPPORTED_FUNDAMENTAL_ELIGIBILITY_POLICY_IDS))
+        raise ValueError(
+            f"Unsupported Legacy fundamental eligibility policy {policy_id!r}; "
+            f"expected one of: {supported}."
+        )
 
 
 def _read_fundamental_inputs(inputs: LegacyValuationInputs) -> dict[str, pl.DataFrame]:

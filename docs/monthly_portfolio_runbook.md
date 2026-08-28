@@ -201,6 +201,15 @@ S&P membership before ranking EMA signals. The run retains
 `monthly_price_eligibility.parquet` and records the policy id plus thresholds in
 `data_input_manifest.json`.
 
+Legacy records a separate `fundamental_eligibility_policy_id`. The production
+default remains `legacy_pe_market_cap_v1` while the no-SEC policy is validated.
+For a controlled replay, `--fundamental-eligibility-policy-id
+no_sec_fundamentals_v1` removes every fundamental value from candidate
+eligibility while preserving prices, historical membership, liquidity,
+terminal-entry gates and all runtime provenance. It is not a shortcut around a
+missing realized return: the common replay must still stop until the relevant
+terminal event is sourced and versioned.
+
 Current `--checkpoints-dir` artifacts are diagnostic snapshots, not a supported
 resume contract. A failed process must be restarted from its immutable input
 snapshot; never splice downstream files from an earlier process into a new run.

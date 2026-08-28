@@ -7,9 +7,62 @@ import pytest
 
 from alpharank.replay.common_strategy import build_native_boosting_holdings
 from alpharank.strategy.legacy_valuation import (
+    LEGACY_PE_MARKET_CAP_POLICY_ID,
+    NO_SEC_FUNDAMENTALS_POLICY_ID,
+    build_legacy_selection_universe,
     classify_legacy_valuation_eligibility,
     filter_predictions_to_legacy_valuation_universe,
 )
+
+
+def test_no_sec_policy_uses_only_price_and_membership_keys() -> None:
+    monthly_return = pl.DataFrame(
+        {
+            "ticker": ["A.US", "B.US", "C.US"],
+            "year_month": [date(2020, 1, 1)] * 3,
+            "monthly_return": [0.01, 0.02, 0.03],
+        }
+    )
+    membership = pl.DataFrame(
+        {
+            "ticker": ["A.US", "C.US", "D.US"],
+            "year_month": [date(2020, 1, 1)] * 3,
+        }
+    )
+
+    selected = build_legacy_selection_universe(
+        policy_id=NO_SEC_FUNDAMENTALS_POLICY_ID,
+        monthly_return=monthly_return,
+        historical_membership=membership,
+    )
+
+    assert selected.to_dicts() == [
+        {"ticker": "A.US", "year_month": date(2020, 1, 1)},
+        {"ticker": "C.US", "year_month": date(2020, 1, 1)},
+    ]
+
+
+def test_pe_policy_requires_all_fundamental_frames() -> None:
+    monthly_return = pl.DataFrame({"ticker": ["A.US"], "year_month": [date(2020, 1, 1)]})
+    membership = monthly_return.clone()
+
+    with pytest.raises(ValueError, match="requires fundamental frames"):
+        build_legacy_selection_universe(
+            policy_id=LEGACY_PE_MARKET_CAP_POLICY_ID,
+            monthly_return=monthly_return,
+            historical_membership=membership,
+        )
+
+
+def test_selection_universe_rejects_unknown_policy() -> None:
+    empty = pl.DataFrame(schema={"ticker": pl.String, "year_month": pl.Date})
+
+    with pytest.raises(ValueError, match="Unsupported Legacy fundamental"):
+        build_legacy_selection_universe(
+            policy_id="implicit_fallback",
+            monthly_return=empty,
+            historical_membership=empty,
+        )
 
 
 def test_registry_assigns_one_causal_reason_per_candidate() -> None:

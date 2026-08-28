@@ -117,10 +117,13 @@ Observed effect on the current snapshot:
 | 2026-06 | 504 | 502 | 2 | permanent quarantine removes `SW.US`; `SATS.US` has no monthly price rows |
 | 2026-07 | 503 | 502 | 1 | permanent quarantine removes `SW.US`; every remaining member passes the monthly gate |
 
-Legacy additionally requires historical-index membership, available market
-capitalization, and the fundamental screen `0 < PE < 100`. Boosting does not
-inherit that fundamental screen. Therefore the shared gate aligns data quality
-and tradability, while signal-specific investability rules remain explicit.
+Legacy's published policy additionally requires historical-index membership,
+available market capitalization, and the fundamental screen `0 < PE < 100`.
+`no_sec_fundamentals_v1` is the explicit replay candidate that replaces this
+gate with the intersection of observed monthly prices and historical membership;
+it does not read or compute a SEC value. Boosting's public feature profile has
+no fundamental feature, but its exact EMA pairs must be relearned from the
+Legacy run produced under the same policy.
 
 The single code owner is `src/alpharank/data/price_eligibility.py`. Every run
 records the policy id and three thresholds in its manifest. Legacy also writes
@@ -152,13 +155,19 @@ INPUT one immutable composed package:
    relative_close[ticker, day]
        = stock_adjusted_close / SP500_close
 
-9. Build point-in-time fundamental eligibility:
+9. Apply the manifest's fundamental eligibility policy:
+
+   `legacy_pe_market_cap_v1` builds point-in-time fundamental eligibility:
    a. consolidate statements using filing/report dates;
    b. compute rolling net income, shares, revenue, equity, debt, cash, EBITDA;
    c. forward-fill only after the value's available date;
    d. compute market_cap and valuation ratios;
    e. retain historical S&P 500 members with market_cap present and 0 < PE < 100;
    f. shift this eligibility by one month before applying it to holdings.
+
+   `no_sec_fundamentals_v1` instead intersects observed ticker-month prices
+   with historical S&P membership and performs none of steps a-f. It remains a
+   candidate until the strict Legacy/Boosting common replay passes.
 
 10. Run four independent annual expanding Optuna tracks:
    track 11 = alpha 2, seed 42
