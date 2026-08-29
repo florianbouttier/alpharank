@@ -78,6 +78,9 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 39 | `REPLAY-005` | promouvoir la politique sans SEC après replay commun strict | lot REPLAY ci-dessous | fait |
 | 40 | `METH-006` | filtrer causalement les candidats Boosting par tendance avant classement | lot METH ci-dessous | fait |
 | 41 | `METH-007` | rejouer et publier la variante Boosting filtrée par tendance | lot METH ci-dessous | fait |
+| 42 | `DOC-021` | publier dans le site le guide complet des méthodes et de leurs pseudo-codes | lot DOC ci-dessous | fait |
+| 43 | `METH-008` | construire une poche Boosting excluant causalement les titres Legacy | lot METH ci-dessous | à faire |
+| 44 | `METH-009` | rejouer le portefeuille combiné comme alternative de diversification | lot METH ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -194,6 +197,7 @@ La carte détaillée se trouve dans
 | `DOC-018` | ouvrir le lot de qualité résiduelle après audit du commit propre et du worktree | fait | onze tâches ordonnées, chacune isolée par son identifiant et son commit |
 | `DOC-019` | rafraîchir les compteurs de configurations, tests, code et dossiers après le lot | fait | état courant séparé du diagnostic initial, inventaires canoniques régénérés et 479 tests verts |
 | `DOC-020` | formaliser l'invariant refresh, replay et attribution du drift | fait | règle inscrite dans les normes agents/développement, contrat canonique indexé et tâches d'exécution séparées |
+| `DOC-021` | publier dans le site le guide complet des méthodes et de leurs pseudo-codes | fait | projection site synchronisée depuis `docs/site_repository_guide.md`, six tableaux et neuf pseudo-codes rendus ; statut des variantes, cas SATS et proposition de diversification explicités |
 
 `DOC-010` a retiré des tests les chemins documentaires historiques. Les contrats
 restent directement sous `docs/` pour leurs lecteurs humains et liens publics ;
@@ -337,6 +341,8 @@ doublons exacts et preuve de récupération.
 | `METH-005` | exposer une politique Legacy sans fondamentaux SEC sans la promouvoir avant replay strict | fait | `no_sec_fundamentals_v1` construit l'univers depuis prix et membership uniquement ; CLI, manifeste et provenance enregistrent le choix ; trois tests de contrat verts ; promotion traitée séparément par `REPLAY-005` |
 | `METH-006` | rendre disponible un filtre causal de tendance avant le classement Boosting | fait | registre exact de 88 950 clés, dont 40 135 éligibles ; 16 replays OOS vérifiés par hash, majorité stricte orientée, couverture complète, CLI et artefacts ; cinq tests de politique, variante non promue et natif inchangé |
 | `METH-007` | exécuter le replay commun de la variante Boosting filtrée par tendance | fait | Top 5/10 sur 180 mois : CAGR 23,63 %/21,95 %, mais IC bootstrap rendement et Sharpe traversent zéro ; essai Top 15/20 bloqué causalement sur le prix manquant de SATS ; dernier Top 10, hashes et statut non promu publiés |
+| `METH-008` | construire une politique d'allocation Boosting complémentaire à Legacy | à faire | à chaque décision, les titres retenus causalement par Legacy sont exclus avant le classement Boosting ; scores et modèle restent inchangés ; test de causalité et audit mensuel de l'exclusion |
+| `METH-009` | rejouer le portefeuille combiné Legacy et poche Boosting complémentaire | à faire | poids de poche préenregistrés, même snapshot et même moteur ; mesure du nombre de titres, recouvrement, concentration, corrélation, risque, coûts et performance combinée sans exiger que Boosting batte Legacy seul |
 
 ### Détail de `METH-006`
 
@@ -380,6 +386,44 @@ doublons exacts et preuve de récupération.
   ne constitue pas à lui seul une validation indépendante.
 - **Rollback** : conserver le run comme preuve négative ou exploratoire et ne
   changer aucun profil public ni portefeuille canonique.
+
+### Détail de `METH-008`
+
+- **Objectif** : produire une poche Boosting dont la sélection mensuelle ajoute
+  des titres absents du portefeuille Legacy connu à la même date.
+- **Périmètre** : allocation après scores OOS, exclusion causalement datée des
+  titres Legacy, plafonds sectoriels optionnels et journal d'éligibilité.
+- **Hors périmètre** : réentraînement XGBoost, nouvelle cible, usage des SHAP,
+  choix de poids entre les deux poches et promotion en production.
+- **Acceptation** : aucun titre de la poche complémentaire n'appartient au
+  Legacy du même mois ; modifier un Legacy futur ne change aucune sélection
+  passée ; les scores natifs restent bit-à-bit identiques.
+- **Validations** : tests unitaires de sélection, test de causalité par mutation
+  du futur et parité des prédictions natives.
+- **Impact** : nouvelle allocation R&D, aucun changement de la production
+  Legacy ni du modèle Boosting.
+- **Rollback** : retirer la politique optionnelle et conserver les scores et
+  allocations natives inchangés.
+
+### Détail de `METH-009`
+
+- **Objectif** : mesurer si une poche Boosting complémentaire améliore la
+  diversification du portefeuille total, sans imposer une supériorité de sa
+  performance autonome.
+- **Périmètre** : poids de poche figés avant replay, moteur commun, coûts,
+  recouvrement, nombre effectif de positions, concentration sectorielle,
+  corrélation, risque et performance du portefeuille combiné.
+- **Hors périmètre** : optimisation des poids sur les résultats finaux,
+  changement de Legacy, promotion automatique ou recommandation d'achat.
+- **Acceptation** : comparer les poids de poche préenregistrés de 10 %, 20 % et
+  30 % sur le même snapshot et calendrier ; publier les métriques de
+  diversification et les compromis économiques, y compris un résultat négatif.
+- **Validations** : replay commun strict, bootstrap temporel apparié, contrôle
+  des coûts et rapport exhaustif des mois bloqués ou non évaluables.
+- **Impact** : preuve économique R&D d'un portefeuille combiné ; aucun
+  changement de production sans nouvelle porte de promotion.
+- **Rollback** : conserver les deux méthodes séparées et ignorer le portefeuille
+  combiné.
 
 ## 12 ter. Lot REPLAY — relier chaque refresh aux portefeuilles
 

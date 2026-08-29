@@ -53,7 +53,7 @@ preprocessing parity.
 | Historical S&P 500 membership | Yes | Yes |
 | Full-trajectory data-quality quarantine | Required; versioned registry is now the default | Required; must match Legacy exactly |
 | Volume and OHLC quality | Yes, shared point-in-time monthly gate | Yes, identical shared gate |
-| Income, balance, cash flow, earnings | Yes | Loaded and hash-checked, but not fed to the current model |
+| Income, balance, cash flow, earnings | Present and hash-checked, but not read by the default `no_sec_fundamentals_v1`; used only by the compatibility PE policy | Loaded and hash-checked, but not fed to the current model |
 | Sector | Yes, position cap | No |
 | Legacy historical winners | Native output | Yes, only to define the causal EMA feature catalogue available in each fold |
 
@@ -102,6 +102,30 @@ Recent SHAP behaviour motivated the experiment, however, so its full-history
 replay is a post-hoc diagnostic rather than independent validation. The native
 Boosting universe remains the default and this variant is not promotion
 eligible without a separate pre-registered forward or sealed temporal gate.
+
+### Proposed Complementary Boosting Sleeve
+
+`METH-008` and `METH-009` define the next research alternative around the
+owner's stated objective: add distinct stocks and diversify Legacy, without
+requiring standalone Boosting to outperform it. The model, out-of-sample scores
+and native allocations remain unchanged. Only an optional allocation policy is
+added after the two methodologies have produced their same-date decisions.
+
+At each decision month `t`, the policy removes from the Boosting candidate set
+the securities already selected by Legacy at `t`, optionally applies a
+pre-registered sector cap, ranks the remaining names by the unchanged Boosting
+score, and builds an equal-weight Top-K sleeve for holding month `t+1`. The
+combined portfolio then assigns a fixed weight to Legacy and the complementary
+sleeve. The weights to test are registered before replay; the initial grid is
+10%, 20% and 30% for the Boosting sleeve.
+
+This is a causal rule only if the Legacy basket used for exclusion is the one
+observable at the same decision month. A later Legacy holding, realized return,
+SHAP value or future label must never affect an earlier exclusion. Evaluation
+therefore targets the combined portfolio's overlap, number and effective number
+of positions, sector concentration, correlation, turnover, drawdown and risk
+contribution as well as return. These tasks are planned, not implemented or
+promoted as of 2026-08-29.
 
 ## Shared Liquidity And Price-Quality Gate
 

@@ -8,7 +8,8 @@ décrit pas automatiquement l'état courant du projet.
 - `agent_guides/` : anciennes instructions longues conservées avant
   simplification.
 - `CODEX_HANDOFF.md` : journal chronologique historique.
-- `site_repository_guide_20260820.md` : ancienne page de présentation du site.
+- `site_repository_guide_20260820.md` : ancienne page de présentation du site ;
+  la projection courante est [`../site_repository_guide.md`](../site_repository_guide.md).
 - `root_README_20260820.md` : README détaillé conservé avant réduction.
 
 Les documents courants sont indexés dans [`../README.md`](../README.md).

@@ -16,6 +16,8 @@ sépare volontairement les règles courantes des preuves historiques.
    comprendre les deux méthodes.
 6. [`common_portfolio_backtest_engine.md`](common_portfolio_backtest_engine.md) :
    comprendre la simulation et les KPI communs.
+7. [`site_repository_guide.md`](site_repository_guide.md) : lire la projection
+   française affichée dans le site Portfolio, avec pseudo-codes et statuts.
 
 ## À la racine du dépôt
 
@@ -65,6 +67,7 @@ code et aux nouvelles données :
 | --- | --- |
 | Production mensuelle | [`monthly_portfolio_runbook.md`](monthly_portfolio_runbook.md) |
 | Méthodes Legacy et Boosting | [`legacy_boosting_methodology.md`](legacy_boosting_methodology.md) |
+| Projection méthodologique du site Portfolio | [`site_repository_guide.md`](site_repository_guide.md) |
 | Simulation, KPI et comparaison | [`common_portfolio_backtest_engine.md`](common_portfolio_backtest_engine.md) |
 | Gouvernance des résultats | [`research_governance.md`](research_governance.md) |
 | Organisation des chemins de runs | [`run_organization.md`](run_organization.md) |
