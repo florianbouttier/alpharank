@@ -154,19 +154,21 @@ historical ticker quarantine removes the complete trajectory of known broken
 identifiers before feature construction. This list must match Legacy exactly
 for a common comparison.
 
-Observed effect on the current snapshot:
+Observed effect before and after the SATS transition overlay:
 
-| Decision month | S&P 500 rows | Eligible | Excluded | Explanation |
-| --- | ---: | ---: | ---: | --- |
-| 2026-05 | 503 | 499 | 4 | permanent quarantine removes `SW.US`; `BK.US` and `SATS.US` have no monthly price rows; `CTRA.US` has only 5 observations |
-| 2026-06 | 504 | 502 | 2 | permanent quarantine removes `SW.US`; `SATS.US` has no monthly price rows |
-| 2026-07 | 503 | 502 | 1 | permanent quarantine removes `SW.US`; every remaining member passes the monthly gate |
+| Snapshot | Decision month | S&P 500 rows | Eligible | Excluded | Explanation |
+| --- | --- | ---: | ---: | ---: | --- |
+| pre-`DATA-029` | 2026-05 | 503 | 501 | 2 | `SATS.US` lacks May rows and permanent quarantine removes `SW.US` |
+| `REPLAY-006` | 2026-05 | 503 | 502 | 1 | SATS has 20 derived/audited observations; only `SW.US` remains excluded |
+| `REPLAY-006` | 2026-06 | 503 | 502 | 1 | membership now uses `ECHO.US`; only `SW.US` remains excluded |
+| `REPLAY-006` | 2026-07 | 503 | 502 | 1 | every non-quarantined member passes the monthly gate |
 
-This table describes the immutable pre-`DATA-029` snapshot. `SATS.US` had no
-May rows under its own key, although the same security's observations were
-already retained under `ECHO.US`. The versioned transition overlay derives the
-missing SATS dates from ECHO daily returns; its economic effect is not reported
-here until the complete `REPLAY-006` rebuild has finished.
+The versioned transition overlay derives the missing SATS dates from ECHO daily
+returns and leaves every common price row unchanged. `REPLAY-006` rebuilt all
+features and targets: the candidate adds only the May SATS prediction, changes
+zero common Boosting score, and leaves all 6,686 Legacy holdings unchanged.
+SATS remains causal-trend rank 14 for the April decision; its May return becomes
+evaluable at +4.9131% instead of the historical compatibility zero.
 
 Legacy's published policy is `no_sec_fundamentals_v1`. It intersects observed
 monthly prices, historical membership and the shared price-eligibility gate;

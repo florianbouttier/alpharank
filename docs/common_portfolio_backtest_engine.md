@@ -485,12 +485,40 @@ The initial Top 5/10/15/20 attempt is retained as a failed run at
 Top 20 would select `SATS.US` for May 2026 despite the missing return under that
 snapshot key, so the common engine stopped. The economic observations were
 subsequently found in the same snapshot under the provider key `ECHO.US`.
-`DATA-029` now derives an additive, line-audited SATS extension from those ECHO
-daily returns after validating the common 24 April anchor; it does not alter
-this retained failed run. SATS changed ticker only on 24 June 2026, announced
-22 June; excluding it at the April decision using that later event would be a
-leak. Top 15/20 remain unresolved evidence until `REPLAY-006` recomputes every
-upstream feature and target on a newly composed immutable snapshot.
+SATS changed ticker only on 24 June 2026, announced 22 June; excluding it at
+the April decision using that later event would be a leak.
+
+`DATA-029` derives an additive, line-audited SATS extension from ECHO daily
+returns after validating the common 24 April anchor. `REPLAY-006` then rebuilds
+every upstream feature and target on immutable composition
+`bb1f90a907bbb25e34a32f632abce2f6e4982c1005daa80e778c0f335d968375`.
+The score is exactly unchanged at `0.1067675874`, SATS remains rank 14 on the
+April trend-filtered decision, and its April-to-May return becomes evaluable at
+`+4.9131095%`. The retained failed run is not modified.
+
+The new common replay at
+`outputs/sats_echo_replay_20260829/common_replay_causal_trend` completes all
+Top 5/10/15/20 strategies. Legacy holdings and performance are identical;
+common Boosting scores and probabilities have zero changes; Top 5/10 results
+are identical to the prior successful replay. Top 15/20 add this evidence:
+
+| Strategy | CAGR | Volatility | Sharpe | Max drawdown | Mean turnover |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Boosting Top 15, causal trend | 21.1093% | 23.9306% | 0.7985 | -35.3611% | 48.2660% |
+| Boosting Top 20, causal trend | 18.3883% | 21.7840% | 0.7523 | -33.8463% | 47.7861% |
+
+For the May 2026 holding month, SATS contributes `+0.327541%` gross to Top 15
+and `+0.245655%` to Top 20. The portfolios return `+18.3627%` and `+14.6553%`
+net respectively, versus `+5.2626%` for SPY. Both manifests pass matching data
+lineage, the common profile and price policy; eight terminal entries are
+blocked and zero selected censored return remains. The trend replay stays
+`publication_eligible=false` because it is post-hoc research, not because of a
+missing SATS price.
+
+The autonomous report is
+`outputs/sats_echo_replay_20260829/ticker_transition_replay_report.html`; its
+hash and the full run protocol are frozen in
+`docs/research/sats_echo_replay_20260829.md`.
 
 Key SHA-256 evidence:
 

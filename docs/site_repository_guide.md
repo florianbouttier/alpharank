@@ -334,7 +334,7 @@ score de juillet.
 | 9 | LRCX | 0,281418 | non |
 | 10 | FLEX | 0,259821 | oui |
 
-## Cas SATS — ce qui se serait réellement passé
+## Cas SATS — ce qui s'est réellement passé après correction
 
 Le premier replay de la variante tendance a tenté les Top 5, 10, 15 et 20. Les
 Top 15 et 20 auraient sélectionné `SATS.US` avec la décision d'avril 2026 pour
@@ -374,9 +374,21 @@ est donc une identité de clé fournisseur, pas une absence économique du prix.
 5. copier et hasher le registre, l'audit et le package, puis reconstruire un
    snapshot au lieu de modifier celui du 28 août.
 
-Le replay antérieur Top 15/20 reste non valide tant que `REPLAY-006` n'a pas
-recalculé les EMA, les cibles, les scores et les rendements depuis ce nouveau
-snapshot. Le rendement de mai ne sera jamais injecté directement dans le moteur.
+`REPLAY-006` a recalculé les EMA, les cibles, les scores et les rendements depuis
+le nouveau snapshot, sans injecter le rendement de mai. Le résultat est précis :
+
+- le score SATS reste `0,1067675874` et son rang tendance reste 14 ;
+- son rendement de mai devient évaluable à `+4,9131 %`, contre `+5,2626 %` pour
+  SPY ;
+- aucun score Boosting commun et aucun holding Legacy ne change ;
+- Top 15 et Top 20 terminent désormais le replay avec le même moteur, les mêmes
+  coûts et les mêmes données que Top 5/10 ;
+- le filtre tendance reste une recherche non promue, mais plus aucunement à
+  cause d'une absence de prix SATS.
+
+Le rapport humain complet est
+`outputs/sats_echo_replay_20260829/ticker_transition_replay_report.html` et la
+preuve hashée est détaillée dans `docs/research/sats_echo_replay_20260829.md`.
 
 Sources officielles : [annonce EchoStar du changement SATS vers ECHO](https://ir.echostar.com/news-releases/news-release-details/echostar-changing-stocker-ticker-sats-echo-marking-companys-next),
 [dépôt SEC du 22 mai 2026](https://www.sec.gov/Archives/edgar/data/1415404/000141540426000013/0001415404-26-000013-index.htm)

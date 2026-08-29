@@ -80,7 +80,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 41 | `METH-007` | rejouer et publier la variante Boosting filtrée par tendance | lot METH ci-dessous | fait |
 | 42 | `DOC-021` | publier dans le site le guide complet des méthodes et de leurs pseudo-codes | lot DOC ci-dessous | fait |
 | 43 | `DATA-029` | relier les prix SATS et ECHO sans valeur manuelle ni réécriture | lot DATA ci-dessous | fait |
-| 44 | `REPLAY-006` | reconstruire le snapshot et rejouer les méthodes après correction SATS | lot REPLAY ci-dessous | à faire |
+| 44 | `REPLAY-006` | reconstruire le snapshot et rejouer les méthodes après correction SATS | lot REPLAY ci-dessous | fait |
 | 45 | `METH-008` | construire une poche Boosting excluant causalement les titres Legacy | lot METH ci-dessous | à faire |
 | 46 | `METH-009` | rejouer le portefeuille combiné comme alternative de diversification | lot METH ci-dessous | à faire |
 
@@ -460,7 +460,7 @@ doublons exacts et preuve de récupération.
 | `REPLAY-003` | conserver un statut machine-lisible pour chaque source après une gate amont | fait | prix Yahoo téléchargés/quarantinés, historiques gelés conservés et acquisitions fondamentales non démarrées distingués explicitement |
 | `REPLAY-004` | produire un rapport HTML autonome qui sépare drift prix, SEC, Legacy et Boosting | fait | rapport réel `8881cac6…b971`, payload `1aaac44b…cdb1`, ablations prix/SEC, scores, Top-N, CVC, gate et hashes réunis ; 13 tests ciblés, typage, lint, navigation HTML et absence d'asset externe validés |
 | `REPLAY-005` | rejouer les deux méthodes sans SEC et promouvoir la politique si les gates communes passent | fait | données fraîches au 26 août ; Legacy strict, Boosting EMA-only et replay commun sur 180 mois verts ; 7/7 hashes identiques, 8 entrées terminales bloquées, zéro rendement censuré sélectionné, `publication_eligible=true` ; `no_sec_fundamentals_v1` devient le défaut Legacy |
-| `REPLAY-006` | rejouer Legacy, Boosting et la variante tendance après l'overlay SATS/ECHO | à faire | nouveau snapshot composé immuable ; attribution des écarts de signal, sélection et rendement SATS ; Top 5/10/15/20 retentés avec le même moteur et rapport hashé |
+| `REPLAY-006` | rejouer Legacy, Boosting et la variante tendance après l'overlay SATS/ECHO | fait | snapshot `bb1f90a9…8375` ; SATS reste rang 14 sans drift de score, son rendement mai devient +4,9131 % ; Legacy et Top 5/10 inchangés, Top 15/20 tendance calculables ; rapport HTML `28c67752…b291` |
 
 ### Détail de `REPLAY-005`
 
@@ -483,6 +483,29 @@ doublons exacts et preuve de récupération.
 - **Rollback** : passer explicitement
   `--fundamental-eligibility-policy-id legacy_pe_market_cap_v1` dans un replay
   de compatibilité ; ne pas restaurer silencieusement ce filtre comme défaut.
+
+### Détail de `REPLAY-006`
+
+- **Objectif** : mesurer l'effet exact de la continuité SATS/ECHO après avoir
+  reconstruit toutes les features, cibles et simulations, sans injecter le
+  rendement de mai dans le moteur.
+- **Périmètre** : snapshot composé `bb1f90a9…8375`, Legacy 30 essais sur quatre
+  trajectoires de 17 fenêtres, Boosting EMA-only 16 folds, replays communs natif
+  et tendance Top 5/10/15/20, rapport JSON/HTML autonome et hashé.
+- **Hors périmètre** : déplacement de `data/model_inputs/manifests/latest.json`,
+  promotion de la variante tendance et modification d'un snapshot antérieur.
+- **Acceptation** : 24 séances SATS ajoutées et aucune ligne antérieure changée ;
+  score et rang SATS identiques ; rendement avril-vers-mai évaluable ; holdings
+  Legacy identiques ; Top 15/20 tendance terminés avec les mêmes données, coûts
+  et moteur que Top 5/10.
+- **Validations** : 5 tests prix/rapport ciblés, Ruff, format, documentation et
+  liens ; deux manifestes communs `comparison_eligible=true`, mêmes sept hashes,
+  huit entrées terminales bloquées et zéro rendement censuré sélectionné.
+- **Impact** : SATS reste rang 14 de la décision d'avril et réalise +4,9131 % en
+  mai ; le signal Boosting ne change pas, Legacy ne détenait pas SATS et ses
+  holdings/performance sont identiques ; Top 15/20 ne sont plus invalides.
+- **Rollback** : résoudre le snapshot précédent par son manifeste immuable ; le
+  pointeur canonique n'a pas été déplacé par cette preuve.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 
