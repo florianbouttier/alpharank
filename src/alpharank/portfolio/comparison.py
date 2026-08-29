@@ -1,12 +1,25 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Literal, Sequence
 
+import numpy as np
 import polars as pl
 
-from alpharank.portfolio.performance import advanced_performance_statistics
+from alpharank.portfolio.performance import (
+    advanced_performance_statistics,
+    portfolio_period_statistics,
+)
+
+PORTFOLIO_PERIOD_CONTEXT_COLUMNS = (
+    "turnover",
+    "transaction_cost",
+    "n_positions",
+    "maximum_position_weight",
+    "maximum_sector_weight",
+)
 
 
 def align_return_series(
@@ -127,9 +140,136 @@ def subperiod_metric_grid(
                     frame[strategy_column].to_numpy()[start : end + 1],
                     benchmark_returns=benchmark[start : end + 1],
                 )
-                rows.append([statistics[field] for field in metric_fields])
+                rows.append([_finite_or_none(statistics[field]) for field in metric_fields])
             output[f"{months[start].isoformat()}|{months[end].isoformat()}"] = rows
     return output
+
+
+def subperiod_portfolio_metric_grid(
+    series_by_strategy: Mapping[str, pl.DataFrame],
+    *,
+    benchmark_strategy: str,
+    strategy_order: Sequence[str],
+    metric_fields: Sequence[str],
+    month_column: str = "holding_month",
+    return_column: str = "net_return",
+    calendar_year_boundaries_only: bool = False,
+) -> dict[str, list[list[float | None]]]:
+    """Calculate canonical KPI for inclusive common-calendar ranges.
+
+    ``calendar_year_boundaries_only`` retains the first available month or
+    January as a start, and December or the final available month as an end.
+    """
+
+    missing_strategies = sorted(set(strategy_order) - set(series_by_strategy))
+    if benchmark_strategy not in series_by_strategy:
+        missing_strategies.append(benchmark_strategy)
+    if missing_strategies:
+        raise ValueError(
+            "Comparison is missing strategies: " + ", ".join(sorted(set(missing_strategies)))
+        )
+    required = {month_column, return_column, *PORTFOLIO_PERIOD_CONTEXT_COLUMNS}
+    for strategy in strategy_order:
+        missing = sorted(required - set(series_by_strategy[strategy].columns))
+        if missing:
+            raise ValueError(f"Series {strategy!r} is missing columns: {', '.join(missing)}")
+
+    aligned = align_return_series(
+        {strategy: series_by_strategy[strategy] for strategy in strategy_order},
+        month_column=month_column,
+        return_column=return_column,
+        how="inner",
+    )
+    months = aligned[month_column].to_list()
+    prepared = {
+        strategy: _prepare_period_arrays(
+            series_by_strategy[strategy],
+            aligned_months=aligned.select(month_column),
+            month_column=month_column,
+            return_column=return_column,
+        )
+        for strategy in strategy_order
+    }
+    benchmark = prepared[benchmark_strategy]["returns"]
+    output: dict[str, list[list[float | None]]] = {}
+    start_indices, end_indices = _period_boundaries(
+        months,
+        calendar_year_boundaries_only=calendar_year_boundaries_only,
+    )
+    for start in start_indices:
+        for end in (index for index in end_indices if index >= start):
+            window = slice(start, end + 1)
+            rows = [
+                _period_metric_row(
+                    prepared[strategy],
+                    benchmark=benchmark,
+                    window=window,
+                    metric_fields=metric_fields,
+                )
+                for strategy in strategy_order
+            ]
+            output[f"{months[start].isoformat()}|{months[end].isoformat()}"] = rows
+    return output
+
+
+def _period_boundaries(
+    months: Sequence[date],
+    *,
+    calendar_year_boundaries_only: bool,
+) -> tuple[list[int], list[int]]:
+    all_indices = list(range(len(months)))
+    if not calendar_year_boundaries_only or not months:
+        return all_indices, all_indices
+    starts = [index for index, month in enumerate(months) if index == 0 or month.month == 1]
+    ends = [
+        index for index, month in enumerate(months) if index == len(months) - 1 or month.month == 12
+    ]
+    return starts, ends
+
+
+def _prepare_period_arrays(
+    frame: pl.DataFrame,
+    *,
+    aligned_months: pl.DataFrame,
+    month_column: str,
+    return_column: str,
+) -> dict[str, np.ndarray]:
+    selected = aligned_months.join(
+        frame.select(month_column, return_column, *PORTFOLIO_PERIOD_CONTEXT_COLUMNS),
+        on=month_column,
+        how="left",
+    ).sort(month_column)
+    return {
+        "returns": selected[return_column].to_numpy(),
+        "turnovers": selected["turnover"].to_numpy(),
+        "transaction_costs": selected["transaction_cost"].to_numpy(),
+        "position_counts": selected["n_positions"].to_numpy(),
+        "maximum_position_weights": selected["maximum_position_weight"].to_numpy(),
+        "maximum_sector_weights": selected["maximum_sector_weight"].to_numpy(),
+    }
+
+
+def _period_metric_row(
+    arrays: Mapping[str, np.ndarray],
+    *,
+    benchmark: np.ndarray,
+    window: slice,
+    metric_fields: Sequence[str],
+) -> list[float | None]:
+    statistics = portfolio_period_statistics(
+        arrays["returns"][window],
+        benchmark_returns=benchmark[window],
+        turnovers=arrays["turnovers"][window],
+        transaction_costs=arrays["transaction_costs"][window],
+        position_counts=arrays["position_counts"][window],
+        maximum_position_weights=arrays["maximum_position_weights"][window],
+        maximum_sector_weights=arrays["maximum_sector_weights"][window],
+    )
+    return [_finite_or_none(statistics[field]) for field in metric_fields]
+
+
+def _finite_or_none(value: float) -> float | None:
+    return float(value) if math.isfinite(value) else None
 
 
 def performance_by_start_year(

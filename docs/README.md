@@ -18,6 +18,8 @@ sépare volontairement les règles courantes des preuves historiques.
    comprendre la simulation et les KPI communs.
 7. [`site_repository_guide.md`](site_repository_guide.md) : lire la projection
    française affichée dans le site Portfolio, avec pseudo-codes et statuts.
+8. [`performance_reporting_standard.md`](performance_reporting_standard.md) :
+   comprendre le rapport interactif, ses filtres et ses model cards.
 
 ## À la racine du dépôt
 
@@ -69,6 +71,7 @@ code et aux nouvelles données :
 | Méthodes Legacy et Boosting | [`legacy_boosting_methodology.md`](legacy_boosting_methodology.md) |
 | Projection méthodologique du site Portfolio | [`site_repository_guide.md`](site_repository_guide.md) |
 | Simulation, KPI et comparaison | [`common_portfolio_backtest_engine.md`](common_portfolio_backtest_engine.md) |
+| Rapport de performance interactif | [`performance_reporting_standard.md`](performance_reporting_standard.md) |
 | Gouvernance des résultats | [`research_governance.md`](research_governance.md) |
 | Organisation des chemins de runs | [`run_organization.md`](run_organization.md) |
 | Référence des features | [`backtest_feature_reference.md`](backtest_feature_reference.md) |

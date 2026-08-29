@@ -85,6 +85,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 46 | `METH-009` | rejouer le portefeuille combiné comme alternative de diversification | lot METH ci-dessous | à faire |
 | 47 | `QUAL-015` | enregistrer le schéma strict de la politique de transition ticker | lot QUAL ci-dessous | fait |
 | 48 | `DOC-022` | rafraîchir l'inventaire data après les derniers lecteurs et runs | lot DOC ci-dessous | fait |
+| 49 | `REPORT-001` | imposer un rapport de backtest interactif commun à toutes les méthodes | lot REPORT ci-dessous | fait |
+| 50 | `REPORT-002` | générer et publier le rapport du replay SATS/ECHO dans le site | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -510,6 +512,50 @@ doublons exacts et preuve de récupération.
   holdings/performance sont identiques ; Top 15/20 ne sont plus invalides.
 - **Rollback** : résoudre le snapshot précédent par son manifeste immuable ; le
   pointeur canonique n'a pas été déplacé par cette preuve.
+
+## 12 quater. Lot REPORT — standardiser la lecture des performances
+
+| ID | Action | Statut | Critère de fin |
+| --- | --- | --- | --- |
+| `REPORT-001` | centraliser le rapport HTML complet et ses filtres temporels | fait | 33 KPI de chaque fenêtre annuelle calculés par le moteur commun, 11 séries dont SPY, model cards CAGR/volatilité/drawdown en Viridis, holdings exhaustifs, méthodologies, lignée et tests sans asset réseau |
+| `REPORT-002` | générer le rapport sur le replay SATS/ECHO et le synchroniser vers Portfolio | à faire | HTML et manifeste hashés depuis le snapshot `bb1f90a9…8375`, preuve datée versionnée, copie dans le site sans calcul front, build du site et hashes publiés |
+
+### Détail de `REPORT-001`
+
+- **Objectif** : disposer d'une page unique pour approfondir toute performance,
+  période, méthode et position historique sans créer un second moteur de KPI.
+- **Périmètre** : KPI communs, toutes les fenêtres bornées par année, graphiques,
+  matrices par année de départ, holdings, pseudo-codes, lignée, générateur et
+  contrat canonique.
+- **Hors périmètre** : recalcul des signaux, modification d'un rendement,
+  promotion d'une variante, recommandation d'achat et donnée Portfolio/IBKR.
+- **Acceptation** : Legacy Frequency/Equal, Boosting natif et tendance Top
+  5/10/15/20 et SPY partagent 180 mois ; tout KPI affiché provient du package
+  `alpharank.portfolio` ; 2011 reste partiel ; aucun asset réseau.
+- **Validations** : tests unitaires moteur/payload/HTML, syntaxe JavaScript,
+  Ruff, mypy strict Portfolio, plafonds Python et documentation.
+- **Impact** : reporting seulement ; zéro changement de score, sélection,
+  poids, rendement, snapshot ou statut de promotion.
+- **Rollback** : retirer le générateur et conserver les artefacts communs ; les
+  backtests et leurs hashes restent inchangés.
+
+### Détail de `REPORT-002`
+
+- **Objectif** : produire la première instance du standard depuis le replay
+  corrigé SATS/ECHO et la rendre accessible dans le portail Portfolio.
+- **Périmètre** : run explicite, manifeste du rapport, preuve datée, copie HTML
+  et manifeste, navigation du site et build frontend.
+- **Hors périmètre** : déplacement de `latest.json`, recomputation dans
+  Portfolio, changement du dashboard IBKR ou déploiement externe.
+- **Acceptation** : rapport régénéré depuis un commit AlphaRank propre, hashes
+  des six entrées, statut candidat/non promu visible, tous les mois et holdings
+  retrouvables, route du site fonctionnelle.
+- **Validations** : génération réelle, cohérence des nombres de lignes,
+  manifeste SHA-256, validation documentaire AlphaRank et build Portfolio.
+- **Impact** : publication d'une preuve de lecture ; aucune modification
+  économique ni garantie supplémentaire de promotion.
+- **Rollback** : retirer l'onglet et la copie publique ; le rapport source reste
+  reconstructible depuis ses chemins et hashes.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

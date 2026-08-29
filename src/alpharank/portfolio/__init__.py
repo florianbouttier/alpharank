@@ -25,7 +25,11 @@ from alpharank.portfolio.benchmark import (
     completed_through_month,
     monthly_benchmark_returns,
 )
-from alpharank.portfolio.comparison import align_return_series, reference_monthly_series
+from alpharank.portfolio.comparison import (
+    align_return_series,
+    reference_monthly_series,
+    subperiod_portfolio_metric_grid,
+)
 from alpharank.portfolio.contracts import (
     CAUSAL_TIMING_REQUIRED_COLUMNS,
     HOLDINGS_REQUIRED_COLUMNS,
@@ -59,6 +63,7 @@ from alpharank.portfolio.performance import (
     annual_returns,
     legacy_report_statistics,
     performance_statistics,
+    portfolio_period_statistics,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_returns import (
@@ -100,6 +105,7 @@ __all__ = [
     "monthly_benchmark_returns",
     "input_hashes_from_manifest",
     "performance_statistics",
+    "portfolio_period_statistics",
     "portfolio_turnover",
     "portfolio_return_attribution",
     "reference_monthly_series",
@@ -110,6 +116,7 @@ __all__ = [
     "require_matching_ticker_exclusions",
     "select_ranked_candidates",
     "simulate_weighted_portfolio",
+    "subperiod_portfolio_metric_grid",
     "validate_causal_timing",
     "validate_execution_sensitivity_report",
     "write_execution_return_bridge",

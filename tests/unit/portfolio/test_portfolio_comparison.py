@@ -5,8 +5,14 @@ from datetime import date
 import polars as pl
 import pytest
 
-from alpharank.portfolio.comparison import subperiod_metric_grid
-from alpharank.portfolio.performance import advanced_performance_statistics
+from alpharank.portfolio.comparison import (
+    subperiod_metric_grid,
+    subperiod_portfolio_metric_grid,
+)
+from alpharank.portfolio.performance import (
+    advanced_performance_statistics,
+    portfolio_period_statistics,
+)
 
 
 def test_subperiod_grid_uses_the_shared_performance_engine() -> None:
@@ -57,3 +63,68 @@ def test_subperiod_grid_rejects_an_incomplete_comparison_contract() -> None:
             benchmark_column="benchmark",
             metric_fields=("cagr",),
         )
+
+
+def test_portfolio_period_grid_centralizes_performance_cost_and_composition_kpi() -> None:
+    months = [date(2025, 1, 1), date(2025, 2, 1), date(2025, 3, 1)]
+    strategy = _portfolio_monthly(
+        months,
+        returns=[0.01, -0.02, 0.03],
+        turnovers=[0.5, 0.2, 0.4],
+        costs=[0.0005, 0.0002, 0.0004],
+        positions=[5, 6, 7],
+    )
+    benchmark = _portfolio_monthly(
+        months,
+        returns=[0.005, -0.01, 0.01],
+        turnovers=[0.0, 0.0, 0.0],
+        costs=[0.0, 0.0, 0.0],
+        positions=[0, 0, 0],
+    )
+    fields = (
+        "cagr",
+        "max_drawdown",
+        "annualized_turnover",
+        "total_transaction_cost",
+        "average_positions",
+    )
+
+    grid = subperiod_portfolio_metric_grid(
+        {"strategy": strategy, "SPY": benchmark},
+        benchmark_strategy="SPY",
+        strategy_order=("strategy", "SPY"),
+        metric_fields=fields,
+    )
+    expected = portfolio_period_statistics(
+        [0.01, -0.02, 0.03],
+        benchmark_returns=[0.005, -0.01, 0.01],
+        turnovers=[0.5, 0.2, 0.4],
+        transaction_costs=[0.0005, 0.0002, 0.0004],
+        position_counts=[5, 6, 7],
+        maximum_position_weights=[0.2, 0.2, 0.2],
+        maximum_sector_weights=[0.4, 0.4, 0.4],
+    )
+
+    assert len(grid) == 6
+    assert grid["2025-01-01|2025-03-01"][0] == pytest.approx([expected[field] for field in fields])
+
+
+def _portfolio_monthly(
+    months: list[date],
+    *,
+    returns: list[float],
+    turnovers: list[float],
+    costs: list[float],
+    positions: list[int],
+) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "holding_month": months,
+            "net_return": returns,
+            "turnover": turnovers,
+            "transaction_cost": costs,
+            "n_positions": positions,
+            "maximum_position_weight": [0.2] * len(months),
+            "maximum_sector_weight": [0.4] * len(months),
+        }
+    )

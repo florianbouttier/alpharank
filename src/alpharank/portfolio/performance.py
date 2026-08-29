@@ -21,7 +21,9 @@ def performance_statistics(
     the comparison convention for Legacy, Alpha, and SPY reports.
     """
 
-    clean = np.asarray(list(returns) if not isinstance(returns, np.ndarray) else returns, dtype=float)
+    clean = np.asarray(
+        list(returns) if not isinstance(returns, np.ndarray) else returns, dtype=float
+    )
     clean = clean[np.isfinite(clean)]
     if clean.size == 0:
         return {
@@ -45,11 +47,7 @@ def performance_statistics(
             else float("nan")
         )
     elif sharpe_convention == "legacy":
-        sharpe = (
-            float((cagr - risk_free_rate) / volatility)
-            if volatility > 0.0
-            else float("nan")
-        )
+        sharpe = float((cagr - risk_free_rate) / volatility) if volatility > 0.0 else float("nan")
     else:
         raise ValueError(f"Unknown sharpe_convention={sharpe_convention!r}.")
     running_peak = np.maximum.accumulate(curve)
@@ -123,15 +121,9 @@ def advanced_performance_statistics(
         }
 
     downside = math.sqrt(float(np.mean(np.minimum(values, 0.0) ** 2)) * 12.0)
-    sortino = (
-        (base["cagr"] - risk_free_rate) / downside
-        if downside > 0.0
-        else float("nan")
-    )
+    sortino = (base["cagr"] - risk_free_rate) / downside if downside > 0.0 else float("nan")
     calmar = (
-        base["cagr"] / abs(base["max_drawdown"])
-        if base["max_drawdown"] < 0.0
-        else float("nan")
+        base["cagr"] / abs(base["max_drawdown"]) if base["max_drawdown"] < 0.0 else float("nan")
     )
     var_95 = float(np.quantile(values, 0.05))
     tail = values[values <= var_95]
@@ -140,9 +132,7 @@ def advanced_performance_statistics(
     centered = values - float(np.mean(values))
     population_std = float(np.std(values, ddof=0))
     skewness = (
-        float(np.mean(centered**3) / population_std**3)
-        if population_std > 0.0
-        else float("nan")
+        float(np.mean(centered**3) / population_std**3) if population_std > 0.0 else float("nan")
     )
     excess_kurtosis = (
         float(np.mean(centered**4) / population_std**4 - 3.0)
@@ -197,9 +187,7 @@ def advanced_performance_statistics(
         annualized_excess_return=base["cagr"] - benchmark_base["cagr"],
         tracking_error=tracking_error,
         information_ratio=(
-            12.0 * float(np.mean(active)) / tracking_error
-            if tracking_error > 0.0
-            else float("nan")
+            12.0 * float(np.mean(active)) / tracking_error if tracking_error > 0.0 else float("nan")
         ),
         beta=beta,
         alpha=alpha,
@@ -219,13 +207,110 @@ def advanced_performance_statistics(
     return result
 
 
+def portfolio_period_statistics(
+    returns: np.ndarray | Iterable[float],
+    *,
+    benchmark_returns: np.ndarray | Iterable[float],
+    turnovers: np.ndarray | Iterable[float],
+    transaction_costs: np.ndarray | Iterable[float],
+    position_counts: np.ndarray | Iterable[float],
+    maximum_position_weights: np.ndarray | Iterable[float],
+    maximum_sector_weights: np.ndarray | Iterable[float],
+    risk_free_rate: float = 0.02,
+) -> dict[str, float]:
+    """Return the canonical performance and portfolio-operation KPI for one period.
+
+    All arrays use the same monthly holding calendar. Rows with a non-finite
+    strategy or benchmark return are excluded consistently from performance and
+    operational statistics.
+    """
+
+    values = _as_float_array(returns)
+    benchmark = _as_float_array(benchmark_returns)
+    if benchmark.size != values.size:
+        raise ValueError("returns and benchmark_returns must have the same length")
+    context = {
+        "turnovers": _matching_array(turnovers, expected_size=values.size),
+        "transaction_costs": _matching_array(
+            transaction_costs,
+            expected_size=values.size,
+        ),
+        "position_counts": _matching_array(position_counts, expected_size=values.size),
+        "maximum_position_weights": _matching_array(
+            maximum_position_weights,
+            expected_size=values.size,
+        ),
+        "maximum_sector_weights": _matching_array(
+            maximum_sector_weights,
+            expected_size=values.size,
+        ),
+    }
+    valid = np.isfinite(values) & np.isfinite(benchmark)
+    base = advanced_performance_statistics(
+        values[valid],
+        benchmark_returns=benchmark[valid],
+        risk_free_rate=risk_free_rate,
+    )
+    cleaned = {name: array[valid & np.isfinite(array)] for name, array in context.items()}
+    return {
+        **base,
+        "average_monthly_turnover": _mean_or_nan(cleaned["turnovers"]),
+        "annualized_turnover": 12.0 * _mean_or_nan(cleaned["turnovers"]),
+        "total_transaction_cost": _sum_or_nan(cleaned["transaction_costs"]),
+        "annualized_transaction_cost": 12.0 * _mean_or_nan(cleaned["transaction_costs"]),
+        "average_positions": _mean_or_nan(cleaned["position_counts"]),
+        "minimum_positions": _minimum_or_nan(cleaned["position_counts"]),
+        "maximum_positions": _maximum_or_nan(cleaned["position_counts"]),
+        "average_maximum_position_weight": _mean_or_nan(cleaned["maximum_position_weights"]),
+        "maximum_single_name_weight": _maximum_or_nan(cleaned["maximum_position_weights"]),
+        "average_maximum_sector_weight": _mean_or_nan(cleaned["maximum_sector_weights"]),
+        "maximum_sector_weight": _maximum_or_nan(cleaned["maximum_sector_weights"]),
+    }
+
+
+def _as_float_array(values: np.ndarray | Iterable[float]) -> np.ndarray:
+    return np.asarray(
+        list(values) if not isinstance(values, np.ndarray) else values,
+        dtype=float,
+    )
+
+
+def _matching_array(
+    values: np.ndarray | Iterable[float],
+    *,
+    expected_size: int,
+) -> np.ndarray:
+    array = _as_float_array(values)
+    if array.size != expected_size:
+        raise ValueError("All portfolio-period arrays must have the same length")
+    return array
+
+
+def _mean_or_nan(values: np.ndarray) -> float:
+    return float(np.mean(values)) if values.size else float("nan")
+
+
+def _sum_or_nan(values: np.ndarray) -> float:
+    return float(np.sum(values)) if values.size else float("nan")
+
+
+def _minimum_or_nan(values: np.ndarray) -> float:
+    return float(np.min(values)) if values.size else float("nan")
+
+
+def _maximum_or_nan(values: np.ndarray) -> float:
+    return float(np.max(values)) if values.size else float("nan")
+
+
 def annual_returns(
     returns: np.ndarray | Iterable[float],
     *,
     holding_months: Iterable[date | datetime | np.datetime64],
     full_years_only: bool = False,
 ) -> pl.DataFrame:
-    values = np.asarray(list(returns) if not isinstance(returns, np.ndarray) else returns, dtype=float)
+    values = np.asarray(
+        list(returns) if not isinstance(returns, np.ndarray) else returns, dtype=float
+    )
     months = np.asarray(list(holding_months))
     if values.size != months.size:
         raise ValueError("returns and holding_months must have the same length")
@@ -266,7 +351,9 @@ def legacy_report_statistics(
     holding_months: Iterable[date | datetime | np.datetime64],
     risk_free_rate: float = 0.02,
 ) -> dict[str, float | int]:
-    values = np.asarray(list(returns) if not isinstance(returns, np.ndarray) else returns, dtype=float)
+    values = np.asarray(
+        list(returns) if not isinstance(returns, np.ndarray) else returns, dtype=float
+    )
     months = list(holding_months)
     if values.size != len(months):
         raise ValueError("returns and holding_months must have the same length")

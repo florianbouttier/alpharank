@@ -221,6 +221,14 @@ benchmark, VaR/CVaR historique, Omega et capture haussière/baissière. Il expos
 Sans benchmark, les deux premières métriques restent explicitement `NaN`. Les
 consommateurs utilisent cette fonction commune et ne réimplémentent aucun KPI.
 
+`portfolio_period_statistics()` ajoute aux mêmes métriques les mesures
+opérationnelles de la fenêtre : turnover, coûts, nombre de positions et
+concentrations maximales. `subperiod_portfolio_metric_grid()` applique cette
+fonction à chaque couple inclusif de mois sur le calendrier commun. Le rapport
+HTML standard sélectionne uniquement ces valeurs pré-calculées ; sa définition,
+ses filtres et ses matrices par année de départ sont décrits dans
+[`performance_reporting_standard.md`](performance_reporting_standard.md).
+
 ## Exact CAGR Attribution
 
 CAGR is nonlinear and cannot be split by adding ordinary percentage-point
