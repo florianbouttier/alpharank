@@ -23,6 +23,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
   replay Legacy/Boosting/tendance complet et résolution causale de Top 15/20.
 - `backtest_performance_report_20260829.md` : première exécution du standard de
   performance sur SATS/ECHO, hashes du rapport et preuve de publication site.
+- `backtest_performance_report_20260830.md` : republication comparative avec
+  onze stratégies en colonnes, multiselect et model cards cumulées/annuelles
+  strictement bornées par la fenêtre choisie.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
