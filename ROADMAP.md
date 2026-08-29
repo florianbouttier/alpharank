@@ -77,7 +77,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 38 | `DATA-028` | bloquer les entrées post-fusion révélées par l'univers sans SEC | lot DATA ci-dessous | fait |
 | 39 | `REPLAY-005` | promouvoir la politique sans SEC après replay commun strict | lot REPLAY ci-dessous | fait |
 | 40 | `METH-006` | filtrer causalement les candidats Boosting par tendance avant classement | lot METH ci-dessous | fait |
-| 41 | `METH-007` | rejouer et publier la variante Boosting filtrée par tendance | lot METH ci-dessous | à faire |
+| 41 | `METH-007` | rejouer et publier la variante Boosting filtrée par tendance | lot METH ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -336,7 +336,7 @@ doublons exacts et preuve de récupération.
 | `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | fait | registre causal de 88 948 ticker-mois, variantes Top 5/10/15/20 natives et appariées sur le même snapshot, bootstrap de 50 000 tirages et aucune promotion de Boosting |
 | `METH-005` | exposer une politique Legacy sans fondamentaux SEC sans la promouvoir avant replay strict | fait | `no_sec_fundamentals_v1` construit l'univers depuis prix et membership uniquement ; CLI, manifeste et provenance enregistrent le choix ; trois tests de contrat verts ; promotion traitée séparément par `REPLAY-005` |
 | `METH-006` | rendre disponible un filtre causal de tendance avant le classement Boosting | fait | registre exact de 88 950 clés, dont 40 135 éligibles ; 16 replays OOS vérifiés par hash, majorité stricte orientée, couverture complète, CLI et artefacts ; cinq tests de politique, variante non promue et natif inchangé |
-| `METH-007` | exécuter le replay commun de la variante Boosting filtrée par tendance | à faire | run propre sur les entrées du 28 août, mêmes calendrier et coûts ; performances, holdings live, hashes et biais post-hoc publiés sans promotion implicite |
+| `METH-007` | exécuter le replay commun de la variante Boosting filtrée par tendance | fait | Top 5/10 sur 180 mois : CAGR 23,63 %/21,95 %, mais IC bootstrap rendement et Sharpe traversent zéro ; essai Top 15/20 bloqué causalement sur le prix manquant de SATS ; dernier Top 10, hashes et statut non promu publiés |
 
 ### Détail de `METH-006`
 
@@ -364,12 +364,14 @@ doublons exacts et preuve de récupération.
 
 - **Objectif** : mesurer la variante sur tout l'historique commun puis figer sa
   performance, sa stabilité et son portefeuille le plus récent.
-- **Périmètre** : replay commun Top 5/10/15/20 depuis le run sans SEC du
-  28 août 2026, rapport de preuve et mise à jour de la roadmap.
+- **Périmètre** : tentative commune Top 5/10/15/20 puis replay exploitable
+  Top 5/10 depuis le run sans SEC du 28 août 2026, rapport de preuve et mise à
+  jour de la roadmap.
 - **Hors périmètre** : tuning sur le résultat, modification des données, choix
   d'un autre snapshot ou remplacement du Boosting natif.
 - **Acceptation** : code Git propre, mêmes 180 mois, snapshot, terminal gate,
-  coûts et benchmark ; artefacts hashés ; comparaison native/filtrée ; dernier
+  coûts et benchmark ; toute taille sélectionnant un rendement manquant
+  s'arrête ; artefacts Top 5/10 hashés ; comparaison native/filtrée ; dernier
   Top 10 détaillé ; statut de promotion explicite.
 - **Validations** : replay complet, manifeste, calendrier exact, absence de
   rendement censuré sélectionné, validations documentaires et Git.

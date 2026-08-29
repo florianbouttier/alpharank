@@ -423,6 +423,85 @@ artifact but is not called “fresh” or used for this promotion; freshness her
 means the explicitly identified composed package acquired through 26 August,
 not whichever package happened to be the last promoted pointer.
 
+## Causal-Trend Allocation Diagnostic — 2026-08-29
+
+`METH-007` ran the policy implemented at commit `3b9bf72` against the exact
+Legacy and Boosting inputs of the no-SEC reference above. The retained research
+replay is:
+
+```text
+outputs/no_sec_fresh_replay_20260828/common_replay_causal_trend_top5_top10
+```
+
+It uses the same 180 realized months, 10 bps times turnover, SPY total-return
+benchmark, eight terminal-entry blocks and zero selected censored return. All
+88,950 model prediction keys have one eligibility row: 40,135 pass before
+maturity and terminal gates, 39,912 completed rows remain eligible, and 217 of
+502 July 2026 live candidates pass. Native holdings are exactly identical to
+the reference; re-simulation differs only by floating-point residue up to
+`6.94e-18` on monthly net returns.
+
+| Strategy | CAGR | Volatility | Sharpe | Max drawdown | Mean turnover |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Boosting Top 5 | 19.9416% | 35.9188% | 0.4995 | -37.2782% | 51.5429% |
+| Boosting Top 5, causal trend | 23.6320% | 31.7346% | 0.6817 | -27.3678% | 49.1366% |
+| Boosting Top 10 | 19.9271% | 31.4932% | 0.5692 | -31.3583% | 47.2495% |
+| Boosting Top 10, causal trend | 21.9512% | 26.1454% | 0.7631 | -24.7904% | 46.0514% |
+| Legacy | 19.6430% | 26.5670% | 0.6641 | -26.4931% | 44.3899% |
+| SPY total return | 14.3975% | 14.3014% | 0.8669 | -23.9272% | 0.0000% |
+
+The point estimates improve both return and risk, but temporal confirmation is
+not decisive. Each trend variant beats its native comparator in only 8 of 14
+full calendar years. A paired moving-block bootstrap with 50,000 samples,
+12-month blocks and seed 42 gives a 95% annualized mean-return interval of
+`[-17.61%, 24.71%]` for Top 5 and `[-9.85%, 11.06%]` for Top 10; the respective
+Sharpe-difference intervals are `[-0.263, 0.552]` and `[-0.111, 0.430]`. Every
+interval crosses zero, so the variant remains post-hoc research and is not
+promoted despite the better full-sample table.
+
+The July 2026 decision produces this equal-weight August Top 10:
+
+| Rank | Ticker | Boosting score | Positive trend pairs |
+| ---: | --- | ---: | ---: |
+| 1 | DELL.US | 0.349872 | 49 / 49 |
+| 2 | SNDK.US | 0.337033 | 42 / 49 |
+| 3 | MU.US | 0.318474 | 49 / 49 |
+| 4 | WDC.US | 0.314044 | 47 / 49 |
+| 5 | STX.US | 0.311204 | 49 / 49 |
+| 6 | INTC.US | 0.299029 | 42 / 49 |
+| 7 | MRVL.US | 0.295930 | 42 / 49 |
+| 8 | AMD.US | 0.287544 | 49 / 49 |
+| 9 | LRCX.US | 0.281418 | 42 / 49 |
+| 10 | FLEX.US | 0.259821 | 42 / 49 |
+
+Only DELL overlaps the native Top 10. The largest individual July SHAP
+contribution for all ten names is the cross-sectional z-score of relative EMA
+pair `100/311`, between `+0.2449` and `+0.3117`; this is a current-snapshot
+explanation, not evidence of SHAP stability through time and not an input to
+the trend filter.
+
+The initial Top 5/10/15/20 attempt is retained as a failed run at
+`outputs/no_sec_fresh_replay_20260828/common_replay_causal_trend`. Top 15 and
+Top 20 would select `SATS.US` for May 2026 despite its missing price return, so
+the common engine stopped. SATS changed ticker only on 24 June 2026, announced
+22 June; excluding it at the April decision using that later event would be a
+leak. The successful replay therefore reports only Top 5/10 and does not hide
+the unresolved historical price gap.
+
+Key SHA-256 evidence:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `manifest.json` | `34da25d01c94a8ba01bd41fc99c434aefdfc68e6b4f170b43e01f06a9128cb81` |
+| `comparison_common_performance.csv` | `ad89959aee95f62332be58ed122e70b9fe54f4e236c21eaa111fe31efddc7225` |
+| `comparison_common_holdings.parquet` | `8e8c6fb304127da91a56f67a5f2431fb4078572f888fa3a4c5642705e037f1b2` |
+| `causal_trend_eligibility.parquet` | `f20bc325607c3a3c1383a210f5e8099d9765649cd695d773cf3dcc2c73222d39` |
+| `boosting_live_score_holdings.csv` | `56ca017b6b2db051ac646d356a6de16a9b4b421fe0282708715a71cfaf517142` |
+
+The manifest records `status=research_common_strategy_replay`,
+`methodology_status=post_hoc_research_diagnostic`,
+`comparison_eligible=true` and `publication_eligible=false`.
+
 ## Retained SEC/PE Reference — 2026-08-16
 
 ```text
