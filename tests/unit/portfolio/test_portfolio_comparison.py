@@ -108,6 +108,51 @@ def test_portfolio_period_grid_centralizes_performance_cost_and_composition_kpi(
     assert len(grid) == 6
     assert grid["2025-01-01|2025-03-01"][0] == pytest.approx([expected[field] for field in fields])
 
+    _assert_year_boundary_grid(fields)
+
+
+def _assert_year_boundary_grid(fields: tuple[str, ...]) -> None:
+    """Prove that the cube contains cumulative and isolated annual windows."""
+
+    boundary_months = [
+        date(2024, 8, 1),
+        date(2024, 12, 1),
+        date(2025, 1, 1),
+        date(2025, 12, 1),
+        date(2026, 1, 1),
+        date(2026, 7, 1),
+    ]
+    boundary_strategy = _portfolio_monthly(
+        boundary_months,
+        returns=[0.01] * 6,
+        turnovers=[0.2] * 6,
+        costs=[0.0002] * 6,
+        positions=[5] * 6,
+    )
+    boundary_benchmark = _portfolio_monthly(
+        boundary_months,
+        returns=[0.005] * 6,
+        turnovers=[0.0] * 6,
+        costs=[0.0] * 6,
+        positions=[0] * 6,
+    )
+    annual_grid = subperiod_portfolio_metric_grid(
+        {"strategy": boundary_strategy, "SPY": boundary_benchmark},
+        benchmark_strategy="SPY",
+        strategy_order=("strategy", "SPY"),
+        metric_fields=fields,
+        calendar_year_boundaries_only=True,
+    )
+
+    assert set(annual_grid) == {
+        "2024-08-01|2024-12-01",
+        "2024-08-01|2025-12-01",
+        "2024-08-01|2026-07-01",
+        "2025-01-01|2025-12-01",
+        "2025-01-01|2026-07-01",
+        "2026-01-01|2026-07-01",
+    }
+
 
 def _portfolio_monthly(
     months: list[date],

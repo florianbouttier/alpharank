@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -178,8 +178,7 @@ def build_performance_report_payload(
         metric_fields=PERFORMANCE_METRIC_FIELDS,
         calendar_year_boundaries_only=True,
     )
-    end_month = monthly["holding_month"].max()
-    start_month = monthly["holding_month"].min()
+    start_month, end_month = _report_bounds(monthly)
     start_year_metrics = performance_by_start_year(
         series,
         benchmark_strategy=BENCHMARK_STRATEGY,
@@ -209,10 +208,18 @@ def build_performance_report_payload(
             "benchmark": "SPY total return depuis adjusted_close",
             "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
             "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
-            "report_task": "REPORT-001",
+            "report_task": "REPORT-003",
         },
         "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
     }
+
+
+def _report_bounds(monthly: pl.DataFrame) -> tuple[date, date]:
+    start_month = monthly["holding_month"].min()
+    end_month = monthly["holding_month"].max()
+    if not isinstance(start_month, date) or not isinstance(end_month, date):
+        raise ValueError("The report calendar must contain at least one valid date.")
+    return start_month, end_month
 
 
 def _load_report_inputs(

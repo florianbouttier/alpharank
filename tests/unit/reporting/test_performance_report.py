@@ -77,6 +77,13 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert "http://" not in html
     assert "Viridis" not in html  # The requested scale is encoded locally, not loaded.
     assert ".loading[hidden]" in html
+    assert 'id="curve-multiselect"' in html
+    assert 'id="metric-head"' in html
+    assert 'id="cumulative-heatmap"' in html
+    assert 'id="incremental-heatmap"' in html
+    assert 'id="strategy-select"' not in html
+    assert 'matrixWindows("cumulative")' in html
+    assert 'matrixWindows("incremental")' in html
 
 
 def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:

@@ -226,7 +226,8 @@ opérationnelles de la fenêtre : turnover, coûts, nombre de positions et
 concentrations maximales. `subperiod_portfolio_metric_grid()` applique cette
 fonction à chaque couple inclusif de mois sur le calendrier commun. Le rapport
 HTML standard sélectionne uniquement ces valeurs pré-calculées ; sa définition,
-ses filtres et ses matrices par année de départ sont décrits dans
+ses filtres, ses matrices cumulées par année de départ et ses matrices annuelles
+isolées sont décrits dans
 [`performance_reporting_standard.md`](performance_reporting_standard.md).
 
 ## Exact CAGR Attribution

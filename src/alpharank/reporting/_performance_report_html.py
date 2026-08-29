@@ -64,11 +64,12 @@ def _sidebar() -> str:
 
 
 def _main() -> str:
-    return """
+    return (
+        """
 <main><div class="content">
   <header class="hero">
     <div>
-      <span class="eyebrow">Standard de performance · REPORT-001</span>
+      <span class="eyebrow">Standard de performance · REPORT-003</span>
       <h1>Rapport de backtest complet</h1>
       <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
       calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
@@ -79,12 +80,35 @@ def _main() -> str:
   <div class="toolbar" aria-label="Filtres de performance">
     <label>Début de la fenêtre<select id="start-month"></select></label>
     <label>Fin de la fenêtre<select id="end-month"></select></label>
-    <label>Stratégie principale<select id="strategy-select"></select></label>
+    <div class="curve-control">
+      <span class="field-label">Courbes affichées</span>
+      <details class="multi-select" id="curve-multiselect">
+        <summary id="curve-select-label">Choisir les stratégies</summary>
+        <div class="multi-select-menu">
+          <div class="multi-select-actions">
+            <button id="select-all-curves" type="button">Toutes</button>
+            <button id="select-reference-curves" type="button">Legacy + SPY</button>
+          </div>
+          <div class="curve-options" id="curve-options"></div>
+        </div>
+      </details>
+    </div>
     <button class="button secondary" id="reset-window" type="button">Toute la période</button>
   </div>
+"""
+        + _performance_sections()
+        + _audit_sections()
+        + """
+</div></main>
+"""
+    )
+
+
+def _performance_sections() -> str:
+    return """
   <section class="section" id="overview">
     <div class="section-head">
-      <div><span class="section-kicker">01 · Vue d'ensemble</span><h2 id="selected-strategy-label">—</h2></div>
+      <div><span class="section-kicker">01 · Vue d'ensemble</span><h2>Comparaison de la fenêtre</h2></div>
       <p id="window-label">—</p>
     </div>
     <div class="kpi-grid" id="kpi-grid"></div>
@@ -94,21 +118,36 @@ def _main() -> str:
     </div>
   </section>
   <section class="section" id="kpis">
-    <div class="section-head"><div><span class="section-kicker">02 · Mesure</span><h2>Tous les KPI de la fenêtre</h2></div><p>Définitions et conventions identiques aux artefacts du moteur commun.</p></div>
-    <div class="table-wrap"><table class="metric-table"><thead><tr><th>KPI</th><th>Valeur</th><th>Définition</th></tr></thead><tbody id="metric-body"></tbody></table></div>
+    <div class="section-head"><div><span class="section-kicker">02 · Mesure</span><h2>Tous les KPI, toutes les stratégies</h2></div><p>SPY est la colonne de référence. Les cellules vertes le surpassent selon le sens économique du KPI ; les métriques descriptives restent neutres.</p></div>
+    <div class="table-wrap"><table class="metric-table"><thead><tr id="metric-head"></tr></thead><tbody id="metric-body"></tbody></table></div>
   </section>
   <section class="section" id="matrix">
-    <div class="section-head"><div><span class="section-kicker">03 · Model cards</span><h2>Performance depuis chaque année</h2></div><p>Année de départ en X, stratégie en Y. 2011 commence effectivement en août, premier mois OOS commun.</p></div>
+    <div class="section-head"><div><span class="section-kicker">03 · Model cards</span><h2>Performance cumulée et annuelle</h2></div><p>Les années affichées restent strictement entre le début et la fin de la fenêtre active.</p></div>
     <article class="panel">
       <div class="matrix-controls">
         <button class="is-active" type="button" data-matrix-metric="cagr">CAGR</button>
         <button type="button" data-matrix-metric="annualized_volatility">Volatilité</button>
         <button type="button" data-matrix-metric="max_drawdown">Max drawdown</button>
       </div>
-      <div class="heatmap-wrap"><div class="heatmap" id="heatmap"></div></div>
-      <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="matrix-caption"></strong></div>
+      <div class="matrix-block">
+        <h3>Depuis chaque année jusqu'à la fin sélectionnée</h3>
+        <p class="panel-subtitle" id="cumulative-matrix-window">—</p>
+        <div class="heatmap-wrap"><div class="heatmap" id="cumulative-heatmap"></div></div>
+        <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="cumulative-matrix-caption"></strong></div>
+      </div>
+      <div class="matrix-block incremental-block">
+        <h3>Chaque année isolée · incrémental</h3>
+        <p class="panel-subtitle">Chaque cellule utilise seulement les mois de l'année indiquée, sans capital antérieur.</p>
+        <div class="heatmap-wrap"><div class="heatmap" id="incremental-heatmap"></div></div>
+        <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="incremental-matrix-caption"></strong></div>
+      </div>
     </article>
   </section>
+"""
+
+
+def _audit_sections() -> str:
+    return """
   <section class="section" id="portfolios">
     <div class="section-head"><div><span class="section-kicker">04 · Positions</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
     <div class="portfolio-controls">
@@ -132,5 +171,4 @@ def _main() -> str:
       <article class="lineage-card"><h3>Snapshot et sources</h3><dl class="definition" id="lineage-data"></dl></article>
     </div>
   </section>
-</div></main>
 """

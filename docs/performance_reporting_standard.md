@@ -30,17 +30,30 @@ du rapport.
 
 Le filtre accepte chaque année du calendrier commun : le début est janvier ou
 le premier mois OOS disponible, et la fin décembre ou le dernier mois réalisé.
-Pour toutes les combinaisons annuelles inclusives `début -> fin`, les KPI sont calculés avant rendu par
+Pour toutes les combinaisons annuelles inclusives `début -> fin`, les KPI sont
+calculés avant rendu par
 `alpharank.portfolio.performance.portfolio_period_statistics()` puis assemblés
 par `subperiod_portfolio_metric_grid()`.
 
 Ce choix garde le rapport publiable dans une page autonome tout en couvrant
 toutes les lectures « depuis 2011 », « depuis 2012 », ou entre deux années. Les
-portefeuilles restent filtrables mois par mois. Le navigateur sélectionne une ligne pré-calculée ; il ne possède pas de seconde
-formule de CAGR, volatilité, Sharpe, drawdown, risque relatif, turnover, coûts ou
-concentration. Les courbes de richesse et de drawdown sont des projections
-graphiques des rendements mensuels déjà produits par le moteur ; les valeurs
-affichées dans les cartes et tableaux proviennent du cube canonique.
+portefeuilles restent filtrables mois par mois. Le navigateur sélectionne une
+ligne pré-calculée ; il ne possède pas de seconde formule de CAGR, volatilité,
+Sharpe, drawdown, risque relatif, turnover, coûts ou concentration. Les courbes
+de richesse et de drawdown sont des projections graphiques des rendements
+mensuels déjà produits par le moteur ; les valeurs affichées dans les cartes et
+tableaux proviennent du cube canonique.
+
+Chaque carte synthétique et chaque ligne du tableau complet affiche les onze
+stratégies en colonnes comparables. SPY est la référence visible. Une couleur
+indique une surperformance ou sous-performance uniquement lorsqu'un sens
+économique est défini : rendement et ratios plus élevés, ou risque, coûts et
+turnover plus faibles. Les métriques descriptives sans ordre économique restent
+neutres. Cette comparaison porte toujours sur la même fenêtre pré-calculée.
+
+La sélection des courbes de richesse et de drawdown est un multiselect
+indépendant. Elle accepte toute combinaison des onze séries et ne change ni la
+fenêtre KPI ni les model cards.
 
 Le rapport expose au minimum :
 
@@ -53,13 +66,25 @@ Une concentration sectorielle n'est affichée que si chaque holding de la
 stratégie porte un secteur observable. Une colonne secteur absente ou nulle
 produit `indisponible`, jamais un faux secteur unique à 100 %.
 
-## Model cards par année de départ
+## Model cards cumulées et annuelles
 
-Trois matrices sont obligatoires : CAGR, volatilité annualisée et max drawdown.
-L'axe X contient chaque année de départ depuis 2011, l'axe Y toutes les
-stratégies ainsi que SPY. La palette Viridis encode la valeur brute pour le
-CAGR et la volatilité ; pour le drawdown elle encode la profondeur absolue de
-la perte. La valeur numérique reste écrite dans chaque cellule.
+Deux familles de matrices sont obligatoires pour le CAGR, la volatilité
+annualisée et le max drawdown. L'axe X contient uniquement les années comprises
+entre le début et la fin sélectionnés ; l'axe Y contient toutes les stratégies
+ainsi que SPY. La première famille cumule chaque année de départ jusqu'à la fin
+sélectionnée. La seconde isole chaque année civile : sa première et sa dernière
+colonne peuvent être partielles lorsque les bornes le sont.
+
+Dans la matrice annuelle, l'onglet CAGR affiche le rendement composé de l'année
+isolée. Il est égal au CAGR sur une année civile complète et évite d'annualiser
+trompeusement une année de bord partielle. Les onglets volatilité et drawdown
+conservent leurs KPI canoniques sur cette seule année. Toutes les cellules sont
+sélectionnées dans `metric_windows` ; aucun indicateur n'est recalculé en
+JavaScript.
+
+La palette Viridis encode la valeur brute pour le CAGR ou rendement annuel et
+la volatilité ; pour le drawdown elle encode la profondeur absolue de la perte.
+La valeur numérique reste écrite dans chaque cellule.
 
 Le premier portefeuille Boosting hors échantillon commence en août 2011. La
 colonne 2011 est donc marquée comme couverture partielle et aucun rendement de

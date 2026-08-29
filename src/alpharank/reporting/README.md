@@ -15,7 +15,8 @@ ni commande interactive : les KPI de performance proviennent du moteur commun.
   les scores, holdings ou KPI.
 - `performance_report.py` prépare la vue complète d'un replay explicitement
   nommé ; `_performance_report_html.py`, `_performance_report_styles.py` et
-  `_performance_report_script.py` rendent les filtres, graphiques, matrices et
+  `_performance_report_script.py` rendent la comparaison multi-stratégie, le
+  multiselect des courbes, les matrices cumulées et annuelles et les
   portefeuilles sans redéfinir les KPI.
 
 Les rapports HTML/Markdown conservés dans AlphaRank sont des preuves statiques

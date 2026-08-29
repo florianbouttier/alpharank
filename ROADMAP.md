@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-29.**
+**Dernière mise à jour : 2026-08-30.**
 
 **Statut : seule source des priorités actives.**
 
@@ -87,6 +87,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 48 | `DOC-022` | rafraîchir l'inventaire data après les derniers lecteurs et runs | lot DOC ci-dessous | fait |
 | 49 | `REPORT-001` | imposer un rapport de backtest interactif commun à toutes les méthodes | lot REPORT ci-dessous | fait |
 | 50 | `REPORT-002` | générer et publier le rapport du replay SATS/ECHO dans le site | lot REPORT ci-dessous | fait |
+| 51 | `REPORT-003` | comparer toutes les stratégies et borner les model cards par la fenêtre | lot REPORT ci-dessous | fait |
+| 52 | `REPORT-004` | régénérer et republier le rapport comparatif SATS/ECHO | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -519,6 +521,8 @@ doublons exacts et preuve de récupération.
 | --- | --- | --- | --- |
 | `REPORT-001` | centraliser le rapport HTML complet et ses filtres temporels | fait | 33 KPI de chaque fenêtre annuelle calculés par le moteur commun, 11 séries dont SPY, model cards CAGR/volatilité/drawdown en Viridis, holdings exhaustifs, méthodologies, lignée et tests sans asset réseau |
 | `REPORT-002` | générer le rapport sur le replay SATS/ECHO et le synchroniser vers Portfolio | fait | HTML et manifeste hashés depuis le snapshot `bb1f90a9…8375`, preuve datée versionnée, copie byte-identique dans le site au commit Portfolio `7e66fa5`, build Vite et routes HTTP validés |
+| `REPORT-003` | rendre la comparaison multi-stratégie explicite dans chaque vue | fait | KPI des 11 séries côte à côte avec surperformance SPY visible, multisélection des courbes, matrices cumulées bornées par début/fin et matrices annuelles incrémentales sans nouveau calcul navigateur |
+| `REPORT-004` | publier une nouvelle instance SATS/ECHO du standard enrichi | à faire | nouvel HTML et manifeste hashés, preuve datée, copie site byte-identique, build Portfolio et contrôles interactifs validés |
 
 ### Détail de `REPORT-001`
 
@@ -556,6 +560,45 @@ doublons exacts et preuve de récupération.
   économique ni garantie supplémentaire de promotion.
 - **Rollback** : retirer l'onglet et la copie publique ; le rapport source reste
   reconstructible depuis ses chemins et hashes.
+
+### Détail de `REPORT-003`
+
+- **Objectif** : lire immédiatement chaque KPI pour toutes les stratégies,
+  choisir librement les courbes et distinguer performance cumulée et année
+  isolée dans la fenêtre sélectionnée.
+- **Périmètre** : comparaison KPI par stratégie, référence SPY, multisélection,
+  filtrage des deux matrices Viridis par début/fin et projection annuelle
+  incrémentale depuis le cube de KPI existant.
+- **Hors périmètre** : nouvelle formule financière, changement de rendement,
+  signal, sélection, modèle, snapshot ou statut de promotion.
+- **Acceptation** : les 11 séries sont visibles dans les colonnes KPI ; les
+  cellules comparables indiquent surperformance/sous-performance contre SPY ;
+  toute combinaison de courbes est disponible ; les deux matrices ne dépassent
+  jamais les bornes choisies et utilisent exclusivement `metric_windows`.
+- **Validations** : tests du payload/HTML, test des fenêtres annuelles, syntaxe
+  JavaScript, Ruff, taille Python, documentation et revue navigateur.
+- **Impact** : interaction et lecture seulement ; aucun artefact économique
+  source n'est modifié.
+- **Rollback** : republier l'HTML `REPORT-002` ; ses entrées et hashes restent
+  conservés dans la preuve du 29 août.
+
+### Détail de `REPORT-004`
+
+- **Objectif** : rendre la version comparative accessible dans le portail
+  Portfolio avec une preuve exacte de l'artefact servi.
+- **Périmètre** : génération SATS/ECHO, manifeste, copie HTML, navigation déjà
+  existante, build du site, QA interactive et rapport daté.
+- **Hors périmètre** : déploiement Cloudflare, calcul frontend, promotion de
+  modèle et modification du dashboard IBKR.
+- **Acceptation** : source, copie publique et build ont les mêmes hashes ; le
+  multiselect, les colonnes KPI et les matrices bornées sont vérifiés sur une
+  fenêtre réduite ; le manifeste conserve le statut candidat/non promu.
+- **Validations** : génération réelle, hashes, contrat du manifeste, build
+  Vite, routes HTTP, absence d'erreur console et documentation AlphaRank.
+- **Impact** : remplacement d'une projection statique du même replay ; zéro
+  changement de portefeuille ou de performance.
+- **Rollback** : restaurer la copie site de `REPORT-002` depuis le commit
+  Portfolio `7e66fa5` sans toucher aux runs AlphaRank.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

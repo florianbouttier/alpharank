@@ -35,8 +35,22 @@ const METRICS = {
   maximum_sector_weight: ["Poids secteur maximal", "pct", "Concentration sectorielle mensuelle maximale."],
 };
 const CORE_METRICS = ["cagr", "total_return", "annualized_volatility", "max_drawdown", "sharpe", "sortino"];
+const BENCHMARK_STRATEGY = "SPY · Total return";
+const DEFAULT_CURVE_STRATEGIES = ["Legacy · Frequency", "Boosting tendance · Top 5", BENCHMARK_STRATEGY];
+const METRIC_DIRECTIONS = {
+  total_return: "higher", cagr: "higher", annualized_volatility: "lower",
+  sharpe: "higher", max_drawdown: "higher", positive_month_rate: "higher",
+  sortino: "higher", calmar: "higher", annualized_excess_return: "higher",
+  tracking_error: "lower", information_ratio: "higher", alpha: "higher",
+  benchmark_hit_rate: "higher", var_95: "higher", cvar_95: "higher",
+  omega: "higher", up_capture: "higher", down_capture: "lower",
+  average_monthly_turnover: "lower", annualized_turnover: "lower",
+  total_transaction_cost: "lower", annualized_transaction_cost: "lower",
+  average_maximum_position_weight: "lower", maximum_single_name_weight: "lower",
+  average_maximum_sector_weight: "lower", maximum_sector_weight: "lower",
+};
 const VIRIDIS = [[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
-const state = { data: null, start: null, end: null, strategy: null, matrixMetric: "cagr", page: 0 };
+const state = { data: null, start: null, end: null, curves: [], matrixMetric: "cagr", page: 0 };
 
 async function decodePayload() {
   const bytes = Uint8Array.from(atob(PAYLOAD_GZIP_BASE64), value => value.charCodeAt(0));
@@ -57,27 +71,46 @@ function escapeHtml(value) { return String(value ?? "").replace(/[&<>"]/g, char 
 function monthLabel(value) { return new Date(`${value.slice(0,7)}-15T12:00:00Z`).toLocaleDateString("fr-FR", {month:"short", year:"numeric"}); }
 function strategyMeta(label) { return state.data.strategies.find(item => item.label === label); }
 function windowKey() { return `${state.start}|${state.end}`; }
-function currentMetricRow() {
+function currentMetricRows() {
   const rows = state.data.metric_windows[windowKey()];
-  if (!rows) return [];
-  return rows[state.data.strategy_order.indexOf(state.strategy)];
+  return rows || [];
 }
-function metricValue(field) { return currentMetricRow()[state.data.metric_fields.indexOf(field)]; }
+function metricValue(strategy, field, rows=currentMetricRows()) {
+  const strategyIndex = state.data.strategy_order.indexOf(strategy);
+  const metricIndex = state.data.metric_fields.indexOf(field);
+  return rows[strategyIndex]?.[metricIndex];
+}
+
+function comparisonState(field, strategy, value) {
+  if (strategy === BENCHMARK_STRATEGY) return "benchmark";
+  const direction = METRIC_DIRECTIONS[field];
+  const benchmark = metricValue(BENCHMARK_STRATEGY, field);
+  if (!direction || !Number.isFinite(value) || !Number.isFinite(benchmark)) return "neutral";
+  if (Math.abs(value - benchmark) < 1e-12) return "equal";
+  const beats = direction === "higher" ? value > benchmark : value < benchmark;
+  return beats ? "beats" : "trails";
+}
+
+function comparisonMark(status) {
+  return status === "beats" ? "↑ SPY" : status === "trails" ? "↓ SPY" : status === "equal" ? "= SPY" : status === "benchmark" ? "Référence" : "";
+}
 
 function initializeControls() {
   const D = state.data;
   state.start = D.calendar.start;
   state.end = D.calendar.end;
-  state.strategy = D.strategy_order[0];
+  state.curves = DEFAULT_CURVE_STRATEGIES.filter(strategy => D.strategy_order.includes(strategy));
   document.getElementById("start-month").innerHTML = D.calendar.available_start_months.map(value => option(value, value.slice(0,4))).join("");
   document.getElementById("end-month").innerHTML = D.calendar.available_end_months.map(value => option(value, value.slice(0,4))).join("");
-  document.getElementById("strategy-select").innerHTML = D.strategy_order.map(value => option(value)).join("");
   document.getElementById("portfolio-strategy").innerHTML = D.strategy_order.filter(value => value !== "SPY · Total return").map(value => option(value)).join("");
   document.getElementById("portfolio-month").innerHTML = D.calendar.available_months.map(value => option(value, monthLabel(value))).join("");
   document.getElementById("end-month").value = state.end;
   document.getElementById("portfolio-month").value = state.end;
-  for (const id of ["start-month","end-month","strategy-select"]) document.getElementById(id).addEventListener("change", updatePeriod);
+  for (const id of ["start-month","end-month"]) document.getElementById(id).addEventListener("change", updatePeriod);
   for (const id of ["portfolio-strategy","portfolio-month","ticker-search"]) document.getElementById(id).addEventListener(id === "ticker-search" ? "input" : "change", () => { state.page=0; renderHoldings(); });
+  renderCurveOptions();
+  document.getElementById("select-all-curves").addEventListener("click", () => setCurveStrategies(D.strategy_order));
+  document.getElementById("select-reference-curves").addEventListener("click", () => setCurveStrategies(["Legacy · Frequency", BENCHMARK_STRATEGY]));
   document.getElementById("reset-window").addEventListener("click", resetWindow);
   document.getElementById("export-holdings").addEventListener("click", exportHoldings);
   document.getElementById("page-prev").addEventListener("click", () => { state.page=Math.max(0,state.page-1); renderHoldings(); });
@@ -85,8 +118,39 @@ function initializeControls() {
   document.querySelectorAll("[data-matrix-metric]").forEach(button => button.addEventListener("click", () => {
     state.matrixMetric = button.dataset.matrixMetric;
     document.querySelectorAll("[data-matrix-metric]").forEach(item => item.classList.toggle("is-active", item === button));
-    renderMatrix();
+    renderMatrices();
   }));
+}
+
+function renderCurveOptions() {
+  const container = document.getElementById("curve-options");
+  container.innerHTML = state.data.strategies.map((item, index) => `
+    <label class="curve-option">
+      <input type="checkbox" data-curve-index="${index}" ${state.curves.includes(item.label) ? "checked" : ""}>
+      <i style="background:${item.color}"></i><span>${escapeHtml(item.label)}</span>
+    </label>`).join("");
+  container.querySelectorAll("input").forEach(input => input.addEventListener("change", () => {
+    const label = state.data.strategies[Number(input.dataset.curveIndex)].label;
+    const next = input.checked ? [...state.curves, label] : state.curves.filter(value => value !== label);
+    if (!next.length) { input.checked = true; return; }
+    setCurveStrategies(next);
+  }));
+  updateCurveSummary();
+}
+
+function setCurveStrategies(strategies) {
+  const selected = new Set(strategies);
+  state.curves = state.data.strategy_order.filter(strategy => selected.has(strategy));
+  document.querySelectorAll("[data-curve-index]").forEach(input => {
+    input.checked = state.curves.includes(state.data.strategies[Number(input.dataset.curveIndex)].label);
+  });
+  updateCurveSummary();
+  drawPerformance();
+  drawDrawdown();
+}
+
+function updateCurveSummary() {
+  document.getElementById("curve-select-label").textContent = `${state.curves.length} / ${state.data.strategy_order.length} stratégies`;
 }
 
 function updatePeriod() {
@@ -98,7 +162,6 @@ function updatePeriod() {
   }
   state.end = end;
   state.start = start;
-  state.strategy = document.getElementById("strategy-select").value;
   renderPeriod();
 }
 
@@ -112,29 +175,39 @@ function resetWindow() {
 
 function renderPeriod() {
   document.getElementById("window-label").textContent = `${monthLabel(state.start)} → ${monthLabel(state.end)}`;
-  document.getElementById("selected-strategy-label").textContent = state.strategy;
   renderKpis();
   renderMetricTable();
   drawPerformance();
   drawDrawdown();
+  renderMatrices();
 }
 
 function renderKpis() {
   document.getElementById("kpi-grid").innerHTML = CORE_METRICS.map(field => {
     const [label,type] = METRICS[field];
-    const value = metricValue(field);
-    const cls = value > 0 ? "value-positive" : value < 0 ? "value-negative" : "";
-    return `<article class="kpi-card"><span>${label}</span><strong class="${cls}">${format(value,type)}</strong><small>${escapeHtml(state.strategy)}</small></article>`;
+    const strategies = state.data.strategy_order.map(strategy => {
+      const value = metricValue(strategy, field);
+      const status = comparisonState(field, strategy, value);
+      return `<div class="kpi-strategy-row comparison-${status}">
+        <span class="strategy-name"><i style="background:${strategyMeta(strategy).color}"></i>${escapeHtml(strategy)}</span>
+        <strong>${format(value,type)}</strong><small>${comparisonMark(status)}</small>
+      </div>`;
+    }).join("");
+    return `<article class="kpi-card"><header><span>${label}</span><small>Référence SPY</small></header><div class="kpi-strategy-list">${strategies}</div></article>`;
   }).join("");
 }
 
 function renderMetricTable() {
-  const row = currentMetricRow();
+  const rows = currentMetricRows();
+  document.getElementById("metric-head").innerHTML = `<th>KPI</th>${state.data.strategy_order.map(strategy => `<th class="${strategy===BENCHMARK_STRATEGY?"benchmark-head":""}"><i style="background:${strategyMeta(strategy).color}"></i>${escapeHtml(strategy)}</th>`).join("")}<th>Définition</th>`;
   document.getElementById("metric-body").innerHTML = state.data.metric_fields.map((field,index) => {
     const [label,type,definition] = METRICS[field] || [field,"num",""];
-    const value = row[index];
-    const cls = value > 0 ? "value-positive" : value < 0 ? "value-negative" : "";
-    return `<tr><td>${escapeHtml(label)}</td><td class="${cls}">${format(value,type)}</td><td>${escapeHtml(definition)}</td></tr>`;
+    const values = state.data.strategy_order.map((strategy,strategyIndex) => {
+      const value = rows[strategyIndex]?.[index];
+      const status = comparisonState(field, strategy, value);
+      return `<td class="metric-value comparison-${status}"><strong>${format(value,type)}</strong><small>${comparisonMark(status)}</small></td>`;
+    }).join("");
+    return `<tr><td>${escapeHtml(label)}</td>${values}<td class="metric-definition">${escapeHtml(definition)}</td></tr>`;
   }).join("");
 }
 
@@ -143,7 +216,7 @@ function periodMonthly(strategy) {
 }
 
 function chartStrategies() {
-  return [...new Set([state.strategy, "Legacy · Frequency", "SPY · Total return"])];
+  return state.curves;
 }
 
 function wealthSeries(strategy) {
@@ -189,7 +262,7 @@ function drawLineChart(canvas, series, tickFormat, zeroLine) {
   ctx.strokeStyle="#e1e7ee"; ctx.lineWidth=1;
   for (let i=0;i<5;i++) { const y=pad.t+(H-pad.t-pad.b)*i/4; const value=max-(max-min)*i/4; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.fillText(tickFormat(value),4,y+4); }
   const length=Math.max(...series.map(item=>item.values.length));
-  series.forEach(item => { ctx.strokeStyle=item.color;ctx.lineWidth=item.name===state.strategy?2.5:1.5;ctx.beginPath();item.values.forEach((point,index)=>{const x=pad.l+(W-pad.l-pad.r)*(length===1?0:index/(length-1));const y=pad.t+(H-pad.t-pad.b)*(max-point.value)/(max-min);index?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke(); });
+  series.forEach(item => { ctx.strokeStyle=item.color;ctx.lineWidth=item.name===BENCHMARK_STRATEGY?2.4:1.8;ctx.beginPath();item.values.forEach((point,index)=>{const x=pad.l+(W-pad.l-pad.r)*(length===1?0:index/(length-1));const y=pad.t+(H-pad.t-pad.b)*(max-point.value)/(max-min);index?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke(); });
   ctx.fillStyle="#617087";ctx.textAlign="left";ctx.fillText(monthLabel(state.start),pad.l,H-8);ctx.textAlign="right";ctx.fillText(monthLabel(state.end),W-pad.r,H-8);ctx.textAlign="left";
 }
 
@@ -198,14 +271,64 @@ function viridis(value) {
   const rgb=VIRIDIS[i].map((v,k)=>Math.round(v+(VIRIDIS[i+1][k]-v)*t)); return `rgb(${rgb.join(",")})`;
 }
 
-function renderMatrix() {
-  const metric=state.matrixMetric, rows=state.data.start_year_metrics, years=[...new Set(rows.map(row=>row.requested_start_year))];
-  const raw=rows.map(row=>metric==="max_drawdown"?Math.abs(row[metric]):row[metric]).filter(Number.isFinite); const min=Math.min(...raw),max=Math.max(...raw);
-  const lookup=new Map(rows.map(row=>[`${row.strategy}|${row.requested_start_year}`,row]));
-  let html=`<div class="heatmap-head"></div>${years.map(year=>`<div class="heatmap-head">${year}</div>`).join("")}`;
-  state.data.strategy_order.forEach(strategy=>{html+=`<div class="heatmap-label">${escapeHtml(strategy)}</div>`;years.forEach(year=>{const row=lookup.get(`${strategy}|${year}`);const shown=row?.[metric];const rawValue=metric==="max_drawdown"?Math.abs(shown):shown;const level=Number.isFinite(rawValue)&&max>min?(rawValue-min)/(max-min):.5;const color=viridis(level);const text=level>.62?"#172033":"#fff";html+=`<div class="heatmap-cell" style="background:${color};color:${text}" title="${escapeHtml(strategy)} · ${year} · ${row?.coverage||""}">${format(shown,"pct")}</div>`;});});
-  const matrix=document.getElementById("heatmap"); matrix.style.gridTemplateColumns=`220px repeat(${years.length}, minmax(72px,1fr))`;matrix.innerHTML=html;
-  document.getElementById("matrix-caption").textContent=metric==="cagr"?"Plus le CAGR est élevé, plus la cellule est claire.":metric==="annualized_volatility"?"La couleur encode la volatilité brute : plus de risque = plus clair.":"La couleur encode la profondeur absolue du drawdown : perte plus profonde = plus clair.";
+function matrixYears() {
+  const first = Number(state.start.slice(0,4));
+  const last = Number(state.end.slice(0,4));
+  return Array.from({length:last-first+1}, (_,index) => first+index);
+}
+
+function yearBoundary(year, side) {
+  const values = side === "start" ? state.data.calendar.available_start_months : state.data.calendar.available_end_months;
+  return values.find(value => Number(value.slice(0,4)) === year);
+}
+
+function matrixWindows(mode) {
+  const endYear = Number(state.end.slice(0,4));
+  return matrixYears().map(year => {
+    const start = yearBoundary(year, "start");
+    const end = mode === "cumulative" || year === endYear ? state.end : yearBoundary(year, "end");
+    if (!start || !end || start > end) return null;
+    const rows = state.data.metric_windows[`${start}|${end}`];
+    return rows ? {year,start,end,rows} : null;
+  }).filter(Boolean);
+}
+
+function heatmapValue(window, strategy, field) {
+  const strategyIndex = state.data.strategy_order.indexOf(strategy);
+  const metricIndex = state.data.metric_fields.indexOf(field);
+  return window.rows[strategyIndex]?.[metricIndex];
+}
+
+function renderHeatmap(id, windows, field) {
+  const values = windows.flatMap(window => state.data.strategy_order.map(strategy => heatmapValue(window,strategy,field)));
+  const colorValues = values.map(value => field === "max_drawdown" ? Math.abs(value) : value).filter(Number.isFinite);
+  const min = Math.min(...colorValues), max = Math.max(...colorValues);
+  let html = `<div class="heatmap-head"></div>${windows.map(window => `<div class="heatmap-head">${window.year}</div>`).join("")}`;
+  state.data.strategy_order.forEach(strategy => {
+    html += `<div class="heatmap-label">${escapeHtml(strategy)}</div>`;
+    windows.forEach(window => {
+      const shown = heatmapValue(window,strategy,field);
+      const raw = field === "max_drawdown" ? Math.abs(shown) : shown;
+      const level = Number.isFinite(raw) && max > min ? (raw-min)/(max-min) : .5;
+      const text = level > .62 ? "#172033" : "#fff";
+      const title = `${strategy} · ${monthLabel(window.start)} → ${monthLabel(window.end)}`;
+      html += `<div class="heatmap-cell" style="background:${viridis(level)};color:${text}" title="${escapeHtml(title)}">${format(shown,"pct")}</div>`;
+    });
+  });
+  const matrix = document.getElementById(id);
+  matrix.style.gridTemplateColumns = `220px repeat(${windows.length}, minmax(72px,1fr))`;
+  matrix.innerHTML = html;
+}
+
+function renderMatrices() {
+  const cumulative = matrixWindows("cumulative");
+  const incremental = matrixWindows("incremental");
+  const annualField = state.matrixMetric === "cagr" ? "total_return" : state.matrixMetric;
+  renderHeatmap("cumulative-heatmap", cumulative, state.matrixMetric);
+  renderHeatmap("incremental-heatmap", incremental, annualField);
+  document.getElementById("cumulative-matrix-window").textContent = `${monthLabel(state.start)} → ${monthLabel(state.end)} · chaque colonne repart du début de son année.`;
+  document.getElementById("cumulative-matrix-caption").textContent = state.matrixMetric === "cagr" ? "CAGR calculé de chaque année de départ jusqu'à la fin sélectionnée." : state.matrixMetric === "annualized_volatility" ? "Volatilité annualisée de chaque départ jusqu'à la fin sélectionnée." : "Profondeur du drawdown de chaque départ jusqu'à la fin sélectionnée.";
+  document.getElementById("incremental-matrix-caption").textContent = state.matrixMetric === "cagr" ? "Rendement composé de l'année isolée ; les années de bord peuvent être partielles." : state.matrixMetric === "annualized_volatility" ? "Volatilité annualisée calculée uniquement avec les mois de l'année." : "Drawdown calculé uniquement à l'intérieur de chaque année.";
 }
 
 function filteredHoldings() {
@@ -247,7 +370,7 @@ function observeNavigation() {
 async function boot() {
   try {
     state.data=await decodePayload(); document.getElementById("loading").hidden=true;document.getElementById("app").hidden=false;
-    initializeControls();renderMetadata();renderMethodologies();renderLineage();renderMatrix();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",()=>{drawPerformance();drawDrawdown();});
+    initializeControls();renderMetadata();renderMethodologies();renderLineage();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",()=>{drawPerformance();drawDrawdown();});
   } catch (error) { document.getElementById("loading").textContent=`Rapport illisible : ${error.message}`; }
 }
 boot();
