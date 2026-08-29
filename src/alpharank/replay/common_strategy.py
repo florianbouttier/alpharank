@@ -16,7 +16,6 @@ from alpharank.data.terminal_eligibility import (
 )
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
 from alpharank.multihorizon.config import validate_latest_common_comparison_profile
-from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.lineage import (
@@ -31,9 +30,15 @@ from alpharank.portfolio.terminal_event_registry import (
     TerminalEventRegistry,
     load_terminal_event_registry,
 )
-from alpharank.strategy.legacy_valuation import (
-    build_legacy_valuation_registry,
-    filter_predictions_to_legacy_valuation_universe,
+from alpharank.replay.prediction_universes import (
+    build_boosting_holdings,
+    build_prediction_universes,
+    costed_strategy_names,
+)
+from alpharank.replay.trend_eligibility import (
+    CausalTrendEligibilityRegistry,
+    build_causal_trend_eligibility_registry,
+    write_causal_trend_eligibility_artifacts,
 )
 
 DEFAULT_TOP_N_VALUES = (5, 10, 15, 20)
@@ -51,6 +56,7 @@ class CommonStrategyReplayConfig:
     transaction_cost_bps: float = 10.0
     top_n_values: tuple[int, ...] = DEFAULT_TOP_N_VALUES
     include_legacy_valuation_universe: bool = True
+    include_causal_trend_universe: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +102,7 @@ class PortfolioFrames:
     monthly: pl.DataFrame
     live_holdings: pl.DataFrame
     valuation_registry: pl.DataFrame
+    trend_registry: CausalTrendEligibilityRegistry | None
     universe_summary: tuple[dict[str, object], ...]
     expected_months: pl.DataFrame
     common_start: object
@@ -110,14 +117,20 @@ def build_common_strategy_replay(config: CommonStrategyReplayConfig) -> Path:
     destination = reserve_run_directory(config.output_dir)
     checks = _validate_common_context(config, inputs)
     terminal_registry = load_terminal_event_registry()
+    predictions = pl.read_parquet(inputs.predictions)
+    trend_registry = (
+        build_causal_trend_eligibility_registry(config.boosting_run_dir, predictions)
+        if config.include_causal_trend_universe
+        else None
+    )
     provenance = _capture_provenance(
         config,
         inputs=inputs,
         checks=checks,
         destination=destination,
         top_n_values=top_n_values,
+        trend_registry=trend_registry,
     )
-    predictions = pl.read_parquet(inputs.predictions)
     gated = _gate_predictions(predictions, terminal_registry=terminal_registry)
     portfolios = _build_portfolio_frames(
         inputs,
@@ -125,6 +138,7 @@ def build_common_strategy_replay(config: CommonStrategyReplayConfig) -> Path:
         top_n_values=top_n_values,
         transaction_cost_bps=config.transaction_cost_bps,
         include_legacy_valuation_universe=config.include_legacy_valuation_universe,
+        trend_registry=trend_registry,
     )
     artifacts = _write_artifacts(
         destination,
@@ -153,32 +167,9 @@ def build_native_boosting_holdings(
     """Build the characterized native Top-N holdings without universe filtering."""
 
     values = _validated_top_n(top_n_values)
-    return _build_boosting_holdings(
+    return build_boosting_holdings(
         (("native", predictions),),
         top_n_values=values,
-    )
-
-
-def _build_boosting_holdings(
-    prediction_sets: Sequence[tuple[str, pl.DataFrame]],
-    *,
-    top_n_values: Sequence[int],
-) -> pl.DataFrame:
-    return pl.concat(
-        [
-            boosting_predictions_to_holdings(
-                prediction_frame,
-                strategy=(
-                    f"Boosting Top {top_n}"
-                    if universe == "native"
-                    else f"Boosting Top {top_n} | Legacy PE universe"
-                ),
-                top_n=top_n,
-            )
-            for universe, prediction_frame in prediction_sets
-            for top_n in top_n_values
-        ],
-        how="diagonal_relaxed",
     )
 
 
@@ -275,6 +266,7 @@ def _capture_provenance(
     checks: CommonReplayChecks,
     destination: Path,
     top_n_values: tuple[int, ...],
+    trend_registry: CausalTrendEligibilityRegistry | None,
 ) -> dict[str, Any]:
     provenance = capture_runtime_provenance(
         project_root=config.project_root,
@@ -286,6 +278,8 @@ def _capture_provenance(
             "timing_contract": "decision_month=t; holding_month=t+1",
             "missing_return_policy": "raise_after_selection",
             "benchmark": "SPY total return from adjusted_close",
+            "include_legacy_valuation_universe": config.include_legacy_valuation_universe,
+            "include_causal_trend_universe": config.include_causal_trend_universe,
         },
         seeds={"replay_randomness": "none_deterministic_inputs_only"},
         critical_files=_critical_files(),
@@ -295,6 +289,9 @@ def _capture_provenance(
             "boosting_predictions_sha256": _hash(inputs.predictions),
             "input_snapshot_dir": str(inputs.snapshot_dir),
             "matching_input_keys": checks.lineage["matching_keys"],
+            "causal_trend_inputs": (
+                trend_registry.source_manifest if trend_registry is not None else None
+            ),
         },
         patch_path=destination / "runtime_git_patch.json",
     )
@@ -322,6 +319,8 @@ def _critical_files() -> tuple[str, ...]:
         "src/alpharank/portfolio/simulation.py",
         "src/alpharank/portfolio/terminal_event_registry.py",
         "src/alpharank/replay/common_strategy.py",
+        "src/alpharank/replay/prediction_universes.py",
+        "src/alpharank/replay/trend_eligibility.py",
         "src/alpharank/strategy/legacy_valuation.py",
         "configs/data_quality/terminal_shareholder_events_v1.json",
         "configs/data_quality/terminal_shareholder_events_v2.json",
@@ -402,19 +401,22 @@ def _build_portfolio_frames(
     top_n_values: tuple[int, ...],
     transaction_cost_bps: float,
     include_legacy_valuation_universe: bool,
+    trend_registry: CausalTrendEligibilityRegistry | None,
 ) -> PortfolioFrames:
-    prediction_sets, valuation_registry = _prediction_universes(
-        inputs,
-        predictions=gated.completed,
+    universes = build_prediction_universes(
+        snapshot_dir=inputs.snapshot_dir,
+        completed=gated.completed,
+        live=gated.live,
         include_legacy_valuation_universe=include_legacy_valuation_universe,
+        trend_registry=trend_registry,
     )
-    boosting_holdings = _build_boosting_holdings(
-        prediction_sets,
+    boosting_holdings = build_boosting_holdings(
+        universes.completed,
         top_n_values=top_n_values,
     )
     _reject_censored_holdings(boosting_holdings)
     live_holdings = (
-        build_native_boosting_holdings(gated.live, top_n_values=top_n_values)
+        build_boosting_holdings(universes.live, top_n_values=top_n_values)
         if not gated.live.is_empty()
         else pl.DataFrame()
     )
@@ -437,7 +439,8 @@ def _build_portfolio_frames(
         holdings=pl.concat([boosting_holdings, legacy_holdings], how="diagonal_relaxed"),
         monthly=pl.concat([boosting_monthly, references], how="diagonal_relaxed"),
         live_holdings=live_holdings,
-        valuation_registry=valuation_registry,
+        valuation_registry=universes.valuation_registry,
+        trend_registry=trend_registry,
         universe_summary=tuple(
             {
                 "universe": universe,
@@ -445,28 +448,12 @@ def _build_portfolio_frames(
                 "tickers": frame["ticker"].n_unique(),
                 "months": frame["decision_month"].n_unique(),
             }
-            for universe, frame in prediction_sets
+            for universe, frame in universes.completed
         ),
         expected_months=expected_months,
         common_start=common_start,
         common_end=common_end,
     )
-
-
-def _prediction_universes(
-    inputs: CommonReplayInputs,
-    *,
-    predictions: pl.DataFrame,
-    include_legacy_valuation_universe: bool,
-) -> tuple[tuple[tuple[str, pl.DataFrame], ...], pl.DataFrame]:
-    if not include_legacy_valuation_universe:
-        return (("native", predictions),), pl.DataFrame()
-    registry = build_legacy_valuation_registry(
-        snapshot_dir=inputs.snapshot_dir,
-        candidates=predictions,
-    )
-    matched = filter_predictions_to_legacy_valuation_universe(predictions, registry)
-    return (("native", predictions), ("legacy_valuation", matched)), registry
 
 
 def _build_legacy_references(
@@ -574,6 +561,10 @@ def _write_artifacts(
         artifacts.update(_write_live_holdings(output_dir, portfolios.live_holdings))
     if not portfolios.valuation_registry.is_empty():
         artifacts.update(_write_valuation_registry(output_dir, portfolios.valuation_registry))
+    if portfolios.trend_registry is not None:
+        artifacts.update(
+            write_causal_trend_eligibility_artifacts(output_dir, portfolios.trend_registry)
+        )
     return artifacts
 
 
@@ -632,10 +623,18 @@ def _write_manifest(
     top_n_values: tuple[int, ...],
 ) -> Path:
     manifest = {
-        "status": "canonical_common_strategy_replay",
-        "methodology_status": "validated_same_snapshot_common_replay",
+        "status": (
+            "research_common_strategy_replay"
+            if config.include_causal_trend_universe
+            else "canonical_common_strategy_replay"
+        ),
+        "methodology_status": (
+            "post_hoc_research_diagnostic"
+            if config.include_causal_trend_universe
+            else "validated_same_snapshot_common_replay"
+        ),
         "comparison_eligible": True,
-        "publication_eligible": True,
+        "publication_eligible": not config.include_causal_trend_universe,
         "timing_contract": "decision_month=t; holding_month=t+1",
         "calendar": {
             "start_holding_month": str(portfolios.common_start),
@@ -644,9 +643,10 @@ def _write_manifest(
             "latest_month_status": "complete_realized_one_month_return",
         },
         "transaction_cost_policy": {
-            "strategies": _costed_strategy_names(
+            "strategies": costed_strategy_names(
                 top_n_values,
                 include_legacy_valuation_universe=(config.include_legacy_valuation_universe),
+                include_causal_trend_universe=config.include_causal_trend_universe,
             ),
             "bps_times_turnover": config.transaction_cost_bps,
             "benchmark": "SPY total return has no simulated trading cost",
@@ -673,6 +673,7 @@ def _write_manifest(
                 if config.include_legacy_valuation_universe
                 else None
             ),
+            "causal_trend": _trend_policy_manifest(portfolios.trend_registry),
         },
         "artifacts": {
             name: {"path": str(path.resolve()), "sha256": _hash(path)}
@@ -684,18 +685,20 @@ def _write_manifest(
     return path
 
 
-def _costed_strategy_names(
-    top_n_values: Sequence[int],
-    *,
-    include_legacy_valuation_universe: bool,
-) -> list[str]:
-    native = [f"Boosting Top {value}" for value in top_n_values]
-    matched = (
-        [f"Boosting Top {value} | Legacy PE universe" for value in top_n_values]
-        if include_legacy_valuation_universe
-        else []
-    )
-    return [*native, *matched, "Legacy"]
+def _trend_policy_manifest(
+    registry: CausalTrendEligibilityRegistry | None,
+) -> dict[str, Any] | None:
+    if registry is None:
+        return None
+    return {
+        **registry.source_manifest,
+        "allocation_stage": "filter before monthly Boosting score ranking",
+        "promotion_eligible": False,
+        "research_limitation": (
+            "policy selected after inspecting recent SHAP behaviour; "
+            "historical replay is post-hoc, not independent confirmation"
+        ),
+    }
 
 
 def _manifest_sources(inputs: CommonReplayInputs) -> dict[str, dict[str, str]]:

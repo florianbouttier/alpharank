@@ -1,6 +1,6 @@
 # Legacy And Boosting Methodologies
 
-Last updated: 2026-08-17
+Last updated: 2026-08-29
 
 This document is the source of truth for signal generation in the two methods
 compared by the common replay. Portfolio simulation, benchmarks,
@@ -81,6 +81,27 @@ The 16 outer folds contain 10 to 185 features and zero fundamental features.
 The last fold has 37 causal EMA pairs, hence 185 model inputs. Other research
 modes such as `broad` or `legacy_winners_pit_ema_plus` may include fundamental
 features, but they are not the current public comparison.
+
+### Optional Causal Trend Allocation Diagnostic
+
+`METH-006` adds the optional policy
+`causal_majority_relative_ema_v1`. It does not retrain Boosting and does not
+change any native score. For each outer fold, the policy reads only the winning
+EMA pairs already frozen at that fold's training cutoff and their raw OOS
+relative-price ratios at decision month `t`.
+
+A pair points to positive relative trend when its short-span EMA is above its
+long-span EMA. The sign is inverted when the stored pair lists the longer span
+first. A ticker is eligible only if every required raw pair is finite and
+strictly more than half point to positive trend; incomplete coverage therefore
+fails closed. This decision is joined one-to-one to the OOS prediction keys and
+is applied before the monthly Boosting score ranking and Top-N selection.
+
+The policy never reads the score, SHAP value, future target or realized return.
+Recent SHAP behaviour motivated the experiment, however, so its full-history
+replay is a post-hoc diagnostic rather than independent validation. The native
+Boosting universe remains the default and this variant is not promotion
+eligible without a separate pre-registered forward or sealed temporal gate.
 
 ## Shared Liquidity And Price-Quality Gate
 
@@ -411,6 +432,8 @@ scripts/build_common_legacy_boosting_replay.py
 | XGBoost fitting | `src/alpharank/multihorizon/modeling.py` |
 | Shared holdings and simulation | `src/alpharank/portfolio/` |
 | Common Legacy/Boosting lineage gate | `src/alpharank/replay/common_strategy.py` |
+| Optional pre-ranking universes | `src/alpharank/replay/prediction_universes.py` |
+| Causal trend eligibility audit | `src/alpharank/replay/trend_eligibility.py` |
 
 Portfolio owns interactive monitoring and allocation views. AlphaRank publishes
 only the underlying immutable calculations, manifests and audit artifacts.

@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-28.**
+**Dernière mise à jour : 2026-08-29.**
 
 **Statut : seule source des priorités actives.**
 
@@ -76,6 +76,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 37 | `METH-005` | rendre la désactivation des fondamentaux Legacy explicite et reproductible | lot METH ci-dessous | fait |
 | 38 | `DATA-028` | bloquer les entrées post-fusion révélées par l'univers sans SEC | lot DATA ci-dessous | fait |
 | 39 | `REPLAY-005` | promouvoir la politique sans SEC après replay commun strict | lot REPLAY ci-dessous | fait |
+| 40 | `METH-006` | filtrer causalement les candidats Boosting par tendance avant classement | lot METH ci-dessous | fait |
+| 41 | `METH-007` | rejouer et publier la variante Boosting filtrée par tendance | lot METH ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -333,6 +335,49 @@ doublons exacts et preuve de récupération.
 | `METH-003` | exposer rendement excédentaire annualisé, tracking error, asymétrie et kurtosis dans le moteur commun | fait | formules centralisées dans `portfolio/performance.py`, cas sans benchmark et vide testés ; aucun rendement mensuel modifié |
 | `METH-004` | filtrer les prédictions Boosting par l'éligibilité PE point-in-time de Legacy avant classement | fait | registre causal de 88 948 ticker-mois, variantes Top 5/10/15/20 natives et appariées sur le même snapshot, bootstrap de 50 000 tirages et aucune promotion de Boosting |
 | `METH-005` | exposer une politique Legacy sans fondamentaux SEC sans la promouvoir avant replay strict | fait | `no_sec_fundamentals_v1` construit l'univers depuis prix et membership uniquement ; CLI, manifeste et provenance enregistrent le choix ; trois tests de contrat verts ; promotion traitée séparément par `REPLAY-005` |
+| `METH-006` | rendre disponible un filtre causal de tendance avant le classement Boosting | fait | registre exact de 88 950 clés, dont 40 135 éligibles ; 16 replays OOS vérifiés par hash, majorité stricte orientée, couverture complète, CLI et artefacts ; cinq tests de politique, variante non promue et natif inchangé |
+| `METH-007` | exécuter le replay commun de la variante Boosting filtrée par tendance | à faire | run propre sur les entrées du 28 août, mêmes calendrier et coûts ; performances, holdings live, hashes et biais post-hoc publiés sans promotion implicite |
+
+### Détail de `METH-006`
+
+- **Objectif** : tester si le Boosting devient réellement trend-following lorsque
+  son classement mensuel est limité aux titres dont une majorité stricte des
+  signaux EMA relatifs causaux indique une tendance positive.
+- **Périmètre** : registre ticker-mois construit depuis les paires gagnantes de
+  chaque fold, filtre optionnel du replay commun, CLI, manifeste, tests et
+  contrats méthodologiques.
+- **Hors périmètre** : réapprentissage du modèle, nouvelle feature, lecture de
+  SHAP ou de rendement futur pendant l'allocation, changement du profil public
+  natif et promotion en production.
+- **Acceptation** : chaque prédiction correspond exactement à une ligne du
+  registre ; une paire manquante rend le titre inéligible ; les paires inversées
+  conservent le bon sens économique ; la majorité est stricte et calculée avant
+  le Top-N.
+- **Validations** : tests de sens EMA, couverture, majorité, absence de
+  dépendance aux cibles futures, CLI, Ruff, taille Python et documentation.
+- **Impact** : nouvelle variante R&D explicite ; aucun score, univers natif,
+  poids Legacy ou pointeur de production n'est modifié.
+- **Rollback** : omettre l'option du replay ; les sorties natives restent
+  identiques et la variante disparaît sans migration de donnée.
+
+### Détail de `METH-007`
+
+- **Objectif** : mesurer la variante sur tout l'historique commun puis figer sa
+  performance, sa stabilité et son portefeuille le plus récent.
+- **Périmètre** : replay commun Top 5/10/15/20 depuis le run sans SEC du
+  28 août 2026, rapport de preuve et mise à jour de la roadmap.
+- **Hors périmètre** : tuning sur le résultat, modification des données, choix
+  d'un autre snapshot ou remplacement du Boosting natif.
+- **Acceptation** : code Git propre, mêmes 180 mois, snapshot, terminal gate,
+  coûts et benchmark ; artefacts hashés ; comparaison native/filtrée ; dernier
+  Top 10 détaillé ; statut de promotion explicite.
+- **Validations** : replay complet, manifeste, calendrier exact, absence de
+  rendement censuré sélectionné, validations documentaires et Git.
+- **Impact** : preuve économique supplémentaire seulement ; l'idée du filtre
+  ayant été motivée après lecture des SHAP récents, le replay reste post-hoc et
+  ne constitue pas à lui seul une validation indépendante.
+- **Rollback** : conserver le run comme preuve négative ou exploratoire et ne
+  changer aucun profil public ni portefeuille canonique.
 
 ## 12 ter. Lot REPLAY — relier chaque refresh aux portefeuilles
 

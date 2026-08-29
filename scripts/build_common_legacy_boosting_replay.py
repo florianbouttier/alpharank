@@ -23,6 +23,7 @@ def build_comparison(
     transaction_cost_bps: float,
     top_n_values: tuple[int, ...] = (5, 10, 15, 20),
     include_legacy_valuation_universe: bool = True,
+    include_causal_trend_universe: bool = False,
 ) -> Path:
     """Compatibility entrypoint for the maintained replay builder."""
 
@@ -36,6 +37,7 @@ def build_comparison(
             transaction_cost_bps=transaction_cost_bps,
             top_n_values=top_n_values,
             include_legacy_valuation_universe=include_legacy_valuation_universe,
+            include_causal_trend_universe=include_causal_trend_universe,
         )
     )
 
@@ -48,6 +50,7 @@ def main() -> None:
     parser.add_argument("--transaction-cost-bps", type=float, default=10.0)
     parser.add_argument("--top-n", type=int, nargs="+", default=[5, 10, 15, 20])
     parser.add_argument("--native-only", action="store_true")
+    parser.add_argument("--include-causal-trend-universe", action="store_true")
     args = parser.parse_args()
     print(
         build_comparison(
@@ -57,6 +60,7 @@ def main() -> None:
             transaction_cost_bps=args.transaction_cost_bps,
             top_n_values=tuple(args.top_n),
             include_legacy_valuation_universe=not args.native_only,
+            include_causal_trend_universe=args.include_causal_trend_universe,
         )
     )
 

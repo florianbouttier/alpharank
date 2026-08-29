@@ -1,6 +1,6 @@
 # Common Portfolio And Backtest Engine
 
-Last updated: 2026-08-20
+Last updated: 2026-08-29
 
 This document is the source of truth for the code shared after signal
 generation by the Legacy and boosting methodologies.
@@ -349,6 +349,34 @@ The comparable calendar is the intersection of realized one-month Boosting,
 Legacy, and SPY returns. `scripts/build_common_legacy_boosting_replay.py`
 enforces matching input hashes and rejects a Legacy/Boosting pair that does not
 declare the exact same `input_snapshot/` and full-trajectory ticker exclusions.
+
+### Optional causal-trend universe
+
+The common replay can add the `METH-006` research universe without altering its
+native strategies:
+
+```bash
+./.venv/bin/python scripts/build_common_legacy_boosting_replay.py \
+  --legacy-run-dir <legacy-run> \
+  --boosting-run-dir <boosting-run> \
+  --output-dir <new-output-root> \
+  --native-only \
+  --include-causal-trend-universe
+```
+
+The builder validates every fold OOS replay against its recorded SHA-256,
+requires an exact one-to-one match with all prediction keys, then applies
+`causal_majority_relative_ema_v1` before score ranking. It emits
+`causal_trend_eligibility.parquet`, monthly coverage CSV, trend-filtered
+realized holdings and trend-filtered live holdings. A missing raw EMA pair makes
+that ticker-month ineligible instead of falling back to a smaller vote.
+
+Because the policy was chosen after reviewing recent SHAP behaviour, a replay
+containing it records `methodology_status=post_hoc_research_diagnostic` and
+`publication_eligible=false`. The native strategies remain mechanically
+comparable inside the same run, but the trend variant cannot become canonical
+from this retrospective result alone. `METH-007` owns the clean full-history
+run and its dated economic evidence.
 
 ## Current No-SEC Reference — 2026-08-28
 
