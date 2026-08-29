@@ -34,6 +34,10 @@ CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("configs/data_quality/missing_fundamentals_policy_v1.json",),
     ),
     (
+        "price_ticker_transition_policy",
+        ("configs/data_quality/price_ticker_transition_policy_v1.json",),
+    ),
+    (
         "sp500_constituent_changes",
         ("configs/data_quality/sp500_constituent_changes_2026.json",),
     ),

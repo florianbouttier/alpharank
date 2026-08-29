@@ -547,6 +547,115 @@
     },
     {
       "example_files": [
+        "configs/data_quality/price_ticker_transition_policy_v1.json"
+      ],
+      "family_id": "price_ticker_transition_policy",
+      "patterns": [
+        "configs/data_quality/price_ticker_transition_policy_v1.json"
+      ],
+      "schema": {
+        "additional_properties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "policy_id": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "transitions": {
+            "items": {
+              "additional_properties": false,
+              "properties": {
+                "conversion_ratio": {
+                  "type": "number"
+                },
+                "copy_from": {
+                  "type": "string"
+                },
+                "copy_through": {
+                  "type": "string"
+                },
+                "evidence_known_at": {
+                  "type": "string"
+                },
+                "evidence_statement": {
+                  "type": "string"
+                },
+                "evidence_url": {
+                  "type": "string"
+                },
+                "issuer_cik": {
+                  "type": "string"
+                },
+                "maximum_anchor_relative_delta": {
+                  "type": "number"
+                },
+                "maximum_overlap_return_delta": {
+                  "type": "number"
+                },
+                "model_ticker_effective_from": {
+                  "type": "string"
+                },
+                "official_ticker_effective_from": {
+                  "type": "string"
+                },
+                "provider_ticker": {
+                  "type": "string"
+                },
+                "required_overlap_rows": {
+                  "type": "integer"
+                },
+                "security_id": {
+                  "type": "string"
+                },
+                "target_ticker": {
+                  "type": "string"
+                },
+                "transition_id": {
+                  "type": "string"
+                },
+                "validated_anchor_date": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "conversion_ratio",
+                "copy_from",
+                "copy_through",
+                "evidence_known_at",
+                "evidence_statement",
+                "evidence_url",
+                "issuer_cik",
+                "maximum_anchor_relative_delta",
+                "maximum_overlap_return_delta",
+                "model_ticker_effective_from",
+                "official_ticker_effective_from",
+                "provider_ticker",
+                "required_overlap_rows",
+                "security_id",
+                "target_ticker",
+                "transition_id",
+                "validated_anchor_date"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "description",
+          "policy_id",
+          "schema_version",
+          "transitions"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "example_files": [
         "configs/data_quality/sp500_constituent_changes_2026.json"
       ],
       "family_id": "sp500_constituent_changes",

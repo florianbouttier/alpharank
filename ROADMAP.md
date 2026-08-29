@@ -83,6 +83,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 44 | `REPLAY-006` | reconstruire le snapshot et rejouer les méthodes après correction SATS | lot REPLAY ci-dessous | fait |
 | 45 | `METH-008` | construire une poche Boosting excluant causalement les titres Legacy | lot METH ci-dessous | à faire |
 | 46 | `METH-009` | rejouer le portefeuille combiné comme alternative de diversification | lot METH ci-dessous | à faire |
+| 47 | `QUAL-015` | enregistrer le schéma strict de la politique de transition ticker | lot QUAL ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -230,6 +231,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-012` | rendre la suite Pytest complète autonome dans un checkout sans `outputs/` locaux | fait | fixtures synthétiques à la place des `outputs/` locaux et 479 tests verts sans masquage |
 | `QUAL-013` | mesurer taille de module, longueur de fonction et complexité puis bloquer toute régression | fait | baseline versionnée sur 800/250/80/10 et gate différentielle sans exception implicite |
 | `QUAL-014` | étendre Mypy strict au prochain package métier compatible | fait | package `alpharank.portfolio` entier ajouté, zéro erreur et périmètre verrouillé par test |
+| `QUAL-015` | enregistrer la politique de transition ticker dans le registre des schémas JSON | fait | famille `price_ticker_transition_policy`, schéma strict récursif, 18 familles et 23 fichiers classés sans ambiguïté |
 
 ## 9. Lot CODE — découper sans changer les résultats
 
