@@ -86,7 +86,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 47 | `QUAL-015` | enregistrer le schéma strict de la politique de transition ticker | lot QUAL ci-dessous | fait |
 | 48 | `DOC-022` | rafraîchir l'inventaire data après les derniers lecteurs et runs | lot DOC ci-dessous | fait |
 | 49 | `REPORT-001` | imposer un rapport de backtest interactif commun à toutes les méthodes | lot REPORT ci-dessous | fait |
-| 50 | `REPORT-002` | générer et publier le rapport du replay SATS/ECHO dans le site | lot REPORT ci-dessous | à faire |
+| 50 | `REPORT-002` | générer et publier le rapport du replay SATS/ECHO dans le site | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -518,7 +518,7 @@ doublons exacts et preuve de récupération.
 | ID | Action | Statut | Critère de fin |
 | --- | --- | --- | --- |
 | `REPORT-001` | centraliser le rapport HTML complet et ses filtres temporels | fait | 33 KPI de chaque fenêtre annuelle calculés par le moteur commun, 11 séries dont SPY, model cards CAGR/volatilité/drawdown en Viridis, holdings exhaustifs, méthodologies, lignée et tests sans asset réseau |
-| `REPORT-002` | générer le rapport sur le replay SATS/ECHO et le synchroniser vers Portfolio | à faire | HTML et manifeste hashés depuis le snapshot `bb1f90a9…8375`, preuve datée versionnée, copie dans le site sans calcul front, build du site et hashes publiés |
+| `REPORT-002` | générer le rapport sur le replay SATS/ECHO et le synchroniser vers Portfolio | fait | HTML et manifeste hashés depuis le snapshot `bb1f90a9…8375`, preuve datée versionnée, copie byte-identique dans le site au commit Portfolio `7e66fa5`, build Vite et routes HTTP validés |
 
 ### Détail de `REPORT-001`
 
