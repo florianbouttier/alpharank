@@ -84,6 +84,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 45 | `METH-008` | construire une poche Boosting excluant causalement les titres Legacy | lot METH ci-dessous | à faire |
 | 46 | `METH-009` | rejouer le portefeuille combiné comme alternative de diversification | lot METH ci-dessous | à faire |
 | 47 | `QUAL-015` | enregistrer le schéma strict de la politique de transition ticker | lot QUAL ci-dessous | fait |
+| 48 | `DOC-022` | rafraîchir l'inventaire data après les derniers lecteurs et runs | lot DOC ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -201,6 +202,7 @@ La carte détaillée se trouve dans
 | `DOC-019` | rafraîchir les compteurs de configurations, tests, code et dossiers après le lot | fait | état courant séparé du diagnostic initial, inventaires canoniques régénérés et 479 tests verts |
 | `DOC-020` | formaliser l'invariant refresh, replay et attribution du drift | fait | règle inscrite dans les normes agents/développement, contrat canonique indexé et tâches d'exécution séparées |
 | `DOC-021` | publier dans le site le guide complet des méthodes et de leurs pseudo-codes | fait | projection site synchronisée depuis `docs/site_repository_guide.md`, six tableaux et neuf pseudo-codes rendus ; statut des variantes, cas SATS et proposition de diversification explicités |
+| `DOC-022` | réaligner l'inventaire data sur les lecteurs suivis et les volumes observés le 29 août | fait | 35 emplacements, 288 arêtes lecteur/emplacement, déplacements de lecteurs reflétés, volumes observés rafraîchis et validateur vert |
 
 `DOC-010` a retiré des tests les chemins documentaires historiques. Les contrats
 restent directement sous `docs/` pour leurs lecteurs humains et liens publics ;
