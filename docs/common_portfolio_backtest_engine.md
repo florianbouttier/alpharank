@@ -482,11 +482,15 @@ the trend filter.
 
 The initial Top 5/10/15/20 attempt is retained as a failed run at
 `outputs/no_sec_fresh_replay_20260828/common_replay_causal_trend`. Top 15 and
-Top 20 would select `SATS.US` for May 2026 despite its missing price return, so
-the common engine stopped. SATS changed ticker only on 24 June 2026, announced
+Top 20 would select `SATS.US` for May 2026 despite the missing return under that
+snapshot key, so the common engine stopped. The economic observations were
+subsequently found in the same snapshot under the provider key `ECHO.US`.
+`DATA-029` now derives an additive, line-audited SATS extension from those ECHO
+daily returns after validating the common 24 April anchor; it does not alter
+this retained failed run. SATS changed ticker only on 24 June 2026, announced
 22 June; excluding it at the April decision using that later event would be a
-leak. The successful replay therefore reports only Top 5/10 and does not hide
-the unresolved historical price gap.
+leak. Top 15/20 remain unresolved evidence until `REPLAY-006` recomputes every
+upstream feature and target on a newly composed immutable snapshot.
 
 Key SHA-256 evidence:
 

@@ -13,6 +13,8 @@ from alpharank.data.prices import (
     PriceGateResult,
     PriceReconciliationContext,
     PriceReconciliationResult,
+    PriceTickerTransitionResult,
+    apply_price_ticker_transition_overlay,
     audit_price_candidate,
     build_price_revision_diagnostic,
     reconcile_validated_price_history,
@@ -32,6 +34,7 @@ class PricePublicationContext:
     policy: PriceGatePolicy
     incomplete_provider_tickers: Sequence[str] = ()
     previous_comparison_prices: pl.DataFrame | None = None
+    ticker_transition_registry: pl.DataFrame | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +43,7 @@ class PricePublicationCandidate:
     gate: PriceGateResult
     provider_gate: PriceGateResult
     reconciliation: PriceReconciliationResult | None
+    ticker_transition: PriceTickerTransitionResult
     revision_diagnostic: dict[str, object]
 
 
@@ -61,12 +65,11 @@ def build_price_publication_candidate(
         context=context,
     )
     if previous_lineage is None or previous_prices is None:
-        return PricePublicationCandidate(
-            hybrid=provider_hybrid,
-            gate=provider_gate,
+        return _build_initial_publication_candidate(
+            provider_hybrid=provider_hybrid,
+            previous_prices=previous_prices,
             provider_gate=provider_gate,
-            reconciliation=None,
-            revision_diagnostic={"status": "not_applicable_without_validated_vintage"},
+            context=context,
         )
     reconciliation = reconcile_validated_price_history(
         previous_validated_lineage=previous_lineage,
@@ -78,13 +81,19 @@ def build_price_publication_candidate(
             run_id=context.run_id,
         ),
     )
-    hybrid = HybridPriceResult(
+    reconciled_hybrid = HybridPriceResult(
         prices=reconciliation.prices,
         lineage=reconciliation.lineage,
-        composition_report={
-            **provider_hybrid.composition_report,
-            "canonical_reconciliation": reconciliation.report,
-        },
+        composition_report=provider_hybrid.composition_report,
+    )
+    transition = apply_price_ticker_transition_overlay(
+        reconciliation.lineage,
+        registry=context.ticker_transition_registry,
+    )
+    hybrid = _hybrid_with_transition(
+        reconciled_hybrid,
+        transition,
+        reconciliation_report=reconciliation.report,
     )
     canonical_gate = _audit_reconciled_candidate(
         hybrid=hybrid,
@@ -109,7 +118,52 @@ def build_price_publication_candidate(
         gate=combined_gate,
         provider_gate=provider_gate,
         reconciliation=reconciliation,
+        ticker_transition=transition,
         revision_diagnostic=diagnostic,
+    )
+
+
+def _build_initial_publication_candidate(
+    *,
+    provider_hybrid: HybridPriceResult,
+    previous_prices: pl.DataFrame | None,
+    provider_gate: PriceGateResult,
+    context: PricePublicationContext,
+) -> PricePublicationCandidate:
+    transition = apply_price_ticker_transition_overlay(
+        provider_hybrid.lineage,
+        registry=context.ticker_transition_registry,
+    )
+    hybrid = _hybrid_with_transition(provider_hybrid, transition)
+    canonical_gate = _audit_provider_candidate(
+        provider_hybrid=hybrid,
+        previous_prices=previous_prices,
+        context=context,
+    )
+    return PricePublicationCandidate(
+        hybrid=hybrid,
+        gate=canonical_gate,
+        provider_gate=provider_gate,
+        reconciliation=None,
+        ticker_transition=transition,
+        revision_diagnostic={"status": "not_applicable_without_validated_vintage"},
+    )
+
+
+def _hybrid_with_transition(
+    base: HybridPriceResult,
+    transition: PriceTickerTransitionResult,
+    *,
+    reconciliation_report: dict[str, object] | None = None,
+) -> HybridPriceResult:
+    report = dict(base.composition_report)
+    if reconciliation_report is not None:
+        report["canonical_reconciliation"] = reconciliation_report
+    report["price_ticker_transition"] = transition.report
+    return HybridPriceResult(
+        prices=transition.prices,
+        lineage=transition.lineage,
+        composition_report=report,
     )
 
 

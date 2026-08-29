@@ -358,17 +358,25 @@ détention en mai   : appliquer son vrai rendement total de marché, pas zéro
 détentions futures : résoudre l'identité SATS -> ECHO, sans vente fictive
 ```
 
-La correction proposée n'est pas de remplir une valeur à la main. Il faut :
+Le diagnostic détaillé a montré que la trajectoire n'a pas besoin d'être
+retéléchargée : elle est déjà présente sous `ECHO.US`. Les cinq derniers
+rendements communs jusqu'au 24 avril correspondent à moins de `0,000005` point
+de pourcentage près, et l'ancre ajustée du 24 avril est identique. Le problème
+est donc une identité de clé fournisseur, pas une absence économique du prix.
 
-1. télécharger la trajectoire ajustée SATS jusqu'au 23 juin et ECHO à partir du
-   24 juin auprès d'une source couvrant les deux symboles ;
-2. confirmer l'identité continue par le CUSIP et vérifier les facteurs
-   d'ajustement, splits et dividendes ;
-3. publier un nouvel overlay prix versionné et immuable, sans modifier le
-   snapshot du 28 août ;
-4. reconstruire le snapshot composé puis rejouer Legacy, Boosting et le moteur
-   commun, car le prix réparé peut aussi modifier des EMA et des cibles ;
-5. conserver les Top 15/20 comme non valides tant que ce replay n'existe pas.
+`DATA-029` applique la correction sans valeur manuelle :
+
+1. conserver toutes les lignes SATS et ECHO déjà publiées ;
+2. valider l'ancre SATS/ECHO du 24 avril et cinq rendements communs ;
+3. prolonger SATS uniquement avec les rendements quotidiens ECHO du 27 avril au
+   29 mai, soit 24 séances, et enregistrer chaque ligne dans un audit ;
+4. garder ECHO comme clé du modèle à partir de l'univers mensuel de juin ;
+5. copier et hasher le registre, l'audit et le package, puis reconstruire un
+   snapshot au lieu de modifier celui du 28 août.
+
+Le replay antérieur Top 15/20 reste non valide tant que `REPLAY-006` n'a pas
+recalculé les EMA, les cibles, les scores et les rendements depuis ce nouveau
+snapshot. Le rendement de mai ne sera jamais injecté directement dans le moteur.
 
 Sources officielles : [annonce EchoStar du changement SATS vers ECHO](https://ir.echostar.com/news-releases/news-release-details/echostar-changing-stocker-ticker-sats-echo-marking-companys-next),
 [dépôt SEC du 22 mai 2026](https://www.sec.gov/Archives/edgar/data/1415404/000141540426000013/0001415404-26-000013-index.htm)

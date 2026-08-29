@@ -119,6 +119,15 @@ The revision Parquet stores only differences above the versioned 1 bp material
 threshold, plus return-availability changes; smaller provider-level changes are
 not duplicated outside the differential RAW archive.
 
+The same command also applies the versioned same-security ticker aliases from
+`configs/data_quality/price_ticker_transition_policy_v1.json`. This operation is
+strictly additive: it requires a validated common anchor and matching overlap
+returns, derives missing target-ticker dates from provider daily returns, and
+writes `lineage/price_ticker_transition_audit.parquet`. A manual monthly return,
+a replacement of an existing key, or a transition without official identity
+evidence stops publication. For SATS/ECHO, the provider rows are already in the
+retained Yahoo vintage; no new download is required.
+
 The durable target layout is `RAW -> STG -> DEF -> MART`. The Yahoo RAW archive
 stores a full logical observation for every ingestion but writes only inserted
 or changed row content. Missing and restored ticker/date keys are events, and

@@ -15,13 +15,14 @@ from typing import Any, Mapping
 import polars as pl
 
 from alpharank.data.prices.history import PERSISTENT_PRICE_HISTORY_POLICY_ID
+from alpharank.data.prices.ticker_transitions import PRICE_TICKER_TRANSITION_POLICY_ID
+from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
 from alpharank.data.security_identity import (
     SECURITY_IDENTITY_POLICY_ID,
     assert_security_identity_compliance,
     assert_security_identity_reference_compliance,
     load_security_identity_registry,
 )
-from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
 
 PRICE_FILES = (
     "US_Finalprice.parquet",
@@ -55,6 +56,22 @@ class ComposedSnapshotResult:
     manifest: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class SnapshotCompositionRequest:
+    price_package_dir: Path
+    sec_package_dir: Path
+    price_manifest: Mapping[str, Any]
+    sec_manifest: Mapping[str, Any]
+    security_identity: Mapping[str, Any]
+    price_ticker_transition: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class SnapshotCompositionContext:
+    sources: dict[str, dict[str, Any]]
+    composition_id: str
+
+
 def build_composed_model_snapshot(
     *,
     price_package_dir: Path,
@@ -72,6 +89,10 @@ def build_composed_model_snapshot(
         price_package_dir,
         expected_through=expected_through,
     )
+    price_ticker_transition = _validate_price_ticker_transition_package(
+        price_package_dir,
+        price_manifest,
+    )
     sec_manifest = _validate_sec_package(sec_package_dir)
     security_identity = _validate_security_identity_packages(
         price_package_dir=price_package_dir,
@@ -81,31 +102,18 @@ def build_composed_model_snapshot(
     )
     source_price_identity = _price_payload_identity(price_package_dir / "US_Finalprice.parquet")
 
-    sources = {
-        **{f"price/{name}": _file_record(price_package_dir / name) for name in PRICE_FILES},
-        **{f"sec/{name}": _file_record(sec_package_dir / name) for name in SEC_FILES},
-        **{
-            f"sec/{name}": _file_record(sec_package_dir / name)
-            for name in OPTIONAL_SEC_FILES
-            if (sec_package_dir / name).exists()
-        },
-    }
-    composition_payload = {
-        "contract_version": 2,
-        "source_files": {key: record["sha256"] for key, record in sorted(sources.items())},
-        "price_manifest_sha256": _sha256(price_package_dir / "lineage" / "manifest.json"),
-        "persistent_price_registry_sha256": (
-            _sha256(price_package_dir / "lineage" / "persistent_price_history_registry.parquet")
-            if int(price_manifest.get("contract_version", 1)) >= 2
-            else None
-        ),
-        "price_run_id": price_manifest.get("run_id"),
-        "sec_run_id": sec_manifest.get("run_id"),
-        "security_identity_registry_sha256": security_identity.get("registry_sha256"),
-    }
-    composition_id = hashlib.sha256(
-        json.dumps(composition_payload, sort_keys=True).encode("utf-8")
-    ).hexdigest()
+    composition = _build_snapshot_composition(
+        SnapshotCompositionRequest(
+            price_package_dir=price_package_dir,
+            sec_package_dir=sec_package_dir,
+            price_manifest=price_manifest,
+            sec_manifest=sec_manifest,
+            security_identity=security_identity,
+            price_ticker_transition=price_ticker_transition,
+        )
+    )
+    sources = composition.sources
+    composition_id = composition.composition_id
     generated_at = datetime.now(timezone.utc).isoformat()
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     snapshot_name = f"alpharank_input_{timestamp}_{composition_id[:12]}"
@@ -183,6 +191,7 @@ def build_composed_model_snapshot(
             "data_freshness": price_manifest.get("data_freshness", {}),
             "price_payload_identity": snapshot_price_identity,
             "security_identity": security_identity,
+            "price_ticker_transition": price_ticker_transition,
             "validation": {
                 "price_contract": (
                     "full_ingestion + preceding validated published lineage + "
@@ -193,6 +202,9 @@ def build_composed_model_snapshot(
                 "price_payload_preserved_exactly": True,
                 "persistent_price_registry_copied": persistent_registry_copied,
                 "security_identity_policy_applied": security_identity["policy_required"],
+                "price_ticker_transition_policy_applied": price_ticker_transition[
+                    "policy_required"
+                ],
                 "passed": True,
             },
             "storage": {
@@ -226,6 +238,40 @@ def build_composed_model_snapshot(
     except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         shutil.rmtree(staging_dir, ignore_errors=True)
         raise
+
+
+def _build_snapshot_composition(
+    request: SnapshotCompositionRequest,
+) -> SnapshotCompositionContext:
+    sources = {
+        **{f"price/{name}": _file_record(request.price_package_dir / name) for name in PRICE_FILES},
+        **{f"sec/{name}": _file_record(request.sec_package_dir / name) for name in SEC_FILES},
+        **{
+            f"sec/{name}": _file_record(request.sec_package_dir / name)
+            for name in OPTIONAL_SEC_FILES
+            if (request.sec_package_dir / name).exists()
+        },
+    }
+    payload = {
+        "contract_version": 2,
+        "source_files": {key: record["sha256"] for key, record in sorted(sources.items())},
+        "price_manifest_sha256": _sha256(request.price_package_dir / "lineage" / "manifest.json"),
+        "persistent_price_registry_sha256": (
+            _sha256(
+                request.price_package_dir / "lineage" / "persistent_price_history_registry.parquet"
+            )
+            if int(request.price_manifest.get("contract_version", 1)) >= 2
+            else None
+        ),
+        "price_run_id": request.price_manifest.get("run_id"),
+        "sec_run_id": request.sec_manifest.get("run_id"),
+        "security_identity_registry_sha256": request.security_identity.get("registry_sha256"),
+        "price_ticker_transition_registry_sha256": request.price_ticker_transition.get(
+            "registry_sha256"
+        ),
+    }
+    composition_id = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+    return SnapshotCompositionContext(sources=sources, composition_id=composition_id)
 
 
 def validate_composed_model_snapshot(snapshot_dir: Path) -> dict[str, Any]:
@@ -280,9 +326,7 @@ def _validate_price_package(
     seed = contract.get("eodhd_price_seed")
     if not isinstance(seed, Mapping) or not seed.get("sha256"):
         raise RuntimeError("Price package does not record the EODHD seed hash")
-    gate = contract.get(
-        "price_publication_guard", contract.get("price_revision_guard")
-    )
+    gate = contract.get("price_publication_guard", contract.get("price_revision_guard"))
     if not isinstance(gate, Mapping) or gate.get("passed") is not True:
         raise RuntimeError("Price package did not pass the price publication gate")
     if int(manifest.get("contract_version", 1)) >= 2:
@@ -370,6 +414,40 @@ def _validate_sec_package(package_dir: Path) -> dict[str, Any]:
                 f"{invalid.get_column(column).to_list()}"
             )
     return manifest
+
+
+def _validate_price_ticker_transition_package(
+    package_dir: Path,
+    manifest: Mapping[str, Any],
+) -> dict[str, Any]:
+    contract = manifest.get("source_refresh_contract", {}).get("price_ticker_transition")
+    if contract is None:
+        return {"policy_required": False, "registry_sha256": None, "passed": True}
+    if not isinstance(contract, Mapping):
+        raise RuntimeError("Price ticker transition contract is malformed")
+    if contract.get("policy_id") != PRICE_TICKER_TRANSITION_POLICY_ID:
+        raise RuntimeError("Price ticker transition policy id is invalid")
+    if contract.get("passed") is not True or contract.get("manual_price_values") != 0:
+        raise RuntimeError("Price ticker transition did not pass its additive-return contract")
+    lineage_dir = package_dir / "lineage"
+    paths = {
+        "registry": lineage_dir / "price_ticker_transition_policy.json",
+        "audit": lineage_dir / "price_ticker_transition_audit.parquet",
+    }
+    for key, path in paths.items():
+        record = contract.get(key)
+        if not path.is_file() or not isinstance(record, Mapping):
+            raise RuntimeError(f"Price ticker transition package is missing {key}")
+        if record.get("sha256") != _sha256(path):
+            raise RuntimeError(f"Price ticker transition {key} hash mismatch")
+    return {
+        "policy_id": PRICE_TICKER_TRANSITION_POLICY_ID,
+        "policy_required": True,
+        "registry_sha256": _sha256(paths["registry"]),
+        "audit_sha256": _sha256(paths["audit"]),
+        "added_rows": contract.get("added_rows"),
+        "passed": True,
+    }
 
 
 def _validate_security_identity_packages(

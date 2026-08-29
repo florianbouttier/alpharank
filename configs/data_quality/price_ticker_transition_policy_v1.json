@@ -1,0 +1,26 @@
+{
+  "policy_id": "price_ticker_transition_return_overlay_v1",
+  "schema_version": 1,
+  "description": "Extend an old model ticker only from the validated daily returns of a provider alias for the same unchanged security.",
+  "transitions": [
+    {
+      "transition_id": "echostar_sats_from_echo_2026",
+      "security_id": "sec-cik-0001415404",
+      "issuer_cik": "0001415404",
+      "provider_ticker": "ECHO.US",
+      "target_ticker": "SATS.US",
+      "validated_anchor_date": "2026-04-24",
+      "copy_from": "2026-04-25",
+      "copy_through": "2026-05-31",
+      "model_ticker_effective_from": "2026-06-01",
+      "official_ticker_effective_from": "2026-06-24",
+      "conversion_ratio": 1.0,
+      "required_overlap_rows": 5,
+      "maximum_overlap_return_delta": 0.0001,
+      "maximum_anchor_relative_delta": 0.001,
+      "evidence_known_at": "2026-06-22T00:00:00Z",
+      "evidence_url": "https://ir.echostar.com/news-releases/news-release-details/echostar-changing-stocker-ticker-sats-echo-marking-companys-next",
+      "evidence_statement": "EchoStar states that SATS became ECHO on 2026-06-24, with the same CUSIP, capital structure and securityholder rights. The monthly model universe switches to ECHO in June; the overlay therefore fills only the missing SATS market observations through May."
+    }
+  ]
+}

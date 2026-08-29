@@ -323,6 +323,32 @@ non-target row must remain byte-for-byte equivalent after canonical sorting.
 Run manifests record the policy id, registry SHA-256 and interval audit. Raw
 provider observations and earlier diagnostic packages remain immutable.
 
+### Same-security provider aliases
+
+A provider may relabel the historical series of an unchanged security with its
+new ticker. This is not symbol reuse: `SATS` and `ECHO` share issuer CIK
+`0001415404`, and EchoStar states that the 24 June 2026 ticker change left the
+CUSIP, capital structure and securityholder rights unchanged. Such a case is
+governed separately by
+`configs/data_quality/price_ticker_transition_policy_v1.json`.
+
+The policy never copies a price level by hand and never merges both complete
+histories. It first requires the configured target and provider keys to have a
+unique common anchor and at least five matching daily returns within the stated
+tolerance. It then keeps every published target row byte-equivalent and derives
+only missing dates from the provider's daily returns, scaled from the validated
+target anchor. Every derived row carries the transition id, original provider
+vintage, adjustment bridge factor and official evidence URL in
+`price_ticker_transition_audit.parquet`; the policy file and audit are copied
+and hash-bound into the price package and composed snapshot.
+
+The first interval is deliberately narrow. The validated `SATS.US` series ends
+on 24 April 2026, while the already downloaded `ECHO.US` series contains the
+same recent economic trajectory and the missing observations. The overlay adds
+only the 24 trading sessions from 27 April through 29 May under `SATS.US`. The
+monthly constituent universe switches to `ECHO` in June, so no old `ECHO`
+history is renamed and no June price is duplicated under `SATS`.
+
 Existing EODHD files are registered through
 `alpharank_immutable_raw_file_v1`: the local paid archive is never redownloaded
 or rewritten, and byte-identical source ids share one content-addressed object

@@ -20,6 +20,7 @@ from alpharank.data.prices import (
     EodhdSeed,
     HybridPriceResult,
     PriceGateResult,
+    PriceTickerTransitionResult,
     build_persistent_price_history_registry,
     load_eodhd_seed,
     persistent_history_summary,
@@ -61,6 +62,7 @@ class RollForwardEvidence:
     seed: EodhdSeed
     security_identities: pl.DataFrame
     reviewed_registry_manifest: dict[str, object]
+    ticker_transition: PriceTickerTransitionResult
 
 
 def build_price_roll_forward_package(request: PricePackageRequest) -> dict[str, object]:
@@ -101,6 +103,7 @@ def build_price_roll_forward_package(request: PricePackageRequest) -> dict[str, 
         security_identities=evidence.security_identities,
         reviewed_registry_manifest=evidence.reviewed_registry_manifest,
         data_freshness=freshness,
+        ticker_transition=evidence.ticker_transition,
     )
     manifest = write_price_package(request, prepared)
     validate_price_candidate(evidence.revision_gate)
@@ -167,6 +170,7 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         seed=seed,
         security_identities=identities,
         reviewed_registry_manifest=reviewed_manifest,
+        ticker_transition=publication_candidate.ticker_transition,
     )
 
 

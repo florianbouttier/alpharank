@@ -44,12 +44,20 @@ def persist_price_candidate_evidence(
             "price_provider_revision_guard": candidate.provider_gate.report,
             "price_revision_diagnostic": candidate.revision_diagnostic,
             "price_revision_guard": gate.report,
+            "price_ticker_transition": candidate.ticker_transition.report,
         }
     )
     write_json(run_dir / "price_composition.json", hybrid.composition_report)
     write_json(run_dir / "price_revision_guard.json", gate.report)
     write_json(run_dir / "price_provider_revision_guard.json", candidate.provider_gate.report)
     write_json(run_dir / "price_revision_diagnostic.json", candidate.revision_diagnostic)
+    write_json(
+        run_dir / "price_ticker_transition.json",
+        candidate.ticker_transition.report,
+    )
+    candidate.ticker_transition.audit.write_parquet(
+        run_dir / "price_ticker_transition_audit.parquet"
+    )
     persistent_registry.write_parquet(run_dir / "persistent_price_history_registry.parquet")
     candidate.provider_gate.daily_return_revisions.write_parquet(
         run_dir / "price_daily_return_revisions.parquet"
@@ -120,9 +128,7 @@ def _resolve_price_review_keys(
         pl.col("date").cast(pl.Date),
     )
     if previous_prices is None:
-        return candidate_keys.filter(
-            pl.col("date") >= pl.lit(event_since).cast(pl.Date)
-        )
+        return candidate_keys.filter(pl.col("date") >= pl.lit(event_since).cast(pl.Date))
     previous_keys = previous_prices.select("ticker", "date").with_columns(
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
         pl.col("date").cast(pl.Date),

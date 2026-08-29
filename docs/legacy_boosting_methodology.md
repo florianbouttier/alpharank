@@ -162,6 +162,12 @@ Observed effect on the current snapshot:
 | 2026-06 | 504 | 502 | 2 | permanent quarantine removes `SW.US`; `SATS.US` has no monthly price rows |
 | 2026-07 | 503 | 502 | 1 | permanent quarantine removes `SW.US`; every remaining member passes the monthly gate |
 
+This table describes the immutable pre-`DATA-029` snapshot. `SATS.US` had no
+May rows under its own key, although the same security's observations were
+already retained under `ECHO.US`. The versioned transition overlay derives the
+missing SATS dates from ECHO daily returns; its economic effect is not reported
+here until the complete `REPLAY-006` rebuild has finished.
+
 Legacy's published policy is `no_sec_fundamentals_v1`. It intersects observed
 monthly prices, historical membership and the shared price-eligibility gate;
 it does not read or compute a SEC value. The former

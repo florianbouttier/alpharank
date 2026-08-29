@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,7 +14,12 @@ import polars as pl
 
 from alpharank.data.ingestion.acquisition_status import build_price_publication_guard
 from alpharank.data.open_source.price_quality import ExtremePriceMoveGateResult
-from alpharank.data.prices import EodhdSeed, HybridPriceResult, PriceGateResult
+from alpharank.data.prices import (
+    EodhdSeed,
+    HybridPriceResult,
+    PriceGateResult,
+    PriceTickerTransitionResult,
+)
 from alpharank.data.security_identity import (
     SECURITY_IDENTITY_POLICY_ID,
     SecurityIdentityApplication,
@@ -61,6 +67,7 @@ class PreparedPricePackage:
     security_identities: pl.DataFrame
     reviewed_registry_manifest: Mapping[str, object]
     data_freshness: Mapping[str, object]
+    ticker_transition: PriceTickerTransitionResult
 
 
 def write_price_package(
@@ -89,6 +96,15 @@ def _write_payloads(output_dir: Path, prepared: PreparedPricePackage) -> None:
     prepared.benchmark_prices.write_parquet(output_dir / "SP500Price.parquet")
     prepared.constituents.frame.write_csv(output_dir / "SP500_Constituents.csv")
     result.lineage.write_parquet(output_dir / "lineage" / "prices_open_source_lineage.parquet")
+    prepared.ticker_transition.audit.write_parquet(
+        output_dir / "lineage" / "price_ticker_transition_audit.parquet"
+    )
+    registry_path = prepared.ticker_transition.report.get("registry_path")
+    if registry_path:
+        shutil.copy2(
+            Path(str(registry_path)),
+            output_dir / "lineage" / "price_ticker_transition_policy.json",
+        )
     prepared.history_registry.write_parquet(
         output_dir / "lineage" / "persistent_price_history_registry.parquet"
     )
@@ -97,15 +113,14 @@ def _write_payloads(output_dir: Path, prepared: PreparedPricePackage) -> None:
     revision.transition_factor_findings.write_parquet(
         audit / "price_transition_factor_findings.parquet"
     )
-    revision.historical_key_removals.write_parquet(
-        audit / "price_historical_key_removals.parquet"
-    )
+    revision.historical_key_removals.write_parquet(audit / "price_historical_key_removals.parquet")
     extreme.findings.write_parquet(audit / "price_extreme_move_findings.parquet")
     extreme.unreviewed.write_parquet(audit / "price_extreme_move_unreviewed.parquet")
     extreme.reviewed.write_parquet(audit / "price_extreme_move_reviewed.parquet")
     write_json(audit / "price_revision_guard.json", revision.report)
     write_json(audit / "price_extreme_move_guard.json", extreme.report)
     write_json(audit / "price_composition.json", result.composition_report)
+    write_json(audit / "price_ticker_transition.json", prepared.ticker_transition.report)
 
 
 def _build_source_contract(
@@ -136,6 +151,9 @@ def _build_source_contract(
             },
             "security_identity": _security_identity_contract(prepared),
             "reviewed_extreme_price_moves": _reviewed_move_contract(prepared),
+            "price_ticker_transition": _ticker_transition_contract(
+                request.output_dir.resolve(), prepared
+            ),
         }
     )
     source_contract["policy"] = {
@@ -143,9 +161,7 @@ def _build_source_contract(
         "allow_historical_price_revisions": False,
         "allow_historical_price_key_removals": False,
     }
-    source_contract["price_publication_guard"] = build_price_publication_guard(
-        source_contract
-    )
+    source_contract["price_publication_guard"] = build_price_publication_guard(source_contract)
     if request.reassessment is not None:
         source_contract["deferred_publication"] = dict(request.reassessment)
     return source_contract
@@ -188,6 +204,8 @@ def _build_manifest(
             "price_publication_guard_passed": publication_gate["passed"],
             "deferred_publication_without_network": request.reassessment is not None,
             "security_identity_policy_applied": True,
+            "price_ticker_transition_policy_applied": True,
+            "price_ticker_transition_added_rows": prepared.ticker_transition.audit.height,
         },
         "artifacts": {
             "price_lineage": file_record(
@@ -195,6 +213,12 @@ def _build_manifest(
             ),
             "persistent_price_history_registry": file_record(
                 output_dir / "lineage" / "persistent_price_history_registry.parquet"
+            ),
+            "price_ticker_transition_audit": file_record(
+                output_dir / "lineage" / "price_ticker_transition_audit.parquet"
+            ),
+            "price_ticker_transition_registry": file_record(
+                output_dir / "lineage" / "price_ticker_transition_policy.json"
             ),
         },
     }
@@ -219,6 +243,18 @@ def _reviewed_move_contract(prepared: PreparedPricePackage) -> dict[str, object]
         "matched_events": prepared.extreme_gate.reviewed.with_columns(
             pl.col("date").cast(pl.String)
         ).to_dicts(),
+    }
+
+
+def _ticker_transition_contract(
+    output_dir: Path,
+    prepared: PreparedPricePackage,
+) -> dict[str, object]:
+    report = prepared.ticker_transition.report
+    return {
+        **report,
+        "registry": file_record(output_dir / "lineage" / "price_ticker_transition_policy.json"),
+        "audit": file_record(output_dir / "lineage" / "price_ticker_transition_audit.parquet"),
     }
 
 

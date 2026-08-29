@@ -79,8 +79,10 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 40 | `METH-006` | filtrer causalement les candidats Boosting par tendance avant classement | lot METH ci-dessous | fait |
 | 41 | `METH-007` | rejouer et publier la variante Boosting filtrée par tendance | lot METH ci-dessous | fait |
 | 42 | `DOC-021` | publier dans le site le guide complet des méthodes et de leurs pseudo-codes | lot DOC ci-dessous | fait |
-| 43 | `METH-008` | construire une poche Boosting excluant causalement les titres Legacy | lot METH ci-dessous | à faire |
-| 44 | `METH-009` | rejouer le portefeuille combiné comme alternative de diversification | lot METH ci-dessous | à faire |
+| 43 | `DATA-029` | relier les prix SATS et ECHO sans valeur manuelle ni réécriture | lot DATA ci-dessous | fait |
+| 44 | `REPLAY-006` | reconstruire le snapshot et rejouer les méthodes après correction SATS | lot REPLAY ci-dessous | à faire |
+| 45 | `METH-008` | construire une poche Boosting excluant causalement les titres Legacy | lot METH ci-dessous | à faire |
+| 46 | `METH-009` | rejouer le portefeuille combiné comme alternative de diversification | lot METH ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -310,6 +312,7 @@ change dans ce lot.
 | `DATA-026` | séparer les identifiants de données des paramètres dans la comparaison de provenance | fait | les hashes d'entrée restent comparés comme données sans créer un faux drift de configuration ; les politiques, seeds, code et runtime conservent leurs contrôles indépendants ; 11 tests ciblés, lint et docs verts |
 | `DATA-027` | produire un explorateur SEC autonome par entreprise depuis un run RAW explicite | fait | run `20260827_070654` : 824 sociétés et 638 809 lignes SEC ; rapport `d8285970…20be`, payload `959a922c…8961` ; versions, quarters, lignes brutes, statuts et six hashes sources visibles ; tests, JavaScript, lint, plafond de dossier et docs verts ; gate de taille globale encore rouge sur un fichier non modifié |
 | `DATA-028` | versionner les quatre événements terminaux révélés par le replay sans fondamentaux | fait | registre différentiel v2 lié par hash au v1 ; RX, TSS, TWTR et ABMD bloqués uniquement après leur dernière séance primaire ; quatre pièces SEC refetchées au même SHA-256, sans valoriser une contrepartie actionnaire ni réintroduire un facteur fondamental |
+| `DATA-029` | prolonger un ancien ticker depuis les rendements d'un alias fournisseur de la même sécurité | fait | 24 séances SATS dérivées des rendements ECHO, zéro ligne antérieure modifiée et zéro valeur manuelle ; package réel et snapshot `1e6d5367…842a9` reconstruits sans réseau, 21 tests ciblés et validations documentaires verts |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -331,6 +334,29 @@ doublons exacts et preuve de récupération.
   régénérable sur des fichiers immuables.
 - **Rollback** : revenir au générateur précédent ; aucun dataset ni pointeur
   n'est modifié par la commande.
+
+### Détail de `DATA-029`
+
+- **Objectif** : récupérer les séances SATS présentes sous la clé fournisseur
+  ECHO sans saisir un prix ou un rendement et sans fusionner leurs anciens
+  historiques homonymes.
+- **Périmètre** : registre versionné, contrôle de cinq rendements communs et de
+  l'ancre du 24 avril, extension du 25 avril au 31 mai, lignée, manifeste,
+  publication prix et tests.
+- **Hors périmètre** : modification d'une ligne déjà publiée, fusion globale de
+  SATS/ECHO, changement du calendrier de l'univers ou promotion d'un snapshot.
+- **Acceptation** : même CIK et CUSIP inchangé sourcés ; anciennes clés
+  identiques ; chaque nouvelle ligne dérivée du rendement quotidien ECHO depuis
+  l'ancre SATS ; zéro valeur manuelle ; overlay idempotent et hashé.
+- **Validations** : 21 tests du recouvrement, du refus, de l'idempotence, de la
+  réconciliation et de la composition ; package et snapshot réels reconstruits
+  sans réseau ; Ruff et documentation verts ; aucune nouvelle dette Python, la
+  gate globale restant rouge sur deux fichiers non modifiés.
+- **Impact** : les observations fin avril et mai deviennent calculables sous
+  SATS ; l'impact sur les signaux et portefeuilles reste inconnu avant
+  `REPLAY-006`.
+- **Rollback** : omettre le nouveau package ; le snapshot précédent reste
+  immuable et résolvable par son manifeste.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
@@ -434,6 +460,7 @@ doublons exacts et preuve de récupération.
 | `REPLAY-003` | conserver un statut machine-lisible pour chaque source après une gate amont | fait | prix Yahoo téléchargés/quarantinés, historiques gelés conservés et acquisitions fondamentales non démarrées distingués explicitement |
 | `REPLAY-004` | produire un rapport HTML autonome qui sépare drift prix, SEC, Legacy et Boosting | fait | rapport réel `8881cac6…b971`, payload `1aaac44b…cdb1`, ablations prix/SEC, scores, Top-N, CVC, gate et hashes réunis ; 13 tests ciblés, typage, lint, navigation HTML et absence d'asset externe validés |
 | `REPLAY-005` | rejouer les deux méthodes sans SEC et promouvoir la politique si les gates communes passent | fait | données fraîches au 26 août ; Legacy strict, Boosting EMA-only et replay commun sur 180 mois verts ; 7/7 hashes identiques, 8 entrées terminales bloquées, zéro rendement censuré sélectionné, `publication_eligible=true` ; `no_sec_fundamentals_v1` devient le défaut Legacy |
+| `REPLAY-006` | rejouer Legacy, Boosting et la variante tendance après l'overlay SATS/ECHO | à faire | nouveau snapshot composé immuable ; attribution des écarts de signal, sélection et rendement SATS ; Top 5/10/15/20 retentés avec le même moteur et rapport hashé |
 
 ### Détail de `REPLAY-005`
 
