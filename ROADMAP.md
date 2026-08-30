@@ -90,7 +90,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 51 | `REPORT-003` | comparer toutes les stratégies et borner les model cards par la fenêtre | lot REPORT ci-dessous | fait |
 | 52 | `REPORT-004` | régénérer et republier le rapport comparatif SATS/ECHO | lot REPORT ci-dessous | fait |
 | 53 | `REPORT-005` | faire piloter toutes les vues par les courbes affichées | lot REPORT ci-dessous | fait |
-| 54 | `REPORT-006` | ajouter un laboratoire de portefeuille multi-stratégie | lot REPORT ci-dessous | à faire |
+| 54 | `REPORT-006` | ajouter un laboratoire de portefeuille multi-stratégie | lot REPORT ci-dessous | fait |
 | 55 | `REPORT-007` | republier le rapport corrigé et son laboratoire | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
@@ -527,7 +527,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-003` | rendre la comparaison multi-stratégie explicite dans chaque vue | fait | KPI des 11 séries côte à côte avec surperformance SPY visible, multisélection des courbes, matrices cumulées bornées par début/fin et matrices annuelles incrémentales sans nouveau calcul navigateur |
 | `REPORT-004` | publier une nouvelle instance SATS/ECHO du standard enrichi | fait | HTML et manifeste hashés, preuve datée, copie site byte-identique au commit Portfolio `71a73c5`, build Vite et contrôles interactifs 11 stratégies/2015–2019 validés |
 | `REPORT-005` | aligner toutes les vues sur la sélection globale et rendre le drawdown lisible | fait | cartes, tableau KPI et matrices limités aux courbes cochées ; richesse puis drawdown en graphiques pleine largeur superposés |
-| `REPORT-006` | comparer une combinaison équipondérée de stratégies à SPY | à faire | nouvel onglet, sélection des poches, rendements mensuels et KPI de chaque combinaison pré-calculés par `alpharank.portfolio`, règle de coûts et rééquilibrage documentée |
+| `REPORT-006` | comparer une combinaison équipondérée de stratégies à SPY | fait | nouvel onglet, sélection des poches, rendements mensuels et KPI de chaque combinaison pré-calculés par `alpharank.portfolio`, règle de coûts et rééquilibrage documentée |
 | `REPORT-007` | publier la correction et le laboratoire SATS/ECHO | à faire | nouvel artefact hashé, copie Portfolio byte-identique, build et QA des filtres, du drawdown et du portefeuille composé |
 
 ### Détail de `REPORT-001`

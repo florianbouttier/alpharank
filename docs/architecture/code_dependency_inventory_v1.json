@@ -3208,6 +3208,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/portfolio/__init__.py",
+      "target": "src/alpharank/portfolio/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/__init__.py",
       "target": "src/alpharank/portfolio/allocation.py"
     },
     {
@@ -4053,6 +4058,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/_performance_report_html.py",
+      "target": "src/alpharank/reporting/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_html.py",
       "target": "src/alpharank/reporting/_performance_report_script.py"
     },
     {
@@ -4064,6 +4074,11 @@
       "kind": "import",
       "source": "src/alpharank/reporting/_sec_explorer_html.py",
       "target": "src/alpharank/reporting/_sec_explorer_script.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_report.py",
+      "target": "src/alpharank/portfolio/__init__.py"
     },
     {
       "kind": "import",
@@ -9114,6 +9129,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/allocation.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/attribution.py",
@@ -9132,7 +9148,10 @@
       "lifecycle": "active",
       "module": "alpharank.portfolio",
       "path": "src/alpharank/portfolio/__init__.py",
-      "readers": []
+      "readers": [
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/reporting/performance_report.py"
+      ]
     },
     {
       "declared_public_entrypoint": false,
@@ -10099,12 +10118,15 @@
       "lifecycle": "active",
       "module": "alpharank.reporting",
       "path": "src/alpharank/reporting/__init__.py",
-      "readers": []
+      "readers": [
+        "src/alpharank/reporting/_performance_report_html.py"
+      ]
     },
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/reporting/__init__.py",
         "src/alpharank/reporting/_performance_report_script.py",
         "src/alpharank/reporting/_performance_report_styles.py"
       ],
@@ -10175,6 +10197,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/comparison.py",
         "src/alpharank/reporting/_performance_report_html.py"
       ],
@@ -10613,10 +10636,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 158,
-    "internal_edge_count": 812,
+    "internal_edge_count": 815,
     "library_count": 223,
     "python_file_count": 388,
     "script_count": 165,
-    "unread_node_count": 164
+    "unread_node_count": 162
   }
 }

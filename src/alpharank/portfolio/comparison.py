@@ -116,8 +116,13 @@ def subperiod_metric_grid(
     benchmark_column: str,
     metric_fields: Sequence[str],
     month_column: str = "holding_month",
+    calendar_year_boundaries_only: bool = False,
 ) -> dict[str, list[list[float | None]]]:
-    """Calculate one canonical metric grid for every inclusive month range."""
+    """Calculate one canonical metric grid for inclusive calendar ranges.
+
+    ``calendar_year_boundaries_only`` retains the first available month or
+    January as a start, and December or the final available month as an end.
+    """
 
     required = {
         month_column,
@@ -131,13 +136,20 @@ def subperiod_metric_grid(
     frame = monthly_wide.select(month_column, *comparison_columns).sort(month_column)
     months = frame[month_column].to_list()
     benchmark = frame[benchmark_column].to_numpy()
+    strategy_returns = {
+        strategy_column: frame[strategy_column].to_numpy() for strategy_column in strategy_columns
+    }
     output: dict[str, list[list[float | None]]] = {}
-    for start in range(len(months)):
-        for end in range(start, len(months)):
+    start_indices, end_indices = _period_boundaries(
+        months,
+        calendar_year_boundaries_only=calendar_year_boundaries_only,
+    )
+    for start in start_indices:
+        for end in (index for index in end_indices if index >= start):
             rows: list[list[float | None]] = []
             for strategy_column in strategy_columns:
                 statistics = advanced_performance_statistics(
-                    frame[strategy_column].to_numpy()[start : end + 1],
+                    strategy_returns[strategy_column][start : end + 1],
                     benchmark_returns=benchmark[start : end + 1],
                 )
                 rows.append([_finite_or_none(statistics[field]) for field in metric_fields])

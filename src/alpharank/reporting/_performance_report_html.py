@@ -5,6 +5,9 @@ import gzip
 import json
 from typing import Any
 
+from alpharank.reporting._performance_report_composer_script import (
+    PERFORMANCE_REPORT_COMPOSER_SCRIPT,
+)
 from alpharank.reporting._performance_report_script import PERFORMANCE_REPORT_SCRIPT
 from alpharank.reporting._performance_report_styles import PERFORMANCE_REPORT_STYLES
 
@@ -33,6 +36,7 @@ def render_performance_report_html(payload: dict[str, Any]) -> str:
         '<div id="loading" class="loading">Chargement du rapport canonique…</div>\n'
         '<div id="app" class="shell" hidden>\n' + _sidebar() + _main() + "</div>\n"
         f"<script>const PAYLOAD_GZIP_BASE64={json.dumps(encoded)};\n"
+        f"{PERFORMANCE_REPORT_COMPOSER_SCRIPT}\n"
         f"{PERFORMANCE_REPORT_SCRIPT}</script>\n"
         "</body>\n</html>\n"
     )
@@ -50,6 +54,7 @@ def _sidebar() -> str:
     <a class="nav-link is-active" href="#overview">Vue d'ensemble</a>
     <a class="nav-link" href="#kpis">Tous les KPI</a>
     <a class="nav-link" href="#matrix">Model cards</a>
+    <a class="nav-link" href="#composer">Composer un portefeuille</a>
     <div class="nav-label">Audit</div>
     <a class="nav-link" href="#portfolios">Portefeuilles historiques</a>
     <a class="nav-link" href="#methodologies">Méthodologies</a>
@@ -69,7 +74,7 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero">
     <div>
-      <span class="eyebrow">Standard de performance · REPORT-005</span>
+      <span class="eyebrow">Standard de performance · REPORT-006</span>
       <h1>Rapport de backtest complet</h1>
       <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
       calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
@@ -97,6 +102,7 @@ def _main() -> str:
   </div>
 """
         + _performance_sections()
+        + _composer_section()
         + _audit_sections()
         + """
 </div></main>
@@ -146,10 +152,40 @@ def _performance_sections() -> str:
 """
 
 
+def _composer_section() -> str:
+    return """
+  <section class="section" id="composer">
+    <div class="section-head">
+      <div><span class="section-kicker">04 · Portefeuille composé</span><h2>Combiner les stratégies et mesurer la diversification</h2></div>
+      <p>Choisissez les poches : elles reçoivent le même poids chaque mois. Le résultat est comparé au SPY sur la fenêtre active.</p>
+    </div>
+    <div class="composer-layout">
+      <article class="panel composer-selection">
+        <div class="composer-selection-head">
+          <div><h3>Stratégies incluses</h3><p class="panel-subtitle" id="composer-summary">—</p></div>
+          <div class="composer-actions"><button id="composer-reference" type="button">Legacy + tendance Top 5</button><button id="composer-all" type="button">Toutes</button></div>
+        </div>
+        <div class="composer-options" id="composer-options"></div>
+      </article>
+      <aside class="composer-contract">
+        <strong>Règle du laboratoire</strong>
+        <p>Équipondération des stratégies cochées, rééquilibrée mensuellement. Les rendements de chaque poche sont déjà nets de leurs frais propres ; aucun coût supplémentaire entre poches n'est ajouté.</p>
+        <small>Diagnostic post-hoc non promu. Un titre présent dans plusieurs stratégies reste exposé dans chacune de ces poches. Les 1 023 combinaisons et leurs KPI sont pré-calculés par le moteur commun ; le navigateur ne calcule que l'affichage des courbes.</small>
+      </aside>
+    </div>
+    <div class="composer-kpis" id="composer-kpis"></div>
+    <div class="composer-charts">
+      <article class="panel"><h3>Croissance composée · portefeuille contre SPY</h3><p class="panel-subtitle">Courbes rebasées à 1 au début de la fenêtre.</p><canvas id="composer-wealth-chart"></canvas><div class="legend" id="composer-wealth-legend"></div></article>
+      <article class="panel"><h3>Drawdown · portefeuille contre SPY</h3><p class="panel-subtitle">Écart à chaque plus-haut de richesse, sur un graphique pleine largeur.</p><canvas id="composer-drawdown-chart"></canvas><div class="legend" id="composer-drawdown-legend"></div></article>
+    </div>
+  </section>
+"""
+
+
 def _audit_sections() -> str:
     return """
   <section class="section" id="portfolios">
-    <div class="section-head"><div><span class="section-kicker">04 · Positions</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
+    <div class="section-head"><div><span class="section-kicker">05 · Positions</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
     <div class="portfolio-controls">
       <label>Stratégie<select id="portfolio-strategy"></select></label>
       <label>Mois de détention<select id="portfolio-month"></select></label>
@@ -161,11 +197,11 @@ def _audit_sections() -> str:
     <div class="pager"><button id="page-prev" type="button">Précédent</button><span id="page-label">—</span><button id="page-next" type="button">Suivant</button></div>
   </section>
   <section class="section" id="methodologies">
-    <div class="section-head"><div><span class="section-kicker">05 · Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
+    <div class="section-head"><div><span class="section-kicker">06 · Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
     <div class="method-grid" id="method-grid"></div>
   </section>
   <section class="section" id="lineage">
-    <div class="section-head"><div><span class="section-kicker">06 · Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
+    <div class="section-head"><div><span class="section-kicker">07 · Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
     <div class="lineage-grid">
       <article class="lineage-card"><h3>Contrats économiques</h3><dl class="definition" id="lineage-contracts"></dl></article>
       <article class="lineage-card"><h3>Snapshot et sources</h3><dl class="definition" id="lineage-data"></dl></article>

@@ -48,6 +48,7 @@ src/alpharank/portfolio/
 ├── simulation.py      # gross/net returns, costs, benchmark comparison
 ├── performance.py     # CAGR, Sharpe, drawdown, annual returns
 ├── attribution.py     # exact security/month/year CAGR attribution
+├── combinations.py    # equal-weight strategy-sleeve combinations
 ├── comparison.py      # explicit common-calendar alignment
 ├── lineage.py         # input-snapshot hash comparison and fail-closed gate
 ├── artifacts.py       # standard parquet/csv/json audit outputs
@@ -229,6 +230,16 @@ HTML standard sélectionne uniquement ces valeurs pré-calculées ; sa définiti
 ses filtres, ses matrices cumulées par année de départ et ses matrices annuelles
 isolées sont décrits dans
 [`performance_reporting_standard.md`](performance_reporting_standard.md).
+
+`equal_weight_strategy_combination_grid()` construit toutes les combinaisons
+non vides d'au plus dix poches de stratégie sur leur calendrier commun. Le
+rendement mensuel d'une combinaison est la moyenne arithmétique des
+`net_return` de ses poches, ce qui représente une équipondération rétablie à
+chaque mois. Les frais propres aux stratégies sont donc inclus ; aucun frais
+additionnel entre poches n'est imputé. La fonction appelle
+`advanced_performance_statistics()` pour chaque combinaison et chaque fenêtre
+annuelle, afin qu'un rapport interactif sélectionne les KPI sans les recalculer
+dans le navigateur.
 
 ## Exact CAGR Attribution
 

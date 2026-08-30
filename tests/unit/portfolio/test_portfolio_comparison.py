@@ -5,6 +5,7 @@ from datetime import date
 import polars as pl
 import pytest
 
+from alpharank.portfolio.combinations import equal_weight_strategy_combination_grid
 from alpharank.portfolio.comparison import (
     subperiod_metric_grid,
     subperiod_portfolio_metric_grid,
@@ -109,6 +110,33 @@ def test_portfolio_period_grid_centralizes_performance_cost_and_composition_kpi(
     assert grid["2025-01-01|2025-03-01"][0] == pytest.approx([expected[field] for field in fields])
 
     _assert_year_boundary_grid(fields)
+    _assert_equal_weight_combination_grid()
+
+
+def _assert_equal_weight_combination_grid() -> None:
+    months = [date(2025, 1, 1), date(2025, 2, 1), date(2025, 3, 1)]
+    first = pl.DataFrame({"holding_month": months, "net_return": [0.02, -0.01, 0.04]})
+    second = pl.DataFrame({"holding_month": months, "net_return": [0.00, 0.03, 0.02]})
+    benchmark = pl.DataFrame({"holding_month": months, "net_return": [0.01, 0.00, 0.01]})
+    fields = ("total_return", "cagr", "annualized_volatility", "max_drawdown")
+
+    grid = equal_weight_strategy_combination_grid(
+        {"first": first, "second": second, "SPY": benchmark},
+        benchmark_strategy="SPY",
+        strategy_order=("first", "second"),
+        metric_fields=fields,
+    )
+    combined_returns = [0.01, 0.01, 0.03]
+    expected = advanced_performance_statistics(
+        combined_returns,
+        benchmark_returns=[0.01, 0.00, 0.01],
+    )
+
+    assert grid.combination_masks == (1, 2, 3)
+    assert grid.monthly_returns[:, 2] == pytest.approx(combined_returns)
+    assert grid.metric_windows["2025-01-01|2025-03-01"][2] == pytest.approx(
+        [expected[field] for field in fields]
+    )
 
 
 def _assert_year_boundary_grid(fields: tuple[str, ...]) -> None:

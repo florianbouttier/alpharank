@@ -56,6 +56,19 @@ def test_payload_uses_canonical_window_kpi_and_keeps_every_holding(tmp_path: Pat
     assert payload["data_quality"]["sector_coverage_by_strategy"][
         "Legacy · Frequency"
     ] == pytest.approx(1.0)
+    composer = payload["portfolio_composer"]
+    assert len(composer["strategy_order"]) == 10
+    assert len(composer["combination_masks"]) == 1_023
+    assert composer["combination_masks"][:3] == [1, 2, 3]
+    assert composer["monthly_returns"][0][:3] == pytest.approx([0.01, 0.01, 0.01])
+    assert len(composer["metric_windows"]["2026-01-01|2026-02-01"]) == 1_023
+    assert composer["policy"] == {
+        "method": "monthly_equal_weight_strategy_sleeves",
+        "rebalance_frequency": "monthly",
+        "input_returns": "net_return après les frais propres à chaque stratégie",
+        "additional_inter_sleeve_cost": 0.0,
+        "status": "diagnostic post-hoc non promu",
+    }
 
 
 def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: Path) -> None:
@@ -73,6 +86,7 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert payload["metric_fields"] == list(PERFORMANCE_METRIC_FIELDS)
     assert payload["lineage"]["composition_id"] == "test-composition"
     assert manifest["report"]["sha256"]
+    assert manifest["portfolio_composer"]["combinations"] == 1_023
     assert "https://" not in html
     assert "http://" not in html
     assert "Viridis" not in html  # The requested scale is encoded locally, not loaded.
@@ -81,12 +95,17 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert 'id="metric-head"' in html
     assert 'id="cumulative-heatmap"' in html
     assert 'id="incremental-heatmap"' in html
+    assert 'id="composer-options"' in html
+    assert 'id="composer-wealth-chart"' in html
+    assert 'id="composer-drawdown-chart"' in html
     assert 'id="strategy-select"' not in html
     assert 'matrixWindows("cumulative")' in html
     assert 'matrixWindows("incremental")' in html
     assert "Tous les KPI des courbes affichées" in html
     assert "state.curves.map(strategy" in html
     assert ".chart-grid { display: grid; grid-template-columns: 1fr;" in html
+    assert "aucun coût supplémentaire entre poches" in html
+    assert "function composerMetricValue(field)" in html
 
 
 def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:

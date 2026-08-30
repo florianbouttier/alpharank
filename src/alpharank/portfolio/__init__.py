@@ -25,6 +25,13 @@ from alpharank.portfolio.benchmark import (
     completed_through_month,
     monthly_benchmark_returns,
 )
+from alpharank.portfolio.combinations import (
+    EQUAL_WEIGHT_ADDITIONAL_COST,
+    EQUAL_WEIGHT_REBALANCE_FREQUENCY,
+    MAX_EQUAL_WEIGHT_STRATEGIES,
+    EqualWeightCombinationGrid,
+    equal_weight_strategy_combination_grid,
+)
 from alpharank.portfolio.comparison import (
     align_return_series,
     reference_monthly_series,
@@ -76,7 +83,10 @@ from alpharank.portfolio.terminal_returns import (
 
 __all__ = [
     "CAUSAL_TIMING_REQUIRED_COLUMNS",
+    "EQUAL_WEIGHT_ADDITIONAL_COST",
+    "EQUAL_WEIGHT_REBALANCE_FREQUENCY",
     "HOLDINGS_REQUIRED_COLUMNS",
+    "MAX_EQUAL_WEIGHT_STRATEGIES",
     "MONTHLY_REQUIRED_COLUMNS",
     "BENCHMARK_CONVENTIONS",
     "SPY_PRICE_RETURN",
@@ -86,6 +96,7 @@ __all__ = [
     "TERMINAL_EVENT_TYPES",
     "TerminalReturnResult",
     "TransactionCostModel",
+    "EqualWeightCombinationGrid",
     "align_return_series",
     "advanced_performance_statistics",
     "annual_returns",
@@ -96,6 +107,7 @@ __all__ = [
     "compare_ticker_exclusions",
     "constrained_inverse_risk_weights",
     "equal_weights",
+    "equal_weight_strategy_combination_grid",
     "legacy_report_statistics",
     "ALPHARANK_REFERENCE_CLOSE",
     "LEGACY_NEXT_SESSION_OPEN",

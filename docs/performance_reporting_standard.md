@@ -61,6 +61,29 @@ La croissance composée occupe une ligne complète. Le drawdown utilise le même
 format de graphique pleine largeur sur la ligne suivante, avec les mêmes
 couleurs, la même fenêtre et exactement les mêmes stratégies.
 
+## Laboratoire de portefeuille composé
+
+Le rapport permet de cocher plusieurs stratégies puis de comparer leur
+portefeuille composé au SPY. Chaque mois, 100 % du capital est réparti à parts
+égales entre les poches cochées ; le poids de chaque poche vaut donc `1 / N` et
+le rééquilibrage est mensuel. Les rendements d'entrée sont les `net_return` de
+chaque stratégie, déjà diminués des frais facturés dans son propre replay.
+Aucun coût supplémentaire de transfert entre poches n'est modélisé dans cette
+première version ; cette limite doit rester visible à côté du sélecteur. Les
+poches ne sont pas fusionnées au niveau des titres : si deux stratégies
+détiennent la même action, cette exposition existe dans chacune de leurs
+poches et contribue deux fois selon leurs poids respectifs.
+
+Pour les dix stratégies hors SPY, les 1 023 combinaisons non vides, leurs
+rendements mensuels et leurs KPI par fenêtre annuelle sont calculés avant le
+rendu par `equal_weight_strategy_combination_grid()`. Le navigateur transforme
+la sélection en masque pour choisir la ligne pré-calculée ; il ne calcule aucun
+rendement total, CAGR, volatilité, Sharpe, Sortino ou max drawdown. Il projette
+seulement les rendements mensuels pré-calculés en courbes de richesse et de
+drawdown. Ce laboratoire reste un diagnostic post-hoc non promu : il mesure la
+diversification entre méthodes, il ne constitue ni une optimisation de poids
+ni une nouvelle stratégie de production.
+
 Le rapport expose au minimum :
 
 - rendement total, CAGR, volatilité, Sharpe, drawdown et mois positifs ;
@@ -142,7 +165,8 @@ python scripts/research/build_backtest_performance_report.py \
 
 Un nouveau standard ou une nouvelle version du payload exige : tests du moteur
 de KPI, test du payload, vérification de la syntaxe JavaScript, génération sur
-un replay réel, manifeste hashé, validation documentaire et build du site
+un replay réel, manifeste hashé, vérification des combinaisons et changements
+de fenêtre dans le navigateur, validation documentaire et build du site
 consommateur. L'artefact généré reste ignoré par Git dans AlphaRank ; son run,
 son snapshot, ses hashes et son statut sont conservés dans un rapport daté sous
 `docs/research/`.

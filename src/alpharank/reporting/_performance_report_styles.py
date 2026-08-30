@@ -292,6 +292,66 @@ tbody tr:hover { background: #f6f8fb; }
 .heatmap-label { justify-items: start; padding: 0 9px; color: var(--ink); background: #edf2f6; font-family: "IBM Plex Sans", sans-serif; }
 .viridis-legend { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--muted); font-size: 11px; }
 .viridis-bar { width: 180px; height: 9px; border-radius: 2px; background: linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725); }
+.composer-layout { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(280px,.7fr); gap: 12px; }
+.composer-selection-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.composer-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 7px; }
+.composer-actions button {
+  min-height: 32px;
+  padding: 6px 9px;
+  color: var(--navy);
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.composer-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 5px; margin-top: 12px; }
+.composer-option {
+  display: grid;
+  grid-template-columns: auto auto minmax(0,1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  padding: 6px 8px;
+  color: var(--ink);
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.composer-option input { min-height: 0; margin: 0; accent-color: var(--navy); }
+.composer-option i { width: 9px; height: 9px; border-radius: 50%; }
+.composer-option strong { color: var(--navy); font: 700 10px "IBM Plex Mono", ui-monospace, monospace; }
+.composer-contract {
+  padding: 16px;
+  color: #5c4d0c;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-line);
+  border-radius: 7px;
+}
+.composer-contract strong { color: var(--navy); }
+.composer-contract p { margin: 8px 0; }
+.composer-contract small { color: #756728; }
+.composer-kpis { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin-top: 12px; }
+.composer-kpi {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 5px 10px;
+  align-items: center;
+  min-height: 74px;
+  padding: 11px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+}
+.composer-kpi span { color: var(--muted); font-size: 11px; }
+.composer-kpi strong { color: var(--navy); font: 700 17px "IBM Plex Mono", ui-monospace, monospace; }
+.composer-kpi small { grid-column: 1 / -1; color: var(--muted); font: 700 9px "IBM Plex Mono", ui-monospace, monospace; text-transform: uppercase; }
+.composer-kpi.comparison-beats { border-left-color: var(--positive); }
+.composer-kpi.comparison-trails { border-left-color: var(--negative); }
+.composer-kpi.comparison-equal { border-left-color: var(--line-strong); }
+.composer-charts { display: grid; gap: 12px; margin-top: 12px; }
 .portfolio-controls { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)) auto; gap: 10px; margin-bottom: 12px; }
 .portfolio-summary { margin: 0 0 12px; color: var(--muted); }
 .pager { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; color: var(--muted); }
@@ -311,7 +371,8 @@ tbody tr:hover { background: #f6f8fb; }
 .loading { display: grid; min-height: 100vh; place-items: center; color: var(--navy); font: 700 13px "IBM Plex Mono", monospace; }
 .loading[hidden], .shell[hidden] { display: none !important; }
 @media (max-width: 1120px) {
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-grid, .composer-kpis { grid-template-columns: repeat(2, 1fr); }
+  .composer-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 820px) {
   .sidebar { position: static; width: auto; padding: 14px 18px; }
@@ -321,10 +382,12 @@ tbody tr:hover { background: #f6f8fb; }
   .content { padding: 20px 16px 48px; }
   .hero { grid-template-columns: 1fr; }
   .toolbar, .portfolio-controls { position: static; grid-template-columns: 1fr 1fr; }
-  .method-grid, .lineage-grid { grid-template-columns: 1fr; }
+  .method-grid, .lineage-grid, .composer-options { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
-  .toolbar, .portfolio-controls, .kpi-grid { grid-template-columns: 1fr; }
+  .toolbar, .portfolio-controls, .kpi-grid, .composer-kpis { grid-template-columns: 1fr; }
   .section-head { display: block; }
+  .composer-selection-head { display: block; }
+  .composer-actions { justify-content: start; margin-top: 8px; }
 }
 """

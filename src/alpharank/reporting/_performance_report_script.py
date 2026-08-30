@@ -50,7 +50,7 @@ const METRIC_DIRECTIONS = {
   average_maximum_sector_weight: "lower", maximum_sector_weight: "lower",
 };
 const VIRIDIS = [[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
-const state = { data: null, start: null, end: null, curves: [], matrixMetric: "cagr", page: 0 };
+const state = { data: null, start: null, end: null, curves: [], composerStrategies: [], matrixMetric: "cagr", page: 0 };
 
 async function decodePayload() {
   const bytes = Uint8Array.from(atob(PAYLOAD_GZIP_BASE64), value => value.charCodeAt(0));
@@ -183,6 +183,7 @@ function renderPeriod() {
   drawPerformance();
   drawDrawdown();
   renderMatrices();
+  renderComposer();
 }
 
 function renderKpis() {
@@ -375,7 +376,7 @@ function observeNavigation() {
 async function boot() {
   try {
     state.data=await decodePayload(); document.getElementById("loading").hidden=true;document.getElementById("app").hidden=false;
-    initializeControls();renderMetadata();renderMethodologies();renderLineage();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",()=>{drawPerformance();drawDrawdown();});
+    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",()=>{drawPerformance();drawDrawdown();drawComposerCharts();});
   } catch (error) { document.getElementById("loading").textContent=`Rapport illisible : ${error.message}`; }
 }
 boot();

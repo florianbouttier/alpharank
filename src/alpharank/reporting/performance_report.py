@@ -9,14 +9,28 @@ from typing import Any
 
 import polars as pl
 
+from alpharank.portfolio.combinations import (
+    EQUAL_WEIGHT_ADDITIONAL_COST,
+    EQUAL_WEIGHT_REBALANCE_FREQUENCY,
+    EqualWeightCombinationGrid,
+    equal_weight_strategy_combination_grid,
+)
 from alpharank.portfolio.comparison import (
     performance_by_start_year,
     subperiod_portfolio_metric_grid,
 )
 from alpharank.reporting._performance_report_html import render_performance_report_html
 
-REPORT_SCHEMA_VERSION = 1
+REPORT_SCHEMA_VERSION = 2
 BENCHMARK_STRATEGY = "SPY · Total return"
+COMPOSER_METRIC_FIELDS = (
+    "total_return",
+    "cagr",
+    "annualized_volatility",
+    "sharpe",
+    "max_drawdown",
+    "sortino",
+)
 PERFORMANCE_METRIC_FIELDS = (
     "total_return",
     "cagr",
@@ -178,6 +192,12 @@ def build_performance_report_payload(
         metric_fields=PERFORMANCE_METRIC_FIELDS,
         calendar_year_boundaries_only=True,
     )
+    composer = equal_weight_strategy_combination_grid(
+        series,
+        benchmark_strategy=BENCHMARK_STRATEGY,
+        strategy_order=[strategy for strategy in strategy_order if strategy != BENCHMARK_STRATEGY],
+        metric_fields=COMPOSER_METRIC_FIELDS,
+    )
     start_month, end_month = _report_bounds(monthly)
     start_year_metrics = performance_by_start_year(
         series,
@@ -197,6 +217,7 @@ def build_performance_report_payload(
         "strategies": [_strategy_payload(spec) for spec in STRATEGY_SPECS],
         "metric_fields": list(PERFORMANCE_METRIC_FIELDS),
         "metric_windows": metric_windows,
+        "portfolio_composer": _composer_payload(composer),
         "start_year_metrics": _start_year_rows(start_year_metrics),
         "monthly": _monthly_rows(monthly),
         "holdings": _holding_rows(holdings),
@@ -208,7 +229,7 @@ def build_performance_report_payload(
             "benchmark": "SPY total return depuis adjusted_close",
             "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
             "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
-            "report_task": "REPORT-005",
+            "report_task": "REPORT-006",
         },
         "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
     }
@@ -317,6 +338,11 @@ def write_performance_report(
         "calendar": payload["calendar"],
         "strategies": payload["strategy_order"],
         "metric_fields": payload["metric_fields"],
+        "portfolio_composer": {
+            "method": payload["portfolio_composer"]["policy"]["method"],
+            "combinations": len(payload["portfolio_composer"]["combination_masks"]),
+            "metric_fields": payload["portfolio_composer"]["metric_fields"],
+        },
         "lineage": payload["lineage"],
         "status": payload["status"],
     }
@@ -408,6 +434,24 @@ def _monthly_rows(monthly: pl.DataFrame) -> list[dict[str, Any]]:
         "maximum_sector_weight",
     )
     return [_json_row(row) for row in monthly.select(fields).iter_rows(named=True)]
+
+
+def _composer_payload(grid: EqualWeightCombinationGrid) -> dict[str, Any]:
+    return {
+        "strategy_order": list(grid.strategy_order),
+        "combination_masks": list(grid.combination_masks),
+        "months": [month.isoformat() for month in grid.months],
+        "monthly_returns": grid.monthly_returns.tolist(),
+        "metric_fields": list(grid.metric_fields),
+        "metric_windows": grid.metric_windows,
+        "policy": {
+            "method": "monthly_equal_weight_strategy_sleeves",
+            "rebalance_frequency": EQUAL_WEIGHT_REBALANCE_FREQUENCY,
+            "input_returns": "net_return après les frais propres à chaque stratégie",
+            "additional_inter_sleeve_cost": EQUAL_WEIGHT_ADDITIONAL_COST,
+            "status": "diagnostic post-hoc non promu",
+        },
+    }
 
 
 def _holding_rows(holdings: pl.DataFrame) -> list[dict[str, Any]]:
@@ -528,6 +572,17 @@ def _methodology_cards() -> list[dict[str, Any]]:
                 "calculer le rendement total adjusted_close",
                 "exclure le mois courant incomplet",
                 "apparier chaque mois aux stratégies avant les KPI",
+            ],
+        },
+        {
+            "title": "Portefeuille composé",
+            "status": "Laboratoire post-hoc, non promu",
+            "summary": ("Équipondération mensuelle des stratégies cochées, comparée au SPY."),
+            "pseudo_code": [
+                "choisir au moins une poche de stratégie",
+                "attribuer 1 / N du capital à chaque poche chaque mois",
+                "moyenner leurs rendements nets sans coût inter-poche ajouté",
+                "sélectionner les KPI pré-calculés et comparer au SPY",
             ],
         },
     ]
