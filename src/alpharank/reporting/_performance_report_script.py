@@ -145,8 +145,11 @@ function setCurveStrategies(strategies) {
     input.checked = state.curves.includes(state.data.strategies[Number(input.dataset.curveIndex)].label);
   });
   updateCurveSummary();
+  renderKpis();
+  renderMetricTable();
   drawPerformance();
   drawDrawdown();
+  renderMatrices();
 }
 
 function updateCurveSummary() {
@@ -185,7 +188,7 @@ function renderPeriod() {
 function renderKpis() {
   document.getElementById("kpi-grid").innerHTML = CORE_METRICS.map(field => {
     const [label,type] = METRICS[field];
-    const strategies = state.data.strategy_order.map(strategy => {
+    const strategies = state.curves.map(strategy => {
       const value = metricValue(strategy, field);
       const status = comparisonState(field, strategy, value);
       return `<div class="kpi-strategy-row comparison-${status}">
@@ -199,11 +202,13 @@ function renderKpis() {
 
 function renderMetricTable() {
   const rows = currentMetricRows();
-  document.getElementById("metric-head").innerHTML = `<th>KPI</th>${state.data.strategy_order.map(strategy => `<th class="${strategy===BENCHMARK_STRATEGY?"benchmark-head":""}"><i style="background:${strategyMeta(strategy).color}"></i>${escapeHtml(strategy)}</th>`).join("")}<th>Définition</th>`;
+  const table = document.querySelector(".metric-table");
+  table.style.minWidth = `${Math.max(760, 460 + state.curves.length * 148)}px`;
+  document.getElementById("metric-head").innerHTML = `<th>KPI</th>${state.curves.map(strategy => `<th class="${strategy===BENCHMARK_STRATEGY?"benchmark-head":""}"><i style="background:${strategyMeta(strategy).color}"></i>${escapeHtml(strategy)}</th>`).join("")}<th>Définition</th>`;
   document.getElementById("metric-body").innerHTML = state.data.metric_fields.map((field,index) => {
     const [label,type,definition] = METRICS[field] || [field,"num",""];
-    const values = state.data.strategy_order.map((strategy,strategyIndex) => {
-      const value = rows[strategyIndex]?.[index];
+    const values = state.curves.map(strategy => {
+      const value = rows[state.data.strategy_order.indexOf(strategy)]?.[index];
       const status = comparisonState(field, strategy, value);
       return `<td class="metric-value comparison-${status}"><strong>${format(value,type)}</strong><small>${comparisonMark(status)}</small></td>`;
     }).join("");
@@ -300,11 +305,11 @@ function heatmapValue(window, strategy, field) {
 }
 
 function renderHeatmap(id, windows, field) {
-  const values = windows.flatMap(window => state.data.strategy_order.map(strategy => heatmapValue(window,strategy,field)));
+  const values = windows.flatMap(window => state.curves.map(strategy => heatmapValue(window,strategy,field)));
   const colorValues = values.map(value => field === "max_drawdown" ? Math.abs(value) : value).filter(Number.isFinite);
   const min = Math.min(...colorValues), max = Math.max(...colorValues);
   let html = `<div class="heatmap-head"></div>${windows.map(window => `<div class="heatmap-head">${window.year}</div>`).join("")}`;
-  state.data.strategy_order.forEach(strategy => {
+  state.curves.forEach(strategy => {
     html += `<div class="heatmap-label">${escapeHtml(strategy)}</div>`;
     windows.forEach(window => {
       const shown = heatmapValue(window,strategy,field);

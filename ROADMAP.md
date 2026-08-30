@@ -89,6 +89,9 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 50 | `REPORT-002` | générer et publier le rapport du replay SATS/ECHO dans le site | lot REPORT ci-dessous | fait |
 | 51 | `REPORT-003` | comparer toutes les stratégies et borner les model cards par la fenêtre | lot REPORT ci-dessous | fait |
 | 52 | `REPORT-004` | régénérer et republier le rapport comparatif SATS/ECHO | lot REPORT ci-dessous | fait |
+| 53 | `REPORT-005` | faire piloter toutes les vues par les courbes affichées | lot REPORT ci-dessous | fait |
+| 54 | `REPORT-006` | ajouter un laboratoire de portefeuille multi-stratégie | lot REPORT ci-dessous | à faire |
+| 55 | `REPORT-007` | republier le rapport corrigé et son laboratoire | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -523,6 +526,9 @@ doublons exacts et preuve de récupération.
 | `REPORT-002` | générer le rapport sur le replay SATS/ECHO et le synchroniser vers Portfolio | fait | HTML et manifeste hashés depuis le snapshot `bb1f90a9…8375`, preuve datée versionnée, copie byte-identique dans le site au commit Portfolio `7e66fa5`, build Vite et routes HTTP validés |
 | `REPORT-003` | rendre la comparaison multi-stratégie explicite dans chaque vue | fait | KPI des 11 séries côte à côte avec surperformance SPY visible, multisélection des courbes, matrices cumulées bornées par début/fin et matrices annuelles incrémentales sans nouveau calcul navigateur |
 | `REPORT-004` | publier une nouvelle instance SATS/ECHO du standard enrichi | fait | HTML et manifeste hashés, preuve datée, copie site byte-identique au commit Portfolio `71a73c5`, build Vite et contrôles interactifs 11 stratégies/2015–2019 validés |
+| `REPORT-005` | aligner toutes les vues sur la sélection globale et rendre le drawdown lisible | fait | cartes, tableau KPI et matrices limités aux courbes cochées ; richesse puis drawdown en graphiques pleine largeur superposés |
+| `REPORT-006` | comparer une combinaison équipondérée de stratégies à SPY | à faire | nouvel onglet, sélection des poches, rendements mensuels et KPI de chaque combinaison pré-calculés par `alpharank.portfolio`, règle de coûts et rééquilibrage documentée |
+| `REPORT-007` | publier la correction et le laboratoire SATS/ECHO | à faire | nouvel artefact hashé, copie Portfolio byte-identique, build et QA des filtres, du drawdown et du portefeuille composé |
 
 ### Détail de `REPORT-001`
 
@@ -599,6 +605,57 @@ doublons exacts et preuve de récupération.
   changement de portefeuille ou de performance.
 - **Rollback** : restaurer la copie site de `REPORT-002` depuis le commit
   Portfolio `7e66fa5` sans toucher aux runs AlphaRank.
+
+### Détail de `REPORT-005`
+
+- **Objectif** : faire du multiselect l'unique filtre de stratégies visible et
+  rendre le drawdown aussi lisible que la croissance composée.
+- **Périmètre** : cartes de synthèse, tableau des 33 KPI, matrices cumulées et
+  annuelles, mise en page des deux graphiques et documentation du filtre.
+- **Hors périmètre** : calcul de KPI, rendement, signal, portefeuille source,
+  snapshot, benchmark et statut de promotion.
+- **Acceptation** : avec deux courbes cochées, aucune troisième stratégie
+  n'apparaît dans les cartes, le tableau, les légendes ou les matrices ; le
+  drawdown occupe une ligne pleine largeur sous la croissance composée.
+- **Validations** : tests HTML, syntaxe JavaScript, Ruff, documentation et QA
+  navigateur sur une sélection de deux courbes.
+- **Impact** : correction d'affichage uniquement ; aucun chiffre source ne
+  change.
+- **Rollback** : restaurer le rendu de `REPORT-003`, sans toucher au payload.
+
+### Détail de `REPORT-006`
+
+- **Objectif** : mesurer si combiner plusieurs méthodes diversifie réellement
+  la volatilité et le drawdown face à SPY.
+- **Périmètre** : toutes les combinaisons équipondérées des dix stratégies hors
+  SPY, rééquilibrage mensuel, KPI et rendements pré-calculés, onglet interactif
+  et méthodologie visible.
+- **Hors périmètre** : poids libres, optimisation de poids, coût supplémentaire
+  entre poches, fusion des holdings sous-jacents et promotion d'une combinaison.
+- **Acceptation** : l'utilisateur coche les poches, voit leur poids égal, la
+  courbe composée, le drawdown, CAGR, rendement, volatilité, Sharpe, Sortino et
+  max drawdown contre SPY sur la fenêtre active ; aucun KPI n'est calculé en
+  JavaScript.
+- **Validations** : test de parité d'une combinaison contre le moteur commun,
+  test du payload/HTML, taille de l'artefact, syntaxe JavaScript et QA navigateur.
+- **Impact** : nouveau diagnostic post-hoc ; rendements sources et méthodes
+  restent inchangés.
+- **Rollback** : retirer l'onglet et le payload de combinaisons ; les séries
+  individuelles restent identiques.
+
+### Détail de `REPORT-007`
+
+- **Objectif** : remplacer dans Portfolio le rapport mal interprété par la
+  version corrigée et conserver une preuve de l'artefact exact.
+- **Périmètre** : génération SATS/ECHO, hashes, copie statique, build Portfolio,
+  QA et preuve datée.
+- **Hors périmètre** : dashboard IBKR, déploiement Cloudflare, donnée ou modèle.
+- **Acceptation** : source, copie publique et build sont byte-identiques ; les
+  critères `REPORT-005/006` sont rejoués sur le fichier réellement servi.
+- **Validations** : manifeste, hashes, build Vite, routes locales, console et
+  documentation.
+- **Impact** : publication d'une nouvelle projection du même replay.
+- **Rollback** : restaurer la copie Portfolio du commit `71a73c5`.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

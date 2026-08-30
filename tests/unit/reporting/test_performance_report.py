@@ -84,6 +84,9 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert 'id="strategy-select"' not in html
     assert 'matrixWindows("cumulative")' in html
     assert 'matrixWindows("incremental")' in html
+    assert "Tous les KPI des courbes affichées" in html
+    assert "state.curves.map(strategy" in html
+    assert ".chart-grid { display: grid; grid-template-columns: 1fr;" in html
 
 
 def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:

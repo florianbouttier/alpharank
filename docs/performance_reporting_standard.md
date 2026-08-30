@@ -44,16 +44,22 @@ de richesse et de drawdown sont des projections graphiques des rendements
 mensuels déjà produits par le moteur ; les valeurs affichées dans les cartes et
 tableaux proviennent du cube canonique.
 
-Chaque carte synthétique et chaque ligne du tableau complet affiche les onze
-stratégies en colonnes comparables. SPY est la référence visible. Une couleur
-indique une surperformance ou sous-performance uniquement lorsqu'un sens
-économique est défini : rendement et ratios plus élevés, ou risque, coûts et
-turnover plus faibles. Les métriques descriptives sans ordre économique restent
-neutres. Cette comparaison porte toujours sur la même fenêtre pré-calculée.
+Le multiselect accepte toute combinaison des onze séries et pilote toutes les
+vues comparatives : cartes synthétiques, courbes de richesse et de drawdown,
+colonnes du tableau complet et lignes des model cards. Une stratégie non cochée
+n'apparaît dans aucune de ces vues. Les filtres de holdings restent indépendants
+car ils servent à auditer un panier historique précis.
 
-La sélection des courbes de richesse et de drawdown est un multiselect
-indépendant. Elle accepte toute combinaison des onze séries et ne change ni la
-fenêtre KPI ni les model cards.
+SPY reste la référence de comparaison, même lorsqu'il n'est pas coché. Une
+couleur indique une surperformance ou sous-performance uniquement lorsqu'un
+sens économique est défini : rendement et ratios plus élevés, ou risque, coûts
+et turnover plus faibles. Les métriques descriptives sans ordre économique
+restent neutres. Cette comparaison porte toujours sur la même fenêtre
+pré-calculée.
+
+La croissance composée occupe une ligne complète. Le drawdown utilise le même
+format de graphique pleine largeur sur la ligne suivante, avec les mêmes
+couleurs, la même fenêtre et exactement les mêmes stratégies.
 
 Le rapport expose au minimum :
 
@@ -70,10 +76,11 @@ produit `indisponible`, jamais un faux secteur unique à 100 %.
 
 Deux familles de matrices sont obligatoires pour le CAGR, la volatilité
 annualisée et le max drawdown. L'axe X contient uniquement les années comprises
-entre le début et la fin sélectionnés ; l'axe Y contient toutes les stratégies
-ainsi que SPY. La première famille cumule chaque année de départ jusqu'à la fin
-sélectionnée. La seconde isole chaque année civile : sa première et sa dernière
-colonne peuvent être partielles lorsque les bornes le sont.
+entre le début et la fin sélectionnés ; l'axe Y contient uniquement les
+stratégies cochées dans le multiselect. La première famille cumule chaque année
+de départ jusqu'à la fin sélectionnée. La seconde isole chaque année civile :
+sa première et sa dernière colonne peuvent être partielles lorsque les bornes
+le sont.
 
 Dans la matrice annuelle, l'onglet CAGR affiche le rendement composé de l'année
 isolée. Il est égal au CAGR sur une année civile complète et évite d'annualiser

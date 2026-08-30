@@ -238,7 +238,7 @@ select, input {
 .comparison-trails { background: rgba(128,35,49,.07); border-left-color: var(--negative); }
 .comparison-equal { background: var(--soft); border-left-color: var(--line-strong); }
 .comparison-benchmark { background: rgba(155,136,22,.11); border-left-color: var(--gold); }
-.chart-grid { display: grid; grid-template-columns: 1.65fr 1fr; gap: 12px; margin-top: 12px; }
+.chart-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
 .panel { padding: 16px; overflow: hidden; }
 .panel h3 { margin: 0 0 3px; color: var(--navy); font-size: 15px; }
 .panel-subtitle { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
@@ -254,7 +254,7 @@ th:first-child, td:first-child { text-align: left; }
 tbody tr:hover { background: #f6f8fb; }
 .value-positive { color: var(--positive); }
 .value-negative { color: var(--negative); }
-.metric-table { min-width: 2180px; }
+.metric-table { min-width: 760px; }
 .metric-table th:first-child, .metric-table td:first-child { position: sticky; left: 0; z-index: 2; background: #edf2f6; }
 .metric-table th { min-width: 132px; white-space: normal; }
 .metric-table th:first-child { min-width: 180px; }
@@ -312,7 +312,6 @@ tbody tr:hover { background: #f6f8fb; }
 .loading[hidden], .shell[hidden] { display: none !important; }
 @media (max-width: 1120px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .chart-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 820px) {
   .sidebar { position: static; width: auto; padding: 14px 18px; }

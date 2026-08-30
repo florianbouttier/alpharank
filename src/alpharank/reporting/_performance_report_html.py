@@ -69,7 +69,7 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero">
     <div>
-      <span class="eyebrow">Standard de performance · REPORT-003</span>
+      <span class="eyebrow">Standard de performance · REPORT-005</span>
       <h1>Rapport de backtest complet</h1>
       <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
       calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
@@ -118,11 +118,11 @@ def _performance_sections() -> str:
     </div>
   </section>
   <section class="section" id="kpis">
-    <div class="section-head"><div><span class="section-kicker">02 · Mesure</span><h2>Tous les KPI, toutes les stratégies</h2></div><p>SPY est la colonne de référence. Les cellules vertes le surpassent selon le sens économique du KPI ; les métriques descriptives restent neutres.</p></div>
+    <div class="section-head"><div><span class="section-kicker">02 · Mesure</span><h2>Tous les KPI des courbes affichées</h2></div><p>Le multiselect pilote aussi ces colonnes. Les cellules vertes surpassent SPY selon le sens économique du KPI ; les métriques descriptives restent neutres.</p></div>
     <div class="table-wrap"><table class="metric-table"><thead><tr id="metric-head"></tr></thead><tbody id="metric-body"></tbody></table></div>
   </section>
   <section class="section" id="matrix">
-    <div class="section-head"><div><span class="section-kicker">03 · Model cards</span><h2>Performance cumulée et annuelle</h2></div><p>Les années affichées restent strictement entre le début et la fin de la fenêtre active.</p></div>
+    <div class="section-head"><div><span class="section-kicker">03 · Model cards</span><h2>Performance cumulée et annuelle</h2></div><p>Les années et les stratégies affichées suivent strictement la fenêtre et les courbes actives.</p></div>
     <article class="panel">
       <div class="matrix-controls">
         <button class="is-active" type="button" data-matrix-metric="cagr">CAGR</button>
