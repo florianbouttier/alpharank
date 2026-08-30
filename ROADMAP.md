@@ -95,7 +95,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 56 | `REPORT-008` | mesurer les corrélations et la richesse relative du portefeuille composé | lot REPORT ci-dessous | fait |
 | 57 | `REPORT-009` | republier le rapport enrichi de diversification | lot REPORT ci-dessous | fait |
 | 58 | `REPORT-010` | séparer le portefeuille en vigueur du dernier mois de performance réalisé | lot REPORT ci-dessous | fait |
-| 59 | `REPORT-011` | republier le rapport avec le portefeuille en vigueur au 28 août | lot REPORT ci-dessous | à faire |
+| 59 | `REPORT-011` | republier le rapport avec le portefeuille en vigueur au 28 août | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -536,7 +536,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-008` | distinguer corrélation et surperformance relative dans le laboratoire | fait | corrélation mensuelle du portefeuille au SPY, matrice entre poches cochées et richesse composée divisée par la richesse SPY, toutes bornées par la fenêtre active |
 | `REPORT-009` | publier les diagnostics de corrélation SATS/ECHO | fait | nouvel artefact hashé, copie Portfolio byte-identique au commit `4fdc1b5`, build et QA des corrélations et de la richesse relative |
 | `REPORT-010` | afficher le portefeuille en vigueur après le dernier mois de performance réalisé | fait | panier Legacy et Boosting du mois courant exposé séparément, date de marché explicite, rendement non réalisé visible et calendrier des KPI inchangé |
-| `REPORT-011` | publier le portefeuille en vigueur au 28 août dans Portfolio | à faire | artefact SATS/ECHO régénéré avec preuve de marché du 28 août, copie site byte-identique, build et QA du panier courant |
+| `REPORT-011` | publier le portefeuille en vigueur au 28 août dans Portfolio | fait | artefact SATS/ECHO régénéré avec preuve de marché du 28 août, copie site byte-identique, build et QA du panier courant ; preuve `docs/research/backtest_performance_report_20260830_current_portfolio.md` |
 
 ### Détail de `REPORT-001`
 

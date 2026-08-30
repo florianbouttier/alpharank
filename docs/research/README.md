@@ -32,6 +32,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `backtest_performance_report_20260830_correlation.md` : corrélations mensuelles
   entre poches et avec SPY, richesse relative au benchmark et publication du
   diagnostic sur les deux Boosting Top 5.
+- `backtest_performance_report_20260830_current_portfolio.md` : séparation entre
+  les performances réalisées jusqu'en juillet et le portefeuille d'août encore
+  en vigueur au 28 août, avec lignée, parité et preuve de publication.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
