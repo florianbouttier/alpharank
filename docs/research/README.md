@@ -26,6 +26,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `backtest_performance_report_20260830.md` : republication comparative avec
   onze stratégies en colonnes, multiselect et model cards cumulées/annuelles
   strictement bornées par la fenêtre choisie.
+- `backtest_performance_report_20260830_composer.md` : correction des vues pour
+  qu'elles suivent les courbes affichées, drawdown pleine largeur et
+  laboratoire équipondéré de 1 023 combinaisons comparées au SPY.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
