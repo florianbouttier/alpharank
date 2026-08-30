@@ -21,6 +21,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--common-replay-dir", type=Path, required=True)
     parser.add_argument("--legacy-run-dir", type=Path, required=True)
     parser.add_argument("--snapshot-manifest", type=Path, required=True)
+    parser.add_argument("--portfolio-as-of-evidence", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser
 
@@ -33,6 +34,7 @@ def main() -> None:
             common_replay_dir=args.common_replay_dir.resolve(),
             legacy_run_dir=args.legacy_run_dir.resolve(),
             snapshot_manifest=args.snapshot_manifest.resolve(),
+            portfolio_as_of_evidence=args.portfolio_as_of_evidence.resolve(),
         ),
         output_dir=args.output_dir.resolve(),
         generated_at_utc=datetime.now(timezone.utc),

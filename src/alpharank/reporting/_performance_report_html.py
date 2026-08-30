@@ -56,6 +56,7 @@ def _sidebar() -> str:
     <a class="nav-link" href="#matrix">Model cards</a>
     <a class="nav-link" href="#composer">Composer un portefeuille</a>
     <div class="nav-label">Audit</div>
+    <a class="nav-link" href="#current-portfolio">Portefeuille en vigueur</a>
     <a class="nav-link" href="#portfolios">Portefeuilles historiques</a>
     <a class="nav-link" href="#methodologies">Méthodologies</a>
     <a class="nav-link" href="#lineage">Lignée et contrats</a>
@@ -74,7 +75,7 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero">
     <div>
-      <span class="eyebrow">Standard de performance · REPORT-008</span>
+      <span class="eyebrow">Standard de performance · REPORT-010</span>
       <h1>Rapport de backtest complet</h1>
       <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
       calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
@@ -190,8 +191,26 @@ def _composer_section() -> str:
 
 def _audit_sections() -> str:
     return """
+  <section class="section" id="current-portfolio">
+    <div class="section-head">
+      <div><span class="section-kicker">05 · Portefeuille en vigueur</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
+      <p>Le mois courant reste séparé des KPI tant que son rendement complet n'est pas réalisé.</p>
+    </div>
+    <div class="current-portfolio-meta">
+      <article><span>Dernière séance observée</span><strong id="current-as-of-date">—</strong></article>
+      <article><span>Mois de décision</span><strong id="current-decision-month">—</strong></article>
+      <article><span>Mois de détention</span><strong id="current-holding-month">—</strong></article>
+      <article class="is-pending"><span>Statut</span><strong>Rendement mensuel non réalisé</strong></article>
+    </div>
+    <div class="current-portfolio-controls">
+      <label>Stratégie<select id="current-portfolio-strategy"></select></label>
+      <button class="button secondary" id="export-current-holdings" type="button">Exporter le panier courant</button>
+    </div>
+    <p class="portfolio-summary" id="current-portfolio-summary"></p>
+    <div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Rang</th><th>Poids cible</th><th>Score</th><th>Secteur</th><th>Votes</th></tr></thead><tbody id="current-holdings-body"></tbody></table></div>
+  </section>
   <section class="section" id="portfolios">
-    <div class="section-head"><div><span class="section-kicker">05 · Positions</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
+    <div class="section-head"><div><span class="section-kicker">06 · Historique réalisé</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
     <div class="portfolio-controls">
       <label>Stratégie<select id="portfolio-strategy"></select></label>
       <label>Mois de détention<select id="portfolio-month"></select></label>
@@ -203,11 +222,11 @@ def _audit_sections() -> str:
     <div class="pager"><button id="page-prev" type="button">Précédent</button><span id="page-label">—</span><button id="page-next" type="button">Suivant</button></div>
   </section>
   <section class="section" id="methodologies">
-    <div class="section-head"><div><span class="section-kicker">06 · Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
+    <div class="section-head"><div><span class="section-kicker">07 · Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
     <div class="method-grid" id="method-grid"></div>
   </section>
   <section class="section" id="lineage">
-    <div class="section-head"><div><span class="section-kicker">07 · Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
+    <div class="section-head"><div><span class="section-kicker">08 · Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
     <div class="lineage-grid">
       <article class="lineage-card"><h3>Contrats économiques</h3><dl class="definition" id="lineage-contracts"></dl></article>
       <article class="lineage-card"><h3>Snapshot et sources</h3><dl class="definition" id="lineage-data"></dl></article>

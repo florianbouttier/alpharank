@@ -361,6 +361,36 @@ tbody tr:hover { background: #f6f8fb; }
 .correlation-high { color: var(--negative); background: rgba(128,35,49,.08); }
 .correlation-unknown { color: var(--muted); background: var(--soft); }
 .composer-charts { display: grid; gap: 12px; margin-top: 12px; }
+.current-portfolio-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.current-portfolio-meta article {
+  display: grid;
+  gap: 6px;
+  min-height: 78px;
+  padding: 13px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--navy);
+  border-radius: 6px;
+}
+.current-portfolio-meta article.is-pending {
+  color: #69550a;
+  background: var(--warning-bg);
+  border-left-color: var(--gold);
+}
+.current-portfolio-meta span { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.current-portfolio-meta strong { color: var(--navy); font: 700 13px "IBM Plex Mono", ui-monospace, monospace; }
+.current-portfolio-controls {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
 .portfolio-controls { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)) auto; gap: 10px; margin-bottom: 12px; }
 .portfolio-summary { margin: 0 0 12px; color: var(--muted); }
 .pager { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; color: var(--muted); }
@@ -382,6 +412,7 @@ tbody tr:hover { background: #f6f8fb; }
 @media (max-width: 1120px) {
   .kpi-grid, .composer-kpis { grid-template-columns: repeat(2, 1fr); }
   .composer-layout { grid-template-columns: 1fr; }
+  .current-portfolio-meta { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 820px) {
   .sidebar { position: static; width: auto; padding: 14px 18px; }
@@ -390,11 +421,11 @@ tbody tr:hover { background: #f6f8fb; }
   main { margin-left: 0; }
   .content { padding: 20px 16px 48px; }
   .hero { grid-template-columns: 1fr; }
-  .toolbar, .portfolio-controls { position: static; grid-template-columns: 1fr 1fr; }
+  .toolbar, .portfolio-controls, .current-portfolio-controls { position: static; grid-template-columns: 1fr 1fr; }
   .method-grid, .lineage-grid, .composer-options { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
-  .toolbar, .portfolio-controls, .kpi-grid, .composer-kpis { grid-template-columns: 1fr; }
+  .toolbar, .portfolio-controls, .current-portfolio-controls, .current-portfolio-meta, .kpi-grid, .composer-kpis { grid-template-columns: 1fr; }
   .section-head { display: block; }
   .composer-selection-head { display: block; }
   .composer-actions { justify-content: start; margin-top: 8px; }

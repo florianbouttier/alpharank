@@ -94,6 +94,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 55 | `REPORT-007` | republier le rapport corrigé et son laboratoire | lot REPORT ci-dessous | fait |
 | 56 | `REPORT-008` | mesurer les corrélations et la richesse relative du portefeuille composé | lot REPORT ci-dessous | fait |
 | 57 | `REPORT-009` | republier le rapport enrichi de diversification | lot REPORT ci-dessous | fait |
+| 58 | `REPORT-010` | séparer le portefeuille en vigueur du dernier mois de performance réalisé | lot REPORT ci-dessous | fait |
+| 59 | `REPORT-011` | republier le rapport avec le portefeuille en vigueur au 28 août | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -533,6 +535,8 @@ doublons exacts et preuve de récupération.
 | `REPORT-007` | publier la correction et le laboratoire SATS/ECHO | fait | nouvel artefact hashé, copie Portfolio byte-identique au commit `4f16576`, build et QA des filtres, du drawdown et du portefeuille composé |
 | `REPORT-008` | distinguer corrélation et surperformance relative dans le laboratoire | fait | corrélation mensuelle du portefeuille au SPY, matrice entre poches cochées et richesse composée divisée par la richesse SPY, toutes bornées par la fenêtre active |
 | `REPORT-009` | publier les diagnostics de corrélation SATS/ECHO | fait | nouvel artefact hashé, copie Portfolio byte-identique au commit `4fdc1b5`, build et QA des corrélations et de la richesse relative |
+| `REPORT-010` | afficher le portefeuille en vigueur après le dernier mois de performance réalisé | fait | panier Legacy et Boosting du mois courant exposé séparément, date de marché explicite, rendement non réalisé visible et calendrier des KPI inchangé |
+| `REPORT-011` | publier le portefeuille en vigueur au 28 août dans Portfolio | à faire | artefact SATS/ECHO régénéré avec preuve de marché du 28 août, copie site byte-identique, build et QA du panier courant |
 
 ### Détail de `REPORT-001`
 
@@ -695,6 +699,43 @@ doublons exacts et preuve de récupération.
   documentation.
 - **Impact** : publication d'une nouvelle projection du même replay.
 - **Rollback** : restaurer la copie Portfolio du commit `4f16576`.
+
+### Détail de `REPORT-010`
+
+- **Objectif** : ne plus masquer le portefeuille mensuel encore en vigueur
+  lorsque son rendement complet n'appartient pas encore au backtest réalisé.
+- **Périmètre** : holdings live Boosting, agrégations Legacy courantes, preuve
+  explicite de la dernière séance observée, payload, rendu HTML, tests et
+  contrat de reporting.
+- **Hors périmètre** : ajout d'un rendement mensuel incomplet aux KPI,
+  recalcul de signal au milieu du mois, promotion d'une stratégie ou mutation
+  d'un run source.
+- **Acceptation** : les courbes et KPI restent arrêtés en juillet ; le panier
+  détenu en août est visible pour les dix stratégies avec décision, détention,
+  date de marché et statut « rendement non réalisé » distincts.
+- **Validations** : test de non-régression payload/HTML, syntaxe JavaScript,
+  Ruff, plafonds Python et documentation.
+- **Impact** : correction de lecture uniquement ; scores, sélections, poids,
+  rendements réalisés et hashes des replays restent inchangés.
+- **Rollback** : retirer la vue courante et conserver la table historique
+  bornée au dernier mois réalisé.
+
+### Détail de `REPORT-011`
+
+- **Objectif** : rendre la correction accessible dans le portail Portfolio
+  avec une preuve exacte du portefeuille en vigueur au 28 août 2026.
+- **Périmètre** : génération SATS/ECHO, évidence canonique de prolongation prix
+  au 28 août, hashes, copie statique, build Portfolio, QA et preuve datée.
+- **Hors périmètre** : nouveau signal fondé sur le mois d'août incomplet,
+  dashboard IBKR, déploiement externe, donnée ou modèle.
+- **Acceptation** : source et copie publique sont byte-identiques ; juillet
+  reste la fin des performances et août apparaît comme portefeuille courant
+  valorisable au 28 août, sans rendement mensuel inventé.
+- **Validations** : manifeste, hashes, build Vite, route locale, interactions,
+  inspection du payload et documentation.
+- **Impact** : publication d'une nouvelle projection du même replay ; aucun
+  changement économique des stratégies.
+- **Rollback** : restaurer la copie Portfolio du commit `4fdc1b5`.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

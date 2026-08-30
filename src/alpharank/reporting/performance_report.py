@@ -21,7 +21,7 @@ from alpharank.portfolio.comparison import (
 )
 from alpharank.reporting._performance_report_html import render_performance_report_html
 
-REPORT_SCHEMA_VERSION = 3
+REPORT_SCHEMA_VERSION = 4
 BENCHMARK_STRATEGY = "SPY · Total return"
 COMPOSER_METRIC_FIELDS = (
     "total_return",
@@ -154,6 +154,7 @@ class PerformanceReportInputs:
     common_replay_dir: Path
     legacy_run_dir: Path
     snapshot_manifest: Path
+    portfolio_as_of_evidence: Path
 
 
 def build_performance_report_payload(
@@ -179,6 +180,7 @@ def build_performance_report_payload(
         start_month=monthly["holding_month"].min(),
         end_month=monthly["holding_month"].max(),
     )
+    current_portfolio = _current_portfolio_payload(inputs)
     sector_coverage = _sector_coverage(holdings)
     monthly = _mask_unobservable_sector_weights(monthly, sector_coverage)
     strategy_order = [spec.label for spec in STRATEGY_SPECS]
@@ -222,6 +224,7 @@ def build_performance_report_payload(
         "start_year_metrics": _start_year_rows(start_year_metrics),
         "monthly": _monthly_rows(monthly),
         "holdings": _holding_rows(holdings),
+        "current_portfolio": current_portfolio,
         "data_quality": {"sector_coverage_by_strategy": sector_coverage},
         "methodologies": _methodology_cards(),
         "contracts": {
@@ -230,7 +233,7 @@ def build_performance_report_payload(
             "benchmark": "SPY total return depuis adjusted_close",
             "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
             "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
-            "report_task": "REPORT-008",
+            "report_task": "REPORT-010",
         },
         "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
     }
@@ -347,6 +350,13 @@ def write_performance_report(
                 payload["portfolio_composer"]["strategy_correlation_windows"]
             ),
         },
+        "current_portfolio": {
+            "as_of_date": payload["current_portfolio"]["as_of_date"],
+            "decision_month": payload["current_portfolio"]["decision_month"],
+            "holding_month": payload["current_portfolio"]["holding_month"],
+            "status": payload["current_portfolio"]["status"],
+            "holding_rows": len(payload["current_portfolio"]["holdings"]),
+        },
         "lineage": payload["lineage"],
         "status": payload["status"],
     }
@@ -394,6 +404,131 @@ def _assemble_holdings(
         ["holding_month", "strategy", "target_weight", "ticker"],
         descending=[False, False, True, False],
     )
+
+
+def _current_portfolio_payload(inputs: PerformanceReportInputs) -> dict[str, Any]:
+    live = pl.read_parquet(inputs.common_replay_dir / "boosting_live_score_holdings.parquet")
+    legacy = pl.read_parquet(inputs.legacy_run_dir / "legacy_detailed_returns_polars.parquet")
+    holdings = pl.concat(
+        [_current_boosting_holdings(live), _current_legacy_holdings(legacy)],
+        how="diagonal_relaxed",
+    ).sort(
+        ["strategy", "target_weight", "ticker"],
+        descending=[False, True, False],
+    )
+    expected = {spec.label for spec in STRATEGY_SPECS if spec.label != BENCHMARK_STRATEGY}
+    observed = set(holdings["strategy"].unique().to_list())
+    if observed != expected:
+        raise ValueError(f"Current portfolio strategies differ: {sorted(expected - observed)}")
+    decision_month = _one_date(holdings, "decision_month")
+    holding_month = _one_date(holdings, "holding_month")
+    as_of_date = _market_evidence_date(inputs.portfolio_as_of_evidence)
+    if not _date_is_in_month(as_of_date, holding_month):
+        raise ValueError("Current portfolio market evidence is outside its holding month")
+    return {
+        "as_of_date": as_of_date.isoformat(),
+        "decision_month": decision_month.isoformat(),
+        "holding_month": holding_month.isoformat(),
+        "status": "in_force_return_pending",
+        "holdings": _holding_rows(holdings),
+    }
+
+
+def _current_boosting_holdings(live: pl.DataFrame) -> pl.DataFrame:
+    required = {"strategy", "decision_month", "holding_month", "ticker", "target_weight"}
+    missing = sorted(required - set(live.columns))
+    if missing:
+        raise ValueError(f"Boosting live holdings are missing: {missing}")
+    parts: list[pl.DataFrame] = []
+    for spec in STRATEGY_SPECS:
+        if not spec.family.startswith("Boosting"):
+            continue
+        part = live.filter(pl.col("strategy") == spec.source_strategy)
+        if part.is_empty():
+            raise ValueError(f"Current Boosting portfolio is missing {spec.source_strategy}")
+        parts.append(_select_current_holding_fields(part, strategy=spec.label))
+    return pl.concat(parts, how="diagonal_relaxed")
+
+
+def _current_legacy_holdings(detailed: pl.DataFrame) -> pl.DataFrame:
+    required = {"portfolio_model", "year_month", "ticker", "weight_normalized"}
+    missing = sorted(required - set(detailed.columns))
+    if missing:
+        raise ValueError(f"Legacy current holdings are missing: {missing}")
+    current_month = detailed["year_month"].cast(pl.Date, strict=False).max()
+    parts: list[pl.DataFrame] = []
+    for label, source in (
+        ("Legacy · Frequency", "Combined_Frequency"),
+        ("Legacy · Equal", "Combined_Equal"),
+    ):
+        part = detailed.filter(
+            (pl.col("portfolio_model") == source)
+            & (pl.col("year_month").cast(pl.Date, strict=False) == current_month)
+        ).with_columns(
+            pl.col("year_month").cast(pl.Date, strict=False).alias("holding_month"),
+            pl.col("weight_normalized").cast(pl.Float64).alias("target_weight"),
+        )
+        if part.is_empty():
+            raise ValueError(f"Current Legacy portfolio is missing {source}")
+        part = part.with_columns(
+            pl.col("holding_month").dt.offset_by("-1mo").alias("decision_month")
+        )
+        parts.append(_select_current_holding_fields(part, strategy=label))
+    return pl.concat(parts, how="diagonal_relaxed")
+
+
+def _select_current_holding_fields(frame: pl.DataFrame, *, strategy: str) -> pl.DataFrame:
+    return frame.select(
+        pl.lit(strategy).alias("strategy"),
+        pl.col("decision_month").cast(pl.Date),
+        pl.col("holding_month").cast(pl.Date),
+        pl.col("ticker").cast(pl.String),
+        pl.col("target_weight").cast(pl.Float64),
+        pl.lit(None, dtype=pl.Float64).alias("realized_return"),
+        _optional_holding_column(frame, "selection_rank", pl.Int64),
+        _optional_holding_column(frame, "score", pl.Float64),
+        _optional_holding_column(frame, "sector", pl.String, fallback="Sector"),
+        _optional_holding_column(frame, "n_models", pl.Int64),
+    )
+
+
+def _optional_holding_column(
+    frame: pl.DataFrame,
+    name: str,
+    dtype: pl.DataType,
+    *,
+    fallback: str | None = None,
+) -> pl.Expr:
+    source = name if name in frame.columns else fallback
+    if source is not None and source in frame.columns:
+        return pl.col(source).cast(dtype, strict=False).alias(name)
+    return pl.lit(None, dtype=dtype).alias(name)
+
+
+def _one_date(frame: pl.DataFrame, column: str) -> date:
+    values = frame[column].drop_nulls().unique().to_list()
+    if len(values) != 1 or not isinstance(values[0], date):
+        raise ValueError(f"Current portfolio needs one {column}, found {values}")
+    return values[0]
+
+
+def _market_evidence_date(path: Path) -> date:
+    evidence = pl.read_parquet(path)
+    if "date" not in evidence.columns:
+        raise ValueError("Portfolio as-of evidence needs a date column")
+    date_expression = (
+        pl.col("date").str.to_date(strict=False)
+        if evidence.schema["date"] == pl.String
+        else pl.col("date").cast(pl.Date, strict=False)
+    )
+    value = evidence.select(date_expression.max()).item()
+    if not isinstance(value, date):
+        raise ValueError("Portfolio as-of evidence contains no valid market date")
+    return value
+
+
+def _date_is_in_month(value: date, month: date) -> bool:
+    return value.year == month.year and value.month == month.month
 
 
 def _sector_coverage(holdings: pl.DataFrame) -> dict[str, float]:
@@ -600,8 +735,15 @@ def _source_paths(inputs: PerformanceReportInputs) -> dict[str, Path]:
         "common_manifest": inputs.common_replay_dir / "manifest.json",
         "common_monthly": inputs.common_replay_dir / "comparison_common_monthly.parquet",
         "common_holdings": inputs.common_replay_dir / "comparison_common_holdings.parquet",
+        "boosting_live_holdings": (
+            inputs.common_replay_dir / "boosting_live_score_holdings.parquet"
+        ),
         "legacy_monthly": inputs.legacy_run_dir / "legacy_common_monthly.parquet",
         "legacy_holdings": inputs.legacy_run_dir / "legacy_common_holdings.parquet",
+        "legacy_detailed_holdings": (
+            inputs.legacy_run_dir / "legacy_detailed_returns_polars.parquet"
+        ),
+        "portfolio_as_of_evidence": inputs.portfolio_as_of_evidence,
         "snapshot_manifest": inputs.snapshot_manifest,
     }
 

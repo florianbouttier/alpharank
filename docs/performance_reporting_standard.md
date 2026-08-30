@@ -14,13 +14,15 @@ promue par la seule qualité de son affichage.
 
 ## Entrées obligatoires
 
-Le générateur reçoit trois chemins explicites :
+Le générateur reçoit quatre chemins explicites :
 
 1. un replay commun contenant `comparison_common_monthly.parquet`,
    `comparison_common_holdings.parquet` et son `manifest.json` ;
 2. le run Legacy correspondant, afin d'exposer aussi l'agrégation
    `Combined_Equal` ;
-3. le manifeste du snapshot immuable consommé par ce run.
+3. le manifeste du snapshot immuable consommé par ce run ;
+4. une preuve de prolongation prix explicitement nommée dont la dernière date
+   de marché borne le portefeuille présenté comme « en vigueur ».
 
 Aucun de ces chemins n'est résolu par récence, par nom de dossier ou par un
 pointeur `latest`. Les fichiers et leurs hashes sont recopiés dans le manifeste
@@ -138,6 +140,22 @@ Le premier portefeuille Boosting hors échantillon commence en août 2011. La
 colonne 2011 est donc marquée comme couverture partielle et aucun rendement de
 janvier à juillet n'est inventé.
 
+## Portefeuille en vigueur
+
+Le dernier mois de performance entièrement réalisé et le portefeuille encore
+détenu sont deux objets distincts. Le rapport conserve les courbes, KPI et
+model cards jusqu'au dernier mois complet, puis affiche séparément le panier en
+vigueur lorsque son `holding_month` est postérieur.
+
+Cette vue expose obligatoirement la dernière séance observée, le mois de
+décision, le mois de détention et le statut `rendement mensuel non réalisé`.
+Elle lit les holdings live Boosting et les agrégations courantes Legacy du run
+explicitement fourni. La date « en vigueur au » provient du maximum de la
+preuve prix explicite et doit appartenir au mois de détention ; elle n'est
+jamais déduite de l'heure du navigateur ou du nom d'un dossier. Aucun rendement
+partiel du mois n'entre dans les KPI et aucun nouveau signal de milieu de mois
+n'est inventé.
+
 ## Portefeuilles historiques
 
 Chaque panier affiche la stratégie, le mois de décision, le mois de détention,
@@ -176,6 +194,7 @@ python scripts/research/build_backtest_performance_report.py \
   --common-replay-dir <replay-commun> \
   --legacy-run-dir <run-legacy> \
   --snapshot-manifest <snapshot-manifest.json> \
+  --portfolio-as-of-evidence <price-return-extension-audit.parquet> \
   --output-dir outputs/performance_reports/<run-id>
 ```
 

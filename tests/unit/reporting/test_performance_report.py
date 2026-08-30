@@ -52,6 +52,15 @@ def test_payload_uses_canonical_window_kpi_and_keeps_every_holding(tmp_path: Pat
     assert legacy_frequency[metric_index] == pytest.approx(expected["cagr"])
     assert len(payload["strategy_order"]) == 11
     assert len(payload["holdings"]) == 20
+    assert payload["current_portfolio"]["as_of_date"] == "2026-03-28"
+    assert payload["current_portfolio"]["decision_month"] == "2026-02-01"
+    assert payload["current_portfolio"]["holding_month"] == "2026-03-01"
+    assert payload["current_portfolio"]["status"] == "in_force_return_pending"
+    assert len(payload["current_portfolio"]["holdings"]) == 10
+    assert {row["strategy"] for row in payload["current_portfolio"]["holdings"]} == {
+        spec.label for spec in STRATEGY_SPECS if spec.label != BENCHMARK_STRATEGY
+    }
+    assert all(row["realized_return"] is None for row in payload["current_portfolio"]["holdings"])
     assert BENCHMARK_STRATEGY in payload["strategy_order"]
     assert payload["data_quality"]["sector_coverage_by_strategy"][
         "Legacy · Frequency"
@@ -107,6 +116,11 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert 'id="composer-relative-chart"' in html
     assert 'id="composer-correlation-matrix"' in html
     assert 'id="composer-boosting-pair"' in html
+    assert 'id="current-portfolio"' in html
+    assert 'id="current-portfolio-strategy"' in html
+    assert 'id="current-holdings-body"' in html
+    assert "Portefeuille en vigueur" in html
+    assert "Rendement mensuel non réalisé" in html
     assert 'id="strategy-select"' not in html
     assert 'matrixWindows("cumulative")' in html
     assert 'matrixWindows("incremental")' in html
@@ -138,6 +152,34 @@ def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:
     _holdings(["Combined_Equal"], months).write_parquet(
         legacy_dir / "legacy_common_holdings.parquet"
     )
+    current_month = date(2026, 3, 1)
+    live_strategies = sorted(
+        {spec.source_strategy for spec in STRATEGY_SPECS if spec.family.startswith("Boosting")}
+    )
+    _holdings(live_strategies, [current_month]).write_parquet(
+        common_dir / "boosting_live_score_holdings.parquet"
+    )
+    pl.DataFrame(
+        [
+            {
+                "portfolio_model": strategy,
+                "year_month": current_month,
+                "ticker": f"{strategy[:3].upper()}-CURRENT",
+                "weight_normalized": 1.0,
+                "Sector": "Test",
+                "n_models": 1,
+            }
+            for strategy in ("Combined_Frequency", "Combined_Equal")
+        ]
+    ).write_parquet(legacy_dir / "legacy_detailed_returns_polars.parquet")
+    as_of_evidence = tmp_path / "price_return_extension_audit.parquet"
+    pl.DataFrame(
+        {
+            "ticker": ["TEST"],
+            "date": ["2026-03-28"],
+            "selected_adjusted_close": [100.0],
+        }
+    ).write_parquet(as_of_evidence)
     (common_dir / "manifest.json").write_text(
         json.dumps(
             {
@@ -158,7 +200,12 @@ def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:
         json.dumps({"composition_id": "test-composition", "snapshot_dir": "/snapshot"}),
         encoding="utf-8",
     )
-    return PerformanceReportInputs(common_dir, legacy_dir, snapshot_manifest)
+    return PerformanceReportInputs(
+        common_dir,
+        legacy_dir,
+        snapshot_manifest,
+        portfolio_as_of_evidence=as_of_evidence,
+    )
 
 
 def _monthly(strategies: list[str], months: list[date]) -> pl.DataFrame:

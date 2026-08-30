@@ -17,7 +17,8 @@ ni commande interactive : les KPI de performance proviennent du moteur commun.
   nommé ; `_performance_report_html.py`, `_performance_report_styles.py` et
   `_performance_report_script.py` rendent la comparaison multi-stratégie, le
   multiselect global des courbes, les graphiques pleine largeur, les matrices
-  cumulées et annuelles et les portefeuilles sans redéfinir les KPI.
+  cumulées et annuelles, le portefeuille encore en vigueur et les
+  portefeuilles réalisés sans redéfinir les KPI ni annualiser un mois courant.
 - `_performance_report_composer_script.py` sélectionne les combinaisons
   équipondérées dont les rendements et KPI ont déjà été calculés par
   `alpharank.portfolio.combinations` ; il ne calcule que les points graphiques

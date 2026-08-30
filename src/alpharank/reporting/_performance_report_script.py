@@ -69,6 +69,7 @@ function format(value, type="num") {
 function option(value, label=value) { return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`; }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[char])); }
 function monthLabel(value) { return new Date(`${value.slice(0,7)}-15T12:00:00Z`).toLocaleDateString("fr-FR", {month:"short", year:"numeric"}); }
+function dateLabel(value) { return new Date(`${value}T12:00:00Z`).toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"}); }
 function strategyMeta(label) { return state.data.strategies.find(item => item.label === label); }
 function windowKey() { return `${state.start}|${state.end}`; }
 function currentMetricRows() {
@@ -104,15 +105,18 @@ function initializeControls() {
   document.getElementById("end-month").innerHTML = D.calendar.available_end_months.map(value => option(value, value.slice(0,4))).join("");
   document.getElementById("portfolio-strategy").innerHTML = D.strategy_order.filter(value => value !== "SPY · Total return").map(value => option(value)).join("");
   document.getElementById("portfolio-month").innerHTML = D.calendar.available_months.map(value => option(value, monthLabel(value))).join("");
+  document.getElementById("current-portfolio-strategy").innerHTML = D.strategy_order.filter(value => value !== BENCHMARK_STRATEGY).map(value => option(value)).join("");
   document.getElementById("end-month").value = state.end;
   document.getElementById("portfolio-month").value = state.end;
   for (const id of ["start-month","end-month"]) document.getElementById(id).addEventListener("change", updatePeriod);
   for (const id of ["portfolio-strategy","portfolio-month","ticker-search"]) document.getElementById(id).addEventListener(id === "ticker-search" ? "input" : "change", () => { state.page=0; renderHoldings(); });
+  document.getElementById("current-portfolio-strategy").addEventListener("change", renderCurrentPortfolio);
   renderCurveOptions();
   document.getElementById("select-all-curves").addEventListener("click", () => setCurveStrategies(D.strategy_order));
   document.getElementById("select-reference-curves").addEventListener("click", () => setCurveStrategies(["Legacy · Frequency", BENCHMARK_STRATEGY]));
   document.getElementById("reset-window").addEventListener("click", resetWindow);
   document.getElementById("export-holdings").addEventListener("click", exportHoldings);
+  document.getElementById("export-current-holdings").addEventListener("click", exportCurrentHoldings);
   document.getElementById("page-prev").addEventListener("click", () => { state.page=Math.max(0,state.page-1); renderHoldings(); });
   document.getElementById("page-next").addEventListener("click", () => { state.page+=1; renderHoldings(); });
   document.querySelectorAll("[data-matrix-metric]").forEach(button => button.addEventListener("click", () => {
@@ -342,6 +346,22 @@ function filteredHoldings() {
   return state.data.holdings.filter(row=>row.strategy===strategy&&row.holding_month===month&&(!query||row.ticker.includes(query)));
 }
 
+function selectedCurrentHoldings() {
+  const strategy=document.getElementById("current-portfolio-strategy").value;
+  return state.data.current_portfolio.holdings.filter(row=>row.strategy===strategy);
+}
+
+function renderCurrentPortfolio() {
+  const current=state.data.current_portfolio, rows=selectedCurrentHoldings();
+  const totalWeight=rows.reduce((sum,row)=>sum+row.target_weight,0);
+  document.getElementById("current-portfolio-title").textContent=`Portefeuille en vigueur au ${dateLabel(current.as_of_date)}`;
+  document.getElementById("current-as-of-date").textContent=dateLabel(current.as_of_date);
+  document.getElementById("current-decision-month").textContent=monthLabel(current.decision_month);
+  document.getElementById("current-holding-month").textContent=monthLabel(current.holding_month);
+  document.getElementById("current-portfolio-summary").textContent=`${rows.length} position(s) · poids cible ${format(totalWeight,"pct")} · rendement du mois volontairement absent des KPI`;
+  document.getElementById("current-holdings-body").innerHTML=rows.map(row=>`<tr><td>${escapeHtml(row.ticker)}</td><td>${row.selection_rank??"—"}</td><td>${format(row.target_weight,"pct")}</td><td>${format(row.score,"num")}</td><td>${escapeHtml(row.sector||"—")}</td><td>${row.n_models??"—"}</td></tr>`).join("") || `<tr><td colspan="6">Aucune position courante pour cette stratégie.</td></tr>`;
+}
+
 function renderHoldings() {
   const rows=filteredHoldings(), size=100, pages=Math.max(1,Math.ceil(rows.length/size)); state.page=Math.min(state.page,pages-1); const pageRows=rows.slice(state.page*size,(state.page+1)*size);
   const totalWeight=rows.reduce((sum,row)=>sum+row.target_weight,0); document.getElementById("portfolio-summary").textContent=`${rows.length} ligne(s) · poids total ${format(totalWeight,"pct")} · portefeuille détenu en ${monthLabel(document.getElementById("portfolio-month").value)}`;
@@ -354,6 +374,13 @@ function exportHoldings() {
   const fields=["strategy","decision_month","holding_month","ticker","target_weight","selection_rank","score","sector","realized_return","n_models"];
   const csv=[fields.join(","),...rows.map(row=>fields.map(field=>`"${String(row[field]??"").replaceAll('"','""')}"`).join(","))].join("\n");
   const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));link.download="alpharank_portefeuille_filtre.csv";link.click();URL.revokeObjectURL(link.href);
+}
+
+function exportCurrentHoldings() {
+  const rows=selectedCurrentHoldings(); if (!rows.length) return;
+  const fields=["strategy","decision_month","holding_month","ticker","target_weight","selection_rank","score","sector","n_models"];
+  const csv=[fields.join(","),...rows.map(row=>fields.map(field=>`"${String(row[field]??"").replaceAll('"','""')}"`).join(","))].join("\n");
+  const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));link.download=`alpharank_portefeuille_en_vigueur_${state.data.current_portfolio.as_of_date}.csv`;link.click();URL.revokeObjectURL(link.href);
 }
 
 function renderMethodologies() {
@@ -376,7 +403,7 @@ function observeNavigation() {
 async function boot() {
   try {
     state.data=await decodePayload(); document.getElementById("loading").hidden=true;document.getElementById("app").hidden=false;
-    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",()=>{drawPerformance();drawDrawdown();drawComposerCharts();});
+    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",()=>{drawPerformance();drawDrawdown();drawComposerCharts();});
   } catch (error) { document.getElementById("loading").textContent=`Rapport illisible : ${error.message}`; }
 }
 boot();
