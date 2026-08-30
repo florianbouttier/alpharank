@@ -84,6 +84,24 @@ drawdown. Ce laboratoire reste un diagnostic post-hoc non promu : il mesure la
 diversification entre méthodes, il ne constitue ni une optimisation de poids
 ni une nouvelle stratégie de production.
 
+Deux lectures complémentaires sont obligatoires dans ce laboratoire :
+
+- la corrélation de Pearson porte sur les rendements mensuels, jamais sur les
+  niveaux de richesse cumulée. Une matrice bornée par la fenêtre active contient
+  uniquement les poches cochées ; le KPI du portefeuille composé mesure de la
+  même façon sa corrélation avec les rendements mensuels du SPY ;
+- la richesse relative n'est pas une corrélation. Pour chaque mois `t`, elle
+  vaut `produit(1 + rendement portefeuille) / produit(1 + rendement SPY)` depuis
+  le début de la fenêtre. Elle commence à 1 ; au-dessus de 1 le portefeuille a
+  davantage composé que SPY, et sa pente indique la direction récente de la
+  performance relative. Les pourcentages de performance ne sont jamais divisés
+  directement entre eux.
+
+Une corrélation faible ou négative signale une diversification historique plus
+forte mais ne prouve ni la robustesse future ni l'intérêt économique de la
+poche. Rendement, drawdown, coûts et concentration restent nécessaires pour
+l'interprétation.
+
 Le rapport expose au minimum :
 
 - rendement total, CAGR, volatilité, Sharpe, drawdown et mois positifs ;

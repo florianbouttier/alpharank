@@ -3208,11 +3208,6 @@
     {
       "kind": "import",
       "source": "src/alpharank/portfolio/__init__.py",
-      "target": "src/alpharank/portfolio/__init__.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/portfolio/__init__.py",
       "target": "src/alpharank/portfolio/allocation.py"
     },
     {
@@ -3229,6 +3224,11 @@
       "kind": "import",
       "source": "src/alpharank/portfolio/__init__.py",
       "target": "src/alpharank/portfolio/benchmark.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/__init__.py",
+      "target": "src/alpharank/portfolio/combinations.py"
     },
     {
       "kind": "import",
@@ -3304,6 +3304,11 @@
       "kind": "import",
       "source": "src/alpharank/portfolio/attribution.py",
       "target": "src/alpharank/portfolio/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/combinations.py",
+      "target": "src/alpharank/portfolio/comparison.py"
     },
     {
       "kind": "import",
@@ -4058,7 +4063,7 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/__init__.py"
+      "target": "src/alpharank/reporting/_performance_report_composer_script.py"
     },
     {
       "kind": "import",
@@ -4078,7 +4083,7 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/performance_report.py",
-      "target": "src/alpharank/portfolio/__init__.py"
+      "target": "src/alpharank/portfolio/combinations.py"
     },
     {
       "kind": "import",
@@ -9129,11 +9134,11 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/allocation.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/attribution.py",
         "src/alpharank/portfolio/benchmark.py",
+        "src/alpharank/portfolio/combinations.py",
         "src/alpharank/portfolio/comparison.py",
         "src/alpharank/portfolio/contracts.py",
         "src/alpharank/portfolio/costs.py",
@@ -9148,10 +9153,7 @@
       "lifecycle": "active",
       "module": "alpharank.portfolio",
       "path": "src/alpharank/portfolio/__init__.py",
-      "readers": [
-        "src/alpharank/portfolio/__init__.py",
-        "src/alpharank/reporting/performance_report.py"
-      ]
+      "readers": []
     },
     {
       "declared_public_entrypoint": false,
@@ -9279,6 +9281,22 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/portfolio/comparison.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.combinations",
+      "path": "src/alpharank/portfolio/combinations.py",
+      "readers": [
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/reporting/performance_report.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
         "src/alpharank/portfolio/performance.py"
       ],
       "invokes": [],
@@ -9293,6 +9311,7 @@
         "scripts/experiments/reports/render_start_year_performance.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/portfolio/combinations.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
         "src/alpharank/replay/common_strategy.py",
@@ -10118,6 +10137,17 @@
       "lifecycle": "active",
       "module": "alpharank.reporting",
       "path": "src/alpharank/reporting/__init__.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_composer_script",
+      "path": "src/alpharank/reporting/_performance_report_composer_script.py",
       "readers": [
         "src/alpharank/reporting/_performance_report_html.py"
       ]
@@ -10126,7 +10156,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/reporting/__init__.py",
+        "src/alpharank/reporting/_performance_report_composer_script.py",
         "src/alpharank/reporting/_performance_report_script.py",
         "src/alpharank/reporting/_performance_report_styles.py"
       ],
@@ -10197,7 +10227,7 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/portfolio/combinations.py",
         "src/alpharank/portfolio/comparison.py",
         "src/alpharank/reporting/_performance_report_html.py"
       ],
@@ -10636,10 +10666,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 158,
-    "internal_edge_count": 815,
-    "library_count": 223,
-    "python_file_count": 388,
+    "internal_edge_count": 816,
+    "library_count": 225,
+    "python_file_count": 390,
     "script_count": 165,
-    "unread_node_count": 162
+    "unread_node_count": 164
   }
 }

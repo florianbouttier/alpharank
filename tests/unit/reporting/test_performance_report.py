@@ -62,11 +62,17 @@ def test_payload_uses_canonical_window_kpi_and_keeps_every_holding(tmp_path: Pat
     assert composer["combination_masks"][:3] == [1, 2, 3]
     assert composer["monthly_returns"][0][:3] == pytest.approx([0.01, 0.01, 0.01])
     assert len(composer["metric_windows"]["2026-01-01|2026-02-01"]) == 1_023
+    assert composer["strategy_correlation_windows"]["2026-01-01|2026-02-01"][0][1] == pytest.approx(
+        1.0
+    )
+    assert "correlation" in composer["metric_fields"]
     assert composer["policy"] == {
         "method": "monthly_equal_weight_strategy_sleeves",
         "rebalance_frequency": "monthly",
         "input_returns": "net_return après les frais propres à chaque stratégie",
         "additional_inter_sleeve_cost": 0.0,
+        "correlation": "Pearson sur les rendements mensuels de la fenêtre",
+        "relative_wealth": "richesse composée divisée par la richesse SPY",
         "status": "diagnostic post-hoc non promu",
     }
 
@@ -98,6 +104,9 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert 'id="composer-options"' in html
     assert 'id="composer-wealth-chart"' in html
     assert 'id="composer-drawdown-chart"' in html
+    assert 'id="composer-relative-chart"' in html
+    assert 'id="composer-correlation-matrix"' in html
+    assert 'id="composer-boosting-pair"' in html
     assert 'id="strategy-select"' not in html
     assert 'matrixWindows("cumulative")' in html
     assert 'matrixWindows("incremental")' in html
@@ -106,6 +115,8 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert ".chart-grid { display: grid; grid-template-columns: 1fr;" in html
     assert "aucun coût supplémentaire entre poches" in html
     assert "function composerMetricValue(field)" in html
+    assert "function renderComposerCorrelation()" in html
+    assert "function composerRelativeWealthSeries()" in html
 
 
 def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:

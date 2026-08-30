@@ -25,6 +25,7 @@ class EqualWeightCombinationGrid:
     monthly_returns: np.ndarray
     metric_fields: tuple[str, ...]
     metric_windows: dict[str, list[list[float | None]]]
+    strategy_correlation_windows: dict[str, list[list[float | None]]]
 
 
 def equal_weight_strategy_combination_grid(
@@ -87,6 +88,11 @@ def equal_weight_strategy_combination_grid(
         month_column=month_column,
         calendar_year_boundaries_only=True,
     )
+    correlation_windows = _strategy_correlation_windows(
+        base_returns,
+        months=months,
+        window_keys=tuple(windows),
+    )
     return EqualWeightCombinationGrid(
         strategy_order=candidates,
         combination_masks=masks,
@@ -94,6 +100,7 @@ def equal_weight_strategy_combination_grid(
         monthly_returns=monthly_returns,
         metric_fields=tuple(metric_fields),
         metric_windows=windows,
+        strategy_correlation_windows=correlation_windows,
     )
 
 
@@ -124,3 +131,22 @@ def _membership_matrix(masks: tuple[int, ...], *, width: int) -> NDArray[np.floa
     bit_values = np.left_shift(np.uint16(1), np.arange(width, dtype=np.uint16))[None, :]
     membership: NDArray[np.bool_] = np.bitwise_and(mask_values, bit_values) != 0
     return membership.astype(np.float64)
+
+
+def _strategy_correlation_windows(
+    returns: NDArray[np.float64],
+    *,
+    months: tuple[date, ...],
+    window_keys: Sequence[str],
+) -> dict[str, list[list[float | None]]]:
+    month_indices = {month.isoformat(): index for index, month in enumerate(months)}
+    output: dict[str, list[list[float | None]]] = {}
+    for key in window_keys:
+        start_month, end_month = key.split("|")
+        window = returns[month_indices[start_month] : month_indices[end_month] + 1]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            matrix = np.atleast_2d(np.corrcoef(window, rowvar=False))
+        output[key] = [
+            [float(value) if np.isfinite(value) else None for value in row] for row in matrix
+        ]
+    return output

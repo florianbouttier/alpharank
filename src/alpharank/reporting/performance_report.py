@@ -21,7 +21,7 @@ from alpharank.portfolio.comparison import (
 )
 from alpharank.reporting._performance_report_html import render_performance_report_html
 
-REPORT_SCHEMA_VERSION = 2
+REPORT_SCHEMA_VERSION = 3
 BENCHMARK_STRATEGY = "SPY · Total return"
 COMPOSER_METRIC_FIELDS = (
     "total_return",
@@ -30,6 +30,7 @@ COMPOSER_METRIC_FIELDS = (
     "sharpe",
     "max_drawdown",
     "sortino",
+    "correlation",
 )
 PERFORMANCE_METRIC_FIELDS = (
     "total_return",
@@ -229,7 +230,7 @@ def build_performance_report_payload(
             "benchmark": "SPY total return depuis adjusted_close",
             "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
             "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
-            "report_task": "REPORT-006",
+            "report_task": "REPORT-008",
         },
         "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
     }
@@ -342,6 +343,9 @@ def write_performance_report(
             "method": payload["portfolio_composer"]["policy"]["method"],
             "combinations": len(payload["portfolio_composer"]["combination_masks"]),
             "metric_fields": payload["portfolio_composer"]["metric_fields"],
+            "correlation_windows": len(
+                payload["portfolio_composer"]["strategy_correlation_windows"]
+            ),
         },
         "lineage": payload["lineage"],
         "status": payload["status"],
@@ -444,11 +448,14 @@ def _composer_payload(grid: EqualWeightCombinationGrid) -> dict[str, Any]:
         "monthly_returns": grid.monthly_returns.tolist(),
         "metric_fields": list(grid.metric_fields),
         "metric_windows": grid.metric_windows,
+        "strategy_correlation_windows": grid.strategy_correlation_windows,
         "policy": {
             "method": "monthly_equal_weight_strategy_sleeves",
             "rebalance_frequency": EQUAL_WEIGHT_REBALANCE_FREQUENCY,
             "input_returns": "net_return après les frais propres à chaque stratégie",
             "additional_inter_sleeve_cost": EQUAL_WEIGHT_ADDITIONAL_COST,
+            "correlation": "Pearson sur les rendements mensuels de la fenêtre",
+            "relative_wealth": "richesse composée divisée par la richesse SPY",
             "status": "diagnostic post-hoc non promu",
         },
     }
@@ -582,7 +589,7 @@ def _methodology_cards() -> list[dict[str, Any]]:
                 "choisir au moins une poche de stratégie",
                 "attribuer 1 / N du capital à chaque poche chaque mois",
                 "moyenner leurs rendements nets sans coût inter-poche ajouté",
-                "sélectionner les KPI pré-calculés et comparer au SPY",
+                "lire KPI, corrélations et richesse relative pré-calculés face au SPY",
             ],
         },
     ]

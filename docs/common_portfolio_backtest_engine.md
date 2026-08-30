@@ -239,7 +239,10 @@ chaque mois. Les frais propres aux stratégies sont donc inclus ; aucun frais
 additionnel entre poches n'est imputé. La fonction appelle
 `advanced_performance_statistics()` pour chaque combinaison et chaque fenêtre
 annuelle, afin qu'un rapport interactif sélectionne les KPI sans les recalculer
-dans le navigateur.
+dans le navigateur. Le même résultat contient la matrice de corrélation de
+Pearson des rendements mensuels de chaque poche sur chaque fenêtre. Une
+corrélation est indéfinie et publiée comme `null` si une série n'a pas de
+variance ; elle n'est jamais calculée sur les richesses cumulées.
 
 ## Exact CAGR Attribution
 

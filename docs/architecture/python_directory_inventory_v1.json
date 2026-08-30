@@ -258,7 +258,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 16
+      "python_file_count": 17
     },
     {
       "directory": "src/alpharank/portfolio/adapters",
@@ -293,7 +293,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 11
+      "python_file_count": 12
     },
     {
       "directory": "src/alpharank/strategy",
@@ -475,7 +475,7 @@
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
-  "python_file_count": 526,
+  "python_file_count": 528,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
   "violation_count": 0,

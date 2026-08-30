@@ -351,6 +351,15 @@ tbody tr:hover { background: #f6f8fb; }
 .composer-kpi.comparison-beats { border-left-color: var(--positive); }
 .composer-kpi.comparison-trails { border-left-color: var(--negative); }
 .composer-kpi.comparison-equal { border-left-color: var(--line-strong); }
+.composer-correlation { margin-top: 12px; }
+.composer-correlation table { min-width: 620px; }
+.composer-correlation th { min-width: 128px; max-width: 190px; white-space: normal; }
+.composer-correlation th:first-child { min-width: 190px; }
+.correlation-cell { font: 700 11px "IBM Plex Mono", ui-monospace, monospace; text-align: center; }
+.correlation-diversifying { color: var(--positive); background: rgba(38,85,17,.11); }
+.correlation-moderate { color: #69550a; background: rgba(155,136,22,.10); }
+.correlation-high { color: var(--negative); background: rgba(128,35,49,.08); }
+.correlation-unknown { color: var(--muted); background: var(--soft); }
 .composer-charts { display: grid; gap: 12px; margin-top: 12px; }
 .portfolio-controls { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)) auto; gap: 10px; margin-bottom: 12px; }
 .portfolio-summary { margin: 0 0 12px; color: var(--muted); }

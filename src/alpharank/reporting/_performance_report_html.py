@@ -74,7 +74,7 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero">
     <div>
-      <span class="eyebrow">Standard de performance · REPORT-006</span>
+      <span class="eyebrow">Standard de performance · REPORT-008</span>
       <h1>Rapport de backtest complet</h1>
       <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
       calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
@@ -163,20 +163,26 @@ def _composer_section() -> str:
       <article class="panel composer-selection">
         <div class="composer-selection-head">
           <div><h3>Stratégies incluses</h3><p class="panel-subtitle" id="composer-summary">—</p></div>
-          <div class="composer-actions"><button id="composer-reference" type="button">Legacy + tendance Top 5</button><button id="composer-all" type="button">Toutes</button></div>
+          <div class="composer-actions"><button id="composer-reference" type="button">Legacy + tendance Top 5</button><button id="composer-boosting-pair" type="button">Boosting Top 5 + tendance</button><button id="composer-all" type="button">Toutes</button></div>
         </div>
         <div class="composer-options" id="composer-options"></div>
       </article>
       <aside class="composer-contract">
         <strong>Règle du laboratoire</strong>
         <p>Équipondération des stratégies cochées, rééquilibrée mensuellement. Les rendements de chaque poche sont déjà nets de leurs frais propres ; aucun coût supplémentaire entre poches n'est ajouté.</p>
-        <small>Diagnostic post-hoc non promu. Un titre présent dans plusieurs stratégies reste exposé dans chacune de ces poches. Les 1 023 combinaisons et leurs KPI sont pré-calculés par le moteur commun ; le navigateur ne calcule que l'affichage des courbes.</small>
+        <small>La corrélation mesure la dépendance des rendements mensuels. La richesse relative divise la richesse composée par celle du SPY : ce sont deux lectures différentes. Diagnostic post-hoc non promu ; un titre présent dans plusieurs stratégies reste exposé dans chacune de ces poches.</small>
       </aside>
     </div>
     <div class="composer-kpis" id="composer-kpis"></div>
+    <article class="panel composer-correlation">
+      <h3>Corrélation mensuelle entre les poches sélectionnées</h3>
+      <p class="panel-subtitle">Corrélation de Pearson sur la fenêtre active. Proche de 0 ou négative : diversification historique plus forte ; cela ne suffit pas à rendre une poche attractive.</p>
+      <div class="table-wrap"><table id="composer-correlation-matrix"></table></div>
+    </article>
     <div class="composer-charts">
       <article class="panel"><h3>Croissance composée · portefeuille contre SPY</h3><p class="panel-subtitle">Courbes rebasées à 1 au début de la fenêtre.</p><canvas id="composer-wealth-chart"></canvas><div class="legend" id="composer-wealth-legend"></div></article>
       <article class="panel"><h3>Drawdown · portefeuille contre SPY</h3><p class="panel-subtitle">Écart à chaque plus-haut de richesse, sur un graphique pleine largeur.</p><canvas id="composer-drawdown-chart"></canvas><div class="legend" id="composer-drawdown-legend"></div></article>
+      <article class="panel"><h3>Richesse relative au SPY · portefeuille ÷ SPY</h3><p class="panel-subtitle">Au-dessus de 1 : le portefeuille a davantage composé depuis le début de la fenêtre ; une pente descendante signale une sous-performance relative récente.</p><canvas id="composer-relative-chart"></canvas><div class="legend" id="composer-relative-legend"></div></article>
     </div>
   </section>
 """

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
+import numpy as np
 import polars as pl
 import pytest
 
@@ -137,6 +138,11 @@ def _assert_equal_weight_combination_grid() -> None:
     assert grid.metric_windows["2025-01-01|2025-03-01"][2] == pytest.approx(
         [expected[field] for field in fields]
     )
+    expected_correlation = float(np.corrcoef([0.02, -0.01, 0.04], [0.00, 0.03, 0.02])[0, 1])
+    correlation = grid.strategy_correlation_windows["2025-01-01|2025-03-01"]
+    assert correlation[0][0] == pytest.approx(1.0)
+    assert correlation[0][1] == pytest.approx(expected_correlation)
+    assert correlation[1][0] == pytest.approx(expected_correlation)
 
 
 def _assert_year_boundary_grid(fields: tuple[str, ...]) -> None:

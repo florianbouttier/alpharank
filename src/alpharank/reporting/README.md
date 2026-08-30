@@ -21,7 +21,8 @@ ni commande interactive : les KPI de performance proviennent du moteur commun.
 - `_performance_report_composer_script.py` sélectionne les combinaisons
   équipondérées dont les rendements et KPI ont déjà été calculés par
   `alpharank.portfolio.combinations` ; il ne calcule que les points graphiques
-  de richesse et de drawdown.
+  de richesse, drawdown et richesse relative au SPY. La matrice de corrélation
+  mensuelle est sélectionnée dans le payload pré-calculé.
 
 Les rapports HTML/Markdown conservés dans AlphaRank sont des preuves statiques
 d'audit. L'interface de portefeuille et le monitoring appartiennent au dépôt

@@ -92,6 +92,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 53 | `REPORT-005` | faire piloter toutes les vues par les courbes affichées | lot REPORT ci-dessous | fait |
 | 54 | `REPORT-006` | ajouter un laboratoire de portefeuille multi-stratégie | lot REPORT ci-dessous | fait |
 | 55 | `REPORT-007` | republier le rapport corrigé et son laboratoire | lot REPORT ci-dessous | fait |
+| 56 | `REPORT-008` | mesurer les corrélations et la richesse relative du portefeuille composé | lot REPORT ci-dessous | fait |
+| 57 | `REPORT-009` | republier le rapport enrichi de diversification | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -529,6 +531,8 @@ doublons exacts et preuve de récupération.
 | `REPORT-005` | aligner toutes les vues sur la sélection globale et rendre le drawdown lisible | fait | cartes, tableau KPI et matrices limités aux courbes cochées ; richesse puis drawdown en graphiques pleine largeur superposés |
 | `REPORT-006` | comparer une combinaison équipondérée de stratégies à SPY | fait | nouvel onglet, sélection des poches, rendements mensuels et KPI de chaque combinaison pré-calculés par `alpharank.portfolio`, règle de coûts et rééquilibrage documentée |
 | `REPORT-007` | publier la correction et le laboratoire SATS/ECHO | fait | nouvel artefact hashé, copie Portfolio byte-identique au commit `4f16576`, build et QA des filtres, du drawdown et du portefeuille composé |
+| `REPORT-008` | distinguer corrélation et surperformance relative dans le laboratoire | fait | corrélation mensuelle du portefeuille au SPY, matrice entre poches cochées et richesse composée divisée par la richesse SPY, toutes bornées par la fenêtre active |
+| `REPORT-009` | publier les diagnostics de corrélation SATS/ECHO | à faire | nouvel artefact hashé, copie Portfolio byte-identique, build et QA des corrélations et de la richesse relative |
 
 ### Détail de `REPORT-001`
 
@@ -656,6 +660,41 @@ doublons exacts et preuve de récupération.
   documentation.
 - **Impact** : publication d'une nouvelle projection du même replay.
 - **Rollback** : restaurer la copie Portfolio du commit `71a73c5`.
+
+### Détail de `REPORT-008`
+
+- **Objectif** : séparer clairement la dépendance statistique entre stratégies
+  de leur surperformance composée face au SPY.
+- **Périmètre** : corrélations de Pearson des rendements mensuels entre les
+  poches cochées, corrélation du portefeuille composé avec SPY et richesse
+  relative `richesse portefeuille / richesse SPY` sur la fenêtre active.
+- **Hors périmètre** : corrélation des niveaux de prix, optimisation des poids,
+  interprétation causale de la corrélation et promotion d'une combinaison.
+- **Acceptation** : la matrice contient uniquement les poches cochées ; le KPI
+  de corrélation au SPY provient du moteur commun ; une courbe relative au-dessus
+  de 1 indique que le portefeuille a davantage composé que SPY depuis le début
+  de la fenêtre, sans être appelée corrélation.
+- **Validations** : test de parité des corrélations, payload/HTML, syntaxe
+  JavaScript, génération réelle et QA navigateur sur deux poches Boosting.
+- **Impact** : nouvelles lectures d'un même replay ; aucun rendement, poids,
+  signal ou portefeuille source ne change.
+- **Rollback** : retirer la matrice, le KPI et la courbe relative sans toucher
+  aux six KPI et aux deux graphiques existants.
+
+### Détail de `REPORT-009`
+
+- **Objectif** : publier les nouveaux diagnostics dans Portfolio avec leur
+  preuve exacte.
+- **Périmètre** : génération SATS/ECHO, hashes, copie statique, build Portfolio,
+  QA de deux poches Boosting et preuve datée.
+- **Hors périmètre** : dashboard IBKR, déploiement externe, donnée ou modèle.
+- **Acceptation** : source, copie publique et build sont byte-identiques ; la
+  corrélation entre poches, la corrélation au SPY et la richesse relative
+  réagissent à la sélection et à la fenêtre sur le fichier réellement servi.
+- **Validations** : manifeste, hashes, build Vite, route locale, interactions et
+  documentation.
+- **Impact** : publication d'une nouvelle projection du même replay.
+- **Rollback** : restaurer la copie Portfolio du commit `4f16576`.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 
