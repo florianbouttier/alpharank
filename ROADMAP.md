@@ -93,7 +93,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 54 | `REPORT-006` | ajouter un laboratoire de portefeuille multi-stratégie | lot REPORT ci-dessous | fait |
 | 55 | `REPORT-007` | republier le rapport corrigé et son laboratoire | lot REPORT ci-dessous | fait |
 | 56 | `REPORT-008` | mesurer les corrélations et la richesse relative du portefeuille composé | lot REPORT ci-dessous | fait |
-| 57 | `REPORT-009` | republier le rapport enrichi de diversification | lot REPORT ci-dessous | à faire |
+| 57 | `REPORT-009` | republier le rapport enrichi de diversification | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -532,7 +532,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-006` | comparer une combinaison équipondérée de stratégies à SPY | fait | nouvel onglet, sélection des poches, rendements mensuels et KPI de chaque combinaison pré-calculés par `alpharank.portfolio`, règle de coûts et rééquilibrage documentée |
 | `REPORT-007` | publier la correction et le laboratoire SATS/ECHO | fait | nouvel artefact hashé, copie Portfolio byte-identique au commit `4f16576`, build et QA des filtres, du drawdown et du portefeuille composé |
 | `REPORT-008` | distinguer corrélation et surperformance relative dans le laboratoire | fait | corrélation mensuelle du portefeuille au SPY, matrice entre poches cochées et richesse composée divisée par la richesse SPY, toutes bornées par la fenêtre active |
-| `REPORT-009` | publier les diagnostics de corrélation SATS/ECHO | à faire | nouvel artefact hashé, copie Portfolio byte-identique, build et QA des corrélations et de la richesse relative |
+| `REPORT-009` | publier les diagnostics de corrélation SATS/ECHO | fait | nouvel artefact hashé, copie Portfolio byte-identique au commit `4fdc1b5`, build et QA des corrélations et de la richesse relative |
 
 ### Détail de `REPORT-001`
 
