@@ -24,6 +24,11 @@ def main() -> None:
         previous_lineage_path = args.previous_validated_lineage.resolve()
         previous_resolution = "explicit_cli_path"
         previous_composition_id = None
+        if args.previous_validated_benchmark is None:
+            raise RuntimeError(
+                "--previous-validated-benchmark is required with explicit lineage"
+            )
+        previous_benchmark_path = args.previous_validated_benchmark.resolve()
     else:
         previous_source = resolve_previous_validated_price_lineage(
             args.latest_composed_manifest.resolve()
@@ -31,12 +36,14 @@ def main() -> None:
         previous_lineage_path = previous_source.lineage_path
         previous_resolution = "latest_composed_model_snapshot"
         previous_composition_id = previous_source.composition_id
+        previous_benchmark_path = previous_source.snapshot_dir / "SP500Price.parquet"
     request = PricePackageRequest(
         run_id=str(base_manifest["run_id"]),
         source_refresh_contract=base_manifest["source_refresh_contract"],
         previous_lineage_path=previous_lineage_path,
         previous_resolution=previous_resolution,
         previous_composition_id=previous_composition_id,
+        previous_benchmark_path=previous_benchmark_path,
         fresh_yahoo_path=args.fresh_yahoo_vintage.resolve(),
         benchmark_path=base_dir / "SP500Price.parquet",
         constituents_path=base_dir / "SP500_Constituents.csv",
@@ -75,6 +82,11 @@ def _parse_args() -> argparse.Namespace:
             / "manifests"
             / "latest.json"
         ),
+    )
+    parser.add_argument(
+        "--previous-validated-benchmark",
+        type=Path,
+        help="Validated SP500Price paired with --previous-validated-lineage.",
     )
     parser.add_argument("--fresh-yahoo-vintage", type=Path, required=True)
     parser.add_argument(

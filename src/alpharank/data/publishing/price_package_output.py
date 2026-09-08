@@ -50,6 +50,7 @@ class PricePackageRequest:
     data_freshness: Mapping[str, object] | None = None
     sec_package_dir: Path | None = None
     reassessment: Mapping[str, object] | None = None
+    previous_benchmark_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +61,8 @@ class PreparedPricePackage:
     revision_gate: PriceGateResult
     extreme_gate: ExtremePriceMoveGateResult
     benchmark_prices: pl.DataFrame
+    benchmark_extension_audit: pl.DataFrame
+    benchmark_reconciliation: Mapping[str, object]
     constituents: SecurityIdentityApplication
     history_registry: pl.DataFrame
     history_summary: Mapping[str, object]
@@ -109,6 +112,12 @@ def _write_payloads(output_dir: Path, prepared: PreparedPricePackage) -> None:
         output_dir / "lineage" / "persistent_price_history_registry.parquet"
     )
     audit = output_dir / "audit"
+    prepared.benchmark_extension_audit.write_parquet(
+        audit / "benchmark_return_extension_audit.parquet"
+    )
+    write_json(
+        audit / "benchmark_reconciliation.json", prepared.benchmark_reconciliation
+    )
     revision.daily_return_revisions.write_parquet(audit / "price_daily_return_revisions.parquet")
     revision.transition_factor_findings.write_parquet(
         audit / "price_transition_factor_findings.parquet"
@@ -132,6 +141,7 @@ def _build_source_contract(
         {
             "contract_version": 2,
             "price_composition": prepared.result.composition_report,
+            "benchmark_reconciliation": prepared.benchmark_reconciliation,
             "price_revision_guard": prepared.revision_gate.report,
             "price_extreme_move_guard": prepared.extreme_gate.report,
             "previous_validated_price_lineage": {
@@ -139,6 +149,11 @@ def _build_source_contract(
                 "resolution": request.previous_resolution,
                 "composition_id": request.previous_composition_id,
             },
+            "previous_validated_benchmark": (
+                file_record(request.previous_benchmark_path)
+                if request.previous_benchmark_path is not None
+                else None
+            ),
             "fresh_yahoo_vintage": file_record(request.fresh_yahoo_path),
             "eodhd_price_seed": prepared.seed.manifest(),
             "persistent_price_history": {
@@ -206,8 +221,17 @@ def _build_manifest(
             "security_identity_policy_applied": True,
             "price_ticker_transition_policy_applied": True,
             "price_ticker_transition_added_rows": prepared.ticker_transition.audit.height,
+            "benchmark_validated_prefix_preserved": (
+                prepared.benchmark_reconciliation["previous_validated_rows_changed"] == 0
+            ),
         },
         "artifacts": {
+            "benchmark_reconciliation": file_record(
+                output_dir / "audit" / "benchmark_reconciliation.json"
+            ),
+            "benchmark_return_extension_audit": file_record(
+                output_dir / "audit" / "benchmark_return_extension_audit.parquet"
+            ),
             "price_lineage": file_record(
                 output_dir / "lineage" / "prices_open_source_lineage.parquet"
             ),

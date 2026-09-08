@@ -77,7 +77,9 @@ fail-closed promotion sequence:
    from Yahoo and absent from EODHD. Active histories come from one new Yahoo
    vintage, `persistent_price_history_registry.parquet` records every retained
    trajectory, and the historical return/key gates must pass without routine
-   overrides;
+   overrides. `SP500Price.parquet` suit la même règle : préfixe validé inchangé,
+   puis seules les nouvelles séances SPY sont dérivées des rendements du
+   téléchargement courant et consignées dans un audit dédié ;
 3. build the strict SEC-only package with
    `scripts/open_source/publication/build_sec_output_package.py`; the 730-day revision guard
    must pass without `--allow-historical-revisions` now that the one-time raw

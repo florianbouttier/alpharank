@@ -98,6 +98,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 59 | `REPORT-011` | republier le rapport avec le portefeuille en vigueur au 28 août | lot REPORT ci-dessous | fait |
 | 60 | `DATA-030` | construire le candidat data complet au 8 septembre | lot DATA ci-dessous | fait |
 | 61 | `REPLAY-007` | distinguer l'horizon observé de la configuration économique | lot REPLAY ci-dessous | fait |
+| 62 | `DATA-031` | prolonger SPY sans réécrire son historique validé | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -331,6 +332,7 @@ change dans ce lot.
 | `DATA-028` | versionner les quatre événements terminaux révélés par le replay sans fondamentaux | fait | registre différentiel v2 lié par hash au v1 ; RX, TSS, TWTR et ABMD bloqués uniquement après leur dernière séance primaire ; quatre pièces SEC refetchées au même SHA-256, sans valoriser une contrepartie actionnaire ni réintroduire un facteur fondamental |
 | `DATA-029` | prolonger un ancien ticker depuis les rendements d'un alias fournisseur de la même sécurité | fait | 24 séances SATS dérivées des rendements ECHO, zéro ligne antérieure modifiée et zéro valeur manuelle ; package réel et snapshot `1e6d5367…842a9` reconstruits sans réseau, 21 tests ciblés et validations documentaires verts |
 | `DATA-030` | construire un candidat complet depuis les acquisitions du 8 septembre | fait | run complet `20260908_002341` réutilisé sans réseau ; 503/503 membres ; prix et SEC frais au 4 septembre ; composition `446f06e0…` validée sans déplacer `latest.json` ; preuve dans `docs/research/data_refresh_candidate_20260908.md` |
+| `DATA-031` | appliquer au benchmark SPY le registre de rendements déjà imposé aux actions | fait | 5 441 lignes SPY validées identiques ; 12 séances ajoutées jusqu'au 4 septembre ; manifeste réel `7371506d…9d623`, audit hashé et test de niveau réajusté fournisseur verts |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -398,6 +400,25 @@ doublons exacts et preuve de récupération.
   ni portefeuille historique n'est modifié dans cette tâche.
 - **Rollback** : ignorer le candidat et conserver le pointeur canonique actuel ;
   les acquisitions et anciennes publications restent immuables.
+
+### Détail de `DATA-031`
+
+- **Objectif** : empêcher les faibles réécritures Yahoo de SPY de modifier les
+  cibles relatives et le réapprentissage historique de Boosting.
+- **Périmètre** : package prix, benchmark validé précédent, extension par les
+  rendements postérieurs à l'ancre, audit, manifeste, tests et runbook.
+- **Hors périmètre** : correction volontaire d'un rendement SPY historique,
+  prix des actions, univers S&P, modèles ou promotion du candidat.
+- **Acceptation** : zéro ligne historique SPY modifiée ; chaque nouvelle séance
+  est raccordée à l'ancre validée et conserve le rendement fournisseur.
+- **Validations** : package réel depuis `20260908_002341`, 5 441 lignes du
+  préfixe strictement égales et 12 rendements ajoutés sans null ; test de
+  réajustement du niveau fournisseur, 20 tests ciblés, lint et contrôles
+  documentaires.
+- **Impact** : les prochains replays ne réapprennent plus sur du bruit d'arrondi
+  du benchmark ; les niveaux publiés antérieurement restent immuables.
+- **Rollback** : conserver le dernier package déjà publié ; aucune donnée
+  existante n'est réécrite par cette nouvelle politique.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

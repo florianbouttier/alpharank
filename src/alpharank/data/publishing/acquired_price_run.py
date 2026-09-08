@@ -81,6 +81,7 @@ def build_acquired_price_request(
         previous_lineage_path=previous,
         previous_resolution="acquisition_run_bound_lineage",
         previous_composition_id=composition_id,
+        previous_benchmark_path=_resolve_previous_benchmark_path(contract),
         fresh_yahoo_path=resolved_run_dir / "raw" / "prices_yfinance.parquet",
         benchmark_path=resolved_run_dir / "raw" / "prices_spy_yfinance.parquet",
         constituents_path=constituents_path.resolve(),
@@ -95,6 +96,16 @@ def build_acquired_price_request(
         sec_package_dir=sec_package_dir.resolve(),
         reassessment=reassessment,
     )
+
+
+def _resolve_previous_benchmark_path(contract: Mapping[str, object]) -> Path:
+    previous = contract.get("previous_validated_price_lineage")
+    if not isinstance(previous, Mapping) or not previous.get("snapshot_dir"):
+        raise RuntimeError("Acquisition contract has no previous validated snapshot")
+    path = Path(str(previous["snapshot_dir"])).expanduser().resolve() / "SP500Price.parquet"
+    if not path.is_file():
+        raise FileNotFoundError(f"Previous validated benchmark is missing: {path}")
+    return path
 
 
 def load_acquisition_run_manifest(run_dir: Path) -> dict[str, object]:

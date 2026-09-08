@@ -24,8 +24,10 @@ from alpharank.data.prices.history import (
     resolve_previous_validated_price_lineage,
 )
 from alpharank.data.prices.reconciliation import (
+    BenchmarkReconciliationResult,
     PriceReconciliationContext,
     PriceReconciliationResult,
+    reconcile_validated_benchmark_history,
     reconcile_validated_price_history,
 )
 from alpharank.data.prices.revision_diagnostic import build_price_revision_diagnostic
@@ -45,6 +47,7 @@ from alpharank.data.prices.ticker_transitions import (
 
 __all__ = [
     "EodhdSeed",
+    "BenchmarkReconciliationResult",
     "HybridPriceResult",
     "PriceCandidateMode",
     "PriceGateResult",
@@ -68,6 +71,7 @@ __all__ = [
     "load_price_ticker_transition_registry",
     "persistent_history_summary",
     "reconcile_validated_price_history",
+    "reconcile_validated_benchmark_history",
     "resolve_previous_validated_price_lineage",
     "roll_forward_validated_price_history",
     "validate_price_candidate",

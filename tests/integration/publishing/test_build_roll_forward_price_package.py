@@ -7,6 +7,7 @@ import polars as pl
 import pytest
 
 from alpharank.data.prices.contracts import ADJUSTMENT_POLICY_VERSION, PRICE_LINEAGE_COLUMNS
+from alpharank.data.prices.reconciliation import reconcile_validated_benchmark_history
 from alpharank.data.publishing.acquired_price_run import (
     REQUIRED_ACQUISITION_SOURCES,
     load_acquisition_run_manifest,
@@ -48,6 +49,39 @@ def _price_lineage(
             "correction_overlay_id": [None] * len(dates),
         }
     ).select(PRICE_LINEAGE_COLUMNS)
+
+
+def _benchmark(dates: list[str], adjusted_close: list[float]) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "ticker": ["SPY.US"] * len(dates),
+            "date": dates,
+            "adjusted_close": adjusted_close,
+            "close": adjusted_close,
+            "open": adjusted_close,
+            "high": adjusted_close,
+            "low": adjusted_close,
+            "volume": [1_000_000.0] * len(dates),
+        }
+    )
+
+
+def test_benchmark_roll_forward_preserves_prefix_and_appends_returns() -> None:
+    previous = _benchmark(["2026-08-18", "2026-08-19"], [100.0, 101.0])
+    provider = _benchmark(
+        ["2026-08-18", "2026-08-19", "2026-08-20"], [200.0, 202.0, 206.04]
+    )
+
+    result = reconcile_validated_benchmark_history(
+        previous_validated=previous,
+        current_observation=provider,
+        run_id="20260908_002341",
+    )
+
+    assert result.prices["adjusted_close"].to_list() == pytest.approx([100.0, 101.0, 103.02])
+    assert result.prices.head(2).equals(previous)
+    assert result.extension_audit["provider_daily_return"].to_list() == pytest.approx([0.02])
+    assert result.report["previous_validated_rows_changed"] == 0
 
 
 def test_builder_binds_audited_carries_to_full_ingestion_run() -> None:

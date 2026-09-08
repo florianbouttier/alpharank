@@ -24,6 +24,7 @@ from alpharank.data.prices import (
     build_persistent_price_history_registry,
     load_eodhd_seed,
     persistent_history_summary,
+    reconcile_validated_benchmark_history,
     roll_forward_validated_price_history,
     validate_price_candidate,
     validate_price_gate_report,
@@ -69,9 +70,16 @@ def build_price_roll_forward_package(request: PricePackageRequest) -> dict[str, 
     """Build, validate and write one new immutable canonical price package."""
 
     evidence = _prepare_roll_forward_evidence(request)
-    benchmark = prepare_benchmark_prices(
+    current_benchmark = prepare_benchmark_prices(
         request.benchmark_path.resolve(),
         expected_run_id=request.expected_benchmark_run_id,
+    )
+    if request.previous_benchmark_path is None:
+        raise RuntimeError("Price roll-forward requires the previous validated benchmark")
+    benchmark = reconcile_validated_benchmark_history(
+        previous_validated=pl.read_parquet(request.previous_benchmark_path.resolve()),
+        current_observation=current_benchmark,
+        run_id=request.run_id,
     )
     constituents = apply_security_identity_policy(
         pl.read_csv(request.constituents_path.resolve(), infer_schema_length=0),
@@ -82,7 +90,7 @@ def build_price_roll_forward_package(request: PricePackageRequest) -> dict[str, 
     freshness = _resolve_freshness(
         request=request,
         prices=evidence.result.prices,
-        benchmark=benchmark,
+        benchmark=benchmark.prices,
         constituents=constituents.frame,
         terminal_tickers=evidence.terminal_tickers,
     )
@@ -95,7 +103,9 @@ def build_price_roll_forward_package(request: PricePackageRequest) -> dict[str, 
         result=evidence.result,
         revision_gate=evidence.revision_gate,
         extreme_gate=evidence.extreme_gate,
-        benchmark_prices=benchmark,
+        benchmark_prices=benchmark.prices,
+        benchmark_extension_audit=benchmark.extension_audit,
+        benchmark_reconciliation=benchmark.report,
         constituents=constituents,
         history_registry=history_registry,
         history_summary=persistent_history_summary(history_registry),

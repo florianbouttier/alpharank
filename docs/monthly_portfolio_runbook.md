@@ -119,6 +119,13 @@ The revision Parquet stores only differences above the versioned 1 bp material
 threshold, plus return-availability changes; smaller provider-level changes are
 not duplicated outside the differential RAW archive.
 
+Cette conservation vaut aussi pour `SP500Price.parquet` : toutes les lignes SPY
+déjà validées restent identiques et seules les séances postérieures à l'ancre
+sont prolongées avec les rendements du téléchargement courant. Le manifeste et
+`audit/benchmark_return_extension_audit.parquet` prouvent séparément cette
+extension, afin qu'un bruit d'arrondi Yahoo ne réentraîne pas le Boosting sur un
+benchmark historique artificiellement réécrit.
+
 The same command also applies the versioned same-security ticker aliases from
 `configs/data_quality/price_ticker_transition_policy_v1.json`. This operation is
 strictly additive: it requires a validated common anchor and matching overlap

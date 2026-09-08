@@ -15,6 +15,17 @@ from alpharank.data.prices.contracts import (
 from alpharank.data.security_identity import apply_security_identity_policy
 
 PRICE_RECONCILIATION_CONTRACT = "validated_history_return_extension_v1"
+BENCHMARK_RECONCILIATION_CONTRACT = "validated_benchmark_return_extension_v1"
+BENCHMARK_PRICE_COLUMNS = (
+    "ticker",
+    "date",
+    "adjusted_close",
+    "close",
+    "open",
+    "high",
+    "low",
+    "volume",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +35,13 @@ class PriceReconciliationResult:
     extension_audit: pl.DataFrame
     report: dict[str, object]
     observed_active_tickers: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkReconciliationResult:
+    prices: pl.DataFrame
+    extension_audit: pl.DataFrame
+    report: dict[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +65,47 @@ class ReconciliationReportInputs:
     run_id: str
     previous_identity_rejected_rows: int
     current_identity_rejected_rows: int
+
+
+def reconcile_validated_benchmark_history(
+    *,
+    previous_validated: pl.DataFrame,
+    current_observation: pl.DataFrame,
+    run_id: str,
+) -> BenchmarkReconciliationResult:
+    """Preserve the published benchmark prefix and append provider returns."""
+
+    previous = _normalize_benchmark(previous_validated)
+    current = _normalize_benchmark(current_observation)
+    _validate_single_benchmark(previous, current)
+    anchor = previous.sort("date").tail(1).row(0, named=True)
+    provider_anchor = current.filter(pl.col("date") == anchor["date"])
+    if provider_anchor.height != 1:
+        raise RuntimeError("Provider benchmark lacks the validated tail anchor")
+    anchor_factor = float(anchor["adjusted_close"]) / float(
+        provider_anchor.item(0, "adjusted_close")
+    )
+    extension = _benchmark_extension(
+        current=current,
+        anchor_date=str(anchor["date"]),
+        anchor_factor=anchor_factor,
+    )
+    prices = pl.concat([previous, extension.select(BENCHMARK_PRICE_COLUMNS)]).sort("date")
+    if prices.select(pl.struct(["ticker", "date"]).is_duplicated().any()).item():
+        raise RuntimeError("Reconciled benchmark contains duplicate ticker/date keys")
+    _validate_benchmark_prefix(previous=previous, reconciled=prices)
+    report = {
+        "contract": BENCHMARK_RECONCILIATION_CONTRACT,
+        "run_id": run_id,
+        "selection_rule": "retain_validated_keys_and_append_provider_daily_returns",
+        "previous_validated_rows": previous.height,
+        "previous_validated_rows_changed": 0,
+        "return_extension_rows": extension.height,
+        "validated_anchor_date": str(anchor["date"]),
+        "latest_date": prices.select(pl.col("date").max()).item(),
+        "passed": True,
+    }
+    return BenchmarkReconciliationResult(prices, extension, report)
 
 
 def reconcile_validated_price_history(
@@ -320,6 +379,67 @@ def _empty_audit() -> pl.DataFrame:
             "selection_reason": pl.String,
         }
     )
+
+
+def _normalize_benchmark(frame: pl.DataFrame) -> pl.DataFrame:
+    missing = set(BENCHMARK_PRICE_COLUMNS) - set(frame.columns)
+    if missing:
+        raise ValueError(f"Benchmark price input is missing: {sorted(missing)}")
+    return (
+        frame.select(BENCHMARK_PRICE_COLUMNS)
+        .with_columns(
+            pl.col("ticker").cast(pl.String).str.to_uppercase(),
+            pl.col("date").cast(pl.String),
+        )
+        .sort(["ticker", "date"])
+    )
+
+
+def _validate_single_benchmark(previous: pl.DataFrame, current: pl.DataFrame) -> None:
+    for label, frame in (("previous", previous), ("current", current)):
+        tickers = frame.get_column("ticker").drop_nulls().unique().to_list()
+        if frame.is_empty() or len(tickers) != 1:
+            raise ValueError(f"{label} benchmark must contain exactly one ticker")
+        if frame.select(pl.struct(["ticker", "date"]).is_duplicated().any()).item():
+            raise ValueError(f"{label} benchmark contains duplicate ticker/date keys")
+    if previous.item(0, "ticker") != current.item(0, "ticker"):
+        raise ValueError("Previous and current benchmark tickers differ")
+
+
+def _benchmark_extension(
+    *, current: pl.DataFrame, anchor_date: str, anchor_factor: float
+) -> pl.DataFrame:
+    tail = current.with_columns(
+        pl.col("adjusted_close").pct_change().alias("provider_daily_return")
+    ).filter(pl.col("date") > anchor_date)
+    if tail.is_empty():
+        return current.clear().with_columns(
+            pl.lit(None).cast(pl.Float64).alias("provider_adjusted_close"),
+            pl.lit(None).cast(pl.Float64).alias("adjustment_bridge_factor"),
+            pl.lit(None).cast(pl.Float64).alias("provider_daily_return"),
+        )
+    if tail.filter(
+        pl.col("provider_daily_return").is_null()
+        | ~pl.col("provider_daily_return").is_finite()
+        | (pl.col("provider_daily_return") <= -1.0)
+    ).height:
+        raise RuntimeError("Provider benchmark extension contains unusable returns")
+    return tail.with_columns(
+        pl.col("adjusted_close").alias("provider_adjusted_close"),
+        pl.lit(anchor_factor).alias("adjustment_bridge_factor"),
+        *(
+            (pl.col(column) * anchor_factor).alias(column)
+            for column in ("adjusted_close", "close", "open", "high", "low")
+        ),
+    )
+
+
+def _validate_benchmark_prefix(*, previous: pl.DataFrame, reconciled: pl.DataFrame) -> None:
+    selected = reconciled.join(
+        previous.select("ticker", "date"), on=["ticker", "date"], how="inner"
+    ).select(BENCHMARK_PRICE_COLUMNS)
+    if previous.height != selected.height or not previous.equals(selected, null_equal=True):
+        raise RuntimeError("Reconciled benchmark changed a previously validated row")
 
 
 def _normalize_ticker(ticker: str) -> str:
