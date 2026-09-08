@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 from typing import Any
 
 import polars as pl
 
-from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
-
+from alpharank.data.ingestion.storage import merge_upsert_frames
 
 SEC_FINANCIAL_VERSION_KEY = (
     "ticker",
@@ -19,6 +18,24 @@ SEC_FINANCIAL_VERSION_KEY = (
     "filing_date",
     "source",
 )
+
+SEC_RAW_DELTA_KEYS = {
+    "financials_sec_filing.parquet": SEC_FINANCIAL_VERSION_KEY,
+    "earnings_sec_calendar.parquet": (
+        "ticker",
+        "period_end",
+        "reportDate",
+        "accession_number",
+        "source",
+    ),
+    "earnings_sec_actuals.parquet": (
+        "ticker",
+        "period_end",
+        "reportDate",
+        "source",
+    ),
+    "general_reference_lineage.parquet": ("ticker", "source"),
+}
 
 
 def rebuild_full_companyfacts_versions(
@@ -38,12 +55,35 @@ def rebuild_full_companyfacts_versions(
         .unique(subset=list(SEC_FINANCIAL_VERSION_KEY), keep="last", maintain_order=True)
         .sort(list(SEC_FINANCIAL_VERSION_KEY))
     )
-    unique_count = result.select(
-        pl.struct(SEC_FINANCIAL_VERSION_KEY).n_unique()
-    ).item()
+    unique_count = result.select(pl.struct(SEC_FINANCIAL_VERSION_KEY).n_unique()).item()
     if unique_count != result.height:
         raise RuntimeError("SEC Companyfacts version key is not unique after rebuild")
     return result
+
+
+def _merge_raw_delta(
+    *,
+    retained_path: Path,
+    delta_path: Path,
+    output_path: Path,
+    version_key: tuple[str, ...],
+) -> dict[str, object]:
+    retained = pl.read_parquet(retained_path)
+    delta = pl.read_parquet(delta_path)
+    merged = merge_upsert_frames(
+        retained,
+        delta,
+        key_cols=version_key,
+        order_cols=("ingested_at",),
+    )
+    merged.write_parquet(output_path)
+    return {
+        "retained_rows": retained.height,
+        "run_rows": delta.height,
+        "output_rows": merged.height,
+        "output_tickers": merged.get_column("ticker").n_unique(),
+        "version_key": list(version_key),
+    }
 
 
 def build_sec_raw_version_candidate(
@@ -52,7 +92,7 @@ def build_sec_raw_version_candidate(
     run_raw_dir: Path,
     output_dir: Path,
 ) -> dict[str, Any]:
-    """Create a replayable raw SEC package with Companyfacts filing versions."""
+    """Roll a retained raw SEC package forward with one acquisition run."""
 
     retained_raw_dir = retained_raw_dir.resolve()
     run_raw_dir = run_raw_dir.resolve()
@@ -62,16 +102,13 @@ def build_sec_raw_version_candidate(
     output_dir.mkdir(parents=True)
     required = (
         "financials_sec_companyfacts.parquet",
-        "financials_sec_filing.parquet",
-        "earnings_sec_calendar.parquet",
-        "earnings_sec_actuals.parquet",
-        "general_reference_lineage.parquet",
+        *SEC_RAW_DELTA_KEYS,
     )
     for name in required:
-        source = retained_raw_dir / name
-        if not source.exists():
-            raise FileNotFoundError(source)
-        copy_snapshot_file(source, output_dir / name)
+        for source_dir in (retained_raw_dir, run_raw_dir):
+            source = source_dir / name
+            if not source.exists():
+                raise FileNotFoundError(source)
 
     full_refresh_path = run_raw_dir / "financials_sec_companyfacts.parquet"
     if not full_refresh_path.exists():
@@ -83,6 +120,15 @@ def build_sec_raw_version_candidate(
         full_refresh=full_refresh,
     )
     rebuilt.write_parquet(output_dir / "financials_sec_companyfacts.parquet")
+    dataset_reports = {
+        name: _merge_raw_delta(
+            retained_path=retained_raw_dir / name,
+            delta_path=run_raw_dir / name,
+            output_path=output_dir / name,
+            version_key=version_key,
+        )
+        for name, version_key in SEC_RAW_DELTA_KEYS.items()
+    }
     refreshed_tickers = full_refresh.get_column("ticker").n_unique()
     multi_version_groups = (
         rebuilt.group_by(["ticker", "statement", "metric", "date", "source"])
@@ -97,4 +143,5 @@ def build_sec_raw_version_candidate(
         "refreshed_tickers": refreshed_tickers,
         "multi_filing_version_groups": multi_version_groups,
         "version_key": list(SEC_FINANCIAL_VERSION_KEY),
+        "datasets": dataset_reports,
     }

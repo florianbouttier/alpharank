@@ -6,8 +6,9 @@ Le run réseau `20260908_002341` a acquis toutes les sources déclarées puis a
 été arrêté par la seule fraîcheur du calendrier S&P 500, encore borné au
 1er août. Après extension déterministe du calendrier au 1er septembre, les 503
 membres attendus correspondent exactement aux 503 titres actifs téléchargés.
-Le candidat composé `446f06e0365b0cb7be3bb70cdcca82d7d700accd437d0e1d6608d37feb27298f`
-passe les gates data et reste non promu jusqu'au replay `REPLAY-007`.
+Le candidat composé
+`35f0244f39cc8afffaf1af08886d7f3c1ab8a2fdf4ba5043782118eba7978421`
+passe les gates data et reste non promu jusqu'au replay `REPLAY-008`.
 
 Ce verdict ne dit encore rien sur l'identité des portefeuilles historiques :
 Legacy et Boosting doivent être recalculés sur la publication et le candidat
@@ -71,65 +72,75 @@ Le package a été reconstruit sans réseau :
 ```bash
 ./.venv/bin/python scripts/open_source/build_acquired_price_package.py \
   --acquisition-run-dir data/open_source/official/runs/20260908_002341 \
-  --sec-package-dir outputs/data_refresh_replay_20260908/sec_candidate \
+  --sec-package-dir outputs/data_refresh_replay_20260908/sec_candidate_rollforward_20260909 \
   --constituents-source data/SP500_Constituents.csv \
   --eodhd-seed data/eodhd/output/US_Finalprice.parquet \
-  --output-dir outputs/data_refresh_replay_20260908/price_candidate \
+  --output-dir outputs/data_refresh_replay_20260908/price_candidate_benchmark_ledger_bound \
   --expected-through 2026-09-08
 ```
 
 Le manifeste
-`outputs/data_refresh_replay_20260908/price_candidate/lineage/manifest.json`,
-SHA-256 `bc63f7fc42401fa7517820a3dc26ec3e3780e7ddf6a22b1d4b966c64ff740de9`,
+`outputs/data_refresh_replay_20260908/price_candidate_benchmark_ledger_bound/lineage/manifest.json`,
+SHA-256 `7371506d19a01698dea8a903c1c92f6d2b38b638c2ad04b74ca3b86207b9d623`,
 prouve :
 
 - 3 727 479 lignes et 843 tickers dans le package canonique ;
 - prix des 503 membres et SPY jusqu'à la séance close du 4 septembre ;
 - zéro membre actif manquant, zéro ligne active portée sans observation du run ;
-- zéro ancienne ligne publiée modifiée et zéro clé historique supprimée ;
+- zéro ancienne ligne action ou SPY publiée modifiée et zéro clé historique
+  supprimée ;
 - 6 000 prolongements de rendement sur 500 titres et 10 263 lignes d'historique
   pour de nouveaux tickers ;
 - zéro révision de rendement historique au-dessus de 1 point de base dans le
   package canonique, malgré les 41 révisions provider conservées dans le RAW ;
 - gates de révision, mouvement extrême, identité et publication vertes.
 
-Les hashes de sortie sont
-`dfe486e8fab4b1d5cf67316ce968668957afa20eadfdf0a3ee6486dfdb3301ff`
-pour `US_Finalprice.parquet` et
-`e05853299f0be533c5360bfc2679834c99cfeb339aefc24dc61afefbcc774e6d`
-pour SPY.
+Le benchmark conserve ses 5 441 lignes validées byte pour byte et ajoute 12
+séances jusqu'au 4 septembre. Son SHA-256 est
+`e3b3ec0b152f6be64500f7311b683c8f42552c4653e2c876107e53d1dc352c1c`.
 
 ## SEC et snapshot composé
 
-Le package SEC-only contient 448 889 lignes financières et 45 697 lignes
-earnings pour 723 tickers. Son manifeste, SHA-256
-`63d5064096ab243a075f4f80f2dd6a322cd2827f1ee5858a43abdea20c9ed29e`,
+Le premier package SEC assemblé directement depuis le dossier du run était
+invalide comme candidat complet : ce dossier est un delta et ne contenait que
+quatre lignes de référence générale. Il est conservé comme preuve mais n'est
+utilisé par aucun replay final. `DATA-033` applique désormais le delta aux cinq
+tables du dernier RAW point-in-time retenu : 511 170 faits Companyfacts,
+145 650 faits filing, 58 016 calendriers SEC, 39 441 actuals et 1 652 lignes de
+référence. Le manifeste de reconstruction a le SHA-256
+`5a81fe44acc722ce5f9331af579bcabb21152703039ad5d52298764bbaa15718`.
+
+Le package SEC-only complet contient 558 067 lignées financières, 56 492
+lignées earnings et 843 références exportées. Son manifeste, SHA-256
+`c50932e9a34752a46ea711a4ddf69e075c8a38734754cfcf10c5750a12cb8a81`,
 conserve les révisions historiques de chaque table et la revue explicite qui
-autorise ce candidat de diagnostic, sans autoriser sa promotion. Depuis
-`REPLAY-005`, Legacy utilise `no_sec_fundamentals_v1` : ces tables restent dans
-le snapshot pour audit mais ne déterminent ni son univers ni son signal.
+autorise ce candidat de diagnostic, sans autoriser sa promotion. Les derniers
+filings et dates de publication observés vont jusqu'au 4 septembre. Depuis
+`REPLAY-005`, Legacy utilise `no_sec_fundamentals_v1` : les valeurs financières
+restent dans le snapshot pour audit, mais la référence générale SEC alimente
+encore les secteurs ; c'est pourquoi le roll-forward complet est obligatoire.
 
 La composition a été créée avec un pointeur local :
 
 ```bash
 ./.venv/bin/python scripts/open_source/build_composed_model_snapshot.py \
-  --price-package-dir outputs/data_refresh_replay_20260908/price_candidate \
-  --sec-package-dir outputs/data_refresh_replay_20260908/sec_candidate \
-  --history-root outputs/data_refresh_replay_20260908/composed_history \
-  --latest-manifest outputs/data_refresh_replay_20260908/candidate_latest.json \
-  --expected-through 2026-09-08
+  --price-package-dir outputs/data_refresh_replay_20260908/price_candidate_benchmark_ledger_bound \
+  --sec-package-dir outputs/data_refresh_replay_20260908/sec_candidate_rollforward_20260909 \
+  --history-root outputs/data_refresh_replay_20260908/composed_history_rollforward \
+  --latest-manifest outputs/data_refresh_replay_20260908/candidate_rollforward_latest.json \
+  --expected-through 2026-09-04
 ```
 
 Le snapshot est
-`outputs/data_refresh_replay_20260908/composed_history/alpharank_input_20260908_211605_446f06e0365b`.
+`outputs/data_refresh_replay_20260908/composed_history_rollforward/alpharank_input_20260908_233538_35f0244f39cc`.
 Son manifeste, SHA-256
-`896c38e37384d2b994ef21f32930d1fbec7e6fe2dea3c447a846b87424c1d152`,
+`d743060f9a9cf1c1e77acc2d36610b339c1676bd999603820a518037323b3d3b`,
 valide neuf fichiers, le payload prix exact, les identités, le registre des
 historiques persistants et l'usage du même snapshot pour Legacy et Boosting.
 
 ## Gate suivante
 
-`REPLAY-007` doit maintenant exécuter les deux méthodes sur la publication et
+`REPLAY-008` doit maintenant exécuter les deux méthodes sur la publication et
 le candidat, au cutoff commun, puis comparer toutes les positions et tous les
 poids historiques. Les décisions de fin juillet et fin août feront l'objet
 d'une extraction explicite : juillet doit être comparé au portefeuille conservé

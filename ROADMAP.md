@@ -100,6 +100,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 61 | `REPLAY-007` | distinguer l'horizon observé de la configuration économique | lot REPLAY ci-dessous | fait |
 | 62 | `DATA-031` | prolonger SPY sans réécrire son historique validé | lot DATA ci-dessous | fait |
 | 63 | `DATA-032` | valider l'identité SEC avant la projection trimestrielle Legacy | lot DATA ci-dessous | fait |
+| 64 | `DATA-033` | reconstruire le RAW SEC complet depuis le package retenu et le delta | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -335,6 +336,7 @@ change dans ce lot.
 | `DATA-030` | construire un candidat complet depuis les acquisitions du 8 septembre | fait | run complet `20260908_002341` réutilisé sans réseau ; 503/503 membres ; prix et SEC frais au 4 septembre ; composition `446f06e0…` validée sans déplacer `latest.json` ; preuve dans `docs/research/data_refresh_candidate_20260908.md` |
 | `DATA-031` | appliquer au benchmark SPY le registre de rendements déjà imposé aux actions | fait | 5 441 lignes SPY validées identiques ; 12 séances ajoutées jusqu'au 4 septembre ; manifeste réel `7371506d…9d623`, audit hashé et test de niveau réajusté fournisseur verts |
 | `DATA-032` | valider l'identité SEC sur la date économique originale | fait | la ligne SNDK_OLD du 3 avril 2016 reste valide malgré sa projection Legacy au 30 juin ; composition technique sur le RAW retenu et test de non-régression verts |
+| `DATA-033` | rejouer tout le delta SEC sur le dernier RAW point-in-time retenu | fait | 511 170 faits Companyfacts, 145 650 faits filing, 58 016 calendriers, 39 441 actuals et 1 652 références reconstruits ; snapshot composé `35f0244f…78421` vert et non promu |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -441,6 +443,28 @@ doublons exacts et preuve de récupération.
   retirée tout en conservant le contrôle strict des identités réutilisées.
 - **Rollback** : rétablir le contrôle sur les exports Legacy, au prix du faux
   blocage documenté sur SNDK_OLD.
+
+### Détail de `DATA-033`
+
+- **Objectif** : construire un candidat SEC complet sans interpréter le dossier
+  RAW d'un run, nécessairement différentiel, comme un snapshot autonome.
+- **Périmètre** : roll-forward du dernier RAW point-in-time retenu avec les cinq
+  tables du run du 8 septembre, clés de version, test unitaire, manifeste et
+  preuve data du refresh.
+- **Hors périmètre** : modification des valeurs téléchargées, activation des
+  fondamentaux SEC dans Legacy ou promotion du pointeur `latest.json`.
+- **Acceptation** : Companyfacts remplace uniquement les partitions de tickers
+  effectivement rafraîchies en conservant leurs versions de filing ; filing,
+  calendriers, actuals et référence générale sont upsertés avec leurs clés
+  métier et `ingested_at` comme ordre explicite.
+- **Validations** : deux tests unitaires et Ruff verts ; le package exporte 843
+  références, 558 067 lignées financières et 56 492 lignées earnings ; la
+  composition stricte valide neuf fichiers et les identités.
+- **Impact** : le replay à venir voit les secteurs et l'historique SEC complet,
+  tandis que toutes les révisions fournisseur restent visibles dans le candidat
+  de diagnostic.
+- **Rollback** : conserver le package RAW point-in-time du 16 août et le
+  snapshot publié ; aucun pointeur de production n'est modifié par cette tâche.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
