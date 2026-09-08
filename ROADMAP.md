@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-08-30.**
+**Dernière mise à jour : 2026-09-08.**
 
 **Statut : seule source des priorités actives.**
 
@@ -96,6 +96,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 57 | `REPORT-009` | republier le rapport enrichi de diversification | lot REPORT ci-dessous | fait |
 | 58 | `REPORT-010` | séparer le portefeuille en vigueur du dernier mois de performance réalisé | lot REPORT ci-dessous | fait |
 | 59 | `REPORT-011` | republier le rapport avec le portefeuille en vigueur au 28 août | lot REPORT ci-dessous | fait |
+| 60 | `DATA-030` | construire le candidat data complet au 8 septembre | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -328,6 +329,7 @@ change dans ce lot.
 | `DATA-027` | produire un explorateur SEC autonome par entreprise depuis un run RAW explicite | fait | run `20260827_070654` : 824 sociétés et 638 809 lignes SEC ; rapport `d8285970…20be`, payload `959a922c…8961` ; versions, quarters, lignes brutes, statuts et six hashes sources visibles ; tests, JavaScript, lint, plafond de dossier et docs verts ; gate de taille globale encore rouge sur un fichier non modifié |
 | `DATA-028` | versionner les quatre événements terminaux révélés par le replay sans fondamentaux | fait | registre différentiel v2 lié par hash au v1 ; RX, TSS, TWTR et ABMD bloqués uniquement après leur dernière séance primaire ; quatre pièces SEC refetchées au même SHA-256, sans valoriser une contrepartie actionnaire ni réintroduire un facteur fondamental |
 | `DATA-029` | prolonger un ancien ticker depuis les rendements d'un alias fournisseur de la même sécurité | fait | 24 séances SATS dérivées des rendements ECHO, zéro ligne antérieure modifiée et zéro valeur manuelle ; package réel et snapshot `1e6d5367…842a9` reconstruits sans réseau, 21 tests ciblés et validations documentaires verts |
+| `DATA-030` | construire un candidat complet depuis les acquisitions du 8 septembre | fait | run complet `20260908_002341` réutilisé sans réseau ; 503/503 membres ; prix et SEC frais au 4 septembre ; composition `446f06e0…` validée sans déplacer `latest.json` ; preuve dans `docs/research/data_refresh_candidate_20260908.md` |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -372,6 +374,29 @@ doublons exacts et preuve de récupération.
   `REPLAY-006`.
 - **Rollback** : omettre le nouveau package ; le snapshot précédent reste
   immuable et résolvable par son manifeste.
+
+### Détail de `DATA-030`
+
+- **Objectif** : construire au 8 septembre 2026 un candidat data complet et
+  immuable à partir de toutes les acquisitions fraîches, sans perdre une
+  révision ni publier avant le replay historique.
+- **Périmètre** : calendrier S&P de septembre, acquisition complète du run
+  `20260908_002341`, packages prix et SEC, composition MART, snapshot candidat,
+  manifestes, hashes, contrôles de fraîcheur et preuve datée.
+- **Hors périmètre** : déplacement de `data/model_inputs/manifests/latest.json`,
+  calcul Legacy/Boosting, comparaison économique ou suppression d'anciens runs.
+- **Acceptation** : l'univers de septembre est identique à l'univers téléchargé
+  ou toute différence est explicitée ; chaque source a un statut ; le candidat
+  passe ses gates data et reste non promu, ou le motif bloquant exact est
+  conservé sans masquer le téléchargement.
+- **Validations** : 503/503 membres actifs présents ; zéro ancienne ligne prix
+  modifiée et zéro clé retirée ; gates prix, mouvement, identité et fraîcheur
+  vertes ; révisions SEC conservées avec revue explicite ; neuf fichiers du
+  snapshot validés ; contrôles documentaires verts.
+- **Impact** : nouvelle version candidate append-only ; aucune donnée publiée
+  ni portefeuille historique n'est modifié dans cette tâche.
+- **Rollback** : ignorer le candidat et conserver le pointeur canonique actuel ;
+  les acquisitions et anciennes publications restent immuables.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
