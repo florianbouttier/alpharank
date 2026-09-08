@@ -464,11 +464,16 @@ def _validate_security_identity_packages(
     dated_files = (
         (price_package_dir / "US_Finalprice.parquet", "ticker", "date"),
         (price_package_dir / "SP500_Constituents.csv", "Ticker", "Date"),
-        (sec_package_dir / "US_Income_statement.parquet", "ticker", "date"),
-        (sec_package_dir / "US_Balance_sheet.parquet", "ticker", "date"),
-        (sec_package_dir / "US_Cash_flow.parquet", "ticker", "date"),
-        (sec_package_dir / "US_Earnings.parquet", "ticker", "date"),
-        (sec_package_dir / "US_share.parquet", "ticker", "date"),
+        (
+            sec_package_dir / "lineage" / "financials_sec_lineage.parquet",
+            "ticker",
+            "date",
+        ),
+        (
+            sec_package_dir / "lineage" / "earnings_sec_lineage.parquet",
+            "ticker",
+            "period_end",
+        ),
     )
     checked_files: list[str] = []
     policy_required = False

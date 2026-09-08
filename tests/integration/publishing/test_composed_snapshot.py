@@ -175,6 +175,43 @@ def test_composed_snapshot_rejects_prelisting_data_on_reused_symbol(
         )
 
 
+def test_composed_snapshot_validates_original_sec_period_before_legacy_quarter_end(
+    tmp_path: Path,
+) -> None:
+    price = tmp_path / "price"
+    sec = tmp_path / "sec"
+    _write_price_package(price)
+    _write_sec_package(sec)
+    price_manifest_path = price / "lineage" / "manifest.json"
+    price_manifest = json.loads(price_manifest_path.read_text(encoding="utf-8"))
+    price_manifest["source_refresh_contract"]["security_identity"] = {
+        "policy_id": "security_identity_intervals_v1"
+    }
+    price_manifest_path.write_text(json.dumps(price_manifest), encoding="utf-8")
+    sec_manifest_path = sec / "lineage" / "manifest.json"
+    sec_manifest = json.loads(sec_manifest_path.read_text(encoding="utf-8"))
+    sec_manifest["security_identity"] = {"policy_id": "security_identity_intervals_v1"}
+    sec_manifest_path.write_text(json.dumps(sec_manifest), encoding="utf-8")
+    pl.DataFrame(
+        {
+            "ticker": ["SNDK_OLD.US"],
+            "date": ["2016-04-03"],
+            "selected_source": ["sec_filing"],
+        }
+    ).write_parquet(sec / "lineage" / "financials_sec_lineage.parquet")
+    pl.DataFrame({"ticker": ["SNDK_OLD.US"], "date": ["2016-06-30"]}).write_parquet(
+        sec / "US_Income_statement.parquet"
+    )
+
+    result = build_composed_model_snapshot(
+        price_package_dir=price,
+        sec_package_dir=sec,
+        history_root=tmp_path / "history",
+    )
+
+    assert "financials_sec_lineage.parquet" in result.manifest["security_identity"]["checked_files"]
+
+
 def test_composed_snapshot_rejects_v2_price_without_persistent_history(tmp_path: Path) -> None:
     price = tmp_path / "price"
     sec = tmp_path / "sec"

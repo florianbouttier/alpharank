@@ -99,6 +99,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 60 | `DATA-030` | construire le candidat data complet au 8 septembre | lot DATA ci-dessous | fait |
 | 61 | `REPLAY-007` | distinguer l'horizon observé de la configuration économique | lot REPLAY ci-dessous | fait |
 | 62 | `DATA-031` | prolonger SPY sans réécrire son historique validé | lot DATA ci-dessous | fait |
+| 63 | `DATA-032` | valider l'identité SEC avant la projection trimestrielle Legacy | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -333,6 +334,7 @@ change dans ce lot.
 | `DATA-029` | prolonger un ancien ticker depuis les rendements d'un alias fournisseur de la même sécurité | fait | 24 séances SATS dérivées des rendements ECHO, zéro ligne antérieure modifiée et zéro valeur manuelle ; package réel et snapshot `1e6d5367…842a9` reconstruits sans réseau, 21 tests ciblés et validations documentaires verts |
 | `DATA-030` | construire un candidat complet depuis les acquisitions du 8 septembre | fait | run complet `20260908_002341` réutilisé sans réseau ; 503/503 membres ; prix et SEC frais au 4 septembre ; composition `446f06e0…` validée sans déplacer `latest.json` ; preuve dans `docs/research/data_refresh_candidate_20260908.md` |
 | `DATA-031` | appliquer au benchmark SPY le registre de rendements déjà imposé aux actions | fait | 5 441 lignes SPY validées identiques ; 12 séances ajoutées jusqu'au 4 septembre ; manifeste réel `7371506d…9d623`, audit hashé et test de niveau réajusté fournisseur verts |
+| `DATA-032` | valider l'identité SEC sur la date économique originale | fait | la ligne SNDK_OLD du 3 avril 2016 reste valide malgré sa projection Legacy au 30 juin ; composition technique sur le RAW retenu et test de non-régression verts |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -419,6 +421,26 @@ doublons exacts et preuve de récupération.
   du benchmark ; les niveaux publiés antérieurement restent immuables.
 - **Rollback** : conserver le dernier package déjà publié ; aucune donnée
   existante n'est réécrite par cette nouvelle politique.
+
+### Détail de `DATA-032`
+
+- **Objectif** : empêcher la projection d'une date SEC vers une fin de trimestre
+  Legacy de créer artificiellement une violation d'intervalle d'identité.
+- **Périmètre** : contrôle de composition des fondamentaux et earnings SEC,
+  lignée originale, test d'intégration et runbook.
+- **Hors périmètre** : modification d'une observation SEC, intervalle de cotation,
+  logique Legacy, prix ou promotion du candidat.
+- **Acceptation** : les prix et compositions d'indice restent contrôlés sur leur
+  date de marché ; les fondamentaux sont contrôlés sur leur `period_end` de
+  lignée avant toute projection de compatibilité.
+- **Validations** : test SNDK_OLD du 3 avril projeté au 30 juin, suite de
+  composition, Ruff et contrôles documentaires verts ; composition technique
+  du RAW retenu acceptée sans modifier la ligne source. Le candidat SEC frais
+  et complet relève d'une tâche distincte.
+- **Impact** : aucun changement de valeur ; une fausse gate de composition est
+  retirée tout en conservant le contrôle strict des identités réutilisées.
+- **Rollback** : rétablir le contrôle sur les exports Legacy, au prix du faux
+  blocage documenté sur SNDK_OLD.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

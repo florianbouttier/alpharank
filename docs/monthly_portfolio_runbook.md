@@ -108,6 +108,12 @@ command must replay that same reconciliation and hash-bind its report and
 Parquet audit; it may never fall back to the provider's rewritten history. The
 original run folder and its initially failed gate remain unchanged audit evidence.
 
+La composition valide l'identité temporelle des fondamentaux sur `period_end`
+dans leur lignée SEC, avant leur projection vers les fins de trimestre du format
+Legacy. Cette projection de compatibilité ne peut donc ni fabriquer une
+violation d'identité, ni remplacer le jour économique SEC qui reste la preuve
+canonique.
+
 When a complete provider observation rewrites old adjusted prices, the run
 audits those changes in `price_daily_return_revisions.parquet` and
 `price_revision_diagnostic.json`. The canonical candidate keeps all previously
