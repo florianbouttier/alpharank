@@ -22,11 +22,12 @@ def compare_provenance_pairs(
 
 
 def stable_config(value: Any, key: str = "") -> Any:
-    """Remove run locations while retaining economically relevant parameters."""
+    """Remove run metadata while retaining economically relevant parameters."""
 
     ignored = {
         "captured_at_utc",
         "data_dir",
+        "decision_data_completed_through_month",
         "input_snapshot_storage",
         "output_dir",
         "run_dir",

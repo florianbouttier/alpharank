@@ -223,14 +223,16 @@ def test_complete_audit_classifies_changed_code_before_data_attribution(tmp_path
     assert report["portfolio_attribution"]["portfolio_drift_rows"] == 1
 
 
-def test_stable_config_ignores_run_paths_but_preserves_policy() -> None:
+def test_stable_config_ignores_run_paths_and_data_horizon_but_preserves_policy() -> None:
     baseline = {
+        "decision_data_completed_through_month": "2026-07-01",
         "run_output_dir": "/baseline/run",
         "source_input_files": {"prices": "/baseline/prices.parquet"},
         "source_input_sha256": {"prices": "baseline"},
         "minimum_liquidity": 1_000_000,
     }
     candidate = {
+        "decision_data_completed_through_month": "2026-08-01",
         "run_output_dir": "/candidate/run",
         "source_input_files": {"prices": "/candidate/prices.parquet"},
         "source_input_sha256": {"prices": "candidate"},

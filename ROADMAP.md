@@ -97,6 +97,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 58 | `REPORT-010` | séparer le portefeuille en vigueur du dernier mois de performance réalisé | lot REPORT ci-dessous | fait |
 | 59 | `REPORT-011` | republier le rapport avec le portefeuille en vigueur au 28 août | lot REPORT ci-dessous | fait |
 | 60 | `DATA-030` | construire le candidat data complet au 8 septembre | lot DATA ci-dessous | fait |
+| 61 | `REPLAY-007` | distinguer l'horizon observé de la configuration économique | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -501,6 +502,24 @@ doublons exacts et preuve de récupération.
 | `REPLAY-004` | produire un rapport HTML autonome qui sépare drift prix, SEC, Legacy et Boosting | fait | rapport réel `8881cac6…b971`, payload `1aaac44b…cdb1`, ablations prix/SEC, scores, Top-N, CVC, gate et hashes réunis ; 13 tests ciblés, typage, lint, navigation HTML et absence d'asset externe validés |
 | `REPLAY-005` | rejouer les deux méthodes sans SEC et promouvoir la politique si les gates communes passent | fait | données fraîches au 26 août ; Legacy strict, Boosting EMA-only et replay commun sur 180 mois verts ; 7/7 hashes identiques, 8 entrées terminales bloquées, zéro rendement censuré sélectionné, `publication_eligible=true` ; `no_sec_fundamentals_v1` devient le défaut Legacy |
 | `REPLAY-006` | rejouer Legacy, Boosting et la variante tendance après l'overlay SATS/ECHO | fait | snapshot `bb1f90a9…8375` ; SATS reste rang 14 sans drift de score, son rendement mai devient +4,9131 % ; Legacy et Top 5/10 inchangés, Top 15/20 tendance calculables ; rapport HTML `28c67752…b291` |
+| `REPLAY-007` | distinguer l'extension de l'horizon data d'un changement de configuration | fait | `decision_data_completed_through_month` est exclu de la configuration économique stable ; le minimum de liquidité et les autres paramètres restent comparés ; 11 tests de drift verts |
+
+### Détail de `REPLAY-007`
+
+- **Objectif** : empêcher qu'un nouveau mois normalement acquis soit signalé
+  comme une modification de configuration entre deux replays à code identique.
+- **Périmètre** : normalisation de la provenance du replay et test de
+  non-régression sur la borne d'observation dérivée des données.
+- **Hors périmètre** : neutralisation d'un paramètre économique, modification
+  des données, des signaux, des portefeuilles ou de la décision de promotion.
+- **Acceptation** : deux horizons de données différents restent comparables ;
+  toute différence de politique comme le minimum de liquidité reste visible.
+- **Validations** : échec du nouveau test avant correction, puis 11 tests de
+  `tests/replay/test_refresh_drift.py` verts.
+- **Impact** : aucun impact économique ou data ; le validateur peut désormais
+  atteindre et classer le drift réel au lieu de s'arrêter sur un faux positif.
+- **Rollback** : rétablir la clé dans la comparaison stricte, au prix d'un faux
+  statut `code_config_runtime_drift` à chaque extension mensuelle normale.
 
 ### Détail de `REPLAY-005`
 

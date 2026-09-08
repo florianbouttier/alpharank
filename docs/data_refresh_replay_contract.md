@@ -70,6 +70,12 @@ divergence apparaît et les clés data candidates qui l'expliquent. Une révisio
 postérieure au cutoff de connaissance d'une décision passée est signalée comme
 risque causal bloquant, même si l'impact économique paraît faible.
 
+La comparaison de configuration exclut les emplacements de run et
+`decision_data_completed_through_month`, borne descriptive calculée depuis le
+snapshot. Les paramètres économiques, politiques, seeds et dépendances restent
+comparés strictement ; étendre le snapshot d'un mois n'est donc pas confondu
+avec un changement de méthode.
+
 ## 5. Classification des résultats
 
 | Statut | Signification | Promotion |
