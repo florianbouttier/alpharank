@@ -461,6 +461,40 @@ def _validate_security_identity_packages(
     identity_roots = set(registry.get_column("canonical_ticker").to_list()) | set(
         registry.get_column("source_ticker").to_list()
     )
+    checked_files = _validate_dated_security_identity_files(
+        price_package_dir=price_package_dir,
+        sec_package_dir=sec_package_dir,
+        registry=registry,
+        identity_roots=identity_roots,
+    )
+    general_name = _validate_general_security_identity_file(
+        sec_package_dir=sec_package_dir,
+        registry=registry,
+        identity_roots=identity_roots,
+    )
+    if general_name:
+        checked_files.append(general_name)
+    policy_required = bool(checked_files)
+    if policy_required:
+        _assert_security_identity_policy_declarations(price_manifest, sec_manifest)
+    registry_path = Path(registry.get_column("registry_path").drop_nulls().unique().item())
+    return {
+        "policy_id": SECURITY_IDENTITY_POLICY_ID,
+        "policy_required": policy_required,
+        "registry_path": str(registry_path),
+        "registry_sha256": _sha256(registry_path),
+        "checked_files": sorted(checked_files),
+        "passed": True,
+    }
+
+
+def _validate_dated_security_identity_files(
+    *,
+    price_package_dir: Path,
+    sec_package_dir: Path,
+    registry: pl.DataFrame,
+    identity_roots: set[str],
+) -> list[str]:
     dated_files = (
         (price_package_dir / "US_Finalprice.parquet", "ticker", "date"),
         (price_package_dir / "SP500_Constituents.csv", "Ticker", "Date"),
@@ -476,7 +510,6 @@ def _validate_security_identity_packages(
         ),
     )
     checked_files: list[str] = []
-    policy_required = False
     for path, ticker_column, date_column in dated_files:
         if not path.is_file():
             continue
@@ -498,7 +531,6 @@ def _validate_security_identity_packages(
         )
         if not roots.intersection(identity_roots):
             continue
-        policy_required = True
         assert_security_identity_compliance(
             frame,
             ticker_column=ticker_column,
@@ -506,50 +538,55 @@ def _validate_security_identity_packages(
             registry=registry,
         )
         checked_files.append(path.name)
+    return checked_files
 
+
+def _validate_general_security_identity_file(
+    *,
+    sec_package_dir: Path,
+    registry: pl.DataFrame,
+    identity_roots: set[str],
+) -> str | None:
     general_path = sec_package_dir / "US_General.parquet"
-    if general_path.is_file():
-        general = pl.read_parquet(general_path)
-        if {"Code", "CIK"}.issubset(general.columns):
-            roots = set(
-                general.get_column("Code")
-                .drop_nulls()
-                .cast(pl.String)
-                .str.to_uppercase()
-                .str.replace(r"\.US$", "")
-                .unique()
-                .to_list()
-            )
-            if roots.intersection(identity_roots):
-                policy_required = True
-                assert_security_identity_reference_compliance(
-                    general,
-                    ticker_column="Code",
-                    cik_columns=("CIK",),
-                    registry=registry,
-                )
-                checked_files.append(general_path.name)
+    if not general_path.is_file():
+        return None
+    general = pl.read_parquet(general_path)
+    if not {"Code", "CIK"}.issubset(general.columns):
+        return None
+    roots = set(
+        general.get_column("Code")
+        .drop_nulls()
+        .cast(pl.String)
+        .str.to_uppercase()
+        .str.replace(r"\.US$", "")
+        .unique()
+        .to_list()
+    )
+    if not roots.intersection(identity_roots):
+        return None
+    assert_security_identity_reference_compliance(
+        general,
+        ticker_column="Code",
+        cik_columns=("CIK",),
+        registry=registry,
+    )
+    return general_path.name
 
-    if policy_required:
-        price_policy = (
-            price_manifest.get("source_refresh_contract", {})
-            .get("security_identity", {})
-            .get("policy_id")
-        )
-        sec_policy = sec_manifest.get("security_identity", {}).get("policy_id")
-        if price_policy != SECURITY_IDENTITY_POLICY_ID:
-            raise RuntimeError("Price package does not declare the security identity policy")
-        if sec_policy != SECURITY_IDENTITY_POLICY_ID:
-            raise RuntimeError("SEC package does not declare the security identity policy")
-    registry_path = Path(registry.get_column("registry_path").drop_nulls().unique().item())
-    return {
-        "policy_id": SECURITY_IDENTITY_POLICY_ID,
-        "policy_required": policy_required,
-        "registry_path": str(registry_path),
-        "registry_sha256": _sha256(registry_path),
-        "checked_files": sorted(checked_files),
-        "passed": True,
-    }
+
+def _assert_security_identity_policy_declarations(
+    price_manifest: Mapping[str, Any],
+    sec_manifest: Mapping[str, Any],
+) -> None:
+    price_policy = (
+        price_manifest.get("source_refresh_contract", {})
+        .get("security_identity", {})
+        .get("policy_id")
+    )
+    sec_policy = sec_manifest.get("security_identity", {}).get("policy_id")
+    if price_policy != SECURITY_IDENTITY_POLICY_ID:
+        raise RuntimeError("Price package does not declare the security identity policy")
+    if sec_policy != SECURITY_IDENTITY_POLICY_ID:
+        raise RuntimeError("SEC package does not declare the security identity policy")
 
 
 def _require_files(directory: Path, names: tuple[str, ...]) -> None:

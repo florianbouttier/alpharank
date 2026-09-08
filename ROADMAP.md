@@ -101,6 +101,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 62 | `DATA-031` | prolonger SPY sans réécrire son historique validé | lot DATA ci-dessous | fait |
 | 63 | `DATA-032` | valider l'identité SEC avant la projection trimestrielle Legacy | lot DATA ci-dessous | fait |
 | 64 | `DATA-033` | reconstruire le RAW SEC complet depuis le package retenu et le delta | lot DATA ci-dessous | fait |
+| 65 | `DATA-034` | atomiser la gate d'identité du snapshot composé | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -337,6 +338,7 @@ change dans ce lot.
 | `DATA-031` | appliquer au benchmark SPY le registre de rendements déjà imposé aux actions | fait | 5 441 lignes SPY validées identiques ; 12 séances ajoutées jusqu'au 4 septembre ; manifeste réel `7371506d…9d623`, audit hashé et test de niveau réajusté fournisseur verts |
 | `DATA-032` | valider l'identité SEC sur la date économique originale | fait | la ligne SNDK_OLD du 3 avril 2016 reste valide malgré sa projection Legacy au 30 juin ; composition technique sur le RAW retenu et test de non-régression verts |
 | `DATA-033` | rejouer tout le delta SEC sur le dernier RAW point-in-time retenu | fait | 511 170 faits Companyfacts, 145 650 faits filing, 58 016 calendriers, 39 441 actuals et 1 652 références reconstruits ; snapshot composé `35f0244f…78421` vert et non promu |
+| `DATA-034` | séparer lecture, contrôle daté, référence générale et déclaration de politique | fait | la gate d'identité repasse sous le plafond bloquant de 80 lignes sans modifier ses entrées, sorties ou contrôles |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -465,6 +467,20 @@ doublons exacts et preuve de récupération.
   de diagnostic.
 - **Rollback** : conserver le package RAW point-in-time du 16 août et le
   snapshot publié ; aucun pointeur de production n'est modifié par cette tâche.
+
+### Détail de `DATA-034`
+
+- **Objectif** : remettre la gate de composition modifiée par `DATA-032` sous
+  le plafond absolu de 80 lignes par fonction.
+- **Périmètre** : extraction des contrôles datés, de la référence générale et
+  des déclarations de politique en fonctions atomiques dans le même module.
+- **Hors périmètre** : changement de donnée, de politique d'identité, de
+  manifeste ou de résultat économique.
+- **Acceptation** : suite d'intégration inchangée verte et absence de régression
+  de taille attribuable à `composed_snapshot.py`.
+- **Validation** : sept tests de composition, Ruff et contrôle de taille Python.
+- **Rollback** : rétablir le corps monolithique, sans effet attendu sur les
+  sorties mais en restaurant la violation de standard.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
