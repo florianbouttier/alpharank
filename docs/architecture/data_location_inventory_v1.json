@@ -132,6 +132,7 @@
         "src/alpharank/backtest/data_source.py",
         "src/alpharank/data/ingestion/transition.py",
         "src/alpharank/data/open_source/legacy_export.py",
+        "src/alpharank/data/publishing/acquired_price_run.py",
         "src/alpharank/data/publishing/composed_snapshot.py",
         "src/alpharank/data/publishing/price_package_output.py",
         "src/alpharank/data/warehouse/reader_migration.py",
@@ -1035,7 +1036,7 @@
     "file_location_count": 10,
     "location_count": 35,
     "package_location_count": 25,
-    "reader_edge_count": 288,
+    "reader_edge_count": 289,
     "static_reference_count": 58
   }
 }

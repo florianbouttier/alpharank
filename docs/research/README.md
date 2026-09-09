@@ -19,6 +19,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `data_refresh_replay_20260827.md` : refresh intégral jusqu'au 26 août,
   replays same-code et ablation qui attribue le blocage `CVC.US` au package
   SEC candidat, sans promotion.
+- `data_refresh_replay_20260909.md` : refresh complet au 4 septembre, replays
+  same-code, parité exacte du portefeuille fin juillet et attribution causale
+  du drift de juin aux changements S&P connus avant décision.
 - `sats_echo_replay_20260829.md` : continuité SATS/ECHO sans valeur manuelle,
   replay Legacy/Boosting/tendance complet et résolution causale de Top 15/20.
 - `backtest_performance_report_20260829.md` : première exécution du standard de

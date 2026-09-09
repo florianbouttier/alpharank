@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 533,
+  "node_count": 540,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -20,6 +20,7 @@
     "test_backtest_time_folds.py::test_cpcv_splitter_removes_validation_groups_from_training",
     "test_backtest_time_folds.py::test_walk_forward_windows_use_only_past_train_months",
     "test_boosting_v2_replay.py::test_boosting_v2_replay_is_serialized_and_causal",
+    "test_build_roll_forward_price_package.py::test_benchmark_roll_forward_preserves_prefix_and_appends_returns",
     "test_build_roll_forward_price_package.py::test_builder_accepts_completed_quarantined_acquisition_without_network",
     "test_build_roll_forward_price_package.py::test_builder_binds_acquired_benchmark_to_same_run",
     "test_build_roll_forward_price_package.py::test_builder_binds_audited_carries_to_full_ingestion_run",
@@ -42,6 +43,7 @@
     "test_composed_snapshot.py::test_composed_snapshot_rejects_prelisting_data_on_reused_symbol",
     "test_composed_snapshot.py::test_composed_snapshot_rejects_stale_prices",
     "test_composed_snapshot.py::test_composed_snapshot_rejects_v2_price_without_persistent_history",
+    "test_composed_snapshot.py::test_composed_snapshot_validates_original_sec_period_before_legacy_quarter_end",
     "test_composed_snapshot.py::test_price_registry_promotion_preserves_payload",
     "test_config_schemas.py::test_every_repository_json_config_has_a_strict_versioned_schema",
     "test_config_schemas.py::test_structural_schema_rejects_unknown_nested_key",
@@ -402,11 +404,15 @@
     "test_refresh_drift.py::test_compare_frames_ignores_rows_after_historical_cutoff",
     "test_refresh_drift.py::test_compare_frames_retains_exact_changed_key_and_columns",
     "test_refresh_drift.py::test_complete_audit_accepts_identical_historical_portfolios",
+    "test_refresh_drift.py::test_complete_audit_blocks_latest_portfolio_drift",
     "test_refresh_drift.py::test_complete_audit_classifies_changed_code_before_data_attribution",
+    "test_refresh_drift.py::test_complete_audit_compares_latest_portfolios_without_realized_return",
     "test_refresh_drift.py::test_complete_audit_retains_a_common_replay_gate_failure",
     "test_refresh_drift.py::test_mapping_differences_uses_machine_readable_paths",
     "test_refresh_drift.py::test_provenance_lists_exact_runtime_difference",
-    "test_refresh_drift.py::test_stable_config_ignores_run_paths_but_preserves_policy",
+    "test_refresh_drift.py::test_stable_config_ignores_run_paths_and_data_horizon_but_preserves_policy",
+    "test_refresh_report.py::test_refresh_report_checks_additive_common_portfolio_effects",
+    "test_refresh_report.py::test_refresh_report_closes_raw_drift_only_after_exhaustive_ablations",
     "test_refresh_report.py::test_refresh_report_html_is_offline_and_explains_cvc",
     "test_refresh_report.py::test_refresh_report_separates_price_and_sec_effects",
     "test_replay_package_api.py::test_historical_replay_modules_expose_characterized_api[alpharank.boosting_v2-public_names0]",
@@ -467,6 +473,7 @@
     "test_sec_output_identity_overlay.py::test_identity_overlay_freezes_every_non_target_row",
     "test_sec_output_identity_overlay.py::test_legacy_identity_overlay_freezes_published_non_target_rows",
     "test_sec_raw_versions.py::test_full_companyfacts_rebuild_preserves_versions_and_unrefreshed_tickers",
+    "test_sec_raw_versions.py::test_raw_candidate_merges_every_run_delta",
     "test_sector_history.py::test_sector_used_was_known_at_decision_date",
     "test_security_identity.py::test_active_sec_mapping_cannot_fall_back_to_old_sndk_cik",
     "test_security_identity.py::test_identity_compliance_rejects_prelisting_new_sndk_row",
@@ -536,7 +543,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "5799f7d19a86915eb7eeb92adebb30e12324f0d44c9c81c9a904b4e4691e1162",
+  "node_ids_sha256": "de9be253dfcab2fd59b08d9bb4ed5b38d9742eeeb6206cead5c4ea5fc737bde9",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

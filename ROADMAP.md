@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-09-08.**
+**Dernière mise à jour : 2026-09-09.**
 
 **Statut : seule source des priorités actives.**
 
@@ -102,6 +102,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 63 | `DATA-032` | valider l'identité SEC avant la projection trimestrielle Legacy | lot DATA ci-dessous | fait |
 | 64 | `DATA-033` | reconstruire le RAW SEC complet depuis le package retenu et le delta | lot DATA ci-dessous | fait |
 | 65 | `DATA-034` | atomiser la gate d'identité du snapshot composé | lot DATA ci-dessous | fait |
+| 66 | `REPLAY-008` | rejouer le candidat du 8 septembre et auditer les portefeuilles passés et courants | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -586,6 +587,33 @@ doublons exacts et preuve de récupération.
 | `REPLAY-005` | rejouer les deux méthodes sans SEC et promouvoir la politique si les gates communes passent | fait | données fraîches au 26 août ; Legacy strict, Boosting EMA-only et replay commun sur 180 mois verts ; 7/7 hashes identiques, 8 entrées terminales bloquées, zéro rendement censuré sélectionné, `publication_eligible=true` ; `no_sec_fundamentals_v1` devient le défaut Legacy |
 | `REPLAY-006` | rejouer Legacy, Boosting et la variante tendance après l'overlay SATS/ECHO | fait | snapshot `bb1f90a9…8375` ; SATS reste rang 14 sans drift de score, son rendement mai devient +4,9131 % ; Legacy et Top 5/10 inchangés, Top 15/20 tendance calculables ; rapport HTML `28c67752…b291` |
 | `REPLAY-007` | distinguer l'extension de l'horizon data d'un changement de configuration | fait | `decision_data_completed_through_month` est exclu de la configuration économique stable ; le minimum de liquidité et les autres paramètres restent comparés ; 11 tests de drift verts |
+| `REPLAY-008` | rejouer le candidat complet et attribuer tout drift jusqu'au dernier portefeuille commun | fait | mêmes code/config/runtime ; portefeuille fin juillet exact sur 80/80 lignes ; drift de juin exhaustivement attribué aux changements S&P connus avant décision ; rapport HTML `2df8fcc0…3087`, aucune promotion automatique |
+
+### Détail de `REPLAY-008`
+
+- **Objectif** : vérifier qu'un refresh complet ne contamine aucune décision
+  passée et exposer séparément le portefeuille courant dont le rendement n'est
+  pas encore mûr.
+- **Périmètre** : replays Legacy, Boosting, moteur commun et tendance sur la
+  baseline et le candidat, ablations prix-seuls/SEC-seuls, comparaison exacte
+  fin juillet, portefeuille fin août, rapport HTML et preuve datée.
+- **Hors périmètre** : déplacement du pointeur de production, acceptation
+  automatique des révisions SEC historiques, tuning ou promotion d'une
+  stratégie Boosting.
+- **Acceptation** : même commit, configuration et runtime ; le portefeuille
+  formé fin juillet est identique clé et poids ; tout drift au cutoff mûr est
+  reconstitué par les ablations et relié à une information disponible avant la
+  décision ; le portefeuille fin août est visible sans rendement inventé.
+- **Validations** : quatre familles de replay communes passées, 17 tests
+  ciblés, 44 tests replay et 540 tests complets verts ; Ruff, syntaxe
+  JavaScript, HTML autonome, inventaires et contrôles documentaires verts ; le
+  pointeur publié reste byte-identique.
+- **Impact** : les prix partagés et les signaux SEC-only canoniques sont
+  identiques ; les différences de juin viennent des événements de composition
+  S&P connus à temps. Les variantes R&D `Legacy PE universe` reflètent en plus
+  les révisions SEC conservées et restent non promues.
+- **Rollback** : ignorer le candidat et ses rapports ; la publication
+  `latest.json` et tous les snapshots précédents restent inchangés.
 
 ### Détail de `REPLAY-007`
 

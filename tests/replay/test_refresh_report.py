@@ -33,6 +33,8 @@ def test_refresh_report_separates_price_and_sec_effects(tmp_path: Path) -> None:
     assert focus["price"]["strictly_identical"]
     assert focus["sec"]["baseline_rows"] == 0
     assert focus["sec"]["candidate_rows"] == 4
+    assert all(row["absolute_score_change"] > 0 for row in report["top_score_movers"])
+    assert all(abs(row["rank_change"]) < 1_000 for row in report["top_score_movers"])
 
 
 def test_refresh_report_html_is_offline_and_explains_cvc(tmp_path: Path) -> None:
@@ -40,19 +42,82 @@ def test_refresh_report_html_is_offline_and_explains_cvc(tmp_path: Path) -> None
     report = build_refresh_attribution(
         RefreshAttributionInputs(audit_report=audit_path, scenarios=scenarios)
     )
+    report["latest_portfolio_comparison"] = {
+        "decision_month": "2026-07-01",
+        "exact_match": True,
+        "baseline_rows": 80,
+        "candidate_rows": 80,
+        "added_rows": 0,
+        "removed_rows": 0,
+        "changed_common_rows": 0,
+    }
     output = tmp_path / "refresh_replay_report.html"
 
     write_refresh_replay_html(json.loads(json.dumps(report, default=str)), output)
 
     html = output.read_text(encoding="utf-8")
-    assert "CVC.US déclenche l'arrêt final" in html
+    assert "CVC.US : détail du signal et des données" in html
     assert "Le drift Legacy est quasi entièrement SEC" in html
+    assert "PORTEFEUILLE EN VIGUEUR" in html
+    assert "strictement identique" in html
     assert "Prix communs modifiés" in html
     assert "https://" not in html
     assert "filterTable" in html
 
 
-def _report_fixture(tmp_path: Path) -> tuple[tuple[ScenarioArtifacts, ...], Path]:
+def test_refresh_report_checks_additive_common_portfolio_effects(tmp_path: Path) -> None:
+    scenarios, audit_path = _report_fixture(tmp_path, common_runs_pass=True)
+
+    report = build_refresh_attribution(
+        RefreshAttributionInputs(audit_report=audit_path, scenarios=scenarios)
+    )
+
+    checks = report["causal_attribution"]["checks"]
+    assert checks["common_effects_are_additive"]
+
+
+def test_refresh_report_closes_raw_drift_only_after_exhaustive_ablations(
+    tmp_path: Path,
+) -> None:
+    scenarios, audit_path = _report_fixture(tmp_path, common_runs_pass=True)
+    by_name = {scenario.name: scenario for scenario in scenarios}
+    _legacy_frame(0.7).write_parquet(
+        by_name["price_only"].legacy_run / "legacy_common_holdings.parquet"
+    )
+    _legacy_frame(0.7).write_parquet(
+        by_name["price_only"].common_run / "comparison_common_holdings.parquet"
+    )
+    _legacy_frame(0.5).write_parquet(
+        by_name["sec_only"].legacy_run / "legacy_common_holdings.parquet"
+    )
+    _legacy_frame(0.5).write_parquet(
+        by_name["sec_only"].common_run / "comparison_common_holdings.parquet"
+    )
+    _prediction_frame(0.1, 0.2).write_parquet(
+        by_name["sec_only"].boosting_run / "classification_h06" / "predictions.parquet"
+    )
+    _prediction_frame(0.1, 0.21).write_parquet(
+        by_name["full"].boosting_run / "classification_h06" / "predictions.parquet"
+    )
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit["status"] = "unexplained_portfolio_drift"
+    audit["common_replay_failure"] = None
+    audit_path.write_text(json.dumps(audit), encoding="utf-8")
+
+    report = build_refresh_attribution(
+        RefreshAttributionInputs(audit_report=audit_path, scenarios=scenarios)
+    )
+
+    assert report["status"] == "explained_data_drift"
+    assert report["causal_attribution"]["exhaustively_attributed"]
+    assert not report["promotion_allowed"]
+
+
+def _report_fixture(
+    tmp_path: Path,
+    *,
+    common_runs_pass: bool = False,
+) -> tuple[tuple[ScenarioArtifacts, ...], Path]:
     baseline = _scenario(tmp_path, "baseline", legacy_weight=0.5, cvc_score=0.1)
     price_only = _scenario(
         tmp_path,
@@ -96,12 +161,17 @@ def _report_fixture(tmp_path: Path) -> tuple[tuple[ScenarioArtifacts, ...], Path
         ),
         encoding="utf-8",
     )
-    return (
+    scenarios = (
         baseline,
         price_only,
-        replace(sec_only, common_status="bloqué sur CVC.US", common_run=None),
-        replace(full, common_status="bloqué sur CVC.US", common_run=None),
-    ), audit_path
+        sec_only
+        if common_runs_pass
+        else replace(sec_only, common_status="bloqué sur CVC.US", common_run=None),
+        full
+        if common_runs_pass
+        else replace(full, common_status="bloqué sur CVC.US", common_run=None),
+    )
+    return scenarios, audit_path
 
 
 def _scenario(

@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate-common", type=Path)
     parser.add_argument("--common-replay-failure")
     parser.add_argument("--historical-cutoff", type=date.fromisoformat)
+    parser.add_argument("--latest-decision-month", type=date.fromisoformat)
     return parser.parse_args()
 
 
@@ -89,6 +90,7 @@ def _complete_inputs(args: argparse.Namespace) -> ReplayAuditInputs:
         candidate_common=args.candidate_common,
         historical_cutoff=args.historical_cutoff,
         common_replay_failure=args.common_replay_failure,
+        latest_decision_month=args.latest_decision_month,
     )
 
 
@@ -108,6 +110,9 @@ def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str
             "mode": mode,
             "historical_cutoff": (
                 args.historical_cutoff.isoformat() if args.historical_cutoff else None
+            ),
+            "latest_decision_month": (
+                args.latest_decision_month.isoformat() if args.latest_decision_month else None
             ),
             "materiality_tolerance": 1e-12,
         },

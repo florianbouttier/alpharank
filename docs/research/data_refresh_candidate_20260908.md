@@ -138,11 +138,12 @@ Son manifeste, SHA-256
 valide neuf fichiers, le payload prix exact, les identités, le registre des
 historiques persistants et l'usage du même snapshot pour Legacy et Boosting.
 
-## Gate suivante
+## Gate exécutée
 
-`REPLAY-008` doit maintenant exécuter les deux méthodes sur la publication et
-le candidat, au cutoff commun, puis comparer toutes les positions et tous les
-poids historiques. Les décisions de fin juillet et fin août feront l'objet
-d'une extraction explicite : juillet doit être comparé au portefeuille conservé
-avant ce refresh ; août doit être séparé entre signal de fin août et rendement
-de septembre encore immature. Toute divergence inexpliquée bloque la promotion.
+`REPLAY-008` a exécuté les deux méthodes sur la publication et le candidat,
+avec le même code, au cutoff commun, puis les ablations prix-seuls et SEC-seuls.
+Le portefeuille formé fin juillet est strictement identique ; celui de fin août
+est publié séparément du rendement de septembre encore immature. Le drift de
+juin est intégralement attribué aux changements de composition S&P connus avant
+la décision. La preuve et les limites de promotion sont détaillées dans
+[`data_refresh_replay_20260909.md`](data_refresh_replay_20260909.md).

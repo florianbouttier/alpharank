@@ -27,6 +27,7 @@ def _render_document(report: Mapping[str, object]) -> str:
             _hero(headline, status, verdict_class),
             _answer_section(headline, focus),
             _causes_section(report),
+            _latest_portfolio_section(report),
             _focus_section(report, focus, gate),
             _legacy_section(report),
             _boosting_section(report),
@@ -52,11 +53,12 @@ def _render_document(report: Mapping[str, object]) -> str:
 
 
 def _sidebar(report: Mapping[str, object]) -> str:
+    focus = _mapping(report, "focus")
     return f"""<aside>
   <div class="brand"><span>α</span> AlphaRank</div>
   <div class="eyebrow">PREUVE STATIQUE · REFRESH</div>
   <nav><a href="#verdict">Verdict</a><a href="#causes">Causes</a>
-  <a href="#cvc">CVC.US</a><a href="#legacy">Legacy</a>
+  <a href="#focus">{escape(str(focus["ticker"]))}</a><a href="#legacy">Legacy</a>
   <a href="#boosting">Boosting</a><a href="#data">Données</a>
   <a href="#proof">Preuves</a></nav>
   <div class="side-note">Cutoff historique<br>
@@ -71,35 +73,61 @@ def _hero(
 ) -> str:
     return f"""<header id="verdict"><div><div class="eyebrow">
 DATA REFRESH · ANALYSE CAUSALE</div><h1>Ce qui a vraiment changé</h1>
-<p class="lede">CVC.US déclenche l'arrêt final. Il n'est pas la cause des milliers
-de différences : celles-ci viennent d'un réentraînement global alimenté par le
-refresh SEC, avec un effet prix distinct et mesuré.</p></div>
+<p class="lede">Le rapport sépare les effets prix/univers et SEC sur le même code,
+la même configuration et le même runtime. Les portefeuilles sont comparés par
+titre et poids, avant toute lecture des performances agrégées.</p></div>
 <div class="status {verdict_class}"><span></span>{escape(status)}</div></header>
 {_summary_cards(headline)}"""
 
 
 def _answer_section(headline: Mapping[str, object], focus: Mapping[str, object]) -> str:
+    ticker = escape(str(focus["ticker"]))
+    scores = {str(row["scenario"]): row for row in _rows(focus, "scores")}
     return f"""<section class="answer"><div class="answer-mark">01</div><div>
-<h2>Réponse directe</h2><p><strong>Le drift Legacy est quasi entièrement SEC :</strong>
-SEC seuls reproduit {_integer(headline["legacy_sec_only_events"])} événements de position
-et il ne reste que {_integer(headline["legacy_sec_to_full_events"])} événements entre SEC
-seuls et le candidat complet. Prix seuls produit
-{_integer(headline["legacy_price_only_events"])} petits changements, détaillés plus bas.</p>
+<h2>Réponse directe</h2><p><strong>{_legacy_source_sentence(headline)} :</strong>
+prix/univers seuls produit {_integer(headline["legacy_price_only_events"])} événements
+de position et SEC seule en produit {_integer(headline["legacy_sec_only_events"])}.
+Le candidat complet est ensuite comparé aux deux ablations, sans attribution implicite.</p>
 <p><strong>Les {_integer(headline["boosting_full_changed_common"])} lignes Boosting sont des
 scores ticker-mois, pas des positions.</strong> SEC seuls modifie
 {_integer(headline["boosting_sec_score_changed"])} scores ; prix seuls en modifie
 {_integer(headline["boosting_price_score_changed"])}. Après SEC, ajouter les prix en change
 encore {_integer(headline["boosting_sec_to_full_score_changed"])}.</p>
-<p><strong>CVC est spécifiquement SEC-driven :</strong> ses prix sont identiques, mais ses
-fondamentaux passent de 0 à {_integer(_mapping(focus, "sec")["candidate_rows"])} observations
-et son rang passe de 35 à 8.</p></div></section>"""
+<p><strong>{ticker} est le cas détaillé :</strong> son rang passe de
+{_integer(scores["baseline"]["rank"])} à {_integer(scores["full"]["rank"])} ; ses prix
+et ses fondamentaux disponibles à cette décision sont détaillés ci-dessous.</p></div></section>"""
 
 
 def _causes_section(report: Mapping[str, object]) -> str:
     return f"""<section id="causes"><div class="section-head"><div><div class="eyebrow">
 ATTRIBUTION PAR ABLATION</div><h2>Quatre runs, une causalité visible</h2></div>
 <p>Chaque scénario change une seule famille de données, avec le même code, la même
-configuration et le même runtime.</p></div>{_causal_chain()}{_scenario_table(report)}</section>"""
+configuration et le même runtime.</p></div>{_causal_chain(report)}{_scenario_table(report)}</section>"""
+
+
+def _latest_portfolio_section(report: Mapping[str, object]) -> str:
+    comparison = report.get("latest_portfolio_comparison")
+    if not isinstance(comparison, dict):
+        return ""
+    exact = bool(comparison["exact_match"])
+    verdict = "strictement identique" if exact else "différent — revue obligatoire"
+    return f"""<section id="latest"><div class="section-head"><div><div class="eyebrow">
+PORTEFEUILLE EN VIGUEUR</div><h2>Décision {escape(str(comparison["decision_month"]))}</h2></div>
+<p>Cette comparaison est indépendante de la maturité du rendement du mois suivant.</p></div>
+<div class="panel"><h3>Comparaison titres et poids</h3>{
+        _table(
+            [
+                {
+                    "verdict": verdict,
+                    "lignes baseline": comparison["baseline_rows"],
+                    "lignes candidat": comparison["candidate_rows"],
+                    "ajouts": comparison["added_rows"],
+                    "retraits": comparison["removed_rows"],
+                    "poids modifiés": comparison["changed_common_rows"],
+                }
+            ]
+        )
+    }</div></section>"""
 
 
 def _focus_section(
@@ -107,18 +135,27 @@ def _focus_section(
     focus: Mapping[str, object],
     gate: str,
 ) -> str:
-    return f"""<section id="cvc"><div class="section-head"><div><div class="eyebrow">
-CAS BLOQUANT</div><h2>CVC.US : SEC change le signal, pas le prix</h2></div>
-<p>Décision juin 2016, détention juillet 2016.</p></div>
+    ticker = escape(str(focus["ticker"]))
+    decision_month = escape(str(focus["decision_month"]))
+    eyebrow = "CAS BLOQUANT" if report.get("gate_failure") else "CAS ILLUSTRATIF"
+    gate_html = (
+        f'<div class="gate"><strong>Gate exacte</strong><code>{gate}</code></div>'
+        if report.get("gate_failure")
+        else ""
+    )
+    return f"""<section id="focus"><div class="section-head"><div><div class="eyebrow">
+{eyebrow}</div><h2>{ticker} : détail du signal et des données</h2></div>
+<p>Mois de décision {decision_month}.</p></div>
 <div class="two-col"><div class="panel">{_focus_score_table(focus)}</div>
 <div class="panel">{_focus_facts(focus)}</div></div>
 <div class="panel fold-proof">{_feature_fold(report)}</div>
-<div class="gate"><strong>Gate exacte</strong><code>{gate}</code></div></section>"""
+{gate_html}</section>"""
 
 
 def _legacy_section(report: Mapping[str, object]) -> str:
+    source = _legacy_source_sentence(_mapping(report, "headline"))
     return f"""<section id="legacy"><div class="section-head"><div><div class="eyebrow">
-SIGNAL LEGACY</div><h2>Le drift Legacy vient quasi entièrement du SEC</h2></div>
+SIGNAL LEGACY</div><h2>{source}</h2></div>
 <p>Ajouts, retraits et poids modifiés sont séparés.</p></div>
 <div class="two-col"><div class="panel">{_legacy_comparison_table(report)}</div>
 <div class="panel"><h3>Événements par année</h3>{_legacy_chart(report)}</div></div>
@@ -190,14 +227,34 @@ def _summary_cards(headline: Mapping[str, object]) -> str:
     )
 
 
-def _causal_chain() -> str:
+def _legacy_source_sentence(headline: Mapping[str, object]) -> str:
+    price = _number_as_int(headline["legacy_price_only_events"])
+    sec = _number_as_int(headline["legacy_sec_only_events"])
+    if sec and sec > price * 2:
+        return "Le drift Legacy est quasi entièrement SEC"
+    if price and price > sec * 2:
+        return "Le drift Legacy canonique vient des prix et de l'univers"
+    if not price and not sec:
+        return "Le portefeuille Legacy historique est identique"
+    return "Le drift Legacy combine prix, univers et SEC"
+
+
+def _causal_chain(report: Mapping[str, object]) -> str:
+    focus = _mapping(report, "focus")
+    scores = {str(row["scenario"]): row for row in _rows(focus, "scores")}
     nodes = (
-        ("SEC", "révisions fondamentales"),
+        ("Data", "prix, univers et SEC séparés"),
         ("Legacy", "gagnants et poids"),
         ("Features", "couples EMA retenus"),
         ("Boosting", "réentraînement global"),
-        ("CVC", "rang 35 → 8"),
-        ("Gate", "publication refusée"),
+        (
+            str(focus["ticker"]),
+            f"rang {scores['baseline']['rank']} → {scores['full']['rank']}",
+        ),
+        (
+            "Gate",
+            "publication refusée" if not bool(report["promotion_allowed"]) else "passe",
+        ),
     )
     return (
         '<div class="chain">'
@@ -213,6 +270,7 @@ def _scenario_table(report: Mapping[str, object]) -> str:
     legacy = {str(row["scenario"]): row for row in _rows(report, "legacy_comparisons")}
     boosting = {str(row["scenario"]): row for row in _rows(report, "prediction_comparisons")}
     focus = _mapping(report, "focus")
+    ticker = str(focus["ticker"])
     scores = {str(row["scenario"]): row for row in _rows(focus, "scores")}
     rows = []
     for name in ("baseline", "price_only", "sec_only", "full"):
@@ -228,8 +286,8 @@ def _scenario_table(report: Mapping[str, object]) -> str:
                 "scénario": row["label"],
                 "événements Legacy": legacy_events,
                 "scores Boosting modifiés": score_changes,
-                "rang CVC": scores[name]["rank"],
-                "score CVC": _decimal(scores[name]["score"], 8),
+                f"rang {ticker}": scores[name]["rank"],
+                f"score {ticker}": _decimal(scores[name]["score"], 8),
                 "replay commun": row["common_status"],
             }
         )
@@ -262,7 +320,7 @@ def _focus_facts(focus: Mapping[str, object]) -> str:
         ("Dernier dépôt", sec["latest_filing_date"]),
     )
     return (
-        "<h3>Preuve data CVC</h3><dl>"
+        f"<h3>Preuve data {escape(str(focus['ticker']))}</h3><dl>"
         + "".join(
             f"<div><dt>{escape(str(label))}</dt><dd>{escape(str(value))}</dd></div>"
             for label, value in facts
@@ -294,7 +352,7 @@ def _feature_fold(report: Mapping[str, object]) -> str:
             ),
         }
     ]
-    return "<h3>Pourquoi Boosting change sans lire directement le SEC</h3>" + _table(rows)
+    return "<h3>Propagation possible vers Boosting</h3>" + _table(rows)
 
 
 def _legacy_comparison_table(report: Mapping[str, object]) -> str:

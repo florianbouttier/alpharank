@@ -9,6 +9,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import polars as pl
+
 from alpharank.replay.refresh_compare import (
     SNAPSHOT_TABLES,
     FrameDiff,
@@ -36,6 +38,7 @@ class ReplayAuditInputs:
     candidate_common: Path | None
     historical_cutoff: date
     common_replay_failure: str | None = None
+    latest_decision_month: date | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +124,11 @@ def audit_refresh_replay(
     output_dir.mkdir(parents=True, exist_ok=True)
     snapshot_diffs = _compare_snapshot_tables(inputs, output_dir, materiality_tolerance)
     replay_diffs = _compare_replay_tables(inputs, output_dir, materiality_tolerance)
+    latest_portfolio_diff = _compare_latest_portfolios(
+        inputs,
+        output_dir,
+        materiality_tolerance,
+    )
     provenance = _compare_provenance(inputs)
     attribution = _build_attribution(snapshot_diffs, replay_diffs, output_dir)
     status = _classify(
@@ -128,6 +136,7 @@ def audit_refresh_replay(
         replay_diffs,
         provenance,
         attribution,
+        latest_portfolio_diff=latest_portfolio_diff,
         common_replay_failure=inputs.common_replay_failure,
     )
     report = {
@@ -141,6 +150,15 @@ def audit_refresh_replay(
         "replay_comparison": [
             item[1].summary | {"stage": item[0]} for item in replay_diffs.values()
         ],
+        "latest_portfolio_comparison": (
+            latest_portfolio_diff.summary
+            | {
+                "decision_month": inputs.latest_decision_month.isoformat(),
+                "exact_match": not latest_portfolio_diff.has_historical_drift,
+            }
+            if latest_portfolio_diff is not None and inputs.latest_decision_month is not None
+            else None
+        ),
         "provenance_comparison": provenance,
         "portfolio_attribution": attribution,
         "common_replay_failure": inputs.common_replay_failure,
@@ -252,6 +270,83 @@ def _compare_replay_tables(
         diffs[table.spec.name] = (table.stage, diff)
         write_frame_diff(output_dir / "replay_diffs", table.spec.name, diff)
     return diffs
+
+
+def _compare_latest_portfolios(
+    inputs: ReplayAuditInputs,
+    output_dir: Path,
+    tolerance: float,
+) -> FrameDiff | None:
+    if inputs.latest_decision_month is None or inputs.candidate_common is None:
+        return None
+    spec = TableSpec(
+        "latest_portfolios",
+        "",
+        ("strategy", "decision_month", "holding_month", "ticker"),
+        "decision_month",
+        "ticker",
+    )
+    diff = compare_frames(
+        _read_latest_portfolios(
+            inputs.baseline_legacy,
+            inputs.baseline_common,
+            inputs.latest_decision_month,
+        ),
+        _read_latest_portfolios(
+            inputs.candidate_legacy,
+            inputs.candidate_common,
+            inputs.latest_decision_month,
+        ),
+        spec=spec,
+        historical_cutoff=None,
+        materiality_tolerance=tolerance,
+    )
+    write_frame_diff(output_dir / "latest_portfolio_diffs", spec.name, diff)
+    return diff
+
+
+def _read_latest_portfolios(
+    legacy_run: Path,
+    common_run: Path,
+    decision_month: date,
+) -> pl.DataFrame:
+    holding_month = _next_month(decision_month)
+    legacy = (
+        pl.read_parquet(legacy_run / "legacy_detailed_returns_polars.parquet")
+        .filter(
+            pl.col("portfolio_model").is_in(("Combined_Equal", "Combined_Frequency"))
+            & (pl.col("year_month").cast(pl.Date) == pl.lit(holding_month))
+        )
+        .select(
+            (pl.lit("Legacy ") + pl.col("portfolio_model")).alias("strategy"),
+            pl.lit(decision_month).alias("decision_month"),
+            pl.lit(holding_month).alias("holding_month"),
+            pl.col("ticker").cast(pl.String),
+            pl.col("weight_normalized").cast(pl.Float64).alias("target_weight"),
+        )
+    )
+    boosting = (
+        pl.read_parquet(common_run / "boosting_live_score_holdings.parquet")
+        .filter(pl.col("decision_month") == pl.lit(decision_month))
+        .select(
+            "strategy",
+            "decision_month",
+            "holding_month",
+            "ticker",
+            "target_weight",
+        )
+    )
+    if legacy.is_empty() or boosting.is_empty():
+        raise ValueError(
+            f"Missing live portfolio for decision month {decision_month} in {legacy_run}"
+        )
+    return pl.concat((legacy, boosting), how="vertical_relaxed").sort(
+        ["strategy", "decision_month", "ticker"]
+    )
+
+
+def _next_month(value: date) -> date:
+    return date(value.year + (value.month == 12), value.month % 12 + 1, 1)
 
 
 def _compare_provenance(inputs: ReplayAuditInputs) -> dict[str, Any]:
@@ -369,6 +464,7 @@ def _classify(
     provenance: dict[str, Any],
     attribution: dict[str, Any],
     *,
+    latest_portfolio_diff: FrameDiff | None,
     common_replay_failure: str | None,
 ) -> str:
     del snapshot_diffs
@@ -376,7 +472,8 @@ def _classify(
         return "common_replay_blocked"
     common_drift = replay_diffs["common_positions"][1].has_historical_drift
     legacy_drift = replay_diffs["legacy_positions"][1].has_historical_drift
-    if not common_drift and not legacy_drift:
+    latest_drift = latest_portfolio_diff is not None and latest_portfolio_diff.has_historical_drift
+    if not common_drift and not legacy_drift and not latest_drift:
         return "identical_historical_portfolios"
     provenance_same = all(
         provenance[name]
@@ -384,6 +481,8 @@ def _classify(
     )
     if not provenance_same:
         return "code_config_runtime_drift"
+    if latest_drift:
+        return "unexplained_portfolio_drift"
     if attribution["exhaustively_attributed"]:
         return "explained_data_drift"
     return "unexplained_portfolio_drift"

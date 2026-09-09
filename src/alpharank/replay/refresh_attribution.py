@@ -12,6 +12,7 @@ from typing import Mapping, Sequence
 import polars as pl
 
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
+from alpharank.replay.refresh_attribution_verdict import resolve_attribution_status
 from alpharank.replay.refresh_compare import TableSpec, compare_frames
 
 MATERIALITY_TOLERANCE = 1e-12
@@ -43,11 +44,82 @@ class RefreshAttributionInputs:
     focus_month: date = date(2016, 6, 1)
 
 
+@dataclass(frozen=True, slots=True)
+class _ComparisonContext:
+    cutoff: date
+    legacy_frames: dict[str, pl.DataFrame]
+    prediction_frames: dict[str, pl.DataFrame]
+    legacy_comparisons: list[dict[str, object]]
+    prediction_comparisons: list[dict[str, object]]
+    legacy_sec_to_full: dict[str, object]
+    boosting_sec_to_full: dict[str, object]
+    attribution: dict[str, object]
+
+
 def build_refresh_attribution(inputs: RefreshAttributionInputs) -> dict[str, object]:
     """Build display-ready evidence without changing any replay artifact."""
 
     scenarios = _scenario_map(inputs.scenarios)
     audit = _read_object(inputs.audit_report)
+    context = _build_comparison_context(audit, scenarios)
+    cutoff = context.cutoff
+    legacy_frames = context.legacy_frames
+    prediction_frames = context.prediction_frames
+    baseline_legacy = legacy_frames["baseline"]
+    baseline_predictions = prediction_frames["baseline"]
+    attribution = context.attribution
+    legacy_sec_to_full = context.legacy_sec_to_full
+    boosting_sec_to_full = context.boosting_sec_to_full
+    return {
+        "report_version": 1,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "historical_cutoff": cutoff.isoformat(),
+        "status": attribution["status"],
+        "audit_status": audit["status"],
+        "promotion_allowed": audit["promotion_allowed_by_this_gate"],
+        "gate_failure": audit.get("common_replay_failure"),
+        "causal_attribution": attribution,
+        "latest_portfolio_comparison": audit.get("latest_portfolio_comparison"),
+        "headline": _headline(
+            context.legacy_comparisons,
+            context.prediction_comparisons,
+            legacy_sec_to_full,
+            boosting_sec_to_full,
+        ),
+        "snapshot_tables": _snapshot_tables(audit),
+        "legacy_comparisons": context.legacy_comparisons,
+        "legacy_sec_to_full": legacy_sec_to_full,
+        "legacy_sec_to_full_events": _legacy_events(
+            legacy_frames["sec_only"], legacy_frames["full"]
+        )
+        .sort(LEGACY_KEYS)
+        .to_dicts(),
+        "legacy_timeline": _legacy_timeline(baseline_legacy, legacy_frames["full"]),
+        "legacy_top_tickers": _legacy_top_tickers(baseline_legacy, legacy_frames["full"]),
+        "prediction_comparisons": context.prediction_comparisons,
+        "boosting_sec_to_full": boosting_sec_to_full,
+        "score_histogram": _score_histogram(baseline_predictions, prediction_frames["full"]),
+        "top_score_movers": _top_score_movers(baseline_predictions, prediction_frames["full"]),
+        "top10_timeline": _top_n_timeline(baseline_predictions, prediction_frames["full"], 10),
+        "common_portfolios": _common_portfolio_comparisons(scenarios, cutoff),
+        "focus": _focus_evidence(inputs, audit, scenarios, prediction_frames),
+        "feature_fold": _feature_fold_evidence(scenarios, prediction_frames, inputs),
+        "scenario_statuses": [
+            {
+                "scenario": scenario.name,
+                "label": scenario.label,
+                "common_status": scenario.common_status,
+            }
+            for scenario in inputs.scenarios
+        ],
+        "provenance": _provenance(audit, inputs, scenarios),
+    }
+
+
+def _build_comparison_context(
+    audit: Mapping[str, object],
+    scenarios: Mapping[str, ScenarioArtifacts],
+) -> _ComparisonContext:
     cutoff = date.fromisoformat(str(audit["historical_cutoff"]))
     legacy_frames = {
         name: _read_legacy(scenario.legacy_run, cutoff) for name, scenario in scenarios.items()
@@ -69,55 +141,36 @@ def build_refresh_attribution(inputs: RefreshAttributionInputs) -> dict[str, obj
     legacy_sec_to_full = _compare_legacy(
         legacy_frames["sec_only"], legacy_frames["full"], "sec_only_to_full"
     )
+    legacy_price_to_full = _compare_legacy(
+        legacy_frames["price_only"], legacy_frames["full"], "price_only_to_full"
+    )
     boosting_sec_to_full = _compare_predictions(
         prediction_frames["sec_only"], prediction_frames["full"], "sec_only_to_full"
     )
-    return {
-        "report_version": 1,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "historical_cutoff": cutoff.isoformat(),
-        "status": audit["status"],
-        "promotion_allowed": audit["promotion_allowed_by_this_gate"],
-        "gate_failure": audit.get("common_replay_failure"),
-        "headline": _headline(
-            legacy_comparisons,
-            prediction_comparisons,
-            legacy_sec_to_full,
-            boosting_sec_to_full,
-        ),
-        "snapshot_tables": _snapshot_tables(audit),
-        "legacy_comparisons": legacy_comparisons,
-        "legacy_sec_to_full": legacy_sec_to_full,
-        "legacy_sec_to_full_events": _legacy_events(
-            legacy_frames["sec_only"], legacy_frames["full"]
-        )
-        .sort(LEGACY_KEYS)
-        .to_dicts(),
-        "legacy_timeline": _legacy_timeline(baseline_legacy, legacy_frames["full"]),
-        "legacy_top_tickers": _legacy_top_tickers(baseline_legacy, legacy_frames["full"]),
-        "prediction_comparisons": prediction_comparisons,
-        "boosting_sec_to_full": boosting_sec_to_full,
-        "score_histogram": _score_histogram(baseline_predictions, prediction_frames["full"]),
-        "top_score_movers": _top_score_movers(baseline_predictions, prediction_frames["full"]),
-        "top10_timeline": _top_n_timeline(baseline_predictions, prediction_frames["full"], 10),
-        "common_portfolios": _common_portfolio_comparisons(scenarios, cutoff),
-        "focus": _focus_evidence(
-            inputs,
-            audit,
-            scenarios,
-            prediction_frames,
-        ),
-        "feature_fold": _feature_fold_evidence(scenarios, prediction_frames, inputs),
-        "scenario_statuses": [
-            {
-                "scenario": scenario.name,
-                "label": scenario.label,
-                "common_status": scenario.common_status,
-            }
-            for scenario in inputs.scenarios
-        ],
-        "provenance": _provenance(audit, inputs, scenarios),
-    }
+    boosting_price_to_full = _compare_predictions(
+        prediction_frames["price_only"], prediction_frames["full"], "price_only_to_full"
+    )
+    common_effects_additive = _common_effects_are_additive(scenarios, cutoff)
+    attribution = resolve_attribution_status(
+        audit,
+        legacy_comparisons,
+        prediction_comparisons,
+        legacy_sec_to_full,
+        legacy_price_to_full,
+        boosting_sec_to_full,
+        boosting_price_to_full,
+        common_effects_additive,
+    )
+    return _ComparisonContext(
+        cutoff=cutoff,
+        legacy_frames=legacy_frames,
+        prediction_frames=prediction_frames,
+        legacy_comparisons=legacy_comparisons,
+        prediction_comparisons=prediction_comparisons,
+        legacy_sec_to_full=legacy_sec_to_full,
+        boosting_sec_to_full=boosting_sec_to_full,
+        attribution=attribution,
+    )
 
 
 def _scenario_map(
@@ -340,9 +393,12 @@ def _top_score_movers(
     return (
         paired.with_columns(
             (pl.col("score_candidate") - pl.col("score_baseline")).alias("score_change"),
-            (pl.col("rank_candidate") - pl.col("rank_baseline")).alias("rank_change"),
+            (
+                pl.col("rank_candidate").cast(pl.Int64) - pl.col("rank_baseline").cast(pl.Int64)
+            ).alias("rank_change"),
         )
         .with_columns(pl.col("score_change").abs().alias("absolute_score_change"))
+        .filter(pl.col("absolute_score_change") > MATERIALITY_TOLERANCE)
         .sort("absolute_score_change", descending=True)
         .head(40)
         .to_dicts()
@@ -426,6 +482,36 @@ def _common_portfolio_comparisons(
     return rows
 
 
+def _common_effects_are_additive(
+    scenarios: Mapping[str, ScenarioArtifacts],
+    cutoff: date,
+) -> bool | None:
+    if any(scenarios[name].common_run is None for name in scenarios):
+        return None
+    frames = {}
+    for name, scenario in scenarios.items():
+        assert scenario.common_run is not None
+        frames[name] = _read_common_holdings(scenario.common_run, cutoff).select(
+            *LEGACY_KEYS,
+            pl.col("target_weight").alias(f"weight_{name}"),
+        )
+    keys = list(LEGACY_KEYS)
+    joined = frames["baseline"].join(frames["price_only"], on=keys, how="full", coalesce=True)
+    joined = joined.join(frames["sec_only"], on=keys, how="full", coalesce=True)
+    joined = joined.join(frames["full"], on=keys, how="full", coalesce=True)
+    differences = joined.fill_null(0.0).select(
+        (
+            pl.col("weight_full")
+            - pl.col("weight_price_only")
+            - pl.col("weight_sec_only")
+            + pl.col("weight_baseline")
+        )
+        .abs()
+        .alias("difference")
+    )
+    return not differences.filter(pl.col("difference") > MATERIALITY_TOLERANCE).height
+
+
 def _read_common_holdings(run_dir: Path, cutoff: date) -> pl.DataFrame:
     path = run_dir / "comparison_common_holdings.parquet"
     frame = pl.read_parquet(path).filter(pl.col("decision_month") <= pl.lit(cutoff))
@@ -467,11 +553,13 @@ def _focus_evidence(
             baseline_snapshot,
             candidate_snapshot,
             inputs.focus_ticker,
+            inputs.focus_month,
         ),
         "sec": _focus_sec_evidence(
             baseline_snapshot,
             candidate_snapshot,
             inputs.focus_ticker,
+            inputs.focus_month,
         ),
     }
 
@@ -480,14 +568,14 @@ def _focus_price_evidence(
     baseline_snapshot: Path,
     candidate_snapshot: Path,
     ticker: str,
+    decision_month: date,
 ) -> dict[str, object]:
     spec = TableSpec("focus_price", "US_Finalprice.parquet", ("ticker", "date"), "date")
-    baseline = pl.read_parquet(baseline_snapshot / spec.relative_path).filter(
-        pl.col("ticker") == ticker
+    eligible = (pl.col("ticker") == ticker) & (
+        pl.col("date").cast(pl.Date).dt.truncate("1mo") <= pl.lit(decision_month)
     )
-    candidate = pl.read_parquet(candidate_snapshot / spec.relative_path).filter(
-        pl.col("ticker") == ticker
-    )
+    baseline = pl.read_parquet(baseline_snapshot / spec.relative_path).filter(eligible)
+    candidate = pl.read_parquet(candidate_snapshot / spec.relative_path).filter(eligible)
     diff = compare_frames(
         baseline,
         candidate,
@@ -507,6 +595,7 @@ def _focus_sec_evidence(
     baseline_snapshot: Path,
     candidate_snapshot: Path,
     ticker: str,
+    decision_month: date,
 ) -> dict[str, object]:
     tables = (
         ("income_statement", "US_Income_statement.parquet", "filing_date"),
@@ -517,9 +606,14 @@ def _focus_sec_evidence(
     rows = []
     latest_dates: list[date] = []
     for name, filename, filing_column in tables:
-        baseline = pl.read_parquet(baseline_snapshot / filename).filter(pl.col("ticker") == ticker)
+        available = pl.col(filing_column).cast(pl.String).str.to_date(strict=False).dt.truncate(
+            "1mo"
+        ) <= pl.lit(decision_month)
+        baseline = pl.read_parquet(baseline_snapshot / filename).filter(
+            (pl.col("ticker") == ticker) & available
+        )
         candidate = pl.read_parquet(candidate_snapshot / filename).filter(
-            pl.col("ticker") == ticker
+            (pl.col("ticker") == ticker) & available
         )
         filing_dates = candidate.select(
             pl.col(filing_column).cast(pl.String).str.to_date(strict=False).alias("filing_date")
@@ -630,6 +724,9 @@ def _provenance(
         "audit_report_sha256": _sha256(inputs.audit_report),
         "report_builder_sha256": {
             "refresh_attribution.py": _sha256(Path(__file__)),
+            "refresh_attribution_verdict.py": _sha256(
+                Path(__file__).with_name("refresh_attribution_verdict.py")
+            ),
             "refresh_replay_html.py": _sha256(reporting_module),
         },
         "all_code_identical": comparison["all_code_identical"],

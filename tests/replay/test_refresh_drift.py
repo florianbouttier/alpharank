@@ -182,6 +182,38 @@ def test_complete_audit_accepts_identical_historical_portfolios(tmp_path: Path) 
     assert report["portfolio_attribution"]["portfolio_drift_rows"] == 0
 
 
+def test_complete_audit_compares_latest_portfolios_without_realized_return(
+    tmp_path: Path,
+) -> None:
+    inputs = replace(
+        _complete_fixture(tmp_path),
+        latest_decision_month=date(2020, 1, 1),
+    )
+    _write_latest_portfolios(inputs)
+
+    report = audit_refresh_replay(inputs, tmp_path / "audit")
+
+    latest = report["latest_portfolio_comparison"]
+    assert latest["decision_month"] == "2020-01-01"
+    assert latest["exact_match"]
+    assert latest["baseline_rows"] == latest["candidate_rows"] == 3
+
+
+def test_complete_audit_blocks_latest_portfolio_drift(tmp_path: Path) -> None:
+    inputs = replace(
+        _complete_fixture(tmp_path),
+        latest_decision_month=date(2020, 1, 1),
+    )
+    _write_latest_portfolios(inputs)
+    path = inputs.candidate_common / "boosting_live_score_holdings.parquet"
+    pl.read_parquet(path).with_columns(pl.lit("B").alias("ticker")).write_parquet(path)
+
+    report = audit_refresh_replay(inputs, tmp_path / "audit")
+
+    assert report["status"] == "unexplained_portfolio_drift"
+    assert not report["latest_portfolio_comparison"]["exact_match"]
+
+
 def test_complete_audit_retains_a_common_replay_gate_failure(tmp_path: Path) -> None:
     inputs = replace(
         _complete_fixture(tmp_path),
@@ -354,6 +386,31 @@ def _write_replay_artifacts(roots: dict[str, Path]) -> None:
         holdings.write_parquet(roots[label] / "comparison_common_holdings.parquet")
         monthly.write_parquet(roots[label] / "comparison_common_monthly.parquet")
         _write_manifest(roots[label] / "manifest.json")
+
+
+def _write_latest_portfolios(inputs: ReplayAuditInputs) -> None:
+    legacy = pl.DataFrame(
+        {
+            "portfolio_model": ["Combined_Equal", "Combined_Frequency"],
+            "year_month": [date(2020, 2, 1), date(2020, 2, 1)],
+            "ticker": ["A", "A"],
+            "weight_normalized": [1.0, 1.0],
+        }
+    )
+    boosting = pl.DataFrame(
+        {
+            "strategy": ["Boosting Top 5"],
+            "decision_month": [date(2020, 1, 1)],
+            "holding_month": [date(2020, 2, 1)],
+            "ticker": ["A"],
+            "target_weight": [1.0],
+        }
+    )
+    for run in (inputs.baseline_legacy, inputs.candidate_legacy):
+        legacy.write_parquet(run / "legacy_detailed_returns_polars.parquet")
+    for run in (inputs.baseline_common, inputs.candidate_common):
+        assert run is not None
+        boosting.write_parquet(run / "boosting_live_score_holdings.parquet")
 
 
 def _write_manifest(path: Path) -> None:

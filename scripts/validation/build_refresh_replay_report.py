@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date
 from pathlib import Path
 
 from alpharank.replay.refresh_attribution import (
@@ -25,6 +26,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--price-only-common", type=Path, required=True)
     parser.add_argument("--sec-only-legacy", type=Path, required=True)
     parser.add_argument("--sec-only-boosting", type=Path, required=True)
+    parser.add_argument("--sec-only-common", type=Path)
+    parser.add_argument("--focus-ticker", default="CVC.US")
+    parser.add_argument("--focus-month", type=date.fromisoformat, default=date(2016, 6, 1))
     parser.add_argument("--output-html", type=Path, required=True)
     parser.add_argument("--output-json", type=Path)
     return parser.parse_args()
@@ -36,6 +40,8 @@ def main() -> int:
     args = parse_args()
     audit = _read_audit(args.audit_report)
     paths = _audit_paths(audit)
+    full_common = paths.get("candidate_common")
+    gate_failure = str(audit.get("common_replay_failure") or "")
     scenarios = (
         ScenarioArtifacts(
             "baseline",
@@ -58,18 +64,25 @@ def main() -> int:
             "Prix baseline + SEC candidat",
             args.sec_only_legacy,
             args.sec_only_boosting,
-            "bloqué sur CVC.US",
+            "passe" if args.sec_only_common else "bloqué avant replay commun",
+            args.sec_only_common,
         ),
         ScenarioArtifacts(
             "full",
             "Prix candidats + SEC candidat",
             paths["candidate_legacy"],
             paths["candidate_boosting"],
-            "bloqué sur CVC.US",
+            "passe" if full_common else gate_failure or "bloqué avant replay commun",
+            full_common,
         ),
     )
     report = build_refresh_attribution(
-        RefreshAttributionInputs(audit_report=args.audit_report, scenarios=scenarios)
+        RefreshAttributionInputs(
+            audit_report=args.audit_report,
+            scenarios=scenarios,
+            focus_ticker=args.focus_ticker,
+            focus_month=args.focus_month,
+        )
     )
     serialized = json.dumps(report, indent=2, sort_keys=True, default=str) + "\n"
     normalized = json.loads(serialized)
@@ -105,7 +118,10 @@ def _audit_paths(audit: dict[str, object]) -> dict[str, Path]:
     missing = [name for name in required if not raw.get(name)]
     if missing:
         raise ValueError(f"Audit report lacks replay paths: {missing}")
-    return {name: Path(str(raw[name])) for name in required}
+    paths = {name: Path(str(raw[name])) for name in required}
+    if raw.get("candidate_common"):
+        paths["candidate_common"] = Path(str(raw["candidate_common"]))
+    return paths
 
 
 if __name__ == "__main__":

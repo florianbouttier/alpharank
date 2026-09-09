@@ -48,6 +48,14 @@ La comparaison historique s'arrête au minimum de ces cutoffs. Les nouvelles
 dates ajoutées par le refresh sont rapportées séparément et ne peuvent pas
 faire apparaître artificiellement un drift du passé.
 
+Le dernier mois de portefeuille commun est contrôlé séparément du dernier mois
+dont le rendement est mûr. Si un portefeuille avait déjà été formé avant le
+refresh mais que son mois de détention n'est pas encore complet, ses titres et
+poids sont tout de même comparés exactement avec
+`--latest-decision-month`. Un portefeuille formé uniquement grâce aux nouvelles
+données est publié comme portefeuille courant, sans inventer de baseline ni de
+performance réalisée.
+
 ## 4. Chaîne de comparaison obligatoire
 
 Le rapport rapproche dans cet ordre :
@@ -64,6 +72,11 @@ Le rapport rapproche dans cet ordre :
    rendement avec la clé
    `(strategy, decision_month, holding_month, ticker)` ;
 8. **simulation** : rendement brut/net, turnover, coûts et benchmark commun.
+
+Le point 7 produit deux contrôles distincts : la trajectoire dont le rendement
+est mûr au `--historical-cutoff`, puis le portefeuille exact déjà formé au
+`--latest-decision-month`. Un match courant exige zéro ajout, zéro retrait et
+zéro changement de poids au seuil déclaré.
 
 Pour chaque position différente, le rapport donne le premier étage où la
 divergence apparaît et les clés data candidates qui l'expliquent. Une révision
@@ -100,6 +113,8 @@ Un run conserve sous une seule racine identifiée :
 - les manifestes des deux snapshots et des quatre runs comparés ;
 - les différences d'univers, scores, positions, poids et rendements ;
 - `refresh_replay_report.json`, conclusion machine-lisible unique ;
+- la comparaison du dernier portefeuille commun, avec sa date de décision,
+  ses nombres de lignes et ses écarts de clés ou de poids ;
 - `refresh_replay_attribution.json`, séparation machine-lisible des effets prix
   et SEC lorsque les signaux historiques dérivent ;
 - `refresh_replay_report.html`, vue humaine autonome de la conclusion, des
@@ -158,6 +173,7 @@ python scripts/validation/audit_refresh_replay.py \
   --baseline-common <replay-commun-publie> \
   --candidate-common <replay-commun-candidat> \
   --historical-cutoff YYYY-MM-DD \
+  --latest-decision-month YYYY-MM-DD \
   --output-dir <racine-audit>
 ```
 
@@ -196,9 +212,15 @@ python scripts/validation/build_refresh_replay_report.py \
   --price-only-common <replay-commun-prix-seuls> \
   --sec-only-legacy <run-legacy-sec-seuls> \
   --sec-only-boosting <run-boosting-sec-seuls> \
+  --sec-only-common <replay-commun-sec-seuls> \
+  --focus-ticker <ticker-diagnostique> \
+  --focus-month YYYY-MM-DD \
   --output-html <audit>/refresh_replay_report.html \
   --output-json <audit>/refresh_replay_attribution.json
 ```
 
-Le scénario SEC-seul peut rester bloqué avant publication commune : ses
-signaux sont comparés, mais aucune table de portefeuille refusée n'est inventée.
+Si le scénario SEC-seul reste bloqué avant publication commune, l'option
+`--sec-only-common` est omise : ses signaux sont comparés, mais aucune table de
+portefeuille refusée n'est inventée. Quand les quatre replays communs passent,
+le rapport vérifie en plus que les effets prix-seuls et SEC-seuls reconstituent
+exactement le candidat complet avant de conclure à un drift expliqué.
