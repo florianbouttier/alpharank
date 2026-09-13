@@ -38,6 +38,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `backtest_performance_report_20260830_current_portfolio.md` : séparation entre
   les performances réalisées jusqu'en juillet et le portefeuille d'août encore
   en vigueur au 28 août, avec lignée, parité et preuve de publication.
+- `backtest_performance_report_20260914_studio.md` : studio unifié pour comparer
+  stratégies et compositions dans le même panneau, avec écarts SPY, trois vues
+  graphiques synchronisées et preuve de publication byte-identique.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

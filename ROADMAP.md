@@ -104,7 +104,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 65 | `DATA-034` | atomiser la gate d'identité du snapshot composé | lot DATA ci-dessous | fait |
 | 66 | `REPLAY-008` | rejouer le candidat du 8 septembre et auditer les portefeuilles passés et courants | lot REPLAY ci-dessous | fait |
 | 67 | `REPORT-012` | réunir comparaison simple et portefeuille composé dans un studio unique | lot REPORT ci-dessous | fait |
-| 68 | `REPORT-013` | publier le studio de comparaison unifié dans Portfolio | lot REPORT ci-dessous | à faire |
+| 68 | `REPORT-013` | publier le studio de comparaison unifié dans Portfolio | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -695,7 +695,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-010` | afficher le portefeuille en vigueur après le dernier mois de performance réalisé | fait | panier Legacy et Boosting du mois courant exposé séparément, date de marché explicite, rendement non réalisé visible et calendrier des KPI inchangé |
 | `REPORT-011` | publier le portefeuille en vigueur au 28 août dans Portfolio | fait | artefact SATS/ECHO régénéré avec preuve de marché du 28 août, copie site byte-identique, build et QA du panier courant ; preuve `docs/research/backtest_performance_report_20260830_current_portfolio.md` |
 | `REPORT-012` | centraliser stratégies, composition, cartes et graphiques dans un même studio | fait | mode simple/composé sans changement de page, SPY permanent, période commune, écarts visibles et vues performance/drawdown/relative synchronisées ; payload économique inchangé, hash `a91a6f…ad3` |
-| `REPORT-013` | publier le studio unifié et sa preuve dans Portfolio | à faire | source, copie publique et build byte-identiques ; navigation, composition et changements de vue vérifiés sur l'artefact réellement servi |
+| `REPORT-013` | publier le studio unifié et sa preuve dans Portfolio | fait | source, copie publique et build byte-identiques au hash `46db35…5bba` ; build et runtime DOM validés, preuve `docs/research/backtest_performance_report_20260914_studio.md` |
 
 ### Détail de `REPORT-001`
 
@@ -934,8 +934,12 @@ doublons exacts et preuve de récupération.
 - **Acceptation** : HTML source, copie publique et build sont byte-identiques ;
   période, sélection, composition, cartes et graphiques répondent dans la copie
   réellement servie, sans erreur console.
-- **Validations** : hashes, build Vite, route locale, QA navigateur et contrôles
-  documentaires des deux dépôts.
+- **Validations** : HTML source/public/build byte-identiques au hash
+  `46db35…5bba`, manifeste source/public byte-identique, build Vite et runtime
+  DOM passés. La navigation automatisée `file://` a été refusée par la politique
+  du navigateur ; la preuve documente explicitement cette limite et les
+  contrôles substitutifs. Le validateur Portfolio reste rouge sur le dossier
+  utilisateur non suivi `frontend/public/research/downloads/`, hors commit.
 - **Impact** : publication d'une nouvelle projection du même replay ; aucun
   résultat économique source ne change.
 - **Rollback** : restaurer la copie publique précédente ; le rapport source
