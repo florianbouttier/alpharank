@@ -233,7 +233,7 @@ def build_performance_report_payload(
             "benchmark": "SPY total return depuis adjusted_close",
             "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
             "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
-            "report_task": "REPORT-010",
+            "report_task": "REPORT-012",
         },
         "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
     }

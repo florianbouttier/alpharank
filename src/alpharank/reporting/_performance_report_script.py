@@ -34,7 +34,6 @@ const METRICS = {
   average_maximum_sector_weight: ["Poids secteur max moyen", "pct", "Moyenne du secteur le plus concentré chaque mois."],
   maximum_sector_weight: ["Poids secteur maximal", "pct", "Concentration sectorielle mensuelle maximale."],
 };
-const CORE_METRICS = ["cagr", "total_return", "annualized_volatility", "max_drawdown", "sharpe", "sortino"];
 const BENCHMARK_STRATEGY = "SPY · Total return";
 const DEFAULT_CURVE_STRATEGIES = ["Legacy · Frequency", "Boosting tendance · Top 5", BENCHMARK_STRATEGY];
 const METRIC_DIRECTIONS = {
@@ -50,7 +49,17 @@ const METRIC_DIRECTIONS = {
   average_maximum_sector_weight: "lower", maximum_sector_weight: "lower",
 };
 const VIRIDIS = [[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
-const state = { data: null, start: null, end: null, curves: [], composerStrategies: [], matrixMetric: "cagr", page: 0 };
+const state = {
+  data: null,
+  start: null,
+  end: null,
+  curves: [],
+  composerStrategies: [],
+  analysisMode: "strategies",
+  chartView: "wealth",
+  matrixMetric: "cagr",
+  page: 0,
+};
 
 async function decodePayload() {
   const bytes = Uint8Array.from(atob(PAYLOAD_GZIP_BASE64), value => value.charCodeAt(0));
@@ -92,10 +101,6 @@ function comparisonState(field, strategy, value) {
   return beats ? "beats" : "trails";
 }
 
-function comparisonMark(status) {
-  return status === "beats" ? "↑ SPY" : status === "trails" ? "↓ SPY" : status === "equal" ? "= SPY" : status === "benchmark" ? "Référence" : "";
-}
-
 function initializeControls() {
   const D = state.data;
   state.start = D.calendar.start;
@@ -111,6 +116,7 @@ function initializeControls() {
   for (const id of ["start-month","end-month"]) document.getElementById(id).addEventListener("change", updatePeriod);
   for (const id of ["portfolio-strategy","portfolio-month","ticker-search"]) document.getElementById(id).addEventListener(id === "ticker-search" ? "input" : "change", () => { state.page=0; renderHoldings(); });
   document.getElementById("current-portfolio-strategy").addEventListener("change", renderCurrentPortfolio);
+  initializeStudioControls();
   renderCurveOptions();
   document.getElementById("select-all-curves").addEventListener("click", () => setCurveStrategies(D.strategy_order));
   document.getElementById("select-reference-curves").addEventListener("click", () => setCurveStrategies(["Legacy · Frequency", BENCHMARK_STRATEGY]));
@@ -128,7 +134,8 @@ function initializeControls() {
 
 function renderCurveOptions() {
   const container = document.getElementById("curve-options");
-  container.innerHTML = state.data.strategies.map((item, index) => `
+  container.innerHTML = state.data.strategies.map((item, index) => ({item,index}))
+    .filter(({item}) => item.label !== BENCHMARK_STRATEGY).map(({item,index}) => `
     <label class="curve-option">
       <input type="checkbox" data-curve-index="${index}" ${state.curves.includes(item.label) ? "checked" : ""}>
       <i style="background:${item.color}"></i><span>${escapeHtml(item.label)}</span>
@@ -136,7 +143,7 @@ function renderCurveOptions() {
   container.querySelectorAll("input").forEach(input => input.addEventListener("change", () => {
     const label = state.data.strategies[Number(input.dataset.curveIndex)].label;
     const next = input.checked ? [...state.curves, label] : state.curves.filter(value => value !== label);
-    if (!next.length) { input.checked = true; return; }
+    if (!next.some(value => value !== BENCHMARK_STRATEGY)) { input.checked = true; return; }
     setCurveStrategies(next);
   }));
   updateCurveSummary();
@@ -144,20 +151,19 @@ function renderCurveOptions() {
 
 function setCurveStrategies(strategies) {
   const selected = new Set(strategies);
+  selected.add(BENCHMARK_STRATEGY);
   state.curves = state.data.strategy_order.filter(strategy => selected.has(strategy));
   document.querySelectorAll("[data-curve-index]").forEach(input => {
     input.checked = state.curves.includes(state.data.strategies[Number(input.dataset.curveIndex)].label);
   });
   updateCurveSummary();
-  renderKpis();
-  renderMetricTable();
-  drawPerformance();
-  drawDrawdown();
-  renderMatrices();
+  renderStudio();
 }
 
 function updateCurveSummary() {
-  document.getElementById("curve-select-label").textContent = `${state.curves.length} / ${state.data.strategy_order.length} stratégies`;
+  const selected = state.curves.filter(strategy => strategy !== BENCHMARK_STRATEGY).length;
+  const available = state.data.strategy_order.length - 1;
+  document.getElementById("curve-select-label").textContent = `${selected} / ${available} stratégies + SPY`;
 }
 
 function updatePeriod() {
@@ -182,51 +188,11 @@ function resetWindow() {
 
 function renderPeriod() {
   document.getElementById("window-label").textContent = `${monthLabel(state.start)} → ${monthLabel(state.end)}`;
-  renderKpis();
-  renderMetricTable();
-  drawPerformance();
-  drawDrawdown();
-  renderMatrices();
-  renderComposer();
-}
-
-function renderKpis() {
-  document.getElementById("kpi-grid").innerHTML = CORE_METRICS.map(field => {
-    const [label,type] = METRICS[field];
-    const strategies = state.curves.map(strategy => {
-      const value = metricValue(strategy, field);
-      const status = comparisonState(field, strategy, value);
-      return `<div class="kpi-strategy-row comparison-${status}">
-        <span class="strategy-name"><i style="background:${strategyMeta(strategy).color}"></i>${escapeHtml(strategy)}</span>
-        <strong>${format(value,type)}</strong><small>${comparisonMark(status)}</small>
-      </div>`;
-    }).join("");
-    return `<article class="kpi-card"><header><span>${label}</span><small>Référence SPY</small></header><div class="kpi-strategy-list">${strategies}</div></article>`;
-  }).join("");
-}
-
-function renderMetricTable() {
-  const rows = currentMetricRows();
-  const table = document.querySelector(".metric-table");
-  table.style.minWidth = `${Math.max(760, 460 + state.curves.length * 148)}px`;
-  document.getElementById("metric-head").innerHTML = `<th>KPI</th>${state.curves.map(strategy => `<th class="${strategy===BENCHMARK_STRATEGY?"benchmark-head":""}"><i style="background:${strategyMeta(strategy).color}"></i>${escapeHtml(strategy)}</th>`).join("")}<th>Définition</th>`;
-  document.getElementById("metric-body").innerHTML = state.data.metric_fields.map((field,index) => {
-    const [label,type,definition] = METRICS[field] || [field,"num",""];
-    const values = state.curves.map(strategy => {
-      const value = rows[state.data.strategy_order.indexOf(strategy)]?.[index];
-      const status = comparisonState(field, strategy, value);
-      return `<td class="metric-value comparison-${status}"><strong>${format(value,type)}</strong><small>${comparisonMark(status)}</small></td>`;
-    }).join("");
-    return `<tr><td>${escapeHtml(label)}</td>${values}<td class="metric-definition">${escapeHtml(definition)}</td></tr>`;
-  }).join("");
+  renderStudio();
 }
 
 function periodMonthly(strategy) {
   return state.data.monthly.filter(row => row.strategy === strategy && row.holding_month >= state.start && row.holding_month <= state.end);
-}
-
-function chartStrategies() {
-  return state.curves;
 }
 
 function wealthSeries(strategy) {
@@ -240,105 +206,6 @@ function drawdownSeries(strategy) {
     wealth *= 1 + row.net_return; peak = Math.max(peak, wealth);
     return {date:row.holding_month, value:wealth / peak - 1};
   });
-}
-
-function drawPerformance() {
-  const series = chartStrategies().map(name => ({name, color:strategyMeta(name).color, values:wealthSeries(name)}));
-  drawLineChart(document.getElementById("wealth-chart"), series, value => `${value.toFixed(2)}×`, false);
-  renderLegend("wealth-legend", series);
-}
-
-function drawDrawdown() {
-  const series = chartStrategies().map(name => ({name, color:strategyMeta(name).color, values:drawdownSeries(name)}));
-  drawLineChart(document.getElementById("drawdown-chart"), series, value => `${(100*value).toFixed(0)}%`, true);
-  renderLegend("drawdown-legend", series);
-}
-
-function renderLegend(id, series) {
-  document.getElementById(id).innerHTML = series.map(item => `<span><i style="background:${item.color}"></i>${escapeHtml(item.name)}</span>`).join("");
-}
-
-function drawLineChart(canvas, series, tickFormat, zeroLine) {
-  const ratio = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = Math.max(600, rect.width * ratio); canvas.height = 330 * ratio;
-  const ctx = canvas.getContext("2d"); ctx.scale(ratio,ratio);
-  const W = canvas.width/ratio, H=330, pad={l:54,r:18,t:16,b:30};
-  const values = series.flatMap(item => item.values.map(point => point.value));
-  if (!values.length) return;
-  let min=Math.min(...values), max=Math.max(...values); if (min===max) {min-=.1; max+=.1;}
-  if (zeroLine) max=Math.max(0,max);
-  ctx.clearRect(0,0,W,H); ctx.font="11px IBM Plex Mono, monospace"; ctx.fillStyle="#617087";
-  ctx.strokeStyle="#e1e7ee"; ctx.lineWidth=1;
-  for (let i=0;i<5;i++) { const y=pad.t+(H-pad.t-pad.b)*i/4; const value=max-(max-min)*i/4; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.fillText(tickFormat(value),4,y+4); }
-  const length=Math.max(...series.map(item=>item.values.length));
-  series.forEach(item => { ctx.strokeStyle=item.color;ctx.lineWidth=item.name===BENCHMARK_STRATEGY?2.4:1.8;ctx.beginPath();item.values.forEach((point,index)=>{const x=pad.l+(W-pad.l-pad.r)*(length===1?0:index/(length-1));const y=pad.t+(H-pad.t-pad.b)*(max-point.value)/(max-min);index?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke(); });
-  ctx.fillStyle="#617087";ctx.textAlign="left";ctx.fillText(monthLabel(state.start),pad.l,H-8);ctx.textAlign="right";ctx.fillText(monthLabel(state.end),W-pad.r,H-8);ctx.textAlign="left";
-}
-
-function viridis(value) {
-  const x=Math.max(0,Math.min(1,value)); const scaled=x*(VIRIDIS.length-1); const i=Math.min(VIRIDIS.length-2,Math.floor(scaled)); const t=scaled-i;
-  const rgb=VIRIDIS[i].map((v,k)=>Math.round(v+(VIRIDIS[i+1][k]-v)*t)); return `rgb(${rgb.join(",")})`;
-}
-
-function matrixYears() {
-  const first = Number(state.start.slice(0,4));
-  const last = Number(state.end.slice(0,4));
-  return Array.from({length:last-first+1}, (_,index) => first+index);
-}
-
-function yearBoundary(year, side) {
-  const values = side === "start" ? state.data.calendar.available_start_months : state.data.calendar.available_end_months;
-  return values.find(value => Number(value.slice(0,4)) === year);
-}
-
-function matrixWindows(mode) {
-  const endYear = Number(state.end.slice(0,4));
-  return matrixYears().map(year => {
-    const start = yearBoundary(year, "start");
-    const end = mode === "cumulative" || year === endYear ? state.end : yearBoundary(year, "end");
-    if (!start || !end || start > end) return null;
-    const rows = state.data.metric_windows[`${start}|${end}`];
-    return rows ? {year,start,end,rows} : null;
-  }).filter(Boolean);
-}
-
-function heatmapValue(window, strategy, field) {
-  const strategyIndex = state.data.strategy_order.indexOf(strategy);
-  const metricIndex = state.data.metric_fields.indexOf(field);
-  return window.rows[strategyIndex]?.[metricIndex];
-}
-
-function renderHeatmap(id, windows, field) {
-  const values = windows.flatMap(window => state.curves.map(strategy => heatmapValue(window,strategy,field)));
-  const colorValues = values.map(value => field === "max_drawdown" ? Math.abs(value) : value).filter(Number.isFinite);
-  const min = Math.min(...colorValues), max = Math.max(...colorValues);
-  let html = `<div class="heatmap-head"></div>${windows.map(window => `<div class="heatmap-head">${window.year}</div>`).join("")}`;
-  state.curves.forEach(strategy => {
-    html += `<div class="heatmap-label">${escapeHtml(strategy)}</div>`;
-    windows.forEach(window => {
-      const shown = heatmapValue(window,strategy,field);
-      const raw = field === "max_drawdown" ? Math.abs(shown) : shown;
-      const level = Number.isFinite(raw) && max > min ? (raw-min)/(max-min) : .5;
-      const text = level > .62 ? "#172033" : "#fff";
-      const title = `${strategy} · ${monthLabel(window.start)} → ${monthLabel(window.end)}`;
-      html += `<div class="heatmap-cell" style="background:${viridis(level)};color:${text}" title="${escapeHtml(title)}">${format(shown,"pct")}</div>`;
-    });
-  });
-  const matrix = document.getElementById(id);
-  matrix.style.gridTemplateColumns = `220px repeat(${windows.length}, minmax(72px,1fr))`;
-  matrix.innerHTML = html;
-}
-
-function renderMatrices() {
-  const cumulative = matrixWindows("cumulative");
-  const incremental = matrixWindows("incremental");
-  const annualField = state.matrixMetric === "cagr" ? "total_return" : state.matrixMetric;
-  renderHeatmap("cumulative-heatmap", cumulative, state.matrixMetric);
-  renderHeatmap("incremental-heatmap", incremental, annualField);
-  document.getElementById("cumulative-matrix-window").textContent = `${monthLabel(state.start)} → ${monthLabel(state.end)} · chaque colonne repart du début de son année.`;
-  document.getElementById("cumulative-matrix-caption").textContent = state.matrixMetric === "cagr" ? "CAGR calculé de chaque année de départ jusqu'à la fin sélectionnée." : state.matrixMetric === "annualized_volatility" ? "Volatilité annualisée de chaque départ jusqu'à la fin sélectionnée." : "Profondeur du drawdown de chaque départ jusqu'à la fin sélectionnée.";
-  document.getElementById("incremental-matrix-caption").textContent = state.matrixMetric === "cagr" ? "Rendement composé de l'année isolée ; les années de bord peuvent être partielles." : state.matrixMetric === "annualized_volatility" ? "Volatilité annualisée calculée uniquement avec les mois de l'année." : "Drawdown calculé uniquement à l'intérieur de chaque année.";
 }
 
 function filteredHoldings() {
@@ -403,7 +270,7 @@ function observeNavigation() {
 async function boot() {
   try {
     state.data=await decodePayload(); document.getElementById("loading").hidden=true;document.getElementById("app").hidden=false;
-    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",()=>{drawPerformance();drawDrawdown();drawComposerCharts();});
+    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",drawStudioChart);
   } catch (error) { document.getElementById("loading").textContent=`Rapport illisible : ${error.message}`; }
 }
 boot();

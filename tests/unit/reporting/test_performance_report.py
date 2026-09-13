@@ -106,14 +106,22 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert "http://" not in html
     assert "Viridis" not in html  # The requested scale is encoded locally, not loaded.
     assert ".loading[hidden]" in html
+    assert 'id="analysis-studio"' in html
+    assert 'data-analysis-mode="strategies"' in html
+    assert 'data-analysis-mode="composer"' in html
     assert 'id="curve-multiselect"' in html
+    assert 'id="composer-multiselect"' in html
+    assert 'id="studio-kpis"' in html
+    assert 'data-chart-view="wealth"' in html
+    assert 'data-chart-view="drawdown"' in html
+    assert 'data-chart-view="relative"' in html
+    assert 'id="studio-chart"' in html
+    assert 'id="studio-chart-tooltip"' in html
+    assert 'id="studio-outcome"' in html
     assert 'id="metric-head"' in html
     assert 'id="cumulative-heatmap"' in html
     assert 'id="incremental-heatmap"' in html
     assert 'id="composer-options"' in html
-    assert 'id="composer-wealth-chart"' in html
-    assert 'id="composer-drawdown-chart"' in html
-    assert 'id="composer-relative-chart"' in html
     assert 'id="composer-correlation-matrix"' in html
     assert 'id="composer-boosting-pair"' in html
     assert 'id="current-portfolio"' in html
@@ -122,15 +130,24 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert "Portefeuille en vigueur" in html
     assert "Rendement mensuel non réalisé" in html
     assert 'id="strategy-select"' not in html
+    assert 'id="composer-wealth-chart"' not in html
+    assert 'id="composer-drawdown-chart"' not in html
+    assert 'id="composer-relative-chart"' not in html
+    assert '<section class="section" id="composer">' not in html
     assert 'matrixWindows("cumulative")' in html
     assert 'matrixWindows("incremental")' in html
-    assert "Tous les KPI des courbes affichées" in html
-    assert "state.curves.map(strategy" in html
-    assert ".chart-grid { display: grid; grid-template-columns: 1fr;" in html
+    assert "Tous les KPI de la sélection" in html
+    assert "function setAnalysisMode(mode)" in html
+    assert "function drawStudioChart()" in html
+    assert "function renderStudioOutcome()" in html
+    assert "function comparisonDeltaText(field, value, benchmark)" in html
+    assert "function studioDisplaySeries()" in html
     assert "aucun coût supplémentaire entre poches" in html
     assert "function composerMetricValue(field)" in html
     assert "function renderComposerCorrelation()" in html
     assert "function composerRelativeWealthSeries()" in html
+    ids = re.findall(r'id="([^"]+)"', html)
+    assert len(ids) == len(set(ids))
 
 
 def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:

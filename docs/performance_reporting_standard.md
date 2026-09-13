@@ -46,27 +46,37 @@ de richesse et de drawdown sont des projections graphiques des rendements
 mensuels déjà produits par le moteur ; les valeurs affichées dans les cartes et
 tableaux proviennent du cube canonique.
 
-Le multiselect accepte toute combinaison des onze séries et pilote toutes les
-vues comparatives : cartes synthétiques, courbes de richesse et de drawdown,
-colonnes du tableau complet et lignes des model cards. Une stratégie non cochée
-n'apparaît dans aucune de ces vues. Les filtres de holdings restent indépendants
-car ils servent à auditer un panier historique précis.
+Le haut du rapport constitue un studio unique. Un commutateur y alterne entre
+la comparaison de stratégies et le portefeuille composé sans changer de page,
+de période ou de panneau. Le même espace contient les sélecteurs, les cartes
+synthétiques, puis les vues graphiques performance, drawdown et richesse
+relative au SPY ; le tableau complet, les model cards et les corrélations sont
+des tiroirs repliables de ce studio plutôt que des sections redondantes plus bas.
 
-SPY reste la référence de comparaison, même lorsqu'il n'est pas coché. Une
-couleur indique une surperformance ou sous-performance uniquement lorsqu'un
-sens économique est défini : rendement et ratios plus élevés, ou risque, coûts
-et turnover plus faibles. Les métriques descriptives sans ordre économique
-restent neutres. Cette comparaison porte toujours sur la même fenêtre
-pré-calculée.
+En mode stratégies, le multiselect accepte toute combinaison des dix séries
+investissables et pilote cartes, graphique, tableau complet et model cards. SPY
+est ajouté automatiquement et ne peut pas être retiré : il reste visible comme
+référence dans chaque vue. Une stratégie non cochée n'apparaît dans aucune de
+ces vues. Les filtres de holdings restent indépendants car ils servent à auditer
+un panier historique précis.
 
-La croissance composée occupe une ligne complète. Le drawdown utilise le même
-format de graphique pleine largeur sur la ligne suivante, avec les mêmes
-couleurs, la même fenêtre et exactement les mêmes stratégies.
+Une couleur et l'écart numérique au SPY indiquent une surperformance ou
+sous-performance uniquement lorsqu'un sens économique est défini : rendement
+et ratios plus élevés, ou risque, coûts et turnover plus faibles. Les métriques
+descriptives sans ordre économique restent neutres. Cette comparaison porte
+toujours sur la même fenêtre pré-calculée ; le navigateur soustrait uniquement
+deux KPI déjà produits pour afficher leur écart, sans recalculer le KPI.
+
+Performance, drawdown et richesse relative occupent successivement le même
+graphique pleine largeur selon l'onglet choisi, avec les mêmes couleurs, la même
+fenêtre et exactement la même sélection. Le survol expose le mois et les valeurs
+des séries. La vue relative matérialise la parité SPY à 1 et distingue
+visuellement les zones de surperformance et de retard.
 
 ## Laboratoire de portefeuille composé
 
-Le rapport permet de cocher plusieurs stratégies puis de comparer leur
-portefeuille composé au SPY. Chaque mois, 100 % du capital est réparti à parts
+Le mode « Portefeuille composé » du même studio permet de cocher plusieurs
+stratégies puis de comparer leur portefeuille au SPY. Chaque mois, 100 % du capital est réparti à parts
 égales entre les poches cochées ; le poids de chaque poche vaut donc `1 / N` et
 le rééquilibrage est mensuel. Les rendements d'entrée sont les `net_return` de
 chaque stratégie, déjà diminués des frais facturés dans son propre replay.
@@ -104,7 +114,9 @@ forte mais ne prouve ni la robustesse future ni l'intérêt économique de la
 poche. Rendement, drawdown, coûts et concentration restent nécessaires pour
 l'interprétation.
 
-Le rapport expose au minimum :
+Les mêmes cartes, graphiques, tiroirs KPI et model cards sont alimentés par la
+combinaison active et SPY. La matrice de corrélation entre poches reste dans un
+tiroir propre au mode composé. Le rapport expose au minimum :
 
 - rendement total, CAGR, volatilité, Sharpe, drawdown et mois positifs ;
 - Sortino, Calmar, alpha, bêta, corrélation, tracking error et information ratio ;

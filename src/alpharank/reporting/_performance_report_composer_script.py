@@ -6,10 +6,6 @@ const COMPOSER_BOOSTING_PAIR_STRATEGIES = [
 ];
 const COMPOSER_COLOR = "#0369a1";
 const COMPOSER_NAME = "Portefeuille composé";
-const COMPOSER_DISPLAY_METRICS = [
-  "cagr", "total_return", "annualized_volatility", "max_drawdown",
-  "sharpe", "sortino", "correlation",
-];
 
 function initializeComposer() {
   const composer = state.data.portfolio_composer;
@@ -44,6 +40,7 @@ function renderComposerOptions() {
     setComposerStrategies(next);
   }));
   document.getElementById("composer-summary").textContent = `${state.composerStrategies.length} poche(s) · ${format(equalWeight,"pct")} chacune · rééquilibrage mensuel`;
+  document.getElementById("composer-select-label").textContent = `${state.composerStrategies.length} poche(s) · ${format(equalWeight,"pct")} chacune`;
 }
 
 function setComposerStrategies(strategies) {
@@ -51,7 +48,8 @@ function setComposerStrategies(strategies) {
   state.composerStrategies = available.filter(strategy => strategies.includes(strategy));
   if (!state.composerStrategies.length) state.composerStrategies = [available[0]];
   renderComposerOptions();
-  renderComposer();
+  document.getElementById("composer-multiselect").open = false;
+  renderStudio();
 }
 
 function composerMask() {
@@ -79,20 +77,6 @@ function composerComparisonState(field, value) {
   if (Math.abs(value - benchmark) < 1e-12) return "equal";
   const beats = direction === "higher" ? value > benchmark : value < benchmark;
   return beats ? "beats" : "trails";
-}
-
-function renderComposerKpis() {
-  document.getElementById("composer-kpis").innerHTML = COMPOSER_DISPLAY_METRICS.map(field => {
-    const [metricLabel,type] = METRICS[field];
-    const label = field === "correlation" ? "Corrélation mensuelle au SPY" : metricLabel;
-    const value = composerMetricValue(field);
-    const benchmark = metricValue(BENCHMARK_STRATEGY, field);
-    const status = composerComparisonState(field, value);
-    const comparison = field === "correlation"
-      ? "Pearson sur les rendements mensuels"
-      : `${comparisonMark(status)} · SPY ${format(benchmark,type)}`;
-    return `<article class="composer-kpi comparison-${status}"><span>${escapeHtml(label)}</span><strong>${format(value,type)}</strong><small>${escapeHtml(comparison)}</small></article>`;
-  }).join("");
 }
 
 function composerCorrelationValue(first, second) {
@@ -163,44 +147,4 @@ function composerRelativeWealthSeries() {
   });
 }
 
-function drawComposerCharts() {
-  if (!state.data?.portfolio_composer || !state.composerStrategies?.length) return;
-  const wealth = [
-    {name: COMPOSER_NAME, color: COMPOSER_COLOR, values: composerWealthSeries()},
-    {name: BENCHMARK_STRATEGY, color: strategyMeta(BENCHMARK_STRATEGY).color, values: wealthSeries(BENCHMARK_STRATEGY)},
-  ];
-  const drawdowns = [
-    {name: COMPOSER_NAME, color: COMPOSER_COLOR, values: composerDrawdownSeries()},
-    {name: BENCHMARK_STRATEGY, color: strategyMeta(BENCHMARK_STRATEGY).color, values: drawdownSeries(BENCHMARK_STRATEGY)},
-  ];
-  const relative = [
-    {
-      name: `${COMPOSER_NAME} ÷ SPY`,
-      color: COMPOSER_COLOR,
-      values: composerRelativeWealthSeries(),
-    },
-    {
-      name: "Parité SPY = 1",
-      color: strategyMeta(BENCHMARK_STRATEGY).color,
-      values: composerPeriodReturns().map(row => ({date: row.date, value: 1})),
-    },
-  ];
-  drawLineChart(document.getElementById("composer-wealth-chart"), wealth, value => `${value.toFixed(2)}×`, false);
-  drawLineChart(document.getElementById("composer-drawdown-chart"), drawdowns, value => `${(100*value).toFixed(0)}%`, true);
-  drawLineChart(
-    document.getElementById("composer-relative-chart"),
-    relative,
-    value => `${value.toFixed(2)}×`,
-    false,
-  );
-  renderLegend("composer-wealth-legend", wealth);
-  renderLegend("composer-drawdown-legend", drawdowns);
-  renderLegend("composer-relative-legend", relative);
-}
-
-function renderComposer() {
-  renderComposerKpis();
-  renderComposerCorrelation();
-  drawComposerCharts();
-}
 """

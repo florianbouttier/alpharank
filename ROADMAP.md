@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-09-09.**
+**Dernière mise à jour : 2026-09-14.**
 
 **Statut : seule source des priorités actives.**
 
@@ -103,6 +103,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 64 | `DATA-033` | reconstruire le RAW SEC complet depuis le package retenu et le delta | lot DATA ci-dessous | fait |
 | 65 | `DATA-034` | atomiser la gate d'identité du snapshot composé | lot DATA ci-dessous | fait |
 | 66 | `REPLAY-008` | rejouer le candidat du 8 septembre et auditer les portefeuilles passés et courants | lot REPLAY ci-dessous | fait |
+| 67 | `REPORT-012` | réunir comparaison simple et portefeuille composé dans un studio unique | lot REPORT ci-dessous | fait |
+| 68 | `REPORT-013` | publier le studio de comparaison unifié dans Portfolio | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -692,6 +694,8 @@ doublons exacts et preuve de récupération.
 | `REPORT-009` | publier les diagnostics de corrélation SATS/ECHO | fait | nouvel artefact hashé, copie Portfolio byte-identique au commit `4fdc1b5`, build et QA des corrélations et de la richesse relative |
 | `REPORT-010` | afficher le portefeuille en vigueur après le dernier mois de performance réalisé | fait | panier Legacy et Boosting du mois courant exposé séparément, date de marché explicite, rendement non réalisé visible et calendrier des KPI inchangé |
 | `REPORT-011` | publier le portefeuille en vigueur au 28 août dans Portfolio | fait | artefact SATS/ECHO régénéré avec preuve de marché du 28 août, copie site byte-identique, build et QA du panier courant ; preuve `docs/research/backtest_performance_report_20260830_current_portfolio.md` |
+| `REPORT-012` | centraliser stratégies, composition, cartes et graphiques dans un même studio | fait | mode simple/composé sans changement de page, SPY permanent, période commune, écarts visibles et vues performance/drawdown/relative synchronisées ; payload économique inchangé, hash `a91a6f…ad3` |
+| `REPORT-013` | publier le studio unifié et sa preuve dans Portfolio | à faire | source, copie publique et build byte-identiques ; navigation, composition et changements de vue vérifiés sur l'artefact réellement servi |
 
 ### Détail de `REPORT-001`
 
@@ -891,6 +895,51 @@ doublons exacts et preuve de récupération.
 - **Impact** : publication d'une nouvelle projection du même replay ; aucun
   changement économique des stratégies.
 - **Rollback** : restaurer la copie Portfolio du commit `4fdc1b5`.
+
+### Détail de `REPORT-012`
+
+- **Objectif** : permettre de comparer une ou plusieurs stratégies et de créer
+  un portefeuille composé depuis le même panneau, sans descendre vers une vue
+  redondante pour retrouver période, cartes KPI, performance ou drawdown.
+- **Périmètre** : mode simple/composé, sélecteurs synchronisés, cartes avec
+  écarts explicites au SPY, vues graphiques performance/drawdown/relative,
+  corrélations repliables, générateur statique, tests et contrat de reporting.
+- **Hors périmètre** : nouveau KPI financier, poids libres, optimisation de
+  combinaison, changement de rendement, signal, snapshot ou promotion.
+- **Acceptation** : SPY reste toujours la référence ; basculer de stratégies à
+  portefeuille composé conserve la fenêtre ; les mêmes cartes et le même
+  panneau graphique se mettent à jour ; la surperformance est lisible par sa
+  valeur et son état visuel ; aucun doublon du laboratoire ne subsiste.
+- **Validations** : 18 tests reporting, Ruff, format, syntaxe JavaScript,
+  génération réelle et contrôles documentaires passent ; le runtime DOM local
+  valide les deux modes, les trois vues, les corrélations et une fenêtre de 96
+  mois. Les sections économiques avant/après sont identiques, hash canonique
+  `a91a6ffc09976f0a7a4ea1957b4bf6d0062546495e384b060767bdf0247b7ad3`.
+  Le gate de taille ne porte plus de régression REPORT-012 ; ses deux alertes
+  restantes concernent des fichiers SEC préexistants hors diff. La QA de la
+  copie réellement servie relève de `REPORT-013`.
+- **Impact** : interaction et rendu seulement ; aucun calcul économique, poids,
+  portefeuille source, statut de modèle ou donnée n'est modifié.
+- **Rollback** : restaurer le rendu séparé de `REPORT-011` ; le payload et les
+  artefacts économiques sources restent inchangés.
+
+### Détail de `REPORT-013`
+
+- **Objectif** : rendre le studio unifié accessible depuis l'onglet Recherche
+  de Portfolio avec la preuve exacte de l'artefact servi.
+- **Périmètre** : régénération depuis le replay du 9 septembre, manifeste,
+  copie publique Portfolio, build, QA et preuve datée AlphaRank.
+- **Hors périmètre** : dashboard IBKR, déploiement externe, donnée, modèle,
+  nouvelle recommandation ou promotion de combinaison.
+- **Acceptation** : HTML source, copie publique et build sont byte-identiques ;
+  période, sélection, composition, cartes et graphiques répondent dans la copie
+  réellement servie, sans erreur console.
+- **Validations** : hashes, build Vite, route locale, QA navigateur et contrôles
+  documentaires des deux dépôts.
+- **Impact** : publication d'une nouvelle projection du même replay ; aucun
+  résultat économique source ne change.
+- **Rollback** : restaurer la copie publique précédente ; le rapport source
+  reste reproductible depuis ses chemins explicites.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

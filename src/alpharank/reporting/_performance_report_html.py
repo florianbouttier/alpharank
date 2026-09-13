@@ -5,10 +5,17 @@ import gzip
 import json
 from typing import Any
 
+from alpharank.reporting._performance_report_chart_script import (
+    PERFORMANCE_REPORT_CHART_SCRIPT,
+)
 from alpharank.reporting._performance_report_composer_script import (
     PERFORMANCE_REPORT_COMPOSER_SCRIPT,
 )
+from alpharank.reporting._performance_report_matrix_script import (
+    PERFORMANCE_REPORT_MATRIX_SCRIPT,
+)
 from alpharank.reporting._performance_report_script import PERFORMANCE_REPORT_SCRIPT
+from alpharank.reporting._performance_report_studio_script import PERFORMANCE_REPORT_STUDIO_SCRIPT
 from alpharank.reporting._performance_report_styles import PERFORMANCE_REPORT_STYLES
 
 
@@ -37,6 +44,9 @@ def render_performance_report_html(payload: dict[str, Any]) -> str:
         '<div id="app" class="shell" hidden>\n' + _sidebar() + _main() + "</div>\n"
         f"<script>const PAYLOAD_GZIP_BASE64={json.dumps(encoded)};\n"
         f"{PERFORMANCE_REPORT_COMPOSER_SCRIPT}\n"
+        f"{PERFORMANCE_REPORT_STUDIO_SCRIPT}\n"
+        f"{PERFORMANCE_REPORT_CHART_SCRIPT}\n"
+        f"{PERFORMANCE_REPORT_MATRIX_SCRIPT}\n"
         f"{PERFORMANCE_REPORT_SCRIPT}</script>\n"
         "</body>\n</html>\n"
     )
@@ -51,10 +61,7 @@ def _sidebar() -> str:
   </div>
   <nav>
     <div class="nav-label">Performance</div>
-    <a class="nav-link is-active" href="#overview">Vue d'ensemble</a>
-    <a class="nav-link" href="#kpis">Tous les KPI</a>
-    <a class="nav-link" href="#matrix">Model cards</a>
-    <a class="nav-link" href="#composer">Composer un portefeuille</a>
+    <a class="nav-link is-active" href="#overview">Studio de comparaison</a>
     <div class="nav-label">Audit</div>
     <a class="nav-link" href="#current-portfolio">Portefeuille en vigueur</a>
     <a class="nav-link" href="#portfolios">Portefeuilles historiques</a>
@@ -75,7 +82,7 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero">
     <div>
-      <span class="eyebrow">Standard de performance · REPORT-010</span>
+      <span class="eyebrow">Standard de performance · REPORT-012</span>
       <h1>Rapport de backtest complet</h1>
       <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
       calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
@@ -83,27 +90,8 @@ def _main() -> str:
     </div>
     <div class="status-badge"><strong>Statut de preuve</strong><br><span id="status-message">—</span></div>
   </header>
-  <div class="toolbar" aria-label="Filtres de performance">
-    <label>Début de la fenêtre<select id="start-month"></select></label>
-    <label>Fin de la fenêtre<select id="end-month"></select></label>
-    <div class="curve-control">
-      <span class="field-label">Courbes affichées</span>
-      <details class="multi-select" id="curve-multiselect">
-        <summary id="curve-select-label">Choisir les stratégies</summary>
-        <div class="multi-select-menu">
-          <div class="multi-select-actions">
-            <button id="select-all-curves" type="button">Toutes</button>
-            <button id="select-reference-curves" type="button">Legacy + SPY</button>
-          </div>
-          <div class="curve-options" id="curve-options"></div>
-        </div>
-      </details>
-    </div>
-    <button class="button secondary" id="reset-window" type="button">Toute la période</button>
-  </div>
 """
         + _performance_sections()
-        + _composer_section()
         + _audit_sections()
         + """
 </div></main>
@@ -112,80 +100,132 @@ def _main() -> str:
 
 
 def _performance_sections() -> str:
-    return """
-  <section class="section" id="overview">
-    <div class="section-head">
-      <div><span class="section-kicker">01 · Vue d'ensemble</span><h2>Comparaison de la fenêtre</h2></div>
-      <p id="window-label">—</p>
-    </div>
-    <div class="kpi-grid" id="kpi-grid"></div>
-    <div class="chart-grid">
-      <article class="panel"><h3>Croissance composée</h3><p class="panel-subtitle">Courbes rebasées à 1 au début de la fenêtre.</p><canvas id="wealth-chart"></canvas><div class="legend" id="wealth-legend"></div></article>
-      <article class="panel"><h3>Drawdown</h3><p class="panel-subtitle">Écart à chaque plus-haut de richesse.</p><canvas id="drawdown-chart"></canvas><div class="legend" id="drawdown-legend"></div></article>
-    </div>
-  </section>
-  <section class="section" id="kpis">
-    <div class="section-head"><div><span class="section-kicker">02 · Mesure</span><h2>Tous les KPI des courbes affichées</h2></div><p>Le multiselect pilote aussi ces colonnes. Les cellules vertes surpassent SPY selon le sens économique du KPI ; les métriques descriptives restent neutres.</p></div>
-    <div class="table-wrap"><table class="metric-table"><thead><tr id="metric-head"></tr></thead><tbody id="metric-body"></tbody></table></div>
-  </section>
-  <section class="section" id="matrix">
-    <div class="section-head"><div><span class="section-kicker">03 · Model cards</span><h2>Performance cumulée et annuelle</h2></div><p>Les années et les stratégies affichées suivent strictement la fenêtre et les courbes actives.</p></div>
-    <article class="panel">
-      <div class="matrix-controls">
-        <button class="is-active" type="button" data-matrix-metric="cagr">CAGR</button>
-        <button type="button" data-matrix-metric="annualized_volatility">Volatilité</button>
-        <button type="button" data-matrix-metric="max_drawdown">Max drawdown</button>
+    return (
+        """
+  <section class="section studio-section" id="overview">
+    <article class="analysis-studio" id="analysis-studio">
+      <div class="studio-head">
+        <div><span class="section-kicker">01 · Studio de comparaison</span><h2>Stratégies et portefeuilles, au même endroit</h2></div>
+        <div class="mode-switch" role="tablist" aria-label="Type de comparaison">
+          <button class="is-active" type="button" role="tab" aria-selected="true" data-analysis-mode="strategies">Stratégies</button>
+          <button type="button" role="tab" aria-selected="false" data-analysis-mode="composer">Portefeuille composé</button>
+        </div>
       </div>
-      <div class="matrix-block">
-        <h3>Depuis chaque année jusqu'à la fin sélectionnée</h3>
-        <p class="panel-subtitle" id="cumulative-matrix-window">—</p>
-        <div class="heatmap-wrap"><div class="heatmap" id="cumulative-heatmap"></div></div>
-        <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="cumulative-matrix-caption"></strong></div>
+"""
+        + _studio_toolbar()
+        + """
+      <div class="studio-context">
+        <strong id="window-label">—</strong>
+        <span>SPY total return reste toujours la référence.</span>
       </div>
-      <div class="matrix-block incremental-block">
-        <h3>Chaque année isolée · incrémental</h3>
-        <p class="panel-subtitle">Chaque cellule utilise seulement les mois de l'année indiquée, sans capital antérieur.</p>
-        <div class="heatmap-wrap"><div class="heatmap" id="incremental-heatmap"></div></div>
-        <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="incremental-matrix-caption"></strong></div>
-      </div>
+      <div class="studio-outcome" id="studio-outcome" aria-live="polite"></div>
+      <div class="kpi-grid" id="studio-kpis"></div>
+"""
+        + _studio_chart()
+        + _studio_drawers()
+        + """
+      <aside class="studio-contract composer-only" id="composer-contract" hidden>
+        <strong>Laboratoire post-hoc, non promu.</strong>
+        Équipondération mensuelle des poches ; rendements déjà nets de leurs frais propres et aucun coût supplémentaire entre poches. Un titre détenu par plusieurs stratégies reste exposé dans chacune.
+      </aside>
     </article>
   </section>
 """
+    )
 
 
-def _composer_section() -> str:
+def _studio_toolbar() -> str:
     return """
-  <section class="section" id="composer">
-    <div class="section-head">
-      <div><span class="section-kicker">04 · Portefeuille composé</span><h2>Combiner les stratégies et mesurer la diversification</h2></div>
-      <p>Choisissez les poches : elles reçoivent le même poids chaque mois. Le résultat est comparé au SPY sur la fenêtre active.</p>
-    </div>
-    <div class="composer-layout">
-      <article class="panel composer-selection">
-        <div class="composer-selection-head">
-          <div><h3>Stratégies incluses</h3><p class="panel-subtitle" id="composer-summary">—</p></div>
-          <div class="composer-actions"><button id="composer-reference" type="button">Legacy + tendance Top 5</button><button id="composer-boosting-pair" type="button">Boosting Top 5 + tendance</button><button id="composer-all" type="button">Toutes</button></div>
+      <div class="toolbar" aria-label="Filtres de performance">
+        <label>Début<select id="start-month"></select></label>
+        <label>Fin<select id="end-month"></select></label>
+        <div class="curve-control" id="strategy-mode-controls">
+          <span class="field-label">Stratégies comparées à SPY</span>
+          <details class="multi-select" id="curve-multiselect">
+            <summary id="curve-select-label">Choisir les stratégies</summary>
+            <div class="multi-select-menu">
+              <div class="multi-select-actions">
+                <button id="select-all-curves" type="button">Toutes</button>
+                <button id="select-reference-curves" type="button">Legacy</button>
+              </div>
+              <div class="curve-options" id="curve-options"></div>
+            </div>
+          </details>
         </div>
-        <div class="composer-options" id="composer-options"></div>
-      </article>
-      <aside class="composer-contract">
-        <strong>Règle du laboratoire</strong>
-        <p>Équipondération des stratégies cochées, rééquilibrée mensuellement. Les rendements de chaque poche sont déjà nets de leurs frais propres ; aucun coût supplémentaire entre poches n'est ajouté.</p>
-        <small>La corrélation mesure la dépendance des rendements mensuels. La richesse relative divise la richesse composée par celle du SPY : ce sont deux lectures différentes. Diagnostic post-hoc non promu ; un titre présent dans plusieurs stratégies reste exposé dans chacune de ces poches.</small>
-      </aside>
-    </div>
-    <div class="composer-kpis" id="composer-kpis"></div>
-    <article class="panel composer-correlation">
-      <h3>Corrélation mensuelle entre les poches sélectionnées</h3>
-      <p class="panel-subtitle">Corrélation de Pearson sur la fenêtre active. Proche de 0 ou négative : diversification historique plus forte ; cela ne suffit pas à rendre une poche attractive.</p>
-      <div class="table-wrap"><table id="composer-correlation-matrix"></table></div>
-    </article>
-    <div class="composer-charts">
-      <article class="panel"><h3>Croissance composée · portefeuille contre SPY</h3><p class="panel-subtitle">Courbes rebasées à 1 au début de la fenêtre.</p><canvas id="composer-wealth-chart"></canvas><div class="legend" id="composer-wealth-legend"></div></article>
-      <article class="panel"><h3>Drawdown · portefeuille contre SPY</h3><p class="panel-subtitle">Écart à chaque plus-haut de richesse, sur un graphique pleine largeur.</p><canvas id="composer-drawdown-chart"></canvas><div class="legend" id="composer-drawdown-legend"></div></article>
-      <article class="panel"><h3>Richesse relative au SPY · portefeuille ÷ SPY</h3><p class="panel-subtitle">Au-dessus de 1 : le portefeuille a davantage composé depuis le début de la fenêtre ; une pente descendante signale une sous-performance relative récente.</p><canvas id="composer-relative-chart"></canvas><div class="legend" id="composer-relative-legend"></div></article>
-    </div>
-  </section>
+        <div class="curve-control" id="composer-mode-controls" hidden>
+          <span class="field-label">Poches du portefeuille</span>
+          <details class="multi-select" id="composer-multiselect">
+            <summary id="composer-select-label">Choisir les poches</summary>
+            <div class="multi-select-menu composer-menu">
+              <p class="composer-summary" id="composer-summary">—</p>
+              <div class="multi-select-actions composer-actions">
+                <button id="composer-reference" type="button">Legacy + tendance</button>
+                <button id="composer-boosting-pair" type="button">Deux Boosting</button>
+                <button id="composer-all" type="button">Toutes</button>
+              </div>
+              <div class="composer-options" id="composer-options"></div>
+            </div>
+          </details>
+        </div>
+        <button class="button secondary" id="reset-window" type="button">Toute la période</button>
+      </div>
+"""
+
+
+def _studio_chart() -> str:
+    return """
+      <div class="studio-chart-panel">
+        <div class="chart-head">
+          <div><h3 id="studio-chart-title">Croissance composée</h3><p class="panel-subtitle" id="studio-chart-subtitle">—</p></div>
+          <div class="chart-switch" role="tablist" aria-label="Vue graphique">
+            <button class="is-active" type="button" role="tab" aria-selected="true" data-chart-view="wealth">Performance</button>
+            <button type="button" role="tab" aria-selected="false" data-chart-view="drawdown">Drawdown</button>
+            <button type="button" role="tab" aria-selected="false" data-chart-view="relative">Vs SPY</button>
+          </div>
+        </div>
+        <div class="chart-stage">
+          <canvas id="studio-chart" aria-label="Graphique de comparaison"></canvas>
+          <div class="chart-tooltip" id="studio-chart-tooltip" hidden></div>
+        </div>
+        <div class="legend" id="studio-legend"></div>
+      </div>
+"""
+
+
+def _studio_drawers() -> str:
+    return """
+      <div class="studio-drawers">
+        <details class="studio-drawer" id="full-kpis-drawer">
+          <summary><span>Tous les KPI de la sélection</span><small>33 mesures pour les stratégies · 7 pour un portefeuille composé</small></summary>
+          <div class="drawer-content"><div class="table-wrap"><table class="metric-table"><thead><tr id="metric-head"></tr></thead><tbody id="metric-body"></tbody></table></div></div>
+        </details>
+        <details class="studio-drawer" id="model-cards-drawer">
+          <summary><span>Model cards par année</span><small>Cumul depuis chaque année et années isolées</small></summary>
+          <div class="drawer-content">
+            <div class="matrix-controls">
+              <button class="is-active" type="button" data-matrix-metric="cagr">CAGR</button>
+              <button type="button" data-matrix-metric="annualized_volatility">Volatilité</button>
+              <button type="button" data-matrix-metric="max_drawdown">Max drawdown</button>
+            </div>
+            <div class="matrix-block">
+              <h3>Depuis chaque année jusqu'à la fin sélectionnée</h3>
+              <p class="panel-subtitle" id="cumulative-matrix-window">—</p>
+              <div class="heatmap-wrap"><div class="heatmap" id="cumulative-heatmap"></div></div>
+              <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="cumulative-matrix-caption"></strong></div>
+            </div>
+            <div class="matrix-block incremental-block">
+              <h3>Chaque année isolée · incrémental</h3>
+              <p class="panel-subtitle">Chaque cellule utilise seulement les mois de l'année indiquée, sans capital antérieur.</p>
+              <div class="heatmap-wrap"><div class="heatmap" id="incremental-heatmap"></div></div>
+              <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="incremental-matrix-caption"></strong></div>
+            </div>
+          </div>
+        </details>
+        <details class="studio-drawer composer-only" id="composer-correlation" hidden>
+          <summary><span>Corrélations entre les poches</span><small>Pearson sur les rendements mensuels sélectionnés</small></summary>
+          <div class="drawer-content"><div class="table-wrap"><table id="composer-correlation-matrix"></table></div></div>
+        </details>
+      </div>
 """
 
 
@@ -193,7 +233,7 @@ def _audit_sections() -> str:
     return """
   <section class="section" id="current-portfolio">
     <div class="section-head">
-      <div><span class="section-kicker">05 · Portefeuille en vigueur</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
+      <div><span class="section-kicker">02 · Portefeuille en vigueur</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
       <p>Le mois courant reste séparé des KPI tant que son rendement complet n'est pas réalisé.</p>
     </div>
     <div class="current-portfolio-meta">
@@ -210,7 +250,7 @@ def _audit_sections() -> str:
     <div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Rang</th><th>Poids cible</th><th>Score</th><th>Secteur</th><th>Votes</th></tr></thead><tbody id="current-holdings-body"></tbody></table></div>
   </section>
   <section class="section" id="portfolios">
-    <div class="section-head"><div><span class="section-kicker">06 · Historique réalisé</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
+    <div class="section-head"><div><span class="section-kicker">03 · Historique réalisé</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
     <div class="portfolio-controls">
       <label>Stratégie<select id="portfolio-strategy"></select></label>
       <label>Mois de détention<select id="portfolio-month"></select></label>
@@ -222,11 +262,11 @@ def _audit_sections() -> str:
     <div class="pager"><button id="page-prev" type="button">Précédent</button><span id="page-label">—</span><button id="page-next" type="button">Suivant</button></div>
   </section>
   <section class="section" id="methodologies">
-    <div class="section-head"><div><span class="section-kicker">07 · Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
+    <div class="section-head"><div><span class="section-kicker">04 · Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
     <div class="method-grid" id="method-grid"></div>
   </section>
   <section class="section" id="lineage">
-    <div class="section-head"><div><span class="section-kicker">08 · Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
+    <div class="section-head"><div><span class="section-kicker">05 · Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
     <div class="lineage-grid">
       <article class="lineage-card"><h3>Contrats économiques</h3><dl class="definition" id="lineage-contracts"></dl></article>
       <article class="lineage-card"><h3>Snapshot et sources</h3><dl class="definition" id="lineage-data"></dl></article>
