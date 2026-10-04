@@ -35,7 +35,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate-common", type=Path)
     parser.add_argument("--common-replay-failure")
     parser.add_argument("--historical-cutoff", type=date.fromisoformat)
-    parser.add_argument("--latest-decision-month", type=date.fromisoformat)
+    parser.add_argument(
+        "--latest-decision-month",
+        type=date.fromisoformat,
+        help="Optional assertion; must equal the latest decision month derived from the baseline.",
+    )
     return parser.parse_args()
 
 
@@ -51,7 +55,7 @@ def main() -> int:
         )
     else:
         report = audit_refresh_replay(_complete_inputs(args), args.output_dir)
-    report["audit_runtime_provenance"] = _capture_audit_provenance(args, report["status"])
+    report["audit_runtime_provenance"] = _capture_audit_provenance(args, report)
     report_path = args.output_dir / "refresh_replay_report.json"
     report_path.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",
@@ -94,7 +98,10 @@ def _complete_inputs(args: argparse.Namespace) -> ReplayAuditInputs:
     )
 
 
-def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str, object]:
+def _capture_audit_provenance(
+    args: argparse.Namespace,
+    report: dict[str, object],
+) -> dict[str, object]:
     mode = (
         "blocked_refresh"
         if args.failed_refresh_run
@@ -111,9 +118,7 @@ def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str
             "historical_cutoff": (
                 args.historical_cutoff.isoformat() if args.historical_cutoff else None
             ),
-            "latest_decision_month": (
-                args.latest_decision_month.isoformat() if args.latest_decision_month else None
-            ),
+            "latest_decision_month": _resolved_decision_month(report),
             "materiality_tolerance": 1e-12,
         },
         seeds={"comparison": "deterministic_no_randomness"},
@@ -125,7 +130,7 @@ def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str
             "src/alpharank/replay/refresh_sources.py",
         ),
         data_identifiers={
-            "status": status,
+            "status": report["status"],
             "baseline_snapshot": str(args.baseline_snapshot.resolve()),
             "candidate_snapshot": (
                 str(args.candidate_snapshot.resolve()) if args.candidate_snapshot else None
@@ -136,6 +141,11 @@ def _capture_audit_provenance(args: argparse.Namespace, status: str) -> dict[str
         },
         patch_path=args.output_dir / "runtime_git_patch.json",
     )
+
+
+def _resolved_decision_month(report: dict[str, object]) -> object:
+    stability = report.get("vintage_portfolio_stability")
+    return stability.get("decision_month") if isinstance(stability, dict) else None
 
 
 if __name__ == "__main__":

@@ -105,6 +105,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 66 | `REPLAY-008` | rejouer le candidat du 8 septembre et auditer les portefeuilles passés et courants | lot REPLAY ci-dessous | fait |
 | 67 | `REPORT-012` | réunir comparaison simple et portefeuille composé dans un studio unique | lot REPORT ci-dessous | fait |
 | 68 | `REPORT-013` | publier le studio de comparaison unifié dans Portfolio | lot REPORT ci-dessous | fait |
+| 69 | `REPLAY-009` | imposer la stabilité inter-vintages du dernier portefeuille formé | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -590,6 +591,7 @@ doublons exacts et preuve de récupération.
 | `REPLAY-006` | rejouer Legacy, Boosting et la variante tendance après l'overlay SATS/ECHO | fait | snapshot `bb1f90a9…8375` ; SATS reste rang 14 sans drift de score, son rendement mai devient +4,9131 % ; Legacy et Top 5/10 inchangés, Top 15/20 tendance calculables ; rapport HTML `28c67752…b291` |
 | `REPLAY-007` | distinguer l'extension de l'horizon data d'un changement de configuration | fait | `decision_data_completed_through_month` est exclu de la configuration économique stable ; le minimum de liquidité et les autres paramètres restent comparés ; 11 tests de drift verts |
 | `REPLAY-008` | rejouer le candidat complet et attribuer tout drift jusqu'au dernier portefeuille commun | fait | mêmes code/config/runtime ; portefeuille fin juillet exact sur 80/80 lignes ; drift de juin exhaustivement attribué aux changements S&P connus avant décision ; rapport HTML `2df8fcc0…3087`, aucune promotion automatique |
+| `REPLAY-009` | rendre obligatoire la comparaison du dernier portefeuille du run précédent à date identique | fait | date dérivée automatiquement de la baseline, comparaison titres/poids non contournable, statut explicite dans JSON/HTML et preuve réelle 80/80 ; 544 tests verts |
 
 ### Détail de `REPLAY-008`
 
@@ -616,6 +618,32 @@ doublons exacts et preuve de récupération.
   les révisions SEC conservées et restent non promues.
 - **Rollback** : ignorer le candidat et ses rapports ; la publication
   `latest.json` et tous les snapshots précédents restent inchangés.
+
+### Détail de `REPLAY-009`
+
+- **Objectif** : à chaque replay complet, reprendre automatiquement le dernier
+  portefeuille déjà formé par le run précédent et vérifier que le nouveau run,
+  rejoué à la même date de décision, produit exactement les mêmes titres et
+  poids.
+- **Périmètre** : audit baseline/candidat, résolution de la date de décision,
+  contrat JSON, rapport HTML, tests, runbook et régénération de la dernière
+  preuve disponible.
+- **Hors périmètre** : nouveau téléchargement, nouveau signal, changement de
+  snapshot, de rendement, de poids, de performance ou promotion data/modèle.
+- **Acceptation** : un audit complet avec replay commun ne peut pas omettre ce
+  contrôle ; les dates les plus récentes Legacy et Boosting de la baseline
+  doivent être alignées ; une date explicite différente est refusée ; le JSON
+  et le HTML affichent la date de décision, le mois détenu, les deux nombres de
+  lignes, ajouts, retraits, poids modifiés et verdict exact ; toute différence
+  bloque.
+- **Validations** : tests de passage, drift, date automatique, date incohérente
+  et rendu HTML ; replay du dernier audit réel ; Ruff, syntaxe HTML/JavaScript,
+  documentation et liens.
+- **Impact** : gouvernance seulement. Aucun portefeuille ni résultat économique
+  n'est recalculé autrement ; la gate empêche seulement qu'un futur run oublie
+  cette preuve.
+- **Rollback** : restaurer l'argument manuel optionnel de `REPLAY-008` ; les
+  artefacts de replay et snapshots restent immuables.
 
 ### Détail de `REPLAY-007`
 

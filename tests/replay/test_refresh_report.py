@@ -42,8 +42,11 @@ def test_refresh_report_html_is_offline_and_explains_cvc(tmp_path: Path) -> None
     report = build_refresh_attribution(
         RefreshAttributionInputs(audit_report=audit_path, scenarios=scenarios)
     )
-    report["latest_portfolio_comparison"] = {
+    report["vintage_portfolio_stability"] = {
+        "status": "passed",
+        "date_source": "baseline_live_portfolio",
         "decision_month": "2026-07-01",
+        "holding_month": "2026-08-01",
         "exact_match": True,
         "baseline_rows": 80,
         "candidate_rows": 80,
@@ -58,11 +61,33 @@ def test_refresh_report_html_is_offline_and_explains_cvc(tmp_path: Path) -> None
     html = output.read_text(encoding="utf-8")
     assert "CVC.US : détail du signal et des données" in html
     assert "Le drift Legacy est quasi entièrement SEC" in html
-    assert "PORTEFEUILLE EN VIGUEUR" in html
+    assert "STABILITÉ INTER-VINTAGES" in html
+    assert "Portefeuille d’août rejoué à la date de décision de juillet" in html
+    assert 'href="#latest">Stabilité par date</a>' in html
     assert "strictement identique" in html
     assert "Prix communs modifiés" in html
     assert "https://" not in html
     assert "filterTable" in html
+
+
+def test_refresh_report_html_discloses_blocked_vintage_check(tmp_path: Path) -> None:
+    scenarios, audit_path = _report_fixture(tmp_path)
+    report = build_refresh_attribution(
+        RefreshAttributionInputs(audit_report=audit_path, scenarios=scenarios)
+    )
+    report["vintage_portfolio_stability"] = {
+        "status": "not_evaluable_common_replay_blocked",
+        "decision_month": "2026-07-01",
+        "holding_month": "2026-08-01",
+        "exact_match": None,
+    }
+    output = tmp_path / "refresh_replay_report.html"
+
+    write_refresh_replay_html(json.loads(json.dumps(report, default=str)), output)
+
+    html = output.read_text(encoding="utf-8")
+    assert "non évaluable — replay commun bloqué" in html
+    assert "STABILITÉ INTER-VINTAGES" in html
 
 
 def test_refresh_report_checks_additive_common_portfolio_effects(tmp_path: Path) -> None:

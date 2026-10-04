@@ -124,10 +124,17 @@ def audit_refresh_replay(
     output_dir.mkdir(parents=True, exist_ok=True)
     snapshot_diffs = _compare_snapshot_tables(inputs, output_dir, materiality_tolerance)
     replay_diffs = _compare_replay_tables(inputs, output_dir, materiality_tolerance)
+    latest_decision_month = _resolve_latest_decision_month(inputs)
     latest_portfolio_diff = _compare_latest_portfolios(
         inputs,
+        latest_decision_month,
         output_dir,
         materiality_tolerance,
+    )
+    vintage_stability = _vintage_stability_summary(
+        inputs,
+        latest_decision_month,
+        latest_portfolio_diff,
     )
     provenance = _compare_provenance(inputs)
     attribution = _build_attribution(snapshot_diffs, replay_diffs, output_dir)
@@ -140,7 +147,7 @@ def audit_refresh_replay(
         common_replay_failure=inputs.common_replay_failure,
     )
     report = {
-        "contract_version": 1,
+        "contract_version": 2,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": status,
         "promotion_allowed_by_this_gate": status == "identical_historical_portfolios",
@@ -150,14 +157,9 @@ def audit_refresh_replay(
         "replay_comparison": [
             item[1].summary | {"stage": item[0]} for item in replay_diffs.values()
         ],
+        "vintage_portfolio_stability": vintage_stability,
         "latest_portfolio_comparison": (
-            latest_portfolio_diff.summary
-            | {
-                "decision_month": inputs.latest_decision_month.isoformat(),
-                "exact_match": not latest_portfolio_diff.has_historical_drift,
-            }
-            if latest_portfolio_diff is not None and inputs.latest_decision_month is not None
-            else None
+            vintage_stability if latest_portfolio_diff is not None else None
         ),
         "provenance_comparison": provenance,
         "portfolio_attribution": attribution,
@@ -274,10 +276,11 @@ def _compare_replay_tables(
 
 def _compare_latest_portfolios(
     inputs: ReplayAuditInputs,
+    decision_month: date,
     output_dir: Path,
     tolerance: float,
 ) -> FrameDiff | None:
-    if inputs.latest_decision_month is None or inputs.candidate_common is None:
+    if inputs.candidate_common is None:
         return None
     spec = TableSpec(
         "latest_portfolios",
@@ -290,12 +293,14 @@ def _compare_latest_portfolios(
         _read_latest_portfolios(
             inputs.baseline_legacy,
             inputs.baseline_common,
-            inputs.latest_decision_month,
+            decision_month,
+            require_complete=True,
         ),
         _read_latest_portfolios(
             inputs.candidate_legacy,
             inputs.candidate_common,
-            inputs.latest_decision_month,
+            decision_month,
+            require_complete=False,
         ),
         spec=spec,
         historical_cutoff=None,
@@ -305,10 +310,90 @@ def _compare_latest_portfolios(
     return diff
 
 
+def _resolve_latest_decision_month(inputs: ReplayAuditInputs) -> date:
+    """Resolve the prior run's latest formed portfolio and reject older overrides."""
+
+    boosting_path = inputs.baseline_common / "boosting_live_score_holdings.parquet"
+    if not boosting_path.is_file():
+        raise FileNotFoundError(f"Missing baseline live portfolio: {boosting_path}")
+    boosting_months = (
+        pl.read_parquet(boosting_path, columns=["decision_month"])
+        .select(pl.col("decision_month").cast(pl.Date).drop_nulls().unique().sort())
+        .get_column("decision_month")
+    )
+    if boosting_months.is_empty():
+        raise ValueError(f"Baseline live portfolio has no decision month: {boosting_path}")
+    boosting_latest = boosting_months[-1]
+    legacy_latest = _latest_legacy_decision_month(inputs.baseline_legacy)
+    if legacy_latest != boosting_latest:
+        raise ValueError(
+            "Baseline strategies disagree on their latest decision month: "
+            f"legacy={legacy_latest}, boosting={boosting_latest}"
+        )
+    latest = boosting_latest
+    if inputs.latest_decision_month is not None and inputs.latest_decision_month != latest:
+        raise ValueError(
+            f"Explicit decision month {inputs.latest_decision_month} does not match "
+            f"latest baseline decision month {latest}"
+        )
+    return latest
+
+
+def _latest_legacy_decision_month(legacy_run: Path) -> date:
+    path = legacy_run / "legacy_detailed_returns_polars.parquet"
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing baseline Legacy portfolio: {path}")
+    latest_holding = (
+        pl.read_parquet(path, columns=["portfolio_model", "year_month"])
+        .filter(pl.col("portfolio_model").is_in(("Combined_Equal", "Combined_Frequency")))
+        .select(pl.col("year_month").cast(pl.Date).max())
+        .item()
+    )
+    if latest_holding is None:
+        raise ValueError(f"Baseline Legacy portfolio has no holding month: {path}")
+    return _previous_month(latest_holding)
+
+
+def _vintage_stability_summary(
+    inputs: ReplayAuditInputs,
+    decision_month: date,
+    diff: FrameDiff | None,
+) -> dict[str, Any]:
+    holding_month = _next_month(decision_month)
+    shared = {
+        "contract_version": 1,
+        "required": True,
+        "date_source": "baseline_live_portfolio",
+        "decision_month": decision_month.isoformat(),
+        "holding_month": holding_month.isoformat(),
+        "baseline_run": str(inputs.baseline_common.resolve()),
+        "candidate_replay_run": (
+            str(inputs.candidate_common.resolve()) if inputs.candidate_common is not None else None
+        ),
+    }
+    if diff is None:
+        return shared | {
+            "status": "not_evaluable_common_replay_blocked",
+            "exact_match": None,
+            "reason": inputs.common_replay_failure,
+        }
+    exact_match = not diff.has_historical_drift
+    return (
+        diff.summary
+        | shared
+        | {
+            "status": "passed" if exact_match else "failed",
+            "exact_match": exact_match,
+        }
+    )
+
+
 def _read_latest_portfolios(
     legacy_run: Path,
     common_run: Path,
     decision_month: date,
+    *,
+    require_complete: bool,
 ) -> pl.DataFrame:
     holding_month = _next_month(decision_month)
     legacy = (
@@ -336,9 +421,10 @@ def _read_latest_portfolios(
             "target_weight",
         )
     )
-    if legacy.is_empty() or boosting.is_empty():
+    if require_complete and (legacy.is_empty() or boosting.is_empty()):
         raise ValueError(
-            f"Missing live portfolio for decision month {decision_month} in {legacy_run}"
+            f"Baseline lacks a complete live portfolio for decision month {decision_month}: "
+            f"legacy={legacy.height}, boosting={boosting.height}"
         )
     return pl.concat((legacy, boosting), how="vertical_relaxed").sort(
         ["strategy", "decision_month", "ticker"]
@@ -347,6 +433,10 @@ def _read_latest_portfolios(
 
 def _next_month(value: date) -> date:
     return date(value.year + (value.month == 12), value.month % 12 + 1, 1)
+
+
+def _previous_month(value: date) -> date:
+    return date(value.year - (value.month == 1), (value.month - 2) % 12 + 1, 1)
 
 
 def _compare_provenance(inputs: ReplayAuditInputs) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 540,
+  "node_count": 544,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -407,12 +407,16 @@
     "test_refresh_drift.py::test_complete_audit_blocks_latest_portfolio_drift",
     "test_refresh_drift.py::test_complete_audit_classifies_changed_code_before_data_attribution",
     "test_refresh_drift.py::test_complete_audit_compares_latest_portfolios_without_realized_return",
+    "test_refresh_drift.py::test_complete_audit_rejects_a_date_other_than_previous_run_latest",
+    "test_refresh_drift.py::test_complete_audit_rejects_misaligned_previous_run_strategy_dates",
+    "test_refresh_drift.py::test_complete_audit_reports_candidate_not_replayed_at_previous_date",
     "test_refresh_drift.py::test_complete_audit_retains_a_common_replay_gate_failure",
     "test_refresh_drift.py::test_mapping_differences_uses_machine_readable_paths",
     "test_refresh_drift.py::test_provenance_lists_exact_runtime_difference",
     "test_refresh_drift.py::test_stable_config_ignores_run_paths_and_data_horizon_but_preserves_policy",
     "test_refresh_report.py::test_refresh_report_checks_additive_common_portfolio_effects",
     "test_refresh_report.py::test_refresh_report_closes_raw_drift_only_after_exhaustive_ablations",
+    "test_refresh_report.py::test_refresh_report_html_discloses_blocked_vintage_check",
     "test_refresh_report.py::test_refresh_report_html_is_offline_and_explains_cvc",
     "test_refresh_report.py::test_refresh_report_separates_price_and_sec_effects",
     "test_replay_package_api.py::test_historical_replay_modules_expose_characterized_api[alpharank.boosting_v2-public_names0]",
@@ -543,7 +547,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "de9be253dfcab2fd59b08d9bb4ed5b38d9742eeeb6206cead5c4ea5fc737bde9",
+  "node_ids_sha256": "01c45ed386d0b5af984840ddd3876a6f865253b83bb42b59891d0c3c6687ad74",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

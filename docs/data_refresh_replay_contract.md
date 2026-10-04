@@ -51,10 +51,12 @@ faire apparaître artificiellement un drift du passé.
 Le dernier mois de portefeuille commun est contrôlé séparément du dernier mois
 dont le rendement est mûr. Si un portefeuille avait déjà été formé avant le
 refresh mais que son mois de détention n'est pas encore complet, ses titres et
-poids sont tout de même comparés exactement avec
-`--latest-decision-month`. Un portefeuille formé uniquement grâce aux nouvelles
-données est publié comme portefeuille courant, sans inventer de baseline ni de
-performance réalisée.
+poids sont tout de même comparés exactement. La date de décision est dérivée
+automatiquement des derniers portefeuilles Legacy et Boosting du run baseline,
+qui doivent désigner le même mois : l'opérateur ne peut ni oublier ce contrôle,
+ni choisir une date plus ancienne qui passerait plus facilement. Un portefeuille
+formé uniquement grâce aux nouvelles données est publié comme portefeuille
+courant, sans inventer de baseline ni de performance réalisée.
 
 ## 4. Chaîne de comparaison obligatoire
 
@@ -75,8 +77,10 @@ Le rapport rapproche dans cet ordre :
 
 Le point 7 produit deux contrôles distincts : la trajectoire dont le rendement
 est mûr au `--historical-cutoff`, puis le portefeuille exact déjà formé au
-`--latest-decision-month`. Un match courant exige zéro ajout, zéro retrait et
-zéro changement de poids au seuil déclaré.
+dernier `decision_month` du run précédent. Un match inter-vintages exige zéro
+ajout, zéro retrait et zéro changement de poids au seuil déclaré. Une date
+explicitement fournie ne sert que d'assertion : si elle diffère de la date
+dérivée de la baseline, l'audit échoue avant comparaison.
 
 Pour chaque position différente, le rapport donne le premier étage où la
 divergence apparaît et les clés data candidates qui l'expliquent. Une révision
@@ -113,8 +117,9 @@ Un run conserve sous une seule racine identifiée :
 - les manifestes des deux snapshots et des quatre runs comparés ;
 - les différences d'univers, scores, positions, poids et rendements ;
 - `refresh_replay_report.json`, conclusion machine-lisible unique ;
-- la comparaison du dernier portefeuille commun, avec sa date de décision,
-  ses nombres de lignes et ses écarts de clés ou de poids ;
+- `vintage_portfolio_stability`, comparaison obligatoire du dernier
+  portefeuille du run précédent, avec statut, source automatique de la date,
+  mois décidé/détenu, nombres de lignes et écarts de clés ou de poids ;
 - `refresh_replay_attribution.json`, séparation machine-lisible des effets prix
   et SEC lorsque les signaux historiques dérivent ;
 - `refresh_replay_report.html`, vue humaine autonome de la conclusion, des
@@ -144,7 +149,9 @@ ticker-mois.
    configuration scellée ;
 6. faire consommer au Boosting exactement l'`input_snapshot/` et les holdings
    Legacy du nouveau run ;
-7. exécuter le replay commun et l'audit baseline/candidat ;
+7. vérifier que les derniers portefeuilles Legacy et Boosting de la baseline
+   désignent le même mois, rejouer le candidat à ce mois automatiquement résolu,
+   puis exécuter le replay commun et l'audit ;
 8. refuser la promotion tant que le statut n'est pas recevable et toutes les
    preuves présentes.
 
@@ -173,9 +180,12 @@ python scripts/validation/audit_refresh_replay.py \
   --baseline-common <replay-commun-publie> \
   --candidate-common <replay-commun-candidat> \
   --historical-cutoff YYYY-MM-DD \
-  --latest-decision-month YYYY-MM-DD \
   --output-dir <racine-audit>
 ```
+
+`--latest-decision-month` reste accepté comme assertion de migration, jamais
+comme sélecteur : sa valeur doit être exactement celle dérivée du dernier
+portefeuille baseline. L'omettre n'omet donc plus le contrôle.
 
 Si une gate data arrête le candidat avant les modèles, le même outil produit
 la conclusion obligatoire sans lancer les backtests sur une donnée invalide :

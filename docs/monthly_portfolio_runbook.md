@@ -156,6 +156,15 @@ Legacy and Boosting on both the published snapshot and the candidate with the
 same code, parameters, seeds, runtime, historical cutoff and common portfolio
 profile.
 
+The prior run's latest already-formed portfolio is an unconditional second
+cutoff. The audit derives its `decision_month` from the baseline Legacy and
+Boosting live holdings, fails if their latest dates disagree, and replays the
+candidate at exactly that date, then compares every strategy, ticker and target
+weight. This check cannot be omitted by leaving out a CLI date; an explicit
+different date is rejected. The JSON and HTML reports must always show this
+inter-vintage verdict, including when the common replay is blocked and the
+comparison is therefore not evaluable.
+
 The gate accepts only one of these two documented outcomes:
 
 - historical holdings and weights are identical within the versioned material

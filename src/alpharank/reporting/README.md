@@ -12,7 +12,8 @@ ni commande interactive : les KPI de performance proviennent du moteur commun.
   rendu et les interactions locales du rapport ; ils ne sélectionnent aucune
   valeur fondamentale.
 - `refresh_replay_html.py` rend le rapport humain du refresh sans recalculer
-  les scores, holdings ou KPI.
+  les scores, holdings ou KPI ; sa section de stabilité inter-vintages expose
+  le dernier portefeuille du run précédent rejoué à date identique.
 - `performance_report.py` prépare la vue complète d'un replay explicitement
   nommé ; `_performance_report_html.py`, `_performance_report_styles.py` et
   `_performance_report_script.py` rendent sa structure et ses interactions

@@ -162,6 +162,10 @@ dans le trailer `Roadmap-Task`; le hash se résout avec Git.
   rejoue Legacy puis Boosting, et rapproche entrées, univers, scores, positions,
   poids et rendements. Si les portefeuilles historiques changent, chaque écart
   doit remonter à une révision data sourcée ; un écart inexpliqué bloque.
+- Tout replay complet dérive aussi automatiquement le dernier mois de décision
+  déjà formé dans le run précédent, rejoue le candidat à cette date exacte et
+  compare titres et poids. Ce contrôle inter-vintages et son rapport JSON/HTML
+  ne sont jamais optionnels, même si le rendement du mois détenu est immature.
 
 ## 10. Invariants méthodologiques
 

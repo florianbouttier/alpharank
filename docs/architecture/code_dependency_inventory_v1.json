@@ -4068,12 +4068,27 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/_performance_report_html.py",
+      "target": "src/alpharank/reporting/_performance_report_chart_script.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_html.py",
       "target": "src/alpharank/reporting/_performance_report_composer_script.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/reporting/_performance_report_html.py",
+      "target": "src/alpharank/reporting/_performance_report_matrix_script.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_html.py",
       "target": "src/alpharank/reporting/_performance_report_script.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_html.py",
+      "target": "src/alpharank/reporting/_performance_report_studio_script.py"
     },
     {
       "kind": "import",
@@ -10165,6 +10180,19 @@
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_chart_script",
+      "path": "src/alpharank/reporting/_performance_report_chart_script.py",
+      "readers": [
+        "src/alpharank/reporting/_performance_report_html.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
       "module": "alpharank.reporting._performance_report_composer_script",
       "path": "src/alpharank/reporting/_performance_report_composer_script.py",
       "readers": [
@@ -10175,8 +10203,11 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/reporting/_performance_report_chart_script.py",
         "src/alpharank/reporting/_performance_report_composer_script.py",
+        "src/alpharank/reporting/_performance_report_matrix_script.py",
         "src/alpharank/reporting/_performance_report_script.py",
+        "src/alpharank/reporting/_performance_report_studio_script.py",
         "src/alpharank/reporting/_performance_report_styles.py"
       ],
       "invokes": [],
@@ -10195,8 +10226,34 @@
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_matrix_script",
+      "path": "src/alpharank/reporting/_performance_report_matrix_script.py",
+      "readers": [
+        "src/alpharank/reporting/_performance_report_html.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
       "module": "alpharank.reporting._performance_report_script",
       "path": "src/alpharank/reporting/_performance_report_script.py",
+      "readers": [
+        "src/alpharank/reporting/_performance_report_html.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_studio_script",
+      "path": "src/alpharank/reporting/_performance_report_studio_script.py",
       "readers": [
         "src/alpharank/reporting/_performance_report_html.py"
       ]
@@ -10685,9 +10742,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 158,
-    "internal_edge_count": 817,
-    "library_count": 226,
-    "python_file_count": 391,
+    "internal_edge_count": 820,
+    "library_count": 229,
+    "python_file_count": 394,
     "script_count": 165,
     "unread_node_count": 164
   }

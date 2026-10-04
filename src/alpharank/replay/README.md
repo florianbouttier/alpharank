@@ -12,7 +12,8 @@ AlphaRank causal, comparable et recalculable :
 - `trend_eligibility.py` audite la majorité de tendance EMA causale par fold ;
 - `reconciliation.py` explique le pont économique entre méthodologies ;
 - `refresh_compare.py` compare les clés naturelles et les valeurs au cutoff ;
-- `refresh_drift.py` relie le refresh aux deux portefeuilles et bloque tout
+- `refresh_drift.py` relie le refresh aux deux portefeuilles, impose le replay
+  du dernier portefeuille live de la baseline à date identique et bloque tout
   écart non attribué ;
 - `refresh_provenance.py` détaille chaque différence de code, paramètre,
   dépendance et seed sans confondre les chemins de sortie avec la méthode ;

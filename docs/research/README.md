@@ -41,6 +41,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `backtest_performance_report_20260914_studio.md` : studio unifié pour comparer
   stratégies et compositions dans le même panneau, avec écarts SPY, trois vues
   graphiques synchronisées et preuve de publication byte-identique.
+- `portfolio_vintage_stability_20261004.md` : réexécution du dernier contrôle
+  inter-vintages, portefeuille fin juillet strictement identique sur 80/80
+  lignes, et règle automatique obligatoire pour tous les futurs replays.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

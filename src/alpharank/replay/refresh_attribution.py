@@ -71,7 +71,7 @@ def build_refresh_attribution(inputs: RefreshAttributionInputs) -> dict[str, obj
     legacy_sec_to_full = context.legacy_sec_to_full
     boosting_sec_to_full = context.boosting_sec_to_full
     return {
-        "report_version": 1,
+        "report_version": 2,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "historical_cutoff": cutoff.isoformat(),
         "status": attribution["status"],
@@ -79,6 +79,7 @@ def build_refresh_attribution(inputs: RefreshAttributionInputs) -> dict[str, obj
         "promotion_allowed": audit["promotion_allowed_by_this_gate"],
         "gate_failure": audit.get("common_replay_failure"),
         "causal_attribution": attribution,
+        "vintage_portfolio_stability": audit.get("vintage_portfolio_stability"),
         "latest_portfolio_comparison": audit.get("latest_portfolio_comparison"),
         "headline": _headline(
             context.legacy_comparisons,

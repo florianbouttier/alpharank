@@ -58,6 +58,7 @@ def _sidebar(report: Mapping[str, object]) -> str:
   <div class="brand"><span>α</span> AlphaRank</div>
   <div class="eyebrow">PREUVE STATIQUE · REFRESH</div>
   <nav><a href="#verdict">Verdict</a><a href="#causes">Causes</a>
+  <a href="#latest">Stabilité par date</a>
   <a href="#focus">{escape(str(focus["ticker"]))}</a><a href="#legacy">Legacy</a>
   <a href="#boosting">Boosting</a><a href="#data">Données</a>
   <a href="#proof">Preuves</a></nav>
@@ -106,28 +107,73 @@ configuration et le même runtime.</p></div>{_causal_chain(report)}{_scenario_ta
 
 
 def _latest_portfolio_section(report: Mapping[str, object]) -> str:
-    comparison = report.get("latest_portfolio_comparison")
+    comparison = report.get("vintage_portfolio_stability") or report.get(
+        "latest_portfolio_comparison"
+    )
     if not isinstance(comparison, dict):
         return ""
-    exact = bool(comparison["exact_match"])
-    verdict = "strictement identique" if exact else "différent — revue obligatoire"
+    exact = comparison.get("exact_match")
+    verdict = _vintage_verdict(exact)
+    decision_month = str(comparison["decision_month"])
+    holding_month = str(comparison.get("holding_month") or "")
+    title = _vintage_title(decision_month, holding_month)
     return f"""<section id="latest"><div class="section-head"><div><div class="eyebrow">
-PORTEFEUILLE EN VIGUEUR</div><h2>Décision {escape(str(comparison["decision_month"]))}</h2></div>
-<p>Cette comparaison est indépendante de la maturité du rendement du mois suivant.</p></div>
+STABILITÉ INTER-VINTAGES</div><h2>{escape(title)}</h2></div>
+<p>La date vient automatiquement du dernier portefeuille formé par le run précédent.
+Le nouveau run est rejoué à cette même date, indépendamment de la maturité du rendement.</p></div>
 <div class="panel"><h3>Comparaison titres et poids</h3>{
         _table(
             [
                 {
                     "verdict": verdict,
-                    "lignes baseline": comparison["baseline_rows"],
-                    "lignes candidat": comparison["candidate_rows"],
-                    "ajouts": comparison["added_rows"],
-                    "retraits": comparison["removed_rows"],
-                    "poids modifiés": comparison["changed_common_rows"],
+                    "lignes run précédent": comparison.get("baseline_rows", "—"),
+                    "lignes nouveau replay": comparison.get("candidate_rows", "—"),
+                    "ajouts": comparison.get("added_rows", "—"),
+                    "retraits": comparison.get("removed_rows", "—"),
+                    "poids modifiés": comparison.get("changed_common_rows", "—"),
                 }
             ]
         )
     }</div></section>"""
+
+
+def _vintage_verdict(exact_match: object) -> str:
+    if exact_match is True:
+        return "strictement identique"
+    if exact_match is False:
+        return "différent — promotion bloquée"
+    return "non évaluable — replay commun bloqué"
+
+
+def _vintage_title(decision_month: str, holding_month: str) -> str:
+    decision = _french_month(decision_month)
+    holding = _french_month(holding_month)
+    return f"Portefeuille {_french_of(holding)} rejoué à la date de décision {_french_of(decision)}"
+
+
+def _french_of(month: str) -> str:
+    return f"d’{month}" if month[:1] in "aeiouyàâäéèêëîïôöùûü" else f"de {month}"
+
+
+def _french_month(value: str) -> str:
+    names = (
+        "janvier",
+        "février",
+        "mars",
+        "avril",
+        "mai",
+        "juin",
+        "juillet",
+        "août",
+        "septembre",
+        "octobre",
+        "novembre",
+        "décembre",
+    )
+    try:
+        return names[int(value[5:7]) - 1]
+    except (ValueError, IndexError):
+        return value or "mois inconnu"
 
 
 def _focus_section(

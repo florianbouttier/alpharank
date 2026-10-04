@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from alpharank.replay.refresh_compare import TableSpec, compare_frames
 from alpharank.replay.refresh_drift import (
@@ -185,11 +186,7 @@ def test_complete_audit_accepts_identical_historical_portfolios(tmp_path: Path) 
 def test_complete_audit_compares_latest_portfolios_without_realized_return(
     tmp_path: Path,
 ) -> None:
-    inputs = replace(
-        _complete_fixture(tmp_path),
-        latest_decision_month=date(2020, 1, 1),
-    )
-    _write_latest_portfolios(inputs)
+    inputs = _complete_fixture(tmp_path)
 
     report = audit_refresh_replay(inputs, tmp_path / "audit")
 
@@ -197,14 +194,42 @@ def test_complete_audit_compares_latest_portfolios_without_realized_return(
     assert latest["decision_month"] == "2020-01-01"
     assert latest["exact_match"]
     assert latest["baseline_rows"] == latest["candidate_rows"] == 3
+    stability = report["vintage_portfolio_stability"]
+    assert stability["status"] == "passed"
+    assert stability["date_source"] == "baseline_live_portfolio"
+    assert stability["holding_month"] == "2020-02-01"
+
+
+def test_complete_audit_rejects_a_date_other_than_previous_run_latest(
+    tmp_path: Path,
+) -> None:
+    inputs = replace(
+        _complete_fixture(tmp_path),
+        latest_decision_month=date(2019, 12, 1),
+    )
+
+    with pytest.raises(ValueError, match="latest baseline decision month 2020-01-01"):
+        audit_refresh_replay(inputs, tmp_path / "audit")
+
+
+def test_complete_audit_rejects_misaligned_previous_run_strategy_dates(
+    tmp_path: Path,
+) -> None:
+    inputs = _complete_fixture(tmp_path)
+    path = inputs.baseline_legacy / "legacy_detailed_returns_polars.parquet"
+    pl.read_parquet(path).with_columns(pl.lit(date(2020, 3, 1)).alias("year_month")).write_parquet(
+        path
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="legacy=2020-02-01, boosting=2020-01-01",
+    ):
+        audit_refresh_replay(inputs, tmp_path / "audit")
 
 
 def test_complete_audit_blocks_latest_portfolio_drift(tmp_path: Path) -> None:
-    inputs = replace(
-        _complete_fixture(tmp_path),
-        latest_decision_month=date(2020, 1, 1),
-    )
-    _write_latest_portfolios(inputs)
+    inputs = _complete_fixture(tmp_path)
     path = inputs.candidate_common / "boosting_live_score_holdings.parquet"
     pl.read_parquet(path).with_columns(pl.lit("B").alias("ticker")).write_parquet(path)
 
@@ -212,6 +237,26 @@ def test_complete_audit_blocks_latest_portfolio_drift(tmp_path: Path) -> None:
 
     assert report["status"] == "unexplained_portfolio_drift"
     assert not report["latest_portfolio_comparison"]["exact_match"]
+    assert report["vintage_portfolio_stability"]["status"] == "failed"
+
+
+def test_complete_audit_reports_candidate_not_replayed_at_previous_date(
+    tmp_path: Path,
+) -> None:
+    inputs = _complete_fixture(tmp_path)
+    path = inputs.candidate_common / "boosting_live_score_holdings.parquet"
+    pl.read_parquet(path).with_columns(
+        pl.lit(date(2020, 2, 1)).alias("decision_month"),
+        pl.lit(date(2020, 3, 1)).alias("holding_month"),
+    ).write_parquet(path)
+
+    report = audit_refresh_replay(inputs, tmp_path / "audit")
+
+    stability = report["vintage_portfolio_stability"]
+    assert stability["status"] == "failed"
+    assert stability["baseline_rows"] == 3
+    assert stability["candidate_rows"] == 2
+    assert stability["removed_rows"] == 1
 
 
 def test_complete_audit_retains_a_common_replay_gate_failure(tmp_path: Path) -> None:
@@ -228,6 +273,10 @@ def test_complete_audit_retains_a_common_replay_gate_failure(tmp_path: Path) -> 
     assert report["common_replay_failure"] == (
         "Selected Boosting holding CVC.US uses a censored target."
     )
+    assert report["vintage_portfolio_stability"]["status"] == (
+        "not_evaluable_common_replay_blocked"
+    )
+    assert report["vintage_portfolio_stability"]["decision_month"] == "2020-01-01"
     assert {item["stage"] for item in report["replay_comparison"]} == {
         "legacy_portfolio",
         "legacy_simulation",
@@ -317,12 +366,14 @@ def _complete_fixture(tmp_path: Path) -> ReplayAuditInputs:
         roots[label] = tmp_path / label
         roots[label].mkdir()
     _write_replay_artifacts(roots)
-    return ReplayAuditInputs(
+    inputs = ReplayAuditInputs(
         baseline_snapshot=baseline_snapshot,
         candidate_snapshot=candidate_snapshot,
         historical_cutoff=date(2020, 1, 31),
         **roots,
     )
+    _write_latest_portfolios(inputs)
+    return inputs
 
 
 def _write_snapshot(root: Path) -> None:
