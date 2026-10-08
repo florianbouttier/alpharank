@@ -50,6 +50,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `extreme_price_moves_be_20261008.md` : revue des quatre séances BE qui
   dépassent le seuil automatique, avec OHLC, volumes, absence d'ajustement,
   contexte public et bornes exactes du registre.
+- `data_refresh_candidate_20261008.md` : téléchargement intégral du 8 octobre,
+  reconstruction SEC cumulative, gates prix et snapshot candidat commun aux
+  deux méthodes, laissé non promu avant le replay inter-vintages.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

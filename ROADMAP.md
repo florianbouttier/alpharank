@@ -109,6 +109,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 70 | `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre | lot DATA ci-dessous | fait |
 | 71 | `DATA-037` | distinguer préservation EODHD et observation fournisseur | lot DATA ci-dessous | fait |
 | 72 | `DATA-038` | qualifier les quatre mouvements extrêmes BE | lot DATA ci-dessous | fait |
+| 73 | `DATA-036` | télécharger et composer le candidat data du 8 octobre | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -349,6 +350,7 @@ change dans ce lot.
 | `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre 2026 | fait | événements officiels du 21 septembre, 1er octobre et 6 octobre versionnés ; snapshots mensuels à 503 titres, audit et 9 tests verts |
 | `DATA-037` | distinguer les clés EODHD déjà publiées des nouvelles sorties d'univers | fait | 1 200 483 clés EODHD canoniques protégées, zéro manque/transition/révision canonique sur le run réel ; 21 tests verts et quatre alertes BE correctement maintenues |
 | `DATA-038` | qualifier les quatre mouvements extrêmes BE du nouveau membre S&P | fait | quatre séances bornées aux niveaux RAW exacts, clôtures non ajustées identiques, volumes et contexte public sourcés ; toute autre valeur reste bloquante |
+| `DATA-036` | télécharger et composer le candidat data complet au 8 octobre 2026 | fait | run réseau complet `20261008_072222`, prix et SPY au 7 octobre, SEC complet cumulatif, composition `eac32074…e1fe6` validée et non promue avant `REPLAY-010` |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -551,6 +553,25 @@ doublons exacts et preuve de récupération.
   marché ; aucun historique déjà publié ni portefeuille n'est encore modifié.
 - **Rollback** : retirer ces quatre événements du registre ; le run acquis et
   ses alertes RAW restent intacts et la publication redevient bloquée.
+
+### Détail de `DATA-036`
+
+- **Objectif** : retélécharger toutes les sources déclarées au 8 octobre 2026
+  et produire un unique snapshot candidat immuable pour les deux méthodes.
+- **Périmètre** : prix Yahoo, SPY, SEC submissions/Companyfacts/documents,
+  fallbacks diagnostiques, RAW SEC cumulatif, packages prix/SEC et composition.
+- **Hors périmètre** : déplacer `data/model_inputs/manifests/latest.json`,
+  promouvoir le candidat ou conclure à la stabilité des portefeuilles.
+- **Acceptation** : les 503 membres actifs et SPY vont au 7 octobre ; les
+  anciennes clés prix restent identiques ; les versions SEC sont conservées ;
+  les gates prix, identité, fraîcheur et composition passent.
+- **Validations** : acquisition `20261008_072222`, cinq mouvements extrêmes
+  revus, zéro révision canonique ou suppression de clé, snapshot de neuf
+  fichiers revalidé et pointeur production byte-identique.
+- **Impact** : candidat `eac32074…e1fe6` disponible pour Legacy et Boosting ;
+  aucun portefeuille économique ni vérité de production ne change encore.
+- **Rollback** : ignorer le pointeur candidat local et ses outputs ; la
+  production reste sur `9a2058c9…25ad` sans opération de restauration.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
