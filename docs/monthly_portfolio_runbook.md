@@ -473,6 +473,13 @@ queried. AVB and VMRK remain distinct securities: the reviewed shareholder
 event values an AVB position as 2.793 VMRK shares and never joins the two price
 series as a one-day AVB return.
 
+For the October 2026 refresh, the same registry records the September 21
+quarterly rebalance (BE, P and ILMN replacing TAP, TTD and BLDR), then the
+October additions of VYLR and TWLO and removals of CTVA and WBD. The VYLR
+announcement exposes only an October 1 publication date, so its knowledge time
+is conservatively set to the end of that day; no earlier decision may observe
+it. September and October snapshots each retain 503 members.
+
 The resulting full ingestion is production-clean only when:
 
 - every current constituent has a non-null adjusted price through the same

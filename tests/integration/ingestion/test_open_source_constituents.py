@@ -132,6 +132,52 @@ def test_august_registry_separates_avb_from_vivmark_successor() -> None:
     assert result.frame.filter(pl.col("Date") == date(2026, 8, 1)).height == 503
 
 
+def test_october_registry_applies_official_sp500_changes() -> None:
+    project_root = Path(__file__).resolve().parents[3]
+    required_tickers = [
+        "CASY",
+        "CTRA",
+        "BK",
+        "EPAM",
+        "POOL",
+        "CPB",
+        "SATS",
+        "CAG",
+        "HON",
+        "EA",
+        "AVB",
+        "EQR",
+        "TAP",
+        "TTD",
+        "BLDR",
+        "CTVA",
+        "WBD",
+    ]
+    tickers = required_tickers + [f"TEST{index:03d}" for index in range(486)]
+    source = pl.DataFrame(
+        {
+            "Date": [date(2026, 4, 1)] * len(tickers),
+            "Ticker": tickers,
+            "Name": [f"Name {ticker}" for ticker in tickers],
+        }
+    )
+    registry = json.loads(
+        (
+            project_root / "configs" / "data_quality" / "sp500_constituent_changes_2026.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    result = refresh_monthly_constituents(source, registry=registry, target_month=date(2026, 10, 1))
+    september = set(result.frame.filter(pl.col("Date") == date(2026, 9, 1))["Ticker"])
+    october = set(result.frame.filter(pl.col("Date") == date(2026, 10, 1))["Ticker"])
+
+    assert {"BE", "P", "ILMN"}.issubset(september)
+    assert {"TAP", "TTD", "BLDR"}.isdisjoint(september)
+    assert {"VYLR", "TWLO"}.issubset(october)
+    assert {"CTVA", "WBD"}.isdisjoint(october)
+    assert result.frame.filter(pl.col("Date") == date(2026, 10, 1)).height == 503
+
+
 def test_refresh_monthly_constituents_requires_explicit_noop_permission() -> None:
     source = pl.DataFrame(
         {

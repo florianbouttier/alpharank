@@ -162,6 +162,46 @@
           "name": "Vivmark Residential"
         }
       ]
+    },
+    {
+      "event_id": "sp500-20260921-quarterly-rebalance",
+      "observed_at": "2026-09-04T23:59:59-04:00",
+      "effective_at": "2026-09-21T00:00:00-04:00",
+      "effective_date": "2026-09-21",
+      "confidence": "high",
+      "source_url": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600",
+      "operations": [
+        {"action": "add", "ticker": "BE", "name": "Bloom Energy"},
+        {"action": "remove", "ticker": "TAP"},
+        {"action": "add", "ticker": "P", "name": "Everpure"},
+        {"action": "remove", "ticker": "TTD"},
+        {"action": "add", "ticker": "ILMN", "name": "Illumina"},
+        {"action": "remove", "ticker": "BLDR"}
+      ]
+    },
+    {
+      "event_id": "sp500-20261001-vylr",
+      "observed_at": "2026-10-01T23:59:59-04:00",
+      "effective_at": "2026-10-01T23:59:59-04:00",
+      "effective_date": "2026-10-01",
+      "confidence": "high",
+      "source_url": "https://press.spglobal.com/2026-10-01-Vylor-Added-to-the-S-P-500-Twilio-Set-to-Join-S-P-500-Others-to-Join-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "operations": [
+        {"action": "add", "ticker": "VYLR", "name": "Vylor"}
+      ]
+    },
+    {
+      "event_id": "sp500-20261006-ctva-twlo-wbd",
+      "observed_at": "2026-10-01T23:59:59-04:00",
+      "effective_at": "2026-10-06T00:00:00-04:00",
+      "effective_date": "2026-10-06",
+      "confidence": "high",
+      "source_url": "https://press.spglobal.com/2026-10-01-Vylor-Added-to-the-S-P-500-Twilio-Set-to-Join-S-P-500-Others-to-Join-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "operations": [
+        {"action": "remove", "ticker": "CTVA"},
+        {"action": "add", "ticker": "TWLO", "name": "Twilio"},
+        {"action": "remove", "ticker": "WBD"}
+      ]
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-09-14.**
+**Dernière mise à jour : 2026-10-08.**
 
 **Statut : seule source des priorités actives.**
 
@@ -106,6 +106,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 67 | `REPORT-012` | réunir comparaison simple et portefeuille composé dans un studio unique | lot REPORT ci-dessous | fait |
 | 68 | `REPORT-013` | publier le studio de comparaison unifié dans Portfolio | lot REPORT ci-dessous | fait |
 | 69 | `REPLAY-009` | imposer la stabilité inter-vintages du dernier portefeuille formé | lot REPLAY ci-dessous | fait |
+| 70 | `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -343,6 +344,7 @@ change dans ce lot.
 | `DATA-032` | valider l'identité SEC sur la date économique originale | fait | la ligne SNDK_OLD du 3 avril 2016 reste valide malgré sa projection Legacy au 30 juin ; composition technique sur le RAW retenu et test de non-régression verts |
 | `DATA-033` | rejouer tout le delta SEC sur le dernier RAW point-in-time retenu | fait | 511 170 faits Companyfacts, 145 650 faits filing, 58 016 calendriers, 39 441 actuals et 1 652 références reconstruits ; snapshot composé `35f0244f…78421` vert et non promu |
 | `DATA-034` | séparer lecture, contrôle daté, référence générale et déclaration de politique | fait | la gate d'identité repasse sous le plafond bloquant de 80 lignes sans modifier ses entrées, sorties ou contrôles |
+| `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre 2026 | fait | événements officiels du 21 septembre, 1er octobre et 6 octobre versionnés ; snapshots mensuels à 503 titres, audit et 9 tests verts |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -485,6 +487,25 @@ doublons exacts et preuve de récupération.
 - **Validation** : sept tests de composition, Ruff et contrôle de taille Python.
 - **Rollback** : rétablir le corps monolithique, sans effet attendu sur les
   sorties mais en restaurant la violation de standard.
+
+### Détail de `DATA-035`
+
+- **Objectif** : reconstruire l'univers S&P 500 jusqu'en octobre 2026 avant le
+  nouveau téléchargement, à partir d'événements officiels connus et datés.
+- **Périmètre** : registre 2026, six changements du 21 septembre, ajout de Vylor
+  le 1er octobre, remplacement de Corteva et Warner Bros. Discovery par Twilio
+  le 6 octobre, snapshots mensuels, audit HTML et test de non-régression.
+- **Hors périmètre** : téléchargement prix/SEC, identité économique des
+  spin-offs, modèle, portefeuille et promotion du snapshot.
+- **Acceptation** : septembre contient BE, P et ILMN sans TAP, TTD ni BLDR ;
+  octobre contient VYLR et TWLO sans CTVA ni WBD ; chaque mois conserve 503
+  titres et chaque événement porte source, observation et date effective.
+- **Validations** : neuf tests d'intégration et de schéma, refresh réel jusqu'au
+  1er octobre, manifestes et rapport autonome, Ruff, schémas et documentation.
+- **Impact** : les prochains téléchargements couvrent le véritable univers
+  courant ; aucun signal ou portefeuille n'est produit dans cette tâche.
+- **Rollback** : conserver les snapshots antérieurs et retirer ces événements ;
+  aucune donnée fournisseur ni publication modèle n'est modifiée.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

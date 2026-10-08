@@ -44,6 +44,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `portfolio_vintage_stability_20261004.md` : réexécution du dernier contrôle
   inter-vintages, portefeuille fin juillet strictement identique sur 80/80
   lignes, et règle automatique obligatoire pour tous les futurs replays.
+- `sp500_constituents_20261008.md` : reconstruction officielle des univers de
+  septembre et octobre avant le nouveau refresh, avec événements, dates de
+  connaissance, hashes et audit à 503 titres par mois.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
