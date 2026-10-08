@@ -19,9 +19,12 @@ from alpharank.data.prices import (
     build_price_revision_diagnostic,
     reconcile_validated_price_history,
 )
-from alpharank.data.prices.contracts import PriceGatePolicy
+from alpharank.data.prices.contracts import EODHD_SOURCE, PriceGatePolicy
 
-RESOLVABLE_PROVIDER_BLOCKS = {"unreviewed_historical_return_revisions"}
+RESOLVABLE_PROVIDER_BLOCKS = {
+    "adjustment_factor_transition_discontinuity",
+    "unreviewed_historical_return_revisions",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +48,27 @@ class PricePublicationCandidate:
     reconciliation: PriceReconciliationResult | None
     ticker_transition: PriceTickerTransitionResult
     revision_diagnostic: dict[str, object]
+
+
+def expected_eodhd_preservation_keys(
+    *,
+    eodhd_seed: pl.DataFrame,
+    previous_lineage: pl.DataFrame | None,
+) -> pl.DataFrame:
+    """Return raw seed keys that the canonical history has already published."""
+
+    seed_keys = eodhd_seed.select("ticker", "date").unique()
+    if previous_lineage is None or previous_lineage.is_empty():
+        return seed_keys
+    required = {"ticker", "date", "source"}
+    missing = required - set(previous_lineage.columns)
+    if missing:
+        raise ValueError(
+            f"Previous price lineage is missing EODHD preservation columns: {sorted(missing)}"
+        )
+    return (
+        previous_lineage.filter(pl.col("source") == EODHD_SOURCE).select("ticker", "date").unique()
+    )
 
 
 def build_price_publication_candidate(

@@ -9,6 +9,7 @@ import polars as pl
 from alpharank.data.ingestion.price_publication_candidate import (
     PricePublicationContext,
     build_price_publication_candidate,
+    expected_eodhd_preservation_keys,
     resolve_incomplete_provider_tickers,
 )
 from alpharank.data.open_source.price_quality import (
@@ -136,6 +137,7 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         expected_through=request.expected_through,
     )
     refreshable = refreshable_active_tickers(active_tickers, terminal_tickers)
+    seed = load_eodhd_seed(request.eodhd_seed_path.resolve(), start_date=request.start_date)
     provider_result = roll_forward_validated_price_history(
         previous_validated_lineage=previous,
         active_yahoo_vintage=fresh_yahoo,
@@ -144,7 +146,6 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         active_resolution_vintage_id=active_resolution_id,
         security_identity_registry=identities,
     )
-    seed = load_eodhd_seed(request.eodhd_seed_path.resolve(), start_date=request.start_date)
     publication_candidate = build_price_publication_candidate(
         provider_result,
         fresh_yahoo,
@@ -152,7 +153,10 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         context=PricePublicationContext(
             active_tickers=active_tickers,
             preserved_terminal_tickers=terminal_tickers,
-            expected_eodhd_keys=seed.frame.select("ticker", "date"),
+            expected_eodhd_keys=expected_eodhd_preservation_keys(
+                eodhd_seed=seed.frame,
+                previous_lineage=previous,
+            ),
             expected_through=request.expected_through,
             run_id=active_resolution_id,
             policy=PRODUCTION_PRICE_GATE_POLICY,

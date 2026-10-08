@@ -575,6 +575,14 @@ redownloaded, discarded, or reconstructed from the current universe. Resolve
 the base from `data/model_inputs/manifests/latest.json` rather than selecting an
 older EODHD-only seed by hand.
 
+The routine EODHD coverage gate therefore protects the EODHD keys already
+selected in that preceding lineage. It does not retroactively inject raw EODHD
+dates into a ticker that was previously canonical from Yahoo while active. A
+provider-vintage adjustment jump may be marked resolved only when the
+validated-history reconciliation passes and the resulting canonical candidate
+has zero adjustment-transition findings; the raw provider finding remains in
+the run evidence.
+
 The SEC package is a reviewed one-time point-in-time migration. Raw
 Companyfacts now retain each `filing_date`; model exports select the earliest
 filing version. The manifest records the migration note and exhaustive

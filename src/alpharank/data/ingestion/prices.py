@@ -18,6 +18,7 @@ from alpharank.data.ingestion.frames import (
 from alpharank.data.ingestion.price_publication_candidate import (
     PricePublicationContext,
     build_price_publication_candidate,
+    expected_eodhd_preservation_keys,
     resolve_incomplete_provider_tickers,
 )
 from alpharank.data.ingestion.price_run_evidence import (
@@ -787,7 +788,10 @@ def _prepare_canonical_hybrid_price_merge(
         context=PricePublicationContext(
             active_tickers=active_tickers,
             preserved_terminal_tickers=preserved_terminal_tickers,
-            expected_eodhd_keys=seed.frame.select("ticker", "date"),
+            expected_eodhd_keys=expected_eodhd_preservation_keys(
+                eodhd_seed=seed.frame,
+                previous_lineage=previous_lineage,
+            ),
             expected_through=expected_through,
             run_id=run_id,
             policy=price_policy,

@@ -129,6 +129,7 @@ def test_missing_inactive_eodhd_key_is_rejected() -> None:
         expected_through="2026-08-10",
     )
 
+    assert result.report["expected_inactive_eodhd_seed_keys"] == 1
     assert result.report["missing_inactive_eodhd_seed_keys"] == 1
     assert "eodhd_seed_coverage_lost" in result.report["blocking_reasons"]
 

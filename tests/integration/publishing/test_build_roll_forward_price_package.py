@@ -15,6 +15,7 @@ from alpharank.data.publishing.acquired_price_run import (
 )
 from alpharank.data.publishing.price_package_inputs import (
     prepare_benchmark_prices,
+    refreshable_active_tickers,
     resolve_active_resolution_vintage_id,
 )
 from alpharank.data.publishing.price_package_output import PricePackageRequest
@@ -99,6 +100,13 @@ def test_builder_binds_audited_carries_to_full_ingestion_run() -> None:
         )
         == "20260819_220746"
     )
+
+
+def test_refreshable_tickers_match_canonical_us_symbols() -> None:
+    assert refreshable_active_tickers(
+        ("BE", "BRK.B.US"),
+        ("BRK.B",),
+    ) == ("BE.US",)
 
 
 def test_builder_rejects_a_fresh_vintage_without_current_run_observation() -> None:

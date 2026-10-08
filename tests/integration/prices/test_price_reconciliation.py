@@ -6,6 +6,7 @@ import pytest
 from alpharank.data.ingestion.price_publication_candidate import (
     PricePublicationContext,
     build_price_publication_candidate,
+    expected_eodhd_preservation_keys,
 )
 from alpharank.data.ingestion.refresh_policy import SourceRefreshPolicy
 from alpharank.data.prices import (
@@ -15,6 +16,7 @@ from alpharank.data.prices import (
 )
 from alpharank.data.prices.contracts import (
     ADJUSTMENT_POLICY_VERSION,
+    EODHD_SOURCE,
     PRICE_LINEAGE_COLUMNS,
     PRICE_VALUE_COLUMNS,
 )
@@ -25,19 +27,22 @@ def _lineage(
     adjusted_close: list[float],
     *,
     run_id: str,
+    closes: list[float] | None = None,
+    source: str = "yfinance",
 ) -> pl.DataFrame:
+    closes = closes or adjusted_close
     return pl.DataFrame(
         {
             "date": dates,
-            "open": adjusted_close,
-            "high": adjusted_close,
-            "low": adjusted_close,
-            "close": adjusted_close,
+            "open": closes,
+            "high": closes,
+            "low": closes,
+            "close": closes,
             "volume": [100.0] * len(dates),
             "adjusted_close": adjusted_close,
             "ticker": ["A.US"] * len(dates),
-            "source": ["yfinance"] * len(dates),
-            "dataset": ["prices_yfinance"] * len(dates),
+            "source": [source] * len(dates),
+            "dataset": [f"prices_{source}"] * len(dates),
             "ingestion_run_id": [run_id] * len(dates),
             "ingested_at": ["2026-08-27T10:00:00+00:00"] * len(dates),
             "source_vintage_id": [run_id] * len(dates),
@@ -48,6 +53,30 @@ def _lineage(
             "correction_overlay_id": [None] * len(dates),
         }
     ).select(PRICE_LINEAGE_COLUMNS)
+
+
+def test_eodhd_scope_preserves_only_keys_already_canonical() -> None:
+    raw_seed = _lineage(
+        ["2020-01-02", "2020-01-03"],
+        [20.0, 21.0],
+        run_id="seed",
+        source=EODHD_SOURCE,
+    )
+    previous = pl.concat(
+        [
+            raw_seed.head(1),
+            _lineage(["2020-01-03"], [21.0], run_id="validated-yahoo"),
+        ]
+    )
+
+    expected = expected_eodhd_preservation_keys(
+        eodhd_seed=raw_seed,
+        previous_lineage=previous,
+    )
+
+    assert expected.sort(["ticker", "date"]).to_dicts() == [
+        {"ticker": "A.US", "date": "2020-01-02"}
+    ]
 
 
 def test_reconciliation_keeps_validated_rows_and_appends_provider_return() -> None:
@@ -111,6 +140,51 @@ def test_publication_resolves_provider_revision_without_overwriting_history() ->
     assert candidate.hybrid.prices["adjusted_close"].to_list() == pytest.approx(
         [100.0, 101.0, 103.02]
     )
+
+
+def test_publication_resolves_provider_factor_jump_only_after_canonical_audit() -> None:
+    previous = _lineage(
+        ["2026-08-10", "2026-08-11"],
+        [100.0, 101.0],
+        closes=[200.0, 202.0],
+        run_id="old",
+    )
+    provider = _lineage(
+        ["2026-08-10", "2026-08-11", "2026-08-12"],
+        [200.0, 204.0, 208.08],
+        run_id="run_27",
+    )
+    mixed_provider = pl.concat([previous.head(1), provider.tail(2)])
+
+    candidate = build_price_publication_candidate(
+        HybridPriceResult(
+            prices=mixed_provider.select(PRICE_VALUE_COLUMNS),
+            lineage=mixed_provider,
+            composition_report={},
+        ),
+        provider,
+        previous,
+        context=PricePublicationContext(
+            active_tickers=("A",),
+            preserved_terminal_tickers=(),
+            expected_eodhd_keys=pl.DataFrame(),
+            expected_through="2026-08-27",
+            run_id="run_27",
+            policy=SourceRefreshPolicy().price_gate_policy(),
+            previous_comparison_prices=previous.select(PRICE_VALUE_COLUMNS),
+        ),
+    )
+
+    assert (
+        "adjustment_factor_transition_discontinuity"
+        in candidate.provider_gate.report["blocking_reasons"]
+    )
+    assert candidate.gate.report["transition_factor_findings"] == 0
+    assert candidate.gate.report["resolved_provider_blocking_reasons"] == [
+        "adjustment_factor_transition_discontinuity",
+        "unreviewed_historical_return_revisions",
+    ]
+    assert candidate.gate.report["passed"] is True
 
 
 def test_reconciliation_blocks_publication_when_provider_anchor_is_missing() -> None:

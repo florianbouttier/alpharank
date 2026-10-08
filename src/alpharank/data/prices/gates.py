@@ -137,6 +137,7 @@ def audit_price_candidate(
         )
     removed_old_keys = historical_key_removals.height
 
+    expected_inactive_seed_keys = 0
     missing_seed_keys = 0
     if expected_eodhd_keys is not None and not expected_eodhd_keys.is_empty():
         seed_identity = apply_security_identity_policy(
@@ -149,6 +150,7 @@ def audit_price_candidate(
             pl.col("date").cast(pl.Date, strict=False),
         ).unique()
         inactive_seed_keys = seed_keys.filter(~pl.col("ticker").is_in(active))
+        expected_inactive_seed_keys = inactive_seed_keys.height
         missing_seed_keys = inactive_seed_keys.join(
             candidate.select("ticker", "date"), on=["ticker", "date"], how="anti"
         ).height
@@ -229,6 +231,7 @@ def audit_price_candidate(
         )
         .head(20)
         .to_dicts(),
+        "expected_inactive_eodhd_seed_keys": expected_inactive_seed_keys,
         "missing_inactive_eodhd_seed_keys": missing_seed_keys,
         "historical_revision_override_enabled": policy.allow_historical_price_revisions,
         "historical_key_removal_override_enabled": policy.allow_historical_price_key_removals,

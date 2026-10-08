@@ -107,6 +107,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 68 | `REPORT-013` | publier le studio de comparaison unifié dans Portfolio | lot REPORT ci-dessous | fait |
 | 69 | `REPLAY-009` | imposer la stabilité inter-vintages du dernier portefeuille formé | lot REPLAY ci-dessous | fait |
 | 70 | `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre | lot DATA ci-dessous | fait |
+| 71 | `DATA-037` | distinguer préservation EODHD et observation fournisseur | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -345,6 +346,7 @@ change dans ce lot.
 | `DATA-033` | rejouer tout le delta SEC sur le dernier RAW point-in-time retenu | fait | 511 170 faits Companyfacts, 145 650 faits filing, 58 016 calendriers, 39 441 actuals et 1 652 références reconstruits ; snapshot composé `35f0244f…78421` vert et non promu |
 | `DATA-034` | séparer lecture, contrôle daté, référence générale et déclaration de politique | fait | la gate d'identité repasse sous le plafond bloquant de 80 lignes sans modifier ses entrées, sorties ou contrôles |
 | `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre 2026 | fait | événements officiels du 21 septembre, 1er octobre et 6 octobre versionnés ; snapshots mensuels à 503 titres, audit et 9 tests verts |
+| `DATA-037` | distinguer les clés EODHD déjà publiées des nouvelles sorties d'univers | fait | 1 200 483 clés EODHD canoniques protégées, zéro manque/transition/révision canonique sur le run réel ; 21 tests verts et quatre alertes BE correctement maintenues |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -506,6 +508,28 @@ doublons exacts et preuve de récupération.
   courant ; aucun signal ou portefeuille n'est produit dans cette tâche.
 - **Rollback** : conserver les snapshots antérieurs et retirer ces événements ;
   aucune donnée fournisseur ni publication modèle n'est modifiée.
+
+### Détail de `DATA-037`
+
+- **Objectif** : supprimer les deux faux blocages révélés lorsque BLDR et WBD
+  quittent l'univers sans affaiblir la protection de l'historique prix publié.
+- **Périmètre** : portée des clés EODHD attendues, combinaison des gates
+  fournisseur/canonique, normalisation des tickers de mouvements extrêmes,
+  manifestes de contrôle et tests de non-régression.
+- **Hors périmètre** : approbation des mouvements extrêmes BE, modification des
+  prix, écrasement des révisions Yahoo et construction du snapshot d'octobre.
+- **Acceptation** : toutes les clés EODHD déjà canoniques restent obligatoires ;
+  un titre auparavant Yahoo ne reçoit pas rétroactivement des clés RAW ; une
+  discontinuité fournisseur n'est résolue que si la réconciliation passe et que
+  le candidat canonique n'en contient aucune ; la republication différée audite
+  les mêmes symboles `.US` que le run initial.
+- **Validations** : 21 tests ciblés, Ruff, schémas et documentation ; préflight
+  réel des 3 745 807 lignes du run `20261008_072222`, gate de révision verte et
+  gate extrême encore rouge sur exactement quatre mouvements BE.
+- **Impact** : aucun rendement ni portefeuille ne change ; seule la décision de
+  publication cesse de confondre RAW disponible et historique déjà publié.
+- **Rollback** : restaurer la portée RAW globale et le faux blocage ; aucune
+  donnée acquise ou publiée n'est modifiée.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

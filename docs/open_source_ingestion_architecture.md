@@ -210,13 +210,21 @@ for inactive EODHD ticker:
 
 before publication:
     require one Yahoo vintage and recent coverage for every active ticker
-    require all inactive EODHD keys
+    on the initial migration, require all inactive EODHD seed keys
+    on routine roll-forward, require every EODHD key already published
     reject duplicate keys or missing lineage
     reject source-transition adjustment-factor jumps above 1 bp
     reject historical daily-return revisions above 1 bp
     reject historical key removals
     write exhaustive audit artifacts, then publish transactionally
 ```
+
+The routine scope is deliberately the preceding canonical lineage, not every
+raw EODHD key that happens to exist for a ticker leaving the index today. This
+keeps previously published Yahoo histories byte-identical and prevents a raw
+source from being inserted retroactively. Provider-level transition findings
+remain recorded, but reconciliation may resolve them only when its own checks
+pass and the canonical candidate has no transition finding.
 
 Code ownership is explicit:
 

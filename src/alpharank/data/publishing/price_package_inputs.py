@@ -75,12 +75,16 @@ def validated_terminal_tickers(
 def refreshable_active_tickers(
     active_tickers: tuple[str, ...], terminal_tickers: tuple[str, ...]
 ) -> tuple[str, ...]:
-    terminal = set(terminal_tickers)
+    terminal = {_normalize_ticker(ticker) for ticker in terminal_tickers}
     return tuple(
-        ticker
+        normalized
         for ticker in active_tickers
-        if f"{ticker.upper().removesuffix('.US')}.US" not in terminal
+        if (normalized := _normalize_ticker(ticker)) not in terminal
     )
+
+
+def _normalize_ticker(ticker: str) -> str:
+    return f"{str(ticker).upper().removesuffix('.US')}.US"
 
 
 def prepare_benchmark_prices(path: Path, *, expected_run_id: str | None) -> pl.DataFrame:
