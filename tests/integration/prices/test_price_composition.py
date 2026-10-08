@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import polars as pl
 import pytest
 
+from alpharank.data.prices import (
+    PRICE_MATURITY_BRIDGE_POLICY_ID,
+    resolve_price_refresh_universe,
+)
 from alpharank.data.prices.composition import (
     compose_hybrid_price_history,
     roll_forward_validated_price_history,
@@ -314,3 +321,148 @@ def test_roll_forward_preserves_confirmed_terminal_active_ticker() -> None:
         preserved_terminal_tickers=["EA"],
     )
     assert persistent_history_summary(registry)["non_eodhd_persisted_tickers"] == ["EA.US"]
+
+
+def test_roll_forward_refreshes_recent_leaver_without_reactivating_it() -> None:
+    previous = pl.concat(
+        [
+            _lineage("A.US", ["2026-08-31"], [10.0], source="yfinance", vintage="old"),
+            _lineage("TTD.US", ["2026-08-31"], [50.0], source="yfinance", vintage="old"),
+        ]
+    )
+    fresh = pl.concat(
+        [
+            _lineage(
+                "A.US",
+                ["2026-08-31", "2026-09-30"],
+                [10.0, 11.0],
+                source="yfinance",
+                vintage="fresh",
+            ),
+            _lineage(
+                "TTD.US",
+                ["2026-08-31", "2026-09-30"],
+                [50.0, 45.0],
+                source="yfinance",
+                vintage="fresh",
+            ),
+        ]
+    )
+
+    result = roll_forward_validated_price_history(
+        previous_validated_lineage=previous,
+        active_yahoo_vintage=fresh,
+        active_tickers=["A"],
+        maturity_bridge_tickers=["TTD"],
+        active_resolution_vintage_id="fresh",
+    )
+
+    assert result.lineage.group_by("ticker").agg(pl.col("date").max()).sort(
+        "ticker"
+    ).to_dicts() == [
+        {"ticker": "A.US", "date": "2026-09-30"},
+        {"ticker": "TTD.US", "date": "2026-09-30"},
+    ]
+    assert result.composition_report["active_ticker_count"] == 1
+    assert result.composition_report["refreshable_active_ticker_count"] == 1
+    assert result.composition_report["refreshable_price_ticker_count"] == 2
+    assert result.composition_report["maturity_bridge_tickers"] == ["TTD.US"]
+
+    registry = build_persistent_price_history_registry(
+        result.lineage,
+        active_tickers=["A"],
+        maturity_bridge_tickers=["TTD"],
+    )
+    ttd = registry.filter(pl.col("ticker") == "TTD.US").row(0, named=True)
+    assert ttd["current_active"] is False
+    assert ttd["maturity_bridge"] is True
+    assert ttd["persistence_class"] == "maturity_bridge_refreshed"
+
+
+def test_refresh_universe_bridges_only_tracked_recent_leavers(tmp_path: Path) -> None:
+    registry_path = tmp_path / "constituent_changes.json"
+    _write_constituent_registry(registry_path)
+
+    result = resolve_price_refresh_universe(
+        current_tickers=("A", "BE"),
+        tracked_tickers=("A", "BE", "TTD", "BLDR", "BK", "CTVA", "OLD", "FUT"),
+        registry_path=registry_path,
+        expected_through="2026-10-08",
+    )
+
+    assert result.current_tickers == ("A", "BE")
+    assert result.maturity_bridge_tickers == ("BK", "BLDR", "CTVA", "TTD")
+    assert result.refresh_tickers == ("A", "BE", "BK", "BLDR", "CTVA", "TTD")
+    assert result.manifest() == {
+        "policy_id": PRICE_MATURITY_BRIDGE_POLICY_ID,
+        "window_start": "2026-09-01",
+        "expected_through": "2026-10-08",
+        "current_ticker_count": 2,
+        "maturity_bridge_ticker_count": 4,
+        "maturity_bridge_tickers": ["BK", "BLDR", "CTVA", "TTD"],
+        "refresh_ticker_count": 6,
+        "semantics": (
+            "Refresh current members and index leavers effective in the current or "
+            "preceding calendar month so the last formed one-month portfolio matures."
+        ),
+    }
+
+
+def test_refresh_universe_allows_new_current_member_without_prior_history(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "constituent_changes.json"
+    _write_constituent_registry(registry_path)
+
+    result = resolve_price_refresh_universe(
+        current_tickers=("A", "NEW"),
+        tracked_tickers=("A",),
+        registry_path=registry_path,
+        expected_through="2026-10-08",
+    )
+
+    assert result.current_tickers == ("A", "NEW")
+    assert result.refresh_tickers == ("A", "NEW")
+
+
+def _write_constituent_registry(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "index": "S&P 500",
+                "events": [
+                    {
+                        "effective_date": "2026-08-31",
+                        "operations": [{"action": "remove", "ticker": "OLD"}],
+                    },
+                    {
+                        "effective_date": "2026-09-21",
+                        "operations": [
+                            {"action": "remove", "ticker": "TTD"},
+                            {"action": "remove", "ticker": "BLDR"},
+                            {"action": "add", "ticker": "BE"},
+                        ],
+                    },
+                    {
+                        "effective_date": "2026-09-28",
+                        "operations": [
+                            {
+                                "action": "ticker_change",
+                                "ticker": "BK",
+                                "new_ticker": "BNY",
+                            }
+                        ],
+                    },
+                    {
+                        "effective_date": "2026-10-06",
+                        "operations": [{"action": "remove", "ticker": "CTVA"}],
+                    },
+                    {
+                        "effective_date": "2026-10-10",
+                        "operations": [{"action": "remove", "ticker": "FUT"}],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )

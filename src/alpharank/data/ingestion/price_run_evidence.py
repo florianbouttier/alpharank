@@ -23,6 +23,7 @@ class ExtremePriceMoveEvidenceContext:
     active_tickers: Sequence[str]
     preserved_terminal_tickers: Sequence[str]
     reviewed_registry_path: Path | None
+    maturity_bridge_tickers: Sequence[str] = ()
 
 
 def persist_price_candidate_evidence(
@@ -138,11 +139,11 @@ def _resolve_price_review_keys(
 
 def _quality_tickers(context: ExtremePriceMoveEvidenceContext) -> list[str]:
     terminal = {_normalize_ticker(ticker) for ticker in context.preserved_terminal_tickers}
-    return [
-        normalized
-        for ticker in context.active_tickers
-        if (normalized := _normalize_ticker(ticker)) not in terminal
-    ]
+    refreshable = {
+        _normalize_ticker(ticker)
+        for ticker in (*context.active_tickers, *context.maturity_bridge_tickers)
+    }
+    return sorted(refreshable - terminal)
 
 
 def _persist_reviewed_move_matches(

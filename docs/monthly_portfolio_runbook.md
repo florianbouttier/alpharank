@@ -480,6 +480,14 @@ announcement exposes only an October 1 publication date, so its knowledge time
 is conservatively set to the end of that day; no earlier decision may observe
 it. September and October snapshots each retain 503 members.
 
+The price download universe is deliberately wider than the latest 503 names.
+Policy `recent_constituent_exit_price_bridge_v1` also refreshes tracked symbols
+whose official removal became effective in the current or preceding calendar
+month. This bounded bridge is required because a stock selected at the end of
+August remains held through September even when it leaves the index during
+September. The manifest lists those symbols separately; they never become
+current constituents and cannot enter a later decision through this bridge.
+
 The resulting full ingestion is production-clean only when:
 
 - every current constituent has a non-null adjusted price through the same
@@ -569,11 +577,14 @@ constituent registry records its official 2026-08-05 removal.
 
 For every later refresh, the complete preceding validated price lineage is the
 durable base. This includes tickers first ingested from Yahoo that never existed
-in EODHD. When such a ticker leaves the active universe, its published rows are
-copied byte-for-byte and registered as `inactive_open_source_only`; they are not
-redownloaded, discarded, or reconstructed from the current universe. Resolve
-the base from `data/model_inputs/manifests/latest.json` rather than selecting an
-older EODHD-only seed by hand.
+in EODHD. A recent leaver is first registered as
+`maturity_bridge_refreshed` for the bounded current/previous-month window so
+that the final one-month holding return can mature. Outside that window, its
+published rows are copied byte-for-byte and registered as
+`inactive_open_source_only`; they are no longer redownloaded, discarded, or
+reconstructed from the current universe. Resolve the base from
+`data/model_inputs/manifests/latest.json` rather than selecting an older
+EODHD-only seed by hand.
 
 The routine EODHD coverage gate therefore protects the EODHD keys already
 selected in that preceding lineage. It does not retroactively inject raw EODHD

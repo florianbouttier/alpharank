@@ -261,3 +261,48 @@ def test_reconciliation_uses_carried_def_anchor_for_new_provider_dates() -> None
             "provider_daily_return": pytest.approx(0.02),
         }
     ]
+
+
+def test_reconciliation_extends_recent_leaver_as_price_only_bridge() -> None:
+    previous = pl.concat(
+        [
+            _lineage(["2026-08-31"], [100.0], run_id="old"),
+            _lineage(["2026-08-31"], [50.0], run_id="old").with_columns(
+                pl.lit("TTD.US").alias("ticker")
+            ),
+        ]
+    )
+    provider = pl.concat(
+        [
+            _lineage(
+                ["2026-08-31", "2026-09-30"],
+                [200.0, 220.0],
+                run_id="fresh",
+            ),
+            _lineage(
+                ["2026-08-31", "2026-09-30"],
+                [100.0, 90.0],
+                run_id="fresh",
+            ).with_columns(pl.lit("TTD.US").alias("ticker")),
+        ]
+    )
+
+    result = reconcile_validated_price_history(
+        previous_validated_lineage=previous,
+        current_yahoo_observation=provider,
+        context=PriceReconciliationContext(
+            active_tickers=("A",),
+            maturity_bridge_tickers=("TTD",),
+            preserved_terminal_tickers=(),
+            incomplete_provider_tickers=(),
+            run_id="fresh",
+        ),
+    )
+
+    assert result.report["passed"] is True
+    assert result.report["refreshable_active_ticker_count"] == 1
+    assert result.report["refreshable_price_ticker_count"] == 2
+    assert result.report["maturity_bridge_tickers"] == ["TTD.US"]
+    assert result.prices.filter(pl.col("ticker") == "TTD.US").sort("date")[
+        "adjusted_close"
+    ].to_list() == pytest.approx([50.0, 45.0])

@@ -141,6 +141,7 @@ def test_deferred_builder_preserves_validated_returns_before_appending_tail(
     provider_path = tmp_path / "provider.parquet"
     seed_path = tmp_path / "seed.parquet"
     constituents_path = tmp_path / "constituents.csv"
+    constituent_registry_path = tmp_path / "constituent_changes.json"
     registry_path = tmp_path / "reviewed_moves.json"
     previous.write_parquet(previous_path)
     provider.write_parquet(provider_path)
@@ -148,6 +149,10 @@ def test_deferred_builder_preserves_validated_returns_before_appending_tail(
         "date", "open", "high", "low", "close", "volume", "adjusted_close", "ticker"
     ).write_parquet(seed_path)
     pl.DataFrame({"Date": ["2026-08-01"], "Ticker": ["A"]}).write_csv(constituents_path)
+    constituent_registry_path.write_text(
+        '{"index":"S&P 500","events":[]}',
+        encoding="utf-8",
+    )
     registry_path.write_text(
         '{"registry_id":"reviewed_extreme_price_moves_test_v1","events":[]}',
         encoding="utf-8",
@@ -166,7 +171,7 @@ def test_deferred_builder_preserves_validated_returns_before_appending_tail(
         expected_through="2026-08-27",
         start_date="2005-01-01",
         preserve_terminal_tickers=(),
-        constituent_registry_path=tmp_path / "unused-terminal-registry.json",
+        constituent_registry_path=constituent_registry_path,
         reviewed_move_registry_path=registry_path,
     )
 

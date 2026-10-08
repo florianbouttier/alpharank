@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -74,6 +74,7 @@ def build_persistent_price_history_registry(
     lineage: pl.DataFrame,
     *,
     active_tickers: Sequence[str],
+    maturity_bridge_tickers: Sequence[str] = (),
     preserved_terminal_tickers: Sequence[str] = (),
 ) -> pl.DataFrame:
     """Describe how every published ticker will persist into the next refresh."""
@@ -90,6 +91,12 @@ def build_persistent_price_history_registry(
     if missing:
         raise ValueError(f"Price lineage is missing registry columns: {sorted(missing)}")
     active = sorted({_normalize_ticker(ticker) for ticker in active_tickers})
+    maturity_bridge = sorted(
+        {_normalize_ticker(ticker) for ticker in maturity_bridge_tickers}
+    )
+    overlap = sorted(set(active).intersection(maturity_bridge))
+    if overlap:
+        raise ValueError(f"Maturity-bridge tickers are still active: {overlap}")
     terminal = sorted(
         {_normalize_ticker(ticker) for ticker in preserved_terminal_tickers}
     )
@@ -125,6 +132,7 @@ def build_persistent_price_history_registry(
         )
         .with_columns(
             pl.col("ticker").is_in(active).alias("current_active"),
+            pl.col("ticker").is_in(maturity_bridge).alias("maturity_bridge"),
             pl.col("ticker").is_in(terminal).alias("terminal_carry_forward"),
             pl.lit(PERSISTENT_PRICE_HISTORY_POLICY_ID).alias("persistence_policy_id"),
         )
@@ -133,6 +141,8 @@ def build_persistent_price_history_registry(
             .then(pl.lit("terminal_carry_forward"))
             .when(pl.col("current_active"))
             .then(pl.lit("active_refreshed"))
+            .when(pl.col("maturity_bridge"))
+            .then(pl.lit("maturity_bridge_refreshed"))
             .when(pl.col("has_eodhd_seed"))
             .then(pl.lit("inactive_eodhd_seeded"))
             .otherwise(pl.lit("inactive_open_source_only"))

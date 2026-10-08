@@ -26,6 +26,7 @@ from alpharank.data.prices import (
     load_eodhd_seed,
     persistent_history_summary,
     reconcile_validated_benchmark_history,
+    resolve_price_refresh_universe,
     roll_forward_validated_price_history,
     validate_price_candidate,
     validate_price_gate_report,
@@ -57,6 +58,8 @@ from alpharank.data.security_identity import (
 class RollForwardEvidence:
     previous: pl.DataFrame
     active_tickers: tuple[str, ...]
+    maturity_bridge_tickers: tuple[str, ...]
+    refresh_tickers: tuple[str, ...]
     terminal_tickers: tuple[str, ...]
     result: HybridPriceResult
     revision_gate: PriceGateResult
@@ -98,6 +101,7 @@ def build_price_roll_forward_package(request: PricePackageRequest) -> dict[str, 
     history_registry = build_persistent_price_history_registry(
         evidence.result.lineage,
         active_tickers=evidence.active_tickers,
+        maturity_bridge_tickers=evidence.maturity_bridge_tickers,
         preserved_terminal_tickers=evidence.terminal_tickers,
     )
     prepared = PreparedPricePackage(
@@ -131,17 +135,29 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         fresh_yahoo=fresh_yahoo,
     )
     active_tickers = latest_constituents(request.constituents_path.resolve())
+    refresh_universe = resolve_price_refresh_universe(
+        current_tickers=active_tickers,
+        tracked_tickers=previous.get_column("ticker").unique().to_list(),
+        registry_path=request.constituent_registry_path.resolve(),
+        expected_through=request.expected_through,
+    )
     terminal_tickers = validated_terminal_tickers(
         requested=request.preserve_terminal_tickers,
         registry_path=request.constituent_registry_path.resolve(),
         expected_through=request.expected_through,
     )
-    refreshable = refreshable_active_tickers(active_tickers, terminal_tickers)
+    refreshable = tuple(
+        sorted(
+            set(refreshable_active_tickers(active_tickers, terminal_tickers))
+            | {f"{ticker}.US" for ticker in refresh_universe.maturity_bridge_tickers}
+        )
+    )
     seed = load_eodhd_seed(request.eodhd_seed_path.resolve(), start_date=request.start_date)
     provider_result = roll_forward_validated_price_history(
         previous_validated_lineage=previous,
         active_yahoo_vintage=fresh_yahoo,
         active_tickers=active_tickers,
+        maturity_bridge_tickers=refresh_universe.maturity_bridge_tickers,
         preserved_terminal_tickers=terminal_tickers,
         active_resolution_vintage_id=active_resolution_id,
         security_identity_registry=identities,
@@ -152,6 +168,7 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
         previous,
         context=PricePublicationContext(
             active_tickers=active_tickers,
+            maturity_bridge_tickers=refresh_universe.maturity_bridge_tickers,
             preserved_terminal_tickers=terminal_tickers,
             expected_eodhd_keys=expected_eodhd_preservation_keys(
                 eodhd_seed=seed.frame,
@@ -177,6 +194,8 @@ def _prepare_roll_forward_evidence(request: PricePackageRequest) -> RollForwardE
     return RollForwardEvidence(
         previous=previous,
         active_tickers=active_tickers,
+        maturity_bridge_tickers=refresh_universe.maturity_bridge_tickers,
+        refresh_tickers=refreshable,
         terminal_tickers=terminal_tickers,
         result=result,
         revision_gate=revision_gate,

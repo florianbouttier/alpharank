@@ -38,6 +38,7 @@ class PricePublicationContext:
     incomplete_provider_tickers: Sequence[str] = ()
     previous_comparison_prices: pl.DataFrame | None = None
     ticker_transition_registry: pl.DataFrame | None = None
+    maturity_bridge_tickers: Sequence[str] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +104,7 @@ def build_price_publication_candidate(
             preserved_terminal_tickers=context.preserved_terminal_tickers,
             incomplete_provider_tickers=context.incomplete_provider_tickers,
             run_id=context.run_id,
+            maturity_bridge_tickers=context.maturity_bridge_tickers,
         ),
     )
     reconciled_hybrid = HybridPriceResult(
@@ -262,11 +264,11 @@ def _combine_publication_gates(
 
 def _quality_active_tickers(context: PricePublicationContext) -> tuple[str, ...]:
     terminal = {_normalize_ticker(ticker) for ticker in context.preserved_terminal_tickers}
-    return tuple(
-        ticker
-        for raw_ticker in context.active_tickers
-        if (ticker := _normalize_ticker(raw_ticker)) not in terminal
-    )
+    refreshable = {
+        _normalize_ticker(ticker)
+        for ticker in (*context.active_tickers, *context.maturity_bridge_tickers)
+    }
+    return tuple(ticker for ticker in sorted(refreshable) if ticker not in terminal)
 
 
 def resolve_incomplete_provider_tickers(

@@ -50,6 +50,7 @@ class PriceReconciliationContext:
     preserved_terminal_tickers: Sequence[str]
     incomplete_provider_tickers: Sequence[str]
     run_id: str
+    maturity_bridge_tickers: Sequence[str] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +59,9 @@ class ReconciliationReportInputs:
     lineage: pl.DataFrame
     extension_audit: pl.DataFrame
     observed_tickers: tuple[str, ...]
+    refreshable_active_tickers: list[str]
     refreshable_tickers: list[str]
+    maturity_bridge_tickers: list[str]
     unresolved_tickers: list[dict[str, str]]
     retained_incomplete_tickers: list[dict[str, str]]
     new_ticker_rows: int
@@ -120,9 +123,11 @@ def reconcile_validated_price_history(
         previous_validated_lineage, current_yahoo_observation
     )
     active = {_normalize_ticker(ticker) for ticker in context.active_tickers}
+    maturity_bridge = {_normalize_ticker(ticker) for ticker in context.maturity_bridge_tickers}
     terminal = {_normalize_ticker(ticker) for ticker in context.preserved_terminal_tickers}
     incomplete = {_normalize_ticker(ticker) for ticker in context.incomplete_provider_tickers}
-    refreshable = sorted(active - terminal)
+    refreshable_active = sorted(active - terminal)
+    refreshable = sorted(set(refreshable_active) | maturity_bridge)
     observed = tuple(sorted(set(current.get_column("ticker").unique().to_list())))
     previous_by_ticker = _partition_by_ticker(previous.filter(pl.col("ticker").is_in(refreshable)))
     current_by_ticker = _partition_by_ticker(current.filter(pl.col("ticker").is_in(refreshable)))
@@ -165,7 +170,9 @@ def reconcile_validated_price_history(
             lineage=lineage,
             extension_audit=extension_audit,
             observed_tickers=observed,
+            refreshable_active_tickers=refreshable_active,
             refreshable_tickers=refreshable,
+            maturity_bridge_tickers=sorted(maturity_bridge),
             unresolved_tickers=issues,
             retained_incomplete_tickers=retained_incomplete,
             new_ticker_rows=new_ticker_rows,
@@ -345,7 +352,10 @@ def _build_report(inputs: ReconciliationReportInputs) -> dict[str, object]:
         ).item()
         if inputs.extension_audit.height
         else 0,
-        "refreshable_active_ticker_count": len(inputs.refreshable_tickers),
+        "refreshable_active_ticker_count": len(inputs.refreshable_active_tickers),
+        "refreshable_price_ticker_count": len(inputs.refreshable_tickers),
+        "maturity_bridge_ticker_count": len(inputs.maturity_bridge_tickers),
+        "maturity_bridge_tickers": inputs.maturity_bridge_tickers,
         "current_provider_observed_ticker_count": len(inputs.observed_tickers),
         "retained_incomplete_provider_tickers": inputs.retained_incomplete_tickers,
         "unresolved_tickers": inputs.unresolved_tickers,

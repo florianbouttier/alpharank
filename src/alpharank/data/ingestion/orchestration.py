@@ -260,6 +260,7 @@ from alpharank.data.prices import (
     combine_stock_split_evidence,
     load_confirmed_stock_splits,
     resolve_previous_validated_price_lineage,
+    resolve_price_refresh_universe,
     validate_price_gate_report,
 )
 from alpharank.data.warehouse.paths import WarehousePaths
@@ -1060,6 +1061,12 @@ def _run_open_source_ingestion_in_place(
     constituent_registry_path = (
         project_root / "configs" / "data_quality" / "sp500_constituent_changes_2026.json"
     )
+    price_refresh_universe = resolve_price_refresh_universe(
+        current_tickers=price_quality_tickers,
+        tracked_tickers=ticker_list,
+        registry_path=constituent_registry_path,
+        expected_through=end_date,
+    )
     terminal_price_tickers = _confirmed_terminal_price_tickers(
         registry_path=constituent_registry_path,
         active_tickers=price_quality_tickers,
@@ -1071,7 +1078,7 @@ def _run_open_source_ingestion_in_place(
     price_refresh_tickers = (
         tuple(
             ticker
-            for ticker in price_quality_tickers
+            for ticker in price_refresh_universe.refresh_tickers
             if ticker.upper().removesuffix(".US") not in terminal_price_roots
         )
         if source_refresh_policy.refresh_full_price_history
@@ -1122,6 +1129,7 @@ def _run_open_source_ingestion_in_place(
             "retained_inactive_ticker_count": len(retained_inactive_price_tickers),
             "retained_inactive_ticker_examples": list(retained_inactive_price_tickers[:20]),
             "inactive_history_semantics": "retained official raw; upstream symbol no longer assumed downloadable",
+            "price_refresh_universe": price_refresh_universe.manifest(),
         }
     )
     source_refresh_contract["source_semantics"]["active_universe"] = {
@@ -1334,7 +1342,7 @@ def _run_open_source_ingestion_in_place(
     preliminary_split_findings = find_extreme_adjusted_price_moves(
         preliminary_prices,
         event_since=rolling_price_start,
-        tickers=[f"{ticker}.US" for ticker in price_quality_tickers],
+        tickers=[f"{ticker}.US" for ticker in price_refresh_tickers],
     )
     split_repairs: list[dict[str, object]] = []
     if not preliminary_split_findings.is_empty():
@@ -1464,6 +1472,7 @@ def _run_open_source_ingestion_in_place(
         stockanalysis_delta=stockanalysis_prices_delta,
         ticker_list=ticker_list,
         active_tickers=price_quality_tickers,
+        maturity_bridge_tickers=price_refresh_universe.maturity_bridge_tickers,
         event_since=rolling_price_start,
         start_date=start_date,
         expected_through=end_date,

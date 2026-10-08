@@ -39,6 +39,7 @@ from alpharank.data.open_source.price_quality import (
 )
 from alpharank.data.prices import (
     build_persistent_price_history_registry,
+    canonical_price_refresh_tickers,
     compose_hybrid_price_history,
     load_eodhd_seed,
     persistent_history_summary,
@@ -721,6 +722,7 @@ def _prepare_canonical_hybrid_price_merge(
     run_id: str,
     source_refresh_policy: SourceRefreshPolicy,
     source_refresh_contract: dict[str, object],
+    maturity_bridge_tickers: Sequence[str] = (),
     latest_composed_manifest_path: Path | None = None,
     preserved_terminal_tickers: Sequence[str] = (),
     reviewed_extreme_price_move_registry_path: Path | None = None,
@@ -739,6 +741,10 @@ def _prepare_canonical_hybrid_price_merge(
         stockanalysis_delta=stockanalysis_delta,
         ticker_list=ticker_list,
     )
+    refresh_tickers = canonical_price_refresh_tickers(
+        current_tickers=active_tickers,
+        maturity_bridge_tickers=maturity_bridge_tickers,
+    )
     seed = load_eodhd_seed(eodhd_seed_path, start_date=start_date)
     price_policy = source_refresh_policy.price_gate_policy()
     if latest_composed_manifest_path is not None:
@@ -751,6 +757,7 @@ def _prepare_canonical_hybrid_price_merge(
             previous_validated_lineage=previous_lineage,
             active_yahoo_vintage=yahoo_delta,
             active_tickers=active_tickers,
+            maturity_bridge_tickers=maturity_bridge_tickers,
             preserved_terminal_tickers=preserved_terminal_tickers,
             active_resolution_vintage_id=run_id,
         )
@@ -770,14 +777,14 @@ def _prepare_canonical_hybrid_price_merge(
         retained_open_history = _load_retained_open_price_vintages(
             paths=paths,
             prospective=prospective,
-            active_tickers=active_tickers,
+            active_tickers=refresh_tickers,
             ticker_list=ticker_list,
         )
         provider_hybrid = compose_hybrid_price_history(
             eodhd_seed=seed.frame,
             active_yahoo_vintage=yahoo_delta,
             retained_open_history=retained_open_history,
-            active_tickers=active_tickers,
+            active_tickers=refresh_tickers,
             policy=price_policy,
         )
 
@@ -787,6 +794,7 @@ def _prepare_canonical_hybrid_price_merge(
         previous_lineage,
         context=PricePublicationContext(
             active_tickers=active_tickers,
+            maturity_bridge_tickers=maturity_bridge_tickers,
             preserved_terminal_tickers=preserved_terminal_tickers,
             expected_eodhd_keys=expected_eodhd_preservation_keys(
                 eodhd_seed=seed.frame,
@@ -806,6 +814,7 @@ def _prepare_canonical_hybrid_price_merge(
     persistent_registry = build_persistent_price_history_registry(
         hybrid.lineage,
         active_tickers=active_tickers,
+        maturity_bridge_tickers=maturity_bridge_tickers,
         preserved_terminal_tickers=preserved_terminal_tickers,
     )
     persistent_summary = persistent_history_summary(persistent_registry)
@@ -835,6 +844,7 @@ def _prepare_canonical_hybrid_price_merge(
             previous_prices=previous_prices,
             event_since=event_since,
             active_tickers=active_tickers,
+            maturity_bridge_tickers=maturity_bridge_tickers,
             preserved_terminal_tickers=preserved_terminal_tickers,
             reviewed_registry_path=reviewed_extreme_price_move_registry_path,
         ),

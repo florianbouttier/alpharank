@@ -110,6 +110,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 71 | `DATA-037` | distinguer préservation EODHD et observation fournisseur | lot DATA ci-dessous | fait |
 | 72 | `DATA-038` | qualifier les quatre mouvements extrêmes BE | lot DATA ci-dessous | fait |
 | 73 | `DATA-036` | télécharger et composer le candidat data du 8 octobre | lot DATA ci-dessous | fait |
+| 74 | `DATA-039` | prolonger les prix des sortants récents jusqu'à maturité du portefeuille | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -572,6 +573,31 @@ doublons exacts et preuve de récupération.
   aucun portefeuille économique ni vérité de production ne change encore.
 - **Rollback** : ignorer le pointeur candidat local et ses outputs ; la
   production reste sur `9a2058c9…25ad` sans opération de restauration.
+
+### Détail de `DATA-039`
+
+- **Objectif** : empêcher qu'un titre retiré de l'indice pendant le mois de
+  détention perde son rendement avant le rééquilibrage suivant.
+- **Périmètre** : univers de téléchargement prix, roll-forward canonique,
+  registre de persistance, manifeste, tests et runbook.
+- **Hors périmètre** : modifier une ancienne clé prix validée, contourner la
+  gate de rendement censuré, changer les signaux ou promouvoir un snapshot.
+- **Acceptation** : les retraits officiels effectifs pendant le mois courant ou
+  précédent forment une passerelle de maturité distincte de l'univers actif ;
+  leurs prix sont retéléchargés et réconciliés jusqu'au cutoff, puis redeviennent
+  un historique inactif immuable hors de cette fenêtre.
+- **Validations** : 131 tests ingestion/prix/publication verts ; baseline Ruff,
+  documentation et liens Markdown verts ; registre de 556 tests régénéré. Le
+  contrôle de taille ne relève aucune régression `DATA-039`, mais reste rouge
+  sur deux dettes antérieures hors périmètre dans le reporting SEC. Le registre
+  réel du 8 octobre sépare 503 actifs et cinq passerelles : `BLDR`, `CTVA`,
+  `TAP`, `TTD`, `WBD`.
+- **Impact** : les prochains candidats peuvent compléter le rendement du mois
+  de sortie sans réécrire le passé ; aucun snapshot ni portefeuille publié ne
+  change dans cette tâche de code.
+- **Rollback** : retirer la passerelle de maturité ; les historiques déjà
+  validés restent conservés mais les replays échouent à nouveau sur les
+  rendements sélectionnés censurés des sortants récents.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

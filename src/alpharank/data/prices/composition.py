@@ -139,6 +139,7 @@ def roll_forward_validated_price_history(
     previous_validated_lineage: pl.DataFrame,
     active_yahoo_vintage: pl.DataFrame,
     active_tickers: Sequence[str],
+    maturity_bridge_tickers: Sequence[str] = (),
     preserved_terminal_tickers: Sequence[str] = (),
     active_resolution_vintage_id: str | None = None,
     security_identity_registry: pl.DataFrame | None = None,
@@ -146,13 +147,9 @@ def roll_forward_validated_price_history(
     """Keep validated history while resolving active rows from one audited run."""
 
     active = {_normalize_ticker(ticker) for ticker in active_tickers}
+    bridge = {_normalize_ticker(ticker) for ticker in maturity_bridge_tickers}
     terminal = {_normalize_ticker(ticker) for ticker in preserved_terminal_tickers}
-    invalid_terminal = sorted(terminal - active)
-    if invalid_terminal:
-        raise RuntimeError(
-            f"Terminal preservation exceptions are not in the active snapshot: {invalid_terminal}"
-        )
-    refreshable_active = active - terminal
+    refreshable = _validated_refreshable_tickers(active=active, bridge=bridge, terminal=terminal)
     previous_identity = _apply_price_identity(
         previous_validated_lineage,
         registry=security_identity_registry,
@@ -163,13 +160,13 @@ def roll_forward_validated_price_history(
     )
     previous = _ensure_lineage(previous_identity.frame)
     yahoo = _ensure_lineage(yahoo_identity.frame).filter(
-        pl.col("ticker").is_in(sorted(refreshable_active))
+        pl.col("ticker").is_in(sorted(refreshable))
     )
     yahoo_tickers = set(yahoo.get_column("ticker").unique().to_list())
-    missing_active = sorted(refreshable_active - yahoo_tickers)
+    missing_active = sorted(refreshable - yahoo_tickers)
     if missing_active:
         raise RuntimeError(
-            f"Fresh Yahoo vintage does not cover every active ticker: {missing_active[:20]}"
+            f"Fresh Yahoo vintage does not cover every refresh ticker: {missing_active[:20]}"
         )
     vintages = yahoo.select(pl.col("source_vintage_id").drop_nulls().unique())
     carried = pl.DataFrame(schema=yahoo.schema)
@@ -182,7 +179,7 @@ def roll_forward_validated_price_history(
     else:
         current = yahoo.filter(pl.col("source_vintage_id") == active_resolution_vintage_id)
         current_tickers = set(current.get_column("ticker").unique().to_list())
-        missing_current = sorted(refreshable_active - current_tickers)
+        missing_current = sorted(refreshable - current_tickers)
         if missing_current:
             raise RuntimeError(
                 "Active Yahoo resolution contains no current-run observation for: "
@@ -216,7 +213,7 @@ def roll_forward_validated_price_history(
     if non_yahoo:
         raise RuntimeError(f"Fresh active universe contains {non_yahoo} non-Yahoo rows")
 
-    preserved = previous.filter(~pl.col("ticker").is_in(sorted(refreshable_active)))
+    preserved = previous.filter(~pl.col("ticker").is_in(sorted(refreshable)))
     preserved_eodhd_tickers = (
         preserved.filter(pl.col("source") == "eodhd_frozen_history")
         .get_column("ticker")
@@ -231,7 +228,7 @@ def roll_forward_validated_price_history(
         .select(PRICE_LINEAGE_COLUMNS)
     )
     expected_preserved = preserved.select(PRICE_LINEAGE_COLUMNS).sort(["ticker", "date"])
-    observed_preserved = lineage.filter(~pl.col("ticker").is_in(sorted(refreshable_active))).sort(
+    observed_preserved = lineage.filter(~pl.col("ticker").is_in(sorted(refreshable))).sort(
         ["ticker", "date"]
     )
     if not expected_preserved.equals(observed_preserved, null_equal=True):
@@ -252,7 +249,10 @@ def roll_forward_validated_price_history(
                 pl.col("ticker").n_unique()
             ).item(),
             "active_ticker_count": len(active),
-            "refreshable_active_ticker_count": len(refreshable_active),
+            "maturity_bridge_ticker_count": len(bridge),
+            "maturity_bridge_tickers": sorted(bridge),
+            "refreshable_active_ticker_count": len(active - terminal),
+            "refreshable_price_ticker_count": len(refreshable),
             "preserved_terminal_tickers": sorted(terminal),
             "active_yahoo_rows": yahoo.height,
             "active_yahoo_ticker_count": len(yahoo_tickers),
@@ -273,6 +273,25 @@ def roll_forward_validated_price_history(
             },
         },
     )
+
+
+def _validated_refreshable_tickers(
+    *,
+    active: set[str],
+    bridge: set[str],
+    terminal: set[str],
+) -> set[str]:
+    invalid_terminal = sorted(terminal - active)
+    if invalid_terminal:
+        raise RuntimeError(
+            f"Terminal preservation exceptions are not in the active snapshot: {invalid_terminal}"
+        )
+    invalid_bridge = sorted(bridge & active)
+    if invalid_bridge:
+        raise RuntimeError(
+            f"Maturity-bridge tickers are still active constituents: {invalid_bridge}"
+        )
+    return (active - terminal) | bridge
 
 
 def _build_return_ledger_extension(
