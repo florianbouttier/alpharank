@@ -47,6 +47,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `sp500_constituents_20261008.md` : reconstruction officielle des univers de
   septembre et octobre avant le nouveau refresh, avec événements, dates de
   connaissance, hashes et audit à 503 titres par mois.
+- `extreme_price_moves_be_20261008.md` : revue des quatre séances BE qui
+  dépassent le seuil automatique, avec OHLC, volumes, absence d'ajustement,
+  contexte public et bornes exactes du registre.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

@@ -108,6 +108,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 69 | `REPLAY-009` | imposer la stabilité inter-vintages du dernier portefeuille formé | lot REPLAY ci-dessous | fait |
 | 70 | `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre | lot DATA ci-dessous | fait |
 | 71 | `DATA-037` | distinguer préservation EODHD et observation fournisseur | lot DATA ci-dessous | fait |
+| 72 | `DATA-038` | qualifier les quatre mouvements extrêmes BE | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -347,6 +348,7 @@ change dans ce lot.
 | `DATA-034` | séparer lecture, contrôle daté, référence générale et déclaration de politique | fait | la gate d'identité repasse sous le plafond bloquant de 80 lignes sans modifier ses entrées, sorties ou contrôles |
 | `DATA-035` | reconstruire l'univers S&P officiel de septembre et octobre 2026 | fait | événements officiels du 21 septembre, 1er octobre et 6 octobre versionnés ; snapshots mensuels à 503 titres, audit et 9 tests verts |
 | `DATA-037` | distinguer les clés EODHD déjà publiées des nouvelles sorties d'univers | fait | 1 200 483 clés EODHD canoniques protégées, zéro manque/transition/révision canonique sur le run réel ; 21 tests verts et quatre alertes BE correctement maintenues |
+| `DATA-038` | qualifier les quatre mouvements extrêmes BE du nouveau membre S&P | fait | quatre séances bornées aux niveaux RAW exacts, clôtures non ajustées identiques, volumes et contexte public sourcés ; toute autre valeur reste bloquante |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -530,6 +532,25 @@ doublons exacts et preuve de récupération.
   publication cesse de confondre RAW disponible et historique déjà publié.
 - **Rollback** : restaurer la portée RAW globale et le faux blocage ; aucune
   donnée acquise ou publiée n'est modifiée.
+
+### Détail de `DATA-038`
+
+- **Objectif** : décider si les quatre mouvements BE détectés lors de son entrée
+  dans l'univers sont des séances de marché réelles ou des ruptures d'échelle.
+- **Périmètre** : RAW Yahoo du run `20261008_072222`, prix adjacents, OHLC,
+  volumes, absence d'ajustement, annonces publiques, registre borné et test.
+- **Hors périmètre** : modifier un prix, attribuer une cause unique aux séances
+  de mars 2020, construire ou promouvoir le snapshot d'octobre.
+- **Acceptation** : chaque approbation vise un unique couple `ticker,date` et
+  des bornes étroites ; toute dérive de prix ou de rendement reste bloquante ;
+  la preuve datée distingue observation de marché et interprétation.
+- **Validations** : 15 tests du module prix, schéma de configuration, Ruff,
+  documentation et republication différée du run réel : 5/5 mouvements
+  approuvés dont quatre BE, zéro alerte non revue et gate globale verte.
+- **Impact** : les quatre rendements BE sont éligibles comme observations de
+  marché ; aucun historique déjà publié ni portefeuille n'est encore modifié.
+- **Rollback** : retirer ces quatre événements du registre ; le run acquis et
+  ses alertes RAW restent intacts et la publication redevient bloquée.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

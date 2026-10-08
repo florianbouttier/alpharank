@@ -37,6 +37,76 @@
         "https://www.sec.gov/Archives/edgar/data/1713445/000171344524000099/earningspressreleaseq324.htm",
         "https://investor.redditinc.com/news-events/news-releases/news-details/2024/Reddit-Announces-Third-Quarter-2024-Results/"
       ]
+    },
+    {
+      "review_id": "be-20190813-q2-results-v1",
+      "ticker": "BE.US",
+      "date": "2019-08-13",
+      "prior_adjusted_close_min": 7.999,
+      "prior_adjusted_close_max": 8.001,
+      "adjusted_close_min": 4.599,
+      "adjusted_close_max": 4.601,
+      "one_day_return_min": -0.4251,
+      "one_day_return_max": -0.4249,
+      "known_at": "2019-08-13T20:00:00Z",
+      "reason": "BE's 42.5% decline followed the prior evening's second-quarter results and conference call. The acquired session has coherent OHLC, 19.4 million shares of volume, and identical close and adjusted close, which identifies a market move rather than a split or price-scale discontinuity.",
+      "source_urls": [
+        "https://investor.bloomenergy.com/press-releases/press-release-details/2019/Bloom-Energy-Announces-Second-Quarter-2019-Financial-Results/default.aspx",
+        "https://www.sec.gov/Archives/edgar/data/1664703/000166470319000023/0001664703-19-000023-index.html"
+      ]
+    },
+    {
+      "review_id": "be-20200319-covid-rebound-v1",
+      "ticker": "BE.US",
+      "date": "2020-03-19",
+      "prior_adjusted_close_min": 3.069,
+      "prior_adjusted_close_max": 3.071,
+      "adjusted_close_min": 4.369,
+      "adjusted_close_max": 4.371,
+      "one_day_return_min": 0.4233,
+      "one_day_return_max": 0.4236,
+      "known_at": "2020-03-19T20:00:00Z",
+      "reason": "BE's 42.35% close-to-close rebound occurred during the exceptional March 2020 market volatility after its March 16 results. The acquired session has coherent OHLC, 5.3 million shares of volume, and identical close and adjusted close; the review confirms a traded move without claiming a unique catalyst.",
+      "source_urls": [
+        "https://investor.bloomenergy.com/press-releases/press-release-details/2020/Bloom-Energy-Announces-Fourth-Quarter-2019-Financial-Results/default.aspx",
+        "https://www.sec.gov/Archives/edgar/data/1664703/000166470320000013/0001664703-20-000013-index.htm",
+        "https://stockanalysis.com/stocks/be/history/"
+      ]
+    },
+    {
+      "review_id": "be-20200324-covid-rebound-v1",
+      "ticker": "BE.US",
+      "date": "2020-03-24",
+      "prior_adjusted_close_min": 3.889,
+      "prior_adjusted_close_max": 3.891,
+      "adjusted_close_min": 5.619,
+      "adjusted_close_max": 5.621,
+      "one_day_return_min": 0.4445,
+      "one_day_return_max": 0.4449,
+      "known_at": "2020-03-24T20:00:00Z",
+      "reason": "BE's 44.47% close-to-close rebound occurred amid the March 2020 relief rally while Bloom's ventilator work was being reported. The acquired session has coherent OHLC, 6.2 million shares of volume, and identical close and adjusted close; the review confirms a traded move without assigning the full return to one story.",
+      "source_urls": [
+        "https://www.latimes.com/business/story/2020-03-23/coronavirus-california-companies-medical-supplies",
+        "https://www.sec.gov/Archives/edgar/data/1664703/000166470320000013/0001664703-20-000013-index.htm",
+        "https://stockanalysis.com/stocks/be/history/"
+      ]
+    },
+    {
+      "review_id": "be-20241115-aep-agreement-v1",
+      "ticker": "BE.US",
+      "date": "2024-11-15",
+      "prior_adjusted_close_min": 13.279,
+      "prior_adjusted_close_max": 13.281,
+      "adjusted_close_min": 21.139,
+      "adjusted_close_max": 21.141,
+      "one_day_return_min": 0.5917,
+      "one_day_return_max": 0.5921,
+      "known_at": "2024-11-15T21:00:00Z",
+      "reason": "BE's 59.19% session followed Bloom's agreement with AEP for up to one gigawatt of fuel cells. The acquired session has coherent OHLC, 64.7 million shares of volume, and identical close and adjusted close, which identifies a news-driven market move rather than a split or price-scale discontinuity.",
+      "source_urls": [
+        "https://investor.bloomenergy.com/press-releases/press-release-details/2024/Bloom-Energy-Announces-Gigawatt-Fuel-Cell-Procurement-Agreement-with-AEP-to-Power-AI-Data-Centers/default.aspx",
+        "https://www.sec.gov/Archives/edgar/data/1664703/000162828024046303/0001628280-24-046303-index.htm"
+      ]
     }
   ]
 }

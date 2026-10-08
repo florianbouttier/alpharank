@@ -6,8 +6,8 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.ingestion.storage import merge_upsert_frames
 from alpharank.data.ingestion.price_run_evidence import _resolve_price_review_keys
+from alpharank.data.ingestion.storage import merge_upsert_frames
 from alpharank.data.open_source.price_quality import (
     assert_no_extreme_adjusted_price_moves,
     audit_extreme_adjusted_price_moves,
@@ -213,6 +213,48 @@ def test_reviewed_price_registry_accepts_bounded_reddit_earnings_move() -> None:
             "review_id": "rddt-20241030-q3-results-v1",
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("prior_date", "event_date", "prior_close", "event_close", "review_id"),
+    [
+        (date(2019, 8, 12), date(2019, 8, 13), 8.0, 4.6, "be-20190813-q2-results-v1"),
+        (date(2020, 3, 18), date(2020, 3, 19), 3.07, 4.37, "be-20200319-covid-rebound-v1"),
+        (date(2020, 3, 23), date(2020, 3, 24), 3.89, 5.62, "be-20200324-covid-rebound-v1"),
+        (
+            date(2024, 11, 14),
+            date(2024, 11, 15),
+            13.28,
+            21.139999,
+            "be-20241115-aep-agreement-v1",
+        ),
+    ],
+)
+def test_reviewed_price_registry_accepts_only_bounded_bloom_sessions(
+    prior_date: date,
+    event_date: date,
+    prior_close: float,
+    event_close: float,
+    review_id: str,
+) -> None:
+    reviewed_moves, _ = load_reviewed_extreme_price_moves(
+        Path("configs/data_quality/reviewed_extreme_price_moves.json")
+    )
+    prices = pl.DataFrame(
+        {
+            "ticker": ["BE.US", "BE.US"],
+            "date": [prior_date, event_date],
+            "adjusted_close": [prior_close, event_close],
+        }
+    )
+
+    reviewed = assert_no_extreme_adjusted_price_moves(
+        prices,
+        event_since=event_date,
+        reviewed_moves=reviewed_moves,
+    )
+
+    assert reviewed["review_id"].to_list() == [review_id]
 
 
 def test_full_refresh_split_detection_cannot_be_masked_by_old_adjusted_vintage() -> None:
