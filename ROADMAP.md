@@ -111,6 +111,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 72 | `DATA-038` | qualifier les quatre mouvements extrêmes BE | lot DATA ci-dessous | fait |
 | 73 | `DATA-036` | télécharger et composer le candidat data du 8 octobre | lot DATA ci-dessous | fait |
 | 74 | `DATA-039` | prolonger les prix des sortants récents jusqu'à maturité du portefeuille | lot DATA ci-dessous | fait |
+| 75 | `DATA-040` | recomposer le candidat du 8 octobre avec les passerelles de maturité | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -352,6 +353,7 @@ change dans ce lot.
 | `DATA-037` | distinguer les clés EODHD déjà publiées des nouvelles sorties d'univers | fait | 1 200 483 clés EODHD canoniques protégées, zéro manque/transition/révision canonique sur le run réel ; 21 tests verts et quatre alertes BE correctement maintenues |
 | `DATA-038` | qualifier les quatre mouvements extrêmes BE du nouveau membre S&P | fait | quatre séances bornées aux niveaux RAW exacts, clôtures non ajustées identiques, volumes et contexte public sourcés ; toute autre valeur reste bloquante |
 | `DATA-036` | télécharger et composer le candidat data complet au 8 octobre 2026 | fait | run réseau complet `20261008_072222`, prix et SPY au 7 octobre, SEC complet cumulatif, composition `eac32074…e1fe6` validée et non promue avant `REPLAY-010` |
+| `DATA-040` | recomposer le candidat complet après ajout des passerelles de maturité | fait | run réseau `20261008_095842`, 503 actifs et cinq sortants récents, prix au 7 octobre, rebuild SEC déterministe et composition `dbaac67b…e598` laissée non promue avant `REPLAY-010` |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -598,6 +600,31 @@ doublons exacts et preuve de récupération.
 - **Rollback** : retirer la passerelle de maturité ; les historiques déjà
   validés restent conservés mais les replays échouent à nouveau sur les
   rendements sélectionnés censurés des sortants récents.
+
+### Détail de `DATA-040`
+
+- **Objectif** : retélécharger toutes les sources après `DATA-039` et produire
+  un candidat unique qui couvre les 503 membres actifs ainsi que les cinq
+  sortants encore nécessaires à la maturité des portefeuilles.
+- **Périmètre** : acquisition réseau complète, RAW immuable, réconciliation
+  prix, rebuild SEC cumulatif, répétition de contrôle du package SEC et
+  composition d'un snapshot candidat local.
+- **Hors périmètre** : déplacer le pointeur de production, accepter une
+  révision fondamentale historique ou conclure à la stabilité des
+  portefeuilles avant `REPLAY-010`.
+- **Acceptation** : prix et SPY jusqu'au 7 octobre ; 503 actifs et `BLDR`,
+  `CTVA`, `TAP`, `TTD`, `WBD` observés ; zéro ancienne clé prix validée
+  modifiée ou supprimée ; versions SEC conservées ; snapshot de neuf fichiers
+  valide et pointeur de production inchangé.
+- **Validations** : run `20261008_095842` en 54 min 30 s ; 508/508 historiques
+  prix acquis sans échec ; 1 200 483 clés EODHD protégées ; cinq mouvements
+  extrêmes approuvés ; deux builds SEC depuis le même RAW aux hashes de sortie
+  identiques ; composition `dbaac67b…e598`.
+- **Impact** : le candidat final remplace seulement le candidat local antérieur
+  comme entrée de replay ; aucune donnée ni aucun portefeuille publié ne
+  change. Les révisions SEC restent en revue explicite.
+- **Rollback** : ignorer `candidate_latest.json` sous les outputs ; le pointeur
+  canonique reste sur `9a2058c9…25ad`, sans restauration ni suppression.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

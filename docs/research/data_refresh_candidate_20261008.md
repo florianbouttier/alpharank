@@ -1,107 +1,102 @@
-# Candidat data complet du 8 octobre 2026
+# Candidat data final du 8 octobre 2026
 
 ## Verdict data
 
-Le run réseau `20261008_072222` a tenté toutes les sources déclarées et a
-conservé leurs réponses. Après correction des deux faux blocages de portée et
-revue sourcée des quatre séances BE, le candidat composé
-`eac32074b914c8842aabc5f3345bc38ae6631f091599748d56955d720f0e1fe6`
-passe les gates data. Il reste non promu jusqu'au replay `REPLAY-010`.
+Le run réseau `20261008_095842` a retéléchargé toutes les sources déclarées
+après l'ajout des passerelles de maturité de `DATA-039`. Le candidat composé
+`dbaac67b89e67f95a8a7040c07ae560fc13be574c8c463b3f07bcb5b0068e598`
+contient les 503 membres actifs et les cinq sortants récents encore nécessaires
+aux rendements de portefeuille : `BLDR`, `CTVA`, `TAP`, `TTD` et `WBD`.
 
-Le pointeur de production `data/model_inputs/manifests/latest.json` reste
-byte-identique, SHA-256
+La publication automatique s'est arrêtée comme prévu devant les révisions
+fondamentales historiques. Les réponses reçues sont conservées, puis un package
+diagnostic explicitement autorisé pour le replay a été construit sans déplacer
+la vérité de production. Le pointeur `data/model_inputs/manifests/latest.json`
+reste byte-identique, SHA-256
 `5c2d0ec0a6cd716543e03b3caa5662d8c0f096d048c371b1c29ef2ad411642e4`,
 sur la composition
 `9a2058c98ecda33bda77170f67c5c73c0d69efb51d5d26948ca44f70d91425ad`.
 
 ## Acquisition et durée
 
-L'acquisition s'est déroulée de 09:22:22 à 10:14:23, heure de Paris, soit
-environ 52 minutes. Les prix et références étaient déjà largement parallélisés ;
-la plus grande partie du temps restant vient des appels SEC séquentiels et
-bornés. Le manifeste d'acquisition a le SHA-256
-`bc4b6328fdf4fc053245dcf29511d8796d7cd93eb6b7ca2ba0956dc3ea7ee92d`.
+L'acquisition s'est déroulée de 11:58:42 à 12:53:12, heure de Paris, soit
+54 minutes 30 secondes. Le statut final `failed` décrit uniquement le refus de
+publication des révisions SEC ; il ne signifie pas que les téléchargements ont
+été perdus. Leur RAW est conservé sous
+`data/open_source/official/runs/20261008_095842`.
 
 | Source | Statut | Lignes | Échecs | Lecture |
 | --- | --- | ---: | ---: | --- |
-| Yahoo prix | `downloaded_quarantined` | 2 487 879 | 0 | 503/503 actifs, RAW conservé avant revue |
+| Yahoo prix | `downloaded_revisions_reconciled` | 2 508 398 | 0 | 508 historiques prix observés |
 | Yahoo metadata | `downloaded` | 8 | 0 | diagnostic |
-| yfinance earnings | `downloaded` | 42 134 | 0 | fallback diagnostic |
-| SEC submissions | `downloaded` | 3 951 | 0 | univers actif complet |
-| SEC Companyfacts | `downloaded_with_failures` | 505 865 | 7 | uniquement anciens symboles 404 hors univers actif |
+| yfinance earnings | `downloaded` | 42 333 | 0 | fallback diagnostic |
+| SEC submissions | `downloaded` | 3 952 | 0 | univers actif complet |
+| SEC Companyfacts | `downloaded_with_failures` | 505 878 | 7 | anciens symboles 404 hors univers actif |
 | documents SEC | `downloaded` | 17 | 0 | fallback filing ciblé |
-| SimFin | `downloaded_with_failures` | 14 090 | 2 | fallback diagnostic, jamais valeur officielle finale |
-| yfinance fondamentaux | `downloaded` | 26 575 | 0 | fallback diagnostic |
+| SimFin | `downloaded_with_failures` | 14 090 | 2 | fallback diagnostic uniquement |
+| yfinance fondamentaux | `downloaded` | 26 575 | 0 | fallback diagnostic uniquement |
 
-Les sept réponses SEC 404 sont `ABS`, `CFC`, `GLK`, `PLL`, `RX`, `SBNY` et
-`TMC`. Aucun membre actif ne manque dans Companyfacts ou submissions.
+Les sept réponses Companyfacts 404 sont `ABS`, `CFC`, `GLK`, `PLL`, `RX`,
+`SBNY` et `TMC`. Aucun membre actif ne manque dans Companyfacts ou submissions.
 
-## Prix : observer tout, ne réécrire aucun passé validé
+## Prix : historique validé conservé
 
-Le téléchargement complet contient 44 révisions de rendement fournisseur. Le
-RAW les conserve ; le canonique conserve toutes les anciennes valeurs publiées
-et ajoute 16 841 lignes dérivées des nouveaux rendements. Le package final
-contient 3 745 807 lignes pour 847 tickers et valide :
+Le package prix final contient 3 745 944 lignes pour 847 tickers. Les 503
+membres actifs et les cinq passerelles ont été demandés au fournisseur ; leur
+dernière séance close est le 7 octobre 2026. La réconciliation valide :
 
-- prix des 503 membres et SPY jusqu'à la séance close du 7 octobre ;
 - zéro ancienne ligne canonique modifiée et zéro clé historique supprimée ;
-- zéro transition d'ajustement dans le candidat réconcilié ;
-- 1 200 483 clés EODHD historiques attendues et zéro clé manquante ;
-- cinq mouvements extrêmes approuvés dans leurs bornes exactes, dont quatre BE ;
-- préfixe SPY publié inchangé et 34 séances ajoutées jusqu'au 7 octobre.
+- 1 200 483 clés EODHD attendues et zéro manque ;
+- 16 978 lignes d'extension par rendement pour 501 tickers ;
+- cinq mouvements extrêmes approuvés et aucune alerte non revue ;
+- 34 séances nouvelles par passerelle, sauf `WBD` déjà presque complet.
 
-Le manifeste prix, SHA-256
-`1ca798fd4043df3f577a89b9816b5411a2690e0933f1a11bde88083ebcc6e7a8`,
-est dans
-`outputs/data_refresh_replay_20261008/price_candidate/lineage/manifest.json`.
+Le manifeste prix a le SHA-256
+`763176006a5b7992222377bb9e899081351b77ad8b939a6a0265ca44c94c0be2`.
+Le RAW fournisseur et l'audit des variations restent séparés du package
+réconcilié ; une variation fine observée ne réécrit donc pas une clé déjà
+validée.
 
-## SEC cumulatif et point-in-time
+## SEC cumulatif et déterminisme
 
-Le dossier RAW du run est un delta et n'est pas utilisé seul. Il est fusionné
-avec le dernier RAW point-in-time retenu en conservant la clé de version
-`ticker, statement, metric, date, filing_date, source`. Le résultat contient
-513 123 faits Companyfacts, 145 650 faits filing, 58 064 calendriers, 39 568
-actuals et 1 656 références. Son manifeste a le SHA-256
-`51cc2b6fb872ba56c95a61b22b7fee273a21ade6374f586e419fda7c9baf0555`.
+Le delta du run a été rejoué sur le RAW point-in-time retenu. La version
+cumulative contient 513 136 faits Companyfacts, 145 650 faits filing, 58 065
+calendriers, 39 569 actuals et 1 656 références. Son manifeste a le SHA-256
+`8bcf91a799b21fd40102f62cda9b51478899a449bfdcb5261e0e8a2d755ce1a0`.
 
-Le package SEC-only contient 469 496 lignées financières, 56 659 lignées
-earnings et 847 références. Les révisions officielles sont conservées dans le
-candidat diagnostic et explicitement soumises au replay avant toute promotion.
-Son manifeste a le SHA-256
-`9851d2df833729211efd8a62000896611435e628d2dc65489d6d4008dbb6fb3b`.
-
-Une invocation du script historique
-`build_sec_output_package_with_backfill.py --help` a exécuté ses valeurs par
-défaut au lieu d'afficher une aide. Elle a sauvegardé l'ancien `data/sec/output`
-dans `data/sec/history/output/sec_output_20261008_083112`. Ni ce package legacy
-ni cette archive ne sont utilisés par le candidat ; les chemins explicites
-ci-dessus font foi. Aucun fichier n'a été supprimé.
+Le package diagnostic produit 45 069 lignes income, 45 026 balance, 33 441
+cash-flow, 43 228 earnings, 43 323 shares et 847 références générales. Son
+manifeste a le SHA-256
+`6fc7ecc225a8d73c8d6d92e8bb55d38910f85e7fb992bd0de2644284dde82f22`.
+Un second build strict depuis exactement le même RAW reproduit byte pour byte
+les sept exports et les quatre preuves de lignée : le transformateur courant
+est déterministe. Les différences avec un ancien package restent donc un écart
+de vintage/provenance à expliquer par le replay, pas une instabilité du build.
 
 ## Snapshot candidat commun
 
-La composition a été créée avec un pointeur local :
-
-```bash
-./.venv/bin/python scripts/open_source/build_composed_model_snapshot.py \
-  --price-package-dir outputs/data_refresh_replay_20261008/price_candidate \
-  --sec-package-dir outputs/data_refresh_replay_20261008/sec_candidate \
-  --history-root outputs/data_refresh_replay_20261008/composed_history \
-  --latest-manifest outputs/data_refresh_replay_20261008/candidate_latest.json \
-  --expected-through 2026-10-07
-```
-
-Le snapshot se trouve dans
-`outputs/data_refresh_replay_20261008/composed_history/alpharank_input_20261008_083342_eac32074b914`.
+Le snapshot final se trouve dans
+`outputs/data_refresh_replay_20261008_095842/composed_history/alpharank_input_20261008_105551_dbaac67b89e6`.
 Son manifeste, SHA-256
-`9b83c81bb6477a956fb023fef948d76f4d7b50b304a7a09581392f70c0babb67`,
-valide neuf fichiers, l'unicité des 3 745 807 clés prix, les identités, le
-registre des historiques persistants et l'usage du même snapshot par Legacy et
-Boosting.
+`4232b271bcc1b78f99d3926886fe9ac3fb7731588167a528ab8a5f446b9b4f14`,
+valide les neuf fichiers et leur lignée. Le pointeur candidat local a le
+SHA-256
+`d3a8c59a8ea7dafa1238dc0edc9eaee86078913f6de5d2349d85fe1ce0f998a0`.
 
-## Gate suivante obligatoire
+Le premier candidat du jour, issu du run `20261008_072222` et de la composition
+`eac32074…e1fe6`, reste conservé comme preuve. Il est remplacé pour le replay
+par ce candidat final parce qu'il ne téléchargeait pas encore les cinq
+passerelles de maturité.
 
-`REPLAY-010` doit maintenant recalculer Legacy et Boosting sur la production et
-sur ce candidat avec le même code et les mêmes cutoffs. Il doit comparer le
-dernier portefeuille déjà formé entre les deux vintages, puis expliquer toute
-différence d'entrée, univers, score, position, poids ou rendement. La présence
-de nouvelles séances d'août, septembre et octobre ne dispense jamais ce test.
+## Incidents et gate suivante
+
+La commande historique `nightly_ingestion.py --help` ignore actuellement cet
+argument et exécute le refresh par défaut. Cette invocation a bien réalisé le
+téléchargement demandé, mais ce comportement CLI doit être corrigé séparément ;
+il ne change aucun hash ci-dessus.
+
+`REPLAY-010` doit exécuter Legacy, Boosting et le moteur commun avec le même
+code sur le vintage précédent et ce candidat. Il compare automatiquement le
+dernier portefeuille déjà formé à la même date, puis attribue chaque différence
+par ablations prix-seuls et SEC-seuls. Aucune promotion n'est permise avant ce
+verdict.
