@@ -112,6 +112,9 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 73 | `DATA-036` | télécharger et composer le candidat data du 8 octobre | lot DATA ci-dessous | fait |
 | 74 | `DATA-039` | prolonger les prix des sortants récents jusqu'à maturité du portefeuille | lot DATA ci-dessous | fait |
 | 75 | `DATA-040` | recomposer le candidat du 8 octobre avec les passerelles de maturité | lot DATA ci-dessous | fait |
+| 76 | `REPLAY-010` | rejouer le candidat du 8 octobre et contrôler le dernier portefeuille inter-vintages | lot REPLAY ci-dessous | fait |
+| 77 | `DATA-041` | figer la première observation de la frontière prix non publiée | lot DATA ci-dessous | à faire |
+| 78 | `QUAL-016` | rendre `nightly_ingestion.py --help` strictement sans effet | lot QUAL ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -261,6 +264,7 @@ un classement ultérieur exigera son propre inventaire de lecteurs.
 | `QUAL-013` | mesurer taille de module, longueur de fonction et complexité puis bloquer toute régression | fait | baseline versionnée sur 800/250/80/10 et gate différentielle sans exception implicite |
 | `QUAL-014` | étendre Mypy strict au prochain package métier compatible | fait | package `alpharank.portfolio` entier ajouté, zéro erreur et périmètre verrouillé par test |
 | `QUAL-015` | enregistrer la politique de transition ticker dans le registre des schémas JSON | fait | famille `price_ticker_transition_policy`, schéma strict récursif, 18 familles et 23 fichiers classés sans ambiguïté |
+| `QUAL-016` | rendre `nightly_ingestion.py --help` strictement sans effet | à faire | l'aide retourne zéro sans réseau, lock, statut ni fichier créé ; test de non-régression sur les quatre catégories d'effet |
 
 ## 9. Lot CODE — découper sans changer les résultats
 
@@ -354,6 +358,7 @@ change dans ce lot.
 | `DATA-038` | qualifier les quatre mouvements extrêmes BE du nouveau membre S&P | fait | quatre séances bornées aux niveaux RAW exacts, clôtures non ajustées identiques, volumes et contexte public sourcés ; toute autre valeur reste bloquante |
 | `DATA-036` | télécharger et composer le candidat data complet au 8 octobre 2026 | fait | run réseau complet `20261008_072222`, prix et SPY au 7 octobre, SEC complet cumulatif, composition `eac32074…e1fe6` validée et non promue avant `REPLAY-010` |
 | `DATA-040` | recomposer le candidat complet après ajout des passerelles de maturité | fait | run réseau `20261008_095842`, 503 actifs et cinq sortants récents, prix au 7 octobre, rebuild SEC déterministe et composition `dbaac67b…e598` laissée non promue avant `REPLAY-010` |
+| `DATA-041` | figer la première observation de la frontière prix non publiée | à faire | les séances déjà observées par un candidat antérieur sont rejouées à l'identique malgré une micro-révision fournisseur ; le RAW révisé reste archivé et l'audit WDC d'août redevient exact |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -626,6 +631,24 @@ doublons exacts et preuve de récupération.
 - **Rollback** : ignorer `candidate_latest.json` sous les outputs ; le pointeur
   canonique reste sur `9a2058c9…25ad`, sans restauration ni suppression.
 
+### Détail de `DATA-041`
+
+- **Objectif** : empêcher qu'une micro-révision fournisseur d'une séance déjà
+  vue par un candidat antérieur change rétroactivement un portefeuille formé.
+- **Périmètre** : registre de première observation des prix non encore promus,
+  réconciliation canonique, provenance, test WDC d'août et runbook mensuel.
+- **Hors périmètre** : supprimer ou masquer le nouveau RAW, arrondir les prix,
+  modifier un arbre Boosting ou promouvoir le candidat du 8 octobre.
+- **Acceptation** : le RAW conserve les deux vintages et leur différence ; le
+  canonique rejoué réutilise la première valeur déjà observée pour chaque clé ;
+  le portefeuille d'août repasse à 78/78 lignes et poids strictement identiques.
+- **Validations** : test de non-régression synthétique, reconstruction réelle du
+  candidat, replay same-date puis audit prix/SEC exhaustif.
+- **Impact** : stabilité inter-vintages des décisions déjà formées, sans perte
+  de preuve fournisseur ni changement d'une donnée de production publiée.
+- **Rollback** : conserver le candidat et la production courants ; les RAW et
+  audits restent immuables et permettent de reconstruire chaque politique.
+
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
 | ID | Action | Statut | Critère de fin |
@@ -732,6 +755,7 @@ doublons exacts et preuve de récupération.
 | `REPLAY-007` | distinguer l'extension de l'horizon data d'un changement de configuration | fait | `decision_data_completed_through_month` est exclu de la configuration économique stable ; le minimum de liquidité et les autres paramètres restent comparés ; 11 tests de drift verts |
 | `REPLAY-008` | rejouer le candidat complet et attribuer tout drift jusqu'au dernier portefeuille commun | fait | mêmes code/config/runtime ; portefeuille fin juillet exact sur 80/80 lignes ; drift de juin exhaustivement attribué aux changements S&P connus avant décision ; rapport HTML `2df8fcc0…3087`, aucune promotion automatique |
 | `REPLAY-009` | rendre obligatoire la comparaison du dernier portefeuille du run précédent à date identique | fait | date dérivée automatiquement de la baseline, comparaison titres/poids non contournable, statut explicite dans JSON/HTML et preuve réelle 80/80 ; 544 tests verts |
+| `REPLAY-010` | rejouer le candidat complet du 8 octobre et attribuer tout drift inter-vintages | fait | juillet exact sur 80/80 ; août échoue sur le remplacement WDC/CHTR dans Boosting Top 10, isolé au vintage prix ; rapport HTML `eb9d675c…f6cc`, production inchangée et promotion bloquée |
 
 ### Détail de `REPLAY-008`
 
@@ -784,6 +808,29 @@ doublons exacts et preuve de récupération.
   cette preuve.
 - **Rollback** : restaurer l'argument manuel optionnel de `REPLAY-008` ; les
   artefacts de replay et snapshots restent immuables.
+
+### Détail de `REPLAY-010`
+
+- **Objectif** : recalculer tous les portefeuilles avec les données du 8 octobre
+  et vérifier automatiquement les décisions passées contre leur vintage connu.
+- **Périmètre** : Legacy, Boosting, variante tendance, moteur commun, baseline
+  publiée, vintage du 8 septembre, ablations prix/SEC, rapport de drift et
+  rapport de performance jusqu'en septembre.
+- **Hors périmètre** : déplacer `latest.json`, corriger la politique de frontière
+  prix, accepter les révisions SEC ou promouvoir une stratégie R&D.
+- **Acceptation** : mêmes code, modèles, configuration et runtime ; portefeuille
+  fin juillet exact ; portefeuille fin août comparé ligne et poids ; toute
+  différence attribuée et bloquante ; portefeuille courant d'octobre visible.
+- **Validations** : quatre scénarios de replay passés ; juillet exact 80/80 ;
+  août 78/78 avec un ajout et un retrait, zéro poids commun modifié ; 6 716
+  positions Legacy et 88 951 scores Boosting historiques exacts ; 48 tests
+  replay et 2 tests reporting verts ; HTML/JavaScript réels, documentation et
+  liens Markdown validés.
+- **Impact** : aucune promotion. Les 12 micro-révisions Yahoo de WDC suffisent à
+  faire passer CHTR devant WDC dans Top 10 ; l'ablation SEC est exacte et les
+  16 hashes de modèle sont identiques.
+- **Rollback** : ignorer le candidat et ses rapports ; le pointeur de production
+  reste byte-identique sur `9a2058c9…25ad`.
 
 ### Détail de `REPLAY-007`
 

@@ -53,6 +53,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `data_refresh_candidate_20261008.md` : téléchargement final du 8 octobre sur
   503 actifs et cinq passerelles de maturité, reconstruction SEC cumulative,
   contrôle de déterminisme et snapshot candidat commun laissé non promu.
+- `data_refresh_replay_20261008.md` : replays Legacy, Boosting et moteur commun,
+  juillet exact, drift WDC/CHTR d'août attribué au vintage prix, portefeuille
+  courant, performances et blocage explicite de la promotion.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
