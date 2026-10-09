@@ -101,8 +101,9 @@ sont un diagnostic post-hoc sur le candidat et ne constituent pas une promotion.
 - snapshot : `outputs/data_refresh_replay_20261008_095842/composed_history/alpharank_input_20261008_105551_dbaac67b89e6` ;
 - manifeste snapshot : `4232b271bcc1b78f99d3926886fe9ac3fb7731588167a528ab8a5f446b9b4f14` ;
 - manifeste moteur commun : `3e877be7bef9753556229d2275822879924797342887294cd62d8a5e609ff194` ;
-- audit JSON : `outputs/data_refresh_replay_20261008_095842/replay_head7cc22c7/audit_previous_vintage_cutoff_2026_07/refresh_replay_attribution.json`, SHA-256 `79a88df06e436e5d5609478a0ffe56e7349228109fcb03e9f2e580d234f77892` ;
-- rapport HTML drift : même dossier, `refresh_replay_report.html`, SHA-256 `eb9d675ca929c327f8864f7914416be0cc8ca6c167f8661b47f92e66b877f6cc` ;
+- audit brut : `outputs/data_refresh_replay_20261008_095842/replay_head7cc22c7/audit_previous_vintage_cutoff_2026_07/refresh_replay_report.json`, SHA-256 `baf21002171f098728f5421f79a0d5d76d1316d0e8b2f9c8d277d6e616d405ed` ;
+- attribution JSON : même dossier, `refresh_replay_attribution.json`, SHA-256 `da306498284edc5408349595bae01f8826a1ee1d6ee8d1a0737d602a450b159a` ;
+- rapport HTML drift : même dossier, `refresh_replay_report.html`, SHA-256 `b0a74856fd2089cd748837cb22bb51fa3bffee423f50a93776264d3bf8210587` ;
 - clés ajoutées : `latest_portfolio_diffs/latest_portfolios_added_keys.parquet`, SHA-256 `f923537d95684bdf4427d5378e1952b54b81808a1fcf4ad261fee624c6a2737f` ;
 - clés retirées : `latest_portfolio_diffs/latest_portfolios_removed_keys.parquet`, SHA-256 `1c05f6fee55506eaf22cf2913149aefba255dcc093aa0731cac9b47143ee66f7` ;
 - rapport HTML performance : `outputs/performance_reports/data_refresh_20261008_095842/backtest_performance_report.html`, SHA-256 `e4e9dfd292e8ac04f60ba14c8a7355d41c76f35960f0bf1866e669b757b41a92` ;
@@ -120,6 +121,9 @@ porte le statut `explained_data_drift`. Le rapport performance est
 `comparison_eligible=true`, `publication_eligible=false` et
 `post_hoc_research_diagnostic`. La stabilité de juillet est prouvée ; la
 stabilité d'août est réfutée et bloque volontairement la promotion jusqu'à
-`DATA-041`. Les 48 tests replay et les 2 tests reporting passent ; les deux HTML
+`DATA-041`. Les 49 tests replay et les 2 tests reporting passent ; les deux HTML
 réels sont parseables, leur JavaScript est syntaxiquement valide et ils ne
-chargent aucun asset réseau. La documentation et ses liens locaux sont valides.
+chargent aucun asset réseau. Après `REPLAY-011`, le JSON et le HTML exposent
+directement `CHTR.US` en entrée et `WDC.US` en sortie de `Boosting Top 10` ; les
+Parquet demeurent la preuve exhaustive. La documentation et ses liens locaux
+sont valides.

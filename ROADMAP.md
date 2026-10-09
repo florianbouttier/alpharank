@@ -115,6 +115,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 76 | `REPLAY-010` | rejouer le candidat du 8 octobre et contrôler le dernier portefeuille inter-vintages | lot REPLAY ci-dessous | fait |
 | 77 | `DATA-041` | figer la première observation de la frontière prix non publiée | lot DATA ci-dessous | à faire |
 | 78 | `QUAL-016` | rendre `nightly_ingestion.py --help` strictement sans effet | lot QUAL ci-dessous | à faire |
+| 79 | `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -756,6 +757,7 @@ doublons exacts et preuve de récupération.
 | `REPLAY-008` | rejouer le candidat complet et attribuer tout drift jusqu'au dernier portefeuille commun | fait | mêmes code/config/runtime ; portefeuille fin juillet exact sur 80/80 lignes ; drift de juin exhaustivement attribué aux changements S&P connus avant décision ; rapport HTML `2df8fcc0…3087`, aucune promotion automatique |
 | `REPLAY-009` | rendre obligatoire la comparaison du dernier portefeuille du run précédent à date identique | fait | date dérivée automatiquement de la baseline, comparaison titres/poids non contournable, statut explicite dans JSON/HTML et preuve réelle 80/80 ; 544 tests verts |
 | `REPLAY-010` | rejouer le candidat complet du 8 octobre et attribuer tout drift inter-vintages | fait | juillet exact sur 80/80 ; août échoue sur le remplacement WDC/CHTR dans Boosting Top 10, isolé au vintage prix ; rapport HTML `eb9d675c…f6cc`, production inchangée et promotion bloquée |
+| `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | fait | contrat v2 avec listes ajoutées, retirées et modifiées ; HTML réel nomme CHTR/WDC et la stratégie ; rapport `b0a74856…0587` |
 
 ### Détail de `REPLAY-008`
 
@@ -831,6 +833,27 @@ doublons exacts et preuve de récupération.
   16 hashes de modèle sont identiques.
 - **Rollback** : ignorer le candidat et ses rapports ; le pointeur de production
   reste byte-identique sur `9a2058c9…25ad`.
+
+### Détail de `REPLAY-011`
+
+- **Objectif** : rendre le verdict inter-vintages directement actionnable dans
+  le rapport HTML, sans devoir ouvrir les Parquet de preuve.
+- **Périmètre** : résumé JSON du dernier portefeuille, rendu HTML, tests,
+  contrat de replay et régénération du rapport du 8 octobre.
+- **Hors périmètre** : modifier une comparaison, un score, un portefeuille, la
+  cause du drift ou la décision de promotion.
+- **Acceptation** : chaque ajout, retrait ou poids modifié expose stratégie,
+  ticker, mois de décision et mois de détention dans le JSON et le HTML ; les
+  Parquet exhaustifs restent la preuve tabulaire.
+- **Validations** : tests de non-régression écrits en échec puis rendus verts ;
+  49 tests replay, Ruff, format, HTML/JavaScript réel, documentation et liens
+  Markdown validés. Les fichiers modifiés n'ajoutent aucune violation de taille ;
+  la gate globale reste rouge sur deux dettes hors périmètre dans le reporting
+  SEC et son script de publication.
+- **Impact** : aucun calcul économique. Le rapport nomme maintenant l'entrée
+  `CHTR.US` et la sortie `WDC.US` de `Boosting Top 10` à fin août.
+- **Rollback** : revenir au résumé numérique v1 ; les Parquet de différences et
+  tous les artefacts de modèle restent inchangés.
 
 ### Détail de `REPLAY-007`
 

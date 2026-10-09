@@ -90,6 +90,37 @@ def test_refresh_report_html_discloses_blocked_vintage_check(tmp_path: Path) -> 
     assert "STABILITÉ INTER-VINTAGES" in html
 
 
+def test_refresh_report_html_lists_latest_vintage_key_changes(tmp_path: Path) -> None:
+    scenarios, audit_path = _report_fixture(tmp_path)
+    report = build_refresh_attribution(
+        RefreshAttributionInputs(audit_report=audit_path, scenarios=scenarios)
+    )
+    report["vintage_portfolio_stability"] = {
+        "status": "failed",
+        "decision_month": "2026-08-01",
+        "holding_month": "2026-09-01",
+        "exact_match": False,
+        "baseline_rows": 78,
+        "candidate_rows": 78,
+        "added_rows": 1,
+        "removed_rows": 1,
+        "changed_common_rows": 0,
+        "added_keys": [{"strategy": "Boosting Top 10", "ticker": "CHTR.US"}],
+        "removed_keys": [{"strategy": "Boosting Top 10", "ticker": "WDC.US"}],
+        "changed_keys": [],
+    }
+    output = tmp_path / "refresh_replay_report.html"
+
+    write_refresh_replay_html(json.loads(json.dumps(report, default=str)), output)
+
+    html = output.read_text(encoding="utf-8")
+    assert "CHTR.US" in html
+    assert "WDC.US" in html
+    assert "Boosting Top 10" in html
+    assert "entrée" in html
+    assert "sortie" in html
+
+
 def test_refresh_report_checks_additive_common_portfolio_effects(tmp_path: Path) -> None:
     scenarios, audit_path = _report_fixture(tmp_path, common_runs_pass=True)
 

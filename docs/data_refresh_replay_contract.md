@@ -119,11 +119,13 @@ Un run conserve sous une seule racine identifiée :
 - `refresh_replay_report.json`, conclusion machine-lisible unique ;
 - `vintage_portfolio_stability`, comparaison obligatoire du dernier
   portefeuille du run précédent, avec statut, source automatique de la date,
-  mois décidé/détenu, nombres de lignes et écarts de clés ou de poids ;
+  mois décidé/détenu, nombres de lignes et listes exactes des clés ajoutées,
+  retirées ou dont le poids change ;
 - `refresh_replay_attribution.json`, séparation machine-lisible des effets prix
   et SEC lorsque les signaux historiques dérivent ;
 - `refresh_replay_report.html`, vue humaine autonome de la conclusion, des
-  ablations, des écarts Top-N, de la gate et de la provenance ;
+  ablations, des écarts Top-N, des clés exactes du contrôle inter-vintages, de
+  la gate et de la provenance ;
 - la commande, le runtime, le commit et les hashes du code critique.
 
 Les gros Parquet restent dans les sorties de run, hors Git. Une synthèse datée

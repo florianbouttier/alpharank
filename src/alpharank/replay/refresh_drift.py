@@ -112,6 +112,13 @@ REPLAY_TABLES = (
     ),
 )
 
+LATEST_PORTFOLIO_KEYS = (
+    "strategy",
+    "decision_month",
+    "holding_month",
+    "ticker",
+)
+
 
 def audit_refresh_replay(
     inputs: ReplayAuditInputs,
@@ -285,7 +292,7 @@ def _compare_latest_portfolios(
     spec = TableSpec(
         "latest_portfolios",
         "",
-        ("strategy", "decision_month", "holding_month", "ticker"),
+        LATEST_PORTFOLIO_KEYS,
         "decision_month",
         "ticker",
     )
@@ -361,7 +368,7 @@ def _vintage_stability_summary(
 ) -> dict[str, Any]:
     holding_month = _next_month(decision_month)
     shared = {
-        "contract_version": 1,
+        "contract_version": 2,
         "required": True,
         "date_source": "baseline_live_portfolio",
         "decision_month": decision_month.isoformat(),
@@ -384,8 +391,23 @@ def _vintage_stability_summary(
         | {
             "status": "passed" if exact_match else "failed",
             "exact_match": exact_match,
+            "added_keys": _serializable_latest_keys(diff.added_keys),
+            "removed_keys": _serializable_latest_keys(diff.removed_keys),
+            "changed_keys": _serializable_latest_keys(diff.changed_keys),
         }
     )
+
+
+def _serializable_latest_keys(frame: pl.DataFrame) -> list[dict[str, Any]]:
+    columns = [
+        pl.col(name).cast(pl.String).alias(name)
+        if name in {"decision_month", "holding_month"}
+        else pl.col(name)
+        for name in LATEST_PORTFOLIO_KEYS
+    ]
+    if "changed_columns" in frame.columns:
+        columns.append(pl.col("changed_columns"))
+    return frame.select(columns).sort(LATEST_PORTFOLIO_KEYS).to_dicts()
 
 
 def _read_latest_portfolios(

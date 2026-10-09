@@ -134,7 +134,40 @@ Le nouveau run est rejoué à cette même date, indépendamment de la maturité 
                 }
             ]
         )
-    }</div></section>"""
+    }</div>{_vintage_key_changes(comparison)}</section>"""
+
+
+def _vintage_key_changes(comparison: Mapping[str, object]) -> str:
+    rows = []
+    for field, label in (
+        ("added_keys", "entrée"),
+        ("removed_keys", "sortie"),
+        ("changed_keys", "poids modifié"),
+    ):
+        values = comparison.get(field)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if not isinstance(value, dict):
+                continue
+            changed_columns = value.get("changed_columns")
+            rows.append(
+                {
+                    "variation": label,
+                    "stratégie": value.get("strategy", "—"),
+                    "titre": value.get("ticker", "—"),
+                    "décision": value.get("decision_month", "—"),
+                    "détention": value.get("holding_month", "—"),
+                    "colonnes": (
+                        ", ".join(str(column) for column in changed_columns)
+                        if isinstance(changed_columns, list)
+                        else "—"
+                    ),
+                }
+            )
+    if not rows:
+        return ""
+    return f'<div class="panel"><h3>Clés exactes du drift</h3>{_table(rows)}</div>'
 
 
 def _vintage_verdict(exact_match: object) -> str:

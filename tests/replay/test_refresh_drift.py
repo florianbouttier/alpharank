@@ -236,7 +236,25 @@ def test_complete_audit_blocks_latest_portfolio_drift(tmp_path: Path) -> None:
     report = audit_refresh_replay(inputs, tmp_path / "audit")
 
     assert report["status"] == "unexplained_portfolio_drift"
-    assert not report["latest_portfolio_comparison"]["exact_match"]
+    latest = report["latest_portfolio_comparison"]
+    assert not latest["exact_match"]
+    assert latest["added_keys"] == [
+        {
+            "strategy": "Boosting Top 5",
+            "decision_month": "2020-01-01",
+            "holding_month": "2020-02-01",
+            "ticker": "B",
+        }
+    ]
+    assert latest["removed_keys"] == [
+        {
+            "strategy": "Boosting Top 5",
+            "decision_month": "2020-01-01",
+            "holding_month": "2020-02-01",
+            "ticker": "A",
+        }
+    ]
+    assert latest["changed_keys"] == []
     assert report["vintage_portfolio_stability"]["status"] == "failed"
 
 
