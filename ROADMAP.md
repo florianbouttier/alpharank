@@ -117,6 +117,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 78 | `QUAL-016` | rendre `nightly_ingestion.py --help` strictement sans effet | lot QUAL ci-dessous | à faire |
 | 79 | `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | lot REPLAY ci-dessous | fait |
 | 80 | `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | lot DATA ci-dessous | fait |
+| 81 | `DATA-043` | télécharger et composer le candidat data du 24 octobre | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -362,6 +363,7 @@ change dans ce lot.
 | `DATA-040` | recomposer le candidat complet après ajout des passerelles de maturité | fait | run réseau `20261008_095842`, 503 actifs et cinq sortants récents, prix au 7 octobre, rebuild SEC déterministe et composition `dbaac67b…e598` laissée non promue avant `REPLAY-010` |
 | `DATA-041` | figer la première observation de la frontière prix non publiée | à faire | les séances déjà observées par un candidat antérieur sont rejouées à l'identique malgré une micro-révision fournisseur ; le RAW révisé reste archivé et l'audit WDC d'août redevient exact |
 | `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | fait | le snapshot d'octobre contient SKYD et non PSKY à compter du 6 octobre ; la source SEC, le temps de connaissance et la continuité de symbole sont versionnés et testés |
+| `DATA-043` | télécharger et composer le candidat data du 24 octobre | fait | run `20261024_140104`, 503 membres frais au 23 octobre, composition `c340a9b4…8b7e` validée et non promue avant `REPLAY-012` |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -671,6 +673,27 @@ doublons exacts et preuve de récupération.
   traiter à tort `PSKY` comme un membre courant devenu stale.
 - **Rollback** : revenir au registre antérieur ; aucune donnée publiée ni aucun
   snapshot immuable n'est supprimé.
+
+### Détail de `DATA-043`
+
+- **Objectif** : rafraîchir toutes les sources au 24 octobre 2026 dans le bon
+  ordre et produire un unique snapshot candidat pour les replays.
+- **Périmètre** : reconstruction des 503 constituants, acquisition réseau
+  complète, RAW immuable, réconciliation prix, rebuild SEC cumulatif,
+  composition du snapshot et preuve datée.
+- **Hors périmètre** : déplacer le pointeur de production, accepter un drift
+  historique ou conclure sur les portefeuilles avant le replay dédié.
+- **Acceptation** : chaque source reçoit un statut explicite ; SKYD est frais ;
+  aucune ancienne clé validée n'est écrasée ; le candidat de neuf fichiers est
+  vérifié et `latest.json` reste inchangé.
+- **Validations** : acquisition de 49 min 24 s ; 503 membres et SPY au 23
+  octobre ; zéro ancienne ligne prix modifiée ; sept exports SEC reproduits
+  byte pour byte ; snapshot de neuf fichiers validé, documentation et liens
+  Markdown verts.
+- **Impact** : aucun portefeuille publié ne change dans cette tâche ; le
+  candidat devient seulement l'entrée de `REPLAY-012`.
+- **Rollback** : ignorer le candidat local ; conserver tous les RAW et audits
+  immuables, sans modifier le pointeur canonique.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
