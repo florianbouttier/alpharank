@@ -56,6 +56,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `data_refresh_replay_20261008.md` : replays Legacy, Boosting et moteur commun,
   juillet exact, drift WDC/CHTR d'août attribué au vintage prix, portefeuille
   courant, performances et blocage explicite de la promotion.
+- `data_refresh_replay_20261024.md` : replays same-code du candidat du 24
+  octobre, portefeuille de septembre exact sur 126/126, historiques canoniques
+  stables et drift de l'univers diagnostique Legacy PE attribué aux SEC.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

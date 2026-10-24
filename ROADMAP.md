@@ -118,6 +118,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 79 | `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | lot REPLAY ci-dessous | fait |
 | 80 | `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | lot DATA ci-dessous | fait |
 | 81 | `DATA-043` | télécharger et composer le candidat data du 24 octobre | lot DATA ci-dessous | fait |
+| 82 | `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -803,6 +804,30 @@ doublons exacts et preuve de récupération.
 | `REPLAY-009` | rendre obligatoire la comparaison du dernier portefeuille du run précédent à date identique | fait | date dérivée automatiquement de la baseline, comparaison titres/poids non contournable, statut explicite dans JSON/HTML et preuve réelle 80/80 ; 544 tests verts |
 | `REPLAY-010` | rejouer le candidat complet du 8 octobre et attribuer tout drift inter-vintages | fait | juillet exact sur 80/80 ; août échoue sur le remplacement WDC/CHTR dans Boosting Top 10, isolé au vintage prix ; rapport HTML `eb9d675c…f6cc`, production inchangée et promotion bloquée |
 | `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | fait | contrat v2 avec listes ajoutées, retirées et modifiées ; HTML réel nomme CHTR/WDC et la stratégie ; rapport `b0a74856…0587` |
+| `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | fait | décision de septembre exacte sur 126/126 ; Legacy et Boosting canoniques historiques exacts ; 23 ajouts et 23 retraits limités à l'univers diagnostique Legacy PE, exhaustivement attribués au vintage SEC ; rapport HTML `56a82a1a…d91`, production inchangée et promotion bloquée |
+
+### Détail de `REPLAY-012`
+
+- **Objectif** : recalculer toutes les stratégies avec les données du 24 octobre
+  et vérifier automatiquement que le dernier portefeuille déjà formé ainsi que
+  les décisions historiques communes restent reproductibles.
+- **Périmètre** : même code propre sur le candidat du 8 octobre et celui du 24
+  octobre, Legacy, Boosting, variante tendance, moteur commun, ablations
+  prix-seuls/SEC-seuls, audit JSON/HTML et rapport de performance.
+- **Hors périmètre** : déplacer `latest.json`, masquer un drift, retuner un
+  modèle ou promouvoir une variante Boosting.
+- **Acceptation** : date de décision dérivée automatiquement ; titres et poids
+  comparés à `1e-12` ; tout écart historique porte ses clés et une attribution
+  data exhaustive ; une différence bloque la promotion.
+- **Validations** : paquets Legacy valides, quatre scénarios communs exécutés,
+  code/config/runtime identiques, dernier portefeuille exact sur 126/126,
+  rapports HTML autonomes, tests replay/reporting et contrôles documentaires.
+- **Impact** : aucun changement du portefeuille formé fin septembre ni des
+  historiques Legacy/Boosting canoniques. Les révisions SEC remplacent 23
+  positions uniquement dans la variante R&D `Legacy PE universe`; le pointeur
+  de production reste inchangé et la promotion demeure bloquée.
+- **Rollback** : ignorer les nouveaux artefacts et rapports ; les snapshots
+  précédents et le pointeur de production restent immuables.
 
 ### Détail de `REPLAY-008`
 
