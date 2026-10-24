@@ -202,6 +202,22 @@
         {"action": "add", "ticker": "TWLO", "name": "Twilio"},
         {"action": "remove", "ticker": "WBD"}
       ]
+    },
+    {
+      "event_id": "sp500-20261006-psky-skyd",
+      "observed_at": "2026-10-02T23:59:59-04:00",
+      "effective_at": "2026-10-06T00:00:00-04:00",
+      "effective_date": "2026-10-06",
+      "confidence": "high",
+      "source_url": "https://ir.paramount.com/static-files/36b6ca19-67e4-4787-94ee-8c4c1373e0ac",
+      "operations": [
+        {
+          "action": "ticker_change",
+          "ticker": "PSKY",
+          "new_ticker": "SKYD",
+          "name": "Skydance Corporation"
+        }
+      ]
     }
   ]
 }

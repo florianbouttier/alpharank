@@ -478,7 +478,12 @@ quarterly rebalance (BE, P and ILMN replacing TAP, TTD and BLDR), then the
 October additions of VYLR and TWLO and removals of CTVA and WBD. The VYLR
 announcement exposes only an October 1 publication date, so its knowledge time
 is conservatively set to the end of that day; no earlier decision may observe
-it. September and October snapshots each retain 503 members.
+it. Paramount Skydance's official filing published on October 2 also records
+the October 6 transfer from Nasdaq to NYSE and the same-security ticker change
+from `PSKY` to `SKYD`. The October membership therefore requests `SKYD` from
+price providers and must not interpret the discontinued `PSKY` symbol as a
+stale current constituent. September and October snapshots each retain 503
+members.
 
 The price download universe is deliberately wider than the latest 503 names.
 Policy `recent_constituent_exit_price_bridge_v1` also refreshes tracked symbols

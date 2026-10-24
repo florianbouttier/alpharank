@@ -152,8 +152,9 @@ def test_october_registry_applies_official_sp500_changes() -> None:
         "BLDR",
         "CTVA",
         "WBD",
+        "PSKY",
     ]
-    tickers = required_tickers + [f"TEST{index:03d}" for index in range(486)]
+    tickers = required_tickers + [f"TEST{index:03d}" for index in range(485)]
     source = pl.DataFrame(
         {
             "Date": [date(2026, 4, 1)] * len(tickers),
@@ -173,8 +174,8 @@ def test_october_registry_applies_official_sp500_changes() -> None:
 
     assert {"BE", "P", "ILMN"}.issubset(september)
     assert {"TAP", "TTD", "BLDR"}.isdisjoint(september)
-    assert {"VYLR", "TWLO"}.issubset(october)
-    assert {"CTVA", "WBD"}.isdisjoint(october)
+    assert {"VYLR", "TWLO", "SKYD"}.issubset(october)
+    assert {"CTVA", "WBD", "PSKY"}.isdisjoint(october)
     assert result.frame.filter(pl.col("Date") == date(2026, 10, 1)).height == 503
 
 

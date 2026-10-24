@@ -116,6 +116,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 77 | `DATA-041` | figer la première observation de la frontière prix non publiée | lot DATA ci-dessous | à faire |
 | 78 | `QUAL-016` | rendre `nightly_ingestion.py --help` strictement sans effet | lot QUAL ci-dessous | à faire |
 | 79 | `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | lot REPLAY ci-dessous | fait |
+| 80 | `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -360,6 +361,7 @@ change dans ce lot.
 | `DATA-036` | télécharger et composer le candidat data complet au 8 octobre 2026 | fait | run réseau complet `20261008_072222`, prix et SPY au 7 octobre, SEC complet cumulatif, composition `eac32074…e1fe6` validée et non promue avant `REPLAY-010` |
 | `DATA-040` | recomposer le candidat complet après ajout des passerelles de maturité | fait | run réseau `20261008_095842`, 503 actifs et cinq sortants récents, prix au 7 octobre, rebuild SEC déterministe et composition `dbaac67b…e598` laissée non promue avant `REPLAY-010` |
 | `DATA-041` | figer la première observation de la frontière prix non publiée | à faire | les séances déjà observées par un candidat antérieur sont rejouées à l'identique malgré une micro-révision fournisseur ; le RAW révisé reste archivé et l'audit WDC d'août redevient exact |
+| `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | fait | le snapshot d'octobre contient SKYD et non PSKY à compter du 6 octobre ; la source SEC, le temps de connaissance et la continuité de symbole sont versionnés et testés |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -649,6 +651,26 @@ doublons exacts et preuve de récupération.
   de preuve fournisseur ni changement d'une donnée de production publiée.
 - **Rollback** : conserver le candidat et la production courants ; les RAW et
   audits restent immuables et permettent de reconstruire chaque politique.
+
+### Détail de `DATA-042`
+
+- **Objectif** : corriger l'univers courant après le transfert de cotation de
+  Paramount Skydance et son changement officiel de symbole de `PSKY` vers
+  `SKYD` le 6 octobre 2026.
+- **Périmètre** : registre d'événements S&P 500, reconstruction mensuelle des
+  constituants, test de non-régression et runbook mensuel.
+- **Hors périmètre** : inventer des prix, relier deux titres distincts, modifier
+  un portefeuille ou promouvoir un snapshot.
+- **Acceptation** : l'événement est sourcé par le dépôt SEC du 2 octobre ; le
+  snapshot d'octobre conserve 503 membres, contient `SKYD` et exclut `PSKY` ;
+  les mois antérieurs restent inchangés.
+- **Validations** : test écrit d'abord en échec puis sept tests d'intégration
+  verts ; reconstruction sèche d'octobre à 503 membres avec l'événement
+  appliqué ; Ruff, documentation et liens Markdown verts.
+- **Impact** : le prochain refresh demande le symbole négocié `SKYD` au lieu de
+  traiter à tort `PSKY` comme un membre courant devenu stale.
+- **Rollback** : revenir au registre antérieur ; aucune donnée publiée ni aucun
+  snapshot immuable n'est supprimé.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
