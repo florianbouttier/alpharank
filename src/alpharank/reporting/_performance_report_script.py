@@ -270,7 +270,7 @@ function observeNavigation() {
 async function boot() {
   try {
     state.data=await decodePayload(); document.getElementById("loading").hidden=true;document.getElementById("app").hidden=false;
-    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",drawStudioChart);
+    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",resizeStudioCharts);
   } catch (error) { document.getElementById("loading").textContent=`Rapport illisible : ${error.message}`; }
 }
 boot();

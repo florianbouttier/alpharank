@@ -11,6 +11,9 @@ from alpharank.reporting._performance_report_chart_script import (
 from alpharank.reporting._performance_report_composer_script import (
     PERFORMANCE_REPORT_COMPOSER_SCRIPT,
 )
+from alpharank.reporting._performance_report_frontier_script import (
+    PERFORMANCE_REPORT_FRONTIER_SCRIPT,
+)
 from alpharank.reporting._performance_report_matrix_script import (
     PERFORMANCE_REPORT_MATRIX_SCRIPT,
 )
@@ -44,6 +47,7 @@ def render_performance_report_html(payload: dict[str, Any]) -> str:
         '<div id="app" class="shell" hidden>\n' + _sidebar() + _main() + "</div>\n"
         f"<script>const PAYLOAD_GZIP_BASE64={json.dumps(encoded)};\n"
         f"{PERFORMANCE_REPORT_COMPOSER_SCRIPT}\n"
+        f"{PERFORMANCE_REPORT_FRONTIER_SCRIPT}\n"
         f"{PERFORMANCE_REPORT_STUDIO_SCRIPT}\n"
         f"{PERFORMANCE_REPORT_CHART_SCRIPT}\n"
         f"{PERFORMANCE_REPORT_MATRIX_SCRIPT}\n"
@@ -82,7 +86,7 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero">
     <div>
-      <span class="eyebrow">Standard de performance · REPORT-012</span>
+      <span class="eyebrow">Standard de performance · REPORT-014</span>
       <h1>Rapport de backtest complet</h1>
       <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
       calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
@@ -109,6 +113,7 @@ def _performance_sections() -> str:
         <div class="mode-switch" role="tablist" aria-label="Type de comparaison">
           <button class="is-active" type="button" role="tab" aria-selected="true" data-analysis-mode="strategies">Stratégies</button>
           <button type="button" role="tab" aria-selected="false" data-analysis-mode="composer">Portefeuille composé</button>
+          <button type="button" role="tab" aria-selected="false" data-analysis-mode="frontier">Frontières efficientes</button>
         </div>
       </div>
 """
@@ -128,6 +133,27 @@ def _performance_sections() -> str:
         <strong>Laboratoire post-hoc, non promu.</strong>
         Équipondération mensuelle des poches ; rendements déjà nets de leurs frais propres et aucun coût supplémentaire entre poches. Un titre détenu par plusieurs stratégies reste exposé dans chacune.
       </aside>
+      <section class="frontier-only frontier-studio" id="frontier-studio" hidden>
+        <aside class="studio-contract">
+          <strong>Diagnostic post-hoc, non promu.</strong>
+          Trois poches distinctes, longues sans levier, rééquilibrées mensuellement par pas de 5 % et plafonnées à 70 %. La fenêtre « 2010 » commence en août 2011, première observation commune.
+        </aside>
+        <div class="frontier-recommendations" id="frontier-recommendations"></div>
+        <div class="frontier-chart-grid">
+          <article class="frontier-panel">
+            <header><h3>Rendement / volatilité</h3><p>À gauche : moins de volatilité. En haut : plus de CAGR.</p></header>
+            <div class="chart-stage"><canvas id="frontier-volatility-chart"></canvas><div class="chart-tooltip frontier-tooltip" hidden></div></div>
+          </article>
+          <article class="frontier-panel">
+            <header><h3>Rendement / drawdown</h3><p>À gauche : drawdown absolu plus faible. En haut : plus de CAGR.</p></header>
+            <div class="chart-stage"><canvas id="frontier-drawdown-chart"></canvas><div class="chart-tooltip frontier-tooltip" hidden></div></div>
+          </article>
+        </div>
+        <details class="studio-drawer frontier-anchor-table" open>
+          <summary><span>Recommandations sur plusieurs horizons</span><small>2010 demandé, puis 2015, 2020, 2023 et 2025 jusqu'à la dernière date commune</small></summary>
+          <div class="drawer-content"><div class="table-wrap"><table><thead><tr><th>Fenêtre</th><th>Profil</th><th>Composition</th><th>CAGR</th><th>Volatilité</th><th>Max drawdown</th></tr></thead><tbody id="frontier-anchor-body"></tbody></table></div></div>
+        </details>
+      </section>
     </article>
   </section>
 """

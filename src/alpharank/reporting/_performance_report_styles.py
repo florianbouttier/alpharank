@@ -393,6 +393,37 @@ canvas { display: block; width: 100%; height: 360px; }
 }
 .composer-summary { margin: 0 0 8px; color: var(--muted); font-size: 11px; }
 .composer-menu { width: min(560px, 90vw); }
+.frontier-studio { margin-top: 10px; }
+.frontier-recommendations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.frontier-recommendation {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--profile-color);
+  border-radius: var(--radius-panel);
+}
+.frontier-recommendation header { display: flex; justify-content: space-between; gap: 8px; }
+.frontier-recommendation header span { color: var(--navy); font-weight: 750; }
+.frontier-recommendation header small { color: var(--muted); }
+.frontier-recommendation > strong { display: block; margin: 9px 0; color: var(--ink); font-size: 11px; }
+.frontier-recommendation dl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 0; }
+.frontier-recommendation dl div { display: grid; gap: 2px; }
+.frontier-recommendation dt { color: var(--muted); font-size: 9px; text-transform: uppercase; }
+.frontier-recommendation dd { margin: 0; color: var(--navy); font: 700 11px "IBM Plex Mono", ui-monospace, monospace; }
+.frontier-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.frontier-panel { padding: 12px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-panel); }
+.frontier-panel h3 { margin: 0; color: var(--navy); font-size: 14px; }
+.frontier-panel p { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+.frontier-panel canvas { height: 330px; }
+.frontier-anchor-table { margin-top: 10px; }
+.frontier-composition-cell { max-width: 480px; overflow: hidden; text-overflow: ellipsis; }
+.profile-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; }
+.frontier-empty { color: var(--muted); }
 [hidden] { display: none !important; }
 .legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-top: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
@@ -529,6 +560,7 @@ tbody tr:hover { background: #f6f8fb; }
 .loading[hidden], .shell[hidden] { display: none !important; }
 @media (max-width: 1120px) {
   .current-portfolio-meta { grid-template-columns: repeat(2, 1fr); }
+  .frontier-recommendation dl { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 820px) {
   .sidebar { position: static; width: auto; padding: 14px 18px; }
@@ -538,7 +570,7 @@ tbody tr:hover { background: #f6f8fb; }
   .content { padding: 20px 16px 48px; }
   .hero { grid-template-columns: 1fr; }
   .toolbar, .portfolio-controls, .current-portfolio-controls { grid-template-columns: 1fr 1fr; }
-  .method-grid, .lineage-grid, .composer-options { grid-template-columns: 1fr; }
+  .method-grid, .lineage-grid, .composer-options, .frontier-chart-grid, .frontier-recommendations { grid-template-columns: 1fr; }
   .studio-head, .chart-head { align-items: stretch; flex-direction: column; }
   .mode-switch, .chart-switch { align-self: stretch; }
   .studio-drawers { grid-template-columns: 1fr; }

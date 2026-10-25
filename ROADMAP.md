@@ -119,6 +119,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 80 | `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | lot DATA ci-dessous | fait |
 | 81 | `DATA-043` | télécharger et composer le candidat data du 24 octobre | lot DATA ci-dessous | fait |
 | 82 | `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | lot REPLAY ci-dessous | fait |
+| 83 | `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1004,6 +1005,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-011` | publier le portefeuille en vigueur au 28 août dans Portfolio | fait | artefact SATS/ECHO régénéré avec preuve de marché du 28 août, copie site byte-identique, build et QA du panier courant ; preuve `docs/research/backtest_performance_report_20260830_current_portfolio.md` |
 | `REPORT-012` | centraliser stratégies, composition, cartes et graphiques dans un même studio | fait | mode simple/composé sans changement de page, SPY permanent, période commune, écarts visibles et vues performance/drawdown/relative synchronisées ; payload économique inchangé, hash `a91a6f…ad3` |
 | `REPORT-013` | publier le studio unifié et sa preuve dans Portfolio | fait | source, copie publique et build byte-identiques au hash `46db35…5bba` ; build et runtime DOM validés, preuve `docs/research/backtest_performance_report_20260914_studio.md` |
+| `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | fait | 168 compositions longues sans levier sur 136 fenêtres, deux frontières Pareto et trois profils descriptifs dans le rapport autonome ; preuve `docs/research/strategy_frontiers_20261025.md` |
 
 ### Détail de `REPORT-001`
 
@@ -1252,6 +1254,32 @@ doublons exacts et preuve de récupération.
   résultat économique source ne change.
 - **Rollback** : restaurer la copie publique précédente ; le rapport source
   reste reproductible depuis ses chemins explicites.
+
+### Détail de `REPORT-014`
+
+- **Objectif** : proposer des compositions lisibles entre méthodes distinctes
+  et visualiser les compromis rendement/volatilité et rendement/drawdown sur
+  plusieurs fenêtres historiques comparables.
+- **Périmètre** : Legacy Frequency, Boosting Top 5 et Boosting tendance Top 5 ;
+  poids longs par pas de 5 %, somme à 100 %, plafond de 70 % par poche,
+  rééquilibrage mensuel, KPI canoniques, points Pareto, profils volatilité
+  minimale/Sharpe/Calmar, payload et HTML autonomes.
+- **Hors périmètre** : levier, vente à découvert, optimisation sur les titres,
+  variantes PE diagnostiques, nouveau signal, promotion d'une composition ou
+  publication dans le dépôt Portfolio.
+- **Acceptation** : le moteur Python pré-calcule chaque composition et chaque
+  fenêtre ; JavaScript ne recalcule aucun KPI ; les stratégies seules et SPY
+  restent visibles comme références ; 2010 est explicitement ramené au premier
+  mois comparable d'août 2011 ; toute recommandation est qualifiée post-hoc.
+- **Validations** : tests du simplexe, des frontières et des profils ; parité
+  avec les KPI communs ; tests payload/HTML, syntaxe JavaScript, génération sur
+  le replay du 24 octobre, contrôles documentaires et qualité ciblée. Quatre
+  tests ciblés, Ruff, format Ruff, mypy et `node --check` sont verts ; la QA
+  navigateur `file://` a été refusée par sa politique et n'a pas été contournée.
+- **Impact** : nouveau diagnostic de composition uniquement ; aucun rendement,
+  score, portefeuille source, snapshot ou statut de promotion n'est modifié.
+- **Rollback** : retirer le mode frontières et son payload ; les modes
+  stratégies et portefeuille composé de `REPORT-012` restent inchangés.
 
 ## 13. Lot RUN — remettre de l'ordre dans résultats et journaux
 

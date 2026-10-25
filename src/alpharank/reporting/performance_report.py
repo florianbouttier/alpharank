@@ -13,15 +13,18 @@ from alpharank.portfolio.combinations import (
     EQUAL_WEIGHT_ADDITIONAL_COST,
     EQUAL_WEIGHT_REBALANCE_FREQUENCY,
     EqualWeightCombinationGrid,
-    equal_weight_strategy_combination_grid,
 )
 from alpharank.portfolio.comparison import (
     performance_by_start_year,
-    subperiod_portfolio_metric_grid,
+)
+from alpharank.reporting._performance_report_analytics import (
+    build_report_analytics,
+    frontier_methodology_card,
+    strategy_frontier_payload,
 )
 from alpharank.reporting._performance_report_html import render_performance_report_html
 
-REPORT_SCHEMA_VERSION = 4
+REPORT_SCHEMA_VERSION = 5
 BENCHMARK_STRATEGY = "SPY · Total return"
 COMPOSER_METRIC_FIELDS = (
     "total_return",
@@ -184,22 +187,12 @@ def build_performance_report_payload(
     sector_coverage = _sector_coverage(holdings)
     monthly = _mask_unobservable_sector_weights(monthly, sector_coverage)
     strategy_order = [spec.label for spec in STRATEGY_SPECS]
-    series = {
-        strategy: monthly.filter(pl.col("strategy") == strategy).sort("holding_month")
-        for strategy in strategy_order
-    }
-    metric_windows = subperiod_portfolio_metric_grid(
-        series,
-        benchmark_strategy=BENCHMARK_STRATEGY,
+    series, metric_windows, composer, frontiers = build_report_analytics(
+        monthly,
         strategy_order=strategy_order,
-        metric_fields=PERFORMANCE_METRIC_FIELDS,
-        calendar_year_boundaries_only=True,
-    )
-    composer = equal_weight_strategy_combination_grid(
-        series,
         benchmark_strategy=BENCHMARK_STRATEGY,
-        strategy_order=[strategy for strategy in strategy_order if strategy != BENCHMARK_STRATEGY],
-        metric_fields=COMPOSER_METRIC_FIELDS,
+        performance_metric_fields=PERFORMANCE_METRIC_FIELDS,
+        composer_metric_fields=COMPOSER_METRIC_FIELDS,
     )
     start_month, end_month = _report_bounds(monthly)
     start_year_metrics = performance_by_start_year(
@@ -221,6 +214,7 @@ def build_performance_report_payload(
         "metric_fields": list(PERFORMANCE_METRIC_FIELDS),
         "metric_windows": metric_windows,
         "portfolio_composer": _composer_payload(composer),
+        "strategy_frontiers": strategy_frontier_payload(frontiers),
         "start_year_metrics": _start_year_rows(start_year_metrics),
         "monthly": _monthly_rows(monthly),
         "holdings": _holding_rows(holdings),
@@ -233,7 +227,7 @@ def build_performance_report_payload(
             "benchmark": "SPY total return depuis adjusted_close",
             "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
             "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
-            "report_task": "REPORT-012",
+            "report_task": "REPORT-014",
         },
         "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
     }
@@ -349,6 +343,13 @@ def write_performance_report(
             "correlation_windows": len(
                 payload["portfolio_composer"]["strategy_correlation_windows"]
             ),
+        },
+        "strategy_frontiers": {
+            "method": payload["strategy_frontiers"]["policy"]["method"],
+            "candidate_allocations": len(payload["strategy_frontiers"]["weights"]),
+            "windows": len(payload["strategy_frontiers"]["windows"]),
+            "anchor_windows": payload["strategy_frontiers"]["anchor_windows"],
+            "metric_fields": payload["strategy_frontiers"]["metric_fields"],
         },
         "current_portfolio": {
             "as_of_date": payload["current_portfolio"]["as_of_date"],
@@ -495,7 +496,7 @@ def _select_current_holding_fields(frame: pl.DataFrame, *, strategy: str) -> pl.
 def _optional_holding_column(
     frame: pl.DataFrame,
     name: str,
-    dtype: pl.DataType,
+    dtype: pl.DataType | type[pl.DataType],
     *,
     fallback: str | None = None,
 ) -> pl.Expr:
@@ -727,6 +728,7 @@ def _methodology_cards() -> list[dict[str, Any]]:
                 "lire KPI, corrélations et richesse relative pré-calculés face au SPY",
             ],
         },
+        frontier_methodology_card(),
     ]
 
 

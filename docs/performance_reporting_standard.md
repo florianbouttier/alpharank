@@ -114,6 +114,39 @@ forte mais ne prouve ni la robustesse future ni l'intérêt économique de la
 poche. Rendement, drawdown, coûts et concentration restent nécessaires pour
 l'interprétation.
 
+## Frontières efficientes entre stratégies
+
+Le troisième mode du studio compare des pondérations entre trois poches
+méthodologiquement distinctes : `Legacy · Frequency`, `Boosting · Top 5` et
+`Boosting tendance · Top 5`. Il ne mélange pas les variantes Top 10/15/20, qui
+sont des déclinaisons de concentration des mêmes signaux, ni les variantes PE
+diagnostiques. Les contraintes sont fixes : poids longs, somme à 100 %, aucun
+levier, pas de 5 %, plafond de 70 % par poche et rééquilibrage mensuel. Les
+rendements d'entrée sont déjà nets des frais propres à chaque stratégie ; aucun
+coût inter-poche supplémentaire n'est ajouté.
+
+`constrained_strategy_frontier_grid()` énumère les 168 pondérations admissibles
+et appelle `advanced_performance_statistics()` pour chacune et pour chaque
+fenêtre annuelle disponible. Le navigateur ne calcule aucun KPI. Il projette
+les points pré-calculés sur deux plans : CAGR face à la volatilité annualisée,
+puis CAGR face à la valeur absolue du max drawdown. Un point appartient à la
+frontière si aucune autre composition n'offre simultanément un risque inférieur
+ou égal et un CAGR supérieur ou égal, avec au moins une inégalité stricte.
+
+Trois profils descriptifs sont présentés sur chaque fenêtre : volatilité
+minimale, Sharpe maximal et Calmar maximal. Les égalités sont départagées de
+façon déterministe par le second critère de risque puis par l'ordre des poids.
+Ces profils sont sélectionnés après observation de la fenêtre : ils constituent
+un diagnostic post-hoc, pas une règle causale, un conseil d'investissement ou
+une promotion. Une allocation promouvable exigerait une sélection walk-forward
+sur la seule histoire disponible à chaque décision, des frais de transfert
+inter-poches et une validation temporelle scellée.
+
+Le tableau multi-horizon expose 2010, 2015, 2020, 2023 et 2025 jusqu'au dernier
+mois commun lorsque ces fenêtres existent. L'historique comparable commence en
+août 2011 : la ligne demandée « 2010 à aujourd'hui » affiche donc explicitement
+août 2011 comme début effectif et n'invente aucun mois antérieur.
+
 Les mêmes cartes, graphiques, tiroirs KPI et model cards sont alimentés par la
 combinaison active et SPY. La matrice de corrélation entre poches reste dans un
 tiroir propre au mode composé. Le rapport expose au minimum :

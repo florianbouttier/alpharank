@@ -84,6 +84,23 @@ def test_payload_uses_canonical_window_kpi_and_keeps_every_holding(tmp_path: Pat
         "relative_wealth": "richesse composée divisée par la richesse SPY",
         "status": "diagnostic post-hoc non promu",
     }
+    frontiers = payload["strategy_frontiers"]
+    assert frontiers["strategy_order"] == [
+        "Legacy · Frequency",
+        "Boosting · Top 5",
+        "Boosting tendance · Top 5",
+    ]
+    assert len(frontiers["weights"]) == 168
+    assert all(sum(weights) == pytest.approx(1.0) for weights in frontiers["weights"])
+    frontier_window = frontiers["windows"]["2026-01-01|2026-02-01"]
+    assert len(frontier_window["candidate_metrics"]) == 168
+    assert set(frontier_window["recommendations"]) == {
+        "minimum_volatility",
+        "maximum_sharpe",
+        "maximum_calmar",
+    }
+    assert frontiers["policy"]["weight_step"] == pytest.approx(0.05)
+    assert frontiers["policy"]["maximum_strategy_weight"] == pytest.approx(0.70)
 
 
 def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: Path) -> None:
@@ -102,6 +119,7 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert payload["lineage"]["composition_id"] == "test-composition"
     assert manifest["report"]["sha256"]
     assert manifest["portfolio_composer"]["combinations"] == 1_023
+    assert manifest["strategy_frontiers"]["candidate_allocations"] == 168
     assert "https://" not in html
     assert "http://" not in html
     assert "Viridis" not in html  # The requested scale is encoded locally, not loaded.
@@ -109,6 +127,7 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert 'id="analysis-studio"' in html
     assert 'data-analysis-mode="strategies"' in html
     assert 'data-analysis-mode="composer"' in html
+    assert 'data-analysis-mode="frontier"' in html
     assert 'id="curve-multiselect"' in html
     assert 'id="composer-multiselect"' in html
     assert 'id="studio-kpis"' in html
@@ -124,6 +143,11 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert 'id="composer-options"' in html
     assert 'id="composer-correlation-matrix"' in html
     assert 'id="composer-boosting-pair"' in html
+    assert 'id="frontier-studio"' in html
+    assert 'id="frontier-recommendations"' in html
+    assert 'id="frontier-volatility-chart"' in html
+    assert 'id="frontier-drawdown-chart"' in html
+    assert 'id="frontier-anchor-body"' in html
     assert 'id="current-portfolio"' in html
     assert 'id="current-portfolio-strategy"' in html
     assert 'id="current-holdings-body"' in html
@@ -146,6 +170,9 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert "function composerMetricValue(field)" in html
     assert "function renderComposerCorrelation()" in html
     assert "function composerRelativeWealthSeries()" in html
+    assert "function renderFrontierStudio()" in html
+    assert "function drawFrontierScatter(canvas, model)" in html
+    assert "function resizeStudioCharts()" in html
     ids = re.findall(r'id="([^"]+)"', html)
     assert len(ids) == len(set(ids))
 

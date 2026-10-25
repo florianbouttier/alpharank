@@ -16,19 +16,27 @@ function initializeStudioControls() {
 }
 
 function setAnalysisMode(mode) {
-  if (mode !== "strategies" && mode !== "composer") return;
+  if (!new Set(["strategies", "composer", "frontier"]).has(mode)) return;
   state.analysisMode = mode;
   const isComposer = mode === "composer";
+  const isFrontier = mode === "frontier";
   document.querySelectorAll("[data-analysis-mode]").forEach(button => {
     const active = button.dataset.analysisMode === mode;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-selected", String(active));
   });
-  document.getElementById("strategy-mode-controls").hidden = isComposer;
+  document.getElementById("strategy-mode-controls").hidden = isComposer || isFrontier;
   document.getElementById("composer-mode-controls").hidden = !isComposer;
   document.querySelectorAll(".composer-only").forEach(element => {
     element.hidden = !isComposer;
   });
+  document.querySelectorAll(".frontier-only").forEach(element => {
+    element.hidden = !isFrontier;
+  });
+  document.getElementById("studio-outcome").hidden = isFrontier;
+  document.getElementById("studio-kpis").hidden = isFrontier;
+  document.querySelector(".studio-chart-panel").hidden = isFrontier;
+  document.querySelector(".studio-drawers").hidden = isFrontier;
   document.getElementById("curve-multiselect").open = false;
   document.getElementById("composer-multiselect").open = false;
   renderStudio();
@@ -134,11 +142,24 @@ function renderStudioOutcome() {
 
 function renderStudio() {
   if (!state.data) return;
+  if (state.analysisMode === "frontier") {
+    renderFrontierStudio();
+    return;
+  }
   renderStudioKpis();
   renderStudioOutcome();
   drawStudioChart();
   renderMetricTable();
   renderMatrices();
   if (state.analysisMode === "composer") renderComposerCorrelation();
+}
+
+function resizeStudioCharts() {
+  if (state.analysisMode === "frontier") {
+    drawFrontierChart("volatility");
+    drawFrontierChart("drawdown");
+    return;
+  }
+  drawStudioChart();
 }
 """
