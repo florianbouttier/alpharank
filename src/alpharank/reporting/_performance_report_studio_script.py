@@ -97,6 +97,16 @@ function comparisonDeltaText(field, value, benchmark) {
   })} vs SPY`;
 }
 
+function compactStrategyName(name) {
+  if (name === BENCHMARK_STRATEGY) return "SPY";
+  if (name === COMPOSER_NAME) return "Composé";
+  return name
+    .replace("Legacy · Frequency", "Legacy")
+    .replace("Boosting tendance", "Tendance")
+    .replace("Boosting", "Boost")
+    .replace(" · ", " ");
+}
+
 function renderStudioKpis() {
   const series = studioDisplaySeries();
   document.getElementById("studio-kpis").innerHTML = STUDIO_DISPLAY_METRICS.map(field => {
@@ -110,7 +120,7 @@ function renderStudioKpis() {
         : comparisonDeltaText(field, value, benchmark);
       const color = name === COMPOSER_NAME ? COMPOSER_COLOR : strategyMeta(name).color;
       return `<div class="kpi-strategy-row comparison-${status}">
-        <span class="strategy-name"><i style="background:${color}"></i>${escapeHtml(name)}</span>
+        <span class="strategy-name" title="${escapeHtml(name)}"><i style="background:${color}"></i>${escapeHtml(compactStrategyName(name))}</span>
         <strong>${format(value, type)}</strong>
         <small class="delta-chip">${escapeHtml(comparison)}</small>
       </div>`;

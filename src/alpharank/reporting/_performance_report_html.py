@@ -59,25 +59,27 @@ def render_performance_report_html(payload: dict[str, Any]) -> str:
 
 def _sidebar() -> str:
     return """
-<aside class="sidebar" aria-label="Navigation du rapport">
-  <div class="brand">
+<header class="topbar" aria-label="Navigation du rapport">
+  <a class="brand" href="#top" aria-label="AlphaRank · haut du rapport">
     <div class="brand-mark">AR</div>
-    <div><strong>AlphaRank</strong><small>Performance research</small></div>
-  </div>
+    <div><strong>AlphaRank</strong><small>Performance desk</small></div>
+  </a>
   <nav aria-label="Sections du rapport">
-    <div class="nav-label">Analyser</div>
-    <a class="nav-link is-active" href="#overview"><span>01</span>Studio de comparaison</a>
-    <div class="nav-label">Contrôler</div>
-    <a class="nav-link" href="#current-portfolio"><span>02</span>Portefeuille en vigueur</a>
-    <a class="nav-link" href="#portfolios"><span>03</span>Historique complet</a>
-    <a class="nav-link" href="#methodologies"><span>04</span>Méthodologies</a>
-    <a class="nav-link" href="#lineage"><span>05</span>Lignée et contrats</a>
+    <a class="nav-link is-active" href="#overview">Analyse</a>
+    <a class="nav-link" href="#current-portfolio">Portefeuille</a>
+    <a class="nav-link" href="#portfolios">Historique</a>
+    <a class="nav-link" href="#methodologies">Méthodes</a>
+    <a class="nav-link" href="#lineage">Sources</a>
   </nav>
-  <div class="sidebar-meta" aria-label="Fraîcheur du rapport">
-    <span>Fenêtre couverte</span><strong id="report-calendar">—</strong>
-    <span>Généré le</span><strong id="report-generated">—</strong>
+  <div class="topbar-actions">
+    <div class="topbar-meta" aria-label="Fraîcheur du rapport">
+      <strong id="report-calendar">—</strong><span id="report-generated">—</span>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="Activer le thème sombre">
+      <span aria-hidden="true">◐</span><strong>Thème</strong>
+    </button>
   </div>
-</aside>
+</header>
 """
 
 
@@ -87,15 +89,12 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero" id="top">
     <div class="hero-copy">
-      <span class="eyebrow">Performance research · REPORT-015</span>
-      <h1>Rapport de backtest complet</h1>
-      <p>Comparer, composer et auditer Legacy, Boosting et SPY sans quitter le même espace de travail.</p>
+      <span class="eyebrow">Backtests comparables · REPORT-016</span>
+      <h1>Performance desk</h1>
+      <p>Une fenêtre, un benchmark, toutes les stratégies et leurs portefeuilles.</p>
     </div>
     <div class="hero-actions">
       <div class="status-badge"><span>Statut de preuve</span><strong id="status-message">—</strong></div>
-      <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="Activer le thème sombre">
-        <span aria-hidden="true">◐</span><strong>Thème</strong>
-      </button>
     </div>
   </header>
   <section class="coverage-strip" aria-label="Couverture du rapport">
@@ -120,7 +119,7 @@ def _performance_sections() -> str:
   <section class="section studio-section" id="overview">
     <article class="analysis-studio" id="analysis-studio">
       <div class="studio-head">
-        <div><span class="section-kicker">01 · Studio de comparaison</span><h2>Stratégies et portefeuilles, au même endroit</h2></div>
+        <div><span class="section-kicker">Comparateur</span><h2>Lire la performance, puis comprendre le risque</h2></div>
         <div class="mode-switch" role="tablist" aria-label="Type de comparaison">
           <button class="is-active" type="button" role="tab" aria-selected="true" data-analysis-mode="strategies">Stratégies</button>
           <button type="button" role="tab" aria-selected="false" data-analysis-mode="composer">Portefeuille composé</button>
@@ -135,9 +134,13 @@ def _performance_sections() -> str:
         <span>SPY total return reste toujours la référence.</span>
       </div>
       <div class="studio-outcome" id="studio-outcome" aria-live="polite"></div>
-      <div class="kpi-grid" id="studio-kpis"></div>
+      <div class="studio-workspace">
 """
         + _studio_chart()
+        + """
+        <aside class="kpi-grid" id="studio-kpis" aria-label="KPI de la sélection"></aside>
+      </div>
+"""
         + _studio_drawers()
         + """
       <aside class="studio-contract composer-only" id="composer-contract" hidden>

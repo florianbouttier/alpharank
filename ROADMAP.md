@@ -121,6 +121,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 82 | `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | lot REPLAY ci-dessous | fait |
 | 83 | `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | lot REPORT ci-dessous | fait |
 | 84 | `REPORT-015` | refondre le rapport de performance en dashboard source-backed sans perte d'information | lot REPORT ci-dessous | fait |
+| 85 | `REPORT-016` | transformer le rapport en performance desk pleine largeur et publier le bon artefact | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1008,6 +1009,30 @@ doublons exacts et preuve de récupération.
 | `REPORT-013` | publier le studio unifié et sa preuve dans Portfolio | fait | source, copie publique et build byte-identiques au hash `46db35…5bba` ; build et runtime DOM validés, preuve `docs/research/backtest_performance_report_20260914_studio.md` |
 | `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | fait | 168 compositions longues sans levier sur 136 fenêtres, deux frontières Pareto et trois profils descriptifs dans le rapport autonome ; preuve `docs/research/strategy_frontiers_20261025.md` |
 | `REPORT-015` | refondre le rapport de performance en dashboard source-backed sans perte d'information | fait | shell AlphaRank responsive, synthèse source/fraîcheur, trois modes d'analyse, audit complet et parité exacte du payload économique ; preuve `docs/research/backtest_dashboard_refactor_20261030.md` et QA desktop/mobile |
+| `REPORT-016` | transformer le rapport en performance desk pleine largeur et publier le bon artefact | fait | navigation horizontale, graphique et KPI réunis sans défilement latéral, nouvel artefact ouvert dans un onglet dédié sans écraser le rapport historique du 8 octobre, parité économique et preuve `docs/research/backtest_performance_desk_20261030.md` |
+
+### Détail de `REPORT-016`
+
+- **Objectif** : corriger la première refonte, trop proche du chrome historique,
+  par un poste d'analyse pleine largeur réellement différent et immédiatement
+  visible dans l'onglet utilisateur.
+- **Périmètre** : navigation horizontale, hiérarchie du studio, grille
+  graphique/KPI, densité typographique, responsive, génération réelle, preuve
+  et ouverture du nouvel artefact.
+- **Hors périmètre** : payload économique, formule financière, donnée, signal,
+  rendement, poids, portefeuille source, promotion ou écrasement d'un ancien
+  output immuable.
+- **Acceptation** : le premier viewport réunit période, modes, décision,
+  graphique et six KPI sans rail latéral ni scroll horizontal ; les 11 séries,
+  33 KPI et toutes les vues d'audit restent accessibles ; le nouvel artefact
+  servi localement est ouvert dans un onglet dédié et l'ancien output reste
+  immuable.
+- **Validations** : contrat HTML, 19+ tests reporting, Ruff, format, JavaScript,
+  documentation, parité du payload et QA navigateur desktop/mobile avec
+  capture du premier viewport.
+- **Impact** : rendu et navigation seulement ; aucun impact économique ou data.
+- **Rollback** : restaurer le renderer `REPORT-015` au commit `c893cca` ; les
+  artefacts sources restent inchangés.
 
 ### Détail de `REPORT-015`
 

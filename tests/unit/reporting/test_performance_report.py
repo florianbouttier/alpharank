@@ -196,7 +196,7 @@ def test_dashboard_shell_keeps_the_complete_information_contract(tmp_path: Path)
         "coverage-holdings",
     ):
         assert f'id="{element_id}"' in html
-    assert "Performance research · REPORT-015" in html
+    assert "Backtests comparables · REPORT-016" in html
     assert 'class="skip-link"' in html
     assert "function renderCoverage()" in html
     assert "function initializeTheme()" in html

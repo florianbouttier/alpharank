@@ -21,12 +21,14 @@ de lignes de positions et nature du payload embarqué. Ces compteurs sont lus
 dans le même payload compressé que les vues détaillées ; ils ne sont pas codés
 en dur dans le HTML.
 
-Le rail de navigation sépare l'analyse de la preuve et permet d'atteindre le
-studio, le portefeuille en vigueur, l'historique, les méthodologies puis la
-lignée. Le studio reste l'espace principal : période, stratégies ou poches,
-cartes, graphique et tiroirs sont regroupés sans dupliquer les résultats. Le
-thème clair/sombre modifie uniquement les tokens de rendu et les couleurs du
-canvas ; il ne modifie ni la sélection, ni la période, ni le payload.
+La navigation horizontale sépare l'analyse de la preuve et permet d'atteindre
+le studio, le portefeuille en vigueur, l'historique, les méthodologies puis la
+lignée sans réserver un rail permanent. Le studio utilise ainsi toute la
+largeur : période, stratégies ou poches, décision, graphique et six KPI sont
+réunis dans un même poste de travail. Les tiroirs détaillés restent directement
+sous ce bloc, sans dupliquer les résultats. Le thème clair/sombre modifie
+uniquement les tokens de rendu et les couleurs du canvas ; il ne modifie ni la
+sélection, ni la période, ni le payload.
 
 La page reste complète sur mobile : les groupes se réorganisent, les matrices
 et tables conservent un défilement horizontal local, et aucune section n'est
