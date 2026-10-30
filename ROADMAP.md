@@ -122,6 +122,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 83 | `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | lot REPORT ci-dessous | fait |
 | 84 | `REPORT-015` | refondre le rapport de performance en dashboard source-backed sans perte d'information | lot REPORT ci-dessous | fait |
 | 85 | `REPORT-016` | transformer le rapport en performance desk pleine largeur et publier le bon artefact | lot REPORT ci-dessous | fait |
+| 86 | `REPORT-017` | reconstruire le desk autour du graphique et d'un scoreboard interactif | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1010,6 +1011,26 @@ doublons exacts et preuve de récupération.
 | `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | fait | 168 compositions longues sans levier sur 136 fenêtres, deux frontières Pareto et trois profils descriptifs dans le rapport autonome ; preuve `docs/research/strategy_frontiers_20261025.md` |
 | `REPORT-015` | refondre le rapport de performance en dashboard source-backed sans perte d'information | fait | shell AlphaRank responsive, synthèse source/fraîcheur, trois modes d'analyse, audit complet et parité exacte du payload économique ; preuve `docs/research/backtest_dashboard_refactor_20261030.md` et QA desktop/mobile |
 | `REPORT-016` | transformer le rapport en performance desk pleine largeur et publier le bon artefact | fait | navigation horizontale, graphique et KPI réunis sans défilement latéral, nouvel artefact ouvert dans un onglet dédié sans écraser le rapport historique du 8 octobre, parité économique et preuve `docs/research/backtest_performance_desk_20261030.md` |
+| `REPORT-017` | reconstruire le desk autour du graphique et d'un scoreboard interactif | fait | dix sélecteurs visibles, quatre périodes en un clic, graphique dominant, scoreboard sans cartes KPI et preuve `docs/research/backtest_interactive_performance_desk_20261030.md` |
+
+### Détail de `REPORT-017`
+
+- **Objectif** : rendre le rapport immédiatement lisible et manipulable en
+  répondant d'abord à la question « quelle stratégie bat SPY, avec quel risque ? ».
+- **Périmètre** : hiérarchie du premier écran, sélecteurs de stratégies visibles,
+  préréglages temporels, graphique, scoreboard KPI, statut de preuve repliable,
+  responsive, tests, génération réelle et QA visuelle.
+- **Hors périmètre** : payload économique, formule, donnée, signal, poids,
+  rendement, snapshot, portefeuille source ou promotion.
+- **Acceptation** : les courbes se sélectionnent sans ouvrir de menu ; quatre
+  périodes se choisissent en un clic ; le graphique est la surface dominante ;
+  les six KPI forment un tableau stratégies × métriques lisible ; les 33 KPI et
+  toutes les preuves restent accessibles dans les tiroirs existants.
+- **Validations** : tests reporting et interactions, Ruff, format, JavaScript,
+  documentation, parité du payload, QA desktop/mobile et absence de requête
+  réseau ou de débordement global.
+- **Impact** : rendu et interaction uniquement ; aucun impact économique/data.
+- **Rollback** : restaurer le renderer `REPORT-016` au commit `bbde5ef`.
 
 ### Détail de `REPORT-016`
 

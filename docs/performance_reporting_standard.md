@@ -24,11 +24,17 @@ en dur dans le HTML.
 La navigation horizontale sépare l'analyse de la preuve et permet d'atteindre
 le studio, le portefeuille en vigueur, l'historique, les méthodologies puis la
 lignée sans réserver un rail permanent. Le studio utilise ainsi toute la
-largeur : période, stratégies ou poches, décision, graphique et six KPI sont
-réunis dans un même poste de travail. Les tiroirs détaillés restent directement
-sous ce bloc, sans dupliquer les résultats. Le thème clair/sombre modifie
-uniquement les tokens de rendu et les couleurs du canvas ; il ne modifie ni la
-sélection, ni la période, ni le payload.
+largeur. Les dix stratégies investissables sont des sélecteurs visibles et les
+fenêtres longues usuelles se choisissent en un clic ; les listes et dates
+détaillées restent disponibles sans encombrer le parcours principal.
+
+Le graphique est la surface dominante. Le résumé des six KPI prend la forme
+d'un scoreboard `stratégies × métriques`, pas d'une collection de cartes : une
+ligne porte une stratégie, une colonne garde la même définition et chaque
+cellule expose sa valeur et son écart au SPY. Les 33 KPI, model cards et
+corrélations restent dans les tiroirs immédiatement adjacents. Le thème
+clair/sombre modifie uniquement les tokens de rendu et les couleurs du canvas ;
+il ne modifie ni la sélection, ni la période, ni le payload.
 
 La page reste complète sur mobile : les groupes se réorganisent, les matrices
 et tables conservent un défilement horizontal local, et aucune section n'est

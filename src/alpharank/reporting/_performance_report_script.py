@@ -121,6 +121,9 @@ function initializeControls() {
   document.getElementById("select-all-curves").addEventListener("click", () => setCurveStrategies(D.strategy_order));
   document.getElementById("select-reference-curves").addEventListener("click", () => setCurveStrategies(["Legacy · Frequency", BENCHMARK_STRATEGY]));
   document.getElementById("reset-window").addEventListener("click", resetWindow);
+  document.querySelectorAll("[data-period-start-year]").forEach(button => {
+    button.addEventListener("click", () => setQuickPeriod(Number(button.dataset.periodStartYear)));
+  });
   document.getElementById("export-holdings").addEventListener("click", exportHoldings);
   document.getElementById("export-current-holdings").addEventListener("click", exportCurrentHoldings);
   document.getElementById("page-prev").addEventListener("click", () => { state.page=Math.max(0,state.page-1); renderHoldings(); });
@@ -147,6 +150,26 @@ function renderCurveOptions() {
     setCurveStrategies(next);
   }));
   updateCurveSummary();
+  renderStrategyQuickPicks();
+}
+
+function renderStrategyQuickPicks() {
+  const container = document.getElementById("strategy-quick-picks");
+  container.innerHTML = state.data.strategies
+    .filter(item => item.label !== BENCHMARK_STRATEGY)
+    .map(item => `<button type="button" class="strategy-pill ${state.curves.includes(item.label) ? "is-active" : ""}" data-quick-strategy="${escapeHtml(item.label)}" title="${escapeHtml(item.label)}"><i style="background:${item.color}"></i>${escapeHtml(compactStrategyName(item.label))}</button>`)
+    .join("");
+  container.querySelectorAll("[data-quick-strategy]").forEach(button => {
+    button.addEventListener("click", () => {
+      const label = button.dataset.quickStrategy;
+      const selected = state.curves.includes(label);
+      const investable = state.curves.filter(value => value !== BENCHMARK_STRATEGY);
+      if (selected && investable.length === 1) return;
+      setCurveStrategies(selected
+        ? state.curves.filter(value => value !== label)
+        : [...state.curves, label]);
+    });
+  });
 }
 
 function setCurveStrategies(strategies) {
@@ -155,6 +178,9 @@ function setCurveStrategies(strategies) {
   state.curves = state.data.strategy_order.filter(strategy => selected.has(strategy));
   document.querySelectorAll("[data-curve-index]").forEach(input => {
     input.checked = state.curves.includes(state.data.strategies[Number(input.dataset.curveIndex)].label);
+  });
+  document.querySelectorAll("[data-quick-strategy]").forEach(button => {
+    button.classList.toggle("is-active", state.curves.includes(button.dataset.quickStrategy));
   });
   updateCurveSummary();
   renderStudio();
@@ -175,6 +201,7 @@ function updatePeriod() {
   }
   state.end = end;
   state.start = start;
+  updatePeriodPresets();
   renderPeriod();
 }
 
@@ -183,7 +210,30 @@ function resetWindow() {
   state.end = state.data.calendar.end;
   document.getElementById("start-month").value = state.start;
   document.getElementById("end-month").value = state.end;
+  updatePeriodPresets();
   renderPeriod();
+}
+
+function setQuickPeriod(year) {
+  const start = state.data.calendar.available_start_months.find(value => value.startsWith(`${year}-`));
+  if (!start) return;
+  state.start = start;
+  state.end = state.data.calendar.end;
+  document.getElementById("start-month").value = state.start;
+  document.getElementById("end-month").value = state.end;
+  updatePeriodPresets();
+  renderPeriod();
+}
+
+function updatePeriodPresets() {
+  document.getElementById("reset-window").classList.toggle(
+    "is-active",
+    state.start === state.data.calendar.start && state.end === state.data.calendar.end,
+  );
+  document.querySelectorAll("[data-period-start-year]").forEach(button => {
+    const active = state.start.startsWith(`${button.dataset.periodStartYear}-`) && state.end === state.data.calendar.end;
+    button.classList.toggle("is-active", active);
+  });
 }
 
 function renderPeriod() {

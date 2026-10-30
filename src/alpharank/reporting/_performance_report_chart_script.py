@@ -89,7 +89,7 @@ function renderLegend(id, series) {
 function drawLineChart(canvas, series, tickFormat, options={}) {
   const ratio = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  const height = 360;
+  const height = 400;
   canvas.width = Math.max(600, rect.width * ratio);
   canvas.height = height * ratio;
   const ctx = canvas.getContext("2d");

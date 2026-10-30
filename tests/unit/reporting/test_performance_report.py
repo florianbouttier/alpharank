@@ -196,10 +196,16 @@ def test_dashboard_shell_keeps_the_complete_information_contract(tmp_path: Path)
         "coverage-holdings",
     ):
         assert f'id="{element_id}"' in html
-    assert "Backtests comparables · REPORT-016" in html
+    assert "Comparer au SPY" in html
     assert 'class="skip-link"' in html
     assert "function renderCoverage()" in html
     assert "function initializeTheme()" in html
+    assert "function renderStrategyQuickPicks()" in html
+    assert "function setQuickPeriod(year)" in html
+    assert 'id="strategy-quick-picks"' in html
+    assert 'data-period-start-year="2020"' in html
+    assert 'class="scoreboard"' in html
+    assert 'class="kpi-card"' not in html
     assert 'html[data-theme="dark"]' in html
     assert len(payload["strategy_order"]) == 11
     assert len(payload["metric_fields"]) == 33

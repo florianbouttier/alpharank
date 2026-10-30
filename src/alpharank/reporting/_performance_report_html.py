@@ -89,21 +89,24 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero" id="top">
     <div class="hero-copy">
-      <span class="eyebrow">Backtests comparables · REPORT-016</span>
-      <h1>Performance desk</h1>
-      <p>Une fenêtre, un benchmark, toutes les stratégies et leurs portefeuilles.</p>
+      <h1>Comparer au SPY</h1>
+      <p>Choisissez les stratégies et la période. Le graphique et tous les indicateurs suivent.</p>
     </div>
     <div class="hero-actions">
-      <div class="status-badge"><span>Statut de preuve</span><strong id="status-message">—</strong></div>
+      <details class="proof-disclosure">
+        <summary><i></i><span>Snapshot candidat</span><small>Voir le statut de preuve</small></summary>
+        <p id="status-message">—</p>
+      </details>
     </div>
   </header>
-  <section class="coverage-strip" aria-label="Couverture du rapport">
-    <article><span>Stratégies</span><strong id="coverage-series">—</strong><small>SPY inclus</small></article>
-    <article><span>Mesures</span><strong id="coverage-kpis">—</strong><small>moteur commun</small></article>
-    <article><span>Historique</span><strong id="coverage-months">—</strong><small id="coverage-window">—</small></article>
-    <article><span>Positions</span><strong id="coverage-holdings">—</strong><small>lignes historiques</small></article>
-    <article class="coverage-source"><span>Source</span><strong>Payload embarqué</strong><small>autonome · sans réseau</small></article>
-  </section>
+  <div class="coverage-line" aria-label="Couverture du rapport">
+    <span><strong id="coverage-series">—</strong> stratégies</span>
+    <span><strong id="coverage-kpis">—</strong> indicateurs</span>
+    <span><strong id="coverage-months">—</strong> d'historique</span>
+    <span id="coverage-window">—</span>
+    <span><strong id="coverage-holdings">—</strong> positions auditées</span>
+    <span class="coverage-source">Données embarquées · hors ligne</span>
+  </div>
 """
         + _performance_sections()
         + _audit_sections()
@@ -119,11 +122,25 @@ def _performance_sections() -> str:
   <section class="section studio-section" id="overview">
     <article class="analysis-studio" id="analysis-studio">
       <div class="studio-head">
-        <div><span class="section-kicker">Comparateur</span><h2>Lire la performance, puis comprendre le risque</h2></div>
         <div class="mode-switch" role="tablist" aria-label="Type de comparaison">
-          <button class="is-active" type="button" role="tab" aria-selected="true" data-analysis-mode="strategies">Stratégies</button>
-          <button type="button" role="tab" aria-selected="false" data-analysis-mode="composer">Portefeuille composé</button>
-          <button type="button" role="tab" aria-selected="false" data-analysis-mode="frontier">Frontières efficientes</button>
+          <button class="is-active" type="button" role="tab" aria-selected="true" data-analysis-mode="strategies">Comparer</button>
+          <button type="button" role="tab" aria-selected="false" data-analysis-mode="composer">Composer</button>
+          <button type="button" role="tab" aria-selected="false" data-analysis-mode="frontier">Frontières</button>
+        </div>
+        <div class="period-actions">
+          <div class="period-presets" aria-label="Périodes rapides">
+            <button class="is-active" id="reset-window" type="button">Tout</button>
+            <button type="button" data-period-start-year="2015">Depuis 2015</button>
+            <button type="button" data-period-start-year="2020">Depuis 2020</button>
+            <button type="button" data-period-start-year="2023">Depuis 2023</button>
+          </div>
+          <details class="custom-period">
+            <summary>Personnaliser</summary>
+            <div class="custom-period-fields">
+              <label>Début<select id="start-month"></select></label>
+              <label>Fin<select id="end-month"></select></label>
+            </div>
+          </details>
         </div>
       </div>
 """
@@ -131,7 +148,7 @@ def _performance_sections() -> str:
         + """
       <div class="studio-context">
         <strong id="window-label">—</strong>
-        <span>SPY total return reste toujours la référence.</span>
+        <span>SPY total return est toujours affiché.</span>
       </div>
       <div class="studio-outcome" id="studio-outcome" aria-live="polite"></div>
       <div class="studio-workspace">
@@ -177,12 +194,11 @@ def _performance_sections() -> str:
 def _studio_toolbar() -> str:
     return """
       <div class="toolbar" aria-label="Filtres de performance">
-        <label>Début<select id="start-month"></select></label>
-        <label>Fin<select id="end-month"></select></label>
         <div class="curve-control" id="strategy-mode-controls">
-          <span class="field-label">Stratégies comparées à SPY</span>
-          <details class="multi-select" id="curve-multiselect">
-            <summary id="curve-select-label">Choisir les stratégies</summary>
+          <span class="field-label">Courbes affichées</span>
+          <div class="strategy-pills" id="strategy-quick-picks"></div>
+          <details class="multi-select advanced-select" id="curve-multiselect" hidden>
+            <summary id="curve-select-label">Sélection détaillée</summary>
             <div class="multi-select-menu">
               <div class="multi-select-actions">
                 <button id="select-all-curves" type="button">Toutes</button>
@@ -207,7 +223,6 @@ def _studio_toolbar() -> str:
             </div>
           </details>
         </div>
-        <button class="button secondary" id="reset-window" type="button">Toute la période</button>
       </div>
 """
 
@@ -273,7 +288,7 @@ def _audit_sections() -> str:
     return """
   <section class="section" id="current-portfolio">
     <div class="section-head">
-      <div><span class="section-kicker">02 · Portefeuille en vigueur</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
+      <div><span class="section-kicker">Portefeuille courant</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
       <p>Le mois courant reste séparé des KPI tant que son rendement complet n'est pas réalisé.</p>
     </div>
     <div class="current-portfolio-meta">
@@ -290,7 +305,7 @@ def _audit_sections() -> str:
     <div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Rang</th><th>Poids cible</th><th>Score</th><th>Secteur</th><th>Votes</th></tr></thead><tbody id="current-holdings-body"></tbody></table></div>
   </section>
   <section class="section" id="portfolios">
-    <div class="section-head"><div><span class="section-kicker">03 · Historique réalisé</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
+    <div class="section-head"><div><span class="section-kicker">Historique réalisé</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
     <div class="portfolio-controls">
       <label>Stratégie<select id="portfolio-strategy"></select></label>
       <label>Mois de détention<select id="portfolio-month"></select></label>
@@ -302,11 +317,11 @@ def _audit_sections() -> str:
     <div class="pager"><button id="page-prev" type="button">Précédent</button><span id="page-label">—</span><button id="page-next" type="button">Suivant</button></div>
   </section>
   <section class="section" id="methodologies">
-    <div class="section-head"><div><span class="section-kicker">04 · Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
+    <div class="section-head"><div><span class="section-kicker">Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
     <div class="method-grid" id="method-grid"></div>
   </section>
   <section class="section" id="lineage">
-    <div class="section-head"><div><span class="section-kicker">05 · Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
+    <div class="section-head"><div><span class="section-kicker">Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
     <div class="lineage-grid">
       <article class="lineage-card"><h3>Contrats économiques</h3><dl class="definition" id="lineage-contracts"></dl></article>
       <article class="lineage-card"><h3>Snapshot et sources</h3><dl class="definition" id="lineage-data"></dl></article>

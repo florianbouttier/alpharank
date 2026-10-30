@@ -109,24 +109,22 @@ function compactStrategyName(name) {
 
 function renderStudioKpis() {
   const series = studioDisplaySeries();
-  document.getElementById("studio-kpis").innerHTML = STUDIO_DISPLAY_METRICS.map(field => {
-    const [label, type] = METRICS[field];
-    const benchmark = studioMetricValueAtWindow(BENCHMARK_STRATEGY, field);
-    const rows = series.map(name => {
+  const header = STUDIO_DISPLAY_METRICS.map(field => `<span>${escapeHtml(METRICS[field][0])}</span>`).join("");
+  const rows = series.map(name => {
+    const color = name === COMPOSER_NAME ? COMPOSER_COLOR : strategyMeta(name).color;
+    const cells = STUDIO_DISPLAY_METRICS.map(field => {
+      const [, type] = METRICS[field];
       const value = studioMetricValueAtWindow(name, field);
       const status = studioComparisonState(field, name, value);
+      const benchmark = studioMetricValueAtWindow(BENCHMARK_STRATEGY, field);
       const comparison = name === BENCHMARK_STRATEGY
         ? "Référence"
         : comparisonDeltaText(field, value, benchmark);
-      const color = name === COMPOSER_NAME ? COMPOSER_COLOR : strategyMeta(name).color;
-      return `<div class="kpi-strategy-row comparison-${status}">
-        <span class="strategy-name" title="${escapeHtml(name)}"><i style="background:${color}"></i>${escapeHtml(compactStrategyName(name))}</span>
-        <strong>${format(value, type)}</strong>
-        <small class="delta-chip">${escapeHtml(comparison)}</small>
-      </div>`;
+      return `<span class="scoreboard-value comparison-${status}" title="${escapeHtml(comparison)}"><strong>${format(value, type)}</strong><small>${escapeHtml(comparison)}</small></span>`;
     }).join("");
-    return `<article class="kpi-card"><header><span>${label}</span><small>même fenêtre</small></header><div class="kpi-strategy-list">${rows}</div></article>`;
+    return `<div class="scoreboard-row"><span class="scoreboard-strategy" title="${escapeHtml(name)}"><i style="background:${color}"></i><strong>${escapeHtml(compactStrategyName(name))}</strong></span>${cells}</div>`;
   }).join("");
+  document.getElementById("studio-kpis").innerHTML = `<div class="scoreboard"><div class="scoreboard-row scoreboard-head"><span>Stratégie</span>${header}</div>${rows}</div>`;
 }
 
 function renderStudioOutcome() {
@@ -144,9 +142,9 @@ function renderStudioOutcome() {
   const element = document.getElementById("studio-outcome");
   element.className = `studio-outcome comparison-${status}`;
   element.innerHTML = leader ? `
-    <span>${state.analysisMode === "composer" ? "Portefeuille composé" : "Leader CAGR de la sélection"}</span>
-    <strong>${escapeHtml(leader.name)} · ${comparisonDeltaText("cagr", leader.value, benchmark)}</strong>
-    <small>${wins} / ${STUDIO_DISPLAY_METRICS.length} KPI synthétiques surpassent SPY selon leur sens économique.</small>
+    <span>${state.analysisMode === "composer" ? "Votre composition" : "Meilleur CAGR"}</span>
+    <strong>${escapeHtml(compactStrategyName(leader.name))} : ${comparisonDeltaText("cagr", leader.value, benchmark)}</strong>
+    <small>Surpasse SPY sur ${wins} des ${STUDIO_DISPLAY_METRICS.length} indicateurs clés.</small>
   ` : "";
 }
 
