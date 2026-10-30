@@ -43,6 +43,7 @@ def render_performance_report_html(payload: dict[str, Any]) -> str:
         "<title>AlphaRank · Rapport de backtest complet</title>\n"
         f"<style>{PERFORMANCE_REPORT_STYLES}</style>\n"
         "</head>\n<body>\n"
+        '<a class="skip-link" href="#overview">Aller au studio de comparaison</a>\n'
         '<div id="loading" class="loading">Chargement du rapport canonique…</div>\n'
         '<div id="app" class="shell" hidden>\n' + _sidebar() + _main() + "</div>\n"
         f"<script>const PAYLOAD_GZIP_BASE64={json.dumps(encoded)};\n"
@@ -58,23 +59,23 @@ def render_performance_report_html(payload: dict[str, Any]) -> str:
 
 def _sidebar() -> str:
     return """
-<aside class="sidebar">
+<aside class="sidebar" aria-label="Navigation du rapport">
   <div class="brand">
     <div class="brand-mark">AR</div>
-    <div><strong>AlphaRank</strong><small>Backtest reporting</small></div>
+    <div><strong>AlphaRank</strong><small>Performance research</small></div>
   </div>
-  <nav>
-    <div class="nav-label">Performance</div>
-    <a class="nav-link is-active" href="#overview">Studio de comparaison</a>
-    <div class="nav-label">Audit</div>
-    <a class="nav-link" href="#current-portfolio">Portefeuille en vigueur</a>
-    <a class="nav-link" href="#portfolios">Portefeuilles historiques</a>
-    <a class="nav-link" href="#methodologies">Méthodologies</a>
-    <a class="nav-link" href="#lineage">Lignée et contrats</a>
+  <nav aria-label="Sections du rapport">
+    <div class="nav-label">Analyser</div>
+    <a class="nav-link is-active" href="#overview"><span>01</span>Studio de comparaison</a>
+    <div class="nav-label">Contrôler</div>
+    <a class="nav-link" href="#current-portfolio"><span>02</span>Portefeuille en vigueur</a>
+    <a class="nav-link" href="#portfolios"><span>03</span>Historique complet</a>
+    <a class="nav-link" href="#methodologies"><span>04</span>Méthodologies</a>
+    <a class="nav-link" href="#lineage"><span>05</span>Lignée et contrats</a>
   </nav>
-  <div class="sidebar-meta">
-    <div id="report-calendar">—</div>
-    <div id="report-generated">—</div>
+  <div class="sidebar-meta" aria-label="Fraîcheur du rapport">
+    <span>Fenêtre couverte</span><strong id="report-calendar">—</strong>
+    <span>Généré le</span><strong id="report-generated">—</strong>
   </div>
 </aside>
 """
@@ -84,16 +85,26 @@ def _main() -> str:
     return (
         """
 <main><div class="content">
-  <header class="hero">
-    <div>
-      <span class="eyebrow">Standard de performance · REPORT-014</span>
+  <header class="hero" id="top">
+    <div class="hero-copy">
+      <span class="eyebrow">Performance research · REPORT-015</span>
       <h1>Rapport de backtest complet</h1>
-      <p>Legacy, Boosting natif, variantes filtrées par tendance et SPY sur un même
-      calendrier. Les KPI de chaque fenêtre sont pré-calculés par le moteur commun ;
-      cette page ne possède aucune formule financière parallèle.</p>
+      <p>Comparer, composer et auditer Legacy, Boosting et SPY sans quitter le même espace de travail.</p>
     </div>
-    <div class="status-badge"><strong>Statut de preuve</strong><br><span id="status-message">—</span></div>
+    <div class="hero-actions">
+      <div class="status-badge"><span>Statut de preuve</span><strong id="status-message">—</strong></div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="Activer le thème sombre">
+        <span aria-hidden="true">◐</span><strong>Thème</strong>
+      </button>
+    </div>
   </header>
+  <section class="coverage-strip" aria-label="Couverture du rapport">
+    <article><span>Stratégies</span><strong id="coverage-series">—</strong><small>SPY inclus</small></article>
+    <article><span>Mesures</span><strong id="coverage-kpis">—</strong><small>moteur commun</small></article>
+    <article><span>Historique</span><strong id="coverage-months">—</strong><small id="coverage-window">—</small></article>
+    <article><span>Positions</span><strong id="coverage-holdings">—</strong><small>lignes historiques</small></article>
+    <article class="coverage-source"><span>Source</span><strong>Payload embarqué</strong><small>autonome · sans réseau</small></article>
+  </section>
 """
         + _performance_sections()
         + _audit_sections()

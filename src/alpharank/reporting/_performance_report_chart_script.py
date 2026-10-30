@@ -117,8 +117,8 @@ function drawLineChart(canvas, series, tickFormat, options={}) {
     ctx.fillRect(pad.l, referenceY, width - pad.l - pad.r, Math.max(0, height - pad.b - referenceY));
   }
   ctx.font = "11px IBM Plex Mono, monospace";
-  ctx.fillStyle = "#617087";
-  ctx.strokeStyle = "#e1e7ee";
+  ctx.fillStyle = cssColor("--muted", "#617087");
+  ctx.strokeStyle = cssColor("--grid", "#e1e7ee");
   ctx.lineWidth = 1;
   for (let index = 0; index < 5; index += 1) {
     const y = pad.t + chartHeight * index / 4;
@@ -151,7 +151,7 @@ function drawLineChart(canvas, series, tickFormat, options={}) {
     });
     ctx.stroke();
   });
-  ctx.fillStyle = "#617087";
+  ctx.fillStyle = cssColor("--muted", "#617087");
   ctx.textAlign = "left";
   ctx.fillText(monthLabel(state.start), pad.l, height - 8);
   ctx.textAlign = "right";

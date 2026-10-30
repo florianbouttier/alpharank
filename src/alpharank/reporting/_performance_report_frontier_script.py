@@ -159,8 +159,8 @@ function drawFrontierScatter(canvas, model) {
   const yScale = value => pad.t + (height - pad.t - pad.b) * (yMax - value) / (yMax - yMin);
   ctx.clearRect(0, 0, width, height);
   ctx.font = "10px IBM Plex Mono, monospace";
-  ctx.fillStyle = "#617087";
-  ctx.strokeStyle = "#e1e7ee";
+  ctx.fillStyle = cssColor("--muted", "#617087");
+  ctx.strokeStyle = cssColor("--grid", "#e1e7ee");
   for (let index = 0; index < 5; index += 1) {
     const y = pad.t + (height - pad.t - pad.b) * index / 4;
     const yValue = yMax - (yMax - yMin) * index / 4;
@@ -182,7 +182,7 @@ function drawFrontierScatter(canvas, model) {
     const x = xScale(point.x), y = yScale(point.y);
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   });
-  ctx.strokeStyle = "#111d55"; ctx.lineWidth = 2.2; ctx.stroke();
+  ctx.strokeStyle = cssColor("--navy", "#111d55"); ctx.lineWidth = 2.2; ctx.stroke();
   model.references.forEach(point => {
     const x = xScale(point.x), y = yScale(point.y);
     ctx.fillStyle = point.color; ctx.fillRect(x - 4, y - 4, 8, 8);
@@ -190,7 +190,7 @@ function drawFrontierScatter(canvas, model) {
   model.recommendations.forEach(point => {
     const x = xScale(point.x), y = yScale(point.y);
     ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = point.color; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = point.color; ctx.fill(); ctx.strokeStyle = cssColor("--panel", "#fff"); ctx.lineWidth = 2; ctx.stroke();
   });
   ctx.textAlign = "left";
   canvas._frontierModel = {...model, xScale, yScale};

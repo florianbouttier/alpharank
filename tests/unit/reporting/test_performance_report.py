@@ -177,6 +177,38 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert len(ids) == len(set(ids))
 
 
+def test_dashboard_shell_keeps_the_complete_information_contract(tmp_path: Path) -> None:
+    paths = write_performance_report(
+        _report_inputs(tmp_path),
+        output_dir=tmp_path / "dashboard",
+        generated_at_utc=datetime(2026, 10, 30, 15, 0, tzinfo=timezone.utc),
+    )
+    html = paths["report"].read_text(encoding="utf-8")
+    match = re.search(r"const PAYLOAD_GZIP_BASE64=(\"[^\"]+\")", html)
+
+    assert match is not None
+    payload = json.loads(gzip.decompress(base64.b64decode(json.loads(match.group(1)))))
+    for element_id in (
+        "theme-toggle",
+        "coverage-series",
+        "coverage-kpis",
+        "coverage-months",
+        "coverage-holdings",
+    ):
+        assert f'id="{element_id}"' in html
+    assert "Performance research · REPORT-015" in html
+    assert 'class="skip-link"' in html
+    assert "function renderCoverage()" in html
+    assert "function initializeTheme()" in html
+    assert 'html[data-theme="dark"]' in html
+    assert len(payload["strategy_order"]) == 11
+    assert len(payload["metric_fields"]) == 33
+    assert len(payload["methodologies"]) >= 5
+    assert payload["holdings"]
+    assert payload["current_portfolio"]["holdings"]
+    assert payload["strategy_frontiers"]["windows"]
+
+
 def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:
     common_dir = tmp_path / "common"
     legacy_dir = tmp_path / "legacy"

@@ -259,8 +259,43 @@ function renderLineage() {
   document.getElementById("lineage-data").innerHTML=`<dt>composition_id</dt><dd>${escapeHtml(D.lineage.composition_id)}</dd><dt>replay_commit</dt><dd>${escapeHtml(D.lineage.replay_git_commit)}</dd><dt>snapshot</dt><dd>${escapeHtml(D.lineage.snapshot_dir)}</dd>${D.lineage.source_files.map(row=>`<dt>${escapeHtml(row.role)}</dt><dd>${escapeHtml(row.sha256)}</dd>`).join("")}`;
 }
 
+function cssColor(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+function applyTheme(theme, persist=false) {
+  const normalized = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = normalized;
+  const button = document.getElementById("theme-toggle");
+  button?.setAttribute("aria-pressed", String(normalized === "dark"));
+  button?.setAttribute("aria-label", normalized === "dark" ? "Activer le thème clair" : "Activer le thème sombre");
+  if (button) button.querySelector("strong").textContent = normalized === "dark" ? "Clair" : "Sombre";
+  if (persist) {
+    try { window.localStorage.setItem("alpharank-report-theme", normalized); } catch (_) { /* file-safe */ }
+  }
+  if (state.data) resizeStudioCharts();
+}
+
+function initializeTheme() {
+  let preferred = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  try { preferred = window.localStorage.getItem("alpharank-report-theme") || preferred; } catch (_) { /* file-safe */ }
+  applyTheme(preferred);
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark", true);
+  });
+}
+
+function renderCoverage() {
+  const D = state.data;
+  document.getElementById("coverage-series").textContent = D.strategy_order.length.toLocaleString("fr-FR");
+  document.getElementById("coverage-kpis").textContent = D.metric_fields.length.toLocaleString("fr-FR");
+  document.getElementById("coverage-months").textContent = `${D.calendar.months.toLocaleString("fr-FR")} mois`;
+  document.getElementById("coverage-window").textContent = `${D.calendar.start.slice(0, 7)} → ${D.calendar.end.slice(0, 7)}`;
+  document.getElementById("coverage-holdings").textContent = D.holdings.length.toLocaleString("fr-FR");
+}
+
 function renderMetadata() {
-  const D=state.data; document.getElementById("report-generated").textContent=D.generated_at_utc; document.getElementById("report-calendar").textContent=`${D.calendar.months} mois · ${D.calendar.start.slice(0,7)} → ${D.calendar.end.slice(0,7)}`;document.getElementById("status-message").textContent=D.status.message;
+  const D=state.data; document.getElementById("report-generated").textContent=D.generated_at_utc; document.getElementById("report-calendar").textContent=`${D.calendar.months} mois · ${D.calendar.start.slice(0,7)} → ${D.calendar.end.slice(0,7)}`;document.getElementById("status-message").textContent=D.status.message;renderCoverage();
 }
 
 function observeNavigation() {
@@ -269,6 +304,7 @@ function observeNavigation() {
 
 async function boot() {
   try {
+    initializeTheme();
     state.data=await decodePayload(); document.getElementById("loading").hidden=true;document.getElementById("app").hidden=false;
     initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",resizeStudioCharts);
   } catch (error) { document.getElementById("loading").textContent=`Rapport illisible : ${error.message}`; }

@@ -22,6 +22,10 @@ ni commande interactive : les KPI de performance proviennent du moteur commun.
   `_performance_report_chart_script.py` et
   `_performance_report_matrix_script.py` séparent respectivement l'état et les
   cartes synthétiques, les trois graphiques et les tableaux détaillés du studio.
+- `_performance_report_frontier_script.py` projette les allocations, métriques
+  et recommandations de frontière déjà pré-calculées ; les styles et le shell
+  responsive clair/sombre restent centralisés dans
+  `_performance_report_styles.py` et `_performance_report_html.py`.
 - `_performance_report_composer_script.py` sélectionne les combinaisons
   équipondérées dont les rendements et KPI ont déjà été calculés par
   `alpharank.portfolio.combinations` ; il ne calcule que les points graphiques

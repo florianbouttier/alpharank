@@ -12,6 +12,28 @@ performances, avec quels portefeuilles et à partir de quelles données. Il ne
 doit jamais transformer une variante R&D en recommandation ou en méthode
 promue par la seule qualité de son affichage.
 
+## Architecture du dashboard
+
+Le rapport est un dashboard autonome, source-backed et progressif. Le premier
+écran expose le titre, le statut de preuve et cinq informations de couverture :
+nombre de stratégies, nombre de KPI, longueur et bornes de l'historique, nombre
+de lignes de positions et nature du payload embarqué. Ces compteurs sont lus
+dans le même payload compressé que les vues détaillées ; ils ne sont pas codés
+en dur dans le HTML.
+
+Le rail de navigation sépare l'analyse de la preuve et permet d'atteindre le
+studio, le portefeuille en vigueur, l'historique, les méthodologies puis la
+lignée. Le studio reste l'espace principal : période, stratégies ou poches,
+cartes, graphique et tiroirs sont regroupés sans dupliquer les résultats. Le
+thème clair/sombre modifie uniquement les tokens de rendu et les couleurs du
+canvas ; il ne modifie ni la sélection, ni la période, ni le payload.
+
+La page reste complète sur mobile : les groupes se réorganisent, les matrices
+et tables conservent un défilement horizontal local, et aucune section n'est
+supprimée. Une navigation clavier, un lien d'évitement, des labels explicites
+et des états `aria-selected` rendent les interactions principales accessibles.
+Le rapport n'appelle aucune police, bibliothèque, API ou ressource réseau.
+
 ## Entrées obligatoires
 
 Le générateur reçoit quatre chemins explicites :

@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-10-08.**
+**Dernière mise à jour : 2026-10-30.**
 
 **Statut : seule source des priorités actives.**
 
@@ -120,6 +120,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 81 | `DATA-043` | télécharger et composer le candidat data du 24 octobre | lot DATA ci-dessous | fait |
 | 82 | `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | lot REPLAY ci-dessous | fait |
 | 83 | `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | lot REPORT ci-dessous | fait |
+| 84 | `REPORT-015` | refondre le rapport de performance en dashboard source-backed sans perte d'information | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1006,6 +1007,35 @@ doublons exacts et preuve de récupération.
 | `REPORT-012` | centraliser stratégies, composition, cartes et graphiques dans un même studio | fait | mode simple/composé sans changement de page, SPY permanent, période commune, écarts visibles et vues performance/drawdown/relative synchronisées ; payload économique inchangé, hash `a91a6f…ad3` |
 | `REPORT-013` | publier le studio unifié et sa preuve dans Portfolio | fait | source, copie publique et build byte-identiques au hash `46db35…5bba` ; build et runtime DOM validés, preuve `docs/research/backtest_performance_report_20260914_studio.md` |
 | `REPORT-014` | comparer les compositions multi-stratégies sur deux frontières efficientes | fait | 168 compositions longues sans levier sur 136 fenêtres, deux frontières Pareto et trois profils descriptifs dans le rapport autonome ; preuve `docs/research/strategy_frontiers_20261025.md` |
+| `REPORT-015` | refondre le rapport de performance en dashboard source-backed sans perte d'information | fait | shell AlphaRank responsive, synthèse source/fraîcheur, trois modes d'analyse, audit complet et parité exacte du payload économique ; preuve `docs/research/backtest_dashboard_refactor_20261030.md` et QA desktop/mobile |
+
+### Détail de `REPORT-015`
+
+- **Objectif** : transformer le rapport autonome en véritable dashboard de
+  pilotage, synthétique au premier écran puis explorable, sans retirer un KPI,
+  une stratégie, un portefeuille, une méthodologie ou une preuve de lignée.
+- **Périmètre** : shell et tokens AlphaRank, hiérarchie du studio, état de
+  couverture visible, navigation, thème clair/sombre, responsive, graphiques,
+  tests de complétude, génération réelle et preuve datée.
+- **Hors périmètre** : nouvelle formule financière, modification du payload
+  économique, signal, poids, rendement, snapshot, promotion de stratégie ou
+  changement du dashboard applicatif Portfolio.
+- **Acceptation** : les 11 séries, 33 KPI, trois modes, trois vues graphiques,
+  deux model cards, corrélations, frontières, portefeuille courant, holdings
+  historiques, pseudo-codes et lignée restent accessibles ; les cartes et
+  tableaux se réconcilient avec le même payload ; aucune ressource réseau.
+- **Validations** : tests reporting et contrat de complétude, Ruff, format,
+  syntaxe JavaScript, génération sur le replay du 24 octobre, comparaison du
+  payload avant/après et QA navigateur desktop/mobile des interactions clés.
+  Trois tests ciblés et 19 tests reporting passent ; Ruff, format et syntaxe
+  JavaScript sont verts ;
+  le payload économique est exactement identique hors horodatage de génération.
+  La QA HTTP locale valide les trois modes, la richesse relative, le thème,
+  11 séries, 33 KPI et l'absence de débordement global à 390 px.
+- **Impact** : rendu et interaction seulement ; aucun changement économique,
+  data, modèle, portefeuille source ou statut de promotion.
+- **Rollback** : restaurer le renderer de `REPORT-014` ; les artefacts du replay,
+  le payload et ses hashes de source restent inchangés.
 
 ### Détail de `REPORT-001`
 
