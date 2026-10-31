@@ -4,8 +4,7 @@ from typing import Iterable
 
 import polars as pl
 
-from alpharank.data.open_source.sec import _clean_fact, _extract_unit_records, _select_best_facts
-
+from alpharank.data.open_source.sec import _clean_fact, _extract_unit_records
 
 SEC_EPS_TAGS: tuple[str, ...] = (
     "EarningsPerShareDiluted",
@@ -144,8 +143,8 @@ def resolve_earnings_calendar_duplicates(
 
     rule = "valid_post_period_report_then_shortest_lag_then_accession"
     prioritized = sec_calendar.with_columns(
-        pl.col("period_end").cast(pl.Date, strict=False).alias("_period_end_dt"),
-        pl.col("reportDate").cast(pl.Date, strict=False).alias("_report_date_dt"),
+        pl.col("period_end").cast(pl.String).str.to_date(strict=False).alias("_period_end_dt"),
+        pl.col("reportDate").cast(pl.String).str.to_date(strict=False).alias("_report_date_dt"),
     ).with_columns(
         pl.when(
             pl.col("_period_end_dt").is_not_null()
@@ -802,8 +801,8 @@ def _match_yahoo_to_sec_calendar(*, sec_calendar: pl.DataFrame, yahoo_earnings: 
 
     calendar = sec_calendar.select(["ticker", "period_end", "reportDate"]).with_row_index("calendar_row_id").with_columns(
         [
-            pl.col("reportDate").cast(pl.Date, strict=False).alias("report_date_dt"),
-            pl.col("period_end").cast(pl.Date, strict=False).alias("period_end_dt"),
+            pl.col("reportDate").cast(pl.String).str.to_date(strict=False).alias("report_date_dt"),
+            pl.col("period_end").cast(pl.String).str.to_date(strict=False).alias("period_end_dt"),
         ]
     )
     calendar = calendar.with_columns(
@@ -827,7 +826,12 @@ def _match_yahoo_to_sec_calendar(*, sec_calendar: pl.DataFrame, yahoo_earnings: 
             }
         )
         .with_row_index("yahoo_row_id")
-        .with_columns(pl.col("yahoo_reportDate").cast(pl.Date, strict=False).alias("yahoo_report_date_dt"))
+        .with_columns(
+            pl.col("yahoo_reportDate")
+            .cast(pl.String)
+            .str.to_date(strict=False)
+            .alias("yahoo_report_date_dt")
+        )
     )
     candidates = (
         calendar.join(yahoo, on="ticker", how="inner")

@@ -126,13 +126,15 @@ def _resolve_price_review_keys(
 ) -> pl.DataFrame:
     candidate_keys = candidate_prices.select("ticker", "date").with_columns(
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
-        pl.col("date").cast(pl.Date),
+        pl.col("date").cast(pl.String).str.to_date(strict=False),
     )
     if previous_prices is None:
-        return candidate_keys.filter(pl.col("date") >= pl.lit(event_since).cast(pl.Date))
+        return candidate_keys.filter(
+            pl.col("date") >= pl.lit(event_since).str.to_date(strict=False)
+        )
     previous_keys = previous_prices.select("ticker", "date").with_columns(
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
-        pl.col("date").cast(pl.Date),
+        pl.col("date").cast(pl.String).str.to_date(strict=False),
     )
     return candidate_keys.join(previous_keys, on=["ticker", "date"], how="anti")
 

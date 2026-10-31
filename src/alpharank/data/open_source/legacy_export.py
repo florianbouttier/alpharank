@@ -8,7 +8,6 @@ import polars as pl
 from alpharank.data.ingestion.config import GENERAL_COLUMNS, METRIC_SPECS
 from alpharank.data.ingestion.storage import coerce_schema
 
-
 LEGACY_STATEMENT_FILES = {
     "income_statement": "US_Income_statement.parquet",
     "balance_sheet": "US_Balance_sheet.parquet",
@@ -544,8 +543,14 @@ def _collapse_duplicate_filing_dates(keyed: pl.DataFrame) -> pl.DataFrame:
         )
         .with_columns(
             [
-                pl.col("legacy_date").cast(pl.Date, strict=False).alias("legacy_date_as_date"),
-                pl.col("filing_date").cast(pl.Date, strict=False).alias("filing_date_as_date"),
+                pl.col("legacy_date")
+                .cast(pl.String)
+                .str.to_date(strict=False)
+                .alias("legacy_date_as_date"),
+                pl.col("filing_date")
+                .cast(pl.String)
+                .str.to_date(strict=False)
+                .alias("filing_date_as_date"),
             ]
         )
         .with_columns(
@@ -895,12 +900,12 @@ def _classify_before_after_market(column: pl.Expr) -> pl.Expr:
 
 
 def _normalize_statement_date_for_legacy(column: pl.Expr) -> pl.Expr:
-    date = column.cast(pl.Date, strict=False)
+    date = column.cast(pl.String).str.to_date(strict=False)
     quarter_end = date.dt.truncate("1q").dt.offset_by("3mo") - pl.duration(days=1)
     return quarter_end.dt.strftime("%Y-%m-%d")
 
 
 def _normalize_earnings_period_end_for_legacy(*, period_end: pl.Expr, report_date: pl.Expr) -> pl.Expr:
-    period_date = period_end.cast(pl.Date, strict=False)
-    report_date_date = report_date.cast(pl.Date, strict=False)
+    period_date = period_end.cast(pl.String).str.to_date(strict=False)
+    report_date_date = report_date.cast(pl.String).str.to_date(strict=False)
     return pl.coalesce([period_date, report_date_date]).dt.strftime("%Y-%m-%d")

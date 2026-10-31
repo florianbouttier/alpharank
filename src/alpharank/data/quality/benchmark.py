@@ -138,8 +138,12 @@ def normalize_eodhd_earnings(data_dir: Path, tickers: Iterable[str], year: int) 
 
 
 def build_price_alignment(eodhd_prices: pl.DataFrame, yahoo_prices: pl.DataFrame) -> pl.DataFrame:
-    left = eodhd_prices.with_columns(pl.col("date").cast(pl.Date, strict=False))
-    right = yahoo_prices.with_columns(pl.col("date").cast(pl.Date, strict=False))
+    left = eodhd_prices.with_columns(
+        pl.col("date").cast(pl.String).str.to_date(strict=False)
+    )
+    right = yahoo_prices.with_columns(
+        pl.col("date").cast(pl.String).str.to_date(strict=False)
+    )
     joined = left.rename(
         {
             "adjusted_close": "eodhd_adjusted_close",

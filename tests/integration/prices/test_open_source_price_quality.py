@@ -113,7 +113,7 @@ def test_price_review_keys_ignore_validated_history_even_with_bootstrap_cutoff()
     candidate = pl.DataFrame(
         {
             "ticker": ["A.US", "A.US", "A.US"],
-            "date": [date(2020, 1, 1), date(2020, 1, 2), date(2026, 8, 26)],
+            "date": ["2020-01-01", "2020-01-02", "2026-08-26"],
         }
     )
     previous = candidate.head(2)

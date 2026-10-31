@@ -1,8 +1,9 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 from typing import List, Optional, Sequence, Union
+
+import pandas as pd
+
 from alpharank.features.indicators import TechnicalIndicators
+from alpharank.observability import get_run_logger
 from alpharank.utils.frame_backend import (
     Backend,
     ensure_backend_name,
@@ -12,8 +13,6 @@ from alpharank.utils.frame_backend import (
     to_pandas,
     to_polars,
 )
-from alpharank.observability import get_run_logger
-
 
 LOGGER = get_run_logger(__name__)
 
@@ -400,15 +399,15 @@ class FundamentalProcessor :
             to_polars(balance[['ticker', 'date', 'filing_date', 'commonStockSharesOutstanding', 'totalStockholderEquity', 'netDebt', 'totalAssets', 'cashAndShortTermInvestments']])
             .with_columns([
                 pl.col('ticker').cast(pl.Utf8),
-                pl.col('date').cast(pl.Date, strict=False).alias('date'),
-                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).alias('date'),
+                pl.col('filing_date').cast(pl.String).str.to_date(strict=False).alias('filing_date'),
                 pl.col('commonStockSharesOutstanding').cast(pl.Float64, strict=False).alias('commonStockSharesOutstanding'),
                 pl.col('totalStockholderEquity').cast(pl.Float64, strict=False).alias('totalStockholderEquity'),
                 pl.col('netDebt').cast(pl.Float64, strict=False).alias('netDebt'),
                 pl.col('totalAssets').cast(pl.Float64, strict=False).alias('totalAssets'),
                 pl.col('cashAndShortTermInvestments').cast(pl.Float64, strict=False).alias('cashAndShortTermInvestments'),
-                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
-                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_balance'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('filing_date').cast(pl.String).str.to_date(strict=False).alias('filing_date_balance'),
             ])
             .group_by(['ticker', 'quarter_end'], maintain_order=True)
             .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_balance'] + balance_cols_to_roll, balance_order_cols))
@@ -425,11 +424,11 @@ class FundamentalProcessor :
             to_polars(earnings[['ticker', 'date', 'reportDate', 'epsActual']])
             .with_columns([
                 pl.col('ticker').cast(pl.Utf8),
-                pl.col('date').cast(pl.Date, strict=False).alias('date'),
-                pl.col('reportDate').cast(pl.Date, strict=False).alias('reportDate'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).alias('date'),
+                pl.col('reportDate').cast(pl.String).str.to_date(strict=False).alias('reportDate'),
                 pl.col('epsActual').cast(pl.Float64, strict=False).alias('epsActual'),
-                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
-                pl.col('reportDate').cast(pl.Date, strict=False).alias('filing_date_earning'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('reportDate').cast(pl.String).str.to_date(strict=False).alias('filing_date_earning'),
             ])
             .group_by(['ticker', 'quarter_end'], maintain_order=True)
             .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_earning', 'epsActual'], earnings_order_cols))
@@ -446,10 +445,10 @@ class FundamentalProcessor :
             to_polars(income[['ticker', 'date', 'filing_date'] + income_cols_to_annualize])
             .with_columns([
                 pl.col('ticker').cast(pl.Utf8),
-                pl.col('date').cast(pl.Date, strict=False).alias('date'),
-                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date'),
-                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
-                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_income'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).alias('date'),
+                pl.col('filing_date').cast(pl.String).str.to_date(strict=False).alias('filing_date'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('filing_date').cast(pl.String).str.to_date(strict=False).alias('filing_date_income'),
             ])
             .group_by(['ticker', 'quarter_end'], maintain_order=True)
             .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_income'] + income_cols_to_annualize, income_order_cols))
@@ -470,11 +469,11 @@ class FundamentalProcessor :
             to_polars(cashflow[['ticker', 'date', 'filing_date', 'freeCashFlow']])
             .with_columns([
                 pl.col('ticker').cast(pl.Utf8),
-                pl.col('date').cast(pl.Date, strict=False).alias('date'),
-                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).alias('date'),
+                pl.col('filing_date').cast(pl.String).str.to_date(strict=False).alias('filing_date'),
                 pl.col('freeCashFlow').cast(pl.Float64, strict=False).alias('freeCashFlow'),
-                pl.col('date').cast(pl.Date, strict=False).dt.truncate('1q').alias('quarter_end'),
-                pl.col('filing_date').cast(pl.Date, strict=False).alias('filing_date_cash'),
+                pl.col('date').cast(pl.String).str.to_date(strict=False).dt.truncate('1q').alias('quarter_end'),
+                pl.col('filing_date').cast(pl.String).str.to_date(strict=False).alias('filing_date_cash'),
             ])
             .group_by(['ticker', 'quarter_end'], maintain_order=True)
             .agg(FundamentalProcessor._last_exprs_by_order(['filing_date_cash', 'freeCashFlow'], cash_order_cols))

@@ -117,7 +117,7 @@ def test_missing_inactive_eodhd_key_is_rejected() -> None:
     candidate = _prices([100.0, 101.0])
     lineage = _lineage([100.0, 101.0], ["full", "full"], [100.0, 101.0])
     expected_seed = pl.DataFrame(
-        {"ticker": ["OLD.US"], "date": [date(2020, 1, 2)]}
+        {"ticker": ["OLD.US"], "date": ["2020-01-02"]}
     )
 
     result = audit_price_candidate(

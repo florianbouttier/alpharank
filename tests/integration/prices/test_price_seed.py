@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 import polars as pl
@@ -12,7 +11,7 @@ def test_load_eodhd_seed_is_hashed_normalized_and_immutable(tmp_path: Path) -> N
     path = tmp_path / "US_Finalprice.parquet"
     pl.DataFrame(
         {
-            "date": [datetime(2020, 1, 2), datetime(2020, 1, 3)],
+            "date": ["2020-01-02", "2020-01-03"],
             "open": [10.0, 11.0],
             "high": [11.0, 12.0],
             "low": [9.0, 10.0],

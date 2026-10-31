@@ -58,7 +58,7 @@ def build_monthly_execution_orders(
     price_dates: dict[str, list[date]] = {}
     normalized_dates = daily_prices.select(
         pl.col("ticker").cast(pl.String),
-        pl.col("date").cast(pl.Date, strict=False),
+        pl.col("date").cast(pl.String).str.to_date(strict=False),
     ).filter(pl.col("date").is_not_null())
     for row in normalized_dates.unique().to_dicts():
         value = row["date"]
@@ -115,7 +115,7 @@ def build_execution_sensitivity_report(
     by_ticker: dict[str, list[dict[str, object]]] = {}
     normalized_prices = daily_prices.with_columns(
         pl.col("ticker").cast(pl.String),
-        pl.col("date").cast(pl.Date, strict=False),
+        pl.col("date").cast(pl.String).str.to_date(strict=False),
     ).filter(pl.col("date").is_not_null())
     for row in normalized_prices.sort(["ticker", "date"]).to_dicts():
         by_ticker.setdefault(str(row["ticker"]), []).append(row)
@@ -455,7 +455,7 @@ def apply_next_session_open_holding_returns(
     normalized_prices = (
         daily_prices.select(
             pl.col("ticker").cast(pl.String),
-            pl.col("date").cast(pl.Date, strict=False),
+            pl.col("date").cast(pl.String).str.to_date(strict=False),
             pl.col("open").cast(pl.Float64),
             pl.col("close").cast(pl.Float64),
             pl.col("adjusted_close").cast(pl.Float64),

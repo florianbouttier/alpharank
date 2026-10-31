@@ -125,6 +125,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 86 | `REPORT-017` | reconstruire le desk autour du graphique et d'un scoreboard interactif | lot REPORT ci-dessous | fait |
 | 87 | `CODE-013` | rendre la comparaison des dates prix compatible avec Polars 2 | lot CODE ci-dessous | fait |
 | 88 | `CODE-014` | rendre la gate prix compatible avec Polars 2 | lot CODE ci-dessous | fait |
+| 89 | `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | lot CODE ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -297,6 +298,7 @@ les plus faciles à déplacer.
 | `CODE-012` | déplacer la construction testable du replay commun depuis le script public vers `src/alpharank/replay/` | fait | script ramené à une façade de 54 lignes, API publique testée et Top 5/10 natifs caractérisés sans changement de sélection |
 | `CODE-013` | rendre la comparaison des dates prix compatible avec Polars 2 | fait | les dates texte et natives sont normalisées explicitement avant la recherche de clés manquantes ; le test qui reproduisait l'arrêt du nightly du 31 octobre repasse au vert |
 | `CODE-014` | rendre la gate prix compatible avec Polars 2 | fait | toutes les dates de la gate de mouvements extrêmes et de réparation des splits passent par une normalisation ISO explicite ; les quinze tests de qualité prix sont verts |
+| `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | fait | prix, fraîcheur, calendrier SEC, fondamentaux Legacy et exécution acceptent les dates natives ou ISO ; les tests fonctionnels passent |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
@@ -336,6 +338,25 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
   data.
 - **Rollback** : revenir aux conversions directes avec un runtime Polars
   compatible ; les deux acquisitions arrêtées restent des preuves immuables.
+
+### Détail de `CODE-015`
+
+- **Objectif** : restaurer les trajets data et replay après le retrait par
+  Polars 2 de la conversion directe d'une chaîne vers `Date`.
+- **Périmètre** : gates prix, seed EODHD, preuves de run, alignement benchmark,
+  fraîcheur, calendrier SEC, normalisation des exports Legacy, calcul des
+  fondamentaux et scénarios d'exécution.
+- **Hors périmètre** : valeurs, seuils, clés, politique de lignée, sélection
+  DEF, historique publié ou portefeuille.
+- **Acceptation** : chaque frontière accepte indifféremment une date native ou
+  une chaîne ISO et produit les mêmes clés et valeurs.
+- **Validations** : 205 tests d'intégration data et 558 tests fonctionnels
+  verts, deux contrôles d'inventaire préexistants exclus ; Ruff, documentation
+  et liens Markdown verts ; scénarios mixtes couverts.
+- **Impact** : compatibilité runtime uniquement ; aucun impact économique ou
+  data.
+- **Rollback** : revenir aux conversions directes avec un runtime compatible ;
+  les RAW arrêtés restent conservés et non promus.
 
 ## 10. Lot CODEORG — empêcher les dossiers Python de redevenir des piles
 

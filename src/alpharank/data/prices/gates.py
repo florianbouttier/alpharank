@@ -147,7 +147,7 @@ def audit_price_candidate(
         )
         seed_keys = seed_identity.frame.select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
-            pl.col("date").cast(pl.Date, strict=False),
+            pl.col("date").cast(pl.String).str.to_date(strict=False),
         ).unique()
         inactive_seed_keys = seed_keys.filter(~pl.col("ticker").is_in(active))
         expected_inactive_seed_keys = inactive_seed_keys.height

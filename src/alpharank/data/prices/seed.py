@@ -13,7 +13,6 @@ from alpharank.data.prices.contracts import (
     PRICE_LINEAGE_COLUMNS,
 )
 
-
 _TICKER_ALIASES = {
     "BF-B.US": "BF.B.US",
     "BRK-B.US": "BRK.B.US",
@@ -69,7 +68,7 @@ def _normalize_seed(frame: pl.DataFrame, *, digest: str) -> pl.DataFrame:
     if missing:
         raise ValueError(f"Frozen EODHD seed is missing columns: {sorted(missing)}")
     normalized = frame.select(
-        pl.col("date").cast(pl.Date, strict=False).dt.strftime("%Y-%m-%d"),
+        pl.col("date").cast(pl.String).str.to_date(strict=False).dt.strftime("%Y-%m-%d"),
         *(pl.col(column).cast(pl.Float64, strict=False) for column in ("open", "high", "low", "close", "volume", "adjusted_close")),
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
     ).with_columns(

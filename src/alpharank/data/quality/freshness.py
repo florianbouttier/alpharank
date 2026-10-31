@@ -101,7 +101,9 @@ def validate_data_freshness(
 def _max_date(frame: pl.DataFrame, column: str) -> str | None:
     if frame.is_empty() or column not in frame.columns:
         return None
-    value = frame.select(pl.col(column).cast(pl.Date, strict=False).max()).item()
+    value = frame.select(
+        pl.col(column).cast(pl.String).str.to_date(strict=False).max()
+    ).item()
     return str(value) if value is not None else None
 
 
@@ -128,7 +130,7 @@ def _current_member_price_coverage(
             "current_member_latest_common_market_date": None,
         }
     normalized_constituents = constituents.select(
-        pl.col("Date").cast(pl.Date, strict=False),
+        pl.col("Date").cast(pl.String).str.to_date(strict=False),
         (pl.col("Ticker").cast(pl.String).str.to_uppercase() + pl.lit(".US")).alias("ticker"),
     )
     latest_month = normalized_constituents.select(pl.col("Date").max()).item()
@@ -152,7 +154,7 @@ def _current_member_price_coverage(
     coverage = (
         prices.select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
-            pl.col("date").cast(pl.Date, strict=False),
+            pl.col("date").cast(pl.String).str.to_date(strict=False),
             pl.col("adjusted_close").cast(pl.Float64, strict=False),
         )
         .filter(pl.col("adjusted_close").is_not_null())
