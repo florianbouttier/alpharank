@@ -5,12 +5,13 @@ from datetime import date
 import polars as pl
 import pytest
 
+from alpharank.data.processing import PricesDataPreprocessor
 from alpharank.portfolio.benchmark import (
     SPY_PRICE_RETURN,
     SPY_TOTAL_RETURN,
+    completed_through_month,
     monthly_benchmark_returns,
 )
-from alpharank.data.processing import PricesDataPreprocessor
 from alpharank.utils.frame_backend import to_polars
 
 
@@ -49,6 +50,28 @@ def test_benchmark_rejects_multiple_tickers() -> None:
 
     with pytest.raises(ValueError, match="one ticker"):
         monthly_benchmark_returns(prices)
+
+
+@pytest.mark.parametrize(
+    "dates",
+    [
+        [date(2026, 9, 30), date(2026, 10, 23)],
+        ["2026-09-30", "2026-10-23"],
+    ],
+)
+def test_benchmark_dates_accept_native_and_iso_text(
+    dates: list[date] | list[str],
+) -> None:
+    prices = pl.DataFrame(
+        {
+            "ticker": ["SPY.US", "SPY.US"],
+            "date": dates,
+            "adjusted_close": [100.0, 101.0],
+        }
+    )
+
+    assert completed_through_month(prices) == date(2026, 9, 1)
+    assert monthly_benchmark_returns(prices).height == 2
 
 
 def test_asset_and_benchmark_return_conventions_match() -> None:

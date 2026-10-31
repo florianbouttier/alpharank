@@ -128,6 +128,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 89 | `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | lot CODE ci-dessous | fait |
 | 90 | `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | lot CODE ci-dessous | fait |
 | 91 | `DATA-044` | télécharger et composer le candidat data du 31 octobre | lot DATA ci-dessous | fait |
+| 92 | `CODE-017` | restaurer le calendrier benchmark sous Polars 2 | lot CODE ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -302,6 +303,7 @@ les plus faciles à déplacer.
 | `CODE-014` | rendre la gate prix compatible avec Polars 2 | fait | toutes les dates de la gate de mouvements extrêmes et de réparation des splits passent par une normalisation ISO explicite ; les quinze tests de qualité prix sont verts |
 | `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | fait | prix, fraîcheur, calendrier SEC, fondamentaux Legacy et exécution acceptent les dates natives ou ISO ; les tests fonctionnels passent |
 | `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | fait | le seed accepte séparément les dates natives et les chaînes ISO sans produire de clés nulles ou de faux doublons |
+| `CODE-017` | restaurer le calendrier benchmark sous Polars 2 | fait | le cutoff et les rendements mensuels SPY acceptent les dates natives et les chaînes ISO avec un résultat identique |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
@@ -377,6 +379,22 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
   économique ne change.
 - **Rollback** : revenir au traitement uniforme si Polars rétablit une
   conversion identique pour les types texte et temporels.
+
+### Détail de `CODE-017`
+
+- **Objectif** : restaurer le replay Legacy arrêté avant calcul par une date
+  SPY textuelle sous Polars 2.
+- **Périmètre** : cutoff de complétude et agrégation mensuelle du benchmark,
+  avec test paramétré sur dates natives et chaînes ISO.
+- **Hors périmètre** : prix, convention total return, portefeuille, scores ou
+  paramètres de stratégie.
+- **Acceptation** : les deux représentations produisent le même cutoff et les
+  mêmes mois sans conversion directe texte vers `Date`.
+- **Validations** : tests benchmark et fonctionnels, Ruff, documentation et
+  liens Markdown.
+- **Impact** : compatibilité runtime uniquement ; aucun résultat économique ne
+  change.
+- **Rollback** : revenir au cast uniforme avec un runtime qui le supporte.
 
 ## 10. Lot CODEORG — empêcher les dossiers Python de redevenir des piles
 

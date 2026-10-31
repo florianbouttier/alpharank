@@ -49,7 +49,7 @@ def completed_through_month(
 ) -> date:
     if date_column not in prices.columns:
         raise ValueError(f"Benchmark prices are missing: {date_column}")
-    maximum = prices.select(pl.col(date_column).cast(pl.Date, strict=False).max()).item()
+    maximum = prices.select(_date_expression(prices, date_column).max()).item()
     if maximum is None:
         raise ValueError("Benchmark prices contain no valid date.")
     return date(
@@ -75,7 +75,7 @@ def monthly_benchmark_returns(
         raise ValueError("Benchmark prices must contain at most one ticker.")
     monthly = (
         prices.select(
-            pl.col(date_column).cast(pl.Date, strict=False).alias("date"),
+            _date_expression(prices, date_column).alias("date"),
             pl.col(convention.price_column).cast(pl.Float64).alias("price"),
         )
         .filter(pl.col("date").is_not_null() & pl.col("price").is_not_null())
@@ -98,3 +98,9 @@ def monthly_benchmark_returns(
         )
     )
     return monthly
+
+
+def _date_expression(prices: pl.DataFrame, date_column: str) -> pl.Expr:
+    if prices.schema[date_column] == pl.String:
+        return pl.col(date_column).str.to_date(strict=False)
+    return pl.col(date_column).cast(pl.Date, strict=False)
