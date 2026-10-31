@@ -321,7 +321,7 @@ def _historical_yahoo_key_gaps(
     previous_keys = (
         previous_validated_lineage.select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
-            pl.col("date").cast(pl.Date, strict=False),
+            pl.col("date").cast(pl.String).str.to_date(strict=False),
         )
         .filter(
             pl.col("ticker").is_in(active)
@@ -337,7 +337,7 @@ def _historical_yahoo_key_gaps(
         )
         .select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
-            pl.col("date").cast(pl.Date, strict=False),
+            pl.col("date").cast(pl.String).str.to_date(strict=False),
         )
         .unique()
         if not fresh_prices.is_empty()
