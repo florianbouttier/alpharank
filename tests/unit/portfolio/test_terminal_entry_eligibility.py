@@ -63,16 +63,17 @@ def test_terminal_entry_gate_fails_on_duplicate_ticker_rules() -> None:
         apply_terminal_entry_gate(candidates, blocks)
 
 
-def test_entry_only_events_block_the_four_no_sec_impossible_fills() -> None:
+def test_entry_only_events_block_the_five_no_sec_impossible_fills() -> None:
     candidates = pl.DataFrame(
         {
             "year_month": [
                 date(2010, 3, 1),
+                date(2018, 10, 1),
                 date(2019, 10, 1),
                 date(2022, 11, 1),
                 date(2023, 1, 1),
             ],
-            "ticker": ["RX.US", "TSS.US", "TWTR.US", "ABMD.US"],
+            "ticker": ["RX.US", "ANDV.US", "TSS.US", "TWTR.US", "ABMD.US"],
         }
     )
 
@@ -85,6 +86,10 @@ def test_entry_only_events_block_the_four_no_sec_impossible_fills() -> None:
     assert result.blocked.select("ticker", "entry_block_rule").to_dicts() == [
         {
             "ticker": "RX.US",
+            "entry_block_rule": "completed_terminal_event_blocks_post_event_entry",
+        },
+        {
+            "ticker": "ANDV.US",
             "entry_block_rule": "completed_terminal_event_blocks_post_event_entry",
         },
         {

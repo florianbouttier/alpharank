@@ -130,6 +130,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 91 | `DATA-044` | télécharger et composer le candidat data du 31 octobre | lot DATA ci-dessous | fait |
 | 92 | `CODE-017` | restaurer le calendrier benchmark sous Polars 2 | lot CODE ci-dessous | fait |
 | 93 | `CODE-018` | normaliser les dates aux frontières Legacy et Boosting | lot CODE ci-dessous | fait |
+| 94 | `CODE-019` | normaliser les dates dans le calcul partagé des rendements | lot CODE ci-dessous | fait |
+| 95 | `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -506,6 +508,7 @@ change dans ce lot.
 | `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | fait | le snapshot d'octobre contient SKYD et non PSKY à compter du 6 octobre ; la source SEC, le temps de connaissance et la continuité de symbole sont versionnés et testés |
 | `DATA-043` | télécharger et composer le candidat data du 24 octobre | fait | run `20261024_140104`, 503 membres frais au 23 octobre, composition `c340a9b4…8b7e` validée et non promue avant `REPLAY-012` |
 | `DATA-044` | télécharger et composer le candidat data du 31 octobre | fait | run `20261031_151756`, 503 membres et SPY frais au 30 octobre, composition `e0e6045a…ef95a` validée et non promue avant le replay dédié |
+| `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | fait | le registre v3 source le Form 8-K SEC du 1er octobre 2018 et exclut uniquement l'ordre formé après la dernière séance du 28 septembre, sans inventer de rendement |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -856,6 +859,24 @@ doublons exacts et preuve de récupération.
   de portefeuille avant le replay dédié.
 - **Rollback** : ignorer le candidat local et conserver les RAW et manifestes
   immuables ; le pointeur canonique reste inchangé.
+
+### Détail de `DATA-045`
+
+- **Objectif** : empêcher le moteur commun de simuler un achat d'ANDV au début
+  d'octobre 2018 alors que le titre avait cessé de coter avant l'ouverture du
+  1er octobre.
+- **Périmètre** : registre versionné des événements terminaux, provenance du
+  Form 8-K SEC et gate d'entrée appliquée avant le classement final.
+- **Hors périmètre** : valoriser l'élection cash/actions des actionnaires déjà
+  investis, modifier les scores, les prix ou les autres événements terminaux.
+- **Acceptation** : l'ordre impossible est bloqué à partir du mois de détention
+  d'octobre 2018 ; aucune valeur de rendement n'est créée ou remplacée.
+- **Validations** : hash de la source SEC revérifié, tests du registre et de la
+  gate, replay commun réel, Ruff, documentation et liens Markdown.
+- **Impact** : une ligne ANDV censurée ne peut plus entrer dans une variante
+  Boosting ; les modèles et scores restent inchangés.
+- **Rollback** : revenir au registre v2 rétablit le blocage fail-closed du
+  replay commun plutôt qu'un rendement inventé.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

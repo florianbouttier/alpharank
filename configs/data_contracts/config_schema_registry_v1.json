@@ -757,7 +757,8 @@
     {
       "example_files": [
         "configs/data_quality/terminal_shareholder_events_v1.json",
-        "configs/data_quality/terminal_shareholder_events_v2.json"
+        "configs/data_quality/terminal_shareholder_events_v2.json",
+        "configs/data_quality/terminal_shareholder_events_v3.json"
       ],
       "family_id": "terminal_shareholder_events",
       "patterns": [

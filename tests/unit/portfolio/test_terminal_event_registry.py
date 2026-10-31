@@ -23,8 +23,8 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
 
     assert registry.path == DEFAULT_TERMINAL_EVENT_REGISTRY.resolve()
     assert len(registry.sha256) == 64
-    assert len(registry.events) == 13
-    assert sum(len(event["source_documents"]) for event in registry.events) == 17
+    assert len(registry.events) == 14
+    assert sum(len(event["source_documents"]) for event in registry.events) == 18
 
     terminal = registry.terminal_consideration_events(
         price_vintage_id="prices-v2"
@@ -62,12 +62,13 @@ def test_terminal_event_registry_is_complete_and_fail_closed() -> None:
     assert frc["entry_allowed"] is False
 
     entry_blocks = registry.terminal_entry_blocks()
-    assert entry_blocks.height == 13
+    assert entry_blocks.height == 14
     expected_months = {
         "RX.US": date(2010, 3, 1),
         "KRFT.US": date(2015, 8, 1),
         "HSP.US": date(2015, 10, 1),
         "WFM.US": date(2017, 9, 1),
+        "ANDV.US": date(2018, 10, 1),
         "ESRX.US": date(2019, 1, 1),
         "SCG.US": date(2019, 1, 1),
         "NFX.US": date(2019, 3, 1),

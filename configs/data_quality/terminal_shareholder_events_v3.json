@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "registry_id": "terminal_shareholder_events_v3",
+  "status": "reviewed_selected_portfolio_events",
+  "currency": "USD",
+  "retrieved_at": "2026-10-31T17:16:42Z",
+  "source_hash_scope": "sha256 of the HTTP response body after content decoding",
+  "extends_registry_path": "terminal_shareholder_events_v2.json",
+  "extends_registry_id": "terminal_shareholder_events_v2",
+  "extends_registry_sha256": "91321c92230421ab44c57d0327a47ebe191d413ea182d1c00e55ad53f282541d",
+  "events": [
+    {
+      "event_id": "ANDV-2018-10-01-MPC",
+      "ticker": "ANDV.US",
+      "issuer_name": "Andeavor",
+      "event_type": "stock_and_cash_merger",
+      "effective_date": "2018-10-01",
+      "known_at": "2018-10-01T17:20:07-04:00",
+      "known_at_basis": "SEC acceptance used as retrospective evidence; the execution rejection is based on the issuer filing that ANDV ceased trading before the October 1 market open",
+      "last_primary_trading_date": "2018-09-28",
+      "successor_first_trading_date": null,
+      "portfolio_resolution": {
+        "mode": "post_terminal_entry_block",
+        "allow_entry": false,
+        "cash_per_share": null,
+        "successor_ticker": null,
+        "exchange_ratio": null,
+        "recovery_per_share": null,
+        "requires_successor_holding_end_price": false,
+        "distributions": [],
+        "shareholder_consideration_status": "not_evaluated_entry_only"
+      },
+      "source_documents": [
+        {
+          "source_id": "sec-andv-2018-10-01-completion-and-delisting",
+          "authority": "SEC issuer filing",
+          "document_type": "Form 8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/50104/000119312518289750/d632974d8k.htm",
+          "published_or_accepted_at": "2018-10-01T17:20:07-04:00",
+          "retrieved_at": "2026-10-31T17:16:42Z",
+          "sha256": "1175ee8c070d7ee04271e88f53ecaf1403cd05bf41f48cc9195d557ec99632d5",
+          "supports": [
+            "October 1 merger completion",
+            "ANDV common stock ceased trading before the October 1 market open",
+            "NYSE delisting"
+          ]
+        }
+      ],
+      "review_note": "The common replay selected ANDV for the October 2018 holding month, but the security had ceased trading before the first October session. This entry-only rule rejects the impossible fill without choosing a shareholder cash/stock election or fabricating a return."
+    }
+  ]
+}

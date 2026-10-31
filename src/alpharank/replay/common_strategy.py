@@ -324,6 +324,7 @@ def _critical_files() -> tuple[str, ...]:
         "src/alpharank/strategy/legacy_valuation.py",
         "configs/data_quality/terminal_shareholder_events_v1.json",
         "configs/data_quality/terminal_shareholder_events_v2.json",
+        "configs/data_quality/terminal_shareholder_events_v3.json",
     )
 
 

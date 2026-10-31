@@ -19,11 +19,12 @@ DEFAULT_TERMINAL_EVENT_REGISTRY = (
     Path(__file__).resolve().parents[3]
     / "configs"
     / "data_quality"
-    / "terminal_shareholder_events_v2.json"
+    / "terminal_shareholder_events_v3.json"
 )
-REGISTRY_ID = "terminal_shareholder_events_v2"
+REGISTRY_ID = "terminal_shareholder_events_v3"
 SUPPORTED_REGISTRY_IDS = {
     "terminal_shareholder_events_v1",
+    "terminal_shareholder_events_v2",
     REGISTRY_ID,
 }
 TERMINAL_EVENT_TYPES = {
@@ -221,11 +222,12 @@ def _resolve_registry_extension(path: Path, payload: object) -> object:
         base_payload = json.loads(base_raw)
     except json.JSONDecodeError as error:
         raise ValueError(f"Base terminal event registry is not valid JSON: {error}") from error
-    _validate_registry(base_payload)
+    resolved_base = _resolve_registry_extension(base_path, base_payload)
+    _validate_registry(resolved_base)
     if base_payload.get("registry_id") != expected_id:
         raise ValueError("Terminal event registry extension id does not match its base.")
-    merged = {**base_payload, **payload}
-    merged["events"] = [*base_payload["events"], *payload.get("events", [])]
+    merged = {**resolved_base, **payload}
+    merged["events"] = [*resolved_base["events"], *payload.get("events", [])]
     return merged
 
 
