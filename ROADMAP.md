@@ -127,6 +127,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 88 | `CODE-014` | rendre la gate prix compatible avec Polars 2 | lot CODE ci-dessous | fait |
 | 89 | `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | lot CODE ci-dessous | fait |
 | 90 | `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | lot CODE ci-dessous | fait |
+| 91 | `DATA-044` | télécharger et composer le candidat data du 31 octobre | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -449,6 +450,7 @@ change dans ce lot.
 | `DATA-041` | figer la première observation de la frontière prix non publiée | à faire | les séances déjà observées par un candidat antérieur sont rejouées à l'identique malgré une micro-révision fournisseur ; le RAW révisé reste archivé et l'audit WDC d'août redevient exact |
 | `DATA-042` | enregistrer la continuité officielle PSKY vers SKYD | fait | le snapshot d'octobre contient SKYD et non PSKY à compter du 6 octobre ; la source SEC, le temps de connaissance et la continuité de symbole sont versionnés et testés |
 | `DATA-043` | télécharger et composer le candidat data du 24 octobre | fait | run `20261024_140104`, 503 membres frais au 23 octobre, composition `c340a9b4…8b7e` validée et non promue avant `REPLAY-012` |
+| `DATA-044` | télécharger et composer le candidat data du 31 octobre | fait | run `20261031_151756`, 503 membres et SPY frais au 30 octobre, composition `e0e6045a…ef95a` validée et non promue avant le replay dédié |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -779,6 +781,26 @@ doublons exacts et preuve de récupération.
   candidat devient seulement l'entrée de `REPLAY-012`.
 - **Rollback** : ignorer le candidat local ; conserver tous les RAW et audits
   immuables, sans modifier le pointeur canonique.
+
+### Détail de `DATA-044`
+
+- **Objectif** : rafraîchir toutes les sources disponibles au 31 octobre 2026
+  et produire un snapshot candidat unique pour le calcul demandé.
+- **Périmètre** : univers d'octobre, acquisition réseau complète, RAW immuable,
+  réconciliation prix, rebuild SEC cumulatif, composition et preuve datée.
+- **Hors périmètre** : déplacer le pointeur de production, accepter un drift
+  historique, calculer la performance 50/50 ou promouvoir une stratégie.
+- **Acceptation** : chaque source porte un statut ; les prix et SPY atteignent
+  la dernière séance disponible ; les anciennes clés validées sont conservées ;
+  les neuf fichiers du candidat sont hashés et validés.
+- **Validations** : huit sources explicitement statuées ; 503 membres et SPY
+  au 30 octobre ; zéro rendement historique validé modifié et zéro clé prix
+  supprimée ; cumul SEC lié au parent immuable du 24 octobre ; snapshot de neuf
+  fichiers validé, documentation et liens Markdown.
+- **Impact** : nouveau candidat data seulement ; aucune publication ni décision
+  de portefeuille avant le replay dédié.
+- **Rollback** : ignorer le candidat local et conserver les RAW et manifestes
+  immuables ; le pointeur canonique reste inchangé.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 

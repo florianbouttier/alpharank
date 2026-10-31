@@ -59,6 +59,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `data_refresh_replay_20261024.md` : replays same-code du candidat du 24
   octobre, portefeuille de septembre exact sur 126/126, historiques canoniques
   stables et drift de l'univers diagnostique Legacy PE attribué aux SEC.
+- `data_refresh_candidate_20261031.md` : refresh complet jusqu'au 30 octobre,
+  prix réconciliés sans réécriture historique et snapshot candidat SEC-only
+  commun laissé non promu avant le replay inter-vintages.
 - `strategy_frontiers_20261025.md` : 168 compositions longues entre Legacy,
   Boosting et Boosting tendance, deux frontières efficientes et profils de
   risque sur cinq horizons jusqu'en septembre 2026.
