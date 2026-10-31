@@ -306,6 +306,7 @@ les plus faciles à déplacer.
 | `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | fait | le seed accepte séparément les dates natives et les chaînes ISO sans produire de clés nulles ou de faux doublons |
 | `CODE-017` | restaurer le calendrier benchmark sous Polars 2 | fait | le cutoff et les rendements mensuels SPY acceptent les dates natives et les chaînes ISO avec un résultat identique |
 | `CODE-018` | normaliser les dates aux frontières Legacy et Boosting | fait | les packages de modèle à dates ISO sont convertis une fois au chargement avant toute transformation des deux trajectoires |
+| `CODE-019` | normaliser les dates dans le calcul partagé des rendements | fait | les rendements journaliers et mensuels acceptent les dates natives ou ISO sous Polars 2 avant le replay commun |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
@@ -415,6 +416,22 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
   change.
 - **Rollback** : retirer la normalisation de frontière avec un runtime qui
   restaure le cast direct.
+
+### Détail de `CODE-019`
+
+- **Objectif** : restaurer le replay commun arrêté par une date prix textuelle
+  sous Polars 2 après les replays Legacy et Boosting réussis.
+- **Périmètre** : calculs partagés de rendements journaliers et mensuels, avec
+  un test de non-régression sur chaînes ISO.
+- **Hors périmètre** : prix, rendements sources, sélection, poids, coûts ou
+  paramètres des modèles.
+- **Acceptation** : les dates ISO sont normalisées avant les calculs et les
+  rendements simples attendus restent identiques.
+- **Validations** : test ciblé, suite portefeuille/replay, Ruff, documentation
+  et liens Markdown.
+- **Impact** : compatibilité runtime uniquement ; aucune valeur économique ne
+  change.
+- **Rollback** : revenir au cast uniforme avec un runtime qui le supporte.
 
 ## 10. Lot CODEORG — empêcher les dossiers Python de redevenir des piles
 

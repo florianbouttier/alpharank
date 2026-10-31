@@ -18,6 +18,7 @@ import pandas as pd
 from alpharank.utils.frame_backend import (
     Backend,
     ensure_backend_name,
+    normalize_polars_date_columns,
     normalize_year_month_to_period,
     require_polars,
     to_pandas,
@@ -81,7 +82,7 @@ def calculate_daily_returns(
         raise ValueError("Pandas backend is disabled for returns.calculate_daily_returns.")
 
     require_polars()
-    pldf = to_polars(df).with_columns(pl.col(date_column).cast(pl.Date, strict=False))
+    pldf = normalize_polars_date_columns(to_polars(df), (date_column,))
     sort_cols = [ticker_column, date_column] if ticker_column else [date_column]
     pldf = pldf.sort(sort_cols)
     if ticker_column:
@@ -123,7 +124,7 @@ def calculate_monthly_returns(
         raise ValueError("Pandas backend is disabled for returns.calculate_monthly_returns.")
 
     require_polars()
-    pldf = to_polars(df).with_columns(pl.col(date_column).cast(pl.Date, strict=False))
+    pldf = normalize_polars_date_columns(to_polars(df), (date_column,))
     pldf = pldf.with_columns(pl.col(date_column).dt.truncate("1mo").alias("year_month"))
     if ticker_column:
         monthly = (
