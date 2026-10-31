@@ -573,7 +573,11 @@ def _focus_price_evidence(
 ) -> dict[str, object]:
     spec = TableSpec("focus_price", "US_Finalprice.parquet", ("ticker", "date"), "date")
     eligible = (pl.col("ticker") == ticker) & (
-        pl.col("date").cast(pl.Date).dt.truncate("1mo") <= pl.lit(decision_month)
+        pl.col("date")
+        .cast(pl.String)
+        .str.to_date(strict=False)
+        .dt.truncate("1mo")
+        <= pl.lit(decision_month)
     )
     baseline = pl.read_parquet(baseline_snapshot / spec.relative_path).filter(eligible)
     candidate = pl.read_parquet(candidate_snapshot / spec.relative_path).filter(eligible)

@@ -313,7 +313,8 @@ def _write_snapshots(baseline: Path, candidate: Path) -> None:
     prices = pl.DataFrame(
         {
             "ticker": ["CVC.US", "CVC.US"],
-            "date": [date(2016, 6, 17), date(2016, 6, 20)],
+            # Production snapshots may retain provider dates as ISO strings.
+            "date": ["2016-06-17", "2016-06-20"],
             "adjusted_close": [31.0, 31.2],
         }
     )

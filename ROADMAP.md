@@ -132,6 +132,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 93 | `CODE-018` | normaliser les dates aux frontières Legacy et Boosting | lot CODE ci-dessous | fait |
 | 94 | `CODE-019` | normaliser les dates dans le calcul partagé des rendements | lot CODE ci-dessous | fait |
 | 95 | `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | lot DATA ci-dessous | fait |
+| 96 | `CODE-020` | normaliser les dates prix dans le rapport d'attribution | lot CODE ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -877,6 +878,22 @@ doublons exacts et preuve de récupération.
   Boosting ; les modèles et scores restent inchangés.
 - **Rollback** : revenir au registre v2 rétablit le blocage fail-closed du
   replay commun plutôt qu'un rendement inventé.
+
+### Détail de `CODE-020`
+
+- **Objectif** : rendre la vue prix détaillée du rapport de replay compatible
+  avec les dates ISO conservées dans les snapshots de production sous Polars 2.
+- **Périmètre** : normalisation explicite de la colonne `date` avant le filtre
+  mensuel et fixture de non-régression au même type que les données réelles.
+- **Hors périmètre** : modifier les prix, les rendements, les portefeuilles ou
+  la logique d'attribution des ablations.
+- **Acceptation** : le rapport HTML/JSON du 31 octobre est généré depuis les
+  quatre scénarios sans conversion stricte obsolète.
+- **Validations** : tests ciblés du rapport d'attribution, Ruff, rapport réel,
+  documentation et liens Markdown.
+- **Impact** : présentation uniquement ; aucun résultat économique ne change.
+- **Rollback** : revenir au filtre antérieur reproduit l'échec sur les dates
+  texte et n'affecte pas les artefacts de replay en amont.
 
 ## 12 bis. Lot METH — preuves économiques complémentaires
 
