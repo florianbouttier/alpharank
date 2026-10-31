@@ -124,6 +124,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 85 | `REPORT-016` | transformer le rapport en performance desk pleine largeur et publier le bon artefact | lot REPORT ci-dessous | fait |
 | 86 | `REPORT-017` | reconstruire le desk autour du graphique et d'un scoreboard interactif | lot REPORT ci-dessous | fait |
 | 87 | `CODE-013` | rendre la comparaison des dates prix compatible avec Polars 2 | lot CODE ci-dessous | fait |
+| 88 | `CODE-014` | rendre la gate prix compatible avec Polars 2 | lot CODE ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -295,6 +296,7 @@ les plus faciles à déplacer.
 | `CODE-011` | attribuer ou déplacer les modules transverses `*_v2`, gouvernance et replay dans des packages nommés | fait | six implémentations sous `replay/`, façades compatibles et registre d'API ; gouvernance attribuée |
 | `CODE-012` | déplacer la construction testable du replay commun depuis le script public vers `src/alpharank/replay/` | fait | script ramené à une façade de 54 lignes, API publique testée et Top 5/10 natifs caractérisés sans changement de sélection |
 | `CODE-013` | rendre la comparaison des dates prix compatible avec Polars 2 | fait | les dates texte et natives sont normalisées explicitement avant la recherche de clés manquantes ; le test qui reproduisait l'arrêt du nightly du 31 octobre repasse au vert |
+| `CODE-014` | rendre la gate prix compatible avec Polars 2 | fait | toutes les dates de la gate de mouvements extrêmes et de réparation des splits passent par une normalisation ISO explicite ; les quinze tests de qualité prix sont verts |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
@@ -317,6 +319,23 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
   data et aucun changement des règles de sélection.
 - **Rollback** : revenir au cast direct si le runtime Polars revient à une
   version qui l'accepte ; les RAW du run arrêté restent conservés.
+
+### Détail de `CODE-014`
+
+- **Objectif** : restaurer la gate des mouvements extrêmes après le retrait par
+  Polars 2 de la conversion directe d'une chaîne vers `Date`.
+- **Périmètre** : dates des prix, clés de revue, registre des mouvements revus
+  et événements de split dans `price_quality.py`.
+- **Hors périmètre** : seuil de 40 %, bornes de revue, prix, réconciliation,
+  politiques de publication ou portefeuille.
+- **Acceptation** : les entrées `Date` et chaîne ISO restent équivalentes ; les
+  mouvements, revues et réparations de splits conservent leurs résultats.
+- **Validations** : quinze tests de qualité prix verts, Ruff, documentation et
+  liens Markdown ; aucun seuil ni résultat économique modifié.
+- **Impact** : compatibilité runtime uniquement ; aucun impact économique ou
+  data.
+- **Rollback** : revenir aux conversions directes avec un runtime Polars
+  compatible ; les deux acquisitions arrêtées restent des preuves immuables.
 
 ## 10. Lot CODEORG — empêcher les dossiers Python de redevenir des piles
 

@@ -21,6 +21,11 @@ REVIEWED_MOVE_BOUND_COLUMNS = (
 )
 
 
+def _to_date_expr(value: date | str | pl.Expr) -> pl.Expr:
+    expression = value if isinstance(value, pl.Expr) else pl.lit(value)
+    return expression.cast(pl.String).str.to_date(strict=False)
+
+
 @dataclass(frozen=True, slots=True)
 class ExtremePriceMoveGateResult:
     """Recorded review of extreme moves on rows selected for publication."""
@@ -39,7 +44,6 @@ def build_split_detection_prices(
 ) -> pl.DataFrame:
     """Return one coherent source vintage for corporate-action detection."""
 
-    required = ["ticker", "date", "adjusted_close"]
     if full_history_refresh:
         return fresh_prices.select(
             [column for column in PRICE_QUALITY_COLUMNS if column in fresh_prices.columns]
@@ -89,7 +93,7 @@ def find_extreme_adjusted_price_moves(
     )
     selected = prices.select(
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
-        pl.col("date").cast(pl.Date),
+        _to_date_expr(pl.col("date")).alias("date"),
         pl.col("adjusted_close").cast(pl.Float64, strict=False),
     ).filter(pl.col("adjusted_close").is_not_null() & (pl.col("adjusted_close") > 0))
     if normalized_tickers is not None:
@@ -106,7 +110,7 @@ def find_extreme_adjusted_price_moves(
             ).alias("one_day_return")
         )
         .filter(
-            (pl.col("date") >= pl.lit(event_since).cast(pl.Date))
+            (pl.col("date") >= _to_date_expr(event_since))
             & (pl.col("one_day_return").abs() >= threshold)
         )
         .select(
@@ -129,7 +133,7 @@ def assert_no_extreme_adjusted_price_moves(
     reviewed_moves: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     review_keys = prices.select("ticker", "date").filter(
-        pl.col("date").cast(pl.Date) >= pl.lit(event_since).cast(pl.Date)
+        _to_date_expr(pl.col("date")) >= _to_date_expr(event_since)
     )
     result = audit_extreme_adjusted_price_moves(
         prices,
@@ -206,7 +210,7 @@ def _normalize_price_review_keys(review_keys: pl.DataFrame) -> pl.DataFrame:
     return (
         review_keys.select(
             pl.col("ticker").cast(pl.String).str.to_uppercase(),
-            pl.col("date").cast(pl.Date),
+            _to_date_expr(pl.col("date")).alias("date"),
         )
         .unique()
         .sort(["ticker", "date"])
@@ -275,7 +279,7 @@ def load_reviewed_extreme_price_moves(
         normalized.append(row)
     frame = (
         pl.DataFrame(normalized)
-        .with_columns(pl.col("date").cast(pl.Date, strict=False))
+        .with_columns(_to_date_expr(pl.col("date")).alias("date"))
         .sort(["ticker", "date"])
         if normalized
         else _empty_reviewed_move_frame()
@@ -305,7 +309,7 @@ def split_reviewed_extreme_price_moves(
         raise ValueError(f"Reviewed price-move frame is missing columns: {missing}")
     registry = reviewed_moves.with_columns(
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
-        pl.col("date").cast(pl.Date, strict=False),
+        _to_date_expr(pl.col("date")).alias("date"),
     )
     if registry.select(pl.struct(["ticker", "date"]).is_duplicated().sum()).item():
         raise ValueError("Reviewed price-move frame has duplicate ticker/date keys")
@@ -371,7 +375,7 @@ def repair_confirmed_split_discontinuities(
 
     split_rows = splits.with_columns(
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
-        pl.col("date").cast(pl.Date),
+        _to_date_expr(pl.col("date")).alias("date"),
         pl.col("split_ratio").cast(pl.Float64, strict=False),
     )
     for finding in findings.iter_rows(named=True):
@@ -390,7 +394,7 @@ def repair_confirmed_split_discontinuities(
             continue
 
         before_event = (pl.col("ticker").cast(pl.String).str.to_uppercase() == ticker) & (
-            pl.col("date").cast(pl.Date) < pl.lit(event_date)
+            _to_date_expr(pl.col("date")) < pl.lit(event_date)
         )
         price_columns = [
             column
