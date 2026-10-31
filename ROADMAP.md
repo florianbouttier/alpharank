@@ -126,6 +126,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 87 | `CODE-013` | rendre la comparaison des dates prix compatible avec Polars 2 | lot CODE ci-dessous | fait |
 | 88 | `CODE-014` | rendre la gate prix compatible avec Polars 2 | lot CODE ci-dessous | fait |
 | 89 | `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | lot CODE ci-dessous | fait |
+| 90 | `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | lot CODE ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -299,6 +300,7 @@ les plus faciles à déplacer.
 | `CODE-013` | rendre la comparaison des dates prix compatible avec Polars 2 | fait | les dates texte et natives sont normalisées explicitement avant la recherche de clés manquantes ; le test qui reproduisait l'arrêt du nightly du 31 octobre repasse au vert |
 | `CODE-014` | rendre la gate prix compatible avec Polars 2 | fait | toutes les dates de la gate de mouvements extrêmes et de réparation des splits passent par une normalisation ISO explicite ; les quinze tests de qualité prix sont verts |
 | `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | fait | prix, fraîcheur, calendrier SEC, fondamentaux Legacy et exécution acceptent les dates natives ou ISO ; les tests fonctionnels passent |
+| `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | fait | le seed accepte séparément les dates natives et les chaînes ISO sans produire de clés nulles ou de faux doublons |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
@@ -357,6 +359,23 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
   data.
 - **Rollback** : revenir aux conversions directes avec un runtime compatible ;
   les RAW arrêtés restent conservés et non promus.
+
+### Détail de `CODE-016`
+
+- **Objectif** : corriger la régression introduite par `CODE-015` lorsque le
+  seed EODHD porte déjà un type temporel natif.
+- **Périmètre** : normalisation de la seule colonne `date` du seed et test
+  paramétré sur `Datetime` et chaîne ISO.
+- **Hors périmètre** : valeurs prix, politique de seed, réconciliation Yahoo,
+  contrôles de publication ou portefeuille.
+- **Acceptation** : les deux représentations produisent les mêmes dates ISO,
+  sans null ni faux doublon de clé `(ticker, date)`.
+- **Validations** : tests prix ciblés et fonctionnels, Ruff, documentation et
+  liens Markdown.
+- **Impact** : compatibilité runtime uniquement ; aucun prix ni résultat
+  économique ne change.
+- **Rollback** : revenir au traitement uniforme si Polars rétablit une
+  conversion identique pour les types texte et temporels.
 
 ## 10. Lot CODEORG — empêcher les dossiers Python de redevenir des piles
 

@@ -1,17 +1,29 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from alpharank.data.prices.seed import load_eodhd_seed
 
 
-def test_load_eodhd_seed_is_hashed_normalized_and_immutable(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "dates",
+    [
+        [datetime(2020, 1, 2), datetime(2020, 1, 3)],
+        ["2020-01-02", "2020-01-03"],
+    ],
+)
+def test_load_eodhd_seed_is_hashed_normalized_and_immutable(
+    tmp_path: Path,
+    dates: list[datetime] | list[str],
+) -> None:
     path = tmp_path / "US_Finalprice.parquet"
     pl.DataFrame(
         {
-            "date": ["2020-01-02", "2020-01-03"],
+            "date": dates,
             "open": [10.0, 11.0],
             "high": [11.0, 12.0],
             "low": [9.0, 10.0],

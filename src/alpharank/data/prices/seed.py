@@ -67,8 +67,13 @@ def _normalize_seed(frame: pl.DataFrame, *, digest: str) -> pl.DataFrame:
     missing = required - set(frame.columns)
     if missing:
         raise ValueError(f"Frozen EODHD seed is missing columns: {sorted(missing)}")
+    date_expression = (
+        pl.col("date").str.to_date(strict=False)
+        if frame.schema["date"] == pl.String
+        else pl.col("date").cast(pl.Date, strict=False)
+    )
     normalized = frame.select(
-        pl.col("date").cast(pl.String).str.to_date(strict=False).dt.strftime("%Y-%m-%d"),
+        date_expression.dt.strftime("%Y-%m-%d").alias("date"),
         *(pl.col(column).cast(pl.Float64, strict=False) for column in ("open", "high", "low", "close", "volume", "adjusted_close")),
         pl.col("ticker").cast(pl.String).str.to_uppercase(),
     ).with_columns(
