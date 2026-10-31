@@ -129,6 +129,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 90 | `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | lot CODE ci-dessous | fait |
 | 91 | `DATA-044` | télécharger et composer le candidat data du 31 octobre | lot DATA ci-dessous | fait |
 | 92 | `CODE-017` | restaurer le calendrier benchmark sous Polars 2 | lot CODE ci-dessous | fait |
+| 93 | `CODE-018` | normaliser les dates aux frontières Legacy et Boosting | lot CODE ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -304,6 +305,7 @@ les plus faciles à déplacer.
 | `CODE-015` | rendre les trajets data et replay compatibles avec Polars 2 | fait | prix, fraîcheur, calendrier SEC, fondamentaux Legacy et exécution acceptent les dates natives ou ISO ; les tests fonctionnels passent |
 | `CODE-016` | préserver les dates natives du seed EODHD sous Polars 2 | fait | le seed accepte séparément les dates natives et les chaînes ISO sans produire de clés nulles ou de faux doublons |
 | `CODE-017` | restaurer le calendrier benchmark sous Polars 2 | fait | le cutoff et les rendements mensuels SPY acceptent les dates natives et les chaînes ISO avec un résultat identique |
+| `CODE-018` | normaliser les dates aux frontières Legacy et Boosting | fait | les packages de modèle à dates ISO sont convertis une fois au chargement avant toute transformation des deux trajectoires |
 
 Chaque découpage commence par un test de caractérisation. Aucune valeur de
 portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
@@ -395,6 +397,24 @@ portefeuille, de KPI ou de sélection ne doit changer dans ce lot.
 - **Impact** : compatibilité runtime uniquement ; aucun résultat économique ne
   change.
 - **Rollback** : revenir au cast uniforme avec un runtime qui le supporte.
+
+### Détail de `CODE-018`
+
+- **Objectif** : empêcher toute nouvelle conversion directe `String -> Date`
+  pendant les trajectoires Legacy et Boosting sous Polars 2.
+- **Périmètre** : utilitaire de normalisation typée et frontières de chargement
+  des packages Legacy et backtest/Boosting.
+- **Hors périmètre** : valeurs, sources, calendriers, features, sélection,
+  portefeuille ou scripts historiques non appelés par ces trajectoires.
+- **Acceptation** : chaque date ISO du snapshot est convertie une seule fois au
+  chargement ; les dates déjà natives restent identiques ; les transformations
+  aval ne reçoivent plus de chaînes.
+- **Validations** : test paramétré natif/ISO, tests Legacy/Boosting et suite
+  fonctionnelle, Ruff, documentation et liens Markdown.
+- **Impact** : schéma runtime uniquement ; aucune date ni valeur économique ne
+  change.
+- **Rollback** : retirer la normalisation de frontière avec un runtime qui
+  restaure le cast direct.
 
 ## 10. Lot CODEORG — empêcher les dossiers Python de redevenir des piles
 

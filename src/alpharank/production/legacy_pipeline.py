@@ -70,6 +70,7 @@ from alpharank.strategy.legacy_valuation import (
 )
 from alpharank.strategy.search_protocol import write_legacy_search_audit
 from alpharank.utils.frame_backend import (
+    normalize_polars_date_columns,
     normalize_year_month_to_period,
     normalize_year_month_to_timestamp,
     to_pandas,
@@ -133,7 +134,7 @@ def _load_data(
     sp500_price_path: Path | None = None,
 ) -> Dict[str, pl.DataFrame]:
     LOGGER.info("Loading Legacy input data", extra={"result": "started"})
-    return {
+    payload = {
         "final_price": pl.read_parquet(final_price_path or (data_dir / "US_Finalprice.parquet")),
         "general": pl.read_parquet(data_dir / "US_General.parquet"),
         "income_statement": pl.read_parquet(data_dir / "US_Income_statement.parquet"),
@@ -143,6 +144,12 @@ def _load_data(
         "us_historical_company": pl.read_csv(data_dir / "SP500_Constituents.csv", try_parse_dates=True),
         "sp500_price": pl.read_parquet(sp500_price_path or (data_dir / "SP500Price.parquet")),
     }
+    for key, frame in payload.items():
+        payload[key] = normalize_polars_date_columns(
+            frame,
+            ("date", "filing_date", "reportDate", "period_end", "Date"),
+        )
+    return payload
 
 
 def _input_files(data_dir: Path, *, final_price_path: Path | None = None, sp500_price_path: Path | None = None) -> Dict[str, Path]:

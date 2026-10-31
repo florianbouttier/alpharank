@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Iterable, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -69,6 +69,26 @@ def to_polars(df: FrameLike) -> "pl.DataFrame":  # type: ignore[name-defined]
     if isinstance(df, pl.DataFrame):  # type: ignore[union-attr]
         return df.clone()
     raise TypeError(f"Unsupported dataframe type: {type(df)!r}")
+
+
+def normalize_polars_date_columns(
+    frame: "pl.DataFrame",  # type: ignore[name-defined]
+    columns: Iterable[str],
+) -> "pl.DataFrame":  # type: ignore[name-defined]
+    """Normalize known date columns at an input boundary under Polars 1 or 2."""
+
+    require_polars()
+    expressions = []
+    for column in columns:
+        if column not in frame.columns:
+            continue
+        expression = pl.col(column)  # type: ignore[union-attr]
+        if frame.schema[column] == pl.String:  # type: ignore[union-attr]
+            expression = expression.str.to_date(strict=False)
+        else:
+            expression = expression.cast(pl.Date, strict=False)  # type: ignore[union-attr]
+        expressions.append(expression.alias(column))
+    return frame.with_columns(expressions) if expressions else frame
 
 
 def normalize_year_month_to_timestamp(df: pd.DataFrame, col: str = "year_month") -> pd.DataFrame:

@@ -6,6 +6,8 @@ from typing import Dict, Iterable
 
 import polars as pl
 
+from alpharank.utils.frame_backend import normalize_polars_date_columns
+
 
 @dataclass
 class RawDataBundle:
@@ -90,6 +92,20 @@ def load_raw_data(
         base_dir,
         ["SP500_Constituents.csv", "sp500_constituents.csv"],
     )
+
+    final_price = normalize_polars_date_columns(final_price, ("date",))
+    sp500_price = normalize_polars_date_columns(sp500_price, ("date",))
+    income_statement = normalize_polars_date_columns(
+        income_statement, ("date", "filing_date")
+    )
+    balance_sheet = normalize_polars_date_columns(
+        balance_sheet, ("date", "filing_date")
+    )
+    cash_flow = normalize_polars_date_columns(cash_flow, ("date", "filing_date"))
+    earnings = normalize_polars_date_columns(
+        earnings, ("date", "reportDate", "filing_date")
+    )
+    constituents = normalize_polars_date_columns(constituents, ("date", "Date"))
 
     return RawDataBundle(
         final_price=final_price,
