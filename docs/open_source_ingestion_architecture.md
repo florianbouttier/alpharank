@@ -253,6 +253,23 @@ they must not be moved or deleted merely to adopt the new names.
 | `def/` | Canonical point-in-time tables after source selection, correction overlays and carried-forward decisions | New version for every economic change |
 | `mart/` | Exact model-ready AlphaRank composition used by Legacy, Boosting and reports | Immutable composition with hashes and one promoted pointer |
 
+### Historique sectoriel point-in-time
+
+`scripts/open_source/publication/build_sector_history.py` matérialise les
+observations `general_reference_lineage.parquet` append-only en release DEF
+adressée par son contenu. Le grain est une observation fournisseur par
+`ticker, observed_at`; `observed_at`, `available_at` et `effective_at` restent
+égaux à l'heure d'ingestion tant qu'une date publique antérieure n'est pas
+explicitement sourcée. Une classification courante n'est donc jamais projetée
+sur le passé.
+
+Les onze secteurs canoniques, leurs alias et la politique de temps vivent dans
+`configs/data_contracts/sector_history_v1.json`. Les valeurs inconnues ou hors
+taxonomie sont conservées dans `sector_observation_rejections.parquet` et ne
+peuvent pas activer silencieusement une contrainte de portefeuille. Chaque
+ligne acceptée porte la source, le mapping, le fichier RAW et son SHA-256 ; le
+manifeste de release expose la couverture et la période réellement observable.
+
 Les cibles RAW par fournisseur ne sont plus implicites : le registre
 `configs/data_contracts/raw_provider_contracts_v1.json` impose une racine
 `data/warehouse/raw/<provider_id>`, les grains/requêtes de chaque dataset et les

@@ -9,6 +9,8 @@ source-data or run-output location.
 - `raw_provider_contracts_v1.json` assigns every retained or downloadable raw
   source to `data/warehouse/raw/<provider_id>` and declares receipt and provider
   manifest fields before any reader migration.
+- `sector_history_v1.json` fixe les onze secteurs canoniques, les alias et le
+  temps de connaissance conservateur de l'historique point-in-time.
 
 The executable writer is `record_raw_download` in
 `src/alpharank/data/ingestion/raw_archive.py`. It records successful and

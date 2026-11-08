@@ -133,6 +133,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 94 | `CODE-019` | normaliser les dates dans le calcul partagé des rendements | lot CODE ci-dessous | fait |
 | 95 | `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | lot DATA ci-dessous | fait |
 | 96 | `CODE-020` | normaliser les dates prix dans le rapport d'attribution | lot CODE ci-dessous | fait |
+| 97 | `DATA-046` | publier un historique sectoriel point-in-time auditable | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -510,6 +511,7 @@ change dans ce lot.
 | `DATA-043` | télécharger et composer le candidat data du 24 octobre | fait | run `20261024_140104`, 503 membres frais au 23 octobre, composition `c340a9b4…8b7e` validée et non promue avant `REPLAY-012` |
 | `DATA-044` | télécharger et composer le candidat data du 31 octobre | fait | run `20261031_151756`, 503 membres et SPY frais au 30 octobre, composition `e0e6045a…ef95a` validée et non promue avant le replay dédié |
 | `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | fait | le registre v3 source le Form 8-K SEC du 1er octobre 2018 et exclut uniquement l'ordre formé après la dernière séance du 28 septembre, sans inventer de rendement |
+| `DATA-046` | publier un historique sectoriel point-in-time depuis les observations RAW | fait | release `6c9a228b…abb9c` : 10 389 observations, 4 863 acceptées, 653 tickers ; 502/503 membres courants couverts, temps conservateur, inconnus retenus en rejet et hashes dans le manifeste |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -878,6 +880,28 @@ doublons exacts et preuve de récupération.
   Boosting ; les modèles et scores restent inchangés.
 - **Rollback** : revenir au registre v2 rétablit le blocage fail-closed du
   replay commun plutôt qu'un rendement inventé.
+
+### Détail de `DATA-046`
+
+- **Objectif** : transformer les vintages secteur déjà téléchargées en une
+  histoire point-in-time exploitable sans projeter la classification actuelle
+  sur les décisions passées.
+- **Périmètre** : contrat machine-lisible, normalisation de taxonomie, release
+  DEF immuable, manifeste, rejets et commande de matérialisation.
+- **Hors périmètre** : inventer une classification absente, backdater Yahoo ou
+  SEC avant l'observation, modifier un snapshot publié ou une allocation.
+- **Acceptation** : chaque ligne acceptée porte source, règle, temps de
+  connaissance, fichier RAW et hash ; `Unknown` reste auditable mais
+  inutilisable ; une reconstruction identique résout le même identifiant.
+- **Validations** : tests unitaires de causalité/lignée/immutabilité, Ruff,
+  release réelle `6c9a228b…abb9c` depuis 263 deltas conservés, 10 389 lignes
+  lues, 4 863 acceptées, 5 526 inconnues retenues, 653 tickers acceptés et
+  502/503 membres du dernier univers couverts ; validation documentaire et
+  liens Markdown.
+- **Impact** : nouvelle donnée DEF seulement ; aucune prédiction, position ou
+  performance historique n'est modifiée dans ce ticket.
+- **Rollback** : ignorer la release DEF ; les observations RAW et snapshots
+  antérieurs restent inchangés.
 
 ### Détail de `CODE-020`
 

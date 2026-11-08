@@ -10,6 +10,10 @@ from typing import Mapping, Sequence
 CONFIG_SCHEMA_REGISTRY_VERSION = 1
 CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
+        "sector_history_contract",
+        ("configs/data_contracts/sector_history_v1.json",),
+    ),
+    (
         "raw_provider_contracts",
         ("configs/data_contracts/raw_provider_contracts_v1.json",),
     ),

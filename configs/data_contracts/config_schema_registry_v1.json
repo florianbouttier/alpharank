@@ -3,6 +3,132 @@
   "families": [
     {
       "example_files": [
+        "configs/data_contracts/sector_history_v1.json"
+      ],
+      "family_id": "sector_history_contract",
+      "patterns": [
+        "configs/data_contracts/sector_history_v1.json"
+      ],
+      "schema": {
+        "additional_properties": false,
+        "properties": {
+          "aliases": {
+            "additional_properties": false,
+            "properties": {
+              "Communication Services": {
+                "type": "string"
+              },
+              "Consumer Discretionary": {
+                "type": "string"
+              },
+              "Consumer Staples": {
+                "type": "string"
+              },
+              "Financials": {
+                "type": "string"
+              },
+              "Health Care": {
+                "type": "string"
+              },
+              "Information Technology": {
+                "type": "string"
+              },
+              "Materials": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "Communication Services",
+              "Consumer Discretionary",
+              "Consumer Staples",
+              "Financials",
+              "Health Care",
+              "Information Technology",
+              "Materials"
+            ],
+            "type": "object"
+          },
+          "allowed_sectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "business_key": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "contract_id": {
+            "type": "string"
+          },
+          "grain": {
+            "type": "string"
+          },
+          "missing_policy": {
+            "additional_properties": false,
+            "properties": {
+              "implicit_fallback_allowed": {
+                "type": "boolean"
+              },
+              "rejected_rows_are_retained": {
+                "type": "boolean"
+              },
+              "unknown_is_sector": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "implicit_fallback_allowed",
+              "rejected_rows_are_retained",
+              "unknown_is_sector"
+            ],
+            "type": "object"
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "selection_policy_id": {
+            "type": "string"
+          },
+          "time_policy": {
+            "additional_properties": false,
+            "properties": {
+              "available_at": {
+                "type": "string"
+              },
+              "effective_at": {
+                "type": "string"
+              },
+              "retroactive_static_mapping_allowed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "available_at",
+              "effective_at",
+              "retroactive_static_mapping_allowed"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "aliases",
+          "allowed_sectors",
+          "business_key",
+          "contract_id",
+          "grain",
+          "missing_policy",
+          "schema_version",
+          "selection_policy_id",
+          "time_policy"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "example_files": [
         "configs/data_contracts/raw_provider_contracts_v1.json"
       ],
       "family_id": "raw_provider_contracts",
