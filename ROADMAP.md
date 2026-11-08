@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-10-30.**
+**Dernière mise à jour : 2026-11-09.**
 
 **Statut : seule source des priorités actives.**
 
@@ -135,6 +135,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 96 | `CODE-020` | normaliser les dates prix dans le rapport d'attribution | lot CODE ci-dessous | fait |
 | 97 | `DATA-046` | publier un historique sectoriel point-in-time auditable | lot DATA ci-dessous | fait |
 | 98 | `METH-010` | sélectionner cinq champions sectoriels Boosting causaux | lot METH ci-dessous | fait |
+| 99 | `REPLAY-013` | exécuter les allocations sectorielles sur la fenêtre causale | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1050,6 +1051,28 @@ doublons exacts et preuve de récupération.
 | `REPLAY-010` | rejouer le candidat complet du 8 octobre et attribuer tout drift inter-vintages | fait | juillet exact sur 80/80 ; août échoue sur le remplacement WDC/CHTR dans Boosting Top 10, isolé au vintage prix ; rapport HTML `eb9d675c…f6cc`, production inchangée et promotion bloquée |
 | `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | fait | contrat v2 avec listes ajoutées, retirées et modifiées ; HTML réel nomme CHTR/WDC et la stratégie ; rapport `b0a74856…0587` |
 | `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | fait | décision de septembre exacte sur 126/126 ; Legacy et Boosting canoniques historiques exacts ; 23 ajouts et 23 retraits limités à l'univers diagnostique Legacy PE, exhaustivement attribués au vintage SEC ; rapport HTML `56a82a1a…d91`, production inchangée et promotion bloquée |
+| `REPLAY-013` | exécuter les Top 5 Boosting sectoriels natif et tendance | fait | sept décisions calculables depuis mars 2026, 176 mois antérieurs bloqués sans backfill statique ; six rendements réalisés, derniers Top 5 et hashes publiés, aucune promotion |
+
+### Détail de `REPLAY-013`
+
+- **Objectif** : vérifier sur données réelles que la politique produit cinq
+  secteurs distincts et mesurer son compromis économique sans prétendre à un
+  historique absent.
+- **Périmètre** : prédictions du candidat du 31 octobre, release secteur
+  `6c9a228b…abb9c`, Boosting natif et tendance, coûts communs, SPY et dernier
+  portefeuille formé.
+- **Hors périmètre** : backfill antérieur au 28 mars 2026, tuning, nouveau
+  modèle, promotion ou ordre d'achat.
+- **Acceptation** : les sept décisions couvertes ont cinq secteurs ; les 176
+  mois sans donnée causale restent bloqués ; les deux portefeuilles de septembre
+  et les performances de la fenêtre réalisée sont publiés avec leurs hashes.
+- **Validations** : 89 944/41 005 candidats audités, 35 positions par variante,
+  zéro doublon sectoriel, six mois simulés à 10 bps et document de preuve lié.
+- **Impact** : le natif sectoriel fait -16,54 % et la tendance sectorielle
+  +28,56 % contre +17,86 % pour SPY sur avril-septembre 2026 ; fenêtre trop
+  courte, variante non promue.
+- **Rollback** : ignorer les artefacts R&D ; aucune donnée, stratégie publique
+  ou position existante n'est remplacée.
 
 ### Détail de `REPLAY-012`
 

@@ -65,6 +65,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `strategy_frontiers_20261025.md` : 168 compositions longues entre Legacy,
   Boosting et Boosting tendance, deux frontières efficientes et profils de
   risque sur cinq horizons jusqu'en septembre 2026.
+- `sector_champion_replay_20261109.md` : historique secteur point-in-time,
+  allocations Top 5 limitées à un titre par secteur, portefeuille de septembre
+  et diagnostic économique strictement limité aux six mois observables.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.
