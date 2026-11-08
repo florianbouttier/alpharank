@@ -12,6 +12,8 @@ def boosting_predictions_to_holdings(
     strategy: str,
     top_n: int,
     score_column: str = "score",
+    sector_column: str | None = None,
+    maximum_names_per_sector: int | None = None,
     realized_return_column: str = "future_return_1m",
     benchmark_return_column: str = "benchmark_future_return_1m",
     terminal_events: pl.DataFrame | None = None,
@@ -32,6 +34,8 @@ def boosting_predictions_to_holdings(
             month,
             top_n=top_n,
             score_column=score_column,
+            sector_column=sector_column,
+            maximum_names_per_sector=maximum_names_per_sector,
             # Preserve the historical stable input-order tie rule. New callers
             # can request ticker tie-breaking at their signal boundary.
             tie_breaker_columns=(),

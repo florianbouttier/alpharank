@@ -134,6 +134,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 95 | `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | lot DATA ci-dessous | fait |
 | 96 | `CODE-020` | normaliser les dates prix dans le rapport d'attribution | lot CODE ci-dessous | fait |
 | 97 | `DATA-046` | publier un historique sectoriel point-in-time auditable | lot DATA ci-dessous | fait |
+| 98 | `METH-010` | sélectionner cinq champions sectoriels Boosting causaux | lot METH ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -930,6 +931,7 @@ doublons exacts et preuve de récupération.
 | `METH-007` | exécuter le replay commun de la variante Boosting filtrée par tendance | fait | Top 5/10 sur 180 mois : CAGR 23,63 %/21,95 %, mais IC bootstrap rendement et Sharpe traversent zéro ; essai Top 15/20 bloqué causalement sur le prix manquant de SATS ; dernier Top 10, hashes et statut non promu publiés |
 | `METH-008` | construire une politique d'allocation Boosting complémentaire à Legacy | à faire | à chaque décision, les titres retenus causalement par Legacy sont exclus avant le classement Boosting ; scores et modèle restent inchangés ; test de causalité et audit mensuel de l'exclusion |
 | `METH-009` | rejouer le portefeuille combiné Legacy et poche Boosting complémentaire | à faire | poids de poche préenregistrés, même snapshot et même moteur ; mesure du nombre de titres, recouvrement, concentration, corrélation, risque, coûts et performance combinée sans exiger que Boosting batte Legacy seul |
+| `METH-010` | ajouter une allocation Boosting Top 5 limitée à un titre par secteur | fait | secteurs résolus à la clôture réelle, inconnus exclus avant classement et audités, scores inchangés, mois bloqué sous cinq secteurs et invariance aux mutations futures testée |
 
 ### Détail de `METH-006`
 
@@ -1011,6 +1013,26 @@ doublons exacts et preuve de récupération.
   changement de production sans nouvelle porte de promotion.
 - **Rollback** : conserver les deux méthodes séparées et ignorer le portefeuille
   combiné.
+
+### Détail de `METH-010`
+
+- **Objectif** : proposer une poche Boosting diversifiée dont aucune décision
+  mensuelle ne contient plus d'une action du même secteur.
+- **Périmètre** : résolution secteur point-in-time à la dernière clôture du
+  mois, exclusion auditée des inconnus, sélection Top 5 après score, primitive
+  d'allocation commune et commande R&D native/tendance reproductible.
+- **Hors périmètre** : réentraînement, modification des scores, projection d'un
+  secteur actuel sur le passé, tuning du nombre de titres ou promotion.
+- **Acceptation** : cinq secteurs distincts sont obligatoires ; chaque position
+  pèse 20 % ; un candidat sans secteur ne peut ni être regroupé sous `Unknown`
+  ni faire entrer un titre sur la base d'un rendement futur.
+- **Validations** : sélection déterministe, exclusion des inconnus, blocage si
+  moins de cinq secteurs, mutation d'une classification future sans effet sur
+  le passé, Ruff et contrôles documentaires.
+- **Impact** : nouvelle allocation R&D après score ; les profils Boosting natif
+  et tendance, Legacy et leurs résultats existants restent inchangés.
+- **Rollback** : ne pas appeler la politique ; l'adaptateur natif conserve son
+  comportement antérieur lorsque le plafond sectoriel est absent.
 
 ## 12 ter. Lot REPLAY — relier chaque refresh aux portefeuilles
 

@@ -82,6 +82,14 @@ Required columns:
 Optional but recommended fields are `score`, `selection_rank`, `sector`, model
 votes, calibrated probability, and predicted risk.
 
+La politique R&D `boosting_sector_champions_top5_v1` ne modifie ni le modèle ni
+ses scores. À chaque clôture de décision, elle joint uniquement la dernière
+classification dont `max(observed_at, effective_at)` est antérieur ou égal à
+la clôture, exclut avec audit les candidats non classés, puis parcourt le score
+décroissant et retient au plus un nom par secteur jusqu'à cinq positions. Si
+cinq secteurs distincts ne sont pas disponibles, le mois est bloqué ; aucune
+classification actuelle ni relâchement implicite ne remplit le manque.
+
 The validator rejects duplicate ticker/month rows, negative or non-finite
 weights, weights that do not sum to one, and any holding month that is not
 exactly one month after the decision month.
