@@ -137,6 +137,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 98 | `METH-010` | sélectionner cinq champions sectoriels Boosting causaux | lot METH ci-dessous | fait |
 | 99 | `REPLAY-013` | exécuter les allocations sectorielles sur la fenêtre causale | lot REPLAY ci-dessous | fait |
 | 100 | `DATA-047` | reconstruire l'historique sectoriel causal depuis les en-têtes SEC | lot DATA ci-dessous | fait |
+| 101 | `REPLAY-014` | backtester les allocations sectorielles sur tout l'historique causal | lot REPLAY ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1072,6 +1073,30 @@ doublons exacts et preuve de récupération.
 | `REPLAY-011` | afficher les clés exactes du drift inter-vintages dans le rapport | fait | contrat v2 avec listes ajoutées, retirées et modifiées ; HTML réel nomme CHTR/WDC et la stratégie ; rapport `b0a74856…0587` |
 | `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | fait | décision de septembre exacte sur 126/126 ; Legacy et Boosting canoniques historiques exacts ; 23 ajouts et 23 retraits limités à l'univers diagnostique Legacy PE, exhaustivement attribués au vintage SEC ; rapport HTML `56a82a1a…d91`, production inchangée et promotion bloquée |
 | `REPLAY-013` | exécuter les Top 5 Boosting sectoriels natif et tendance | fait | sept décisions calculables depuis mars 2026, 176 mois antérieurs bloqués sans backfill statique ; six rendements réalisés, derniers Top 5 et hashes publiés, aucune promotion |
+| `REPLAY-014` | backtester les Top 5 sectoriels sur l'historique SEC causal reconstruit | fait | 182 mois communs d'août 2011 à septembre 2026, cinq secteurs tous les mois, coûts 10 bps et SPY total return ; CAGR 19,29 % natif sectoriel et 20,94 % tendance sectorielle, aucune promotion |
+
+### Détail de `REPLAY-014`
+
+- **Objectif** : mesurer sur tout l'historique causal le rendement et le risque
+  des allocations Boosting Top 5 limitées à une action par secteur.
+- **Périmètre** : prédictions immuables du candidat du 31 octobre, release
+  secteur `55fbc0c5…da84`, variantes native et tendance, références sans
+  contrainte, Legacy, SPY total return et moteur portefeuille commun.
+- **Hors périmètre** : réentraîner ou retuner Boosting, modifier les scores,
+  déplacer `latest.json`, promouvoir une stratégie ou créer un ordre d'achat.
+- **Acceptation** : 183 décisions auditées ; le mois futur explicitement
+  `horizon_pending` est exclu et les 182 mois réalisés partagent le même
+  calendrier ; toute absence partielle ou mature de rendement fait échouer le
+  run ; chaque portefeuille contient cinq secteurs distincts.
+- **Validations** : tests de frontière de maturité, calendrier commun, plafond
+  sectoriel, coûts de 10 bps fois turnover, KPI et rendements annuels issus du
+  package `alpharank.portfolio`, Ruff et validateurs documentaires.
+- **Impact** : le natif sectoriel passe de 28,23 % à 19,29 % de CAGR et réduit
+  son drawdown de -35,77 % à -27,34 % ; la tendance sectorielle passe de
+  26,90 % à 20,94 % de CAGR, avec volatilité réduite de 31,54 % à 26,08 %.
+  Les compromis ne dominent pas leurs références et restent R&D.
+- **Rollback** : ignorer le package `REPLAY-014` ; aucune donnée, stratégie
+  publique, position existante ou configuration de production n'est modifiée.
 
 ### Détail de `REPLAY-013`
 

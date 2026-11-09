@@ -12,6 +12,8 @@ AlphaRank causal, comparable et recalculable :
 - `trend_eligibility.py` audite la majorité de tendance EMA causale par fold ;
 - `sector_allocation.py` applique après score un Top 5 causal limité à une
   action par secteur et journalise toute classification manquante ;
+- `sector_backtest.py` rejoue ces allocations sur le calendrier commun, avec
+  les coûts et KPI du moteur portefeuille canonique ;
 - `reconciliation.py` explique le pont économique entre méthodologies ;
 - `refresh_compare.py` compare les clés naturelles et les valeurs au cutoff ;
 - `refresh_drift.py` relie le refresh aux deux portefeuilles, impose le replay
