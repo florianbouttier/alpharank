@@ -8,7 +8,6 @@ import polars as pl
 
 from alpharank.data.contracts.point_in_time import join_point_in_time_attributes
 
-
 SECTOR_HISTORY_LINEAGE_COLUMNS = (
     "classification_id",
     "source_url",
@@ -16,6 +15,7 @@ SECTOR_HISTORY_LINEAGE_COLUMNS = (
     "observed_at",
     "effective_at",
 )
+IDENTITY_INTERVAL_COLUMNS = ("identity_valid_from", "identity_valid_to")
 
 
 def resolve_point_in_time_sectors(
@@ -46,6 +46,9 @@ def resolve_point_in_time_sectors(
         raise ValueError(
             "Point-in-time sector history is missing: " + ", ".join(missing_history)
         )
+    identity_columns = [
+        column for column in IDENTITY_INTERVAL_COLUMNS if column in sector_history.columns
+    ]
     history = (
         sector_history.select(
             pl.col(ticker_column).cast(pl.String),
@@ -61,6 +64,7 @@ def resolve_point_in_time_sectors(
                 for column in lineage_columns
                 if column not in {"observed_at", "effective_at"}
             ],
+            *[pl.col(column).cast(pl.Date, strict=False) for column in identity_columns],
         )
         .with_columns(
             pl.max_horizontal("observed_at", "effective_at").alias(
@@ -92,6 +96,7 @@ def resolve_point_in_time_sectors(
             for column in lineage_columns
             if column not in {"observed_at", "effective_at"}
         ),
+        *identity_columns,
     )
     resolved = join_point_in_time_attributes(
         decisions,
@@ -100,6 +105,12 @@ def resolve_point_in_time_sectors(
         decision_time_column=decision_time_column,
         effective_time_column="sector_known_at",
         attribute_columns=attributes,
+    )
+    resolved = _apply_identity_interval(
+        resolved,
+        decision_time_column=decision_time_column,
+        sector_column=sector_column,
+        identity_columns=identity_columns,
     )
     future_sector = resolved.filter(
         pl.col(sector_column).is_not_null()
@@ -127,4 +138,33 @@ def resolve_point_in_time_sectors(
             .alias("sector_constraint_reason")
         )
         .sort([decision_time_column, ticker_column])
+    )
+
+
+def _apply_identity_interval(
+    resolved: pl.DataFrame,
+    *,
+    decision_time_column: str,
+    sector_column: str,
+    identity_columns: list[str],
+) -> pl.DataFrame:
+    if not identity_columns:
+        return resolved.with_columns(pl.lit(True).alias("identity_interval_eligible"))
+    decision_date = pl.col(decision_time_column).dt.date()
+    valid_from = (
+        pl.col("identity_valid_from")
+        if "identity_valid_from" in identity_columns
+        else pl.lit(None).cast(pl.Date)
+    )
+    valid_to = (
+        pl.col("identity_valid_to")
+        if "identity_valid_to" in identity_columns
+        else pl.lit(None).cast(pl.Date)
+    )
+    eligible = (valid_from.is_null() | (decision_date >= valid_from)) & (
+        valid_to.is_null() | (decision_date <= valid_to)
+    )
+    return resolved.with_columns(
+        eligible.alias("identity_interval_eligible"),
+        pl.when(eligible).then(pl.col(sector_column)).otherwise(None).alias(sector_column),
     )

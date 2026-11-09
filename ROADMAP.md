@@ -136,6 +136,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 97 | `DATA-046` | publier un historique sectoriel point-in-time auditable | lot DATA ci-dessous | fait |
 | 98 | `METH-010` | sélectionner cinq champions sectoriels Boosting causaux | lot METH ci-dessous | fait |
 | 99 | `REPLAY-013` | exécuter les allocations sectorielles sur la fenêtre causale | lot REPLAY ci-dessous | fait |
+| 100 | `DATA-047` | reconstruire l'historique sectoriel causal depuis les en-têtes SEC | lot DATA ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -514,10 +515,29 @@ change dans ce lot.
 | `DATA-044` | télécharger et composer le candidat data du 31 octobre | fait | run `20261031_151756`, 503 membres et SPY frais au 30 octobre, composition `e0e6045a…ef95a` validée et non promue avant le replay dédié |
 | `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | fait | le registre v3 source le Form 8-K SEC du 1er octobre 2018 et exclut uniquement l'ordre formé après la dernière séance du 28 septembre, sans inventer de rendement |
 | `DATA-046` | publier un historique sectoriel point-in-time depuis les observations RAW | fait | release `6c9a228b…abb9c` : 10 389 observations, 4 863 acceptées, 653 tickers ; 502/503 membres courants couverts, temps conservateur, inconnus retenus en rejet et hashes dans le manifeste |
+| `DATA-047` | reconstruire les secteurs historiques depuis les SIC des dépôts annuels SEC | fait | release `55fbc0c5…da84` : 11 486 classifications, 754 tickers, zéro identité non résolue ; 183/183 mois Boosting disposent d'au moins cinq secteurs, 97,81 % des candidats natifs sont classés et les manques restent exclus sans backfill courant |
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
 doublons exacts et preuve de récupération.
+
+### Détail de `DATA-047`
+
+- **Objectif** : rendre la contrainte sectorielle testable sur tout l'historique
+  Boosting sans utiliser une classification actuelle pour une décision passée.
+- **Périmètre** : en-têtes des dépôts annuels SEC, archive RAW à reçus et objets
+  hashés, taxonomie SIC versionnée, intervalles ticker/CIK et release DEF.
+- **Hors périmètre** : modifier les scores, les rendements, les modèles, les
+  snapshots de production ou promouvoir une allocation sectorielle.
+- **Acceptation** : chaque secteur porte accession, SIC, URL, hash du payload,
+  instant d'acceptation et identité ; aucune ligne n'est disponible avant le
+  dépôt et les identités ambiguës restent absentes ou rejetées.
+- **Validations** : parseur d'en-tête, taxonomie, identité réutilisée, mutation
+  future, déterminisme de release, couverture réelle du replay, Ruff et docs.
+- **Impact** : nouvelle donnée DEF candidate ; aucun portefeuille ni résultat
+  historique n'est modifié dans cette tâche.
+- **Rollback** : ignorer la nouvelle release ; la release `DATA-046`, les RAW
+  antérieurs et tous les pointeurs publiés restent inchangés.
 
 ### Détail de `DATA-027`
 

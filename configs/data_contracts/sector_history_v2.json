@@ -1,0 +1,43 @@
+{
+  "contract_id": "point_in_time_sector_history_v2",
+  "schema_version": 2,
+  "grain": "one accepted SEC filing-header SIC observation per ticker identity and available_at",
+  "business_key": [
+    "ticker",
+    "identity_id",
+    "available_at"
+  ],
+  "selection_policy_id": "sec_filing_header_sic_as_known_v2",
+  "allowed_sectors": [
+    "Basic Materials",
+    "Communication Services",
+    "Consumer Cyclical",
+    "Consumer Defensive",
+    "Energy",
+    "Financial Services",
+    "Healthcare",
+    "Industrials",
+    "Real Estate",
+    "Technology",
+    "Utilities"
+  ],
+  "aliases": {
+    "Communication Services": "Communication Services",
+    "Consumer Discretionary": "Consumer Cyclical",
+    "Consumer Staples": "Consumer Defensive",
+    "Financials": "Financial Services",
+    "Health Care": "Healthcare",
+    "Information Technology": "Technology",
+    "Materials": "Basic Materials"
+  },
+  "time_policy": {
+    "available_at": "SEC acceptance timestamp parsed from the immutable filing submission header",
+    "effective_at": "available_at; no earlier economic effect is inferred",
+    "retroactive_static_mapping_allowed": false
+  },
+  "missing_policy": {
+    "unknown_is_sector": false,
+    "rejected_rows_are_retained": true,
+    "implicit_fallback_allowed": false
+  }
+}

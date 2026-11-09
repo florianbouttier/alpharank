@@ -47,6 +47,7 @@ data/**/*.pickle
 data/**/*.pkl
 data/**/*.json
 data/**/*.xlsx
+data/warehouse/raw/**/objects/
 
 # Benchmark artifacts
 benchmarks/**/data/

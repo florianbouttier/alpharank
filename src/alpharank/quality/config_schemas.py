@@ -11,7 +11,14 @@ CONFIG_SCHEMA_REGISTRY_VERSION = 1
 CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "sector_history_contract",
-        ("configs/data_contracts/sector_history_v1.json",),
+        (
+            "configs/data_contracts/sector_history_v1.json",
+            "configs/data_contracts/sector_history_v2.json",
+        ),
+    ),
+    (
+        "sec_sic_sector_taxonomy",
+        ("configs/data_contracts/sec_sic_sector_taxonomy_v1.json",),
     ),
     (
         "raw_provider_contracts",
@@ -245,7 +252,9 @@ def validate_config_value(
             validate_config_value(value, _require_mapping(variant, "schema variant"), path=path)
             for variant in variants
         ]
-        return [] if any(not errors for errors in candidate_errors) else [f"{path}: no schema matched"]
+        return (
+            [] if any(not errors for errors in candidate_errors) else [f"{path}: no schema matched"]
+        )
     expected = schema.get("type")
     if expected == "any":
         return []
@@ -293,9 +302,7 @@ def write_config_schema_registry(path: Path, registry: Mapping[str, object]) -> 
 
 
 def _discover_config_files(root: Path) -> tuple[dict[str, list[Path]], list[str]]:
-    discovered: dict[str, list[Path]] = {
-        family_id: [] for family_id, _ in CONFIG_FAMILY_PATTERNS
-    }
+    discovered: dict[str, list[Path]] = {family_id: [] for family_id, _ in CONFIG_FAMILY_PATTERNS}
     errors: list[str] = []
     for search_root in CONFIG_SEARCH_ROOTS:
         for path in sorted((root / search_root).glob("*.json")):

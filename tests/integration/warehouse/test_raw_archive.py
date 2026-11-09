@@ -7,9 +7,11 @@ import polars as pl
 import pytest
 
 from alpharank.data.ingestion.raw_archive import (
+    RawDownloadAttempt,
     archive_raw_frame_delta,
     reconstruct_raw_frame,
     record_raw_download,
+    record_raw_download_batch,
     register_immutable_raw_file,
 )
 
@@ -188,6 +190,42 @@ def test_raw_download_receipts_reuse_identical_payload_object(tmp_path: Path) ->
         "payload_objects": "passed",
         "receipt_contract": "passed",
     }
+
+
+def test_raw_download_batch_rebuilds_manifest_once_for_all_attempts(tmp_path: Path) -> None:
+    archive_dir = tmp_path / "raw" / "stockanalysis"
+    results = record_raw_download_batch(
+        archive_dir=archive_dir,
+        source_name="stockanalysis",
+        dataset_name="daily_price_history",
+        ingester_version="test-suite",
+        attempts=(
+            RawDownloadAttempt(
+                receipt_id="batch_01",
+                request_id="stockanalysis:batch_01",
+                retrieved_at="2026-08-20T10:00:00+00:00",
+                response_status=200,
+                payload=b"{}",
+                payload_format="json",
+                requested_scope={"ticker": "AAPL"},
+            ),
+            RawDownloadAttempt(
+                receipt_id="batch_02",
+                request_id="stockanalysis:batch_02",
+                retrieved_at="2026-08-20T10:01:00+00:00",
+                response_status=200,
+                payload=b"{}",
+                payload_format="json",
+                requested_scope={"ticker": "MSFT"},
+            ),
+        ),
+    )
+
+    manifest = json.loads(results[-1].provider_manifest_path.read_text(encoding="utf-8"))
+    assert len(results) == 2
+    assert manifest["receipt_count"] == 2
+    assert manifest["payload_object_count"] == 1
+    assert manifest["latest_receipt_id"] == "batch_02"
 
 
 def test_failed_raw_download_attempt_keeps_receipt_without_payload(tmp_path: Path) -> None:

@@ -1,0 +1,8 @@
+ticker,cik,valid_from,valid_to,identity_source,identity_status,identity_evidence
+BNY,0001390777,2026-05-21,,reviewed_sp500_event_sec_registry,reviewed_current_ticker,configs/data_quality/sp500_constituent_changes_2026.json#sp500-20260521-bk-bny|https://www.sec.gov/files/company_tickers_exchange.json
+ECHO,0001415404,2026-06-24,,reviewed_sp500_event_sec_registry,reviewed_current_ticker,configs/data_quality/sp500_constituent_changes_2026.json#sp500-20260624-sats-echo|https://www.sec.gov/files/company_tickers_exchange.json
+FERG,0002011641,2026-08-05,,reviewed_sp500_event_sec_registry,reviewed_current_ticker,configs/data_quality/sp500_constituent_changes_2026.json#sp500-20260805-ferg-ea|https://www.sec.gov/files/company_tickers_exchange.json
+RDDT,0001713445,2026-08-18,,reviewed_sp500_event_sec_registry,reviewed_current_ticker,configs/data_quality/sp500_constituent_changes_2026.json#sp500-20260818-rddt-avb-vmrk|https://www.sec.gov/files/company_tickers_exchange.json
+VMRK,0000906107,2026-08-18,,reviewed_sp500_event_sec_registry,reviewed_current_ticker,configs/data_quality/sp500_constituent_changes_2026.json#sp500-20260818-rddt-avb-vmrk|https://www.sec.gov/files/company_tickers_exchange.json
+BE,0001664703,2026-09-21,,reviewed_sp500_event_sec_registry,reviewed_current_ticker,configs/data_quality/sp500_constituent_changes_2026.json#sp500-20260921-quarterly-rebalance|https://www.sec.gov/files/company_tickers_exchange.json
+P,0001474432,2026-09-21,,reviewed_sp500_event_sec_registry,reviewed_current_ticker,configs/data_quality/sp500_constituent_changes_2026.json#sp500-20260921-quarterly-rebalance|https://www.sec.gov/files/company_tickers_exchange.json

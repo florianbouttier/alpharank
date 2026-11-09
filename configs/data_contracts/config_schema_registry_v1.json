@@ -3,11 +3,13 @@
   "families": [
     {
       "example_files": [
-        "configs/data_contracts/sector_history_v1.json"
+        "configs/data_contracts/sector_history_v1.json",
+        "configs/data_contracts/sector_history_v2.json"
       ],
       "family_id": "sector_history_contract",
       "patterns": [
-        "configs/data_contracts/sector_history_v1.json"
+        "configs/data_contracts/sector_history_v1.json",
+        "configs/data_contracts/sector_history_v2.json"
       ],
       "schema": {
         "additional_properties": false,
@@ -123,6 +125,78 @@
           "schema_version",
           "selection_policy_id",
           "time_policy"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "example_files": [
+        "configs/data_contracts/sec_sic_sector_taxonomy_v1.json"
+      ],
+      "family_id": "sec_sic_sector_taxonomy",
+      "patterns": [
+        "configs/data_contracts/sec_sic_sector_taxonomy_v1.json"
+      ],
+      "schema": {
+        "additional_properties": false,
+        "properties": {
+          "allowed_sectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rule_precedence": {
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "additional_properties": false,
+              "properties": {
+                "max_sic": {
+                  "type": "integer"
+                },
+                "min_sic": {
+                  "type": "integer"
+                },
+                "rule_id": {
+                  "type": "string"
+                },
+                "sector": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "max_sic",
+                "min_sic",
+                "rule_id",
+                "sector"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "source_taxonomy": {
+            "type": "string"
+          },
+          "target_taxonomy": {
+            "type": "string"
+          },
+          "taxonomy_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "allowed_sectors",
+          "rule_precedence",
+          "rules",
+          "schema_version",
+          "source_taxonomy",
+          "target_taxonomy",
+          "taxonomy_id"
         ],
         "type": "object"
       }

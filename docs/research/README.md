@@ -68,6 +68,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `sector_champion_replay_20261109.md` : historique secteur point-in-time,
   allocations Top 5 limitées à un titre par secteur, portefeuille de septembre
   et diagnostic économique strictement limité aux six mois observables.
+- `historical_sector_history_20261109.md` : reconstruction causale 2009-2026
+  depuis les SIC des en-têtes SEC, identités bornées, hashes RAW/DEF et
+  couverture effective des 183 mois Boosting sans backfill courant.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

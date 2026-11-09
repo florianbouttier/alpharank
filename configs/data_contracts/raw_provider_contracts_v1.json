@@ -115,9 +115,19 @@
           "formats": ["xml", "html", "json"],
           "grain": "one unmodified SEC filing document per issuer, accession, document and content hash",
           "request_identity_fields": ["cik", "accession_number", "document_name", "request_url"]
+        },
+        {
+          "business_key": ["cik", "accession_number", "payload_sha256"],
+          "dataset_id": "filing_submission_headers",
+          "formats": ["sgml"],
+          "grain": "one unmodified SEC filing submission header per issuer, accession and content hash",
+          "request_identity_fields": ["cik", "accession_number", "form", "request_url"]
         }
       ],
-      "ingestion_modules": ["src/alpharank/data/open_source/sec_filing.py"],
+      "ingestion_modules": [
+        "src/alpharank/data/open_source/sec_filing.py",
+        "src/alpharank/data/sources/sec_filing_headers.py"
+      ],
       "live_download_allowed": true,
       "migration_status": "declared_pending_receipt_migration",
       "provider_id": "sec_filings",

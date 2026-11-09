@@ -47,6 +47,20 @@ class RawDownloadReceipt:
     payload_reused: bool
 
 
+@dataclass(frozen=True, slots=True)
+class RawDownloadAttempt:
+    """One provider response recorded by a batch RAW acquisition."""
+
+    receipt_id: str
+    request_id: str
+    retrieved_at: str
+    response_status: int
+    payload: bytes | None
+    payload_format: str
+    requested_scope: dict[str, Any]
+    error: str | None = None
+
+
 def record_raw_download(
     *,
     archive_dir: Path,
@@ -69,22 +83,139 @@ def record_raw_download(
     provider root, so two receipts for identical bytes reference one object.
     """
 
+    attempt = RawDownloadAttempt(
+        receipt_id=receipt_id,
+        request_id=request_id,
+        retrieved_at=retrieved_at,
+        response_status=response_status,
+        payload=payload,
+        payload_format=payload_format,
+        requested_scope=requested_scope,
+        error=error,
+    )
+    return record_raw_download_batch(
+        archive_dir=archive_dir,
+        source_name=source_name,
+        dataset_name=dataset_name,
+        ingester_version=ingester_version,
+        attempts=(attempt,),
+    )[0]
+
+
+def record_raw_download_batch(
+    *,
+    archive_dir: Path,
+    source_name: str,
+    dataset_name: str,
+    ingester_version: str,
+    attempts: Sequence[RawDownloadAttempt],
+) -> tuple[RawDownloadReceipt, ...]:
+    """Record multiple attempts and validate the provider manifest once."""
+
+    if not attempts:
+        return ()
     archive_dir = archive_dir.resolve()
-    _require_safe_identifier(receipt_id, "receipt_id")
+    results = tuple(
+        _record_raw_download_attempt(
+            archive_dir=archive_dir,
+            source_name=source_name,
+            dataset_name=dataset_name,
+            ingester_version=ingester_version,
+            attempt=attempt,
+        )
+        for attempt in attempts
+    )
+    manifest_path = _rebuild_provider_manifest(
+        archive_dir=archive_dir,
+        source_name=source_name,
+        dataset_name=dataset_name,
+    )
+    return tuple(
+        RawDownloadReceipt(
+            receipt_id=result.receipt_id,
+            receipt_path=result.receipt_path,
+            provider_manifest_path=manifest_path,
+            payload_sha256=result.payload_sha256,
+            payload_object_path=result.payload_object_path,
+            payload_reused=result.payload_reused,
+        )
+        for result in results
+    )
+
+
+def _record_raw_download_attempt(
+    *,
+    archive_dir: Path,
+    source_name: str,
+    dataset_name: str,
+    ingester_version: str,
+    attempt: RawDownloadAttempt,
+) -> RawDownloadReceipt:
+    _validate_raw_download_attempt(
+        source_name=source_name,
+        dataset_name=dataset_name,
+        ingester_version=ingester_version,
+        attempt=attempt,
+    )
+    receipt_path = archive_dir / "receipts" / f"{attempt.receipt_id}.json"
+    if receipt_path.exists():
+        raise FileExistsError(f"RAW receipt already exists: {receipt_path}")
+    payload_sha256, payload_object_path, payload_reused = _store_raw_payload(
+        archive_dir,
+        attempt.payload,
+    )
+    receipt = {
+        "contract": RAW_RECEIPT_CONTRACT_ID,
+        "receipt_id": attempt.receipt_id,
+        "source_name": source_name,
+        "dataset_name": dataset_name,
+        "request_id": attempt.request_id,
+        "retrieved_at": attempt.retrieved_at,
+        "response_status": attempt.response_status,
+        "payload_sha256": payload_sha256,
+        "size_bytes": len(attempt.payload) if attempt.payload is not None else 0,
+        "payload_format": attempt.payload_format,
+        "requested_scope": attempt.requested_scope,
+        "payload_object_path": (
+            payload_object_path.relative_to(archive_dir).as_posix()
+            if payload_object_path is not None
+            else None
+        ),
+        "ingester_version": ingester_version,
+        "error": attempt.error,
+    }
+    _write_json_atomic(receipt_path, receipt)
+    return RawDownloadReceipt(
+        receipt_id=attempt.receipt_id,
+        receipt_path=receipt_path,
+        provider_manifest_path=archive_dir / "manifests" / "latest.json",
+        payload_sha256=payload_sha256,
+        payload_object_path=payload_object_path,
+        payload_reused=payload_reused,
+    )
+
+
+def _validate_raw_download_attempt(
+    *,
+    source_name: str,
+    dataset_name: str,
+    ingester_version: str,
+    attempt: RawDownloadAttempt,
+) -> None:
+    _require_safe_identifier(attempt.receipt_id, "receipt_id")
     _require_safe_identifier(source_name, "source_name")
     _require_safe_identifier(dataset_name, "dataset_name")
-    _require_non_empty(request_id, "request_id")
+    _require_non_empty(attempt.request_id, "request_id")
     _require_non_empty(ingester_version, "ingester_version")
-    _require_iso_timestamp(retrieved_at)
-    if not isinstance(response_status, int) or not 100 <= response_status <= 599:
+    _require_iso_timestamp(attempt.retrieved_at)
+    if not isinstance(attempt.response_status, int) or not 100 <= attempt.response_status <= 599:
         raise ValueError("response_status must be an HTTP-like integer from 100 to 599")
-    if not isinstance(requested_scope, dict):
+    if not isinstance(attempt.requested_scope, dict):
         raise TypeError("requested_scope must be a dictionary")
-    if payload is None and 200 <= response_status <= 299:
+    if attempt.payload is None and 200 <= attempt.response_status <= 299:
         raise ValueError("A successful RAW receipt requires a payload")
-    if payload is not None and not isinstance(payload, bytes):
+    if attempt.payload is not None and not isinstance(attempt.payload, bytes):
         raise TypeError("payload must be bytes or None")
-
     provider = provider_contract(source_name)
     datasets = provider.get("datasets")
     if not isinstance(datasets, list):
@@ -100,63 +231,28 @@ def record_raw_download(
     if dataset is None:
         raise ValueError(f"Undeclared RAW dataset for {source_name}: {dataset_name}")
     formats = dataset.get("formats")
-    if not isinstance(formats, list) or payload_format not in formats:
+    if not isinstance(formats, list) or attempt.payload_format not in formats:
         raise ValueError(
-            f"Undeclared RAW payload format for {source_name}/{dataset_name}: "
-            f"{payload_format}"
+            "Undeclared RAW payload format for "
+            f"{source_name}/{dataset_name}: {attempt.payload_format}"
         )
 
-    receipt_path = archive_dir / "receipts" / f"{receipt_id}.json"
-    if receipt_path.exists():
-        raise FileExistsError(f"RAW receipt already exists: {receipt_path}")
 
-    payload_sha256: str | None = None
-    payload_object_path: Path | None = None
-    payload_reused = False
-    if payload is not None:
-        payload_sha256 = hashlib.sha256(payload).hexdigest()
-        payload_object_path = archive_dir / "objects" / payload_sha256[:2] / payload_sha256
-        if payload_object_path.exists():
-            if _file_sha256(payload_object_path) != payload_sha256:
-                raise RuntimeError(f"RAW payload object hash mismatch: {payload_object_path}")
-            payload_reused = True
-        else:
-            _write_bytes_atomic(payload_object_path, payload)
-
-    receipt = {
-        "contract": RAW_RECEIPT_CONTRACT_ID,
-        "receipt_id": receipt_id,
-        "source_name": source_name,
-        "dataset_name": dataset_name,
-        "request_id": request_id,
-        "retrieved_at": retrieved_at,
-        "response_status": response_status,
-        "payload_sha256": payload_sha256,
-        "size_bytes": len(payload) if payload is not None else 0,
-        "payload_format": payload_format,
-        "requested_scope": requested_scope,
-        "payload_object_path": (
-            payload_object_path.relative_to(archive_dir).as_posix()
-            if payload_object_path is not None
-            else None
-        ),
-        "ingester_version": ingester_version,
-        "error": error,
-    }
-    _write_json_atomic(receipt_path, receipt)
-    provider_manifest_path = _rebuild_provider_manifest(
-        archive_dir=archive_dir,
-        source_name=source_name,
-        dataset_name=dataset_name,
-    )
-    return RawDownloadReceipt(
-        receipt_id=receipt_id,
-        receipt_path=receipt_path,
-        provider_manifest_path=provider_manifest_path,
-        payload_sha256=payload_sha256,
-        payload_object_path=payload_object_path,
-        payload_reused=payload_reused,
-    )
+def _store_raw_payload(
+    archive_dir: Path,
+    payload: bytes | None,
+) -> tuple[str | None, Path | None, bool]:
+    if payload is None:
+        return None, None, False
+    payload_sha256 = hashlib.sha256(payload).hexdigest()
+    payload_object_path = archive_dir / "objects" / payload_sha256[:2] / payload_sha256
+    payload_reused = payload_object_path.exists()
+    if payload_reused:
+        if _file_sha256(payload_object_path) != payload_sha256:
+            raise RuntimeError(f"RAW payload object hash mismatch: {payload_object_path}")
+    else:
+        _write_bytes_atomic(payload_object_path, payload)
+    return payload_sha256, payload_object_path, payload_reused
 
 
 def archive_raw_frame_delta(

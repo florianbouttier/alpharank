@@ -270,6 +270,31 @@ peuvent pas activer silencieusement une contrainte de portefeuille. Chaque
 ligne acceptée porte la source, le mapping, le fichier RAW et son SHA-256 ; le
 manifeste de release expose la couverture et la période réellement observable.
 
+La release v2 est reconstruite par
+`scripts/open_source/ingestion/build_historical_sector_history.py` depuis le SIC
+porté par l'en-tête immuable des dépôts annuels SEC (`10-K`, `10-KT`, `20-F`
+et `40-F`, hors amendements). Une observation n'est disponible qu'à
+`ACCEPTANCE-DATETIME`, converti de l'heure de New York vers UTC. Le dernier SIC
+annuel connu peut ensuite être porté en avant pour le même émetteur, mais jamais
+avant son premier dépôt ni hors de l'intervalle ticker/CIK concerné.
+
+Le mapping versionné
+`configs/data_contracts/sec_sic_sector_taxonomy_v1.json` transforme le SIC en
+onze secteurs de recherche AlphaRank. Il ne prétend pas reproduire GICS et ne
+doit pas être calibré sur les rendements. Les changements de SIC deviennent de
+nouvelles observations ; les SIC absents, dépôts inaccessibles et identités non
+résolues restent visibles dans les preuves de release. Aucune classification
+Yahoo actuelle ni aucun autre mapping statique n'est utilisé pour combler le
+passé.
+
+Les conventions de classe d'action SEC (`BRK-B`) sont normalisées vers les
+tickers modèle (`BRK.B`). Les nouveaux symboles absents du dernier package SEC
+général utilisent uniquement le pont revu et daté
+`src/alpharank/data/open_source/reference/sector_identity_overrides_v1.csv` ; chaque
+ligne combine la date effective de l'événement S&P ou du changement de ticker
+et le CIK du registre officiel SEC. Le pont ne rétro-projette pas le symbole
+avant cette date.
+
 Les cibles RAW par fournisseur ne sont plus implicites : le registre
 `configs/data_contracts/raw_provider_contracts_v1.json` impose une racine
 `data/warehouse/raw/<provider_id>`, les grains/requêtes de chaque dataset et les
