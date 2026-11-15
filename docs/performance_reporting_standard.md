@@ -22,9 +22,9 @@ dans le même payload compressé que les vues détaillées ; ils ne sont pas cod
 en dur dans le HTML.
 
 La navigation horizontale sépare l'analyse de la preuve et permet d'atteindre
-le studio, le portefeuille en vigueur, l'historique, les méthodologies puis la
+le studio, le dernier portefeuille, l'historique, les méthodologies puis la
 lignée sans réserver un rail permanent. Le studio utilise ainsi toute la
-largeur. Les dix stratégies investissables sont des sélecteurs visibles et les
+largeur. Les stratégies investissables sont des sélecteurs visibles et les
 fenêtres longues usuelles se choisissent en un clic ; les listes et dates
 détaillées restent disponibles sans encombrer le parcours principal.
 
@@ -58,6 +58,16 @@ Aucun de ces chemins n'est résolu par récence, par nom de dossier ou par un
 pointeur `latest`. Les fichiers et leurs hashes sont recopiés dans le manifeste
 du rapport.
 
+Le profil sectoriel `REPORT-018` ajoute deux chemins explicites,
+`--sector-backtest-dir` et `--sector-history-dir`. Il lit les six séries de
+`REPLAY-014` telles que produites : Legacy Frequency, les deux Boosting Top 5,
+leurs deux variantes sectorielles et SPY. Le générateur vérifie les hashes du
+replay commun, des sorties sectorielles et des allocations sources ; les quatre
+références doivent être identiques au replay commun. Les allocations non
+valorisées viennent des Parquet scellés par le backtest, séparément des
+holdings historiques. Un secteur absent des référentiels de holdings ne vaut
+jamais une concentration de 0 %.
+
 ## KPI et filtres temporels
 
 Le filtre accepte chaque année du calendrier commun : le début est janvier ou
@@ -83,7 +93,7 @@ synthétiques, puis les vues graphiques performance, drawdown et richesse
 relative au SPY ; le tableau complet, les model cards et les corrélations sont
 des tiroirs repliables de ce studio plutôt que des sections redondantes plus bas.
 
-En mode stratégies, le multiselect accepte toute combinaison des dix séries
+En mode stratégies, le multiselect accepte toute combinaison des séries
 investissables et pilote cartes, graphique, tableau complet et model cards. SPY
 est ajouté automatiquement et ne peut pas être retiré : il reste visible comme
 référence dans chaque vue. Une stratégie non cochée n'apparaît dans aucune de
@@ -116,7 +126,8 @@ poches ne sont pas fusionnées au niveau des titres : si deux stratégies
 détiennent la même action, cette exposition existe dans chacune de leurs
 poches et contribue deux fois selon leurs poids respectifs.
 
-Pour les dix stratégies hors SPY, les 1 023 combinaisons non vides, leurs
+Pour les dix stratégies hors SPY du profil standard (cinq en profil sectoriel),
+les 1 023 combinaisons non vides (31 en profil sectoriel), leurs
 rendements mensuels et leurs KPI par fenêtre annuelle sont calculés avant le
 rendu par `equal_weight_strategy_combination_grid()`. Le navigateur transforme
 la sélection en masque pour choisir la ligne pré-calculée ; il ne calcule aucun
@@ -231,6 +242,11 @@ jamais déduite de l'heure du navigateur ou du nom d'un dossier. Aucun rendement
 partiel du mois n'entre dans les KPI et aucun nouveau signal de milieu de mois
 n'est inventé.
 
+Dans le profil sectoriel, « Dernier panier du replay » désigne un panier figé
+et non un portefeuille en vigueur au moment de la consultation. L'état
+`archived_replay_return_pending` signifie seulement que son rendement n'a pas
+été évalué par ce replay ; des prix plus récents n'étendent pas ses KPI.
+
 ## Portefeuilles historiques
 
 Chaque panier affiche la stratégie, le mois de décision, le mois de détention,
@@ -254,6 +270,10 @@ manquant.
 La source détaillée des signaux reste
 [`legacy_boosting_methodology.md`](legacy_boosting_methodology.md). Le rapport
 est une projection de lecture, pas une nouvelle définition de la méthode.
+Le profil sectoriel ajoute une carte qui reprend la règle des cinq titres de
+cinq secteurs et affiche les onze libellés lus dans la taxonomie versionnée.
+Le [contrat portefeuille](common_portfolio_backtest_engine.md#canonical-holdings-contract)
+définit cette règle et liste les secteurs autorisés.
 
 ## Publication dans le site Portfolio
 

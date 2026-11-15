@@ -89,6 +89,18 @@ la clôture, exclut avec audit les candidats non classés, puis parcourt le scor
 décroissant et retient au plus un nom par secteur jusqu'à cinq positions. Si
 cinq secteurs distincts ne sont pas disponibles, le mois est bloqué ; aucune
 classification actuelle ni relâchement implicite ne remplit le manque.
+Les cinq positions ont chacune un poids cible de 20 % au rééquilibrage ; les
+cinq secteurs choisis peuvent changer d'un mois à l'autre. La règle s'applique
+aux deux variantes sectorielles Boosting, native et filtrée par tendance.
+
+Les 11 secteurs autorisés par le
+[mapping SIC SEC → AlphaRank](../configs/data_contracts/sec_sic_sector_taxonomy_v1.json)
+sont `Basic Materials`, `Communication Services`, `Consumer Cyclical`,
+`Consumer Defensive`, `Energy`, `Financial Services`, `Healthcare`,
+`Industrials`, `Real Estate`, `Technology` et `Utilities`. Ce sont les libellés
+exacts des artefacts : cette taxonomie de recherche n'est pas GICS. Pour la
+release historique, le SIC n'est utilisable qu'à partir de l'acceptation du
+dépôt annuel SEC qui le porte.
 
 The validator rejects duplicate ticker/month rows, negative or non-finite
 weights, weights that do not sum to one, and any holding month that is not

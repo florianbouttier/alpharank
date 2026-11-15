@@ -89,8 +89,8 @@ def _main() -> str:
 <main><div class="content">
   <header class="hero" id="top">
     <div class="hero-copy">
-      <h1>Comparer au SPY</h1>
-      <p>Choisissez les stratégies et la période. Le graphique et tous les indicateurs suivent.</p>
+      <h1 id="report-headline">Comparer au SPY</h1>
+      <p id="report-subtitle">Choisissez les stratégies et la période. Le graphique et tous les indicateurs suivent.</p>
     </div>
     <div class="hero-actions">
       <details class="proof-disclosure">
@@ -288,14 +288,14 @@ def _audit_sections() -> str:
     return """
   <section class="section" id="current-portfolio">
     <div class="section-head">
-      <div><span class="section-kicker">Portefeuille courant</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
-      <p>Le mois courant reste séparé des KPI tant que son rendement complet n'est pas réalisé.</p>
+      <div><span class="section-kicker" id="current-portfolio-kicker">Portefeuille courant</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
+      <p id="current-portfolio-note">Le mois courant reste séparé des KPI tant que son rendement complet n'est pas réalisé.</p>
     </div>
     <div class="current-portfolio-meta">
       <article><span>Dernière séance observée</span><strong id="current-as-of-date">—</strong></article>
       <article><span>Mois de décision</span><strong id="current-decision-month">—</strong></article>
       <article><span>Mois de détention</span><strong id="current-holding-month">—</strong></article>
-      <article class="is-pending"><span>Statut</span><strong>Rendement mensuel non réalisé</strong></article>
+      <article class="is-pending"><span>Statut</span><strong id="current-portfolio-status">Rendement mensuel non réalisé</strong></article>
     </div>
     <div class="current-portfolio-controls">
       <label>Stratégie<select id="current-portfolio-strategy"></select></label>

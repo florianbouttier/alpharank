@@ -18,6 +18,9 @@ ni commande interactive : les KPI de performance proviennent du moteur commun.
   nommé ; `_performance_report_html.py`, `_performance_report_styles.py` et
   `_performance_report_script.py` rendent sa structure et ses interactions
   transverses sans redéfinir les KPI ni annualiser un mois courant.
+- `_performance_report_sector.py` valide les entrées scellées du profil
+  sectoriel et sépare son panier figé ; `_performance_report_methods.py`
+  décrit les règles et la taxonomie du profil affiché.
 - `_performance_report_studio_script.py`,
   `_performance_report_chart_script.py` et
   `_performance_report_matrix_script.py` séparent respectivement l'état et les

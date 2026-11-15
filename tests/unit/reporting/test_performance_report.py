@@ -4,18 +4,24 @@ import base64
 import gzip
 import json
 import re
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
+from shutil import copyfile
 
 import polars as pl
 import pytest
 
+from alpharank.governance_contracts.common import sha256_path
 from alpharank.portfolio.performance import portfolio_period_statistics
+from alpharank.replay.sector_allocation import SECTOR_CHAMPION_POLICY_ID
+from alpharank.replay.sector_backtest import REFERENCE_STRATEGIES, SECTOR_NATIVE, SECTOR_TREND
 from alpharank.reporting.performance_report import (
     BENCHMARK_STRATEGY,
     PERFORMANCE_METRIC_FIELDS,
     STRATEGY_SPECS,
     PerformanceReportInputs,
+    SectorReportInputs,
     build_performance_report_payload,
     write_performance_report,
 )
@@ -213,6 +219,159 @@ def test_dashboard_shell_keeps_the_complete_information_contract(tmp_path: Path)
     assert payload["holdings"]
     assert payload["current_portfolio"]["holdings"]
     assert payload["strategy_frontiers"]["windows"]
+
+
+def test_sector_profile_keeps_all_realized_series_and_separates_last_basket(tmp_path: Path) -> None:
+    inputs = _sector_report_inputs(tmp_path)
+    payload = build_performance_report_payload(
+        inputs, generated_at_utc=datetime(2026, 11, 15, tzinfo=timezone.utc)
+    )
+
+    trend = "Boosting tendance · Top 5 sectoriel"
+    window = payload["metric_windows"]["2026-01-01|2026-02-01"]
+    trend_values = window[payload["strategy_order"].index(trend)]
+    assert len(payload["strategy_order"]) == 6
+    assert len(payload["portfolio_composer"]["combination_masks"]) == 31
+    assert len(payload["monthly"]) == 12
+    assert trend_values[PERFORMANCE_METRIC_FIELDS.index("maximum_sector_weight")] == 0.2
+    assert payload["status"]["publication_eligible"] is False
+    assert "Consumer Defensive" in next(
+        card["summary"] for card in payload["methodologies"] if "sectoriels" in card["title"]
+    )
+    pending = payload["current_portfolio"]
+    assert pending["status"] == "archived_replay_return_pending"
+    assert pending["holding_month"] == "2026-03-01"
+    trend_pending = [row for row in pending["holdings"] if row["strategy"] == trend]
+    assert len(trend_pending) == len({row["sector"] for row in trend_pending}) == 5
+    assert all(row["realized_return"] is None for row in trend_pending)
+
+
+def test_sector_profile_rejects_common_manifest_from_another_vintage(tmp_path: Path) -> None:
+    inputs = _sector_report_inputs(tmp_path)
+    common_manifest = inputs.common_replay_dir / "manifest.json"
+    _write_json(common_manifest, {**json.loads(common_manifest.read_text()), "vintage": "other"})
+
+    with pytest.raises(ValueError, match="did not use the supplied common replay"):
+        build_performance_report_payload(
+            inputs, generated_at_utc=datetime(2026, 11, 15, tzinfo=timezone.utc)
+        )
+
+
+def _sector_report_inputs(root: Path) -> PerformanceReportInputs:
+    inputs = _report_inputs(root)
+    backtest, release = root / "sector_backtest", root / "sector_release"
+    backtest.mkdir()
+    release.mkdir()
+    taxonomy = Path("configs/data_contracts/sec_sic_sector_taxonomy_v1.json")
+    (root / taxonomy).parent.mkdir(parents=True)
+    copyfile(Path(__file__).resolve().parents[3] / taxonomy, root / taxonomy)
+    sector_history = release / "sector_history.parquet"
+    pl.DataFrame({"Sector": ["Energy"]}).write_parquet(sector_history)
+    _write_json(
+        release / "manifest.json",
+        {
+            "release_id": "test-sector-id",
+            "files": {
+                sector_history.name: {
+                    "sha256": sha256_path(sector_history),
+                }
+            },
+        },
+    )
+    allocation_inputs = {
+        "predictions_sha256": "test-predictions",
+        "terminal_registry_sha256": "test-terminal-registry",
+        "sector_history_sha256": sha256_path(sector_history),
+    }
+    file_hashes, manifest_hashes = _seal_common_fixture(inputs, allocation_inputs)
+    months = [date(2026, 1, 1), date(2026, 2, 1)]
+    monthly_path = backtest / "monthly_returns.parquet"
+    _monthly([*REFERENCE_STRATEGIES, SECTOR_NATIVE, SECTOR_TREND], months).with_columns(
+        pl.when(pl.col("strategy").is_in([SECTOR_NATIVE, SECTOR_TREND]))
+        .then(0.2)
+        .otherwise(pl.col("maximum_sector_weight"))
+        .alias("maximum_sector_weight")
+    ).write_parquet(monthly_path)
+    holdings_path = backtest / "sector_holdings.parquet"
+    _holdings([SECTOR_NATIVE, SECTOR_TREND], months).with_columns(
+        pl.lit("Energy").alias("sector")
+    ).write_parquet(holdings_path)
+    for strategy, name in ((SECTOR_NATIVE, "native"), (SECTOR_TREND, "trend")):
+        allocation_path = _write_allocation(root / name, strategy, allocation_inputs)
+        manifest_path = allocation_path.with_name("manifest.json")
+        file_hashes[str(allocation_path.relative_to(root))] = sha256_path(allocation_path)
+        manifest_hashes[str(manifest_path.relative_to(root))] = sha256_path(manifest_path)
+    _write_json(
+        backtest / "manifest.json",
+        {
+            "contract_version": 1,
+            "status": "validated_r_and_d",
+            "promotion_eligible": False,
+            "methodology": {"transaction_cost_bps_times_turnover": 10},
+            "inputs": file_hashes,
+            "input_manifests": manifest_hashes,
+            "files": {path.name: sha256_path(path) for path in (monthly_path, holdings_path)},
+        },
+    )
+    return replace(inputs, sector=SectorReportInputs(backtest, release, root))
+
+
+def _seal_common_fixture(
+    inputs: PerformanceReportInputs, allocation_inputs: dict[str, str]
+) -> tuple[dict[str, str], dict[str, str]]:
+    legacy_manifest = inputs.legacy_run_dir / "data_input_manifest.json"
+    _write_json(legacy_manifest, {"snapshot_id": "test-composition"})
+    snapshot_copy = inputs.legacy_run_dir / "input_snapshot" / "snapshot_manifest.json"
+    snapshot_copy.parent.mkdir()
+    copyfile(inputs.snapshot_manifest, snapshot_copy)
+    common_dir = inputs.common_replay_dir
+    manifest_path = common_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["sources"] = {
+        "legacy_run_manifest": {"sha256": sha256_path(legacy_manifest)},
+        "boosting_predictions": {"sha256": allocation_inputs["predictions_sha256"]},
+    }
+    manifest["terminal_entry_gate"] = {
+        "registry_sha256": allocation_inputs["terminal_registry_sha256"]
+    }
+    manifest["artifacts"] = {
+        role: {"sha256": sha256_path(common_dir / filename)}
+        for role, filename in (
+            ("holdings", "comparison_common_holdings.parquet"),
+            ("boosting_live_score_holdings", "boosting_live_score_holdings.parquet"),
+        )
+    }
+    _write_json(manifest_path, manifest)
+    monthly_path = common_dir / "comparison_common_monthly.parquet"
+    return {str(monthly_path): sha256_path(monthly_path)}, {
+        str(manifest_path): sha256_path(manifest_path)
+    }
+
+
+def _write_allocation(root: Path, strategy: str, allocation_inputs: dict[str, str]) -> Path:
+    root.mkdir()
+    path = root / "sector_champion_holdings.parquet"
+    sectors = ["Energy", "Technology", "Healthcare", "Industrials", "Utilities"]
+    _holdings([strategy], [date(2026, 3, 1)]).drop("sector", "ticker").join(
+        pl.DataFrame({"Sector": sectors, "ticker": [f"T{i}" for i in range(5)]}), how="cross"
+    ).with_columns(
+        pl.lit("horizon_pending").alias("target_status_1m"),
+        pl.lit(None, dtype=pl.Float64).alias("realized_return"),
+        pl.lit(0.2).alias("target_weight"),
+    ).write_parquet(path)
+    _write_json(
+        root / "manifest.json",
+        {
+            "strategy": strategy,
+            "policy_id": SECTOR_CHAMPION_POLICY_ID,
+            "inputs": allocation_inputs,
+        },
+    )
+    return path
+
+
+def _write_json(path: Path, payload: dict[str, object]) -> None:
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def _report_inputs(tmp_path: Path) -> PerformanceReportInputs:

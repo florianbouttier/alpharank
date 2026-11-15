@@ -103,3 +103,52 @@ Commande :
 Le package contient les holdings contraints, les rendements mensuels, les KPI
 globaux, les rendements annuels, les profils multi-départs, leurs CSV lisibles
 et un manifeste qui scelle toutes les entrées et sorties.
+
+## Dashboard standard — preuve du 15 novembre 2026 (`REPORT-018`)
+
+Le [standard de reporting](../performance_reporting_standard.md) est réutilisé
+sans nouvelle simulation : six séries sur 182 mois réalisés, 33 KPI et 136
+fenêtres annuelles. « Tout » commence en août 2011 et non en 2010 ; les départs
+2015 et 2020 sont directement accessibles. Le mode Composer inclut les cinq
+poches (31 combinaisons) ; les frontières gardent leurs trois poches standard.
+Le [contrat portefeuille](../common_portfolio_backtest_engine.md#canonical-holdings-contract)
+rappelle les cinq titres équipondérés et les onze secteurs SIC AlphaRank,
+également visibles dans la carte Méthodes.
+
+- Source : `REPLAY-014`, composition
+  `e0e6045a5b9b2702840a4f96c94618aecc708272adacfea8a2c2e843790ef95a`, replay
+  commun `c315821921d951240ad3ac5f2de54a557b5e4f2b` ; frais de 10 bps ×
+  turnover et SPY total return sur le calendrier réalisé commun.
+- Artefacts : `outputs/performance_reports/REPORT-018_20261115/`.
+  HTML SHA-256 `8a75190b5040faefd18f332372778626100fd796696cbb72c4e0279bf7147c2c` ;
+  manifeste SHA-256 `ffc85f8c2147cacc60ad630c2c3778c96d5450341f490dd0d861f977ed640967`.
+- Parité : 1 092 lignes de rendements/turnover/coûts identiques au backtest ;
+  54 KPI CAGR, volatilité et max drawdown vérifiés à `1e-12` sur les départs
+  effectifs d'août 2011, janvier 2015 et janvier 2020. Les 6 285 positions
+  historiques incluent 1 820 positions contraintes, avec cinq secteurs et
+  cinq poids cibles de 20 % à chaque décision réalisée.
+- Dernier panier : 28 lignes d'octobre 2026 décidées fin septembre, dont dix
+  sectorielles ; dernière séance de la preuve de marché : 30 octobre 2026.
+  Ce panier est figé et n'entre pas dans les KPI. Aucun signal actuel, aucune
+  promotion et aucune copie dans le site Portfolio.
+- QA navigateur 1 200 × 900 et 390 × 844 : filtres, courbes, model cards,
+  composition, frontières, panier figé, historique et taxonomie ; zéro erreur
+  et zéro requête externe. Script embarqué validé par `node --check` ;
+  30 tests ciblés reporting, replay secteur et moteur de comparaison réussis.
+- Ruff, documentation, inventaire des dépendances et plafond par dossier
+  validés (reporting : 19 fichiers sur 20, sans dérogation). La gate statique
+  globale reste rouge sur des écarts préexistants hors de ce lot : baseline de
+  taille, inventaire des lecteurs data et typage du registre terminal.
+
+Reproduction (choisir une nouvelle destination pour conserver cet artefact) :
+
+```bash
+.venv/bin/python scripts/research/build_backtest_performance_report.py \
+  --common-replay-dir outputs/data_refresh_replay_20261031/replay_headc315821/candidate/common_end_2026_09_trend \
+  --legacy-run-dir outputs/data_refresh_replay_20261031/replay_head3b17eb7/candidate/legacy/2026-10-31/runs/20261031_175053 \
+  --snapshot-manifest outputs/data_refresh_replay_20261031/composed_history/alpharank_input_20261031_161144_e0e6045a5b9b/snapshot_manifest.json \
+  --portfolio-as-of-evidence outputs/data_refresh_replay_20261031/price_candidate/audit/benchmark_return_extension_audit.parquet \
+  --sector-backtest-dir outputs/sector_champion_backtest/REPLAY-014_20261109 \
+  --sector-history-dir data/warehouse/def/sector_history/sector_history_55fbc0c519ea \
+  --output-dir outputs/performance_reports/<nouveau-run>
+```

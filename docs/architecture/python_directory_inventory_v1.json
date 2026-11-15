@@ -48,7 +48,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 2
+      "python_file_count": 3
     },
     {
       "directory": "scripts/experiments/protocols",
@@ -90,7 +90,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 13
+      "python_file_count": 14
     },
     {
       "directory": "scripts/open_source/publication",
@@ -216,14 +216,14 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 11
+      "python_file_count": 13
     },
     {
       "directory": "src/alpharank/data/warehouse",
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 9
+      "python_file_count": 10
     },
     {
       "directory": "src/alpharank/features",
@@ -286,14 +286,14 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 18
+      "python_file_count": 19
     },
     {
       "directory": "src/alpharank/reporting",
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 17
+      "python_file_count": 19
     },
     {
       "directory": "src/alpharank/strategy",
@@ -419,7 +419,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 19
+      "python_file_count": 20
     },
     {
       "directory": "tests/unit/governance",
@@ -454,7 +454,7 @@
       "exception_reference": null,
       "limit": 20,
       "passed": true,
-      "python_file_count": 3
+      "python_file_count": 4
     },
     {
       "directory": "tests/unit/reporting",
@@ -475,7 +475,7 @@
   "inventory_id": "alpharank_python_directory_inventory_v1",
   "maximum_files_per_directory": 20,
   "policy_id": "python_directory_policy_v1",
-  "python_file_count": 544,
+  "python_file_count": 554,
   "schema_version": 1,
   "source_policy": "tracked_files_only",
   "violation_count": 0,

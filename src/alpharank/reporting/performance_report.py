@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -9,6 +8,7 @@ from typing import Any
 
 import polars as pl
 
+from alpharank.governance_contracts.common import sha256_path
 from alpharank.portfolio.combinations import (
     EQUAL_WEIGHT_ADDITIONAL_COST,
     EQUAL_WEIGHT_REBALANCE_FREQUENCY,
@@ -17,12 +17,17 @@ from alpharank.portfolio.combinations import (
 from alpharank.portfolio.comparison import (
     performance_by_start_year,
 )
+from alpharank.replay.sector_backtest import REFERENCE_STRATEGIES, SECTOR_NATIVE, SECTOR_TREND
 from alpharank.reporting._performance_report_analytics import (
     build_report_analytics,
-    frontier_methodology_card,
     strategy_frontier_payload,
 )
 from alpharank.reporting._performance_report_html import render_performance_report_html
+from alpharank.reporting._performance_report_methods import methodology_cards
+from alpharank.reporting._performance_report_sector import (
+    SectorReportInputs,
+    load_sector_report_data,
+)
 
 REPORT_SCHEMA_VERSION = 5
 BENCHMARK_STRATEGY = "SPY · Total return"
@@ -151,6 +156,27 @@ STRATEGY_SPECS = (
     ),
 )
 
+SECTOR_STRATEGY_SPECS = (
+    *(spec for spec in STRATEGY_SPECS if spec.source_strategy in REFERENCE_STRATEGIES[:-1]),
+    StrategySpec(
+        "Boosting · Top 5 sectoriel",
+        "common",
+        SECTOR_NATIVE,
+        "Boosting natif",
+        "post_hoc_rd",
+        "#a65a29",
+    ),
+    StrategySpec(
+        "Boosting tendance · Top 5 sectoriel",
+        "common",
+        SECTOR_TREND,
+        "Boosting tendance",
+        "post_hoc_rd",
+        "#7752a4",
+    ),
+    STRATEGY_SPECS[-1],
+)
+
 
 @dataclass(frozen=True)
 class PerformanceReportInputs:
@@ -158,6 +184,7 @@ class PerformanceReportInputs:
     legacy_run_dir: Path
     snapshot_manifest: Path
     portfolio_as_of_evidence: Path
+    sector: SectorReportInputs | None = None
 
 
 def build_performance_report_payload(
@@ -176,17 +203,73 @@ def build_performance_report_payload(
         legacy_holdings,
     ) = _load_report_inputs(inputs)
 
-    monthly = _assemble_monthly(common_monthly, legacy_monthly)
+    sector = None
+    source_paths = _source_paths(inputs)
+    specs = STRATEGY_SPECS
+    if inputs.sector is not None:
+        sector = load_sector_report_data(
+            inputs.sector,
+            common_dir=inputs.common_replay_dir,
+            common_manifest=common_manifest,
+            reference_monthly=common_monthly,
+        )
+        legacy_manifest = inputs.legacy_run_dir / "data_input_manifest.json"
+        if (
+            sha256_path(legacy_manifest)
+            != common_manifest["sources"]["legacy_run_manifest"]["sha256"]
+        ):
+            raise ValueError("Legacy run does not match the sealed common replay.")
+        if sha256_path(inputs.snapshot_manifest) != sha256_path(
+            inputs.legacy_run_dir / "input_snapshot/snapshot_manifest.json"
+        ):
+            raise ValueError("Snapshot manifest does not match the sealed Legacy run.")
+        source_paths.update(sector.source_paths, legacy_run_manifest=legacy_manifest)
+        common_monthly = sector.monthly
+        common_holdings = pl.concat([common_holdings, sector.holdings], how="diagonal_relaxed")
+        specs = SECTOR_STRATEGY_SPECS
+
+    monthly = _assemble_monthly(common_monthly, legacy_monthly, specs=specs)
     holdings = _assemble_holdings(
         common_holdings,
         legacy_holdings,
         start_month=monthly["holding_month"].min(),
         end_month=monthly["holding_month"].max(),
+        specs=specs,
     )
-    current_portfolio = _current_portfolio_payload(inputs)
+    current_portfolio = _current_portfolio_payload(
+        inputs, specs=specs, sector_pending=sector.pending if sector is not None else None
+    )
+    contracts = {
+        "timing": common_manifest.get("timing_contract"),
+        "transaction_cost": common_manifest.get("transaction_cost_policy"),
+        "benchmark": "SPY total return depuis adjusted_close",
+        "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
+        "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
+        "report_task": "REPORT-014",
+    }
+    payload = {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "generated_at_utc": generated_at_utc.isoformat().replace("+00:00", "Z"),
+        "title": "AlphaRank · Rapport de backtest complet",
+        "status": _report_status(common_manifest),
+        "current_portfolio": current_portfolio,
+        "methodologies": methodology_cards(sector),
+        "contracts": contracts,
+        "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
+    }
+    if sector is not None:
+        _set_sector_context(payload, sector.release_id, sector.taxonomy_id)
+    return payload | _report_analysis(monthly, holdings, specs=specs)
+
+
+def _report_analysis(
+    monthly: pl.DataFrame, holdings: pl.DataFrame, *, specs: tuple[StrategySpec, ...]
+) -> dict[str, Any]:
     sector_coverage = _sector_coverage(holdings)
+    if specs is SECTOR_STRATEGY_SPECS:
+        sector_coverage[BENCHMARK_STRATEGY] = 0.0  # ETF constituent sectors are not observed.
     monthly = _mask_unobservable_sector_weights(monthly, sector_coverage)
-    strategy_order = [spec.label for spec in STRATEGY_SPECS]
+    strategy_order = [spec.label for spec in specs]
     series, metric_windows, composer, frontiers = build_report_analytics(
         monthly,
         strategy_order=strategy_order,
@@ -202,15 +285,10 @@ def build_performance_report_payload(
         first_year=start_month.year,
         end_month=end_month,
     )
-    source_paths = _source_paths(inputs)
     return {
-        "schema_version": REPORT_SCHEMA_VERSION,
-        "generated_at_utc": generated_at_utc.isoformat().replace("+00:00", "Z"),
-        "title": "AlphaRank · Rapport de backtest complet",
-        "status": _report_status(common_manifest),
         "calendar": _report_calendar(monthly, metric_windows, start_month, end_month),
         "strategy_order": strategy_order,
-        "strategies": [_strategy_payload(spec) for spec in STRATEGY_SPECS],
+        "strategies": [_strategy_payload(spec) for spec in specs],
         "metric_fields": list(PERFORMANCE_METRIC_FIELDS),
         "metric_windows": metric_windows,
         "portfolio_composer": _composer_payload(composer),
@@ -218,19 +296,31 @@ def build_performance_report_payload(
         "start_year_metrics": _start_year_rows(start_year_metrics),
         "monthly": _monthly_rows(monthly),
         "holdings": _holding_rows(holdings),
-        "current_portfolio": current_portfolio,
         "data_quality": {"sector_coverage_by_strategy": sector_coverage},
-        "methodologies": _methodology_cards(),
-        "contracts": {
-            "timing": common_manifest.get("timing_contract"),
-            "transaction_cost": common_manifest.get("transaction_cost_policy"),
-            "benchmark": "SPY total return depuis adjusted_close",
-            "missing_return": "Sélection avant rendement réalisé ; absence sélectionnée = arrêt.",
-            "kpi_engine": "alpharank.portfolio.performance.portfolio_period_statistics",
-            "report_task": "REPORT-014",
-        },
-        "lineage": _report_lineage(common_manifest, snapshot_manifest, source_paths),
     }
+
+
+def _set_sector_context(payload: dict[str, Any], release_id: str, taxonomy_id: str) -> None:
+    payload["title"] = "AlphaRank · Top 5 sectoriels face au SPY"
+    payload["headline"] = "Top 5 sectoriels face au SPY"
+    payload["subtitle"] = (
+        "Cinq actions à 20 %, une par secteur. Comparez le natif et la tendance, "
+        "avec et sans plafond. « Tout » commence au premier mois commun, pas en 2010."
+    )
+    payload["default_curves"] = [spec.label for spec in SECTOR_STRATEGY_SPECS]
+    payload["status"]["publication_eligible"] = False
+    payload["status"]["message"] = (
+        "REPLAY-014 · diagnostic R&D, sans promotion ni mise à jour de signal. "
+        "Concentration sectorielle renseignée uniquement pour les deux Top 5 sectoriels."
+    )
+    contracts = payload["contracts"]
+    contracts.update(
+        report_task="REPORT-018", sector_release=release_id, sector_taxonomy=taxonomy_id
+    )
+    contracts["transaction_cost"] = dict(
+        contracts["transaction_cost"],
+        strategies=[spec.source_strategy for spec in SECTOR_STRATEGY_SPECS[:-1]],
+    )
 
 
 def _report_bounds(monthly: pl.DataFrame) -> tuple[date, date]:
@@ -306,7 +396,7 @@ def _report_lineage(
         "common_replay_status": common_manifest.get("status"),
         "common_replay_profile": common_manifest.get("comparison_profile"),
         "source_files": [
-            {"role": role, "path": str(path), "sha256": _sha256(path)}
+            {"role": role, "path": str(path), "sha256": sha256_path(path)}
             for role, path in source_paths.items()
         ],
     }
@@ -330,7 +420,7 @@ def write_performance_report(
         "generated_at_utc": payload["generated_at_utc"],
         "report": {
             "path": str(report_path.resolve()),
-            "sha256": _sha256(report_path),
+            "sha256": sha256_path(report_path),
             "size_bytes": report_path.stat().st_size,
         },
         "calendar": payload["calendar"],
@@ -368,11 +458,13 @@ def write_performance_report(
     return {"report": report_path, "manifest": manifest_path}
 
 
-def _assemble_monthly(common: pl.DataFrame, legacy: pl.DataFrame) -> pl.DataFrame:
+def _assemble_monthly(
+    common: pl.DataFrame, legacy: pl.DataFrame, *, specs: tuple[StrategySpec, ...]
+) -> pl.DataFrame:
     start = common["holding_month"].min()
     end = common["holding_month"].max()
     parts: list[pl.DataFrame] = []
-    for spec in STRATEGY_SPECS:
+    for spec in specs:
         source = common if spec.source == "common" else legacy
         part = source.filter(
             (pl.col("strategy") == spec.source_strategy)
@@ -390,9 +482,10 @@ def _assemble_holdings(
     *,
     start_month: Any,
     end_month: Any,
+    specs: tuple[StrategySpec, ...],
 ) -> pl.DataFrame:
     parts: list[pl.DataFrame] = []
-    for spec in STRATEGY_SPECS:
+    for spec in specs:
         if spec.label == BENCHMARK_STRATEGY:
             continue
         source = common if spec.source == "common" else legacy
@@ -407,17 +500,27 @@ def _assemble_holdings(
     )
 
 
-def _current_portfolio_payload(inputs: PerformanceReportInputs) -> dict[str, Any]:
+def _current_portfolio_payload(
+    inputs: PerformanceReportInputs,
+    *,
+    specs: tuple[StrategySpec, ...],
+    sector_pending: pl.DataFrame | None,
+) -> dict[str, Any]:
     live = pl.read_parquet(inputs.common_replay_dir / "boosting_live_score_holdings.parquet")
+    if sector_pending is not None:
+        live = pl.concat([live, sector_pending], how="diagonal_relaxed")
     legacy = pl.read_parquet(inputs.legacy_run_dir / "legacy_detailed_returns_polars.parquet")
     holdings = pl.concat(
-        [_current_boosting_holdings(live), _current_legacy_holdings(legacy)],
+        [
+            _current_boosting_holdings(live, specs=specs),
+            _current_legacy_holdings(legacy, specs=specs),
+        ],
         how="diagonal_relaxed",
     ).sort(
         ["strategy", "target_weight", "ticker"],
         descending=[False, True, False],
     )
-    expected = {spec.label for spec in STRATEGY_SPECS if spec.label != BENCHMARK_STRATEGY}
+    expected = {spec.label for spec in specs if spec.label != BENCHMARK_STRATEGY}
     observed = set(holdings["strategy"].unique().to_list())
     if observed != expected:
         raise ValueError(f"Current portfolio strategies differ: {sorted(expected - observed)}")
@@ -430,18 +533,24 @@ def _current_portfolio_payload(inputs: PerformanceReportInputs) -> dict[str, Any
         "as_of_date": as_of_date.isoformat(),
         "decision_month": decision_month.isoformat(),
         "holding_month": holding_month.isoformat(),
-        "status": "in_force_return_pending",
+        "status": (
+            "archived_replay_return_pending"
+            if sector_pending is not None
+            else "in_force_return_pending"
+        ),
         "holdings": _holding_rows(holdings),
     }
 
 
-def _current_boosting_holdings(live: pl.DataFrame) -> pl.DataFrame:
+def _current_boosting_holdings(
+    live: pl.DataFrame, *, specs: tuple[StrategySpec, ...]
+) -> pl.DataFrame:
     required = {"strategy", "decision_month", "holding_month", "ticker", "target_weight"}
     missing = sorted(required - set(live.columns))
     if missing:
         raise ValueError(f"Boosting live holdings are missing: {missing}")
     parts: list[pl.DataFrame] = []
-    for spec in STRATEGY_SPECS:
+    for spec in specs:
         if not spec.family.startswith("Boosting"):
             continue
         part = live.filter(pl.col("strategy") == spec.source_strategy)
@@ -451,17 +560,19 @@ def _current_boosting_holdings(live: pl.DataFrame) -> pl.DataFrame:
     return pl.concat(parts, how="diagonal_relaxed")
 
 
-def _current_legacy_holdings(detailed: pl.DataFrame) -> pl.DataFrame:
+def _current_legacy_holdings(
+    detailed: pl.DataFrame, *, specs: tuple[StrategySpec, ...]
+) -> pl.DataFrame:
     required = {"portfolio_model", "year_month", "ticker", "weight_normalized"}
     missing = sorted(required - set(detailed.columns))
     if missing:
         raise ValueError(f"Legacy current holdings are missing: {missing}")
     current_month = detailed["year_month"].cast(pl.Date, strict=False).max()
     parts: list[pl.DataFrame] = []
-    for label, source in (
-        ("Legacy · Frequency", "Combined_Frequency"),
-        ("Legacy · Equal", "Combined_Equal"),
-    ):
+    for spec in specs:
+        if spec.family != "Legacy":
+            continue
+        source = "Combined_Frequency" if spec.source == "common" else spec.source_strategy
         part = detailed.filter(
             (pl.col("portfolio_model") == source)
             & (pl.col("year_month").cast(pl.Date, strict=False) == current_month)
@@ -474,7 +585,7 @@ def _current_legacy_holdings(detailed: pl.DataFrame) -> pl.DataFrame:
         part = part.with_columns(
             pl.col("holding_month").dt.offset_by("-1mo").alias("decision_month")
         )
-        parts.append(_select_current_holding_fields(part, strategy=label))
+        parts.append(_select_current_holding_fields(part, strategy=spec.label))
     return pl.concat(parts, how="diagonal_relaxed")
 
 
@@ -660,78 +771,6 @@ def _window_boundaries(
     return sorted({key.split("|")[index] for key in windows})
 
 
-def _methodology_cards() -> list[dict[str, Any]]:
-    return [
-        {
-            "title": "Legacy · Frequency",
-            "status": "Méthode de production rejouée sur un snapshot candidat",
-            "summary": "Trend-following relatif, quatre pistes walk-forward puis votes pondérés.",
-            "pseudo_code": [
-                "calculer les EMA relatives à SPY avec les prix connus à t",
-                "optimiser chaque piste uniquement sur les mois antérieurs",
-                "appliquer univers historique, liquidité et plafond sectoriel",
-                "agréger les votes puis détenir le panier en t+1",
-            ],
-        },
-        {
-            "title": "Legacy · Equal",
-            "status": "Agrégation historique",
-            "summary": "Même recherche Legacy, mais moyenne égale des quatre trajectoires.",
-            "pseudo_code": [
-                "produire les quatre portefeuilles Legacy causaux",
-                "donner le même poids à chaque trajectoire",
-                "agréger les poids par titre",
-                "simuler avec le même calendrier et les mêmes frais",
-            ],
-        },
-        {
-            "title": "Boosting natif",
-            "status": "R&D comparable, non promu",
-            "summary": "XGBoost classe les titres avec les EMA relatives causales de chaque fold.",
-            "pseudo_code": [
-                "geler les paires EMA disponibles au cutoff du fold",
-                "entraîner, valider et calibrer sans toucher au test",
-                "scorer toutes les lignes OOS du mois t",
-                "prendre Top N avant de joindre le rendement de t+1",
-            ],
-        },
-        {
-            "title": "Boosting filtré par tendance",
-            "status": "Diagnostic post-hoc, non promu",
-            "summary": "Le score ne change pas ; une majorité stricte d’EMA positives borne l’univers.",
-            "pseudo_code": [
-                "reconstruire les ratios EMA causaux du fold",
-                "exiger toutes les paires et une majorité strictement positive",
-                "conserver le score Boosting natif inchangé",
-                "classer puis prendre Top N dans l’univers filtré",
-            ],
-        },
-        {
-            "title": "SPY total return",
-            "status": "Benchmark commun",
-            "summary": "Benchmark dividendes réinvestis depuis adjusted_close, sans frais simulés.",
-            "pseudo_code": [
-                "résoudre SPY sur le même calendrier mensuel",
-                "calculer le rendement total adjusted_close",
-                "exclure le mois courant incomplet",
-                "apparier chaque mois aux stratégies avant les KPI",
-            ],
-        },
-        {
-            "title": "Portefeuille composé",
-            "status": "Laboratoire post-hoc, non promu",
-            "summary": ("Équipondération mensuelle des stratégies cochées, comparée au SPY."),
-            "pseudo_code": [
-                "choisir au moins une poche de stratégie",
-                "attribuer 1 / N du capital à chaque poche chaque mois",
-                "moyenner leurs rendements nets sans coût inter-poche ajouté",
-                "lire KPI, corrélations et richesse relative pré-calculés face au SPY",
-            ],
-        },
-        frontier_methodology_card(),
-    ]
-
-
 def _source_paths(inputs: PerformanceReportInputs) -> dict[str, Path]:
     return {
         "common_manifest": inputs.common_replay_dir / "manifest.json",
@@ -755,11 +794,3 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"Expected one JSON object in {path}")
     return payload
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()

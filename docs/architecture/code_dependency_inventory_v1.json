@@ -41,6 +41,8 @@
     "scripts/experiments/operations/run_live_alpha_portfolio.py",
     "scripts/experiments/operations/run_multihorizon_boosting.py",
     "scripts/experiments/portfolio/run_portfolio_boosting_blend_backtest.py",
+    "scripts/experiments/portfolio/run_sector_champion_allocation.py",
+    "scripts/experiments/portfolio/run_sector_champion_backtest.py",
     "scripts/experiments/protocols/build_execution_convention_bridge.py",
     "scripts/experiments/protocols/run_residual_init_score_experiment.py",
     "scripts/experiments/render_alpha_shap_portfolio_report.py",
@@ -85,6 +87,7 @@
     "scripts/open_source/build_sec_quality_dashboard.py",
     "scripts/open_source/compact_output_history.py",
     "scripts/open_source/ingestion/backfill_sec_core_history.py",
+    "scripts/open_source/ingestion/build_historical_sector_history.py",
     "scripts/open_source/ingestion/install_nightly_launchd.py",
     "scripts/open_source/ingestion/nightly_ingestion.py",
     "scripts/open_source/ingestion/reconstruct_historical_sec_companyfacts.py",
@@ -109,6 +112,7 @@
     "scripts/open_source/publication/build_sec_output_package_with_backfill.py",
     "scripts/open_source/publication/build_sec_overlay_package.py",
     "scripts/open_source/publication/build_sec_raw_version_candidate.py",
+    "scripts/open_source/publication/build_sector_history.py",
     "scripts/open_source/publication/compact_output_history.py",
     "scripts/open_source/publication/promote_definitive_mart.py",
     "scripts/open_source/refresh_current_constituent_prices.py",
@@ -712,6 +716,31 @@
     },
     {
       "kind": "import",
+      "source": "scripts/experiments/portfolio/run_sector_champion_allocation.py",
+      "target": "src/alpharank/data/terminal_eligibility.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/experiments/portfolio/run_sector_champion_allocation.py",
+      "target": "src/alpharank/portfolio/terminal_event_registry.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/experiments/portfolio/run_sector_champion_allocation.py",
+      "target": "src/alpharank/replay/sector_allocation.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/experiments/portfolio/run_sector_champion_allocation.py",
+      "target": "src/alpharank/replay/trend_eligibility.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/experiments/portfolio/run_sector_champion_backtest.py",
+      "target": "src/alpharank/replay/sector_backtest.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/experiments/protocols/build_execution_convention_bridge.py",
       "target": "src/alpharank/portfolio/execution.py"
     },
@@ -1072,6 +1101,26 @@
     },
     {
       "kind": "import",
+      "source": "scripts/open_source/ingestion/build_historical_sector_history.py",
+      "target": "src/alpharank/data/sources/sec_filing_headers.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/ingestion/build_historical_sector_history.py",
+      "target": "src/alpharank/data/sources/sector_identity.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/ingestion/build_historical_sector_history.py",
+      "target": "src/alpharank/data/warehouse/sector_history.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/ingestion/build_historical_sector_history.py",
+      "target": "src/alpharank/data/warehouse/sector_sic_history.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/open_source/ingestion/nightly_ingestion.py",
       "target": "src/alpharank/data/ingestion/prices.py"
     },
@@ -1384,6 +1433,11 @@
       "kind": "import",
       "source": "scripts/open_source/publication/build_sec_raw_version_candidate.py",
       "target": "src/alpharank/data/sources/sec_raw_versions.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/open_source/publication/build_sector_history.py",
+      "target": "src/alpharank/data/warehouse/sector_history.py"
     },
     {
       "kind": "import",
@@ -1759,6 +1813,11 @@
       "kind": "import",
       "source": "src/alpharank/backtest/application.py",
       "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/backtest/data_loading.py",
+      "target": "src/alpharank/utils/frame_backend.py"
     },
     {
       "kind": "import",
@@ -2717,6 +2776,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/data/sources/sec_filing_headers.py",
+      "target": "src/alpharank/data/ingestion/raw_archive.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/data/sources/sec_historical.py",
       "target": "src/alpharank/data/open_source/sec_mapping.py"
     },
@@ -2739,6 +2803,16 @@
       "kind": "import",
       "source": "src/alpharank/data/sources/sec_raw_versions.py",
       "target": "src/alpharank/data/ingestion/storage.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/sources/sector_identity.py",
+      "target": "src/alpharank/data/open_source/sec_mapping.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/data/sources/sector_identity.py",
+      "target": "src/alpharank/data/security_identity.py"
     },
     {
       "kind": "import",
@@ -3258,6 +3332,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/portfolio/__init__.py",
+      "target": "src/alpharank/portfolio/frontiers.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/__init__.py",
       "target": "src/alpharank/portfolio/lineage.py"
     },
     {
@@ -3318,6 +3397,16 @@
     {
       "kind": "import",
       "source": "src/alpharank/portfolio/comparison.py",
+      "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/frontiers.py",
+      "target": "src/alpharank/portfolio/comparison.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/frontiers.py",
       "target": "src/alpharank/portfolio/performance.py"
     },
     {
@@ -4057,6 +4146,26 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/replay/sector_allocation.py",
+      "target": "src/alpharank/data/contracts/sector_history.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/sector_allocation.py",
+      "target": "src/alpharank/portfolio/adapters/boosting.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/sector_backtest.py",
+      "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/replay/sector_backtest.py",
+      "target": "src/alpharank/portfolio/simulation.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/replay/validation.py",
       "target": "src/alpharank/portfolio/simulation.py"
     },
@@ -4072,6 +4181,21 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_analytics.py",
+      "target": "src/alpharank/portfolio/combinations.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_analytics.py",
+      "target": "src/alpharank/portfolio/comparison.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_analytics.py",
+      "target": "src/alpharank/portfolio/frontiers.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reporting/_performance_report_html.py",
       "target": "src/alpharank/reporting/_performance_report_chart_script.py"
     },
@@ -4079,6 +4203,11 @@
       "kind": "import",
       "source": "src/alpharank/reporting/_performance_report_html.py",
       "target": "src/alpharank/reporting/_performance_report_composer_script.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_html.py",
+      "target": "src/alpharank/reporting/_performance_report_frontier_script.py"
     },
     {
       "kind": "import",
@@ -4102,8 +4231,43 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_methods.py",
+      "target": "src/alpharank/reporting/_performance_report_analytics.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_methods.py",
+      "target": "src/alpharank/reporting/_performance_report_sector.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_sector.py",
+      "target": "src/alpharank/data/warehouse/sector_sic_history.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_sector.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_sector.py",
+      "target": "src/alpharank/replay/sector_allocation.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/_performance_report_sector.py",
+      "target": "src/alpharank/replay/sector_backtest.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reporting/_sec_explorer_html.py",
       "target": "src/alpharank/reporting/_sec_explorer_script.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_report.py",
+      "target": "src/alpharank/governance_contracts/common.py"
     },
     {
       "kind": "import",
@@ -4118,7 +4282,27 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/performance_report.py",
+      "target": "src/alpharank/replay/sector_backtest.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_report.py",
+      "target": "src/alpharank/reporting/_performance_report_analytics.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_report.py",
       "target": "src/alpharank/reporting/_performance_report_html.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_report.py",
+      "target": "src/alpharank/reporting/_performance_report_methods.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_report.py",
+      "target": "src/alpharank/reporting/_performance_report_sector.py"
     },
     {
       "kind": "import",
@@ -4957,6 +5141,35 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/data/terminal_eligibility.py",
+        "src/alpharank/portfolio/terminal_event_registry.py",
+        "src/alpharank/replay/sector_allocation.py",
+        "src/alpharank/replay/trend_eligibility.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.experiments.portfolio.run_sector_champion_allocation",
+      "path": "scripts/experiments/portfolio/run_sector_champion_allocation.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/replay/sector_backtest.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.experiments.portfolio.run_sector_champion_backtest",
+      "path": "scripts/experiments/portfolio/run_sector_champion_backtest.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/portfolio/execution.py",
         "src/alpharank/portfolio/simulation.py"
       ],
@@ -5558,6 +5771,22 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": true,
+      "imports": [
+        "src/alpharank/data/sources/sec_filing_headers.py",
+        "src/alpharank/data/sources/sector_identity.py",
+        "src/alpharank/data/warehouse/sector_history.py",
+        "src/alpharank/data/warehouse/sector_sic_history.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.open_source.ingestion.build_historical_sector_history",
+      "path": "scripts/open_source/ingestion/build_historical_sector_history.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
       "imports": [],
       "invokes": [],
       "layer": "script",
@@ -5911,6 +6140,19 @@
       "lifecycle": "active",
       "module": "scripts.open_source.publication.build_sec_raw_version_candidate",
       "path": "scripts/open_source/publication/build_sec_raw_version_candidate.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/data/warehouse/sector_history.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.open_source.publication.build_sector_history",
+      "path": "scripts/open_source/publication/build_sector_history.py",
       "readers": []
     },
     {
@@ -6682,7 +6924,9 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
+      "imports": [
+        "src/alpharank/utils/frame_backend.py"
+      ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
@@ -7106,6 +7350,7 @@
       "path": "src/alpharank/data/contracts/sector_history.py",
       "readers": [
         "src/alpharank/replay/causal_snapshot.py",
+        "src/alpharank/replay/sector_allocation.py",
         "src/alpharank/strategy/legacy_selection.py"
       ]
     },
@@ -7380,6 +7625,7 @@
       "path": "src/alpharank/data/ingestion/raw_archive.py",
       "readers": [
         "src/alpharank/data/ingestion/prices.py",
+        "src/alpharank/data/sources/sec_filing_headers.py",
         "src/alpharank/data/warehouse/migration.py"
       ]
     },
@@ -7672,7 +7918,8 @@
         "scripts/open_source/ingestion/reconstruct_historical_sec_companyfacts.py",
         "scripts/open_source/publication/build_sec_output_package.py",
         "src/alpharank/data/ingestion/orchestration.py",
-        "src/alpharank/data/sources/sec_historical.py"
+        "src/alpharank/data/sources/sec_historical.py",
+        "src/alpharank/data/sources/sector_identity.py"
       ]
     },
     {
@@ -8230,7 +8477,8 @@
         "src/alpharank/data/prices/reconciliation.py",
         "src/alpharank/data/publishing/composed_snapshot.py",
         "src/alpharank/data/publishing/price_package_output.py",
-        "src/alpharank/data/publishing/price_roll_forward.py"
+        "src/alpharank/data/publishing/price_roll_forward.py",
+        "src/alpharank/data/sources/sector_identity.py"
       ]
     },
     {
@@ -8320,6 +8568,21 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/data/ingestion/raw_archive.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.sources.sec_filing_headers",
+      "path": "src/alpharank/data/sources/sec_filing_headers.py",
+      "readers": [
+        "scripts/open_source/ingestion/build_historical_sector_history.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
         "src/alpharank/data/open_source/sec_mapping.py"
       ],
       "invokes": [],
@@ -8363,6 +8626,22 @@
       "path": "src/alpharank/data/sources/sec_raw_versions.py",
       "readers": [
         "scripts/open_source/publication/build_sec_raw_version_candidate.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/open_source/sec_mapping.py",
+        "src/alpharank/data/security_identity.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.sources.sector_identity",
+      "path": "src/alpharank/data/sources/sector_identity.py",
+      "readers": [
+        "scripts/open_source/ingestion/build_historical_sector_history.py"
       ]
     },
     {
@@ -8439,6 +8718,7 @@
       "module": "alpharank.data.terminal_eligibility",
       "path": "src/alpharank/data/terminal_eligibility.py",
       "readers": [
+        "scripts/experiments/portfolio/run_sector_champion_allocation.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common_strategy.py",
         "src/alpharank/strategy/legacy_selection.py"
@@ -8559,6 +8839,34 @@
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
+      "module": "alpharank.data.warehouse.sector_history",
+      "path": "src/alpharank/data/warehouse/sector_history.py",
+      "readers": [
+        "scripts/open_source/ingestion/build_historical_sector_history.py",
+        "scripts/open_source/publication/build_sector_history.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.data.warehouse.sector_sic_history",
+      "path": "src/alpharank/data/warehouse/sector_sic_history.py",
+      "readers": [
+        "scripts/open_source/ingestion/build_historical_sector_history.py",
+        "src/alpharank/reporting/_performance_report_sector.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
       "module": "alpharank.data.warehouse.staging",
       "path": "src/alpharank/data/warehouse/staging.py",
       "readers": [
@@ -8662,7 +8970,9 @@
         "src/alpharank/multihorizon/pipeline.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/causal_snapshot.py",
-        "src/alpharank/replay/common_strategy.py"
+        "src/alpharank/replay/common_strategy.py",
+        "src/alpharank/reporting/_performance_report_sector.py",
+        "src/alpharank/reporting/performance_report.py"
       ]
     },
     {
@@ -9182,6 +9492,7 @@
         "src/alpharank/portfolio/contracts.py",
         "src/alpharank/portfolio/costs.py",
         "src/alpharank/portfolio/execution.py",
+        "src/alpharank/portfolio/frontiers.py",
         "src/alpharank/portfolio/lineage.py",
         "src/alpharank/portfolio/performance.py",
         "src/alpharank/portfolio/simulation.py",
@@ -9226,7 +9537,8 @@
         "src/alpharank/replay/common.py",
         "src/alpharank/replay/common_strategy.py",
         "src/alpharank/replay/prediction_universes.py",
-        "src/alpharank/replay/refresh_attribution.py"
+        "src/alpharank/replay/refresh_attribution.py",
+        "src/alpharank/replay/sector_allocation.py"
       ]
     },
     {
@@ -9329,6 +9641,7 @@
       "path": "src/alpharank/portfolio/combinations.py",
       "readers": [
         "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/reporting/_performance_report_analytics.py",
         "src/alpharank/reporting/performance_report.py"
       ]
     },
@@ -9351,9 +9664,11 @@
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/combinations.py",
+        "src/alpharank/portfolio/frontiers.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
         "src/alpharank/replay/common_strategy.py",
+        "src/alpharank/reporting/_performance_report_analytics.py",
         "src/alpharank/reporting/performance_report.py"
       ]
     },
@@ -9413,6 +9728,23 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/performance.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.frontiers",
+      "path": "src/alpharank/portfolio/frontiers.py",
+      "readers": [
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/reporting/_performance_report_analytics.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
         "src/alpharank/data/price_eligibility.py"
       ],
       "invokes": [],
@@ -9464,7 +9796,9 @@
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/frontiers.py",
         "src/alpharank/replay/reconciliation.py",
+        "src/alpharank/replay/sector_backtest.py",
         "src/alpharank/strategy/analytics.py"
       ]
     },
@@ -9497,6 +9831,7 @@
         "src/alpharank/replay/common.py",
         "src/alpharank/replay/common_strategy.py",
         "src/alpharank/replay/legacy.py",
+        "src/alpharank/replay/sector_backtest.py",
         "src/alpharank/replay/validation.py",
         "src/alpharank/strategy/legacy_aggregation.py"
       ]
@@ -9511,6 +9846,7 @@
       "module": "alpharank.portfolio.terminal_event_registry",
       "path": "src/alpharank/portfolio/terminal_event_registry.py",
       "readers": [
+        "scripts/experiments/portfolio/run_sector_champion_allocation.py",
         "scripts/validate_terminal_event_registry.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py",
@@ -10127,6 +10463,41 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/contracts/sector_history.py",
+        "src/alpharank/portfolio/adapters/boosting.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.sector_allocation",
+      "path": "src/alpharank/replay/sector_allocation.py",
+      "readers": [
+        "scripts/experiments/portfolio/run_sector_champion_allocation.py",
+        "src/alpharank/reporting/_performance_report_sector.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/performance.py",
+        "src/alpharank/portfolio/simulation.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.replay.sector_backtest",
+      "path": "src/alpharank/replay/sector_backtest.py",
+      "readers": [
+        "scripts/experiments/portfolio/run_sector_champion_backtest.py",
+        "src/alpharank/reporting/_performance_report_sector.py",
+        "src/alpharank/reporting/performance_report.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [],
       "invokes": [],
       "layer": "library",
@@ -10147,6 +10518,7 @@
       "module": "alpharank.replay.trend_eligibility",
       "path": "src/alpharank/replay/trend_eligibility.py",
       "readers": [
+        "scripts/experiments/portfolio/run_sector_champion_allocation.py",
         "src/alpharank/replay/common_strategy.py",
         "src/alpharank/replay/prediction_universes.py"
       ]
@@ -10195,6 +10567,24 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/combinations.py",
+        "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/frontiers.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_analytics",
+      "path": "src/alpharank/reporting/_performance_report_analytics.py",
+      "readers": [
+        "src/alpharank/reporting/_performance_report_methods.py",
+        "src/alpharank/reporting/performance_report.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [],
       "invokes": [],
       "layer": "library",
@@ -10221,9 +10611,23 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_frontier_script",
+      "path": "src/alpharank/reporting/_performance_report_frontier_script.py",
+      "readers": [
+        "src/alpharank/reporting/_performance_report_html.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [
         "src/alpharank/reporting/_performance_report_chart_script.py",
         "src/alpharank/reporting/_performance_report_composer_script.py",
+        "src/alpharank/reporting/_performance_report_frontier_script.py",
         "src/alpharank/reporting/_performance_report_matrix_script.py",
         "src/alpharank/reporting/_performance_report_script.py",
         "src/alpharank/reporting/_performance_report_studio_script.py",
@@ -10254,6 +10658,22 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [
+        "src/alpharank/reporting/_performance_report_analytics.py",
+        "src/alpharank/reporting/_performance_report_sector.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_methods",
+      "path": "src/alpharank/reporting/_performance_report_methods.py",
+      "readers": [
+        "src/alpharank/reporting/performance_report.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [],
       "invokes": [],
       "layer": "library",
@@ -10262,6 +10682,25 @@
       "path": "src/alpharank/reporting/_performance_report_script.py",
       "readers": [
         "src/alpharank/reporting/_performance_report_html.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/data/warehouse/sector_sic_history.py",
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/replay/sector_allocation.py",
+        "src/alpharank/replay/sector_backtest.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting._performance_report_sector",
+      "path": "src/alpharank/reporting/_performance_report_sector.py",
+      "readers": [
+        "src/alpharank/reporting/_performance_report_methods.py",
+        "src/alpharank/reporting/performance_report.py"
       ]
     },
     {
@@ -10322,9 +10761,14 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/governance_contracts/common.py",
         "src/alpharank/portfolio/combinations.py",
         "src/alpharank/portfolio/comparison.py",
-        "src/alpharank/reporting/_performance_report_html.py"
+        "src/alpharank/replay/sector_backtest.py",
+        "src/alpharank/reporting/_performance_report_analytics.py",
+        "src/alpharank/reporting/_performance_report_html.py",
+        "src/alpharank/reporting/_performance_report_methods.py",
+        "src/alpharank/reporting/_performance_report_sector.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -10577,6 +11021,7 @@
       "readers": [
         "scripts/compare_legacy_eodhd_vs_open_source.py",
         "scripts/validate_common_portfolio_engine.py",
+        "src/alpharank/backtest/data_loading.py",
         "src/alpharank/data/processing.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/strategy/legacy.py",
@@ -10760,11 +11205,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 158,
-    "internal_edge_count": 821,
-    "library_count": 230,
-    "python_file_count": 395,
-    "script_count": 165,
-    "unread_node_count": 164
+    "active_entrypoint_count": 162,
+    "internal_edge_count": 857,
+    "library_count": 241,
+    "python_file_count": 410,
+    "script_count": 169,
+    "unread_node_count": 168
   }
 }

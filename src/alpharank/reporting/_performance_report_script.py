@@ -105,7 +105,7 @@ function initializeControls() {
   const D = state.data;
   state.start = D.calendar.start;
   state.end = D.calendar.end;
-  state.curves = DEFAULT_CURVE_STRATEGIES.filter(strategy => D.strategy_order.includes(strategy));
+  state.curves = (D.default_curves ?? DEFAULT_CURVE_STRATEGIES).filter(strategy => D.strategy_order.includes(strategy));
   document.getElementById("start-month").innerHTML = D.calendar.available_start_months.map(value => option(value, value.slice(0,4))).join("");
   document.getElementById("end-month").innerHTML = D.calendar.available_end_months.map(value => option(value, value.slice(0,4))).join("");
   document.getElementById("portfolio-strategy").innerHTML = D.strategy_order.filter(value => value !== "SPY · Total return").map(value => option(value)).join("");
@@ -270,8 +270,17 @@ function selectedCurrentHoldings() {
 
 function renderCurrentPortfolio() {
   const current=state.data.current_portfolio, rows=selectedCurrentHoldings();
+  const archived = current.status === "archived_replay_return_pending";
   const totalWeight=rows.reduce((sum,row)=>sum+row.target_weight,0);
-  document.getElementById("current-portfolio-title").textContent=`Portefeuille en vigueur au ${dateLabel(current.as_of_date)}`;
+  document.getElementById("current-portfolio-title").textContent=archived
+    ? `Dernier panier du replay · ${monthLabel(current.holding_month)}`
+    : `Portefeuille en vigueur au ${dateLabel(current.as_of_date)}`;
+  if (archived) {
+    document.getElementById("current-portfolio-kicker").textContent = "Archive du replay";
+    document.getElementById("current-portfolio-note").textContent = "Panier figé, pas un signal actuel. Son rendement n’est pas évalué dans ce backtest.";
+    document.getElementById("current-portfolio-status").textContent = "Non évalué dans ce replay";
+    document.getElementById("export-current-holdings").textContent = "Exporter le panier figé";
+  }
   document.getElementById("current-as-of-date").textContent=dateLabel(current.as_of_date);
   document.getElementById("current-decision-month").textContent=monthLabel(current.decision_month);
   document.getElementById("current-holding-month").textContent=monthLabel(current.holding_month);
@@ -297,7 +306,9 @@ function exportCurrentHoldings() {
   const rows=selectedCurrentHoldings(); if (!rows.length) return;
   const fields=["strategy","decision_month","holding_month","ticker","target_weight","selection_rank","score","sector","n_models"];
   const csv=[fields.join(","),...rows.map(row=>fields.map(field=>`"${String(row[field]??"").replaceAll('"','""')}"`).join(","))].join("\n");
-  const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));link.download=`alpharank_portefeuille_en_vigueur_${state.data.current_portfolio.as_of_date}.csv`;link.click();URL.revokeObjectURL(link.href);
+  const current = state.data.current_portfolio;
+  const label = current.status === "archived_replay_return_pending" ? "panier_du_replay" : "portefeuille_en_vigueur";
+  const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));link.download=`alpharank_${label}_${current.as_of_date}.csv`;link.click();URL.revokeObjectURL(link.href);
 }
 
 function renderMethodologies() {
@@ -346,6 +357,9 @@ function renderCoverage() {
 
 function renderMetadata() {
   const D=state.data; document.getElementById("report-generated").textContent=D.generated_at_utc; document.getElementById("report-calendar").textContent=`${D.calendar.months} mois · ${D.calendar.start.slice(0,7)} → ${D.calendar.end.slice(0,7)}`;document.getElementById("status-message").textContent=D.status.message;renderCoverage();
+  if (D.headline) document.getElementById("report-headline").textContent = D.headline;
+  if (D.subtitle) document.getElementById("report-subtitle").textContent = D.subtitle;
+  document.title = D.title;
 }
 
 function observeNavigation() {

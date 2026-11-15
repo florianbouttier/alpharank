@@ -10,6 +10,7 @@ from pathlib import Path
 
 from alpharank.reporting.performance_report import (
     PerformanceReportInputs,
+    SectorReportInputs,
     write_performance_report,
 )
 
@@ -22,12 +23,26 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--legacy-run-dir", type=Path, required=True)
     parser.add_argument("--snapshot-manifest", type=Path, required=True)
     parser.add_argument("--portfolio-as-of-evidence", type=Path, required=True)
+    parser.add_argument("--sector-backtest-dir", type=Path, help="Sealed sector backtest package")
+    parser.add_argument("--sector-history-dir", type=Path, help="Matching DEF sector release")
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser
 
 
 def main() -> None:
-    args = _parser().parse_args()
+    parser = _parser()
+    args = parser.parse_args()
+    if (args.sector_backtest_dir is None) != (args.sector_history_dir is None):
+        parser.error("--sector-backtest-dir and --sector-history-dir must be supplied together")
+    sector = (
+        SectorReportInputs(
+            backtest_dir=args.sector_backtest_dir.resolve(),
+            sector_history_dir=args.sector_history_dir.resolve(),
+            repository_root=Path(__file__).resolve().parents[2],
+        )
+        if args.sector_backtest_dir is not None
+        else None
+    )
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     paths = write_performance_report(
         PerformanceReportInputs(
@@ -35,6 +50,7 @@ def main() -> None:
             legacy_run_dir=args.legacy_run_dir.resolve(),
             snapshot_manifest=args.snapshot_manifest.resolve(),
             portfolio_as_of_evidence=args.portfolio_as_of_evidence.resolve(),
+            sector=sector,
         ),
         output_dir=args.output_dir.resolve(),
         generated_at_utc=datetime.now(timezone.utc),
