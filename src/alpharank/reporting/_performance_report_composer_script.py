@@ -9,6 +9,7 @@ const COMPOSER_NAME = "Portefeuille composé";
 
 function initializeComposer() {
   const composer = state.data.portfolio_composer;
+  document.getElementById("composer-scope").hidden = composer.strategy_order.length === state.data.strategy_order.length - 1;
   state.composerStrategies = COMPOSER_DEFAULT_STRATEGIES.filter(name => composer.strategy_order.includes(name));
   if (!state.composerStrategies.length) state.composerStrategies = [composer.strategy_order[0]];
   document.getElementById("composer-all").addEventListener("click", () => setComposerStrategies(composer.strategy_order));

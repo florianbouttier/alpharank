@@ -17,6 +17,38 @@ LEGACY_V2_TOLERANCE = 1e-12
 HOLDING_MONTH_MEMBERSHIP_POLICY_ID = "holding_month_membership_before_ranking_v1"
 
 
+def simulate_legacy_equal_on_common_calendar(
+    legacy_holdings: pl.DataFrame,
+    common_monthly: pl.DataFrame,
+    *,
+    transaction_cost_bps: float,
+) -> pl.DataFrame:
+    """Value frozen Combined_Equal holdings on the common SPY calendar and costs."""
+
+    benchmark = (
+        common_monthly.filter(pl.col("strategy") == "SPY total return")
+        .select("holding_month", pl.col("net_return").alias("benchmark_return"))
+        .sort("holding_month")
+    )
+    if benchmark.is_empty() or not benchmark["benchmark_return"].is_finite().fill_null(False).all():
+        raise ValueError("Legacy Equal comparison needs finite common SPY returns.")
+    holdings = legacy_holdings.filter(pl.col("strategy") == "Combined_Equal").join(
+        benchmark.select("holding_month"), on="holding_month", how="semi"
+    )
+    monthly = simulate_weighted_portfolio(
+        holdings,
+        transaction_cost_bps=transaction_cost_bps,
+        missing_return_policy="raise",
+        causal_timing_policy="legacy_month_only",
+    ).sort("holding_month")
+    if not monthly["holding_month"].equals(benchmark["holding_month"]):
+        raise ValueError("Legacy Equal holdings do not cover the common SPY calendar.")
+    difference = (monthly["benchmark_return"] - benchmark["benchmark_return"]).abs().max()
+    if difference is None or float(difference) > LEGACY_V2_TOLERANCE:
+        raise ValueError("Legacy Equal returns use a different benchmark than the common replay.")
+    return monthly
+
+
 def require_holding_month_membership(
     signal_candidates: pl.DataFrame,
     monthly_membership: pl.DataFrame,

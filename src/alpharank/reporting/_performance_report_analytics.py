@@ -24,6 +24,14 @@ REPORT_FRONTIER_STRATEGY_ORDER = (
     "Boosting · Top 5",
     "Boosting tendance · Top 5",
 )
+REPORT_SECTOR_COMPOSER_SLEEVES = frozenset(
+    (
+        *REPORT_FRONTIER_STRATEGY_ORDER,
+        "Legacy · Equal",
+        "Boosting · Top 5 sectoriel",
+        "Boosting tendance · Top 5 sectoriel",
+    )
+)
 
 
 def build_report_analytics(
@@ -52,10 +60,14 @@ def build_report_analytics(
         metric_fields=performance_metric_fields,
         calendar_year_boundaries_only=True,
     )
+    composer_order = [strategy for strategy in strategy_order if strategy != benchmark_strategy]
+    if REPORT_SECTOR_COMPOSER_SLEEVES.issubset(composer_order):
+        # Keep the offline payload bounded; all Top-N variants remain in Comparer.
+        composer_order = [s for s in composer_order if s in REPORT_SECTOR_COMPOSER_SLEEVES]
     composer = equal_weight_strategy_combination_grid(
         series,
         benchmark_strategy=benchmark_strategy,
-        strategy_order=[strategy for strategy in strategy_order if strategy != benchmark_strategy],
+        strategy_order=composer_order,
         metric_fields=composer_metric_fields,
     )
     frontiers = constrained_strategy_frontier_grid(

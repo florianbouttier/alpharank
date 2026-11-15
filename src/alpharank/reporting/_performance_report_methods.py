@@ -9,9 +9,7 @@ from alpharank.reporting._performance_report_sector import SectorReportData
 def methodology_cards(sector: SectorReportData | None) -> list[dict[str, object]]:
     """Describe only the methods represented in the selected report profile."""
 
-    cards = [_legacy_frequency_card()]
-    if sector is None:
-        cards.append(_legacy_equal_card())
+    cards = [_legacy_frequency_card(), _legacy_equal_card()]
     cards.extend(_boosting_cards())
     if sector is not None:
         cards.append(_sector_card(sector))

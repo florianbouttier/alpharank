@@ -139,6 +139,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 100 | `DATA-047` | reconstruire l'historique sectoriel causal depuis les en-têtes SEC | lot DATA ci-dessous | fait |
 | 101 | `REPLAY-014` | backtester les allocations sectorielles sur tout l'historique causal | lot REPLAY ci-dessous | fait |
 | 102 | `REPORT-018` | rendre le backtest sectoriel dans le dashboard de performance standard | lot REPORT ci-dessous | fait |
+| 103 | `REPORT-019` | réunir toutes les stratégies standard et sectorielles dans le dashboard | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1323,6 +1324,23 @@ doublons exacts et preuve de récupération.
 | `REPORT-016` | transformer le rapport en performance desk pleine largeur et publier le bon artefact | fait | navigation horizontale, graphique et KPI réunis sans défilement latéral, nouvel artefact ouvert dans un onglet dédié sans écraser le rapport historique du 8 octobre, parité économique et preuve `docs/research/backtest_performance_desk_20261030.md` |
 | `REPORT-017` | reconstruire le desk autour du graphique et d'un scoreboard interactif | fait | dix sélecteurs visibles, quatre périodes en un clic, graphique dominant, scoreboard sans cartes KPI et preuve `docs/research/backtest_interactive_performance_desk_20261030.md` |
 | `REPORT-018` | exposer les six séries de `REPLAY-014` dans le rapport standard | fait | HTML `8a75190b…7c2c`, 182 mois et 1 092 lignes mensuelles identiques, 33 KPI, cinq titres et onze secteurs documentés ; panier figé sans promotion |
+| `REPORT-019` | unifier la comparaison standard et sectorielle | fait | HTML `399619d8…fff0`, 13 séries sur 182 mois, 2 184 lignes reprises à l'identique et Legacy Equal aligné aux mêmes frais |
+
+### Détail de `REPORT-019`
+
+- **Objectif** : comparer dans le même HTML Legacy Frequency et Equal, les
+  Boosting natif et tendance Top 5/10/15/20, les deux Top 5 sectoriels et SPY.
+- **Périmètre** : données et positions déjà scellées, valorisation d'Equal
+  par le moteur commun sur la fenêtre et aux frais de la comparaison.
+- **Hors périmètre** : nouveau signal, refresh, variantes Legacy PE
+  diagnostiques, changement de production ou publication Portfolio.
+- **Acceptation** : 13 séries alignées et toutes sélectionnables ; vues
+  standard préservées ; composeur borné aux deux Legacy et quatre Top 5.
+- **Validations** : 32 tests ciblés, parité des lignes avec les sources, coûts
+  Legacy Equal, QA navigateur desktop/mobile, documentation et manifeste hashé.
+- **Impact** : net Legacy Equal aligné à 10 bps × turnover dans ce rapport
+  uniquement ; poids, rendements bruts et autres séries inchangés.
+- **Rollback** : réutiliser le HTML figé de `REPORT-018`.
 
 ### Détail de `REPORT-018`
 

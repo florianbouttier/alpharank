@@ -58,15 +58,25 @@ Aucun de ces chemins n'est résolu par récence, par nom de dossier ou par un
 pointeur `latest`. Les fichiers et leurs hashes sont recopiés dans le manifeste
 du rapport.
 
-Le profil sectoriel `REPORT-018` ajoute deux chemins explicites,
-`--sector-backtest-dir` et `--sector-history-dir`. Il lit les six séries de
-`REPLAY-014` telles que produites : Legacy Frequency, les deux Boosting Top 5,
-leurs deux variantes sectorielles et SPY. Le générateur vérifie les hashes du
-replay commun, des sorties sectorielles et des allocations sources ; les quatre
-références doivent être identiques au replay commun. Les allocations non
-valorisées viennent des Parquet scellés par le backtest, séparément des
-holdings historiques. Un secteur absent des référentiels de holdings ne vaut
-jamais une concentration de 0 %.
+Le profil unifié `REPORT-019` ajoute deux chemins explicites,
+`--sector-backtest-dir` et `--sector-history-dir`. Il montre les onze séries
+standard plus les deux Top 5 sectoriels de `REPLAY-014` : Legacy Frequency et
+Equal, Boosting natif et tendance en Top 5/10/15/20, Boosting natif et tendance
+Top 5 sectoriel, et SPY total return. Les variantes Legacy PE expérimentales
+du replay commun ne font pas partie du comparatif standard.
+
+Les hashes du replay commun, des sorties sectorielles et des allocations
+sources sont vérifiés. Les quatre références de `REPLAY-014` doivent être
+identiques au replay commun avant de n'ajouter que les deux séries sectorielles.
+La commande prépare `legacy_equal_common_monthly.parquet` en valorisant les
+positions Equal figées au même calendrier, au même benchmark SPY et au même
+coût par turnover que le replay commun. Cette étape précède le rendu et ne
+reconstruit aucun signal. Le profil standard sans les deux options sectorielles
+conserve son ancienne source Equal, à 0 bps dans ce run historique.
+
+Les allocations non valorisées viennent des Parquet scellés du même run,
+séparément des positions historiques. Un secteur absent du référentiel de
+positions ne vaut jamais une concentration de 0 %.
 
 ## KPI et filtres temporels
 
@@ -126,10 +136,11 @@ poches ne sont pas fusionnées au niveau des titres : si deux stratégies
 détiennent la même action, cette exposition existe dans chacune de leurs
 poches et contribue deux fois selon leurs poids respectifs.
 
-Pour les dix stratégies hors SPY du profil standard (cinq en profil sectoriel),
-les 1 023 combinaisons non vides (31 en profil sectoriel), leurs
-rendements mensuels et leurs KPI par fenêtre annuelle sont calculés avant le
-rendu par `equal_weight_strategy_combination_grid()`. Le navigateur transforme
+Le profil standard compose dix poches (1 023 combinaisons). Le profil unifié
+compose les deux Legacy et les quatre Top 5 (63 combinaisons), limitant le poids
+du HTML autonome ; les Top 10/15/20 restent sélectionnables dans « Comparer ».
+Les rendements et KPI par fenêtre annuelle sont pré-calculés par
+`equal_weight_strategy_combination_grid()`. Le navigateur transforme
 la sélection en masque pour choisir la ligne pré-calculée ; il ne calcule aucun
 rendement total, CAGR, volatilité, Sharpe, Sortino ou max drawdown. Il projette
 seulement les rendements mensuels pré-calculés en courbes de richesse et de

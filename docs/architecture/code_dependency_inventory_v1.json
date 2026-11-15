@@ -1627,6 +1627,16 @@
     {
       "kind": "import",
       "source": "scripts/research/build_backtest_performance_report.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/research/build_backtest_performance_report.py",
+      "target": "src/alpharank/replay/legacy.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/research/build_backtest_performance_report.py",
       "target": "src/alpharank/reporting/performance_report.py"
     },
     {
@@ -6592,6 +6602,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/replay/legacy.py",
         "src/alpharank/reporting/performance_report.py"
       ],
       "invokes": [],
@@ -8962,6 +8974,7 @@
       "module": "alpharank.governance_contracts.common",
       "path": "src/alpharank/governance_contracts/common.py",
       "readers": [
+        "scripts/research/build_backtest_performance_report.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/governance_contracts/baseline.py",
         "src/alpharank/governance_contracts/confirmation.py",
@@ -10330,6 +10343,7 @@
       "module": "alpharank.replay.legacy",
       "path": "src/alpharank/replay/legacy.py",
       "readers": [
+        "scripts/research/build_backtest_performance_report.py",
         "src/alpharank/legacy_v2.py",
         "src/alpharank/production/legacy_pipeline.py",
         "src/alpharank/replay/common.py"
@@ -11206,7 +11220,7 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 162,
-    "internal_edge_count": 857,
+    "internal_edge_count": 859,
     "library_count": 241,
     "python_file_count": 410,
     "script_count": 169,

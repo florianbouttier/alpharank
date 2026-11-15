@@ -163,6 +163,7 @@ def _performance_sections() -> str:
       <aside class="studio-contract composer-only" id="composer-contract" hidden>
         <strong>Laboratoire post-hoc, non promu.</strong>
         Équipondération mensuelle des poches ; rendements déjà nets de leurs frais propres et aucun coût supplémentaire entre poches. Un titre détenu par plusieurs stratégies reste exposé dans chacune.
+        <span id="composer-scope" hidden> Composer : Legacy et les quatre Top 5. Les Top 10/15/20 restent dans Comparer.</span>
       </aside>
       <section class="frontier-only frontier-studio" id="frontier-studio" hidden>
         <aside class="studio-contract">

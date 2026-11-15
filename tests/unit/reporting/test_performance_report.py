@@ -230,9 +230,14 @@ def test_sector_profile_keeps_all_realized_series_and_separates_last_basket(tmp_
     trend = "Boosting tendance · Top 5 sectoriel"
     window = payload["metric_windows"]["2026-01-01|2026-02-01"]
     trend_values = window[payload["strategy_order"].index(trend)]
-    assert len(payload["strategy_order"]) == 6
-    assert len(payload["portfolio_composer"]["combination_masks"]) == 31
-    assert len(payload["monthly"]) == 12
+    assert set(payload["strategy_order"]) == {spec.label for spec in STRATEGY_SPECS} | {
+        "Boosting · Top 5 sectoriel",
+        trend,
+    }
+    composer = payload["portfolio_composer"]
+    assert len(composer["combination_masks"]) == 63 and trend in composer["strategy_order"]
+    assert len(payload["monthly"]) == 26
+    assert payload["contracts"]["report_task"] == "REPORT-019"
     assert trend_values[PERFORMANCE_METRIC_FIELDS.index("maximum_sector_weight")] == 0.2
     assert payload["status"]["publication_eligible"] is False
     assert "Consumer Defensive" in next(
@@ -267,21 +272,13 @@ def _sector_report_inputs(root: Path) -> PerformanceReportInputs:
     copyfile(Path(__file__).resolve().parents[3] / taxonomy, root / taxonomy)
     sector_history = release / "sector_history.parquet"
     pl.DataFrame({"Sector": ["Energy"]}).write_parquet(sector_history)
-    _write_json(
-        release / "manifest.json",
-        {
-            "release_id": "test-sector-id",
-            "files": {
-                sector_history.name: {
-                    "sha256": sha256_path(sector_history),
-                }
-            },
-        },
-    )
+    sector_digest = sha256_path(sector_history)
+    files = {sector_history.name: {"sha256": sector_digest}}
+    _write_json(release / "manifest.json", {"release_id": "test-sector-id", "files": files})
     allocation_inputs = {
         "predictions_sha256": "test-predictions",
         "terminal_registry_sha256": "test-terminal-registry",
-        "sector_history_sha256": sha256_path(sector_history),
+        "sector_history_sha256": sector_digest,
     }
     file_hashes, manifest_hashes = _seal_common_fixture(inputs, allocation_inputs)
     months = [date(2026, 1, 1), date(2026, 2, 1)]
@@ -313,7 +310,9 @@ def _sector_report_inputs(root: Path) -> PerformanceReportInputs:
             "files": {path.name: sha256_path(path) for path in (monthly_path, holdings_path)},
         },
     )
-    return replace(inputs, sector=SectorReportInputs(backtest, release, root))
+    equal = root / "aligned-legacy-equal.parquet"
+    _monthly(["Combined_Equal"], months).write_parquet(equal)
+    return replace(inputs, sector=SectorReportInputs(backtest, release, root, equal))
 
 
 def _seal_common_fixture(

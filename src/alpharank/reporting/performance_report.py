@@ -17,7 +17,7 @@ from alpharank.portfolio.combinations import (
 from alpharank.portfolio.comparison import (
     performance_by_start_year,
 )
-from alpharank.replay.sector_backtest import REFERENCE_STRATEGIES, SECTOR_NATIVE, SECTOR_TREND
+from alpharank.replay.sector_backtest import SECTOR_NATIVE, SECTOR_TREND
 from alpharank.reporting._performance_report_analytics import (
     build_report_analytics,
     strategy_frontier_payload,
@@ -157,7 +157,7 @@ STRATEGY_SPECS = (
 )
 
 SECTOR_STRATEGY_SPECS = (
-    *(spec for spec in STRATEGY_SPECS if spec.source_strategy in REFERENCE_STRATEGIES[:-1]),
+    *STRATEGY_SPECS[:-1],
     StrategySpec(
         "Boosting · Top 5 sectoriel",
         "common",
@@ -194,6 +194,7 @@ def build_performance_report_payload(
 ) -> dict[str, Any]:
     """Build a browser payload without recalculating KPI outside the common engine."""
 
+    source_paths = _source_paths(inputs)
     (
         common_manifest,
         snapshot_manifest,
@@ -201,10 +202,9 @@ def build_performance_report_payload(
         legacy_monthly,
         common_holdings,
         legacy_holdings,
-    ) = _load_report_inputs(inputs)
+    ) = _load_report_inputs(source_paths)
 
     sector = None
-    source_paths = _source_paths(inputs)
     specs = STRATEGY_SPECS
     if inputs.sector is not None:
         sector = load_sector_report_data(
@@ -224,7 +224,7 @@ def build_performance_report_payload(
         ):
             raise ValueError("Snapshot manifest does not match the sealed Legacy run.")
         source_paths.update(sector.source_paths, legacy_run_manifest=legacy_manifest)
-        common_monthly = sector.monthly
+        common_monthly = pl.concat([common_monthly, sector.monthly], how="diagonal_relaxed")
         common_holdings = pl.concat([common_holdings, sector.holdings], how="diagonal_relaxed")
         specs = SECTOR_STRATEGY_SPECS
 
@@ -301,21 +301,21 @@ def _report_analysis(
 
 
 def _set_sector_context(payload: dict[str, Any], release_id: str, taxonomy_id: str) -> None:
-    payload["title"] = "AlphaRank · Top 5 sectoriels face au SPY"
-    payload["headline"] = "Top 5 sectoriels face au SPY"
+    payload["title"] = "AlphaRank · Toutes les stratégies face au SPY"
+    payload["headline"] = "Toutes les stratégies face au SPY"
     payload["subtitle"] = (
-        "Cinq actions à 20 %, une par secteur. Comparez le natif et la tendance, "
-        "avec et sans plafond. « Tout » commence au premier mois commun, pas en 2010."
+        "Legacy, Boosting natif et tendance, avec leurs variantes Top 5 sectorielles. "
+        "« Tout » commence au premier mois commun, pas en 2010."
     )
     payload["default_curves"] = [spec.label for spec in SECTOR_STRATEGY_SPECS]
     payload["status"]["publication_eligible"] = False
     payload["status"]["message"] = (
-        "REPLAY-014 · diagnostic R&D, sans promotion ni mise à jour de signal. "
-        "Concentration sectorielle renseignée uniquement pour les deux Top 5 sectoriels."
+        "Replay commun et REPLAY-014 · R&D, aucun nouveau signal. "
+        "Legacy Equal utilise le même calendrier et les mêmes frais."
     )
     contracts = payload["contracts"]
     contracts.update(
-        report_task="REPORT-018", sector_release=release_id, sector_taxonomy=taxonomy_id
+        report_task="REPORT-019", sector_release=release_id, sector_taxonomy=taxonomy_id
     )
     contracts["transaction_cost"] = dict(
         contracts["transaction_cost"],
@@ -332,7 +332,7 @@ def _report_bounds(monthly: pl.DataFrame) -> tuple[date, date]:
 
 
 def _load_report_inputs(
-    inputs: PerformanceReportInputs,
+    paths: dict[str, Path],
 ) -> tuple[
     dict[str, Any],
     dict[str, Any],
@@ -342,12 +342,12 @@ def _load_report_inputs(
     pl.DataFrame,
 ]:
     return (
-        _load_json(inputs.common_replay_dir / "manifest.json"),
-        _load_json(inputs.snapshot_manifest),
-        pl.read_parquet(inputs.common_replay_dir / "comparison_common_monthly.parquet"),
-        pl.read_parquet(inputs.legacy_run_dir / "legacy_common_monthly.parquet"),
-        pl.read_parquet(inputs.common_replay_dir / "comparison_common_holdings.parquet"),
-        pl.read_parquet(inputs.legacy_run_dir / "legacy_common_holdings.parquet"),
+        _load_json(paths["common_manifest"]),
+        _load_json(paths["snapshot_manifest"]),
+        pl.read_parquet(paths["common_monthly"]),
+        pl.read_parquet(paths["legacy_monthly"]),
+        pl.read_parquet(paths["common_holdings"]),
+        pl.read_parquet(paths["legacy_holdings"]),
     )
 
 
@@ -461,16 +461,15 @@ def write_performance_report(
 def _assemble_monthly(
     common: pl.DataFrame, legacy: pl.DataFrame, *, specs: tuple[StrategySpec, ...]
 ) -> pl.DataFrame:
-    start = common["holding_month"].min()
-    end = common["holding_month"].max()
+    months = common["holding_month"].unique().sort()
     parts: list[pl.DataFrame] = []
     for spec in specs:
         source = common if spec.source == "common" else legacy
         part = source.filter(
             (pl.col("strategy") == spec.source_strategy)
-            & pl.col("holding_month").is_between(start, end)
+            & pl.col("holding_month").is_between(months.min(), months.max())
         ).with_columns(pl.lit(spec.label).alias("strategy"))
-        if part.height != common["holding_month"].n_unique():
+        if not part["holding_month"].sort().equals(months):
             raise ValueError(f"Strategy {spec.label!r} does not cover the common calendar")
         parts.append(part)
     return pl.concat(parts, how="diagonal_relaxed").sort(["holding_month", "strategy"])
@@ -779,7 +778,11 @@ def _source_paths(inputs: PerformanceReportInputs) -> dict[str, Path]:
         "boosting_live_holdings": (
             inputs.common_replay_dir / "boosting_live_score_holdings.parquet"
         ),
-        "legacy_monthly": inputs.legacy_run_dir / "legacy_common_monthly.parquet",
+        "legacy_monthly": (
+            inputs.sector.legacy_equal_monthly
+            if inputs.sector is not None
+            else inputs.legacy_run_dir / "legacy_common_monthly.parquet"
+        ),
         "legacy_holdings": inputs.legacy_run_dir / "legacy_common_holdings.parquet",
         "legacy_detailed_holdings": (
             inputs.legacy_run_dir / "legacy_detailed_returns_polars.parquet"

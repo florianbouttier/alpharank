@@ -13,6 +13,7 @@ from alpharank.replay.common_strategy import (
     build_common_strategy_replay,
     build_native_boosting_holdings,
 )
+from alpharank.replay.legacy import simulate_legacy_equal_on_common_calendar
 
 
 def test_common_strategy_builder_is_exposed_by_replay_package() -> None:
@@ -60,3 +61,38 @@ def test_public_builder_fails_closed_when_required_inputs_are_missing(tmp_path: 
 
     with pytest.raises(FileNotFoundError, match="data_input_manifest.json"):
         build_common_strategy_replay(config)
+
+
+@pytest.mark.parametrize("benchmark_return", [0.01, 0.02])
+def test_legacy_equal_replay_uses_common_calendar_costs_and_benchmark(
+    benchmark_return: float,
+) -> None:
+    holding_month = date(2025, 2, 1)
+    holdings = pl.DataFrame(
+        {
+            "strategy": ["Combined_Equal"] * 2,
+            "decision_month": [date(2024, 12, 1), date(2025, 1, 1)],
+            "holding_month": [date(2025, 1, 1), holding_month],
+            "ticker": ["TEST"] * 2,
+            "target_weight": [1.0] * 2,
+            "realized_return": [0.01, 0.04],
+            "benchmark_return": [0.0, 0.01],
+        }
+    )
+    common = pl.DataFrame(
+        {
+            "strategy": ["SPY total return"],
+            "holding_month": [holding_month],
+            "net_return": [benchmark_return],
+        }
+    )
+    if benchmark_return != 0.01:
+        with pytest.raises(ValueError, match="different benchmark"):
+            simulate_legacy_equal_on_common_calendar(holdings, common, transaction_cost_bps=10.0)
+        return
+
+    monthly = simulate_legacy_equal_on_common_calendar(holdings, common, transaction_cost_bps=10.0)
+    assert monthly["holding_month"].to_list() == [holding_month]
+    assert monthly["turnover"].item() == pytest.approx(1.0)
+    assert monthly["transaction_cost"].item() == pytest.approx(0.001)
+    assert monthly["net_return"].item() == pytest.approx(0.039)

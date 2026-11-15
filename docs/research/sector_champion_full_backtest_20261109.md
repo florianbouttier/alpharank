@@ -140,7 +140,9 @@ rappelle les cinq titres équipondérés et les onze secteurs SIC AlphaRank,
   globale reste rouge sur des écarts préexistants hors de ce lot : baseline de
   taille, inventaire des lecteurs data et typage du registre terminal.
 
-Reproduction (choisir une nouvelle destination pour conserver cet artefact) :
+Commande (profil à six séries avec le code de `72f9e89` ; le code actuel
+construit le profil unifié `REPORT-019`). Choisir une nouvelle destination pour
+conserver l'artefact original :
 
 ```bash
 .venv/bin/python scripts/research/build_backtest_performance_report.py \
@@ -152,3 +154,30 @@ Reproduction (choisir une nouvelle destination pour conserver cet artefact) :
   --sector-history-dir data/warehouse/def/sector_history/sector_history_55fbc0c519ea \
   --output-dir outputs/performance_reports/<nouveau-run>
 ```
+
+## Dashboard unifié — preuve du 15 novembre 2026 (`REPORT-019`)
+
+La même commande, dans une nouvelle destination
+`outputs/performance_reports/REPORT-019_20261115/`, réunit les onze séries
+standard et les deux Top 5 sectoriels. Ce sont 13 séries, 182 mois communs
+d'août 2011 à septembre 2026 et 136 fenêtres de 33 KPI. Les références
+Legacy PE diagnostiques restent hors du rapport standard. Le composeur garde
+les deux Legacy et les quatre Top 5 (63 combinaisons) ; les autres tailles
+sont toutes disponibles en comparaison. Le panier figé d'octobre demeure hors KPI.
+
+- Même composition `e0e6045a5b9b2702840a4f96c94618aecc708272adacfea8a2c2e843790ef95a`
+  et replay commun `c315821921d951240ad3ac5f2de54a557b5e4f2b`, SPY total return.
+- Sur les 2 366 lignes mensuelles, 2 184 sont identiques à leurs sources.
+  Les 182 mois Legacy Equal sont valorisés par le moteur commun à 10 bps ×
+  turnover à partir des mêmes positions et des mêmes rendements bruts. Le
+  benchmark mensuel est aligné à `1e-12`. Les 594 cellules KPI communes au
+  `REPORT-018` pour les départs 2011/2015/2020 concordent à `1e-12`.
+- 25 310 positions historiques et 126 positions du panier figé d'octobre.
+  La règle des cinq secteurs et leur taxonomie sont inchangées.
+- HTML SHA-256 `399619d85854f2dbcd586daa816ca299250bbbf39b41b5005cfdf4290872fff0` ;
+  manifeste `470d65172c62fd9a0feb8331bffbcf60661245c003ae218f41f9d50542151d50` ;
+  Parquet Equal `c6d655b946df0e4e426bfe66527aac610dacddea9c9557a4890b1c93fa5462a6`.
+- 32 tests ciblés verts. QA navigateur à 1 200 et 390 px : 13 courbes,
+  survol, filtres 2015/2020, KPI, model cards, paniers et modes Composer et
+  Frontières, sans débordement global ni requête externe.
+- Aucun refresh, réentraînement, changement de production ni publication Portfolio.

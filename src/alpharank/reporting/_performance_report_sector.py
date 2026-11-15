@@ -23,6 +23,7 @@ class SectorReportInputs:
     backtest_dir: Path
     sector_history_dir: Path
     repository_root: Path
+    legacy_equal_monthly: Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +46,7 @@ def load_sector_report_data(
     common_manifest: dict[str, Any],
     reference_monthly: pl.DataFrame,
 ) -> SectorReportData:
-    """Read the sealed sector comparison and attach only the matching pending tail."""
+    """Project the sector variants after checking their reference series and pending tail."""
 
     paths = {
         "sector_backtest_manifest": inputs.backtest_dir / "manifest.json",
@@ -79,7 +80,7 @@ def load_sector_report_data(
         realized_end=end,
     )
     return SectorReportData(
-        monthly,
+        monthly.filter(pl.col("strategy").is_in([SECTOR_NATIVE, SECTOR_TREND])),
         holdings,
         pending,
         release["release_id"],
