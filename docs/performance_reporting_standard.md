@@ -258,6 +258,15 @@ et non un portefeuille en vigueur au moment de la consultation. L'état
 `archived_replay_return_pending` signifie seulement que son rendement n'a pas
 été évalué par ce replay ; des prix plus récents n'étendent pas ses KPI.
 
+Un suivi prix seul utilise `scripts/research/value_frozen_portfolios.py`, un
+rapport source et un reçu RAW nommés explicitement. Il produit un rapport
+Markdown, un CSV et un manifeste séparés, sans réécrire le HTML historique.
+Le [contrat de valorisation](common_portfolio_backtest_engine.md#frozen-basket-price-valuation)
+impose les poids dérivés depuis l'entrée, les dates communes à SPY et le libellé
+« maintien hypothétique » après le mois prévu. Ce suivi ne remplace ni un
+refresh complet des entrées modèles, ni le contrôle inter-vintages obligatoire
+lors d'un tel refresh.
+
 ## Portefeuilles historiques
 
 Chaque panier affiche la stratégie, le mois de décision, le mois de détention,

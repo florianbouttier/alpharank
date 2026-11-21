@@ -14,6 +14,9 @@ Commandes :
   options `--sector-backtest-dir` et `--sector-history-dir` ajoutent les deux
   Top 5 sectoriels au rapport standard et alignent Legacy Equal sur les frais
   communs à partir des positions figées.
+- `value_frozen_portfolios.py` valorise les paniers d'un rapport scellé à partir
+  d'un reçu prix RAW explicite, avec fenêtres datées, contrôles de hashes et
+  rapport Markdown/CSV ; aucun téléchargement, signal ou replay implicite.
 
 Dossiers enfants : aucun.
 

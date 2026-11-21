@@ -181,3 +181,123 @@ sont toutes disponibles en comparaison. Le panier figé d'octobre demeure hors K
   survol, filtres 2015/2020, KPI, model cards, paniers et modes Composer et
   Frontières, sans débordement global ni requête externe.
 - Aucun refresh, réentraînement, changement de production ni publication Portfolio.
+
+## Suivi prix au 21 novembre 2026 (`REPORT-020`)
+
+Demande : retélécharger les prix et montrer la performance récente des stratégies.
+Ce suivi est **une valorisation des paniers figés d'octobre**, décidés fin
+septembre, pas un refresh complet des entrées modèles ou un nouveau backtest.
+Les prix sont téléchargés le 21 novembre à 12:24 UTC ; la dernière clôture
+commune est celle du **20 novembre 2026**. Aucun signal de novembre n'a été
+produit. Les résultats de novembre et depuis l'entrée supposent de conserver
+le panier d'octobre au-delà de son mois prévu, sans rééquilibrage.
+
+### Sources, couverture et artefacts
+
+- Source : `REPORT-019`, même composition `e0e6045a…ef95a` et HTML inchangé
+  au SHA-256 `399619d85854f2dbcd586daa816ca299250bbbf39b41b5005cfdf4290872fff0`.
+  Ses 182 mois de KPI et ses positions historiques ne sont pas réécrits.
+- 126 positions, 12 stratégies, 32 titres distincts et SPY. Les 33 séries ont
+  chacune 38 observations du 30 septembre au 20 novembre : **100 % de couverture**
+  sur ce calendrier observé, sans remplissage ni titre écarté.
+- Téléchargement par `YahooFinanceClient` existant, avec reprises par titre
+  après les erreurs de lot. Les observations reçues et normalisées par cet
+  adaptateur sont archivées en JSON RAW, séparément des snapshots publiés :
+  `data/warehouse/raw/yfinance/frozen_portfolio_valuations/`.
+  Reçu `receipts/valuation_20261121_122307.json`, objet prix SHA-256
+  `36882f7bef544d2ec80f02eacbb42d20535bea557852e032651654221b895a4c`.
+- Sortie canonique du suivi : `outputs/performance_reports/REPORT-020_20261121_02/`.
+  `valuation_report.md` contient les 13 séries, dont SPY, et les quatre fenêtres ;
+  `valuation.csv`, `frozen_holdings.parquet` et `downloaded_prices.parquet`
+  conservent les chiffres non arrondis et les entrées.
+- Manifeste SHA-256
+  `fecd2caea6989956209db3c66810096528639e0cf219f55aae6b387330dd2a76` ;
+  valorisations CSV `30bdad13bf8e101eb1bfe090f732243d7e73530c5ece565ebf75c165046f932d` ;
+  validation `89f04776fa2ddd1d0d812283e9e93d926415b994b6040f79a5e0488fb59c24da`.
+  Le manifeste conserve aussi les hashes du script, du moteur et de l'allocation,
+  ainsi que Python 3.11.15 et les dates exactes.
+
+### Résultats comparables
+
+Rendements de richesse en USD depuis les clôtures indiquées, avec
+`adjusted_close`, bruts des frais d'entrée/sortie et sans change. Les poids
+dérivent depuis le 30 septembre ; aucun retour fictif à 20 % début novembre.
+Les frais de 10 bps du backtest mensuel ne sont pas substitués à ces rendements
+bruts de valorisation. Aucun CAGR n'est annualisé sur ces fenêtres courtes.
+
+| Stratégie | Octobre : 30/09 → 30/10 | Novembre : 30/10 → 20/11 | Semaine : 13/11 → 20/11 |
+| --- | ---: | ---: | ---: |
+| Legacy Frequency | −12,80 % | −24,67 % | −15,75 % |
+| Legacy Equal | −14,87 % | −24,87 % | −16,39 % |
+| Boosting Top 5 | +8,12 % | −10,85 % | −13,27 % |
+| Boosting Top 10 | +5,32 % | −7,49 % | −11,04 % |
+| Boosting Top 15 | −0,11 % | −11,37 % | −11,33 % |
+| Boosting Top 20 | −1,48 % | −13,10 % | −11,52 % |
+| Boosting tendance Top 5 | −8,40 % | −21,50 % | −13,24 % |
+| Boosting tendance Top 10 | −12,23 % | −23,23 % | −14,61 % |
+| Boosting tendance Top 15 | −12,06 % | −22,46 % | −13,88 % |
+| Boosting tendance Top 20 | −10,69 % | −21,95 % | −12,78 % |
+| Boosting Top 5 sectoriel | +3,37 % | −3,37 % | −10,16 % |
+| Boosting tendance Top 5 sectoriel | +7,62 % | −17,84 % | −12,66 % |
+| SPY total return | −0,91 % | −8,72 % | −8,56 % |
+
+### Cohérence contrôlée et limites
+
+- Identité avant/après de l'objet complet des paniers (titres, poids, scores et
+  métadonnées) : SHA-256
+  `6508340a92484ddfea4d723ef859c3d1ce50e778dc471ef3c4b2366872957367`.
+  Aucun entraînement, reclassement, changement d'univers ou promotion.
+- Parité des douze rendements bruts d'octobre avec
+  `simulate_weighted_portfolio()` : erreur maximale `2,78e-17`.
+  L'échappatoire historique `legacy_month_only` n'est utilisée que pour cette
+  vérification des paniers scellés, pas comme preuve d'un nouveau signal causal.
+- Comparaison des anciens prix du snapshot et de l'extension SPY : 759 points,
+  33 séries et 23 séances communes. Les niveaux bridgés sont comparés après
+  normalisation au 30 septembre, pas directement à l'échelle Yahoo.
+  `price_overlap.csv` et `october_vintage_comparison.csv` conservent les écarts.
+- Seul MPC dépasse `1e-12` sur le parcours normalisé : clôtures non ajustées
+  identiques à `5,12e-13` près, réajustement des niveaux ajustés et micro-écarts
+  compatibles avec leur précision numérique. Écart normalisé maximal
+  `5,9234e-8`, impact portefeuille maximal `5,1216e-9` en fraction de rendement,
+  soit `0,0000005122` point de pourcentage. L'événement d'entreprise à l'origine
+  de ce réajustement n'est pas confirmé indépendamment : aucune promotion ni
+  garantie de parité stricte à `1e-12` entre ces deux vintages prix n'est revendiquée.
+- Un contrôle supplémentaire de l'API Yahoo a reçu HTTP 429 après le
+  téléchargement réussi. Il n'y a pas de contre-vérification par un second
+  fournisseur. Les prix conservés ne sont pas remplacés à cause de cette limite.
+- L'égalité des paniers figés ne prouve pas qu'un nouvel entraînement les aurait
+  reproduits : **le replay inter-vintages n'a pas été exécuté**. Il reste
+  obligatoire pour tout futur refresh complet, avec comparaison du dernier
+  mois décidé dans le run précédent. Aucun fondamental SEC n'est retéléchargé ici.
+
+### Code et validations
+
+Calcul dans `src/alpharank/portfolio/valuation.py`, API publique dans
+`src/alpharank/portfolio/__init__.py`, CLI mince dans
+`scripts/research/value_frozen_portfolios.py`, tests dans
+`tests/unit/portfolio/test_portfolio_valuation.py`. Les README de ces trois
+dossiers, les deux contrats portefeuille/reporting, l'index recherche, les
+inventaires de code et de dossiers et `ROADMAP.md` accompagnent cette tâche.
+
+Tests de dérive des poids, fenêtres exactes, prix invalides/manquants,
+invariance aux prix futurs et parité avec le moteur commun ; **72 tests réussis**
+(64 portefeuille/reporting et huit de qualité/indépendance des chemins), via
+`.venv/bin/python -m pytest`. Ruff et son contrôle différentiel, formatage,
+mypy du nouveau module, documentation, liens Markdown et inventaires validés.
+Le dossier portefeuille contient 19 modules sur 20 autorisés. La gate de taille
+globale conserve huit régressions préexistantes hors des fichiers de ce lot ;
+aucune nouvelle violation de taille n'est ajoutée. Aucun rendu HTML n'est modifié.
+
+Reproduction depuis le reçu conservé, dans une **nouvelle destination** :
+
+```bash
+.venv/bin/python scripts/research/value_frozen_portfolios.py \
+  --source-report outputs/performance_reports/REPORT-019_20261115/backtest_performance_report.html \
+  --raw-receipt data/warehouse/raw/yfinance/frozen_portfolio_valuations/receipts/valuation_20261121_122307.json \
+  --entry-date 2026-09-30 --as-of 2026-11-21 \
+  --window Octobre:2026-09-30:2026-10-30 \
+  --window Novembre:2026-10-30:2026-11-20 \
+  --window Semaine:2026-11-13:2026-11-20 \
+  --window Depuis_entree:2026-09-30:2026-11-20 \
+  --output-dir outputs/performance_reports/<nouveau-run>
+```

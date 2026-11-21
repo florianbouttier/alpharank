@@ -140,6 +140,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 101 | `REPLAY-014` | backtester les allocations sectorielles sur tout l'historique causal | lot REPLAY ci-dessous | fait |
 | 102 | `REPORT-018` | rendre le backtest sectoriel dans le dashboard de performance standard | lot REPORT ci-dessous | fait |
 | 103 | `REPORT-019` | réunir toutes les stratégies standard et sectorielles dans le dashboard | lot REPORT ci-dessous | fait |
+| 104 | `REPORT-020` | actualiser les prix et valoriser les paniers figés sans nouveau signal | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1325,6 +1326,23 @@ doublons exacts et preuve de récupération.
 | `REPORT-017` | reconstruire le desk autour du graphique et d'un scoreboard interactif | fait | dix sélecteurs visibles, quatre périodes en un clic, graphique dominant, scoreboard sans cartes KPI et preuve `docs/research/backtest_interactive_performance_desk_20261030.md` |
 | `REPORT-018` | exposer les six séries de `REPLAY-014` dans le rapport standard | fait | HTML `8a75190b…7c2c`, 182 mois et 1 092 lignes mensuelles identiques, 33 KPI, cinq titres et onze secteurs documentés ; panier figé sans promotion |
 | `REPORT-019` | unifier la comparaison standard et sectorielle | fait | HTML `399619d8…fff0`, 13 séries sur 182 mois, 2 184 lignes reprises à l'identique et Legacy Equal aligné aux mêmes frais |
+| `REPORT-020` | mesurer les performances récentes des paniers archivés avec prix frais | fait | 33 séries jusqu'au 20 novembre, 126 positions figées inchangées, 100 % de couverture, dérive des poids et suivi hypothétique séparé du backtest ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
+
+### Détail de `REPORT-020`
+
+- **Objectif** : répondre au suivi du 21 novembre avec des prix nouvellement
+  téléchargés, sans relancer les signaux Legacy ou Boosting.
+- **Périmètre** : paniers scellés de `REPORT-019`, prix Yahoo ajustés, période
+  détenue puis maintien du panier au-delà de son mois prévu, SPY apparié.
+- **Hors périmètre** : ingestion SEC, entraînement, nouveaux portefeuilles,
+  substitution de ticker non sourcée, modification du snapshot ou promotion.
+- **Acceptation** : toutes les positions et SPY partagent le même calendrier ;
+  les manques font échouer la valorisation ; rendements récents et archive
+  des prix distincts des KPI historiques et des signaux nouveaux.
+- **Validations** : tests du calendrier et de la dérive des poids, hashes des
+  paniers avant/après, concordance avec le moteur commun, preuve de refresh.
+- **Impact** : valorisation uniquement ; aucun poids ni score réécrit.
+- **Rollback** : ignorer le nouveau rapport, conserver les preuves précédentes.
 
 ### Détail de `REPORT-019`
 

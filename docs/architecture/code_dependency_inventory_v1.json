@@ -148,6 +148,7 @@
     "scripts/research/build_backtest_performance_report.py",
     "scripts/research/compare_legacy_input_ablation.py",
     "scripts/research/render_methodology_v2_study.py",
+    "scripts/research/value_frozen_portfolios.py",
     "scripts/run_backtest.py",
     "scripts/run_backtest_application.py",
     "scripts/run_legacy.py",
@@ -1648,6 +1649,26 @@
       "kind": "import",
       "source": "scripts/research/render_methodology_v2_study.py",
       "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/research/value_frozen_portfolios.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/research/value_frozen_portfolios.py",
+      "target": "src/alpharank/portfolio/__init__.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/research/value_frozen_portfolios.py",
+      "target": "src/alpharank/portfolio/allocation.py"
+    },
+    {
+      "kind": "command",
+      "source": "scripts/research/value_frozen_portfolios.py",
+      "target": "src/alpharank/portfolio/valuation.py"
     },
     {
       "kind": "import",
@@ -3366,6 +3387,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/portfolio/__init__.py",
+      "target": "src/alpharank/portfolio/valuation.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/portfolio/adapters/__init__.py",
       "target": "src/alpharank/portfolio/adapters/boosting.py"
     },
@@ -3438,6 +3464,11 @@
       "kind": "import",
       "source": "src/alpharank/portfolio/simulation.py",
       "target": "src/alpharank/portfolio/costs.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/valuation.py",
+      "target": "src/alpharank/portfolio/allocation.py"
     },
     {
       "kind": "import",
@@ -6640,6 +6671,23 @@
       "readers": []
     },
     {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/portfolio/__init__.py"
+      ],
+      "invokes": [
+        "src/alpharank/portfolio/allocation.py",
+        "src/alpharank/portfolio/valuation.py"
+      ],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.research.value_frozen_portfolios",
+      "path": "scripts/research/value_frozen_portfolios.py",
+      "readers": []
+    },
+    {
       "declared_public_entrypoint": true,
       "has_main_guard": true,
       "imports": [
@@ -8975,6 +9023,7 @@
       "path": "src/alpharank/governance_contracts/common.py",
       "readers": [
         "scripts/research/build_backtest_performance_report.py",
+        "scripts/research/value_frozen_portfolios.py",
         "src/alpharank/backtest/pipeline.py",
         "src/alpharank/governance_contracts/baseline.py",
         "src/alpharank/governance_contracts/confirmation.py",
@@ -9509,14 +9558,17 @@
         "src/alpharank/portfolio/lineage.py",
         "src/alpharank/portfolio/performance.py",
         "src/alpharank/portfolio/simulation.py",
-        "src/alpharank/portfolio/terminal_returns.py"
+        "src/alpharank/portfolio/terminal_returns.py",
+        "src/alpharank/portfolio/valuation.py"
       ],
       "invokes": [],
       "layer": "library",
       "lifecycle": "active",
       "module": "alpharank.portfolio",
       "path": "src/alpharank/portfolio/__init__.py",
-      "readers": []
+      "readers": [
+        "scripts/research/value_frozen_portfolios.py"
+      ]
     },
     {
       "declared_public_entrypoint": false,
@@ -9581,10 +9633,12 @@
       "module": "alpharank.portfolio.allocation",
       "path": "src/alpharank/portfolio/allocation.py",
       "readers": [
+        "scripts/research/value_frozen_portfolios.py",
         "src/alpharank/multihorizon/risk.py",
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/adapters/boosting.py",
-        "src/alpharank/portfolio/simulation.py"
+        "src/alpharank/portfolio/simulation.py",
+        "src/alpharank/portfolio/valuation.py"
       ]
     },
     {
@@ -9896,6 +9950,22 @@
         "src/alpharank/portfolio/adapters/boosting.py",
         "src/alpharank/replay/causal_snapshot.py",
         "src/alpharank/replay/common.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/allocation.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.valuation",
+      "path": "src/alpharank/portfolio/valuation.py",
+      "readers": [
+        "scripts/research/value_frozen_portfolios.py",
+        "src/alpharank/portfolio/__init__.py"
       ]
     },
     {
@@ -11219,11 +11289,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 162,
-    "internal_edge_count": 859,
-    "library_count": 241,
-    "python_file_count": 410,
-    "script_count": 169,
+    "active_entrypoint_count": 163,
+    "internal_edge_count": 865,
+    "library_count": 242,
+    "python_file_count": 412,
+    "script_count": 170,
     "unread_node_count": 168
   }
 }

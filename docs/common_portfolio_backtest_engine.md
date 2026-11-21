@@ -264,6 +264,28 @@ Pearson des rendements mensuels de chaque poche sur chaque fenêtre. Une
 corrélation est indéfinie et publiée comme `null` si une série n'a pas de
 variance ; elle n'est jamais calculée sur les richesses cumulées.
 
+## Frozen-Basket Price Valuation
+
+`value_frozen_holdings()` values an explicitly frozen strategy/ticker/weight
+allocation using `adjusted_close` on exact dates. It is a price-only diagnostic,
+not a new monthly simulation or signal. Required prices share SPY's entire
+observed calendar; a missing, nonpositive or nonfinite selected price fails
+without filling prices, dropping stocks or renormalizing the remaining basket.
+
+The injected entry date fixes the original allocation. For each subperiod,
+`drifted_weights_after_returns()` carries that allocation to the subperiod start
+before calculating its weighted return. October's 20% weights therefore do not
+silently become 20% again in November. Returns are gross of entry/exit costs,
+in USD, with no FX or hypothetical rebalance order. Excess return is the
+percentage-point difference to SPY; relative wealth is the ratio of wealth
+factors, never the ratio of percentage returns.
+
+If the valuation extends past the basket's intended holding month, it must be
+labelled hypothetical continued holding. It cannot be presented as the model's
+actual next-month performance or spliced into the historical monthly KPI cube.
+Hash equality of frozen holdings proves that valuation did not edit them; only
+a separate inter-vintage model replay can test historical signal stability.
+
 ## Exact CAGR Attribution
 
 CAGR is nonlinear and cannot be split by adding ordinary percentage-point

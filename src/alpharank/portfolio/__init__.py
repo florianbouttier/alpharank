@@ -91,6 +91,7 @@ from alpharank.portfolio.terminal_returns import (
     TerminalReturnResult,
     resolve_terminal_shareholder_returns,
 )
+from alpharank.portfolio.valuation import ValuationWindow, value_frozen_holdings
 
 __all__ = [
     "CAUSAL_TIMING_REQUIRED_COLUMNS",
@@ -113,6 +114,7 @@ __all__ = [
     "TERMINAL_EVENT_TYPES",
     "TerminalReturnResult",
     "TransactionCostModel",
+    "ValuationWindow",
     "EqualWeightCombinationGrid",
     "StrategyFrontierGrid",
     "StrategyFrontierWindow",
@@ -156,6 +158,7 @@ __all__ = [
     "transaction_cost_components",
     "validate_holdings",
     "validate_monthly_returns",
+    "value_frozen_holdings",
     "write_common_portfolio_artifacts",
     "write_execution_sensitivity_report",
 ]
