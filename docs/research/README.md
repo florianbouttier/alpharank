@@ -80,7 +80,8 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
   libres avec couverture et parité mensuelle (`REPORT-023`), puis frontend React
   sans Plotly et service local des dates libres (`REPORT-024`), puis livraison
   complète vérifiée desktop/mobile (`REPORT-025`, correctifs `REPORT-026/027`),
-  sans nouveau signal ni promotion automatique.
+  puis audit des trous et repli mensuel explicite (`REPORT-028/029`, dette
+  terminale `DATA-048`), sans nouveau signal ni promotion automatique.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

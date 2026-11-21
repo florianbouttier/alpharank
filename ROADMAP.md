@@ -149,7 +149,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 110 | `REPORT-027` | aligner les libellés de composition sur la source active | lot REPORT ci-dessous | fait |
 | 111 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | fait |
 | 112 | `REPORT-028` | expliquer les trous et fournir un repli mensuel scellé explicite | lot REPORT ci-dessous | fait |
-| 113 | `REPORT-029` | exposer le diagnostic et le repli dans le rapport complet | lot REPORT ci-dessous | à faire |
+| 113 | `REPORT-029` | exposer le diagnostic et le repli dans le rapport complet | lot REPORT ci-dessous | fait |
 | 114 | `DATA-048` | rapprocher les sorties terminales scellées de leurs contreparties sourcées | lot DATA ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
@@ -1364,7 +1364,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-026` | ne pas afficher un risque nul avec une seule observation quotidienne | fait | test reproduit avant correction ; une observation donne null, deux constantes donnent zéro, convention mensuelle préservée |
 | `REPORT-027` | distinguer les politiques de composition historique et récente à l'écran | fait | helper commun aux trois textes, six tests JS et QA Chrome réelle ; aucun calcul modifié |
 | `REPORT-028` | rendre les risques indisponibles explicables et réutiliser la référence mensuelle | fait | 120 tests, audit titre/séance/poche, 2 366 rendements rapprochés et mode mensuel explicite ; UI suivie dans `REPORT-029`, dette terminale dans `DATA-048` |
-| `REPORT-029` | livrer le diagnostic de couverture et le repli lisible dans le dashboard | à faire | références complètes affichées même sans composition admissible, détail des trous, repli opt-in, fréquence et bornes explicites, HTML complet et QA réelle |
+| `REPORT-029` | livrer le diagnostic de couverture et le repli lisible dans le dashboard | fait | HTML complet `3e496314…d66d`, audit des trous, références seules et repli opt-in, 154 tests Python/11 JS et QA réelle desktop/mobile ; preuve canonique de recherche |
 
 ### Couverture et repli `REPORT-028` / `REPORT-029`
 

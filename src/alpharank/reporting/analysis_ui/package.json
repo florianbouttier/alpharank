@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test client.test.mjs",
-    "format:check": "prettier --check client.jsx charts.jsx tables.jsx audit.jsx format.js layout.css build.mjs client.test.mjs"
+    "format:check": "prettier --check client.jsx charts.jsx tables.jsx audit.jsx controls.jsx coverage.jsx format.js layout.css build.mjs client.test.mjs"
   },
   "dependencies": {
     "lightweight-charts": "5.3.0",

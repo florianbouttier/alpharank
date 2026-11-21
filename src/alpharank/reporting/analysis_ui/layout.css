@@ -225,6 +225,24 @@ body {
   border: 1px solid var(--line);
   border-radius: 9px;
 }
+.monthly-resolution {
+  margin-left: auto;
+  padding: 8px 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.period-requirement,
+.draft-notice {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.draft-notice {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+}
 .ar-app label {
   color: var(--muted);
   font-size: 0.875rem;
@@ -894,6 +912,72 @@ body {
   background: var(--paper);
   font-size: 0.875rem;
 }
+.coverage-panel {
+  min-width: 0;
+  margin-bottom: 16px;
+  padding: 15px;
+  border: 1px solid #c18a41;
+  border-radius: 7px;
+  background: var(--paper);
+}
+.coverage-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px 20px;
+}
+.coverage-heading > div {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+.coverage-heading h2 {
+  margin-bottom: 5px;
+  font-size: 1rem;
+}
+.coverage-heading p,
+.fallback-period-note {
+  max-width: 90ch;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.fallback-button {
+  max-width: 100%;
+  text-align: left;
+  white-space: normal;
+}
+.fallback-button > span {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.fallback-period-note {
+  margin-top: 10px;
+}
+.coverage-panel .coverage-warning {
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+.gap-table-scroll {
+  margin-top: 12px;
+}
+.gap-table {
+  min-width: 720px;
+}
+.gap-table th,
+.gap-table td {
+  text-align: left;
+}
+.gap-table details p {
+  min-width: 180px;
+  max-width: 32ch;
+  white-space: normal;
+}
 .coverage-warning summary {
   color: var(--ink);
   cursor: pointer;
@@ -1018,6 +1102,25 @@ body {
 .frontier-hover strong {
   color: var(--ink);
   font-weight: 550;
+}
+.frontier-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 6px 0 14px;
+}
+.frontier-references button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted) !important;
+}
+.frontier-chart-card .frontier-incomplete {
+  padding: 9px 11px;
+  border-left: 2px solid #c18a41;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 0.875rem;
 }
 .audit-view {
   padding-bottom: 20px;
@@ -1296,6 +1399,12 @@ body {
   .resolution-control {
     grid-column: 1/-1;
     justify-content: center;
+  }
+  .monthly-resolution,
+  .period-requirement,
+  .draft-notice {
+    grid-column: 1/-1;
+    margin-left: 0;
   }
   .resolution-control button {
     flex: 1;

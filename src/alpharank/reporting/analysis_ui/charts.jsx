@@ -117,6 +117,8 @@ export function FinancialCharts({
     charts = useRef(null);
   const [hover, setHover] = useState(null),
     [zoom, setZoom] = useState(null);
+  const monthly = data.frequency === "monthly";
+  const displayResolution = monthly ? "D1" : resolution;
   const field = relative ? "relative_wealth" : "wealth";
   useEffect(() => {
     if (!capitalRef.current || !data || !names.length) return;
@@ -128,13 +130,19 @@ export function FinancialCharts({
       drawdownRef.current,
       chartOptions(dark, 112, true),
     );
-    const capitalLines = addLines(capital, names, data, field, resolution);
+    const capitalLines = addLines(
+      capital,
+      names,
+      data,
+      field,
+      displayResolution,
+    );
     const drawdownLines = addLines(
       drawdown,
       names,
       data,
       "drawdown",
-      resolution,
+      displayResolution,
     );
     const lookup = new Map(
       names.map((name) => [
@@ -213,7 +221,7 @@ export function FinancialCharts({
       capital.remove();
       drawdown.remove();
     };
-  }, [data, names.join("|"), field, resolution, dark]);
+  }, [data, names.join("|"), field, displayResolution, dark]);
   const selectedRows =
     hover?.rows ||
     names.map((name) => ({ name, point: data.series[name]?.points.at(-1) }));
@@ -223,7 +231,10 @@ export function FinancialCharts({
     setZoom(null);
   };
   return (
-    <section className="financial-chart" aria-label="Courbes journalières">
+    <section
+      className="financial-chart"
+      aria-label={monthly ? "Courbes mensuelles" : "Courbes journalières"}
+    >
       <header className="chart-title-row">
         <h2>{relative ? "Capital relatif au SPY" : "Capital, base 1"}</h2>
         <span className="chart-date" id="hover-date">
@@ -248,10 +259,10 @@ export function FinancialCharts({
         id="capital-chart"
         ref={capitalRef}
         role="img"
-        aria-label="Capital quotidien des stratégies sélectionnées"
+        aria-label={`Capital ${monthly ? "mensuel" : "quotidien"} des stratégies sélectionnées`}
       />
       <div className="drawdown-label">
-        <h3>Drawdown</h3>
+        <h3>{monthly ? "Drawdown aux fins de mois" : "Drawdown"}</h3>
         <span>Depuis le plus-haut de cette fenêtre</span>
       </div>
       <div
@@ -259,12 +270,12 @@ export function FinancialCharts({
         id="daily-drawdown-chart"
         ref={drawdownRef}
         role="img"
-        aria-label="Drawdown quotidien, même fenêtre et même sélection"
+        aria-label={`Drawdown ${monthly ? "mensuel" : "quotidien"}, même fenêtre et même sélection`}
       />
       <footer className="chart-foot">
         <span>Molette : zoom · glisser : déplacer</span>
         <div>
-          {zoom && (
+          {zoom && !monthly && (
             <button
               className="text-action"
               id="analyze-zoom"
@@ -280,8 +291,9 @@ export function FinancialCharts({
       </footer>
       {zoom && (
         <p className="zoom-notice">
-          Zoom d’affichage. Les KPI restent sur la période choisie jusqu’à «
-          Analyser cette plage ».
+          {monthly
+            ? "Loupe sur des observations mensuelles. Pour analyser une autre période, choisissez des mois calendaires complets dans les champs de dates."
+            : "Zoom d’affichage. Les KPI restent sur la période choisie jusqu’à « Analyser cette plage »."}
         </p>
       )}
       <p className="chart-attribution">
@@ -314,6 +326,7 @@ function weightsText(weights, order) {
 
 function FrontierScatter({ frontier, kind, dark }) {
   const [active, setActive] = useState(null);
+  useEffect(() => setActive(null), [frontier, kind]);
   const field =
     kind === "volatility" ? "annualized_volatility" : "max_drawdown";
   const points = (frontier.points || [])
@@ -342,11 +355,11 @@ function FrontierScatter({ frontier, kind, dark }) {
       y: point.cagr,
     }))
     .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
-  if (!points.length)
+  if (!points.length && !references.length)
     return (
       <div className="empty-state">
-        Pas de frontière calculable : la fenêtre doit avoir des clôtures
-        complètes.
+        Aucun risque observable pour les mélanges ni pour les références sur
+        cette fenêtre. Consultez le diagnostic de couverture.
       </div>
     );
   const all = [...points, ...references];
@@ -376,6 +389,14 @@ function FrontierScatter({ frontier, kind, dark }) {
           : "Rendement / drawdown"}
       </h3>
       <p>Plus haut : plus de rendement. Plus à gauche : moins de risque.</p>
+      {!points.length && (
+        <p className="frontier-incomplete" role="status">
+          Aucun mélange admissible n’a un risque observable sur cette fenêtre.
+          Les références complètes restent affichées. Chaque poche pondérée doit
+          être complète ; le plafond de 70 % exclut une allocation de 100 % à
+          une seule poche.
+        </p>
+      )}
       <svg
         viewBox="0 0 530 322"
         role="img"
@@ -433,6 +454,11 @@ function FrontierScatter({ frontier, kind, dark }) {
             height="8"
             fill={colorFor(point.name)}
             onMouseEnter={() => setActive(point)}
+            onFocus={() => setActive(point)}
+            tabIndex="0"
+            role="button"
+            aria-label={`${shortName(point.name)}, CAGR ${format(point.cagr, "pct")}, risque ${format(point.x, "pct")}`}
+            data-reference={point.name}
           >
             <title>{shortName(point.name)}</title>
           </rect>
@@ -444,6 +470,22 @@ function FrontierScatter({ frontier, kind, dark }) {
           {kind === "volatility" ? "Volatilité annualisée" : "Drawdown absolu"}
         </text>
       </svg>
+      <div className="frontier-references" aria-label="Références calculables">
+        {references.map((point) => (
+          <button
+            key={point.name}
+            className="text-action"
+            onMouseEnter={() => setActive(point)}
+            onFocus={() => setActive(point)}
+          >
+            <i
+              className="series-dot"
+              style={{ background: colorFor(point.name) }}
+            />
+            {shortName(point.name)}
+          </button>
+        ))}
+      </div>
       <div className="frontier-hover">
         {active ? (
           <>

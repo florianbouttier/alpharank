@@ -9,7 +9,9 @@ l'API locale explicite décrite dans `../strategy_analysis/`.
 
 Sorties : bundle autonome, styles, survol/zoom et filtres. Aucun Plotly, CDN ou
 police distante. `client.jsx`, `charts.jsx`, `tables.jsx`, `audit.jsx` et
-`format.js` séparent état, graphiques, mesures, audit et formatage. Le bundle
+`format.js` séparent état, graphiques, mesures, audit et formatage ;
+`controls.jsx` porte les bornes/fréquences et `coverage.jsx` le diagnostic
+titre/séance et le choix explicite du repli mensuel. Le bundle
 construit est versionné pour que le rendu Python et la wheel fonctionnent sans
 Node ni réseau ; le code maintenu reste dans ces sources.
 
@@ -22,3 +24,5 @@ Dossiers enfants : aucun.
 Interdit ici : acquisition, sélection de titres, calcul de rendement, KPI,
 interpolation d'un trou ou changement de données. Jour/semaine/mois ne changent
 que la résolution d'affichage, jamais les statistiques reçues de Python.
+Une référence mensuelle reçue du moteur reste mensuelle à l'écran : son repli
+ne produit ni des cours quotidiens ni une estimation silencieuse d'un risque.

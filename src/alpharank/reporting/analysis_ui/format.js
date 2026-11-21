@@ -261,6 +261,45 @@ export const METRICS = {
   ],
 };
 
+export function metricDefinition(field, frequency = "daily") {
+  const definition = METRICS[field] || [field, "num"];
+  if (frequency !== "monthly") return definition;
+  const monthly = {
+    annualized_volatility: [
+      "Volatilité annualisée",
+      "Écart-type échantillon des rendements mensuels, annualisé sur 12 mois.",
+    ],
+    max_drawdown: [
+      "Max drawdown mensuel",
+      "Pire perte observée aux fins de mois, capital initial inclus. Les creux intramensuels ne sont pas mesurés.",
+    ],
+    tracking_error: [
+      "Tracking error",
+      "Volatilité annualisée des rendements actifs mensuels, sur 12 mois.",
+    ],
+    correlation: [
+      "Corrélation au SPY",
+      "Corrélation de Pearson des rendements mensuels, pas des niveaux de capital.",
+    ],
+    benchmark_hit_rate: [
+      "Mois devant SPY",
+      "Part des mois où le rendement dépasse celui du SPY.",
+    ],
+    var_95: ["VaR 95 % mensuelle", "Quantile à 5 % des rendements mensuels."],
+    cvar_95: [
+      "CVaR 95 % mensuelle",
+      "Rendement moyen des mois sous la VaR à 95 %.",
+    ],
+    omega: [
+      "Omega",
+      "Somme des gains mensuels divisée par la somme absolue des pertes.",
+    ],
+  }[field];
+  return monthly
+    ? [monthly[0], definition[1], monthly[1], definition[3]]
+    : definition;
+}
+
 export const PRIMARY_METRICS = [
   "total_return",
   "cagr",

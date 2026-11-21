@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { FinancialCharts, Frontiers } from "./charts.jsx";
 import { AnnualTable, Correlations, KpiTable, ModelCards } from "./tables.jsx";
 import { Holdings, Methods, Sources } from "./audit.jsx";
+import { PeriodControls } from "./controls.jsx";
+import { CoverageNotice } from "./coverage.jsx";
 import {
   BENCHMARK,
   COMPOSED,
@@ -252,151 +254,6 @@ function StrategySelector({
   );
 }
 
-function PeriodControls({
-  settings,
-  source,
-  onSource,
-  draft,
-  setDraft,
-  onApply,
-  resolution,
-  setResolution,
-  busy,
-}) {
-  const bounds = settings?.sources?.[source];
-  return (
-    <form
-      className="period-bar"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onApply(draft);
-      }}
-    >
-      <label className="source-picker">
-        Données
-        <select
-          id="analysis-source"
-          disabled={!settings}
-          value={source}
-          onChange={(event) => onSource(event.target.value)}
-        >
-          {Object.entries(
-            settings?.sources || { history: { label: "Backtest" } },
-          ).map(([value, description]) => (
-            <option key={value} value={value}>
-              {description.label || value}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="date-pair">
-        <label>
-          Début
-          <input
-            id="start-date"
-            disabled={!settings}
-            type="date"
-            required
-            min={bounds?.min_date}
-            max={bounds?.max_date}
-            value={draft.start}
-            onChange={(event) =>
-              setDraft({ ...draft, start: event.target.value })
-            }
-          />
-        </label>
-        <span className="date-separator">à</span>
-        <label>
-          Fin
-          <input
-            id="end-date"
-            disabled={!settings}
-            type="date"
-            required
-            min={bounds?.min_date}
-            max={bounds?.max_date}
-            value={draft.end}
-            onChange={(event) =>
-              setDraft({ ...draft, end: event.target.value })
-            }
-          />
-        </label>
-      </div>
-      <button
-        className="primary-button"
-        id="apply-period"
-        type="submit"
-        disabled={!settings || busy}
-      >
-        {busy ? "Calcul…" : "Analyser"}
-      </button>
-      <button
-        className="text-action all-period"
-        disabled={!settings}
-        type="button"
-        onClick={() => {
-          const next = { start: bounds?.min_date, end: bounds?.max_date };
-          setDraft(next);
-          onApply(next);
-        }}
-      >
-        Tout l’historique
-      </button>
-      <div
-        className="resolution-control"
-        role="group"
-        aria-label="Résolution visuelle"
-      >
-        {["D1", "W1", "M1"].map((value) => (
-          <button
-            type="button"
-            key={value}
-            disabled={!settings}
-            title={
-              value === "D1"
-                ? "Chaque séance"
-                : value === "W1"
-                  ? "Dernier point de chaque semaine"
-                  : "Dernier point de chaque mois"
-            }
-            className={resolution === value ? "active" : ""}
-            aria-pressed={resolution === value}
-            onClick={() => setResolution(value)}
-          >
-            {value === "D1" ? "Jour" : value === "W1" ? "Semaine" : "Mois"}
-          </button>
-        ))}
-      </div>
-    </form>
-  );
-}
-
-function CoverageNotice({ data, names }) {
-  const incomplete = names.filter(
-    (name) => (data.series[name]?.coverage?.missing_closes || 0) > 0,
-  );
-  if (!incomplete.length) return null;
-  return (
-    <details className="coverage-warning">
-      <summary>
-        Clôtures manquantes : certaines mesures quotidiennes sont indisponibles
-      </summary>
-      <p>
-        Les trous sont conservés dans les courbes. Les risques ne sont pas
-        calculés sur une série artificiellement complétée.
-      </p>
-      <ul>
-        {incomplete.map((name) => (
-          <li key={name}>
-            {shortName(name)} : {data.series[name].coverage.missing_closes}{" "}
-            clôture(s) manquante(s)
-          </li>
-        ))}
-      </ul>
-    </details>
-  );
-}
-
 function Analysis({ payload, dark }) {
   const settings = payload.analysis;
   const sourceDefault = settings?.default_source || "history";
@@ -463,6 +320,19 @@ function Analysis({ payload, dark }) {
     setDraft(next);
     apply(next);
   };
+  const applyMonthlyFallback = (fallback) => {
+    if (!fallback.available || !fallback.start || !fallback.end) return;
+    const next = { start: fallback.start, end: fallback.end };
+    setSource(fallback.source);
+    setDraft(next);
+    apply(next);
+  };
+  const auditNames =
+    mode === "frontier"
+      ? data?.frontier?.strategy_order || []
+      : mode === "composer"
+        ? sleeves
+        : names;
   const missing = !settings;
   const ready = data && names.every((name) => data.series?.[name]);
   return (
@@ -472,11 +342,15 @@ function Analysis({ payload, dark }) {
           <h1>Analyse des performances</h1>
           <p>
             Choisissez les stratégies et les dates. Comparez leur parcours au
-            SPY, séance par séance.
+            SPY sur la fenêtre choisie.
           </p>
         </div>
         <span className="data-status">
-          {settings ? "Valorisations journalières" : "Archive mensuelle"}
+          {!settings
+            ? "Archive mensuelle"
+            : source === "monthly_reference"
+              ? "Référence mensuelle scellée"
+              : "Valorisations journalières"}
         </span>
       </div>
       <PeriodControls
@@ -485,6 +359,7 @@ function Analysis({ payload, dark }) {
         onSource={changeSource}
         draft={draft}
         setDraft={setDraft}
+        period={period}
         onApply={apply}
         resolution={resolution}
         setResolution={setResolution}
@@ -577,11 +452,16 @@ function Analysis({ payload, dark }) {
                   Calcul des mesures sur les dates choisies…
                 </div>
               )}
+              <CoverageNotice
+                data={data}
+                names={auditNames}
+                onMonthlyFallback={applyMonthlyFallback}
+                busy={busy}
+              />
               {mode === "frontier" ? (
                 <Frontiers data={data} dark={dark} />
               ) : ready ? (
                 <div className={busy ? "results calculating" : "results"}>
-                  <CoverageNotice data={data} names={names} />
                   <div className="chart-surface">
                     <div
                       className="chart-view-tabs"
@@ -615,7 +495,12 @@ function Analysis({ payload, dark }) {
                     />
                     <div className="kpi-heading">
                       <h2>La même période, en chiffres</h2>
-                      <span>252 séances/an · CAGR en durée réelle</span>
+                      <span>
+                        {data.frequency === "monthly"
+                          ? "12 mois/an · risques de fin de mois"
+                          : "252 séances/an"}{" "}
+                        · CAGR en durée réelle
+                      </span>
                     </div>
                     <KpiTable data={data} names={names} />
                   </div>

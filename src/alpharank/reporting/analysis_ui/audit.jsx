@@ -250,6 +250,39 @@ export function Methods({ payload }) {
           mensuels scellés sont conservés séparément dans les sources.
         </p>
       </article>
+      <article className="daily-method" id="monthly-fallback-method">
+        <h2>Référence mensuelle scellée : repli volontaire</h2>
+        <p>
+          Un trou quotidien n’est jamais comblé par un prix inventé. Le bouton
+          de repli propose seulement les mois calendaires complets inclus dans
+          la fenêtre ; les nouvelles bornes sont affichées avant application.
+        </p>
+        <ol>
+          <li>
+            Lire les rendements mensuels déjà archivés, sans nouveau signal ni
+            modification des positions.
+          </li>
+          <li>
+            Comparer, composer et tracer les frontières sur ces mêmes mois, avec
+            les frais propres et le rééquilibrage mensuel de l’historique.
+          </li>
+          <li>
+            Mesurer les risques sur 12 observations par an, et le drawdown aux
+            fins de mois ; aucun creux intramensuel n’est reconstitué.
+          </li>
+          <li>
+            Conserver le détail des prix quotidiens absents. Ce repli ne corrige
+            pas les anciennes hypothèses de valorisation terminale des titres
+            inactifs, ni la valeur d’un éventuel CVR.
+          </li>
+        </ol>
+        <p>
+          Le suivi récent reste distinct : panier figé, brut de frais, avec
+          pondération à l’entrée et sans nouveau rééquilibrage. Une référence
+          mensuelle de recherche n’est pas une réparation de la donnée
+          quotidienne ni une promotion de stratégie.
+        </p>
+      </article>
     </section>
   );
 }

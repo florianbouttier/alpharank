@@ -147,6 +147,36 @@ comme référence scellée distincte, jamais substituée à la sélection quotid
 Les API historiques peuvent demander le profil explicite `monthly_archive` ;
 les CLI de reporting produisent désormais le journalier par défaut.
 
+### Diagnostic des trous et repli explicite (`REPORT-028/029`)
+
+Une mesure quotidienne indisponible ne signifie pas que toute l'histoire manque.
+Le diagnostic nomme, pour les seules poches utilisées, le titre, le mois détenu,
+les séances exactes absentes et le poids cible. Dans Frontières, les trois
+poches du simplex définissent cette sélection ; dans Composer, les poches
+cochées la définissent. Les références complètes, notamment SPY, restent
+affichées même si aucun mélange n'est quotidiennement optimisable.
+
+La source distincte **Référence mensuelle · repli** mesure les rendements
+mensuels déjà scellés selon le
+[contrat commun](common_portfolio_backtest_engine.md#sealed-monthly-reference-report-028).
+Son activation est volontaire, jamais automatique à la première donnée manquante.
+Elle conserve les portefeuilles et le snapshot mais ne crée aucun prix quotidien
+et ne corrige pas les anciennes hypothèses de valorisation terminale.
+
+Le bouton affiche ses bornes avant le clic : soit les mêmes bornes calendaires
+complètes, soit uniquement les mois complets inclus dans une sélection partielle.
+Le service refuse un intervalle mensuel non conforme, sans l'arrondir. Aucun
+changement de source/période n'est appliqué par simple survol ou découverte du
+trou. Les dates de formulaire modifiées mais non appliquées sont signalées,
+distinctement de la fenêtre des résultats déjà calculés.
+
+En repli, graphiques, KPI, model cards, composition et corrélations utilisent
+la même grille mensuelle à 12 observations/an. Les labels VaR/CVaR, jours/mois
+positifs et Pearson suivent cette fréquence ; aucun faux journalier ni bouton
+« Analyser cette plage » au jour près n'est proposé pour un zoom mensuel.
+Le journalier strict conserve ses dates libres et son ancienne absence de risque
+sur un chemin incomplet. L'audit des trous reste consultable dans les deux modes.
+
 ## Laboratoire de portefeuille composé
 
 Le composeur du panneau Analyse permet de cocher plusieurs

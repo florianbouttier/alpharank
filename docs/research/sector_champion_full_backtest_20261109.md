@@ -821,3 +821,66 @@ Les séries quotidiennes de l'état initial 2026 sont exactement identiques à
 mode au frontend à `REPORT-029` : l'ancien bundle ne reçoit pas un sélecteur
 mensuel dont il ne saurait pas étiqueter la fréquence. Les huit régressions de
 taille globales préexistantes sont inchangées ; aucune nouvelle n'est introduite.
+
+## Livraison du diagnostic et du repli (`REPORT-029`, 21 novembre 2026)
+
+Le rapport complet corrigé est
+`outputs/performance_reports/REPORT-029_20261121/backtest_performance_report.html`,
+servi par le même viewer local `http://127.0.0.1:8765/`. Le générateur commun
+expose maintenant la source `monthly_reference` avec le bundle React capable
+d'en nommer la fréquence. Les anciens HTML restent intacts.
+
+- Le journalier garde ses vrais trous, mais les références complètes SPY et
+  Boosting Top 5 ne sont plus masquées lorsqu'aucune combinaison n'est calculable.
+- Le panneau de couverture est filtré aux stratégies affichées, aux poches du
+  composé ou aux trois poches de la frontière. Il donne titre, mois, séances,
+  dates détaillées et poids. La référence mensuelle garde ce diagnostic visible.
+- Le bouton de repli annonce les bornes avant le clic. Sur 2020–août 2026, il
+  conserve les mêmes bornes et rend les 168 combinaisons calculables, aux seules
+  80 observations mensuelles plus le repère. Sur des bornes partielles, seule
+  une action explicite applique les mois complets inclus proposés par Python.
+- Source, KPI, VaR/CVaR, corrélations, composer, model cards et frontières
+  portent tous la fréquence choisie. Aucun rendement n'est calculé en React.
+  Le zoom mensuel reste une loupe, sans action d'application au jour près.
+- Les champs de dates modifiés mais non appliqués sont désormais signalés.
+  La capture utilisateur montrait ainsi une fin saisie en février différente
+  de la fenêtre encore calculée jusqu'en août ; ce n'était pas un nouveau run.
+
+### Parité et artefacts
+
+| Artefact | SHA-256 |
+| --- | --- |
+| HTML complet, 3 846 164 octets | `3e49631481a32ee4aee009b3e284464a8ae44ae1cba19688bb4516d455e2d66d` |
+| manifeste d'analyse | `30a65494dacb50f7bcf115bb046d52597627cc275d73b1ed910d73af5e9dcb5d` |
+| manifeste du rapport | `c13faed9b953ffcd59889bce1826a302ddc44f61d71a2f1693b2a4c671413cc2` |
+| référence mensuelle, 2 379 lignes | `54cba74f2d38b5a403f642724e232f16e2f56b7a77e26ab1b7504d439b769d02` |
+| QA navigateur | `d912804c515a64bfa14f1c0d585c4dfc104ac56862ac97e2484f3270a61648d5` |
+| validation | `4d208395a1674fc36b350e18313530f9d0504afc9c42b8226f448b9834bf21fe` |
+
+Le payload source est identique à `REPORT-025` hors horodatage technique et
+branche `analysis` enrichie : 13 séries, 25 310 positions historiques, 126
+positions figées, 58 344 KPI mensuels archivés, 48 rendements récents hors SPY,
+63 compositions et 168 poids conservés. Les neuf cartes méthodologiques
+existantes restent présentes, avec une explication du repli ajoutée.
+Les ledgers quotidien/récent, le rapprochement mensuel et l'audit de trous
+conservent leurs hashes de `REPORT-025`. Les champs et points quotidiens de
+l'état initial 2026 sont exactement identiques. Aucune donnée, position,
+sélection, sortie ou hypothèse terminale existante n'est réécrite.
+
+**154 tests Python ciblés et 11 tests JavaScript réussis** ; le test de rendu
+des références seules a échoué avant correction (zéro SVG au lieu de deux).
+Build, Prettier, syntaxe du bundle et validations documentaires/liens passent.
+Chrome avec la vraie API, sans mock, vérifie quotidien strict, deux références,
+audit NLSN/ABMD, 81 points mensuels et 168 mélanges, labels/corrélations mensuels,
+composition, repli sur sous-fenêtre inclusif seulement après clic, réponse 400
+sans anciens chiffres sur une borne mensuelle invalide, retour au journalier,
+suivi récent inchangé et archives. Cinq captures hashées desktop/mobile sont
+inspectées ; aucune erreur JavaScript, requête externe ou débordement global.
+
+Les limites de risque mensuel et la dette économique `DATA-048` restent
+explicites. Aucun téléchargement ou modèle relancé, aucun nouvel audit
+inter-vintages ni promotion. Un incident de capture `ENOSPC` a été contourné
+en limitant le cache temporaire Chrome, sans suppression ; la QA finale est
+complète. Le volume Data du Mac ne dispose plus que d'environ 280 Mio libres :
+ce risque machine est distinct du calcul et aucun nettoyage utilisateur n'a été
+entrepris. Les régressions globales de taille préexistantes restent inchangées.

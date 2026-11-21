@@ -64,11 +64,7 @@ def _daily_payload(dataset: AnalysisDataset, generated_at_utc: datetime) -> dict
             "default_source": "history",
             "default_start": start.isoformat(),
             "default_end": end.isoformat(),
-            "sources": {
-                name: value
-                for name, value in dataset.sources.items()
-                if name != "monthly_reference"
-            },
+            "sources": dataset.sources,
             "initial_view": initial,
             "coverage": dataset.history.coverage if dataset.history is not None else {},
             "price_gaps": [

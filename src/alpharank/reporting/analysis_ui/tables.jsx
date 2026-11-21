@@ -5,6 +5,7 @@ import {
   PRIMARY_METRICS,
   colorFor,
   format,
+  metricDefinition,
   shortName,
   viridis,
 } from "./format.js";
@@ -12,7 +13,7 @@ import {
 function metricCell(data, name, field) {
   const value = data.series[name]?.metrics[field];
   const benchmark = data.series[BENCHMARK]?.metrics[field];
-  const [, type, , direction] = METRICS[field] || [field, "num"];
+  const [, type, , direction] = metricDefinition(field, data.frequency);
   const finite = typeof value === "number" && Number.isFinite(value);
   const comparable =
     name !== BENCHMARK &&
@@ -60,14 +61,14 @@ export function KpiTable({ data, names, full = false }) {
               <th>Stratégie</th>
               {PRIMARY_METRICS.map((field) => (
                 <th key={field}>
-                  <abbr title={METRICS[field][2]}>
+                  <abbr title={metricDefinition(field, data.frequency)[2]}>
                     {{
                       total_return: "Rendement",
                       annualized_volatility: "Volatilité",
                       worst_year_return: "Pire année",
                       worst_year_excess: "Pire année vs SPY",
                       years_beating_benchmark: "Années devant SPY",
-                    }[field] || METRICS[field][0]}
+                    }[field] || metricDefinition(field, data.frequency)[0]}
                   </abbr>
                 </th>
               ))}
@@ -99,7 +100,11 @@ export function KpiTable({ data, names, full = false }) {
         ...new Set([
           ...PRIMARY_METRICS,
           ...Object.keys(data.series[names[0]]?.metrics || {}).filter(
-            (field) => METRICS[field],
+            (field) =>
+              METRICS[field] &&
+              (data.frequency === "monthly"
+                ? field !== "positive_day_rate"
+                : field !== "positive_month_rate"),
           ),
         ]),
       ]
@@ -131,8 +136,8 @@ export function KpiTable({ data, names, full = false }) {
           {fields.map((field) => (
             <tr key={field}>
               <th>
-                <abbr title={METRICS[field]?.[2]}>
-                  {METRICS[field]?.[0] || field}
+                <abbr title={metricDefinition(field, data.frequency)[2]}>
+                  {metricDefinition(field, data.frequency)[0]}
                 </abbr>
               </th>
               {names.map((name) => (
@@ -312,8 +317,11 @@ export function Correlations({ correlations }) {
         </button>
       </div>
       <p className="fine-print">
-        Pearson sur les rendements journaliers de la fenêtre, jamais sur les
-        niveaux de capital. Le rendement actif est la différence quotidienne au
+        Pearson sur les rendements{" "}
+        {correlations.frequency === "monthly" ? "mensuels" : "journaliers"} de
+        la fenêtre, jamais sur les niveaux de capital. Le rendement actif est la
+        différence{" "}
+        {correlations.frequency === "monthly" ? "mensuelle" : "quotidienne"} au
         SPY.
       </p>
       <div className="table-scroll">
