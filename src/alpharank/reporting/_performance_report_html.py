@@ -20,6 +20,7 @@ from alpharank.reporting._performance_report_matrix_script import (
 from alpharank.reporting._performance_report_script import PERFORMANCE_REPORT_SCRIPT
 from alpharank.reporting._performance_report_studio_script import PERFORMANCE_REPORT_STUDIO_SCRIPT
 from alpharank.reporting._performance_report_styles import PERFORMANCE_REPORT_STYLES
+from alpharank.reporting.analysis_ui import load_analysis_ui_assets
 
 
 def render_performance_report_html(payload: dict[str, Any]) -> str:
@@ -36,17 +37,20 @@ def render_performance_report_html(payload: dict[str, Any]) -> str:
         mtime=0,
     )
     encoded = base64.b64encode(packed).decode("ascii")
+    assets = load_analysis_ui_assets()
     return (
         '<!doctype html>\n<html lang="fr">\n<head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         "<title>AlphaRank · Rapport de backtest complet</title>\n"
-        f"<style>{PERFORMANCE_REPORT_STYLES}</style>\n"
+        f'<meta name="alpharank-chart-engine" content="Plotly.js {assets.runtime_version}">\n'
+        f"<style>{PERFORMANCE_REPORT_STYLES}\n{assets.styles}</style>\n"
         "</head>\n<body>\n"
         '<a class="skip-link" href="#overview">Aller au studio de comparaison</a>\n'
         '<div id="loading" class="loading">Chargement du rapport canonique…</div>\n'
         '<div id="app" class="shell" hidden>\n' + _sidebar() + _main() + "</div>\n"
-        f"<script>const PAYLOAD_GZIP_BASE64={json.dumps(encoded)};\n"
+        f"<script>{assets.runtime}</script>\n"
+        f"<script>{assets.script}\nconst PAYLOAD_GZIP_BASE64={json.dumps(encoded)};\n"
         f"{PERFORMANCE_REPORT_COMPOSER_SCRIPT}\n"
         f"{PERFORMANCE_REPORT_FRONTIER_SCRIPT}\n"
         f"{PERFORMANCE_REPORT_STUDIO_SCRIPT}\n"
@@ -130,24 +134,19 @@ def _performance_sections() -> str:
         </div>
         <label class="recent-period" id="recent-period-control" hidden>Période<select id="recent-window" aria-label="Fenêtre du suivi récent"></select></label>
         <div class="period-actions">
-          <div class="period-presets" aria-label="Périodes rapides">
-            <button class="is-active" id="reset-window" type="button">Tout</button>
-            <button type="button" data-period-start-year="2015">Depuis 2015</button>
-            <button type="button" data-period-start-year="2020">Depuis 2020</button>
-            <button type="button" data-period-start-year="2023">Depuis 2023</button>
-          </div>
-          <details class="custom-period">
-            <summary>Personnaliser</summary>
-            <div class="custom-period-fields">
-              <label>Début<select id="start-month"></select></label>
-              <label>Fin<select id="end-month"></select></label>
-            </div>
-          </details>
+          <label>Début<select id="start-month" aria-label="Début de la période"></select></label>
+          <label>Fin<select id="end-month" aria-label="Fin de la période"></select></label>
+          <button id="reset-window" type="button" title="Afficher tout l'historique disponible">Tout l'historique</button>
         </div>
       </div>
+      <div class="analysis-layout">
+        <details class="analysis-sidebar" id="series-selector" open>
+          <summary>Séries <span class="selection-count" id="curve-select-label">—</span></summary>
 """
         + _studio_toolbar()
         + """
+        </details>
+        <div class="analysis-main">
       <div class="studio-context">
         <strong id="window-label">—</strong>
         <span>SPY total return est toujours affiché.</span>
@@ -177,11 +176,11 @@ def _performance_sections() -> str:
         <div class="frontier-chart-grid">
           <article class="frontier-panel">
             <header><h3>Rendement / volatilité</h3><p>À gauche : moins de volatilité. En haut : plus de CAGR.</p></header>
-            <div class="chart-stage"><canvas id="frontier-volatility-chart"></canvas><div class="chart-tooltip frontier-tooltip" hidden></div></div>
+            <div class="chart-stage"><div class="frontier-chart" id="frontier-volatility-chart" role="img" aria-label="Frontière rendement volatilité"></div></div>
           </article>
           <article class="frontier-panel">
             <header><h3>Rendement / drawdown</h3><p>À gauche : drawdown absolu plus faible. En haut : plus de CAGR.</p></header>
-            <div class="chart-stage"><canvas id="frontier-drawdown-chart"></canvas><div class="chart-tooltip frontier-tooltip" hidden></div></div>
+            <div class="chart-stage"><div class="frontier-chart" id="frontier-drawdown-chart" role="img" aria-label="Frontière rendement drawdown"></div></div>
           </article>
         </div>
         <details class="studio-drawer frontier-anchor-table" open>
@@ -189,6 +188,8 @@ def _performance_sections() -> str:
           <div class="drawer-content"><div class="table-wrap"><table><thead><tr><th>Fenêtre</th><th>Profil</th><th>Composition</th><th>CAGR</th><th>Volatilité</th><th>Max drawdown</th></tr></thead><tbody id="frontier-anchor-body"></tbody></table></div></div>
         </details>
       </section>
+        </div>
+      </div>
     </article>
   </section>
 """
@@ -199,18 +200,13 @@ def _studio_toolbar() -> str:
     return """
       <div class="toolbar" aria-label="Filtres de performance">
         <div class="curve-control" id="strategy-mode-controls">
-          <span class="field-label">Courbes affichées</span>
-          <div class="strategy-pills" id="strategy-quick-picks"></div>
-          <details class="multi-select advanced-select" id="curve-multiselect" hidden>
-            <summary id="curve-select-label">Sélection détaillée</summary>
-            <div class="multi-select-menu">
-              <div class="multi-select-actions">
-                <button id="select-all-curves" type="button">Toutes</button>
-                <button id="select-reference-curves" type="button">Legacy</button>
-              </div>
-              <div class="curve-options" id="curve-options"></div>
-            </div>
-          </details>
+          <input class="strategy-search" id="strategy-search" type="search" placeholder="Rechercher une stratégie" aria-label="Rechercher une stratégie">
+          <div class="selection-actions">
+            <button id="select-all-curves" type="button">Tout cocher</button>
+            <button id="select-reference-curves" type="button">Tout retirer</button>
+          </div>
+          <div class="curve-options" id="curve-options"></div>
+          <div class="benchmark-fixed"><i></i><span>SPY · référence fixe</span></div>
         </div>
         <div class="curve-control" id="composer-mode-controls" hidden>
           <span class="field-label">Poches du portefeuille</span>
@@ -243,9 +239,9 @@ def _studio_chart() -> str:
           </div>
         </div>
         <div class="chart-stage">
-          <canvas id="studio-chart" aria-label="Graphique de comparaison"></canvas>
-          <div class="chart-tooltip" id="studio-chart-tooltip" hidden></div>
+          <div class="strategy-chart" id="studio-chart" role="img" aria-label="Graphique interactif de comparaison"></div>
         </div>
+        <div class="chart-hint"><span id="chart-hint-caption"></span><button id="reset-chart-zoom" type="button">Réinitialiser le zoom</button></div>
         <div class="legend" id="studio-legend"></div>
       </div>
 """

@@ -126,22 +126,23 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert manifest["report"]["sha256"]
     assert manifest["portfolio_composer"]["combinations"] == 1_023
     assert manifest["strategy_frontiers"]["candidate_allocations"] == 168
-    assert "https://" not in html
-    assert "http://" not in html
-    assert "Viridis" not in html  # The requested scale is encoded locally, not loaded.
+    assert re.search(r'<script[^>]+src=["\x27]https?://', html) is None
+    assert re.search(r'<link[^>]+href=["\x27]https?://', html) is None
+    assert "function viridis(value)" in html  # The model-card scale remains local.
     assert ".loading[hidden]" in html
     assert 'id="analysis-studio"' in html
     assert 'data-analysis-mode="strategies"' in html
     assert 'data-analysis-mode="composer"' in html
     assert 'data-analysis-mode="frontier"' in html
-    assert 'id="curve-multiselect"' in html
+    assert 'id="series-selector"' in html
     assert 'id="composer-multiselect"' in html
     assert 'id="studio-kpis"' in html
     assert 'data-chart-view="wealth"' in html
     assert 'data-chart-view="drawdown"' in html
     assert 'data-chart-view="relative"' in html
     assert 'id="studio-chart"' in html
-    assert 'id="studio-chart-tooltip"' in html
+    assert 'class="strategy-chart"' in html
+    assert 'name="alpharank-chart-engine"' in html
     assert 'id="studio-outcome"' in html
     assert 'id="metric-head"' in html
     assert 'id="cumulative-heatmap"' in html
@@ -177,9 +178,9 @@ def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: 
     assert "function renderComposerCorrelation()" in html
     assert "function composerRelativeWealthSeries()" in html
     assert "function renderFrontierStudio()" in html
-    assert "function drawFrontierScatter(canvas, model)" in html
+    assert "function drawFrontierScatter(element, model)" in html
     assert "function resizeStudioCharts()" in html
-    ids = re.findall(r'id="([^"]+)"', html)
+    ids = re.findall(r'id="([^"]+)"', html.split("<script>", 1)[0])
     assert len(ids) == len(set(ids))
 
 
@@ -206,10 +207,10 @@ def test_dashboard_shell_keeps_the_complete_information_contract(tmp_path: Path)
     assert 'class="skip-link"' in html
     assert "function renderCoverage()" in html
     assert "function initializeTheme()" in html
-    assert "function renderStrategyQuickPicks()" in html
-    assert "function setQuickPeriod(year)" in html
-    assert 'id="strategy-quick-picks"' in html
-    assert 'data-period-start-year="2020"' in html
+    assert "function renderCurveOptions()" in html
+    assert 'id="strategy-search"' in html
+    assert "data-period-start-year=" not in html
+    assert "Personnaliser</summary>" not in html
     assert 'class="scoreboard"' in html
     assert 'class="kpi-card"' not in html
     assert 'html[data-theme="dark"]' in html

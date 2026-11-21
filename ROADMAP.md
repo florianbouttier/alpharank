@@ -142,6 +142,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 103 | `REPORT-019` | réunir toutes les stratégies standard et sectorielles dans le dashboard | lot REPORT ci-dessous | fait |
 | 104 | `REPORT-020` | actualiser les prix et valoriser les paniers figés sans nouveau signal | lot REPORT ci-dessous | fait |
 | 105 | `REPORT-021` | livrer le suivi prix dans le HTML canonique complet | lot REPORT ci-dessous | fait |
+| 106 | `REPORT-022` | refondre le composant frontal partagé d'analyse de stratégies | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1329,6 +1330,30 @@ doublons exacts et preuve de récupération.
 | `REPORT-019` | unifier la comparaison standard et sectorielle | fait | HTML `399619d8…fff0`, 13 séries sur 182 mois, 2 184 lignes reprises à l'identique et Legacy Equal aligné aux mêmes frais |
 | `REPORT-020` | mesurer les performances récentes des paniers archivés avec prix frais | fait | 33 séries jusqu'au 20 novembre, 126 positions figées inchangées, 100 % de couverture, dérive des poids et suivi hypothétique séparé du backtest ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-021` | intégrer les valorisations récentes au desk complet sans perte d'information | fait | HTML complet `a8c52aca…625d`, 48 rendements récents identiques, payload historique conservé, entrée stable et livraison obligatoire ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
+| `REPORT-022` | remplacer les graphiques maison et rendre la sélection explicite | fait | Plotly partagé, bases 1/0 corrigées sans supprimer le premier rendement, sélection par familles, HTML `d3f02bdb…e800`, 89 tests et QA desktop/mobile ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
+
+### Détail de `REPORT-022`
+
+- **Objectif** : reconstruire l'expérience frontale commune d'analyse, pas
+  retoucher seulement l'artefact du 21 novembre.
+- **Périmètre** : composant graphique réutilisable, studio HTML/CSS/interactions,
+  projections graphiques mensuelles, packaging des assets, tests et documentation.
+- **Hors périmètre** : téléchargement, signaux, entraînements, rendements ou
+  formules KPI, promotion et dépôt Portfolio.
+- **Acceptation** : les courbes de richesse et relative SPY partent réellement
+  de 1 avant le premier rendement, le drawdown de 0 ; le premier rendement est
+  conservé. Sélection explicite des séries et des bornes disponibles, sans
+  raccourcis annuels arbitraires. Graphiques interactifs partagés par tous les
+  rapports, composeur et frontières compris ; contenu historique intégral conservé.
+- **Validations** : tests de non-régression des projections sur 2026 et autres
+  fenêtres, parité du payload économique, QA navigateur desktop/mobile et hors
+  ligne, zoom/survol/sélection, licences/runtime, documentation et inventaires.
+- **Impact** : présentation uniquement ; aucun rendement ou KPI historique modifié.
+- **Rollback** : revenir au générateur précédent ; conserver les HTML archivés.
+- **Preuve** : HTML `REPORT-022_20261121_05`, parité intégrale du payload hors
+  deux dates techniques et des 48 valorisations, courbes des 13 séries ancrées
+  correctement, survol commun/zoom/export PNG et thème sombre hors ligne validés.
+  Les bornes KPI annuelles pré-calculées sont conservées, pas élargies en JavaScript.
 
 ### Détail de `REPORT-021`
 

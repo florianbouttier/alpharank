@@ -143,16 +143,6 @@ h1 { margin: 0 0 4px; color: var(--ink); font-size: clamp(28px, 3vw, 40px); line
 }
 label, .curve-control { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 650; }
 .field-label { min-height: 16px; }
-.strategy-pills { display: flex; flex-wrap: wrap; gap: 5px; }
-.strategy-pill { display: inline-flex; gap: 6px; align-items: center; min-height: 31px; padding: 5px 9px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
-.strategy-pill i { width: 7px; height: 7px; border-radius: 50%; }
-.strategy-pill:hover { color: var(--ink); border-color: var(--line-strong); }
-.strategy-pill.is-active { color: var(--ink); background: var(--panel); border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
-.advanced-select { width: 180px; }
-.custom-period { position: relative; align-self: end; min-width: 170px; color: var(--muted); }
-.custom-period > summary { min-height: 34px; padding: 7px 9px; border: 1px solid var(--line); cursor: pointer; list-style: none; text-align: center; }
-.custom-period > summary::-webkit-details-marker { display: none; }
-.custom-period-fields { position: absolute; z-index: 12; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 340px; margin-top: 6px; padding: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); transform: translateX(-170px); }
 select, input {
   min-height: 38px;
   padding: 8px 10px;
@@ -264,7 +254,6 @@ select, input {
 .panel { padding: 16px; overflow: hidden; }
 .panel h3 { margin: 0 0 3px; color: var(--ink); font-size: 15px; }
 .panel-subtitle { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
-canvas { display: block; width: 100%; height: 400px; }
 .studio-section { margin-top: 14px; }
 .analysis-studio { padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 .studio-head, .chart-head {
@@ -298,13 +287,7 @@ canvas { display: block; width: 100%; height: 400px; }
   color: #fff;
   background: var(--navy);
 }
-.period-presets { display: inline-flex; gap: 3px; align-items: center; }
-.period-presets button { min-height: 32px; padding: 6px 10px; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
-.period-presets button:hover { color: var(--ink); }
-.period-presets button.is-active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 650; }
 .period-actions { display: flex; gap: 6px; align-items: center; }
-.period-actions .custom-period { min-width: auto; }
-.period-actions .custom-period > summary { border: 0; border-bottom: 2px solid transparent; }
 .recent-period { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; min-width: 0; }
 .recent-period select { max-width: 100%; min-width: 0; }
 .analysis-studio[data-mode="recent"] .scoreboard { min-width: 320px; }
@@ -359,41 +342,6 @@ canvas { display: block; width: 100%; height: 400px; }
 .studio-workspace .studio-chart-panel { min-width: 0; }
 .studio-workspace .kpi-grid { min-width: 0; }
 .chart-stage { position: relative; }
-.chart-tooltip {
-  position: absolute;
-  z-index: 4;
-  width: 236px;
-  padding: 10px;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--panel) 97%, transparent);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-  box-shadow: 0 8px 24px rgba(24,32,51,.12);
-  pointer-events: none;
-}
-.chart-tooltip header {
-  margin-bottom: 6px;
-  color: var(--navy);
-  font: 700 11px "IBM Plex Mono", ui-monospace, monospace;
-}
-.chart-tooltip div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 3px 0;
-  font-size: 10px;
-}
-.chart-tooltip div span {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chart-tooltip i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; }
-.chart-tooltip strong { color: var(--navy); font-family: "IBM Plex Mono", ui-monospace, monospace; }
 .studio-drawers {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -661,12 +609,6 @@ html[data-theme="dark"] .method-status { color: #e3cf64; }
   .theme-toggle strong { display: none; }
   .hero-actions { display: grid; grid-template-columns: 1fr auto; }
   .coverage-line .coverage-source { width: 100%; margin-left: 0; }
-  .period-presets { width: 100%; overflow-x: auto; }
-  .period-presets button { flex: 0 0 auto; }
-  .strategy-pills { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .strategy-pills::-webkit-scrollbar { display: none; }
-  .strategy-pill { flex: 0 0 auto; }
-  .custom-period-fields { right: 0; width: min(340px, 85vw); transform: none; }
   .toolbar, .portfolio-controls, .current-portfolio-controls, .current-portfolio-meta { grid-template-columns: 1fr; }
   .section-head { display: block; }
   .mode-switch { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }

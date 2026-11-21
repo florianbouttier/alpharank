@@ -30,17 +30,19 @@ en dur dans le HTML.
 
 La navigation horizontale sépare l'analyse de la preuve et permet d'atteindre
 le studio, le dernier portefeuille, l'historique, les méthodologies puis la
-lignée sans réserver un rail permanent. Le studio utilise ainsi toute la
-largeur. Les stratégies investissables sont des sélecteurs visibles et les
-fenêtres longues usuelles se choisissent en un clic ; les listes et dates
-détaillées restent disponibles sans encombrer le parcours principal.
+lignée. Dans le studio, une colonne de sélection explicite les séries : cases
+groupées par famille, recherche, tout cocher et tout retirer. Elle est repliable
+sur mobile. Les bornes disponibles sont toujours affichées en mois/année ;
+aucun bouton « depuis 2025 » ou autre année choisie arbitrairement n'impose une
+fenêtre. Le profil initial montre les deux Boosting Top 5 et SPY lorsqu'ils sont
+présents ; toutes les autres séries restent disponibles, jamais supprimées.
 
 Le graphique est la surface dominante. Le résumé des six KPI prend la forme
 d'un scoreboard `stratégies × métriques`, pas d'une collection de cartes : une
 ligne porte une stratégie, une colonne garde la même définition et chaque
 cellule expose sa valeur et son écart au SPY. Les 33 KPI, model cards et
 corrélations restent dans les tiroirs immédiatement adjacents. Le thème
-clair/sombre modifie uniquement les tokens de rendu et les couleurs du canvas ;
+clair/sombre modifie uniquement les tokens de rendu et les couleurs des figures ;
 il ne modifie ni la sélection, ni la période, ni le payload.
 
 La page reste complète sur mobile : les groupes se réorganisent, les matrices
@@ -48,6 +50,24 @@ et tables conservent un défilement horizontal local, et aucune section n'est
 supprimée. Une navigation clavier, un lien d'évitement, des labels explicites
 et des états `aria-selected` rendent les interactions principales accessibles.
 Le rapport n'appelle aucune police, bibliothèque, API ou ressource réseau.
+
+### Composant graphique partagé (`REPORT-022`)
+
+`src/alpharank/reporting/analysis_ui/` possède l'adaptateur Plotly, les styles
+du studio et leur chargement. Tous les nouveaux rapports du générateur canonique
+l'utilisent, y compris le suivi récent, le composeur et les deux frontières.
+Les anciens HTML archivés sont des preuves immuables : ils ne changent pas
+lorsque le générateur évolue.
+
+Plotly est une dépendance déjà présente du projet. Son runtime JavaScript est
+embarqué dans le HTML, avec sa version en métadonnée et la notice MIT complète ;
+aucun CDN n'est nécessaire. L'adaptateur reçoit uniquement des points préparés,
+sans accès aux sources ni calcul de KPI. Les séries temporelles utilisent des
+lignes SVG, un axe calendrier, le survol natif synchronisé, le zoom, le retour à
+la vue complète et l'export PNG. Les frontières utilisent le même adaptateur
+pour les points et leurs poids. Il n'y a plus de moteur canvas artisanal local.
+Cette bibliothèque augmente la taille de la page autonome ; ce coût est assumé
+pour garder les interactions et le fonctionnement hors ligne dans un seul HTML.
 
 ## Entrées obligatoires
 
@@ -103,6 +123,13 @@ de richesse et de drawdown sont des projections graphiques des rendements
 mensuels déjà produits par le moteur ; les valeurs affichées dans les cartes et
 tableaux proviennent du cube canonique.
 
+Les menus ne promettent donc pas des bornes quotidiennes ou mensuelles libres :
+ils exposent les débuts/fins annuels effectivement pré-calculés, avec leurs
+mois partiels de bord. Le zoom du graphique est une loupe d'affichage, **pas** un
+nouveau filtre économique. Une légende le rappelle après zoom : les KPI restent
+sur la période choisie dans les menus. Aucune annualisation ni fenêtre KPI
+supplémentaire n'est inventée dans le navigateur.
+
 Le haut du rapport constitue un studio unique. Un commutateur y alterne entre
 la comparaison de stratégies et le portefeuille composé sans changer de page,
 de période ou de panneau. Le même espace contient les sélecteurs, les cartes
@@ -127,8 +154,19 @@ deux KPI déjà produits pour afficher leur écart, sans recalculer le KPI.
 Performance, drawdown et richesse relative occupent successivement le même
 graphique pleine largeur selon l'onglet choisi, avec les mêmes couleurs, la même
 fenêtre et exactement la même sélection. Le survol expose le mois et les valeurs
-des séries. La vue relative matérialise la parité SPY à 1 et distingue
-visuellement les zones de surperformance et de retard.
+des séries. La vue relative matérialise la parité SPY à 1, en pointillé sur un
+fond neutre, sans coloration globale suggérant qu'une sélection entière gagne.
+
+Pour chaque fenêtre mensuelle, performance et richesse relative incluent un
+**point initial à 1 avant le premier rendement**, et le drawdown un point à 0.
+Ce repère est daté de la fin calendaire du mois précédent et nommé « Point
+initial · avant le premier rendement » au survol ; ce n'est pas une nouvelle
+cotation observée. Les points suivants sont datés de la fin calendaire de leur
+mois de détention. Le premier rendement reste inclus : une vue janvier–septembre
+2026 possède dix points, dont le repère du 31 décembre 2025, et non neuf points
+renormalisés après janvier. Les valeurs finales des courbes, les rendements et
+les KPI pré-calculés restent inchangés. Les courbes quotidiennes du suivi récent
+conservent leurs propres dates et leur clôture initiale déjà présentes.
 
 ## Laboratoire de portefeuille composé
 

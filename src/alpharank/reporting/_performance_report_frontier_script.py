@@ -136,88 +136,16 @@ function drawFrontierChart(kind) {
   });
 }
 
-function drawFrontierScatter(canvas, model) {
-  const ratio = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  const height = 330;
-  canvas.width = Math.max(520, rect.width * ratio);
-  canvas.height = height * ratio;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(ratio, ratio);
-  const width = canvas.width / ratio;
-  const pad = {l: 58, r: 18, t: 18, b: 44};
-  const all = [...model.points, ...model.references];
-  let xMin = Math.min(...all.map(point => point.x));
-  let xMax = Math.max(...all.map(point => point.x));
-  let yMin = Math.min(...all.map(point => point.y));
-  let yMax = Math.max(...all.map(point => point.y));
-  const xMargin = Math.max((xMax - xMin) * 0.08, 0.005);
-  const yMargin = Math.max((yMax - yMin) * 0.10, 0.005);
-  xMin = Math.max(0, xMin - xMargin); xMax += xMargin;
-  yMin -= yMargin; yMax += yMargin;
-  const xScale = value => pad.l + (width - pad.l - pad.r) * (value - xMin) / (xMax - xMin);
-  const yScale = value => pad.t + (height - pad.t - pad.b) * (yMax - value) / (yMax - yMin);
-  ctx.clearRect(0, 0, width, height);
-  ctx.font = "10px IBM Plex Mono, monospace";
-  ctx.fillStyle = cssColor("--muted", "#617087");
-  ctx.strokeStyle = cssColor("--grid", "#e1e7ee");
-  for (let index = 0; index < 5; index += 1) {
-    const y = pad.t + (height - pad.t - pad.b) * index / 4;
-    const yValue = yMax - (yMax - yMin) * index / 4;
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(width - pad.r, y); ctx.stroke();
-    ctx.fillText(`${(100 * yValue).toFixed(0)}%`, 4, y + 4);
-    const x = pad.l + (width - pad.l - pad.r) * index / 4;
-    const xValue = xMin + (xMax - xMin) * index / 4;
-    ctx.textAlign = index === 4 ? "right" : index === 0 ? "left" : "center";
-    ctx.fillText(`${(100 * xValue).toFixed(0)}%`, x, height - 23);
-  }
-  ctx.textAlign = "center";
-  ctx.fillText(model.xLabel, pad.l + (width - pad.l - pad.r) / 2, height - 5);
-  model.points.forEach(point => {
-    ctx.beginPath(); ctx.arc(xScale(point.x), yScale(point.y), 2.2, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(97,112,135,.25)"; ctx.fill();
+function drawFrontierScatter(element, model) {
+  const describe = point => ({
+    ...point,
+    description: point.weights ? frontierWeightText(point.weights) : "",
   });
-  ctx.beginPath();
-  model.frontier.forEach((point, index) => {
-    const x = xScale(point.x), y = yScale(point.y);
-    index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  element._frontierModel = model;
+  return AlphaRankStrategyCharts.renderFrontier(element, {
+    ...model,
+    points: model.points.map(describe),
+    recommendations: model.recommendations.map(describe),
   });
-  ctx.strokeStyle = cssColor("--navy", "#111d55"); ctx.lineWidth = 2.2; ctx.stroke();
-  model.references.forEach(point => {
-    const x = xScale(point.x), y = yScale(point.y);
-    ctx.fillStyle = point.color; ctx.fillRect(x - 4, y - 4, 8, 8);
-  });
-  model.recommendations.forEach(point => {
-    const x = xScale(point.x), y = yScale(point.y);
-    ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = point.color; ctx.fill(); ctx.strokeStyle = cssColor("--panel", "#fff"); ctx.lineWidth = 2; ctx.stroke();
-  });
-  ctx.textAlign = "left";
-  canvas._frontierModel = {...model, xScale, yScale};
-  canvas.onmousemove = showFrontierTooltip;
-  canvas.onmouseleave = hideFrontierTooltip;
-}
-
-function showFrontierTooltip(event) {
-  const canvas = event.currentTarget;
-  const model = canvas._frontierModel;
-  const candidates = [...model.recommendations, ...model.references, ...model.points];
-  const nearest = candidates.reduce((best, point) => {
-    const distance = Math.hypot(event.offsetX - model.xScale(point.x), event.offsetY - model.yScale(point.y));
-    return !best || distance < best.distance ? {point, distance} : best;
-  }, null);
-  const tooltip = canvas.parentElement.querySelector(".frontier-tooltip");
-  if (!nearest || nearest.distance > 14) { tooltip.hidden = true; return; }
-  const point = nearest.point;
-  const title = point.name || `Composition ${point.index + 1}`;
-  const composition = point.weights ? `<div>${escapeHtml(frontierWeightText(point.weights))}</div>` : "";
-  tooltip.innerHTML = `<header>${escapeHtml(title)}</header>${composition}<div><span>Risque</span><strong>${format(point.x, "pct")}</strong></div><div><span>CAGR</span><strong>${format(point.y, "pct")}</strong></div>`;
-  tooltip.hidden = false;
-  tooltip.style.left = `${Math.max(8, Math.min(canvas.clientWidth - 250, event.offsetX + 14))}px`;
-  tooltip.style.top = `${Math.max(8, event.offsetY - 36)}px`;
-}
-
-function hideFrontierTooltip(event) {
-  event.currentTarget.parentElement.querySelector(".frontier-tooltip").hidden = true;
 }
 """

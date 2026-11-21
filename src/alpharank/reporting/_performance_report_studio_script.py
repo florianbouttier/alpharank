@@ -7,6 +7,7 @@ const STUDIO_DISPLAY_METRICS = [
 const STUDIO_CHART_VIEWS = new Set(["wealth", "drawdown", "relative"]);
 
 function initializeStudioControls() {
+  document.getElementById("reset-chart-zoom").addEventListener("click", () => AlphaRankStrategyCharts.reset(document.getElementById("studio-chart")));
   const recent = state.data.recent_valuation;
   document.querySelector('[data-analysis-mode="recent"]').hidden = !recent;
   if (recent) {
@@ -37,6 +38,7 @@ function setAnalysisMode(mode) {
   const isFrontier = mode === "frontier";
   const isRecent = mode === "recent";
   document.getElementById("analysis-studio").dataset.mode = mode;
+  document.getElementById("series-selector").hidden = isFrontier;
   document.querySelector(".period-actions").hidden = isRecent;
   document.getElementById("recent-period-control").hidden = !isRecent;
   document.getElementById("recent-contract").hidden = !isRecent;
@@ -61,8 +63,7 @@ function setAnalysisMode(mode) {
   document.getElementById("studio-kpis").hidden = isFrontier;
   document.querySelector(".studio-chart-panel").hidden = isFrontier;
   document.querySelector(".studio-drawers").hidden = isFrontier;
-  document.getElementById("curve-multiselect").open = false;
-  document.getElementById("composer-multiselect").open = false;
+  document.getElementById("composer-multiselect").open = isComposer;
   renderStudio();
 }
 
@@ -203,6 +204,7 @@ function renderStudioOutcome() {
 
 function renderStudio() {
   if (!state.data) return;
+  updateCurveSummary();
   renderStudioContext();
   if (state.analysisMode === "frontier") {
     renderFrontierStudio();
@@ -217,11 +219,6 @@ function renderStudio() {
 }
 
 function resizeStudioCharts() {
-  if (state.analysisMode === "frontier") {
-    drawFrontierChart("volatility");
-    drawFrontierChart("drawdown");
-    return;
-  }
-  drawStudioChart();
+  ["studio-chart", "frontier-volatility-chart", "frontier-drawdown-chart"].forEach(id => AlphaRankStrategyCharts.resize(document.getElementById(id)));
 }
 """

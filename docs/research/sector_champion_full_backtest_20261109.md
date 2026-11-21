@@ -374,3 +374,122 @@ brut de frais et sans change ; il n'est pas ajouté aux rendements mensuels nets
 - Limites inchangées : pas de replay inter-vintages ni validation actuelle des
   signaux ; réserve MPC déjà décrite dans `REPORT-020`. Le contrôle global de
   taille garde les huit écarts préexistants hors lot, sans nouvelle violation.
+
+## Refonte de l'analyse partagée (`REPORT-022`, 21 novembre 2026)
+
+Demande du propriétaire : remplacer globalement le frontend d'analyse, pas
+retoucher une seule sortie. Le défaut visible de richesse relative sur 2026 est
+reproduit : les anciens points commençaient **après** le rendement de janvier,
+sans matérialiser le capital initial. Le rapport n'inventait pas un rendement
+antérieur, mais sa présentation empêchait de voir le départ à 1.
+
+### Composant, interaction et direction visuelle
+
+- Les canvas et survols artisanaux des séries temporelles et frontières sont
+  remplacés par un adaptateur Plotly unique sous
+  `src/alpharank/reporting/analysis_ui/`. Le générateur canonique l'embarque pour
+  tous ses profils, suivi récent et composeur compris ; les HTML déjà archivés
+  ne sont pas réécrits.
+- Une colonne de sélection présente les familles Legacy, Boosting, tendance et
+  sectorielles, avec cases, recherche et actions tout cocher/tout retirer. Les
+  deux Boosting Top 5 et SPY sont affichés initialement. Tout retirer garde SPY
+  seul ; changer les séries pilote aussi le scoreboard, les 33 KPI et les model
+  cards. Le composeur conserve ses six poches et leurs poids équipondérés.
+- Les bornes réellement disponibles sont visibles en mois/année. Les presets
+  « Depuis 2015/2020/2023 » et les filtres cachés sont supprimés. Le graph domine
+  le panneau, avec axe calendrier, fond neutre, SPY pointillé, survol commun,
+  zoom et réinitialisation explicites, export PNG natif et thèmes cohérents.
+- `frontend-design` a guidé cette direction de comparateur financier compact,
+  plutôt que l'accumulation de contrôles et de courbes. Inspiration fonctionnelle :
+  [Koyfin, model portfolios](https://www.koyfin.com/features/model-portfolios/).
+  Implémentation fondée sur les API primaires Plotly :
+  [rendu et redimensionnement](https://plotly.com/javascript/plotlyjs-function-reference/),
+  [événements](https://plotly.com/javascript/plotlyjs-events/) et
+  [axes et survol](https://plotly.com/javascript/reference/layout/).
+- Plotly était déjà une dépendance du dépôt : aucune nouvelle bibliothèque à
+  installer. Runtime vérifié `plotly.py 7.1.0 / Plotly.js 4.1.1`, JavaScript et
+  notice MIT complète embarqués, version inscrite dans le HTML. La construction
+  wheel hors réseau contient bien le chargeur, JS, CSS, README et licence.
+- `build-dashboard` a guidé la préservation des sources et la QA. Son export
+  générique n'est pas présent dans cette installation ; le générateur canonique
+  demandé et les deux preuves JSON ci-dessous assurent la livraison complète.
+  Aucun second moteur de KPI ni application dans Portfolio n'est créé.
+
+### Correction des bases graphiques, sans changer le résultat
+
+Les trois vues partagent la même projection mensuelle : repère initial à 1 pour
+la richesse et la richesse relative, à 0 pour le drawdown, puis **tous** les
+rendements de la fenêtre. Ce repère est nommé au survol et daté de la fin
+calendaire du mois précédent ; ce n'est pas une cotation supplémentaire. Les
+autres points utilisent la fin calendaire du mois détenu, pas son premier jour.
+
+- Non-régression synthétique janvier–février 2026 : stratégie `+50 %, −10 %`,
+  SPY `+10 %, +5 %`. L'ancien graphe relatif débutait à `1,363636…` ; le nouveau
+  débute à `1` et conserve ce même point de janvier, puis la même valeur finale
+  `1,1688311688…`. Les observations hors fenêtre ne sont pas utilisées.
+- Sur la vraie vue janvier–septembre 2026, chacune des treize séries possède dix
+  points avec le repère du 31 décembre 2025. Les deux Top 5 relatifs finissent
+  toujours à `1,4292784045562694` et `2,7943821795450963`, SPY à 1. Le premier
+  mois n'a pas été supprimé pour fabriquer visuellement le départ à 1.
+- Les courbes quotidiennes récentes ont déjà leur clôture initiale : leurs
+  points et leurs dates restent inchangés. Aucun drawdown scalaire ou autre KPI
+  n'est recalculé par la correction graphique.
+
+### Artefact complet et parité économique
+
+- Rapport : `outputs/performance_reports/REPORT-022_20261121_05/backtest_performance_report.html`.
+  SHA-256 `d3f02bdba00d934fae23ac924123035efab34720141bd74f1256b4c91fa8e800`,
+  taille 8 175 454 octets (environ 7,8 Mio avec la bibliothèque hors ligne).
+  Le rendu depuis le payload correspond exactement au fichier livré.
+- Manifeste HTML `a6becbcb5444988714ef68be6f46f7479f605434ffccc08d91c146f66e046f28` ;
+  manifeste de valorisation `49b86a217b5dac5b05956e770aa60d8b593b3c05d23b14ef952349997c8884cc`.
+  L'entrée possédée `outputs/performance_reports/index.html` désigne ce rapport,
+  via HTTP local ou `file://`, sans supprimer les générations précédentes.
+- Comparaison intégrale à `REPORT-021` au SHA `a8c52aca…625d` : mêmes champs et
+  valeurs, hors `generated_at_utc` et
+  `recent_valuation.provenance.generated_at_utc`. Payload ainsi normalisé SHA-256
+  `1d54130f022dd9ebca806a4547a5b7e0c41ff73e279f0311768bf0bdca32f1a7`.
+- Conservés : 13 séries, 182 mois d'août 2011 à septembre 2026, 136 fenêtres,
+  33 KPI, model cards cumulées/annuelles, 63 compositions, 168 allocations de
+  frontière, 25 310 lignes historiques, 126 positions figées et neuf cartes
+  méthodologiques. Toutes les variantes standard et sectorielles restent présentes.
+- Les 48 rendements récents sont identiques ; CSV complet inchangé au SHA-256
+  `30bdad13bf8e101eb1bfe090f732243d7e73530c5ece565ebf75c165046f932d`.
+  Même reçu prix du 21 novembre, même RAW `36882f7b…5a4c`, dernière clôture le
+  20 novembre. La commande de reproduction de `REPORT-020` régénère le nouveau
+  frontend dans une nouvelle destination, sans deuxième téléchargement.
+- `validation.json` conserve les parités et les hashes ; `qa_browser.json`, SHA
+  `541f9faa507283515ff5a522dc5a17d53b954e4b6d526674299bf0a218b5ad2c`,
+  conserve les résultats de QA. Les captures desktop, mobile clair et sombre
+  sont dans le même dossier d'artefact.
+
+### Vérifications et limites
+
+- **89 tests ciblés réussis** : portefeuille, reporting, nouvelles projections,
+  inventaires et indépendance des chemins. Deux avertissements existants
+  (dépréciation pandas et corrélation dégénérée NumPy), aucun test en échec.
+- Ruff du reporting et des tests modifiés, formatage des nouveaux modules et
+  mypy du chargeur validés ; exception `import-untyped` limitée à Plotly sans
+  stubs, motivée à cette frontière. Ruff différentiel : zéro diagnostic nouveau,
+  248 diagnostics historiques restants. Les deux blocs JavaScript du HTML et
+  l'adaptateur passent `node --check`.
+- Documentation, liens Markdown, cohérence des dépendances et inventaires
+  validés. Reporting reste à 20 Python directs ; son enfant `analysis_ui/` a un
+  seul Python. Aucune dérogation de plafond. La gate globale de taille échoue
+  toujours sur les huit régressions préexistantes hors des fichiers de ce lot ;
+  aucune nouvelle régression de taille n'est introduite ici.
+- QA Chrome 1 440 et 390 px : ancrage des treize séries dans les trois vues,
+  fenêtre 2015–2020 à 73 points et valeur finale identique, bornes inversées,
+  SPY seul, recherche sectorielle, 33 lignes KPI, model cards de la sélection,
+  composeur deux Boosting, deux frontières à 168 points, paniers sectoriels à
+  cinq titres, survol souris des trois séries, zoom/reset et vrai export PNG.
+  Thème sombre des séries et frontières, index hors ligne, aucune erreur
+  navigateur, aucun appel externe ni débordement global.
+- Les menus KPI gardent les **bornes annuelles pré-calculées**, y compris les
+  mois partiels de bord : pas de choix libre de toute séance ou de tout mois.
+  Le zoom ne filtre pas les KPI et l'interface l'indique explicitement.
+- **Aucun nouveau téléchargement ni run modèle**, aucun changement de snapshot,
+  de signal, d'hyperparamètre, de rendement ou de coût. Ce travail ne constitue
+  pas un replay inter-vintages ni une nouvelle preuve d'absence de fuite.
+  Le suivi au-delà d'octobre reste hypothétique sur les paniers figés ; les
+  réserves économiques et data de `REPORT-020` sont inchangées.

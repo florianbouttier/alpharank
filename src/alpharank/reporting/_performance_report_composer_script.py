@@ -49,7 +49,7 @@ function setComposerStrategies(strategies) {
   state.composerStrategies = available.filter(strategy => strategies.includes(strategy));
   if (!state.composerStrategies.length) state.composerStrategies = [available[0]];
   renderComposerOptions();
-  document.getElementById("composer-multiselect").open = false;
+  document.getElementById("composer-multiselect").open = true;
   renderStudio();
 }
 
@@ -121,31 +121,15 @@ function composerPeriodReturns() {
 }
 
 function composerWealthSeries() {
-  let wealth = 1;
-  return composerPeriodReturns().map(row => ({date: row.date, value: (wealth *= 1 + row.value)}));
+  return monthlyChartProjection(composerPeriodReturns(), "wealth");
 }
 
 function composerDrawdownSeries() {
-  let wealth = 1, peak = 1;
-  return composerPeriodReturns().map(row => {
-    wealth *= 1 + row.value;
-    peak = Math.max(peak, wealth);
-    return {date: row.date, value: wealth / peak - 1};
-  });
+  return monthlyChartProjection(composerPeriodReturns(), "drawdown");
 }
 
 function composerRelativeWealthSeries() {
-  const spyByMonth = new Map(
-    periodMonthly(BENCHMARK_STRATEGY).map(
-      row => [row.holding_month, row.net_return],
-    ),
-  );
-  let portfolioWealth = 1, spyWealth = 1;
-  return composerPeriodReturns().map(row => {
-    portfolioWealth *= 1 + row.value;
-    spyWealth *= 1 + spyByMonth.get(row.date);
-    return {date: row.date, value: portfolioWealth / spyWealth};
-  });
+  return monthlyChartProjection(composerPeriodReturns(), "relative");
 }
 
 """

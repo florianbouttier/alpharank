@@ -35,7 +35,7 @@ const METRICS = {
   maximum_sector_weight: ["Poids secteur maximal", "pct", "Concentration sectorielle mensuelle maximale."],
 };
 const BENCHMARK_STRATEGY = "SPY · Total return";
-const DEFAULT_CURVE_STRATEGIES = ["Legacy · Frequency", "Boosting tendance · Top 5", BENCHMARK_STRATEGY];
+const DEFAULT_CURVE_STRATEGIES = ["Boosting · Top 5", "Boosting tendance · Top 5", BENCHMARK_STRATEGY];
 const METRIC_DIRECTIONS = {
   total_return: "higher", cagr: "higher", annualized_volatility: "lower",
   sharpe: "higher", max_drawdown: "higher", positive_month_rate: "higher",
@@ -79,7 +79,19 @@ function option(value, label=value) { return `<option value="${escapeHtml(value)
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[char])); }
 function monthLabel(value) { return new Date(`${value.slice(0,7)}-15T12:00:00Z`).toLocaleDateString("fr-FR", {month:"short", year:"numeric"}); }
 function dateLabel(value) { return new Date(`${value}T12:00:00Z`).toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"}); }
-function strategyMeta(label) { return state.data.strategies.find(item => item.label === label); }
+function strategyMeta(label) {
+  const item = state.data.strategies.find(item => item.label === label);
+  const palette = {
+    "Legacy · Frequency": "#7c3aed", "Legacy · Equal": "#a78bfa",
+    "Boosting · Top 5": "#2563eb", "Boosting · Top 10": "#4f7fea",
+    "Boosting · Top 15": "#7199ed", "Boosting · Top 20": "#98b5f1",
+    "Boosting tendance · Top 5": "#0d9488", "Boosting tendance · Top 10": "#24ab9b",
+    "Boosting tendance · Top 15": "#53bfad", "Boosting tendance · Top 20": "#82d1c4",
+    "Boosting · Top 5 sectoriel": "#db7b24", "Boosting tendance · Top 5 sectoriel": "#be4b8a",
+    "SPY · Total return": "#64748b",
+  };
+  return item ? {...item, color: palette[label] || item.color} : item;
+}
 function windowKey() { return `${state.start}|${state.end}`; }
 function currentMetricRows() {
   const rows = state.data.metric_windows[windowKey()];
@@ -106,9 +118,9 @@ function initializeControls() {
   const D = state.data;
   state.start = D.calendar.start;
   state.end = D.calendar.end;
-  state.curves = (D.default_curves ?? DEFAULT_CURVE_STRATEGIES).filter(strategy => D.strategy_order.includes(strategy));
-  document.getElementById("start-month").innerHTML = D.calendar.available_start_months.map(value => option(value, value.slice(0,4))).join("");
-  document.getElementById("end-month").innerHTML = D.calendar.available_end_months.map(value => option(value, value.slice(0,4))).join("");
+  state.curves = DEFAULT_CURVE_STRATEGIES.filter(strategy => D.strategy_order.includes(strategy));
+  document.getElementById("start-month").innerHTML = D.calendar.available_start_months.map(value => option(value, monthLabel(value))).join("");
+  document.getElementById("end-month").innerHTML = D.calendar.available_end_months.map(value => option(value, monthLabel(value))).join("");
   document.getElementById("portfolio-strategy").innerHTML = D.strategy_order.filter(value => value !== "SPY · Total return").map(value => option(value)).join("");
   document.getElementById("portfolio-month").innerHTML = D.calendar.available_months.map(value => option(value, monthLabel(value))).join("");
   document.getElementById("current-portfolio-strategy").innerHTML = D.strategy_order.filter(value => value !== BENCHMARK_STRATEGY).map(value => option(value)).join("");
@@ -120,11 +132,10 @@ function initializeControls() {
   initializeStudioControls();
   renderCurveOptions();
   document.getElementById("select-all-curves").addEventListener("click", () => setCurveStrategies(D.strategy_order));
-  document.getElementById("select-reference-curves").addEventListener("click", () => setCurveStrategies(["Legacy · Frequency", BENCHMARK_STRATEGY]));
+  document.getElementById("select-reference-curves").addEventListener("click", () => setCurveStrategies([BENCHMARK_STRATEGY]));
   document.getElementById("reset-window").addEventListener("click", resetWindow);
-  document.querySelectorAll("[data-period-start-year]").forEach(button => {
-    button.addEventListener("click", () => setQuickPeriod(Number(button.dataset.periodStartYear)));
-  });
+  document.getElementById("strategy-search").addEventListener("input", filterStrategyChoices);
+  document.getElementById("series-selector").open = window.innerWidth >= 760;
   document.getElementById("export-holdings").addEventListener("click", exportHoldings);
   document.getElementById("export-current-holdings").addEventListener("click", exportCurrentHoldings);
   document.getElementById("page-prev").addEventListener("click", () => { state.page=Math.max(0,state.page-1); renderHoldings(); });
@@ -136,40 +147,44 @@ function initializeControls() {
   }));
 }
 
-function renderCurveOptions() {
-  const container = document.getElementById("curve-options");
-  container.innerHTML = state.data.strategies.map((item, index) => ({item,index}))
-    .filter(({item}) => item.label !== BENCHMARK_STRATEGY).map(({item,index}) => `
-    <label class="curve-option">
-      <input type="checkbox" data-curve-index="${index}" ${state.curves.includes(item.label) ? "checked" : ""}>
-      <i style="background:${item.color}"></i><span>${escapeHtml(item.label)}</span>
-    </label>`).join("");
-  container.querySelectorAll("input").forEach(input => input.addEventListener("change", () => {
-    const label = state.data.strategies[Number(input.dataset.curveIndex)].label;
-    const next = input.checked ? [...state.curves, label] : state.curves.filter(value => value !== label);
-    if (!next.some(value => value !== BENCHMARK_STRATEGY)) { input.checked = true; return; }
-    setCurveStrategies(next);
-  }));
-  updateCurveSummary();
-  renderStrategyQuickPicks();
+function strategyChoiceGroup(label) {
+  if (label.startsWith("Legacy")) return "Legacy";
+  if (label.includes("sectoriel")) return "Sectorielles";
+  return label.startsWith("Boosting tendance") ? "Boosting tendance" : "Boosting";
 }
 
-function renderStrategyQuickPicks() {
-  const container = document.getElementById("strategy-quick-picks");
-  container.innerHTML = state.data.strategies
-    .filter(item => item.label !== BENCHMARK_STRATEGY)
-    .map(item => `<button type="button" class="strategy-pill ${state.curves.includes(item.label) ? "is-active" : ""}" data-quick-strategy="${escapeHtml(item.label)}" title="${escapeHtml(item.label)}"><i style="background:${item.color}"></i>${escapeHtml(compactStrategyName(item.label))}</button>`)
-    .join("");
-  container.querySelectorAll("[data-quick-strategy]").forEach(button => {
-    button.addEventListener("click", () => {
-      const label = button.dataset.quickStrategy;
-      const selected = state.curves.includes(label);
-      const investable = state.curves.filter(value => value !== BENCHMARK_STRATEGY);
-      if (selected && investable.length === 1) return;
-      setCurveStrategies(selected
-        ? state.curves.filter(value => value !== label)
-        : [...state.curves, label]);
-    });
+function strategyChoiceName(label) {
+  if (label.includes("sectoriel")) return label.replace("Boosting tendance · ", "Tendance · ").replace("Boosting · ", "Natif · ").replace(" sectoriel", "");
+  return label.replace("Legacy · Frequency", "Fréquence").replace("Legacy · Equal", "Équipondéré").replace("Boosting tendance · ", "").replace("Boosting · ", "");
+}
+
+function renderCurveOptions() {
+  const choices = state.data.strategies.map((item, index) => ({item: strategyMeta(item.label), index}))
+    .filter(({item}) => item.label !== BENCHMARK_STRATEGY);
+  const groups = ["Legacy", "Boosting", "Boosting tendance", "Sectorielles"];
+  const container = document.getElementById("curve-options");
+  container.innerHTML = groups.map(group => {
+    const rows = choices.filter(({item}) => strategyChoiceGroup(item.label) === group).map(({item, index}) =>
+      '<label class="curve-option" data-search="' + escapeHtml(item.label.toLowerCase()) + '" title="' + escapeHtml(item.label) + '">' +
+      '<input type="checkbox" data-curve-index="' + index + '" ' + (state.curves.includes(item.label) ? "checked" : "") + '>' +
+      '<i style="background:' + item.color + '"></i><span>' + escapeHtml(strategyChoiceName(item.label)) + '</span></label>'
+    ).join("");
+    return rows ? '<fieldset class="strategy-family"><legend>' + group + '</legend>' + rows + '</fieldset>' : "";
+  }).join("");
+  container.querySelectorAll("input").forEach(input => input.addEventListener("change", () => {
+    const label = state.data.strategies[Number(input.dataset.curveIndex)].label;
+    setCurveStrategies(input.checked ? [...state.curves, label] : state.curves.filter(value => value !== label));
+  }));
+  updateCurveSummary();
+}
+
+function filterStrategyChoices() {
+  const query = document.getElementById("strategy-search").value.trim().toLowerCase();
+  document.querySelectorAll(".curve-option").forEach(row => {
+    row.hidden = !row.dataset.search.includes(query);
+  });
+  document.querySelectorAll(".strategy-family").forEach(group => {
+    group.hidden = [...group.querySelectorAll(".curve-option")].every(row => row.hidden);
   });
 }
 
@@ -180,29 +195,35 @@ function setCurveStrategies(strategies) {
   document.querySelectorAll("[data-curve-index]").forEach(input => {
     input.checked = state.curves.includes(state.data.strategies[Number(input.dataset.curveIndex)].label);
   });
-  document.querySelectorAll("[data-quick-strategy]").forEach(button => {
-    button.classList.toggle("is-active", state.curves.includes(button.dataset.quickStrategy));
-  });
   updateCurveSummary();
   renderStudio();
 }
 
 function updateCurveSummary() {
+  if (state.analysisMode === "composer") {
+    const available = state.data.portfolio_composer.strategy_order.length;
+    document.getElementById("curve-select-label").textContent = `${state.composerStrategies.length} / ${available} poches + SPY`;
+    return;
+  }
   const selected = state.curves.filter(strategy => strategy !== BENCHMARK_STRATEGY).length;
   const available = state.data.strategy_order.length - 1;
   document.getElementById("curve-select-label").textContent = `${selected} / ${available} stratégies + SPY`;
 }
 
-function updatePeriod() {
-  const start = document.getElementById("start-month").value;
+function updatePeriod(event) {
+  let start = document.getElementById("start-month").value;
   let end = document.getElementById("end-month").value;
   if (start > end) {
-    end = state.data.calendar.available_end_months.find(value => value >= start) || state.data.calendar.end;
+    if (event?.target?.id === "end-month") {
+      start = state.data.calendar.available_start_months.filter(value => value <= end).at(-1);
+    } else {
+      end = state.data.calendar.available_end_months.find(value => value >= start);
+    }
+    document.getElementById("start-month").value = start;
     document.getElementById("end-month").value = end;
   }
   state.end = end;
   state.start = start;
-  updatePeriodPresets();
   renderPeriod();
 }
 
@@ -211,30 +232,7 @@ function resetWindow() {
   state.end = state.data.calendar.end;
   document.getElementById("start-month").value = state.start;
   document.getElementById("end-month").value = state.end;
-  updatePeriodPresets();
   renderPeriod();
-}
-
-function setQuickPeriod(year) {
-  const start = state.data.calendar.available_start_months.find(value => value.startsWith(`${year}-`));
-  if (!start) return;
-  state.start = start;
-  state.end = state.data.calendar.end;
-  document.getElementById("start-month").value = state.start;
-  document.getElementById("end-month").value = state.end;
-  updatePeriodPresets();
-  renderPeriod();
-}
-
-function updatePeriodPresets() {
-  document.getElementById("reset-window").classList.toggle(
-    "is-active",
-    state.start === state.data.calendar.start && state.end === state.data.calendar.end,
-  );
-  document.querySelectorAll("[data-period-start-year]").forEach(button => {
-    const active = state.start.startsWith(`${button.dataset.periodStartYear}-`) && state.end === state.data.calendar.end;
-    button.classList.toggle("is-active", active);
-  });
 }
 
 function renderPeriod() {
@@ -247,16 +245,11 @@ function periodMonthly(strategy) {
 }
 
 function wealthSeries(strategy) {
-  let wealth = 1;
-  return periodMonthly(strategy).map(row => ({date:row.holding_month, value:(wealth *= 1 + row.net_return)}));
+  return monthlyChartProjection(periodMonthly(strategy).map(row => ({date: row.holding_month, value: row.net_return})), "wealth");
 }
 
 function drawdownSeries(strategy) {
-  let wealth = 1, peak = 1;
-  return periodMonthly(strategy).map(row => {
-    wealth *= 1 + row.net_return; peak = Math.max(peak, wealth);
-    return {date:row.holding_month, value:wealth / peak - 1};
-  });
+  return monthlyChartProjection(periodMonthly(strategy).map(row => ({date: row.holding_month, value: row.net_return})), "drawdown");
 }
 
 function filteredHoldings() {
@@ -346,7 +339,9 @@ function applyTheme(theme, persist=false) {
   if (persist) {
     try { window.localStorage.setItem("alpharank-report-theme", normalized); } catch (_) { /* file-safe */ }
   }
-  if (state.data) resizeStudioCharts();
+  if (state.data) {
+    ["studio-chart", "frontier-volatility-chart", "frontier-drawdown-chart"].forEach(id => AlphaRankStrategyCharts.refreshTheme(document.getElementById(id)));
+  }
 }
 
 function initializeTheme() {
@@ -369,11 +364,11 @@ function renderCoverage() {
 
 function renderMetadata() {
   const D=state.data; document.getElementById("report-generated").textContent=D.generated_at_utc; document.getElementById("report-calendar").textContent=`${D.calendar.months} mois · ${D.calendar.start.slice(0,7)} → ${D.calendar.end.slice(0,7)}`;document.getElementById("status-message").textContent=D.status.message;renderCoverage();
-  if (D.headline) document.getElementById("report-headline").textContent = D.headline;
-  if (D.subtitle) document.getElementById("report-subtitle").textContent = D.subtitle;
+  document.getElementById("report-headline").textContent = "Analyse des stratégies";
+  document.getElementById("report-subtitle").textContent = "Choisissez les séries et la période. Les graphiques et indicateurs comparent la même fenêtre au SPY.";
   if (D.recent_valuation) {
     document.getElementById("report-calendar").textContent = `Prix au ${dateLabel(D.recent_valuation.latest_close)}`;
-    document.getElementById("report-subtitle").textContent = `Suivi prix au ${dateLabel(D.recent_valuation.latest_close)} et backtest complet réunis. Les paniers figés ne sont pas des signaux actuels.`;
+    document.getElementById("report-subtitle").textContent = `Backtest et suivi prix au ${dateLabel(D.recent_valuation.latest_close)}. Les paniers figés restent distincts des signaux actuels.`;
   }
   document.title = D.title;
 }

@@ -27,11 +27,17 @@ ni commande interactive : les KPI de performance proviennent du moteur commun.
 - `_performance_report_studio_script.py`,
   `_performance_report_chart_script.py` et
   `_performance_report_matrix_script.py` séparent respectivement l'état et les
-  cartes synthétiques, les trois graphiques et les tableaux détaillés du studio.
+  cartes synthétiques, les projections mensuelles des trois vues et les tableaux
+  détaillés du studio. Les projections incluent le repère avant premier rendement
+  (richesse à 1, drawdown à 0), sans modifier les KPI canoniques.
 - `_performance_report_frontier_script.py` projette les allocations, métriques
-  et recommandations de frontière déjà pré-calculées ; les styles et le shell
-  responsive clair/sombre restent centralisés dans
-  `_performance_report_styles.py` et `_performance_report_html.py`.
+  et recommandations de frontière déjà pré-calculées.
+- `analysis_ui/` possède le composant Plotly partagé, son runtime embarqué et sa
+  licence, ainsi que le layout de sélection et les thèmes du studio. Tous les
+  rapports canoniques, composeur et frontières l'utilisent. Le shell et les
+  sections d'audit restent dans `_performance_report_html.py` et
+  `_performance_report_styles.py` ; aucun lecteur data ni moteur KPI n'entre dans
+  ce sous-package.
 - `_performance_report_composer_script.py` sélectionne les combinaisons
   équipondérées dont les rendements et KPI ont déjà été calculés par
   `alpharank.portfolio.combinations` ; il ne calcule que les points graphiques
