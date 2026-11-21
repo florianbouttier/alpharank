@@ -147,7 +147,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 108 | `REPORT-024` | remplacer le frontend d'analyse par React et des graphiques financiers | lot REPORT ci-dessous | fait |
 | 109 | `REPORT-026` | laisser indéfinie la volatilité sur une unique séance | lot REPORT ci-dessous | fait |
 | 110 | `REPORT-027` | aligner les libellés de composition sur la source active | lot REPORT ci-dessous | fait |
-| 111 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | à faire |
+| 111 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1338,7 +1338,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-022` | remplacer les graphiques maison et rendre la sélection explicite | fait | Plotly partagé, bases 1/0 corrigées sans supprimer le premier rendement, sélection par familles, HTML `d3f02bdb…e800`, 89 tests et QA desktop/mobile ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-023` | valoriser quotidiennement les positions et calculer les fenêtres libres | fait | 49 595 valorisations, 2 307 fins de mois rapprochées, 59 non observables signalées, 58 344 KPI mensuels préservés, 114 tests ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-024` | remplacer Plotly par un frontend React d'analyse financière | fait | React/Lightweight Charts hors ligne, dates libres via moteur local, QA réelle desktop/mobile, archives complètes et packaging validés ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
-| `REPORT-025` | générer et éprouver le rapport journalier complet | à faire | artefact réel, rapprochement mensuel, QA navigateur et preuve de livraison |
+| `REPORT-025` | générer et éprouver le rapport journalier complet | fait | HTML complet `7b19c3a8…fa8c6`, 58 344 KPI mensuels préservés, 146 tests Python, six JS et QA réelle desktop/mobile ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-026` | ne pas afficher un risque nul avec une seule observation quotidienne | fait | test reproduit avant correction ; une observation donne null, deux constantes donnent zéro, convention mensuelle préservée |
 | `REPORT-027` | distinguer les politiques de composition historique et récente à l'écran | fait | helper commun aux trois textes, six tests JS et QA Chrome réelle ; aucun calcul modifié |
 

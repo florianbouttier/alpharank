@@ -658,3 +658,92 @@ historique net/mensuel de récent brut/entrée seule. Le test de présentation a
 tests Python de rendu passent. Chrome avec la vraie API confirme les libellés
 des deux sources, sans modification des calculs. Le premier candidat et sa
 preuve diagnostique restent conservés ; la livraison utilise un nouvel immuable.
+
+## Livraison du rapport quotidien complet (`REPORT-025`, 21 novembre 2026)
+
+Rapport livré :
+`outputs/performance_reports/REPORT-025_20261121_02/backtest_performance_report.html`.
+Consultation interactive : **`http://127.0.0.1:8765/`**, service loopback en
+lecture seule. L'index local possédé désigne aussi ce rapport. Le fichier seul
+conserve l'état initial et les archives ; les nouvelles fenêtres utilisent le
+service Python. Aucun accès fournisseur ou modèle n'est déclenché à l'ouverture.
+
+### Source, intégrité et information conservée
+
+La source reste `REPORT-022_20261121_05`, SHA-256
+`d3f02bdba00d934fae23ac924123035efab34720141bd74f1256b4c91fa8e800`,
+même snapshot/composition `e0e6045a…ef95a` et mêmes fichiers prix scellés.
+Le suivi récent conserve le reçu du 21 novembre au SHA
+`9720db41b280ab73378d6e975084a6a9b566ac3432c367e01a3d4a7968a30a61`,
+RAW `36882f7b…5a4c`. **Aucun retéléchargement ni rerun d'algo dans ce lot UI.**
+
+La comparaison du payload complet est exacte, à l'exception de l'horodatage
+technique et de la nouvelle branche `analysis`. Sont conservés :
+
+- les 13 séries, 182 mois réalisés d'août 2011 à septembre 2026, 136 fenêtres,
+  33 KPI et leurs **58 344 valeurs archivées** ;
+- les 25 310 positions historiques, 126 positions figées d'octobre, huit
+  méthodes historiques plus la méthode de suivi récent, soit neuf cartes ;
+- les 63 compositions, 168 allocations et l'intégralité des données de leurs
+  archives ; les 48 rendements récents hors benchmark sont inchangés.
+
+Le ledger historique est **identique par SHA-256** à `REPORT-023` : 49 595
+lignes, 2 307 fins de mois observables rapprochées, écart maximal
+`5,273559366969494e-16`. Les 59 fins de mois sans clôture observable et les
+155 clés prix absentes affectant 733 valorisations restent signalées, jamais
+interpolées. Les KPI quotidiens nécessitant le chemin complet restent null.
+Le snapshot, les positions, les prix et les résultats mensuels ne changent pas.
+
+L'état initial affiche le backtest du 1er janvier au 30 septembre 2026. Le suivi
+du panier figé va séparément jusqu'à la clôture du 20 novembre, même si le 21
+novembre est demandé (samedi). Il ne constitue pas un portefeuille de novembre
+recalculé ni une extension mensuelle réalisée. Les risques quotidiens diffèrent
+des risques mensuels par construction : sur la fenêtre 2026, le max drawdown
+Boosting Top 5 passe de −14,00 % mensuel à −22,53 % quotidien, tendance de
+−26,27 % à −38,89 % et SPY de −5,76 % à −8,88 %, avec mêmes rendements totaux
+aux bornes à moins de `1e-12`. Ce n'est pas un drift de portefeuille ou de données.
+
+### Manifestes et preuves
+
+| Artefact | SHA-256 |
+| --- | --- |
+| HTML complet, 3 834 026 octets | `7b19c3a81d41500581c81aa462e57add60c4bc398d9853eb731826df363fa8c6` |
+| `analysis_manifest.json` | `e875543926a296652c6d9b90f7149a336902d8c2b5f8fbb778ec9a29d2be0188` |
+| manifeste du rapport | `3023f9907fb18f1ac92cdfbdbffcb2cc858c33d3ccd45d7f40f274973e4a5325` |
+| ledger historique | `dc2603e7d2320bffbad086666ed13b3f9bb54b4538ceb019d76d7eddf3f65fb8` |
+| ledger récent, 494 lignes | `7194528f264c7082f97fbaaaae775d8e9173778ac8766cf1d1a4913dc31e8e71` |
+| `qa_browser.json` | `f0335836d81ad3c0074b420f612d2e95303baf383b82505aa18d46ca14e2e446` |
+| `validation.json` | `453c378c2dbdc113f60063b408a609057a1406c93aa52aa94d5c129ba9162315` |
+
+Le manifeste capture les hashes du moteur, du service, du rendu et des assets,
+ainsi que Python 3.11.15 et Polars 2.0.0. Les hashes sont revérifiés contre le
+code livré par `REPORT-027` (`2524dc8`). `validation.json` atteste la parité du
+payload, des ledgers et de trois requêtes HTTP avec un appel direct au moteur.
+
+**146 tests Python ciblés réussis**, six tests JavaScript, build et formatage
+frontend validés. La QA Chrome réelle (sans mock/interception) conserve treize
+captures hashées et vérifie : fenêtres de milieu de mois, base 1, survol capital
+et drawdown, molette puis « Analyser cette plage », invariance des KPI aux
+résolutions, ratio SPY, deux Boosting, frontières à 168 points, source récente,
+libellés de rééquilibrage/coûts, volatilité indisponible sur une séance, erreurs
+sans anciens chiffres, archives et export CSV des cinq positions filtrées.
+Desktop 1 440 px et mobile 390 px : aucune erreur JavaScript, requête externe
+ni débordement global. Le HTML final est aussi vérifié en `file://` : état
+initial lisible, service requis explicitement pour une nouvelle fenêtre.
+
+Ruff, mypy et packaging sont détaillés dans `REPORT-024` ; les validations
+documentaires, liens et inventaires sont réexécutées. Huit régressions de taille
+globales préexistantes restent hors des changements de ce lot. Aucun nouvel
+audit inter-vintages ni certification d'absence de fuite modèle n'est revendiqué.
+Les anciens rapports, y compris le candidat diagnostique avant `REPORT-027`,
+restent récupérables ; aucune donnée ou sortie historique n'est supprimée.
+
+Reproduction sans acquisition ou entraînement :
+
+```bash
+.venv/bin/python scripts/research/build_daily_performance_report.py \
+  --source-report outputs/performance_reports/REPORT-022_20261121_05/backtest_performance_report.html \
+  --output-dir outputs/performance_reports/<nouveau-run-immuable>
+.venv/bin/python scripts/research/serve_performance_report.py \
+  --report-dir outputs/performance_reports/<nouveau-run-immuable> --port 8765
+```
