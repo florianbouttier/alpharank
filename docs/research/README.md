@@ -77,8 +77,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
   (`REPORT-020`), puis intégration au HTML complet obligatoire (`REPORT-021`),
   et refonte du composant frontal partagé Plotly avec ancrage initial corrigé
   et preuve de parité (`REPORT-022`), puis reconstitution journalière et fenêtres
-  libres avec couverture et parité mensuelle (`REPORT-023`), sans nouveau signal
-  ni promotion automatique.
+  libres avec couverture et parité mensuelle (`REPORT-023`), puis frontend React
+  sans Plotly et service local des dates libres (`REPORT-024`), sans nouveau
+  signal ni promotion automatique.
 
 - `exact_legacy_ema_20260725/` : reproduction exacte du signal EMA Legacy.
 - `legacy_ema_data_integrity_audit_20260726/` : audit d'identité et de prix.

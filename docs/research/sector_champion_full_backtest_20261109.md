@@ -568,3 +568,71 @@ modules modifiés du moteur sont validés. Le sous-package quotidien conserve de
 fonctions de moins de 80 lignes et complexité au plus 10. Les contrôles
 documentaires, liens et inventaires sont exécutés avant commit. Aucun replay
 inter-vintages modèle ni nouvelle preuve d'absence de fuite n'est revendiqué.
+
+## Frontend React et moteur local (`REPORT-024`, 21 novembre 2026)
+
+La demande porte sur le composant d'analyse partagé, pas un habillage d'un
+rapport unique. Le générateur canonique embarque désormais React 19.3.1 et
+Lightweight Charts 5.3.0, sans Plotly, CDN ni police distante. Les sources, le
+lockfile, les licences et le bundle reproductible vivent dans `analysis_ui/`.
+Les anciens adaptateurs et scripts Python frontaux ont été retirés, après
+inventaire de leurs lecteurs, avec récupération possible au commit `b658363`.
+Aucune donnée, sortie archivée ou documentation historique n'a été supprimée.
+
+- Le panneau commun comporte dates libres au jour, sélection par familles,
+  capital et richesse relative commençant à 1, survol, zoom et drawdown en
+  dessous. Jour/semaine/mois n'altère que la résolution visuelle. L'action
+  « Analyser cette plage » applique explicitement le zoom aux KPI.
+- Les nouvelles fenêtres sont calculées dans `portfolio/daily/`, via
+  `reporting/strategy_analysis/`. Le service écoute seulement sur loopback,
+  vérifie les artefacts hashés et ne permet que des lectures bornées. Ni
+  téléchargement, ni exécution de modèle, ni ordre, ni publication tierce.
+- Le fichier HTML garde son état initial et l'intégralité du payload source.
+  Les **requêtes personnalisées nécessitent le service Python local**. Une
+  erreur ou une couverture insuffisante ne laisse pas d'anciens KPI affichés
+  comme ceux de la nouvelle période. L'archive mensuelle conserve ses chiffres
+  et ses bornes pré-calculées, séparément du journalier.
+- Le même panneau garde composition, corrélations de rendements et rendements
+  actifs vs SPY, frontières quotidiennes, détails KPI et model cards Viridis.
+  Portefeuilles, Méthodes et Sources restent accessibles par navigation.
+  L'historique réalisé net de frais reste distinct du maintien récent
+  hypothétique brut de frais, sans nouveau panier ou prolongation OOS inventée.
+
+### Preuves d'interaction et de distribution
+
+La QA réelle de `REPORT-024_20261121_02`, sur le service `127.0.0.1:8765`, est
+conservée sous `outputs/performance_reports/REPORT-024_e2e_20261121_01/` :
+`e2e.json`, SHA-256
+`e5bcc0126c6bf1b634007c16207c1f276c7eab013faf5fbb2267438525663be0`,
+et cinq captures Chrome desktop 1 440 px/mobile 390 px inspectées.
+Aucune interception ou simulation de l'API n'a été utilisée.
+
+- Fenêtres du 10 février au 17 août et du 13 mars au 22 mai 2026 : repères aux
+  clôtures précédentes et égalité des KPI visibles avec des requêtes moteur
+  indépendantes. La première contient 131 points, repère inclus.
+- Résolutions jour/semaine/mois sans variation des KPI, capital relatif au SPY,
+  vrai portefeuille deux Boosting, deux frontières de 168 points et changement
+  effectif de leurs dates. Sources récentes demandées au 21 novembre, dernière
+  clôture observée le 20 novembre, puis retour à l'historique.
+- Fenêtre week-end sans séance : API 400, anciens graphiques et KPI retirés.
+  Dates hors couverture refusées. Archives à 13 séries, 63 compositions et 168
+  allocations, neuf méthodes et paniers actuels/historiques accessibles.
+- Aucune erreur JavaScript, requête externe ou débordement global. La QA finale
+  `REPORT-025` porte aussi sur les derniers ajustements de libellés : volumes
+  d'archives dynamiques et absence de rééquilibrage dans le suivi récent.
+- 127 tests Python ciblés réussis (portefeuille/reporting et contrôles sectoriels),
+  15 tests d'inventaires, chemins et documentation, cinq tests JavaScript, build
+  React, Prettier, Ruff et mypy du nouveau service validés. `npm audit --omit=dev`
+  ne rapporte aucune vulnérabilité. Le wheel Python est construit et inspecté :
+  bundle, CSS, versions, licences et service inclus ; aucun `node_modules` ni
+  ancien adaptateur. Node n'est pas nécessaire pour ouvrir ou servir le rapport.
+- Les inventaires code, dossiers et tests sont synchronisés. Les anciennes
+  mesures de tests non relancés restent identifiées comme conservées ; les
+  fichiers concernés et les fichiers nouveaux sont mesurés à nouveau.
+  Zéro nouveau diagnostic Ruff ; les huit régressions de taille préexistantes
+  restent hors des fichiers modifiés, sans nouvelle dérogation.
+
+Les formules financières ne sont pas recodées en JavaScript. Aucun changement
+des positions, prix ou résultats mensuels scellés, aucun replay inter-vintages
+ni nouvelle preuve de causalité ; les trous détaillés dans `REPORT-023` restent
+visibles. La livraison finale et ses hashes sont suivis dans `REPORT-025`.

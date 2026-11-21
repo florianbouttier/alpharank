@@ -840,6 +840,17 @@
     {
       "domain": "data",
       "duration_class": "fast",
+      "duration_seconds": 0.046,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/data/test_historical_sector_history.py",
+      "suite": "unit",
+      "test_case_count": 8
+    },
+    {
+      "domain": "data",
+      "duration_class": "fast",
       "duration_seconds": 0.01,
       "failure_count": 0,
       "network_requirement": "none",
@@ -913,6 +924,17 @@
       "path": "tests/unit/data/test_sector_history.py",
       "suite": "unit",
       "test_case_count": 1
+    },
+    {
+      "domain": "data",
+      "duration_class": "fast",
+      "duration_seconds": 0.014,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/data/test_sector_history_release.py",
+      "suite": "unit",
+      "test_case_count": 2
     },
     {
       "domain": "data",
@@ -1082,7 +1104,18 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.011,
+      "duration_seconds": 0.293,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/portfolio/test_daily_analysis.py",
+      "suite": "unit",
+      "test_case_count": 14
+    },
+    {
+      "domain": "portfolio",
+      "duration_class": "fast",
+      "duration_seconds": 0.013,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1093,18 +1126,18 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.012,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/unit/portfolio/test_portfolio_benchmark.py",
       "suite": "unit",
-      "test_case_count": 3
+      "test_case_count": 5
     },
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.009,
+      "duration_seconds": 0.01,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1115,7 +1148,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.044,
+      "duration_seconds": 0.026,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1126,7 +1159,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.006,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1137,7 +1170,29 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.006,
+      "duration_seconds": 0.045,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/portfolio/test_portfolio_valuation.py",
+      "suite": "unit",
+      "test_case_count": 23
+    },
+    {
+      "domain": "portfolio",
+      "duration_class": "fast",
+      "duration_seconds": 0.048,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/portfolio/test_strategy_frontiers.py",
+      "suite": "unit",
+      "test_case_count": 2
+    },
+    {
+      "domain": "portfolio",
+      "duration_class": "fast",
+      "duration_seconds": 0.01,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1148,7 +1203,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.015,
+      "duration_seconds": 0.02,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1346,6 +1401,28 @@
     {
       "domain": "replay_governance",
       "duration_class": "fast",
+      "duration_seconds": 0.02,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/replay/test_sector_allocation.py",
+      "suite": "unit",
+      "test_case_count": 3
+    },
+    {
+      "domain": "replay_governance",
+      "duration_class": "fast",
+      "duration_seconds": 0.034,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/replay/test_sector_backtest.py",
+      "suite": "unit",
+      "test_case_count": 3
+    },
+    {
+      "domain": "replay_governance",
+      "duration_class": "fast",
       "duration_seconds": 0.037,
       "failure_count": 0,
       "network_requirement": "none",
@@ -1357,7 +1434,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.001,
+      "duration_seconds": 0.003,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1367,8 +1444,19 @@
     },
     {
       "domain": "reporting",
+      "duration_class": "medium",
+      "duration_seconds": 0.555,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/reporting/test_daily_analysis_service.py",
+      "suite": "unit",
+      "test_case_count": 4
+    },
+    {
+      "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.052,
+      "duration_seconds": 0.063,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1379,13 +1467,24 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.343,
+      "duration_seconds": 0.195,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/reporting/test_performance_followup.py",
+      "suite": "unit",
+      "test_case_count": 6
+    },
+    {
+      "domain": "reporting",
+      "duration_class": "medium",
+      "duration_seconds": 0.629,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/unit/reporting/test_performance_report.py",
       "suite": "unit",
-      "test_case_count": 2
+      "test_case_count": 5
     },
     {
       "domain": "reporting",
@@ -1401,7 +1500,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.118,
+      "duration_seconds": 0.026,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1441,6 +1540,17 @@
       "path": "tests/unit/reporting/test_static_audit_boundaries.py",
       "suite": "unit",
       "test_case_count": 2
+    },
+    {
+      "domain": "reporting",
+      "duration_class": "fast",
+      "duration_seconds": 0.123,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/reporting/test_strategy_analysis_ui.py",
+      "suite": "unit",
+      "test_case_count": 3
     },
     {
       "domain": "legacy",
@@ -1485,12 +1595,23 @@
       "path": "tests/unit/test_portfolio_engine.py",
       "suite": "unit",
       "test_case_count": 19
+    },
+    {
+      "domain": "data",
+      "duration_class": "fast",
+      "duration_seconds": 0.008,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/test_returns.py",
+      "suite": "unit",
+      "test_case_count": 1
     }
   ],
   "measurement": {
-    "command": "./.venv/bin/python -m pytest -q --junitxml=/tmp/alpharank-replay009-junit.xml",
-    "junit_source": "ephemeral_clean_index_checkout",
-    "measured_at": "2026-10-04T20:59:17Z"
+    "command": "pytest tests/unit/portfolio tests/unit/reporting tests/unit/data/test_historical_sector_history.py tests/unit/data/test_sector_history_release.py tests/unit/replay/test_sector_allocation.py tests/unit/replay/test_sector_backtest.py tests/unit/test_returns.py --junitxml=unit.xml; retain earlier measurements for other files",
+    "junit_source": "targeted_rerun_with_retained_other_file_measurements",
+    "measured_at": "2026-11-21T16:06:26.070466+00:00"
   },
   "policy_id": "pytest_suite_classification_v1",
   "schema_version": 1,
@@ -1498,26 +1619,26 @@
     "domain_counts": {
       "backtest": 6,
       "boosting": 5,
-      "data": 64,
+      "data": 67,
       "legacy": 7,
-      "portfolio": 9,
+      "portfolio": 12,
       "quality_tooling": 17,
-      "replay_governance": 19,
-      "reporting": 8
+      "replay_governance": 21,
+      "reporting": 11
     },
-    "duration_seconds": 36.895,
+    "duration_seconds": 38.485,
     "failure_count": 0,
-    "file_count": 135,
+    "file_count": 146,
     "outcome_counts": {
-      "passed": 135
+      "passed": 146
     },
     "suite_counts": {
       "integration": 39,
       "network": 3,
       "production": 4,
       "replay": 12,
-      "unit": 77
+      "unit": 88
     },
-    "test_case_count": 544
+    "test_case_count": 618
   }
 }

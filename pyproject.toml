@@ -54,7 +54,7 @@ exclude = ["_old*"]
 
 [tool.setuptools.package-data]
 alpharank = ["py.typed"]
-"alpharank.reporting.analysis_ui" = ["*.js", "*.css", "*.txt", "README.md"]
+"alpharank.reporting.analysis_ui" = ["client.bundle.js", "layout.css", "*.txt", "package.json", "README.md"]
 
 [tool.ruff]
 target-version = "py310"

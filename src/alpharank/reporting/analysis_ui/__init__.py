@@ -1,33 +1,33 @@
-"""Reusable offline frontend for strategy analysis, without financial calculations."""
+"""Reusable offline React frontend for source-backed strategy analysis."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from importlib.resources import files
-
-# Plotly has no typing marker; keep the exception at this presentation-only boundary.
-from plotly.offline import get_plotlyjs, get_plotlyjs_version  # type: ignore[import-untyped]
 
 
 @dataclass(frozen=True, slots=True)
 class AnalysisUiAssets:
-    """Installed chart runtime and the maintained presentation-only adapter."""
+    """Versioned frontend bundle and styles; no acquisition or financial logic."""
 
-    runtime: str
-    runtime_version: str
-    script: str
+    bundle: str
     styles: str
+    licenses: str
+    chart_version: str
+    react_version: str
 
 
 def load_analysis_ui_assets() -> AnalysisUiAssets:
-    """Read bundled UI assets at render time; no network or import-time IO."""
+    """Read the reproducibly built local assets; never download code at render time."""
     root = files(__package__)
-    notice = root.joinpath("PLOTLY_LICENSE.txt").read_text(encoding="utf-8")
+    package = json.loads(root.joinpath("package.json").read_text(encoding="utf-8"))
     return AnalysisUiAssets(
-        runtime="/*\n" + notice + "\n*/\n" + get_plotlyjs(),
-        runtime_version=get_plotlyjs_version(),
-        script=root.joinpath("charts.js").read_text(encoding="utf-8"),
+        bundle=root.joinpath("client.bundle.js").read_text(encoding="utf-8"),
         styles=root.joinpath("layout.css").read_text(encoding="utf-8"),
+        licenses=root.joinpath("THIRD_PARTY_LICENSES.txt").read_text(encoding="utf-8"),
+        chart_version=str(package["dependencies"]["lightweight-charts"]),
+        react_version=str(package["dependencies"]["react"]),
     )
 
 

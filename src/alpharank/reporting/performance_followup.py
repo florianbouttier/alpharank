@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import Any
-from urllib.parse import quote
+from typing import Any, Literal
 
 import polars as pl
 
 from alpharank.governance_contracts.common import sha256_path
 from alpharank.reporting._performance_report_html import render_performance_report_html
+from alpharank.reporting.strategy_analysis.index import publish_report_index
+from alpharank.reporting.strategy_analysis.report import write_daily_analysis_report
 
 RECENT_METRIC_FIELDS = ["total_return", "max_drawdown"]
-INDEX_MARKER = "<!-- alpharank-complete-performance-index -->"
 
 
 def _recent_window(curves: pl.DataFrame, name: str, order: list[str]) -> dict[str, Any]:
@@ -90,35 +90,24 @@ def attach_frozen_followup(
     }
 
 
-def _publish_index(report: Path) -> Path:
-    directory = report.parent.parent
-    index = directory / "index.html"
-    if index.exists() and INDEX_MARKER not in index.read_text(encoding="utf-8"):
-        raise ValueError(f"Refusing to replace an unrelated performance index: {index}")
-    target = quote(report.relative_to(directory).as_posix(), safe="/")
-    html = (
-        '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
-        f'<meta http-equiv="refresh" content="0;url={target}">'
-        "<title>AlphaRank · Performance</title></head><body>"
-        f'{INDEX_MARKER}<a href="{target}">Ouvrir le rapport HTML complet</a>'
-        f"<p>SHA-256 : {sha256_path(report)}</p></body></html>\n"
-    )
-    with NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory, delete=False) as handle:
-        handle.write(html)
-        temporary = Path(handle.name)
-    temporary.replace(index)
-    return index
-
-
 def write_frozen_performance_report(
     payload: dict[str, Any],
     curves: pl.DataFrame,
     *,
     provenance: dict[str, Any],
     output_dir: Path,
+    analysis_frequency: Literal["daily", "monthly_archive"] = "monthly_archive",
 ) -> dict[str, Path]:
     """Write the full autonomous desk and its owned stable index, never a reduced report."""
     combined = attach_frozen_followup(payload, curves, provenance=provenance)
+    if analysis_frequency not in {"daily", "monthly_archive"}:
+        raise ValueError("Unsupported analysis frequency.")
+    if analysis_frequency == "daily":
+        return write_daily_analysis_report(
+            combined,
+            output_dir=output_dir,
+            generated_at_utc=datetime.fromisoformat(str(provenance["generated_at_utc"])),
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
     report = output_dir / "backtest_performance_report.html"
     if report.exists():
@@ -147,4 +136,4 @@ def write_frozen_performance_report(
         + "\n",
         encoding="utf-8",
     )
-    return {"report": report, "manifest": manifest, "index": _publish_index(report)}
+    return {"report": report, "manifest": manifest, "index": publish_report_index(report)}

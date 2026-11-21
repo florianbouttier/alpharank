@@ -146,8 +146,10 @@
     "scripts/replay/validate_v1_v2_reconciliation.py",
     "scripts/research/benchmark_legacy_backends.py",
     "scripts/research/build_backtest_performance_report.py",
+    "scripts/research/build_daily_performance_report.py",
     "scripts/research/compare_legacy_input_ablation.py",
     "scripts/research/render_methodology_v2_study.py",
+    "scripts/research/serve_performance_report.py",
     "scripts/research/value_frozen_portfolios.py",
     "scripts/run_backtest.py",
     "scripts/run_backtest_application.py",
@@ -1642,6 +1644,16 @@
     },
     {
       "kind": "import",
+      "source": "scripts/research/build_daily_performance_report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/research/build_daily_performance_report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/report.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/research/compare_legacy_input_ablation.py",
       "target": "src/alpharank/strategy/legacy.py"
     },
@@ -1649,6 +1661,11 @@
       "kind": "import",
       "source": "scripts/research/render_methodology_v2_study.py",
       "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
+      "source": "scripts/research/serve_performance_report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/server.py"
     },
     {
       "kind": "import",
@@ -4308,41 +4325,6 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/_performance_report_chart_script.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/_performance_report_composer_script.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/_performance_report_frontier_script.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/_performance_report_matrix_script.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/_performance_report_script.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/_performance_report_studio_script.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/_performance_report_html.py",
-      "target": "src/alpharank/reporting/_performance_report_styles.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/_performance_report_html.py",
       "target": "src/alpharank/reporting/analysis_ui/__init__.py"
     },
     {
@@ -4392,6 +4374,16 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/performance_followup.py",
+      "target": "src/alpharank/reporting/strategy_analysis/index.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_followup.py",
+      "target": "src/alpharank/reporting/strategy_analysis/report.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reporting/performance_report.py",
       "target": "src/alpharank/governance_contracts/common.py"
     },
@@ -4418,11 +4410,6 @@
     {
       "kind": "import",
       "source": "src/alpharank/reporting/performance_report.py",
-      "target": "src/alpharank/reporting/_performance_report_html.py"
-    },
-    {
-      "kind": "import",
-      "source": "src/alpharank/reporting/performance_report.py",
       "target": "src/alpharank/reporting/_performance_report_methods.py"
     },
     {
@@ -4432,8 +4419,88 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/performance_report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/report.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reporting/sec_fundamental_explorer.py",
       "target": "src/alpharank/reporting/_sec_explorer_html.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/__init__.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/__init__.py",
+      "target": "src/alpharank/reporting/strategy_analysis/service.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/dataset.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/dataset.py",
+      "target": "src/alpharank/portfolio/daily/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/index.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/report.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/report.py",
+      "target": "src/alpharank/reporting/_performance_report_html.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/index.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/service.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/server.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/server.py",
+      "target": "src/alpharank/reporting/strategy_analysis/report.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/server.py",
+      "target": "src/alpharank/reporting/strategy_analysis/service.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/service.py",
+      "target": "src/alpharank/portfolio/daily/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/service.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
     },
     {
       "kind": "import",
@@ -6733,6 +6800,20 @@
       "declared_public_entrypoint": false,
       "has_main_guard": true,
       "imports": [
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/report.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.research.build_daily_performance_report",
+      "path": "scripts/research/build_daily_performance_report.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
         "src/alpharank/strategy/legacy.py"
       ],
       "invokes": [],
@@ -6753,6 +6834,19 @@
       "lifecycle": "active",
       "module": "scripts.research.render_methodology_v2_study",
       "path": "scripts/research/render_methodology_v2_study.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": true,
+      "imports": [
+        "src/alpharank/reporting/strategy_analysis/server.py"
+      ],
+      "invokes": [],
+      "layer": "script",
+      "lifecycle": "active",
+      "module": "scripts.research.serve_performance_report",
+      "path": "scripts/research/serve_performance_report.py",
       "readers": []
     },
     {
@@ -9121,7 +9215,10 @@
         "src/alpharank/replay/common_strategy.py",
         "src/alpharank/reporting/_performance_report_sector.py",
         "src/alpharank/reporting/performance_followup.py",
-        "src/alpharank/reporting/performance_report.py"
+        "src/alpharank/reporting/performance_report.py",
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/index.py",
+        "src/alpharank/reporting/strategy_analysis/report.py"
       ]
     },
     {
@@ -9876,7 +9973,10 @@
       "lifecycle": "active",
       "module": "alpharank.portfolio.daily",
       "path": "src/alpharank/portfolio/daily/__init__.py",
-      "readers": []
+      "readers": [
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/service.py"
+      ]
     },
     {
       "declared_public_entrypoint": false,
@@ -10870,53 +10970,7 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
-      "invokes": [],
-      "layer": "library",
-      "lifecycle": "active",
-      "module": "alpharank.reporting._performance_report_chart_script",
-      "path": "src/alpharank/reporting/_performance_report_chart_script.py",
-      "readers": [
-        "src/alpharank/reporting/_performance_report_html.py"
-      ]
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": false,
-      "imports": [],
-      "invokes": [],
-      "layer": "library",
-      "lifecycle": "active",
-      "module": "alpharank.reporting._performance_report_composer_script",
-      "path": "src/alpharank/reporting/_performance_report_composer_script.py",
-      "readers": [
-        "src/alpharank/reporting/_performance_report_html.py"
-      ]
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": false,
-      "imports": [],
-      "invokes": [],
-      "layer": "library",
-      "lifecycle": "active",
-      "module": "alpharank.reporting._performance_report_frontier_script",
-      "path": "src/alpharank/reporting/_performance_report_frontier_script.py",
-      "readers": [
-        "src/alpharank/reporting/_performance_report_html.py"
-      ]
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": false,
       "imports": [
-        "src/alpharank/reporting/_performance_report_chart_script.py",
-        "src/alpharank/reporting/_performance_report_composer_script.py",
-        "src/alpharank/reporting/_performance_report_frontier_script.py",
-        "src/alpharank/reporting/_performance_report_matrix_script.py",
-        "src/alpharank/reporting/_performance_report_script.py",
-        "src/alpharank/reporting/_performance_report_studio_script.py",
-        "src/alpharank/reporting/_performance_report_styles.py",
         "src/alpharank/reporting/analysis_ui/__init__.py"
       ],
       "invokes": [],
@@ -10926,20 +10980,7 @@
       "path": "src/alpharank/reporting/_performance_report_html.py",
       "readers": [
         "src/alpharank/reporting/performance_followup.py",
-        "src/alpharank/reporting/performance_report.py"
-      ]
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": false,
-      "imports": [],
-      "invokes": [],
-      "layer": "library",
-      "lifecycle": "active",
-      "module": "alpharank.reporting._performance_report_matrix_script",
-      "path": "src/alpharank/reporting/_performance_report_matrix_script.py",
-      "readers": [
-        "src/alpharank/reporting/_performance_report_html.py"
+        "src/alpharank/reporting/strategy_analysis/report.py"
       ]
     },
     {
@@ -10961,19 +11002,6 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
-      "imports": [],
-      "invokes": [],
-      "layer": "library",
-      "lifecycle": "active",
-      "module": "alpharank.reporting._performance_report_script",
-      "path": "src/alpharank/reporting/_performance_report_script.py",
-      "readers": [
-        "src/alpharank/reporting/_performance_report_html.py"
-      ]
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": false,
       "imports": [
         "src/alpharank/data/warehouse/sector_sic_history.py",
         "src/alpharank/governance_contracts/common.py",
@@ -10988,32 +11016,6 @@
       "readers": [
         "src/alpharank/reporting/_performance_report_methods.py",
         "src/alpharank/reporting/performance_report.py"
-      ]
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": false,
-      "imports": [],
-      "invokes": [],
-      "layer": "library",
-      "lifecycle": "active",
-      "module": "alpharank.reporting._performance_report_studio_script",
-      "path": "src/alpharank/reporting/_performance_report_studio_script.py",
-      "readers": [
-        "src/alpharank/reporting/_performance_report_html.py"
-      ]
-    },
-    {
-      "declared_public_entrypoint": false,
-      "has_main_guard": false,
-      "imports": [],
-      "invokes": [],
-      "layer": "library",
-      "lifecycle": "active",
-      "module": "alpharank.reporting._performance_report_styles",
-      "path": "src/alpharank/reporting/_performance_report_styles.py",
-      "readers": [
-        "src/alpharank/reporting/_performance_report_html.py"
       ]
     },
     {
@@ -11062,7 +11064,9 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/governance_contracts/common.py",
-        "src/alpharank/reporting/_performance_report_html.py"
+        "src/alpharank/reporting/_performance_report_html.py",
+        "src/alpharank/reporting/strategy_analysis/index.py",
+        "src/alpharank/reporting/strategy_analysis/report.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -11082,9 +11086,9 @@
         "src/alpharank/portfolio/comparison.py",
         "src/alpharank/replay/sector_backtest.py",
         "src/alpharank/reporting/_performance_report_analytics.py",
-        "src/alpharank/reporting/_performance_report_html.py",
         "src/alpharank/reporting/_performance_report_methods.py",
-        "src/alpharank/reporting/_performance_report_sector.py"
+        "src/alpharank/reporting/_performance_report_sector.py",
+        "src/alpharank/reporting/strategy_analysis/report.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -11135,6 +11139,113 @@
       "path": "src/alpharank/reporting/sec_quality_data.py",
       "readers": [
         "scripts/open_source/reporting/build_sec_quality_dashboard.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/service.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis",
+      "path": "src/alpharank/reporting/strategy_analysis/__init__.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/portfolio/daily/__init__.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.dataset",
+      "path": "src/alpharank/reporting/strategy_analysis/dataset.py",
+      "readers": [
+        "scripts/research/build_daily_performance_report.py",
+        "src/alpharank/reporting/strategy_analysis/__init__.py",
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/server.py",
+        "src/alpharank/reporting/strategy_analysis/service.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.index",
+      "path": "src/alpharank/reporting/strategy_analysis/index.py",
+      "readers": [
+        "src/alpharank/reporting/performance_followup.py",
+        "src/alpharank/reporting/strategy_analysis/report.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/reporting/_performance_report_html.py",
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/index.py",
+        "src/alpharank/reporting/strategy_analysis/service.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.report",
+      "path": "src/alpharank/reporting/strategy_analysis/report.py",
+      "readers": [
+        "scripts/research/build_daily_performance_report.py",
+        "src/alpharank/reporting/performance_followup.py",
+        "src/alpharank/reporting/performance_report.py",
+        "src/alpharank/reporting/strategy_analysis/server.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/service.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.server",
+      "path": "src/alpharank/reporting/strategy_analysis/server.py",
+      "readers": [
+        "scripts/research/serve_performance_report.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/daily/__init__.py",
+        "src/alpharank/reporting/strategy_analysis/dataset.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.service",
+      "path": "src/alpharank/reporting/strategy_analysis/service.py",
+      "readers": [
+        "src/alpharank/reporting/strategy_analysis/__init__.py",
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/server.py"
       ]
     },
     {
@@ -11521,11 +11632,11 @@
   ],
   "source_policy": "tracked_files_only",
   "summary": {
-    "active_entrypoint_count": 163,
-    "internal_edge_count": 882,
-    "library_count": 251,
-    "python_file_count": 421,
-    "script_count": 170,
-    "unread_node_count": 169
+    "active_entrypoint_count": 165,
+    "internal_edge_count": 895,
+    "library_count": 250,
+    "python_file_count": 422,
+    "script_count": 172,
+    "unread_node_count": 171
   }
 }

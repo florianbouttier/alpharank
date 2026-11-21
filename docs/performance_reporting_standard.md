@@ -21,53 +21,53 @@ dépôt, pas une page réduite ou un second moteur de reporting.
 
 ## Architecture du dashboard
 
-Le rapport est un dashboard autonome, source-backed et progressif. Le premier
-écran expose le titre, le statut de preuve et cinq informations de couverture :
-nombre de stratégies, nombre de KPI, longueur et bornes de l'historique, nombre
-de lignes de positions et nature du payload embarqué. Ces compteurs sont lus
-dans le même payload compressé que les vues détaillées ; ils ne sont pas codés
-en dur dans le HTML.
+Le générateur commun utilise **React et Lightweight Charts**, sans Plotly.
+Le même panneau réunit sélection des séries, dates libres, capital ou richesse
+relative au SPY, drawdown quotidien en dessous, résumé KPI, tableaux complets,
+model cards, composition et frontières. Les onglets Portefeuilles, Méthodes et
+Sources gardent toutes les informations d'audit, sans obliger à redescendre une
+longue page. Les HTML déjà archivés restent inchangés.
 
-La navigation horizontale sépare l'analyse de la preuve et permet d'atteindre
-le studio, le dernier portefeuille, l'historique, les méthodologies puis la
-lignée. Dans le studio, une colonne de sélection explicite les séries : cases
-groupées par famille, recherche, tout cocher et tout retirer. Elle est repliable
-sur mobile. Les bornes disponibles sont toujours affichées en mois/année ;
-aucun bouton « depuis 2025 » ou autre année choisie arbitrairement n'impose une
-fenêtre. Le profil initial montre les deux Boosting Top 5 et SPY lorsqu'ils sont
-présents ; toutes les autres séries restent disponibles, jamais supprimées.
+La sélection par familles et recherche est explicite ; seules les stratégies
+cochées et SPY apparaissent dans les mesures et graphiques. SPY est fixe.
+Les deux Boosting Top 5 sont la sélection initiale lorsqu'ils existent.
+Début et fin sont des champs calendrier au jour près, toujours visibles :
+aucun preset annuel arbitraire ni menu limité aux années. Jour/semaine/mois
+change la résolution visuelle, pas la fenêtre ou les KPI quotidiens.
 
-Le graphique est la surface dominante. Le résumé des six KPI prend la forme
-d'un scoreboard `stratégies × métriques`, pas d'une collection de cartes : une
-ligne porte une stratégie, une colonne garde la même définition et chaque
-cellule expose sa valeur et son écart au SPY. Les 33 KPI, model cards et
-corrélations restent dans les tiroirs immédiatement adjacents. Le thème
-clair/sombre modifie uniquement les tokens de rendu et les couleurs des figures ;
-il ne modifie ni la sélection, ni la période, ni le payload.
+Le survol expose simultanément les séries et le jour, capital et drawdown sont
+synchronisés, et le zoom dispose d'une action explicite « Analyser cette plage »
+pour appliquer ses dates aux KPI. Tant que cette action n'est pas effectuée,
+le zoom n'est qu'une loupe et le filtre reste affiché. Les erreurs de requête
+ne laissent jamais d'anciens chiffres présentés comme ceux des nouvelles dates.
 
-La page reste complète sur mobile : les groupes se réorganisent, les matrices
-et tables conservent un défilement horizontal local, et aucune section n'est
-supprimée. Une navigation clavier, un lien d'évitement, des labels explicites
-et des états `aria-selected` rendent les interactions principales accessibles.
-Le rapport n'appelle aucune police, bibliothèque, API ou ressource réseau.
+### Frontend partagé et moteur local (`REPORT-024`)
 
-### Composant graphique partagé (`REPORT-022`)
+`reporting/analysis_ui/` possède les sources React, CSS, bibliothèque financière,
+notices et build verrouillé. Le bundle est embarqué, sans CDN, police distante
+ou dépendance Node à l'ouverture. Le logo/lien TradingView et sa notice sont
+conservés. Les anciens adaptateurs/scripts/styles Python du frontend ont été
+retirés après inventaire des lecteurs ; ils sont récupérables dans Git,
+notamment au commit `b658363`, et dans les anciens HTML autonomes.
 
-`src/alpharank/reporting/analysis_ui/` possède l'adaptateur Plotly, les styles
-du studio et leur chargement. Tous les nouveaux rapports du générateur canonique
-l'utilisent, y compris le suivi récent, le composeur et les deux frontières.
-Les anciens HTML archivés sont des preuves immuables : ils ne changent pas
-lorsque le générateur évolue.
+`reporting/strategy_analysis/` prépare et sert les vues, sans implémentation de
+KPI. Les requêtes de dates libres appellent le **moteur Python canonique**
+`portfolio/daily/` via un service HTTP local en lecture seule, lié aux seuls
+datasets hashés de ce rapport. Il n'y a ni appel fournisseur, ni entraînement,
+ni ordre, ni parcours libre du disque, ni publication tierce. L'écoute est
+limitée à `127.0.0.1`, avec vérification de l'origine Host.
 
-Plotly est une dépendance déjà présente du projet. Son runtime JavaScript est
-embarqué dans le HTML, avec sa version en métadonnée et la notice MIT complète ;
-aucun CDN n'est nécessaire. L'adaptateur reçoit uniquement des points préparés,
-sans accès aux sources ni calcul de KPI. Les séries temporelles utilisent des
-lignes SVG, un axe calendrier, le survol natif synchronisé, le zoom, le retour à
-la vue complète et l'export PNG. Les frontières utilisent le même adaptateur
-pour les points et leurs poids. Il n'y a plus de moteur canvas artisanal local.
-Cette bibliothèque augmente la taille de la page autonome ; ce coût est assumé
-pour garder les interactions et le fonctionnement hors ligne dans un seul HTML.
+Le HTML reste complet et conserve son état initial, les méthodes et les données
+embarquées. **Les nouvelles fenêtres de KPI nécessitent le service local** :
+ouvrir le fichier hors serveur ne prétend pas fournir un calcul Python hors
+ligne. Une indisponibilité est indiquée ; aucun KPI JavaScript ou repli silencieux
+sur une autre période n'est autorisé. L'API calcule aussi compositions,
+corrélations et frontières sur les mêmes dates. Les archives mensuelles de
+référence restent consultables séparément, sans être prises pour du journalier.
+
+Sur mobile, la sélection se replie et les tables défilent localement. La page
+reste complète, sans débordement global. Labels, focus clavier, états de
+sélection, contrastes et thèmes clair/sombre font partie de la validation.
 
 ## Entrées obligatoires
 
@@ -107,70 +107,49 @@ positions ne vaut jamais une concentration de 0 %.
 
 ## KPI et filtres temporels
 
-Le filtre accepte chaque année du calendrier commun : le début est janvier ou
-le premier mois OOS disponible, et la fin décembre ou le dernier mois réalisé.
-Pour toutes les combinaisons annuelles inclusives `début -> fin`, les KPI sont
-calculés avant rendu par
-`alpharank.portfolio.performance.portfolio_period_statistics()` puis assemblés
-par `subperiod_portfolio_metric_grid()`.
+Les bornes sont personnalisables au jour près **dans la couverture annoncée
+de la source choisie**. Le début est inclusif pour les rendements : le repère
+initial est la clôture observée précédente, capital et richesse relative à 1,
+drawdown à 0. Le premier rendement n'est jamais supprimé pour fabriquer ce
+départ. Dates demandées, dates des séances effectives et date de base sont
+distinguées ; fêtes et week-ends ne deviennent pas de fausses observations.
 
-Ce choix garde le rapport publiable dans une page autonome tout en couvrant
-toutes les lectures « depuis 2011 », « depuis 2012 », ou entre deux années. Les
-portefeuilles restent filtrables mois par mois. Le navigateur sélectionne une
-ligne pré-calculée ; il ne possède pas de seconde formule de CAGR, volatilité,
-Sharpe, drawdown, risque relatif, turnover, coûts ou concentration. Les courbes
-de richesse et de drawdown sont des projections graphiques des rendements
-mensuels déjà produits par le moteur ; les valeurs affichées dans les cartes et
-tableaux proviennent du cube canonique.
+Les valorisations proviennent des prix ajustés et des positions scellées du même
+snapshot, avec frais et poids dérivés explicités dans le
+[contrat quotidien](common_portfolio_backtest_engine.md#daily-research-valuation-and-free-date-windows-report-023).
+Aucun rendement mensuel n'est interpolé. Les trous restent visibles ; un chemin
+incomplet rend ses risques quotidiens indisponibles, pas égaux à zéro.
 
-Les menus ne promettent donc pas des bornes quotidiennes ou mensuelles libres :
-ils exposent les débuts/fins annuels effectivement pré-calculés, avec leurs
-mois partiels de bord. Le zoom du graphique est une loupe d'affichage, **pas** un
-nouveau filtre économique. Une légende le rappelle après zoom : les KPI restent
-sur la période choisie dans les menus. Aucune annualisation ni fenêtre KPI
-supplémentaire n'est inventée dans le navigateur.
+Les KPI quotidiens utilisent la même fenêtre que le graphique : CAGR sur durée
+calendaire réelle, volatilité et statistiques de rendement sur 252 séances/an,
+drawdown avec capital initial. Ils peuvent différer des anciens risques
+mensuels, même lorsque le rendement total est identique. Les jours positifs et
+VaR/CVaR sont bien journaliers ; ils ne sont pas étiquetés « mois ».
 
-Le haut du rapport constitue un studio unique. Un commutateur y alterne entre
-la comparaison de stratégies et le portefeuille composé sans changer de page,
-de période ou de panneau. Le même espace contient les sélecteurs, les cartes
-synthétiques, puis les vues graphiques performance, drawdown et richesse
-relative au SPY ; le tableau complet, les model cards et les corrélations sont
-des tiroirs repliables de ce studio plutôt que des sections redondantes plus bas.
+Le mode Backtest conserve l'historique réalisé net de frais. Le mode Suivi
+récent conserve séparément les prix des paniers figés, bruts de frais ; un
+maintien au-delà du mois prévu est hypothétique. Aucun suivi récent n'est
+ajouté aux rendements mensuels historiques ou présenté comme un nouveau signal.
 
-En mode stratégies, le multiselect accepte toute combinaison des séries
-investissables et pilote cartes, graphique, tableau complet et model cards. SPY
-est ajouté automatiquement et ne peut pas être retiré : il reste visible comme
-référence dans chaque vue. Une stratégie non cochée n'apparaît dans aucune de
-ces vues. Les filtres de holdings restent indépendants car ils servent à auditer
-un panier historique précis.
+Le résumé répond au rendement, CAGR, volatilité, max drawdown, pire année,
+pire année vs SPY et nombre d'années devant SPY. Les années partielles restent
+visibles mais ne déterminent pas les pires années complètes ni leur décompte.
+Les indicateurs détaillés et leurs définitions restent accessibles dans le
+même panneau. Un écart au SPY compare deux KPI de même fréquence et période ;
+les mesures descriptives sans ordre économique restent neutres.
 
-Une couleur et l'écart numérique au SPY indiquent une surperformance ou
-sous-performance uniquement lorsqu'un sens économique est défini : rendement
-et ratios plus élevés, ou risque, coûts et turnover plus faibles. Les métriques
-descriptives sans ordre économique restent neutres. Cette comparaison porte
-toujours sur la même fenêtre pré-calculée ; le navigateur soustrait uniquement
-deux KPI déjà produits pour afficher leur écart, sans recalculer le KPI.
+### Référence mensuelle conservée
 
-Performance, drawdown et richesse relative occupent successivement le même
-graphique pleine largeur selon l'onglet choisi, avec les mêmes couleurs, la même
-fenêtre et exactement la même sélection. Le survol expose le mois et les valeurs
-des séries. La vue relative matérialise la parité SPY à 1, en pointillé sur un
-fond neutre, sans coloration globale suggérant qu'une sélection entière gagne.
-
-Pour chaque fenêtre mensuelle, performance et richesse relative incluent un
-**point initial à 1 avant le premier rendement**, et le drawdown un point à 0.
-Ce repère est daté de la fin calendaire du mois précédent et nommé « Point
-initial · avant le premier rendement » au survol ; ce n'est pas une nouvelle
-cotation observée. Les points suivants sont datés de la fin calendaire de leur
-mois de détention. Le premier rendement reste inclus : une vue janvier–septembre
-2026 possède dix points, dont le repère du 31 décembre 2025, et non neuf points
-renormalisés après janvier. Les valeurs finales des courbes, les rendements et
-les KPI pré-calculés restent inchangés. Les courbes quotidiennes du suivi récent
-conservent leurs propres dates et leur clôture initiale déjà présentes.
+Le cube historique `metric_windows` et ses 33 champs ne sont ni supprimés ni
+recalculés côté navigateur. Il contient les fenêtres annuelles pré-calculées,
+avec premier/dernier mois partiels. La vue « Archive mensuelle » est nommée
+comme référence scellée distincte, jamais substituée à la sélection quotidienne.
+Les API historiques peuvent demander le profil explicite `monthly_archive` ;
+les CLI de reporting produisent désormais le journalier par défaut.
 
 ## Laboratoire de portefeuille composé
 
-Le mode « Portefeuille composé » du même studio permet de cocher plusieurs
+Le composeur du panneau Analyse permet de cocher plusieurs
 stratégies puis de comparer leur portefeuille au SPY. Chaque mois, 100 % du capital est réparti à parts
 égales entre les poches cochées ; le poids de chaque poche vaut donc `1 / N` et
 le rééquilibrage est mensuel. Les rendements d'entrée sont les `net_return` de
@@ -184,22 +163,25 @@ poches et contribue deux fois selon leurs poids respectifs.
 Le profil standard compose dix poches (1 023 combinaisons). Le profil unifié
 compose les deux Legacy et les quatre Top 5 (63 combinaisons), limitant le poids
 du HTML autonome ; les Top 10/15/20 restent sélectionnables dans « Comparer ».
-Les rendements et KPI par fenêtre annuelle sont pré-calculés par
-`equal_weight_strategy_combination_grid()`. Le navigateur transforme
-la sélection en masque pour choisir la ligne pré-calculée ; il ne calcule aucun
-rendement total, CAGR, volatilité, Sharpe, Sortino ou max drawdown. Il projette
-seulement les rendements mensuels pré-calculés en courbes de richesse et de
-drawdown. Ce laboratoire reste un diagnostic post-hoc non promu : il mesure la
+Les archives annuelles de `equal_weight_strategy_combination_grid()` restent
+accessibles. La vue quotidienne appelle `combine_daily_sleeves()` et
+`daily_period_analysis()` dans le moteur Python, sur les dates exactes choisies.
+Les poids dérivent entre rééquilibrages ; ils ne sont pas remis à `1 / N` chaque
+jour. En suivi récent, l'équipondération se fait à l'entrée du panier figé,
+sans inventer de rééquilibrage mensuel. Le navigateur ne calcule aucun KPI.
+Ce laboratoire reste un diagnostic post-hoc non promu : il mesure la
 diversification entre méthodes, il ne constitue ni une optimisation de poids
 ni une nouvelle stratégie de production.
 
 Deux lectures complémentaires sont obligatoires dans ce laboratoire :
 
-- la corrélation de Pearson porte sur les rendements mensuels, jamais sur les
+- la corrélation de Pearson porte sur les rendements quotidiens, jamais sur les
   niveaux de richesse cumulée. Une matrice bornée par la fenêtre active contient
   uniquement les poches cochées ; le KPI du portefeuille composé mesure de la
-  même façon sa corrélation avec les rendements mensuels du SPY ;
-- la richesse relative n'est pas une corrélation. Pour chaque mois `t`, elle
+  même façon sa corrélation avec les rendements du SPY. Une seconde matrice porte
+  sur les rendements actifs `rendement poche - rendement SPY`. L'archive conserve
+  séparément ses corrélations mensuelles ;
+- la richesse relative n'est pas une corrélation. Pour chaque jour `t`, elle
   vaut `produit(1 + rendement portefeuille) / produit(1 + rendement SPY)` depuis
   le début de la fenêtre. Elle commence à 1 ; au-dessus de 1 le portefeuille a
   davantage composé que SPY, et sa pente indique la direction récente de la
@@ -222,16 +204,18 @@ levier, pas de 5 %, plafond de 70 % par poche et rééquilibrage mensuel. Les
 rendements d'entrée sont déjà nets des frais propres à chaque stratégie ; aucun
 coût inter-poche supplémentaire n'est ajouté.
 
-`constrained_strategy_frontier_grid()` énumère les 168 pondérations admissibles
-et appelle `advanced_performance_statistics()` pour chacune et pour chaque
-fenêtre annuelle disponible. Le navigateur ne calcule aucun KPI. Il projette
-les points pré-calculés sur deux plans : CAGR face à la volatilité annualisée,
+`daily_strategy_frontier()` évalue les 168 pondérations admissibles sur la
+fenêtre quotidienne exacte. Le moteur commun calcule les KPI et les profils ;
+le navigateur ne fait que les afficher. L'archive conserve aussi la grille
+mensuelle `constrained_strategy_frontier_grid()` et ses fenêtres annuelles.
+Les deux plans montrent CAGR face à la volatilité annualisée,
 puis CAGR face à la valeur absolue du max drawdown. Un point appartient à la
 frontière si aucune autre composition n'offre simultanément un risque inférieur
 ou égal et un CAGR supérieur ou égal, avec au moins une inégalité stricte.
 
 Trois profils descriptifs sont présentés sur chaque fenêtre : volatilité
-minimale, Sharpe maximal et Calmar maximal. Les égalités sont départagées de
+minimale, Sharpe maximal et Calmar maximal, lorsque ces métriques sont définies
+(aucun faux Calmar si le drawdown est nul). Les égalités sont départagées de
 façon déterministe par le second critère de risque puis par l'ordre des poids.
 Ces profils sont sélectionnés après observation de la fenêtre : ils constituent
 un diagnostic post-hoc, pas une règle causale, un conseil d'investissement ou
@@ -248,7 +232,7 @@ Les mêmes cartes, graphiques, tiroirs KPI et model cards sont alimentés par la
 combinaison active et SPY. La matrice de corrélation entre poches reste dans un
 tiroir propre au mode composé. Le rapport expose au minimum :
 
-- rendement total, CAGR, volatilité, Sharpe, drawdown et mois positifs ;
+- rendement total, CAGR, volatilité, Sharpe, drawdown et jours positifs ;
 - Sortino, Calmar, alpha, bêta, corrélation, tracking error et information ratio ;
 - VaR, CVaR, Omega, captures haussière et baissière, asymétrie et kurtosis ;
 - turnover, coûts facturés, nombre de positions et concentrations maximales.
@@ -259,28 +243,21 @@ produit `indisponible`, jamais un faux secteur unique à 100 %.
 
 ## Model cards cumulées et annuelles
 
-Deux familles de matrices sont obligatoires pour le CAGR, la volatilité
-annualisée et le max drawdown. L'axe X contient uniquement les années comprises
-entre le début et la fin sélectionnés ; l'axe Y contient uniquement les
-stratégies cochées dans le multiselect. La première famille cumule chaque année
-de départ jusqu'à la fin sélectionnée. La seconde isole chaque année civile :
-sa première et sa dernière colonne peuvent être partielles lorsque les bornes
-le sont.
+Deux matrices restent disponibles pour CAGR, volatilité et max drawdown :
+cumul depuis chaque année jusqu'à la fin choisie, puis chaque année isolée.
+Elles utilisent uniquement les stratégies cochées, SPY et les années de la
+fenêtre active. La première et la dernière année respectent les bornes exactes
+personnalisées ; aucun janvier ou décembre hors fenêtre n'est réintroduit.
 
-Dans la matrice annuelle, l'onglet CAGR affiche le rendement composé de l'année
-isolée. Il est égal au CAGR sur une année civile complète et évite d'annualiser
-trompeusement une année de bord partielle. Les onglets volatilité et drawdown
-conservent leurs KPI canoniques sur cette seule année. Toutes les cellules sont
-sélectionnées dans `metric_windows` ; aucun indicateur n'est recalculé en
-JavaScript.
+Les valeurs sont calculées par le moteur Python. En annuel isolé, la lecture
+rendement/CAGR affiche le rendement effectivement composé de l'année, sans
+extrapoler une année de bord partielle. Les mesures de risque restent
+quotidiennes et deviennent null si le chemin nécessaire est incomplet.
 
-La palette Viridis encode la valeur brute pour le CAGR ou rendement annuel et
-la volatilité ; pour le drawdown elle encode la profondeur absolue de la perte.
-La valeur numérique reste écrite dans chaque cellule.
-
-Le premier portefeuille Boosting hors échantillon commence en août 2011. La
-colonne 2011 est donc marquée comme couverture partielle et aucun rendement de
-janvier à juillet n'est inventé.
+La palette Viridis reste un encodage visuel, avec valeur numérique dans chaque
+cellule. Les anciennes matrices mensuelles restent dans l'archive de référence.
+L'histoire comparable commence en août 2011 : aucun mois OOS antérieur n'est
+inventé pour répondre à une demande « depuis 2010 ».
 
 ## Portefeuille en vigueur
 
@@ -316,17 +293,18 @@ lors d'un tel refresh.
 Dans le même studio, le mode « Suivi récent » choisit une fenêtre datée et les
 mêmes courbes que le comparateur. Performance, drawdown quotidien et richesse
 relative au SPY sont pré-calculés par le moteur portefeuille ; le survol donne
-le jour exact. Seuls rendement total et max drawdown sont affichés pour cette
-fenêtre courte, sans lui inventer de CAGR ou de volatilité mensuelle annualisée.
-« Backtest complet », « Composer » et « Frontières » conservent leur calendrier
-mensuel net de frais, leurs 33 KPI historiques et leurs méthodes inchangés.
+le jour exact. Les KPI de ce suivi utilisent la fréquence quotidienne et
+signalent la brièveté de l'échantillon ; un CAGR annualisé n'est pas une
+prévision. Cette source reste brute de frais, hypothétique après le mois prévu,
+et séparée du backtest historique net de frais et de ses 33 KPI mensuels archivés.
 Une carte Méthodes expose aussi le pseudo-code du suivi prix et ses limites.
 
 `outputs/performance_reports/index.html` est l'entrée locale stable : elle
 désigne le dernier HTML complet généré par le suivi, sans écraser les rapports
 datés. Seul cet index identifié comme appartenant au générateur est remplacé,
 atomiquement ; une page préexistante étrangère fait échouer sa mise à jour.
-Le lien stable fonctionne aussi hors ligne et ne dépend pas d'une API réseau.
+Le lien stable et l'état initial du HTML fonctionnent hors ligne. Les nouvelles
+fenêtres quotidiennes nécessitent le service Python local, pas une API externe.
 
 ## Portefeuilles historiques
 
@@ -358,10 +336,12 @@ définit cette règle et liste les secteurs autorisés.
 
 ## Publication dans le site Portfolio
 
-AlphaRank génère le HTML autonome et son manifeste sous
-`outputs/performance_reports/<run_id>/`. Le dépôt Portfolio copie ces deux
-artefacts dans son espace public et ajoute seulement la navigation. Aucun KPI,
-holding ou statut méthodologique n'est recalculé dans Portfolio.
+AlphaRank génère le HTML complet, ses manifestes et ses ledgers hashés sous
+`outputs/performance_reports/<run_id>/`. Le service local charge uniquement ces
+artefacts immuables. Portfolio peut consommer l'archive statique et sa navigation,
+mais une copie du seul HTML ne fournit pas le moteur Python des dates libres.
+Aucun KPI, holding ou statut méthodologique n'est recalculé dans Portfolio ;
+aucune publication distante n'est implicite dans une refonte locale.
 
 Commande canonique :
 
@@ -374,12 +354,31 @@ python scripts/research/build_backtest_performance_report.py \
   --output-dir outputs/performance_reports/<run-id>
 ```
 
+Pour reconstruire l'analyse quotidienne depuis un rapport complet scellé,
+sans téléchargement ni relance des modèles :
+
+```bash
+python scripts/research/build_daily_performance_report.py \
+  --source-report outputs/performance_reports/<source>/backtest_performance_report.html \
+  --output-dir outputs/performance_reports/<nouveau-run>
+python scripts/research/serve_performance_report.py \
+  --report-dir outputs/performance_reports/<nouveau-run> --port 8765
+```
+
+Ouvrir `http://127.0.0.1:8765/`. Les CLI de génération et de suivi prix utilisent
+`--analysis-frequency daily` par défaut ; `monthly_archive` est un profil
+historique nommé, pas un repli silencieux sur une fenêtre annuelle.
+
 ## Validation et preuve
 
 Un nouveau standard ou une nouvelle version du payload exige : tests du moteur
 de KPI, test du payload, vérification de la syntaxe JavaScript, génération sur
 un replay réel, manifeste hashé, vérification des combinaisons et changements
-de fenêtre dans le navigateur, validation documentaire et build du site
-consommateur. L'artefact généré reste ignoré par Git dans AlphaRank ; son run,
+de fenêtre dans le vrai service et le navigateur, build React verrouillé,
+validation documentaire et contrôle des licences embarquées. La QA vérifie
+dates de milieu de mois, base 1, journalier, composition, frontières, source
+récente distincte, erreurs sans chiffres périmés, archives complètes et mobile.
+Un build consommateur est requis si ce consommateur change ; une tâche locale
+ne modifie pas Portfolio. L'artefact généré reste ignoré par Git dans AlphaRank ; son run,
 son snapshot, ses hashes et son statut sont conservés dans un rapport daté sous
 `docs/research/`.

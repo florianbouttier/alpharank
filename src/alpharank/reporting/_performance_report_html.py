@@ -3,328 +3,61 @@ from __future__ import annotations
 import base64
 import gzip
 import json
+from html import escape
 from typing import Any
 
-from alpharank.reporting._performance_report_chart_script import (
-    PERFORMANCE_REPORT_CHART_SCRIPT,
-)
-from alpharank.reporting._performance_report_composer_script import (
-    PERFORMANCE_REPORT_COMPOSER_SCRIPT,
-)
-from alpharank.reporting._performance_report_frontier_script import (
-    PERFORMANCE_REPORT_FRONTIER_SCRIPT,
-)
-from alpharank.reporting._performance_report_matrix_script import (
-    PERFORMANCE_REPORT_MATRIX_SCRIPT,
-)
-from alpharank.reporting._performance_report_script import PERFORMANCE_REPORT_SCRIPT
-from alpharank.reporting._performance_report_studio_script import PERFORMANCE_REPORT_STUDIO_SCRIPT
-from alpharank.reporting._performance_report_styles import PERFORMANCE_REPORT_STYLES
 from alpharank.reporting.analysis_ui import load_analysis_ui_assets
 
 
 def render_performance_report_html(payload: dict[str, Any]) -> str:
-    """Render one autonomous browser report with an inline compressed payload."""
-
-    packed = gzip.compress(
-        json.dumps(
-            payload,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf-8"),
-        compresslevel=9,
-        mtime=0,
-    )
-    encoded = base64.b64encode(packed).decode("ascii")
+    """Render the shared React analysis and its complete frozen source payload."""
+    encoded = base64.b64encode(
+        gzip.compress(
+            json.dumps(
+                payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+            ).encode(),
+            compresslevel=9,
+            mtime=0,
+        )
+    ).decode("ascii")
     assets = load_analysis_ui_assets()
+    boot = r"""
+const PAYLOAD_GZIP_BASE64=__PACKED__;
+async function openReport() {
+  const bytes = Uint8Array.from(atob(PAYLOAD_GZIP_BASE64), value => value.charCodeAt(0));
+  if (!("DecompressionStream" in window)) throw new Error("Ce navigateur ne prend pas en charge la décompression du rapport.");
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const payload = JSON.parse(await new Response(stream).text());
+  AlphaRankAnalysis.mount(document.getElementById("app"), payload);
+}
+openReport().catch(error => {
+  document.getElementById("app").textContent = "Chargement impossible : " + error.message;
+});
+""".replace("__PACKED__", json.dumps(encoded))
     return (
-        '<!doctype html>\n<html lang="fr">\n<head>\n'
-        '<meta charset="utf-8">\n'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
-        "<title>AlphaRank · Rapport de backtest complet</title>\n"
-        f'<meta name="alpharank-chart-engine" content="Plotly.js {assets.runtime_version}">\n'
-        f"<style>{PERFORMANCE_REPORT_STYLES}\n{assets.styles}</style>\n"
-        "</head>\n<body>\n"
-        '<a class="skip-link" href="#overview">Aller au studio de comparaison</a>\n'
-        '<div id="loading" class="loading">Chargement du rapport canonique…</div>\n'
-        '<div id="app" class="shell" hidden>\n' + _sidebar() + _main() + "</div>\n"
-        f"<script>{assets.runtime}</script>\n"
-        f"<script>{assets.script}\nconst PAYLOAD_GZIP_BASE64={json.dumps(encoded)};\n"
-        f"{PERFORMANCE_REPORT_COMPOSER_SCRIPT}\n"
-        f"{PERFORMANCE_REPORT_FRONTIER_SCRIPT}\n"
-        f"{PERFORMANCE_REPORT_STUDIO_SCRIPT}\n"
-        f"{PERFORMANCE_REPORT_CHART_SCRIPT}\n"
-        f"{PERFORMANCE_REPORT_MATRIX_SCRIPT}\n"
-        f"{PERFORMANCE_REPORT_SCRIPT}</script>\n"
-        "</body>\n</html>\n"
+        '<!doctype html>\n<html lang="fr"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f"<title>{escape(str(payload.get('title', 'AlphaRank · Analyse des performances')))}</title>"
+        f'<meta name="alpharank-chart-engine" content="Lightweight Charts {assets.chart_version}">'
+        f'<meta name="alpharank-ui-framework" content="React {assets.react_version}">'
+        f"<style>{assets.styles}</style></head><body>"
+        '<div id="app"><p class="initial-loading" role="status">Chargement de l’analyse…</p></div>'
+        f"<noscript>{_static_summary(payload)}</noscript>"
+        f"<script>/*\n{assets.licenses}\n*/\n{assets.bundle}</script>"
+        f"<script>{boot}</script></body></html>\n"
     )
 
 
-def _sidebar() -> str:
-    return """
-<header class="topbar" aria-label="Navigation du rapport">
-  <a class="brand" href="#top" aria-label="AlphaRank · haut du rapport">
-    <div class="brand-mark">AR</div>
-    <div><strong>AlphaRank</strong><small>Performance desk</small></div>
-  </a>
-  <nav aria-label="Sections du rapport">
-    <a class="nav-link is-active" href="#overview">Analyse</a>
-    <a class="nav-link" href="#current-portfolio">Portefeuille</a>
-    <a class="nav-link" href="#portfolios">Historique</a>
-    <a class="nav-link" href="#methodologies">Méthodes</a>
-    <a class="nav-link" href="#lineage">Sources</a>
-  </nav>
-  <div class="topbar-actions">
-    <div class="topbar-meta" aria-label="Fraîcheur du rapport">
-      <strong id="report-calendar">—</strong><span id="report-generated">—</span>
-    </div>
-    <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="Activer le thème sombre">
-      <span aria-hidden="true">◐</span><strong>Thème</strong>
-    </button>
-  </div>
-</header>
-"""
-
-
-def _main() -> str:
+def _static_summary(payload: dict[str, Any]) -> str:
+    """Provide readable source context without inventing a second KPI calculation."""
+    labels = ", ".join(str(label) for label in payload.get("strategy_order", []))
+    calendar = payload.get("calendar", {})
     return (
-        """
-<main><div class="content">
-  <header class="hero" id="top">
-    <div class="hero-copy">
-      <h1 id="report-headline">Comparer au SPY</h1>
-      <p id="report-subtitle">Choisissez les stratégies et la période. Le graphique et tous les indicateurs suivent.</p>
-    </div>
-    <div class="hero-actions">
-      <details class="proof-disclosure">
-        <summary><i></i><span>Snapshot candidat</span><small>Voir le statut de preuve</small></summary>
-        <p id="status-message">—</p>
-      </details>
-    </div>
-  </header>
-  <div class="coverage-line" aria-label="Couverture du rapport">
-    <span><strong id="coverage-series">—</strong> stratégies</span>
-    <span><strong id="coverage-kpis">—</strong> indicateurs</span>
-    <span><strong id="coverage-months">—</strong> d'historique</span>
-    <span id="coverage-window">—</span>
-    <span><strong id="coverage-holdings">—</strong> positions auditées</span>
-    <span class="coverage-source">Données embarquées · hors ligne</span>
-  </div>
-"""
-        + _performance_sections()
-        + _audit_sections()
-        + """
-</div></main>
-"""
+        "<h1>AlphaRank · Analyse des performances</h1>"
+        "<p>Activez JavaScript pour les graphiques et les filtres interactifs.</p>"
+        f"<p>Stratégies conservées : {escape(labels)}.</p>"
+        f"<p>Historique réalisé : {escape(str(calendar.get('start', '')))}"
+        f" au {escape(str(calendar.get('end', '')))}.</p>"
+        "<p>Les fenêtres quotidiennes personnalisées utilisent le service local Python "
+        "en lecture seule ; aucun calcul de KPI n’est dupliqué dans le navigateur.</p>"
     )
-
-
-def _performance_sections() -> str:
-    return (
-        """
-  <section class="section studio-section" id="overview">
-    <article class="analysis-studio" id="analysis-studio">
-      <div class="studio-head">
-        <div class="mode-switch" role="tablist" aria-label="Type de comparaison">
-          <button type="button" role="tab" aria-selected="false" data-analysis-mode="recent" hidden>Suivi récent</button>
-          <button class="is-active" type="button" role="tab" aria-selected="true" data-analysis-mode="strategies">Comparer</button>
-          <button type="button" role="tab" aria-selected="false" data-analysis-mode="composer">Composer</button>
-          <button type="button" role="tab" aria-selected="false" data-analysis-mode="frontier">Frontières</button>
-        </div>
-        <label class="recent-period" id="recent-period-control" hidden>Période<select id="recent-window" aria-label="Fenêtre du suivi récent"></select></label>
-        <div class="period-actions">
-          <label>Début<select id="start-month" aria-label="Début de la période"></select></label>
-          <label>Fin<select id="end-month" aria-label="Fin de la période"></select></label>
-          <button id="reset-window" type="button" title="Afficher tout l'historique disponible">Tout l'historique</button>
-        </div>
-      </div>
-      <div class="analysis-layout">
-        <details class="analysis-sidebar" id="series-selector" open>
-          <summary>Séries <span class="selection-count" id="curve-select-label">—</span></summary>
-"""
-        + _studio_toolbar()
-        + """
-        </details>
-        <div class="analysis-main">
-      <div class="studio-context">
-        <strong id="window-label">—</strong>
-        <span>SPY total return est toujours affiché.</span>
-      </div>
-      <aside class="studio-contract" id="recent-contract" hidden></aside>
-      <div class="studio-outcome" id="studio-outcome" aria-live="polite"></div>
-      <div class="studio-workspace">
-"""
-        + _studio_chart()
-        + """
-        <aside class="kpi-grid" id="studio-kpis" aria-label="KPI de la sélection"></aside>
-      </div>
-"""
-        + _studio_drawers()
-        + """
-      <aside class="studio-contract composer-only" id="composer-contract" hidden>
-        <strong>Laboratoire post-hoc, non promu.</strong>
-        Équipondération mensuelle des poches ; rendements déjà nets de leurs frais propres et aucun coût supplémentaire entre poches. Un titre détenu par plusieurs stratégies reste exposé dans chacune.
-        <span id="composer-scope" hidden> Composer : Legacy et les quatre Top 5. Les Top 10/15/20 restent dans Comparer.</span>
-      </aside>
-      <section class="frontier-only frontier-studio" id="frontier-studio" hidden>
-        <aside class="studio-contract">
-          <strong>Diagnostic post-hoc, non promu.</strong>
-          Trois poches distinctes, longues sans levier, rééquilibrées mensuellement par pas de 5 % et plafonnées à 70 %. La fenêtre « 2010 » commence en août 2011, première observation commune.
-        </aside>
-        <div class="frontier-recommendations" id="frontier-recommendations"></div>
-        <div class="frontier-chart-grid">
-          <article class="frontier-panel">
-            <header><h3>Rendement / volatilité</h3><p>À gauche : moins de volatilité. En haut : plus de CAGR.</p></header>
-            <div class="chart-stage"><div class="frontier-chart" id="frontier-volatility-chart" role="img" aria-label="Frontière rendement volatilité"></div></div>
-          </article>
-          <article class="frontier-panel">
-            <header><h3>Rendement / drawdown</h3><p>À gauche : drawdown absolu plus faible. En haut : plus de CAGR.</p></header>
-            <div class="chart-stage"><div class="frontier-chart" id="frontier-drawdown-chart" role="img" aria-label="Frontière rendement drawdown"></div></div>
-          </article>
-        </div>
-        <details class="studio-drawer frontier-anchor-table" open>
-          <summary><span>Recommandations sur plusieurs horizons</span><small>2010 demandé, puis 2015, 2020, 2023 et 2025 jusqu'à la dernière date commune</small></summary>
-          <div class="drawer-content"><div class="table-wrap"><table><thead><tr><th>Fenêtre</th><th>Profil</th><th>Composition</th><th>CAGR</th><th>Volatilité</th><th>Max drawdown</th></tr></thead><tbody id="frontier-anchor-body"></tbody></table></div></div>
-        </details>
-      </section>
-        </div>
-      </div>
-    </article>
-  </section>
-"""
-    )
-
-
-def _studio_toolbar() -> str:
-    return """
-      <div class="toolbar" aria-label="Filtres de performance">
-        <div class="curve-control" id="strategy-mode-controls">
-          <input class="strategy-search" id="strategy-search" type="search" placeholder="Rechercher une stratégie" aria-label="Rechercher une stratégie">
-          <div class="selection-actions">
-            <button id="select-all-curves" type="button">Tout cocher</button>
-            <button id="select-reference-curves" type="button">Tout retirer</button>
-          </div>
-          <div class="curve-options" id="curve-options"></div>
-          <div class="benchmark-fixed"><i></i><span>SPY · référence fixe</span></div>
-        </div>
-        <div class="curve-control" id="composer-mode-controls" hidden>
-          <span class="field-label">Poches du portefeuille</span>
-          <details class="multi-select" id="composer-multiselect">
-            <summary id="composer-select-label">Choisir les poches</summary>
-            <div class="multi-select-menu composer-menu">
-              <p class="composer-summary" id="composer-summary">—</p>
-              <div class="multi-select-actions composer-actions">
-                <button id="composer-reference" type="button">Legacy + tendance</button>
-                <button id="composer-boosting-pair" type="button">Deux Boosting</button>
-                <button id="composer-all" type="button">Toutes</button>
-              </div>
-              <div class="composer-options" id="composer-options"></div>
-            </div>
-          </details>
-        </div>
-      </div>
-"""
-
-
-def _studio_chart() -> str:
-    return """
-      <div class="studio-chart-panel">
-        <div class="chart-head">
-          <div><h3 id="studio-chart-title">Croissance composée</h3><p class="panel-subtitle" id="studio-chart-subtitle">—</p></div>
-          <div class="chart-switch" role="tablist" aria-label="Vue graphique">
-            <button class="is-active" type="button" role="tab" aria-selected="true" data-chart-view="wealth">Performance</button>
-            <button type="button" role="tab" aria-selected="false" data-chart-view="drawdown">Drawdown</button>
-            <button type="button" role="tab" aria-selected="false" data-chart-view="relative">Vs SPY</button>
-          </div>
-        </div>
-        <div class="chart-stage">
-          <div class="strategy-chart" id="studio-chart" role="img" aria-label="Graphique interactif de comparaison"></div>
-        </div>
-        <div class="chart-hint"><span id="chart-hint-caption"></span><button id="reset-chart-zoom" type="button">Réinitialiser le zoom</button></div>
-        <div class="legend" id="studio-legend"></div>
-      </div>
-"""
-
-
-def _studio_drawers() -> str:
-    return """
-      <div class="studio-drawers">
-        <details class="studio-drawer" id="full-kpis-drawer">
-          <summary><span>Tous les KPI de la sélection</span><small id="full-kpis-caption">33 mesures pour les stratégies · 7 pour un portefeuille composé</small></summary>
-          <div class="drawer-content"><div class="table-wrap"><table class="metric-table"><thead><tr id="metric-head"></tr></thead><tbody id="metric-body"></tbody></table></div></div>
-        </details>
-        <details class="studio-drawer" id="model-cards-drawer">
-          <summary><span>Model cards par année</span><small>Cumul depuis chaque année et années isolées</small></summary>
-          <div class="drawer-content">
-            <div class="matrix-controls">
-              <button class="is-active" type="button" data-matrix-metric="cagr">CAGR</button>
-              <button type="button" data-matrix-metric="annualized_volatility">Volatilité</button>
-              <button type="button" data-matrix-metric="max_drawdown">Max drawdown</button>
-            </div>
-            <div class="matrix-block">
-              <h3>Depuis chaque année jusqu'à la fin sélectionnée</h3>
-              <p class="panel-subtitle" id="cumulative-matrix-window">—</p>
-              <div class="heatmap-wrap"><div class="heatmap" id="cumulative-heatmap"></div></div>
-              <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="cumulative-matrix-caption"></strong></div>
-            </div>
-            <div class="matrix-block incremental-block">
-              <h3>Chaque année isolée · incrémental</h3>
-              <p class="panel-subtitle">Chaque cellule utilise seulement les mois de l'année indiquée, sans capital antérieur.</p>
-              <div class="heatmap-wrap"><div class="heatmap" id="incremental-heatmap"></div></div>
-              <div class="viridis-legend"><span>Faible</span><i class="viridis-bar"></i><span>Élevé</span><strong id="incremental-matrix-caption"></strong></div>
-            </div>
-          </div>
-        </details>
-        <details class="studio-drawer composer-only" id="composer-correlation" hidden>
-          <summary><span>Corrélations entre les poches</span><small>Pearson sur les rendements mensuels sélectionnés</small></summary>
-          <div class="drawer-content"><div class="table-wrap"><table id="composer-correlation-matrix"></table></div></div>
-        </details>
-      </div>
-"""
-
-
-def _audit_sections() -> str:
-    return """
-  <section class="section" id="current-portfolio">
-    <div class="section-head">
-      <div><span class="section-kicker" id="current-portfolio-kicker">Portefeuille courant</span><h2 id="current-portfolio-title">Portefeuille en vigueur</h2></div>
-      <p id="current-portfolio-note">Le mois courant reste séparé des KPI tant que son rendement complet n'est pas réalisé.</p>
-    </div>
-    <div class="current-portfolio-meta">
-      <article><span>Dernière séance observée</span><strong id="current-as-of-date">—</strong></article>
-      <article><span>Mois de décision</span><strong id="current-decision-month">—</strong></article>
-      <article><span>Mois de détention</span><strong id="current-holding-month">—</strong></article>
-      <article class="is-pending"><span>Statut</span><strong id="current-portfolio-status">Rendement mensuel non réalisé</strong></article>
-    </div>
-    <div class="current-portfolio-controls">
-      <label>Stratégie<select id="current-portfolio-strategy"></select></label>
-      <button class="button secondary" id="export-current-holdings" type="button">Exporter le panier courant</button>
-    </div>
-    <p class="portfolio-summary" id="current-portfolio-summary"></p>
-    <div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Rang</th><th>Poids cible</th><th>Score</th><th>Secteur</th><th>Votes</th></tr></thead><tbody id="current-holdings-body"></tbody></table></div>
-  </section>
-  <section class="section" id="portfolios">
-    <div class="section-head"><div><span class="section-kicker">Historique réalisé</span><h2>Tous les portefeuilles historiques</h2></div><p>Poids décidés à t, rendement réalisé pendant t+1, score OOS lorsqu'il existe.</p></div>
-    <div class="portfolio-controls">
-      <label>Stratégie<select id="portfolio-strategy"></select></label>
-      <label>Mois de détention<select id="portfolio-month"></select></label>
-      <label>Filtrer un ticker<input id="ticker-search" type="search" placeholder="SATS, DELL…"></label>
-      <button class="button secondary" id="export-holdings" type="button">Exporter CSV</button>
-    </div>
-    <p class="portfolio-summary" id="portfolio-summary"></p>
-    <div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Rang</th><th>Poids</th><th>Score</th><th>Secteur</th><th>Rendement réalisé</th><th>Votes</th></tr></thead><tbody id="holdings-body"></tbody></table></div>
-    <div class="pager"><button id="page-prev" type="button">Précédent</button><span id="page-label">—</span><button id="page-next" type="button">Suivant</button></div>
-  </section>
-  <section class="section" id="methodologies">
-    <div class="section-head"><div><span class="section-kicker">Méthodes</span><h2>Règles et pseudo-codes</h2></div><p>Projection lisible des contrats canoniques ; aucun statut R&D n'est présenté comme une recommandation.</p></div>
-    <div class="method-grid" id="method-grid"></div>
-  </section>
-  <section class="section" id="lineage">
-    <div class="section-head"><div><span class="section-kicker">Audit</span><h2>Lignée, hashes et conventions</h2></div><p>Le rapport cite ses entrées ; il ne résout jamais un artefact au nom « latest ».</p></div>
-    <div class="lineage-grid">
-      <article class="lineage-card"><h3>Contrats économiques</h3><dl class="definition" id="lineage-contracts"></dl></article>
-      <article class="lineage-card"><h3>Snapshot et sources</h3><dl class="definition" id="lineage-data"></dl></article>
-    </div>
-  </section>
-"""

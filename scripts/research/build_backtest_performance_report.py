@@ -31,6 +31,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sector-backtest-dir", type=Path, help="Sealed sector backtest package")
     parser.add_argument("--sector-history-dir", type=Path, help="Matching DEF sector release")
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--analysis-frequency", choices=["daily", "monthly_archive"], default="daily"
+    )
     return parser
 
 
@@ -84,6 +87,7 @@ def main() -> None:
         ),
         output_dir=output_dir,
         generated_at_utc=datetime.now(timezone.utc),
+        analysis_frequency=args.analysis_frequency,
     )
     LOGGER.info("Performance report: %s", paths["report"])
     LOGGER.info("Manifest: %s", paths["manifest"])

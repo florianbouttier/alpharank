@@ -1,49 +1,39 @@
-# Rapports d'audit statiques
+# Rapports d'audit et d'analyse
 
-Ce package transforme des payloads d'audit déjà calculés en tables ou en HTML
-autonome. Il ne contient ni application de suivi, ni second calcul économique,
-ni commande interactive : les KPI de performance proviennent du moteur commun.
+Responsabilité : préparer les vues et rapports des résultats déjà calculés par
+le moteur commun, sans application d'exécution ni nouveau calcul financier local.
 
-- `sec_quality_data.py` construit les tables de couverture, trous trimestriels
-  et anomalies d'actions du rapport SEC.
-- `sec_fundamental_explorer.py` vérifie un run RAW explicite, conserve toutes
-  ses versions SEC et prépare le payload de l'explorateur autonome par société.
-- `_sec_explorer_html.py` et `_sec_explorer_script.py` possèdent uniquement le
-  rendu et les interactions locales du rapport ; ils ne sélectionnent aucune
-  valeur fondamentale.
-- `refresh_replay_html.py` rend le rapport humain du refresh sans recalculer
-  les scores, holdings ou KPI ; sa section de stabilité inter-vintages expose
-  le dernier portefeuille du run précédent rejoué à date identique.
-- `performance_report.py` prépare la vue complète d'un replay explicitement
-  nommé ; `_performance_report_html.py`, `_performance_report_styles.py` et
-  `_performance_report_script.py` rendent sa structure et ses interactions
-  transverses sans redéfinir les KPI ni annualiser un mois courant.
-- `performance_followup.py` intègre les courbes de valorisation pré-calculées
-  dans ce même HTML complet, préserve le payload historique et publie un index
-  local stable ; aucun KPI n'est recalculé dans cette couche.
-- `_performance_report_sector.py` valide les entrées scellées du profil
-  sectoriel et sépare son panier figé ; `_performance_report_methods.py`
-  décrit les règles et la taxonomie du profil affiché.
-- `_performance_report_studio_script.py`,
-  `_performance_report_chart_script.py` et
-  `_performance_report_matrix_script.py` séparent respectivement l'état et les
-  cartes synthétiques, les projections mensuelles des trois vues et les tableaux
-  détaillés du studio. Les projections incluent le repère avant premier rendement
-  (richesse à 1, drawdown à 0), sans modifier les KPI canoniques.
-- `_performance_report_frontier_script.py` projette les allocations, métriques
-  et recommandations de frontière déjà pré-calculées.
-- `analysis_ui/` possède le composant Plotly partagé, son runtime embarqué et sa
-  licence, ainsi que le layout de sélection et les thèmes du studio. Tous les
-  rapports canoniques, composeur et frontières l'utilisent. Le shell et les
-  sections d'audit restent dans `_performance_report_html.py` et
-  `_performance_report_styles.py` ; aucun lecteur data ni moteur KPI n'entre dans
-  ce sous-package.
-- `_performance_report_composer_script.py` sélectionne les combinaisons
-  équipondérées dont les rendements et KPI ont déjà été calculés par
-  `alpharank.portfolio.combinations` ; il ne calcule que les points graphiques
-  de richesse, drawdown et richesse relative au SPY. La matrice de corrélation
-  mensuelle est sélectionnée dans le payload pré-calculé.
+Entrées : payloads/source artifacts explicites, snapshots et prix hashés.
 
-Les rapports HTML/Markdown conservés dans AlphaRank sont des preuves statiques
-d'audit. L'interface de portefeuille et le monitoring appartiennent au dépôt
-Portfolio.
+Sorties : HTML React complet, tableaux SEC, preuves d'audit et service local de
+consultation en lecture seule.
+
+Dossiers enfants :
+
+- `analysis_ui/` possède le frontend React, les graphiques Lightweight Charts,
+  les styles, les notices et leur build reproductible. Aucun KPI JavaScript.
+- `strategy_analysis/` résout les sources du même snapshot, prépare les données
+  quotidiennes via `portfolio/daily/`, écrit le rapport et sert les requêtes de
+  dates libres via le moteur Python, sans acquisition ni modification d'entrée.
+
+Modules maintenus :
+
+- `performance_report.py` prépare le profil complet Legacy/Boosting/SPY et ses
+  variantes sectorielles ; les formules restent dans `portfolio/`.
+- `_performance_report_analytics.py`, `_performance_report_sector.py` et
+  `_performance_report_methods.py` préparent respectivement les grilles de
+  référence, les données sectorielles scellées et les cartes méthodologiques.
+- `_performance_report_html.py` rend le frontend commun et conserve tout le
+  payload compressé ; les anciens scripts/styles de rendu ont été remplacés,
+  pas empilés derrière une deuxième interface active.
+- `performance_followup.py` ajoute le suivi quotidien des paniers figés au
+  même rapport, distinct du backtest mensuel net de frais.
+- `sec_quality_data.py`, `sec_fundamental_explorer.py`,
+  `_sec_explorer_html.py` et `_sec_explorer_script.py` possèdent les vues de
+  qualité et l'explorateur SEC, sans sélectionner de valeur fondamentale.
+- `refresh_replay_html.py` rend les audits de refresh et de stabilité
+  inter-vintages sans recalculer de scores ni de holdings.
+
+Interdit ici : ordre réel, connexion broker, entraînement, classement de titres,
+remplissage de prix manquants et seconde définition d'un KPI. Le monitoring des
+avoirs personnels reste dans Portfolio ; les analyses AlphaRank restent ici.

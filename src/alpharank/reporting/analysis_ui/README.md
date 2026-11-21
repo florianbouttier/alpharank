@@ -1,15 +1,24 @@
 # Composant frontal d'analyse de stratégies
 
-Responsabilité : rendu interactif partagé des séries temporelles et frontières,
-indépendant de la méthode qui produit les données.
+Responsabilité : interface React d'analyse des stratégies, graphiques financiers
+Lightweight Charts, tableaux et navigation du rapport canonique.
 
-Entrées : courbes et points pré-calculés, libellés, couleurs et thème.
+Entrées : payload source complet, points et KPI calculés dans Python. Le module
+expose `AlphaRankAnalysis.mount(element, payload)` ; les dates libres appellent
+l'API locale explicite décrite dans `../strategy_analysis/`.
 
-Sorties : graphiques Plotly autonomes, zoom, survol et export visuel. Le runtime
-Plotly fourni par la dépendance Python existante est embarqué, jamais chargé par CDN.
-Sa version est inscrite dans le HTML et sa notice MIT est embarquée avec le runtime.
+Sorties : bundle autonome, styles, survol/zoom et filtres. Aucun Plotly, CDN ou
+police distante. `client.jsx`, `charts.jsx`, `tables.jsx`, `audit.jsx` et
+`format.js` séparent état, graphiques, mesures, audit et formatage. Le bundle
+construit est versionné pour que le rendu Python et la wheel fonctionnent sans
+Node ni réseau ; le code maintenu reste dans ces sources.
+
+Construction reproductible : `npm ci`, `npm test`, `npm run format:check`,
+`npm run build`. Versions exactes dans `package.json` et `package-lock.json` ;
+notices complètes dans `THIRD_PARTY_LICENSES.txt`, attribution TradingView visible.
 
 Dossiers enfants : aucun.
 
-Interdit ici : acquisition, sélection de titres, calcul de rendement, KPI ou
-changement de données. Les appels propres au rapport restent dans ses adaptateurs.
+Interdit ici : acquisition, sélection de titres, calcul de rendement, KPI,
+interpolation d'un trou ou changement de données. Jour/semaine/mois ne changent
+que la résolution d'affichage, jamais les statistiques reçues de Python.

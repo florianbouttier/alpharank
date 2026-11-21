@@ -144,7 +144,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 105 | `REPORT-021` | livrer le suivi prix dans le HTML canonique complet | lot REPORT ci-dessous | fait |
 | 106 | `REPORT-022` | refondre le composant frontal partagé d'analyse de stratégies | lot REPORT ci-dessous | fait |
 | 107 | `REPORT-023` | reconstruire les valorisations journalières et les KPI à dates libres | lot REPORT ci-dessous | fait |
-| 108 | `REPORT-024` | remplacer le frontend d'analyse par React et des graphiques financiers | lot REPORT ci-dessous | en cours |
+| 108 | `REPORT-024` | remplacer le frontend d'analyse par React et des graphiques financiers | lot REPORT ci-dessous | fait |
 | 109 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
@@ -1335,7 +1335,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-021` | intégrer les valorisations récentes au desk complet sans perte d'information | fait | HTML complet `a8c52aca…625d`, 48 rendements récents identiques, payload historique conservé, entrée stable et livraison obligatoire ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-022` | remplacer les graphiques maison et rendre la sélection explicite | fait | Plotly partagé, bases 1/0 corrigées sans supprimer le premier rendement, sélection par familles, HTML `d3f02bdb…e800`, 89 tests et QA desktop/mobile ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-023` | valoriser quotidiennement les positions et calculer les fenêtres libres | fait | 49 595 valorisations, 2 307 fins de mois rapprochées, 59 non observables signalées, 58 344 KPI mensuels préservés, 114 tests ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
-| `REPORT-024` | remplacer Plotly par un frontend React d'analyse financière | en cours | dates libres, courbes et drawdown synchronisés, KPI Python, composition et détails conservés |
+| `REPORT-024` | remplacer Plotly par un frontend React d'analyse financière | fait | React/Lightweight Charts hors ligne, dates libres via moteur local, QA réelle desktop/mobile, archives complètes et packaging validés ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-025` | générer et éprouver le rapport journalier complet | à faire | artefact réel, rapprochement mensuel, QA navigateur et preuve de livraison |
 
 ### Détail du lot journalier `REPORT-023` à `REPORT-025`

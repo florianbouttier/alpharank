@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import polars as pl
 
@@ -22,11 +22,14 @@ from alpharank.reporting._performance_report_analytics import (
     build_report_analytics,
     strategy_frontier_payload,
 )
-from alpharank.reporting._performance_report_html import render_performance_report_html
 from alpharank.reporting._performance_report_methods import methodology_cards
 from alpharank.reporting._performance_report_sector import (
     SectorReportInputs,
     load_sector_report_data,
+)
+from alpharank.reporting.strategy_analysis.report import (
+    write_daily_analysis_report,
+    write_monthly_archive_report,
 )
 
 REPORT_SCHEMA_VERSION = 5
@@ -407,55 +410,18 @@ def write_performance_report(
     *,
     output_dir: Path,
     generated_at_utc: datetime,
+    analysis_frequency: Literal["daily", "monthly_archive"] = "monthly_archive",
 ) -> dict[str, Path]:
     """Write the self-contained report and its compact lineage manifest."""
 
     payload = build_performance_report_payload(inputs, generated_at_utc=generated_at_utc)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    report_path = output_dir / "backtest_performance_report.html"
-    report_path.write_text(render_performance_report_html(payload), encoding="utf-8")
-    manifest_path = output_dir / "backtest_performance_report_manifest.json"
-    manifest = {
-        "schema_version": REPORT_SCHEMA_VERSION,
-        "generated_at_utc": payload["generated_at_utc"],
-        "report": {
-            "path": str(report_path.resolve()),
-            "sha256": sha256_path(report_path),
-            "size_bytes": report_path.stat().st_size,
-        },
-        "calendar": payload["calendar"],
-        "strategies": payload["strategy_order"],
-        "metric_fields": payload["metric_fields"],
-        "portfolio_composer": {
-            "method": payload["portfolio_composer"]["policy"]["method"],
-            "combinations": len(payload["portfolio_composer"]["combination_masks"]),
-            "metric_fields": payload["portfolio_composer"]["metric_fields"],
-            "correlation_windows": len(
-                payload["portfolio_composer"]["strategy_correlation_windows"]
-            ),
-        },
-        "strategy_frontiers": {
-            "method": payload["strategy_frontiers"]["policy"]["method"],
-            "candidate_allocations": len(payload["strategy_frontiers"]["weights"]),
-            "windows": len(payload["strategy_frontiers"]["windows"]),
-            "anchor_windows": payload["strategy_frontiers"]["anchor_windows"],
-            "metric_fields": payload["strategy_frontiers"]["metric_fields"],
-        },
-        "current_portfolio": {
-            "as_of_date": payload["current_portfolio"]["as_of_date"],
-            "decision_month": payload["current_portfolio"]["decision_month"],
-            "holding_month": payload["current_portfolio"]["holding_month"],
-            "status": payload["current_portfolio"]["status"],
-            "holding_rows": len(payload["current_portfolio"]["holdings"]),
-        },
-        "lineage": payload["lineage"],
-        "status": payload["status"],
-    }
-    manifest_path.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    return {"report": report_path, "manifest": manifest_path}
+    if analysis_frequency not in {"daily", "monthly_archive"}:
+        raise ValueError("Unsupported analysis frequency.")
+    if analysis_frequency == "daily":
+        return write_daily_analysis_report(
+            payload, output_dir=output_dir, generated_at_utc=generated_at_utc
+        )
+    return write_monthly_archive_report(payload, output_dir=output_dir)
 
 
 def _assemble_monthly(

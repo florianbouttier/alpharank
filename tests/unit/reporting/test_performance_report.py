@@ -110,116 +110,49 @@ def test_payload_uses_canonical_window_kpi_and_keeps_every_holding(tmp_path: Pat
 
 
 def test_html_is_self_contained_and_embeds_a_valid_compressed_payload(tmp_path: Path) -> None:
+    inputs = _report_inputs(tmp_path)
     paths = write_performance_report(
-        _report_inputs(tmp_path),
+        inputs,
         output_dir=tmp_path / "report",
-        generated_at_utc=datetime(2026, 8, 29, 15, 0, tzinfo=timezone.utc),
+        generated_at_utc=datetime(2026, 3, 29, tzinfo=timezone.utc),
     )
     html = paths["report"].read_text(encoding="utf-8")
-    manifest = json.loads(paths["manifest"].read_text(encoding="utf-8"))
-    match = re.search(r"const PAYLOAD_GZIP_BASE64=(\"[^\"]+\")", html)
-
+    manifest = json.loads(paths["manifest"].read_text())
+    match = re.search(r'const PAYLOAD_GZIP_BASE64="([^"]+)"', html)
     assert match is not None
-    payload = json.loads(gzip.decompress(base64.b64decode(json.loads(match.group(1)))))
+    payload = json.loads(gzip.decompress(base64.b64decode(match.group(1))))
     assert payload["metric_fields"] == list(PERFORMANCE_METRIC_FIELDS)
     assert payload["lineage"]["composition_id"] == "test-composition"
     assert manifest["report"]["sha256"]
     assert manifest["portfolio_composer"]["combinations"] == 1_023
     assert manifest["strategy_frontiers"]["candidate_allocations"] == 168
-    assert re.search(r'<script[^>]+src=["\x27]https?://', html) is None
-    assert re.search(r'<link[^>]+href=["\x27]https?://', html) is None
-    assert "function viridis(value)" in html  # The model-card scale remains local.
-    assert ".loading[hidden]" in html
-    assert 'id="analysis-studio"' in html
-    assert 'data-analysis-mode="strategies"' in html
-    assert 'data-analysis-mode="composer"' in html
-    assert 'data-analysis-mode="frontier"' in html
-    assert 'id="series-selector"' in html
-    assert 'id="composer-multiselect"' in html
-    assert 'id="studio-kpis"' in html
-    assert 'data-chart-view="wealth"' in html
-    assert 'data-chart-view="drawdown"' in html
-    assert 'data-chart-view="relative"' in html
-    assert 'id="studio-chart"' in html
-    assert 'class="strategy-chart"' in html
-    assert 'name="alpharank-chart-engine"' in html
-    assert 'id="studio-outcome"' in html
-    assert 'id="metric-head"' in html
-    assert 'id="cumulative-heatmap"' in html
-    assert 'id="incremental-heatmap"' in html
-    assert 'id="composer-options"' in html
-    assert 'id="composer-correlation-matrix"' in html
-    assert 'id="composer-boosting-pair"' in html
-    assert 'id="frontier-studio"' in html
-    assert 'id="frontier-recommendations"' in html
-    assert 'id="frontier-volatility-chart"' in html
-    assert 'id="frontier-drawdown-chart"' in html
-    assert 'id="frontier-anchor-body"' in html
-    assert 'id="current-portfolio"' in html
-    assert 'id="current-portfolio-strategy"' in html
-    assert 'id="current-holdings-body"' in html
-    assert "Portefeuille en vigueur" in html
-    assert "Rendement mensuel non réalisé" in html
-    assert 'id="strategy-select"' not in html
-    assert 'id="composer-wealth-chart"' not in html
-    assert 'id="composer-drawdown-chart"' not in html
-    assert 'id="composer-relative-chart"' not in html
-    assert '<section class="section" id="composer">' not in html
-    assert 'matrixWindows("cumulative")' in html
-    assert 'matrixWindows("incremental")' in html
-    assert "Tous les KPI de la sélection" in html
-    assert "function setAnalysisMode(mode)" in html
-    assert "function drawStudioChart()" in html
-    assert "function renderStudioOutcome()" in html
-    assert "function comparisonDeltaText(field, value, benchmark)" in html
-    assert "function studioDisplaySeries()" in html
-    assert "aucun coût supplémentaire entre poches" in html
-    assert "function composerMetricValue(field)" in html
-    assert "function renderComposerCorrelation()" in html
-    assert "function composerRelativeWealthSeries()" in html
-    assert "function renderFrontierStudio()" in html
-    assert "function drawFrontierScatter(element, model)" in html
-    assert "function resizeStudioCharts()" in html
-    ids = re.findall(r'id="([^"]+)"', html.split("<script>", 1)[0])
-    assert len(ids) == len(set(ids))
+    assert re.search(r'<script[^>]+src=["\\x27]https?://', html) is None
+    assert re.search(r'<link[^>]+href=["\\x27]https?://', html) is None
+    assert 'name="alpharank-chart-engine" content="Lightweight Charts' in html
+    assert 'name="alpharank-ui-framework" content="React' in html
+    assert "AlphaRankAnalysis.mount" in html
+    assert "Plotly.react" not in html
+    assert "<noscript>" in html
 
 
 def test_dashboard_shell_keeps_the_complete_information_contract(tmp_path: Path) -> None:
     paths = write_performance_report(
         _report_inputs(tmp_path),
-        output_dir=tmp_path / "dashboard",
-        generated_at_utc=datetime(2026, 10, 30, 15, 0, tzinfo=timezone.utc),
+        output_dir=tmp_path / "report",
+        generated_at_utc=datetime(2026, 3, 29, tzinfo=timezone.utc),
     )
     html = paths["report"].read_text(encoding="utf-8")
-    match = re.search(r"const PAYLOAD_GZIP_BASE64=(\"[^\"]+\")", html)
-
+    match = re.search(r'const PAYLOAD_GZIP_BASE64="([^"]+)"', html)
     assert match is not None
-    payload = json.loads(gzip.decompress(base64.b64decode(json.loads(match.group(1)))))
-    for element_id in (
-        "theme-toggle",
-        "coverage-series",
-        "coverage-kpis",
-        "coverage-months",
-        "coverage-holdings",
-    ):
-        assert f'id="{element_id}"' in html
-    assert "Comparer au SPY" in html
-    assert 'class="skip-link"' in html
-    assert "function renderCoverage()" in html
-    assert "function initializeTheme()" in html
-    assert "function renderCurveOptions()" in html
-    assert 'id="strategy-search"' in html
-    assert "data-period-start-year=" not in html
-    assert "Personnaliser</summary>" not in html
-    assert 'class="scoreboard"' in html
-    assert 'class="kpi-card"' not in html
-    assert 'html[data-theme="dark"]' in html
+    payload = json.loads(gzip.decompress(base64.b64decode(match.group(1))))
+    assert 'id="app"' in html
     assert len(payload["strategy_order"]) == 11
     assert len(payload["metric_fields"]) == 33
     assert len(payload["methodologies"]) >= 5
     assert payload["holdings"]
     assert payload["current_portfolio"]["holdings"]
     assert payload["strategy_frontiers"]["windows"]
+    assert payload["portfolio_composer"]["metric_windows"]
 
 
 def test_sector_profile_keeps_all_realized_series_and_separates_last_basket(tmp_path: Path) -> None:

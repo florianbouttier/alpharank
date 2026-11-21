@@ -76,6 +76,8 @@ L'explication de `raw -> stg -> def -> mart -> snapshot` est dans
 | portefeuille Legacy mensuel | `scripts/run_legacy.py` |
 | recherche/backtest Boosting | `scripts/run_backtest.py` |
 | comparaison commune | `scripts/build_common_legacy_boosting_replay.py` |
+| rapport journalier depuis un rapport scellé | `scripts/research/build_daily_performance_report.py` |
+| consultation du rapport avec dates libres | `scripts/research/serve_performance_report.py` |
 | validation stricte Legacy | `scripts/validate_legacy_replay_package.py` |
 | ingestion open source | `scripts/open_source/ingestion/run_ingestion.py` |
 | composition du snapshot | `scripts/open_source/publication/build_composed_model_snapshot.py` |

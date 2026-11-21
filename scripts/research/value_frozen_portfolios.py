@@ -33,6 +33,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--as-of", type=date.fromisoformat, required=True)
     parser.add_argument("--window", type=_window, action="append", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--analysis-frequency", choices=["daily", "monthly_archive"], default="daily"
+    )
     return parser
 
 
@@ -133,6 +136,7 @@ def _write_complete_html(
             "historical_model_replay": "not_rerun_valuation_only",
         },
         output_dir=args.output_dir,
+        analysis_frequency=args.analysis_frequency,
     )
 
 

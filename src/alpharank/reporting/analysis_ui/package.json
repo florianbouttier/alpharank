@@ -1,0 +1,21 @@
+{
+  "name": "@alpharank/strategy-analysis",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test client.test.mjs",
+    "format:check": "prettier --check client.jsx charts.jsx tables.jsx audit.jsx format.js layout.css build.mjs client.test.mjs"
+  },
+  "dependencies": {
+    "lightweight-charts": "5.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.65.1",
+    "prettier": "3.10.1"
+  }
+}

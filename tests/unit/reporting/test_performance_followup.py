@@ -117,10 +117,9 @@ def test_writer_delivers_complete_html_and_updates_only_its_owned_index(tmp_path
     assert "url=second/backtest_performance_report.html" in second["index"].read_text()
     assert sha256_path(first["report"]) == first_hash
     assert _decode(html)["portfolio_composer"] == _payload()["portfolio_composer"]
-    for mode in ("recent", "strategies", "composer", "frontier"):
-        assert f'data-analysis-mode="{mode}"' in html
-    for section in ("current-portfolio", "portfolios", "methodologies", "lineage"):
-        assert f'id="{section}"' in html
+    assert "AlphaRankAnalysis.mount" in html
+    for field in ("monthly", "holdings", "current_portfolio", "methodologies", "lineage"):
+        assert _decode(html)[field] == _payload()[field]
 
 
 def test_writer_never_replaces_an_unrelated_index(tmp_path: Path) -> None:
@@ -171,6 +170,8 @@ def test_price_followup_cli_cannot_deliver_markdown_without_the_complete_html(
             str(script),
             "--source-report",
             str(source),
+            "--analysis-frequency",
+            "monthly_archive",
             "--raw-receipt",
             str(receipt),
             "--entry-date",
