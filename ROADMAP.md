@@ -146,7 +146,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 107 | `REPORT-023` | reconstruire les valorisations journalières et les KPI à dates libres | lot REPORT ci-dessous | fait |
 | 108 | `REPORT-024` | remplacer le frontend d'analyse par React et des graphiques financiers | lot REPORT ci-dessous | fait |
 | 109 | `REPORT-026` | laisser indéfinie la volatilité sur une unique séance | lot REPORT ci-dessous | fait |
-| 110 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | à faire |
+| 110 | `REPORT-027` | aligner les libellés de composition sur la source active | lot REPORT ci-dessous | fait |
+| 111 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1339,6 +1340,19 @@ doublons exacts et preuve de récupération.
 | `REPORT-024` | remplacer Plotly par un frontend React d'analyse financière | fait | React/Lightweight Charts hors ligne, dates libres via moteur local, QA réelle desktop/mobile, archives complètes et packaging validés ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-025` | générer et éprouver le rapport journalier complet | à faire | artefact réel, rapprochement mensuel, QA navigateur et preuve de livraison |
 | `REPORT-026` | ne pas afficher un risque nul avec une seule observation quotidienne | fait | test reproduit avant correction ; une observation donne null, deux constantes donnent zéro, convention mensuelle préservée |
+| `REPORT-027` | distinguer les politiques de composition historique et récente à l'écran | fait | helper commun aux trois textes, six tests JS et QA Chrome réelle ; aucun calcul modifié |
+
+### Libellés de cohortes `REPORT-027`
+
+- **Objectif/périmètre** : corriger la contradiction observée en QA entre la
+  sidebar récente et les textes génériques de composition/frontières. Un
+  helper de présentation et son test pilotent les trois textes selon la source.
+- **Hors périmètre/impact** : aucune donnée ni formule ; les politiques moteur
+  `monthly`/`entry` restent inchangées. **Acceptation** : aucun rééquilibrage
+  mensuel ou frais nets revendiqué dans le suivi récent ; historique inchangé.
+- **Validations/rollback** : test JavaScript ajouté avant correction, build,
+  QA réelle des deux sources ; restaurer les assets précédents si nécessaire,
+  sans remplacer un rapport archivé.
 
 ### Correctif de frontière `REPORT-026`
 

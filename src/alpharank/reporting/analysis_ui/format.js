@@ -1,4 +1,21 @@
 export const BENCHMARK = "SPY · Total return";
+
+export function sourcePolicy(source) {
+  return source === "recent"
+    ? {
+        sidebar: "Même poids à l’entrée, puis maintien sans rééquilibrage.",
+        composer:
+          "Poches équipondérées à l’entrée, puis maintien sans rééquilibrage, brut de frais.",
+        frontier:
+          "allocation à l’entrée, puis maintien sans rééquilibrage, brut de frais",
+      }
+    : {
+        sidebar:
+          "Chaque poche reçoit le même poids, rééquilibré tous les mois.",
+        composer: "Poches équipondérées chaque mois. Frais propres inclus.",
+        frontier: "rééquilibrage mensuel, frais propres inclus",
+      };
+}
 export const COMPOSED = "Portefeuille composé";
 export const DEFAULT_STRATEGIES = [
   "Boosting · Top 5",

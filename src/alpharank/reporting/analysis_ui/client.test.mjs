@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  sourcePolicy,
   BENCHMARK,
   colorFor,
   contiguousSegments,
@@ -8,6 +9,20 @@ import {
   sampledPoints,
   timeKey,
 } from "./format.js";
+
+test("source policy never labels the frozen gross cohort as monthly net rebalancing", () => {
+  const recent = sourcePolicy("recent");
+  assert.match(recent.composer, /à l’entrée/);
+  assert.match(recent.composer, /brut de frais/);
+  assert.match(recent.frontier, /sans rééquilibrage/);
+  assert.match(recent.sidebar, /sans rééquilibrage/);
+  assert.doesNotMatch(
+    Object.values(recent).join(" "),
+    /chaque mois|mensuel|Frais propres inclus/,
+  );
+  assert.match(sourcePolicy("history").composer, /chaque mois/);
+  assert.match(sourcePolicy("history").composer, /Frais propres inclus/);
+});
 
 test("daily presentation preserves every supplied observation and its anchor", () => {
   const points = [

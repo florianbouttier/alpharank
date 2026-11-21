@@ -169,6 +169,9 @@ accessibles. La vue quotidienne appelle `combine_daily_sleeves()` et
 Les poids dérivent entre rééquilibrages ; ils ne sont pas remis à `1 / N` chaque
 jour. En suivi récent, l'équipondération se fait à l'entrée du panier figé,
 sans inventer de rééquilibrage mensuel. Le navigateur ne calcule aucun KPI.
+Les textes de la sidebar, du bandeau de composition et des frontières suivent
+cette même source via un helper de présentation partagé : le suivi récent ne
+revendique jamais le rééquilibrage mensuel ni les frais nets de l'historique.
 Ce laboratoire reste un diagnostic post-hoc non promu : il mesure la
 diversification entre méthodes, il ne constitue ni une optimisation de poids
 ni une nouvelle stratégie de production.

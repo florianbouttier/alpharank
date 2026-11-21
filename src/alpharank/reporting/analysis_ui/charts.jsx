@@ -14,6 +14,7 @@ import {
   format,
   sampledPoints,
   shortName,
+  sourcePolicy,
   timeKey,
 } from "./format.js";
 
@@ -476,8 +477,8 @@ export function Frontiers({ data, dark }) {
     <section className="frontier-view">
       <p className="method-note">
         Diagnostic post-hoc : trois poches, poids longs par pas de 5 %, plafond
-        de 70 %, rééquilibrage mensuel. Ces profils ne sont pas des
-        recommandations causales.
+        de 70 %, {sourcePolicy(data.source).frontier}. Ces profils ne sont pas
+        des recommandations causales.
       </p>
       <div className="profile-strip">
         {Object.entries(frontier.recommendations || {}).map(([key, index]) => {

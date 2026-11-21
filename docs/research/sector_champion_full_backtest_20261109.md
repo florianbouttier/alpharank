@@ -646,3 +646,15 @@ disponibles. Deux observations réellement constantes peuvent toujours produire
 une volatilité de 0. La convention mensuelle historique n'est pas changée.
 Les deux cas sont testés, avec la suite portefeuille/reporting, Ruff, formatage
 et mypy. Aucun prix, signal, portefeuille ni résultat mensuel modifié.
+
+### Cohérence des libellés de source (`REPORT-027`)
+
+La QA du premier candidat `REPORT-025_20261121` a détecté un bandeau composé et
+une note de frontière disant « mensuel » dans le suivi récent, malgré une
+sidebar correcte. Le moteur calculait déjà l'allocation à l'entrée sans
+rééquilibrage. `sourcePolicy()` centralise les trois textes et distingue
+historique net/mensuel de récent brut/entrée seule. Le test de présentation a
+été ajouté avant correction ; six tests JavaScript, build, formatage et trois
+tests Python de rendu passent. Chrome avec la vraie API confirme les libellés
+des deux sources, sans modification des calculs. Le premier candidat et sa
+preuve diagnostique restent conservés ; la livraison utilise un nouvel immuable.

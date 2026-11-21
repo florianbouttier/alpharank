@@ -12,6 +12,7 @@ import {
   format,
   groupFor,
   shortName,
+  sourcePolicy,
 } from "./format.js";
 
 function initialTheme() {
@@ -140,11 +141,7 @@ function StrategySelector({
         </summary>
         {mode === "composer" ? (
           <div className="sidebar-content">
-            <p className="sidebar-help">
-              {source === "recent"
-                ? "Même poids à l’entrée, puis maintien sans rééquilibrage."
-                : "Chaque poche reçoit le même poids, rééquilibré tous les mois."}
-            </p>
+            <p className="sidebar-help">{sourcePolicy(source).sidebar}</p>
             <button
               className="pair-button"
               id="composer-boosting-pair"
@@ -518,9 +515,8 @@ function Analysis({ payload, dark }) {
       )}
       {mode === "composer" && (
         <div className="composer-notice">
-          Poches équipondérées chaque mois. Frais propres inclus ; aucun coût
-          supplémentaire entre poches. Un titre commun à deux poches reste
-          exposé dans chacune.
+          {sourcePolicy(source).composer} Aucun coût supplémentaire entre
+          poches. Un titre commun à deux poches reste exposé dans chacune.
         </div>
       )}
       <div
