@@ -9,6 +9,9 @@ en lecture seule. `test_strategy_analysis_ui.py` contrôle le bundle React,
 les licences, l'encodage du payload et la syntaxe ; les interactions réelles
 sont vérifiées séparément dans Chrome avec le service et le moteur Python.
 
+Le service teste aussi l'audit titre/séance, la source de repli mensuelle,
+le refus d'un arrondi silencieux et la proposition de mois complets inclus.
+
 L'explorateur SEC est testé sur un petit run synthétique : conservation des
 versions amendées, scellement de l'identifiant de run, hashes, payload autonome
 et absence de ressource réseau.

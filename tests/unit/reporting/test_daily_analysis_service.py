@@ -17,6 +17,7 @@ from alpharank.reporting.strategy_analysis import (
     prepare_analysis_dataset,
     query_analysis,
 )
+from alpharank.reporting.strategy_analysis.coverage import monthly_fallback_window
 from alpharank.reporting.strategy_analysis.dataset import read_performance_payload
 from alpharank.reporting.strategy_analysis.report import (
     load_analysis_report,
@@ -137,6 +138,54 @@ def test_preparation_rejects_price_hash_drift_instead_of_using_revised_quotes(
     frame.write_parquet(path)
     with pytest.raises(ValueError, match="SHA-256"):
         prepare_analysis_dataset(payload)
+
+
+def test_monthly_reference_is_explicit_and_does_not_fabricate_daily_prices(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    source = tmp_path / "snapshot" / "US_Finalprice.parquet"
+    pl.read_parquet(source).filter(pl.col("date") != "2026-02-03").write_parquet(source)
+    manifest_path = tmp_path / "snapshot" / "snapshot_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["output_sha256"][source.name] = sha256_path(source)
+    manifest_path.write_text(json.dumps(manifest))
+    payload["lineage"]["source_files"][0]["sha256"] = sha256_path(manifest_path)
+    dataset = prepare_analysis_dataset(payload)
+    strict = query_analysis(dataset, AnalysisQuery(date(2026, 2, 1), date(2026, 2, 28)))
+    fallback = query_analysis(
+        dataset, AnalysisQuery(date(2026, 2, 1), date(2026, 2, 28), "monthly_reference")
+    )
+    assert strict["series"]["Alpha"]["metrics"]["max_drawdown"] is None
+    assert strict["price_gaps"][0]["ticker"] == "A"
+    assert strict["price_gaps"][0]["dates"] == ["2026-02-03"]
+    assert fallback["frequency"] == "monthly"
+    assert fallback["series"]["Alpha"]["metrics"]["total_return"] == pytest.approx(0.099)
+    assert len(fallback["series"]["Alpha"]["points"]) == 2
+    assert (
+        dataset.ledgers["history"].filter(pl.col("strategy") == "Alpha")["wealth"].null_count() == 1
+    )
+    assert fallback["price_gaps"] == strict["price_gaps"]
+
+
+def test_monthly_reference_never_rounds_partial_month_dates_silently(tmp_path: Path) -> None:
+    dataset = prepare_analysis_dataset(_payload(tmp_path))
+    strict = query_analysis(dataset, AnalysisQuery(date(2026, 2, 3), date(2026, 2, 28)))
+    assert strict["monthly_fallback"]["available"] is False
+    with pytest.raises(ValueError, match="mois complets"):
+        query_analysis(
+            dataset, AnalysisQuery(date(2026, 2, 3), date(2026, 2, 28), "monthly_reference")
+        )
+
+
+def test_monthly_fallback_proposes_only_contained_complete_months() -> None:
+    view = monthly_fallback_window(date(2020, 1, 10), date(2026, 8, 17), enabled=True)
+    assert view["start"] == "2020-02-01" and view["end"] == "2026-07-31"
+    assert view["available"] is True and view["period_changed"] is True
+    exact = monthly_fallback_window(date(2024, 2, 1), date(2024, 2, 29), enabled=True)
+    assert exact["period_changed"] is False
+    assert (
+        monthly_fallback_window(date(2026, 2, 3), date(2026, 2, 28), enabled=True)["available"]
+        is False
+    )
 
 
 def test_daily_writer_keeps_complete_payload_and_refuses_to_overwrite(tmp_path: Path) -> None:

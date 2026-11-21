@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypedDict
+from types import MappingProxyType
+from typing import Literal, Mapping, TypedDict
 
 import polars as pl
+
+ObservationFrequency = Literal["daily", "monthly"]
+OBSERVATIONS_PER_YEAR: Mapping[ObservationFrequency, int] = MappingProxyType(
+    {"daily": 252, "monthly": 12}
+)
 
 
 @dataclass(frozen=True, slots=True)

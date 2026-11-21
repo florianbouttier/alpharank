@@ -15,6 +15,12 @@ from alpharank.portfolio.daily import (
     daily_period_analysis,
     daily_strategy_frontier,
 )
+from alpharank.portfolio.daily.contracts import ObservationFrequency
+from alpharank.reporting.strategy_analysis.coverage import (
+    monthly_fallback_window,
+    require_complete_months,
+    window_price_gaps,
+)
 from alpharank.reporting.strategy_analysis.dataset import AnalysisDataset
 
 
@@ -43,7 +49,10 @@ def query_analysis(dataset: AnalysisDataset, query: AnalysisQuery) -> dict[str, 
             + "."
         )
     ledger = dataset.ledgers[query.source]
-    policy: Literal["monthly", "entry"] = "monthly" if query.source == "history" else "entry"
+    frequency: ObservationFrequency = "monthly" if query.source == "monthly_reference" else "daily"
+    if frequency == "monthly":
+        require_complete_months(query.start, query.end)
+    policy: Literal["monthly", "entry"] = "entry" if query.source == "recent" else "monthly"
     allowed = tuple(dataset.payload["portfolio_composer"]["strategy_order"])
     if len(set(query.sleeves)) != len(query.sleeves) or not set(query.sleeves).issubset(allowed):
         raise ValueError("Unknown or duplicate portfolio sleeve.")
@@ -59,6 +68,7 @@ def query_analysis(dataset: AnalysisDataset, query: AnalysisQuery) -> dict[str, 
             start=query.start,
             end=query.end,
             benchmark_strategy=dataset.benchmark_strategy,
+            frequency=frequency,
         )
     )
     if query.sleeves:
@@ -71,12 +81,30 @@ def query_analysis(dataset: AnalysisDataset, query: AnalysisQuery) -> dict[str, 
             query.sleeves,
             benchmark_strategy=dataset.benchmark_strategy,
         )
+        view["correlations"]["frequency"] = frequency
     if query.frontier:
         names = tuple(dataset.payload["strategy_frontiers"]["strategy_order"])
         view["frontier"] = daily_strategy_frontier(
             ledger,
             names,
-            period=DailyFrontierPeriod(query.start, query.end, dataset.benchmark_strategy, policy),
+            period=DailyFrontierPeriod(
+                query.start, query.end, dataset.benchmark_strategy, policy, frequency
+            ),
         )
+    available, gaps = (
+        (False, [])
+        if query.source == "recent"
+        else window_price_gaps(
+            dataset,
+            start=date.fromisoformat(view["anchor_date"]),
+            end=date.fromisoformat(view["end_date"]),
+        )
+    )
+    view["price_gap_audit_available"], view["price_gaps"] = available, gaps
+    view["monthly_fallback"] = monthly_fallback_window(
+        query.start,
+        query.end,
+        enabled=query.source != "recent" and "monthly_reference" in dataset.ledgers,
+    )
     view["source"] = query.source
     return view

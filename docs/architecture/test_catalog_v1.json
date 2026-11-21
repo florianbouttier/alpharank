@@ -1104,13 +1104,24 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.27,
+      "duration_seconds": 0.254,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/unit/portfolio/test_daily_analysis.py",
       "suite": "unit",
       "test_case_count": 16
+    },
+    {
+      "domain": "portfolio",
+      "duration_class": "fast",
+      "duration_seconds": 0.172,
+      "failure_count": 0,
+      "network_requirement": "none",
+      "observed_outcome": "passed",
+      "path": "tests/unit/portfolio/test_monthly_reference.py",
+      "suite": "unit",
+      "test_case_count": 5
     },
     {
       "domain": "portfolio",
@@ -1126,7 +1137,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.01,
+      "duration_seconds": 0.039,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1137,7 +1148,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.008,
+      "duration_seconds": 0.009,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1148,7 +1159,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.019,
+      "duration_seconds": 0.02,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1170,7 +1181,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.037,
+      "duration_seconds": 0.035,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1181,7 +1192,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.044,
+      "duration_seconds": 0.042,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1192,7 +1203,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.009,
+      "duration_seconds": 0.006,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1203,7 +1214,7 @@
     {
       "domain": "portfolio",
       "duration_class": "fast",
-      "duration_seconds": 0.017,
+      "duration_seconds": 0.015,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1434,7 +1445,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.002,
+      "duration_seconds": 0.001,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1445,18 +1456,18 @@
     {
       "domain": "reporting",
       "duration_class": "medium",
-      "duration_seconds": 0.547,
+      "duration_seconds": 0.573,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/unit/reporting/test_daily_analysis_service.py",
       "suite": "unit",
-      "test_case_count": 4
+      "test_case_count": 7
     },
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.06,
+      "duration_seconds": 0.053,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1467,7 +1478,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.166,
+      "duration_seconds": 0.152,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1478,7 +1489,7 @@
     {
       "domain": "reporting",
       "duration_class": "medium",
-      "duration_seconds": 0.583,
+      "duration_seconds": 0.575,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1500,7 +1511,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.023,
+      "duration_seconds": 0.021,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1533,7 +1544,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.0,
+      "duration_seconds": 0.001,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1544,7 +1555,7 @@
     {
       "domain": "reporting",
       "duration_class": "fast",
-      "duration_seconds": 0.117,
+      "duration_seconds": 0.232,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -1609,9 +1620,9 @@
     }
   ],
   "measurement": {
-    "command": "REPORT-026: pytest tests/unit/portfolio tests/unit/reporting; earlier measurements retained for other files",
+    "command": "REPORT-028: pytest tests/unit/portfolio tests/unit/reporting; earlier measurements retained for other files",
     "junit_source": "targeted_rerun_with_retained_other_file_measurements",
-    "measured_at": "2026-11-21T16:08:55.512807+00:00"
+    "measured_at": "2026-11-21T17:32:30.882174+00:00"
   },
   "policy_id": "pytest_suite_classification_v1",
   "schema_version": 1,
@@ -1621,24 +1632,24 @@
       "boosting": 5,
       "data": 67,
       "legacy": 7,
-      "portfolio": 12,
+      "portfolio": 13,
       "quality_tooling": 17,
       "replay_governance": 21,
       "reporting": 11
     },
-    "duration_seconds": 38.333,
+    "duration_seconds": 38.621,
     "failure_count": 0,
-    "file_count": 146,
+    "file_count": 147,
     "outcome_counts": {
-      "passed": 146
+      "passed": 147
     },
     "suite_counts": {
       "integration": 39,
       "network": 3,
       "production": 4,
       "replay": 12,
-      "unit": 88
+      "unit": 89
     },
-    "test_case_count": 620
+    "test_case_count": 628
   }
 }

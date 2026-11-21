@@ -7,7 +7,13 @@ from datetime import date, timedelta
 import numpy as np
 import polars as pl
 
-from alpharank.portfolio.daily.contracts import DailyPeriodView, DailyPoint, DailySeriesView
+from alpharank.portfolio.daily.contracts import (
+    OBSERVATIONS_PER_YEAR,
+    DailyPeriodView,
+    DailyPoint,
+    DailySeriesView,
+    ObservationFrequency,
+)
 from alpharank.portfolio.daily.statistics import (
     close_window_metrics,
     daily_year_views,
@@ -32,7 +38,12 @@ def _window_days(ledger: pl.DataFrame, start: date, end: date) -> tuple[date, ..
 
 
 def _series_view(
-    frame: pl.DataFrame, reference: pl.DataFrame, *, start: date, end: date
+    frame: pl.DataFrame,
+    reference: pl.DataFrame,
+    *,
+    start: date,
+    end: date,
+    frequency: ObservationFrequency,
 ) -> DailySeriesView:
     days = tuple(frame["valuation_date"].to_list())
     if days != tuple(reference["valuation_date"].to_list()):
@@ -43,9 +54,9 @@ def _series_view(
     spy_raw = reference["wealth"].to_numpy().astype(float)
     wealth = raw / raw[0]
     benchmark = spy_raw / spy_raw[0]
-    metrics = close_window_metrics(raw, spy_raw, days)
+    metrics = close_window_metrics(raw, spy_raw, days, frequency=frequency)
     metrics.update(operation_metrics(frame.slice(1), (days[-1] - days[0]).days / 365.25))
-    annual, cumulative = daily_year_views(frame, spy_raw, start=start, end=end)
+    annual, cumulative = daily_year_views(frame, spy_raw, start=start, end=end, frequency=frequency)
     metrics.update(year_summary(annual))
     points: list[DailyPoint] = []
     peak = 1.0
@@ -73,13 +84,21 @@ def _series_view(
 
 
 def daily_period_analysis(
-    ledger: pl.DataFrame, *, start: date, end: date, benchmark_strategy: str
+    ledger: pl.DataFrame,
+    *,
+    start: date,
+    end: date,
+    benchmark_strategy: str,
+    frequency: ObservationFrequency = "daily",
 ) -> DailyPeriodView:
-    """Measure returns dated inclusively start..end, anchored at the preceding close.
+    """Measure a declared observation grid, anchored at the preceding close.
 
     Closed-market boundaries resolve to observed sessions and are returned
-    explicitly. No selected ticker or strategy is dropped to conceal a gap.
+    explicitly. Daily is the default; monthly is reserved for a separately
+    captured sealed-return reference. No strategy is dropped to conceal a gap.
     """
+    if frequency not in OBSERVATIONS_PER_YEAR:
+        raise ValueError("Unknown observation frequency.")
     required = {"strategy", "valuation_date", "wealth"}
     if not required.issubset(ledger.columns) or ledger.schema["valuation_date"] != pl.Date:
         raise ValueError("Daily analysis requires strategy, native valuation_date and wealth.")
@@ -96,16 +115,18 @@ def daily_period_analysis(
     if reference.height != len(days) or reference["wealth"].null_count():
         raise ValueError("The benchmark lacks a required observed daily close.")
     series = {
-        str(key[0]): _series_view(frame, reference, start=bounded_start, end=bounded_end)
+        str(key[0]): _series_view(
+            frame, reference, start=bounded_start, end=bounded_end, frequency=frequency
+        )
         for key, frame in selected.partition_by("strategy", as_dict=True).items()
     }
     return {
         "requested_start": start.isoformat(),
         "requested_end": end.isoformat(),
-        "start_date": days[1].isoformat(),
+        "start_date": start.isoformat() if frequency == "monthly" else days[1].isoformat(),
         "end_date": days[-1].isoformat(),
         "anchor_date": days[0].isoformat(),
-        "frequency": "daily",
-        "periods_per_year": 252,
+        "frequency": frequency,
+        "periods_per_year": OBSERVATIONS_PER_YEAR[frequency],
         "series": series,
     }

@@ -64,9 +64,23 @@ def _daily_payload(dataset: AnalysisDataset, generated_at_utc: datetime) -> dict
             "default_source": "history",
             "default_start": start.isoformat(),
             "default_end": end.isoformat(),
-            "sources": dataset.sources,
+            "sources": {
+                name: value
+                for name, value in dataset.sources.items()
+                if name != "monthly_reference"
+            },
             "initial_view": initial,
             "coverage": dataset.history.coverage if dataset.history is not None else {},
+            "price_gaps": [
+                {
+                    "ticker": row["ticker"],
+                    "valuation_date": row["valuation_date"].isoformat(),
+                    "holding_month": row["holding_month"].isoformat(),
+                }
+                for row in dataset.history.gaps.iter_rows(named=True)
+            ]
+            if dataset.history is not None
+            else [],
             "runtime": "Read-only local Python engine; custom KPI require the local service.",
         },
     }
@@ -123,7 +137,12 @@ def write_monthly_archive_report(payload: dict[str, Any], *, output_dir: Path) -
 def _write_ledgers(dataset: AnalysisDataset, output_dir: Path) -> dict[str, dict[str, str]]:
     artifacts = {}
     for name, frame in dataset.ledgers.items():
-        path = output_dir / (name + "_daily_ledger.parquet")
+        filename = (
+            "monthly_reference_ledger.parquet"
+            if name == "monthly_reference"
+            else name + "_daily_ledger.parquet"
+        )
+        path = output_dir / filename
         frame.write_parquet(path)
         artifacts[name] = {"path": path.name, "sha256": sha256_path(path)}
     if dataset.history is not None:

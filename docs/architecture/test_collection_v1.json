@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 639,
+  "node_count": 647,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -69,6 +69,9 @@
     "test_daily_analysis.py::test_zero_weight_sleeve_does_not_introduce_a_spurious_missing_price",
     "test_daily_analysis_service.py::test_daily_writer_keeps_complete_payload_and_refuses_to_overwrite",
     "test_daily_analysis_service.py::test_http_viewer_returns_exact_queries_and_rejects_unsafe_or_invalid_requests",
+    "test_daily_analysis_service.py::test_monthly_fallback_proposes_only_contained_complete_months",
+    "test_daily_analysis_service.py::test_monthly_reference_is_explicit_and_does_not_fabricate_daily_prices",
+    "test_daily_analysis_service.py::test_monthly_reference_never_rounds_partial_month_dates_silently",
     "test_daily_analysis_service.py::test_preparation_rejects_price_hash_drift_instead_of_using_revised_quotes",
     "test_daily_analysis_service.py::test_service_uses_requested_daily_dates_and_preserves_all_source_fields",
     "test_data_location_inventory.py::test_canonical_pointer_and_legacy_prices_have_explicit_readers",
@@ -140,6 +143,11 @@
     "test_mlcraft_adapter.py::test_loads_local_mlcraft_without_mutating_import_path",
     "test_mlcraft_adapter.py::test_translates_legacy_optuna_space_to_mlcraft_space",
     "test_mlcraft_adapter.py::test_translates_legacy_xgboost_params_to_mlcraft_contract",
+    "test_monthly_reference.py::test_monthly_reference_composer_and_frontier_reuse_the_same_monthly_returns",
+    "test_monthly_reference.py::test_monthly_reference_has_only_sealed_month_end_observations_and_explicit_risk",
+    "test_monthly_reference.py::test_monthly_reference_rejects_unsealed_or_inconsistent_rows[duplicate]",
+    "test_monthly_reference.py::test_monthly_reference_rejects_unsealed_or_inconsistent_rows[invalid_return]",
+    "test_monthly_reference.py::test_monthly_reference_rejects_unsealed_or_inconsistent_rows[missing_strategy_month]",
     "test_multihorizon_confirmation.py::test_deflated_sharpe_penalizes_multiple_trials",
     "test_multihorizon_confirmation.py::test_holdings_concentration_breaks_equal_scores_by_ticker",
     "test_multihorizon_confirmation.py::test_holdings_concentration_uses_top_scores_and_sector_map",
@@ -642,7 +650,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "891a3ee19cf97d3793efdf199517ff60cf31726350f2c7b4a9b8d85939413df8",
+  "node_ids_sha256": "e5db05ffd104a2eb3f7ce603447f0baeb4a5c12a99f26c131ffe0c82f4ef9050",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

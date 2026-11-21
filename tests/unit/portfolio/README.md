@@ -8,3 +8,7 @@ des résultats passés aux modifications des prix futurs.
 `test_daily_analysis.py` couvre les fenêtres au jour près, le repère initial,
 les frais et la parité mensuelle, l'absence d'interpolation des trous, les
 années complètes, l'annualisation quotidienne et les compositions/frontières.
+
+`test_monthly_reference.py` vérifie le repli scellé : aucune observation
+intermédiaire inventée, rendements mensuels conservés, fréquence déclarée,
+composition/frontières communes et rejet d'un calendrier incomplet.

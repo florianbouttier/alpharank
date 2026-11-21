@@ -9,6 +9,7 @@ import numpy as np
 import polars as pl
 from numpy.typing import NDArray
 
+from alpharank.portfolio.daily.contracts import OBSERVATIONS_PER_YEAR, ObservationFrequency
 from alpharank.portfolio.performance import (
     ADVANCED_METRIC_FIELDS,
     PerformanceCalendar,
@@ -23,11 +24,15 @@ def finite_metric(value: float) -> float | None:
 
 
 def close_window_metrics(
-    wealth: NDArray[np.float64], benchmark: NDArray[np.float64], days: tuple[date, ...]
+    wealth: NDArray[np.float64],
+    benchmark: NDArray[np.float64],
+    days: tuple[date, ...],
+    *,
+    frequency: ObservationFrequency = "daily",
 ) -> dict[str, float | None]:
-    """Daily risks require every close; endpoint growth remains evaluable across gaps."""
+    """Risk requires the complete declared grid; endpoint growth may survive interior gaps."""
     years = (days[-1] - days[0]).days / 365.25
-    calendar = PerformanceCalendar(252.0, years, "initial_capital")
+    calendar = PerformanceCalendar(OBSERVATIONS_PER_YEAR[frequency], years, "initial_capital")
     if np.isfinite(wealth).all() and np.isfinite(benchmark).all():
         result = advanced_performance_statistics(
             wealth[1:] / wealth[:-1] - 1,
@@ -52,7 +57,8 @@ def close_window_metrics(
                 [wealth[-1] / wealth[0] - 1], calendar=calendar, sharpe_convention="legacy"
             )
             result.update({key: growth[key] for key in ["total_return", "cagr"]})
-    result["positive_day_rate"] = result.pop("positive_month_rate")
+    if frequency == "daily":
+        result["positive_day_rate"] = result.pop("positive_month_rate")
     return {key: finite_metric(value) for key, value in result.items()}
 
 
@@ -98,7 +104,12 @@ def operation_metrics(frame: pl.DataFrame, years: float) -> dict[str, float | No
 
 
 def daily_year_views(
-    frame: pl.DataFrame, benchmark: NDArray[np.float64], *, start: date, end: date
+    frame: pl.DataFrame,
+    benchmark: NDArray[np.float64],
+    *,
+    start: date,
+    end: date,
+    frequency: ObservationFrequency = "daily",
 ) -> tuple[list[dict[str, float | int | bool | None]], list[dict[str, float | int | None]]]:
     """Calendar-year and cumulative cards use the exact active interval, never a full-year substitute."""
     days = tuple(frame["valuation_date"].to_list())
@@ -111,10 +122,16 @@ def daily_year_views(
             continue
         first, last = indices[0] - 1, indices[-1]
         metrics = close_window_metrics(
-            wealth[first : last + 1], benchmark[first : last + 1], days[first : last + 1]
+            wealth[first : last + 1],
+            benchmark[first : last + 1],
+            days[first : last + 1],
+            frequency=frequency,
         )
         spy = close_window_metrics(
-            benchmark[first : last + 1], benchmark[first : last + 1], days[first : last + 1]
+            benchmark[first : last + 1],
+            benchmark[first : last + 1],
+            days[first : last + 1],
+            frequency=frequency,
         )
         total, reference = metrics["total_return"], spy["total_return"]
         annual.append(
@@ -129,7 +146,9 @@ def daily_year_views(
                 **{key: metrics[key] for key in ["cagr", "annualized_volatility", "max_drawdown"]},
             }
         )
-        following = close_window_metrics(wealth[first:], benchmark[first:], days[first:])
+        following = close_window_metrics(
+            wealth[first:], benchmark[first:], days[first:], frequency=frequency
+        )
         cumulative.append(
             {
                 "year": year,

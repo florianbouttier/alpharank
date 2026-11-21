@@ -9,6 +9,7 @@ from typing import Literal
 import polars as pl
 
 from alpharank.portfolio.daily.combinations import combine_daily_sleeves
+from alpharank.portfolio.daily.contracts import ObservationFrequency
 from alpharank.portfolio.daily.statistics import close_window_metrics
 from alpharank.portfolio.frontiers import (
     FRONTIER_METRIC_FIELDS,
@@ -25,6 +26,7 @@ class DailyFrontierPeriod:
     end: date
     benchmark_strategy: str
     rebalance: Literal["monthly", "entry"] = "monthly"
+    frequency: ObservationFrequency = "daily"
 
 
 def daily_strategy_frontier(
@@ -48,7 +50,7 @@ def daily_strategy_frontier(
             ledger, dict(zip(strategies, weights, strict=True)), rebalance=period.rebalance
         )
         wealth = mix.filter(mask).sort("valuation_date")["wealth"].to_numpy().astype(float)
-        metrics = close_window_metrics(wealth, benchmark, days)
+        metrics = close_window_metrics(wealth, benchmark, days, frequency=period.frequency)
         points.append(
             {"weights": weights.tolist(), **{key: metrics[key] for key in FRONTIER_METRIC_FIELDS}}
         )
@@ -62,9 +64,10 @@ def daily_strategy_frontier(
             .to_numpy()
             .astype(float)
         )
-        references[name] = close_window_metrics(values, benchmark, days)
+        references[name] = close_window_metrics(values, benchmark, days, frequency=period.frequency)
     return {
         "strategy_order": list(strategies),
+        "frequency": period.frequency,
         "points": points,
         "volatility_frontier_indices": list(selected.volatility_frontier_indices),
         "drawdown_frontier_indices": list(selected.drawdown_frontier_indices),

@@ -148,6 +148,9 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 109 | `REPORT-026` | laisser indéfinie la volatilité sur une unique séance | lot REPORT ci-dessous | fait |
 | 110 | `REPORT-027` | aligner les libellés de composition sur la source active | lot REPORT ci-dessous | fait |
 | 111 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | fait |
+| 112 | `REPORT-028` | expliquer les trous et fournir un repli mensuel scellé explicite | lot REPORT ci-dessous | fait |
+| 113 | `REPORT-029` | exposer le diagnostic et le repli dans le rapport complet | lot REPORT ci-dessous | à faire |
+| 114 | `DATA-048` | rapprocher les sorties terminales scellées de leurs contreparties sourcées | lot DATA ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -527,6 +530,25 @@ change dans ce lot.
 | `DATA-045` | bloquer l'entrée impossible dans ANDV après sa dernière séance | fait | le registre v3 source le Form 8-K SEC du 1er octobre 2018 et exclut uniquement l'ordre formé après la dernière séance du 28 septembre, sans inventer de rendement |
 | `DATA-046` | publier un historique sectoriel point-in-time depuis les observations RAW | fait | release `6c9a228b…abb9c` : 10 389 observations, 4 863 acceptées, 653 tickers ; 502/503 membres courants couverts, temps conservateur, inconnus retenus en rejet et hashes dans le manifeste |
 | `DATA-047` | reconstruire les secteurs historiques depuis les SIC des dépôts annuels SEC | fait | release `55fbc0c5…da84` : 11 486 classifications, 754 tickers, zéro identité non résolue ; 183/183 mois Boosting disposent d'au moins cinq secteurs, 97,81 % des candidats natifs sont classés et les manques restent exclus sans backfill courant |
+| `DATA-048` | auditer les dernières observations après rachat et la contrepartie actionnaire | à faire | rapprocher NLSN/ABMD puis les autres fins de série ; ne pas inventer de CVR, cash, titre successeur ni cours quotidien, et ne jamais réécrire la baseline publiée |
+
+### Détail de `DATA-048`
+
+- **Origine/périmètre** : `REPORT-028` distingue les trous de cours des sorties
+  économiques. NLSN reste valorisé à 27,98 dans le mensuel scellé alors que le
+  registre revu source 28 USD ; ABMD conserve 381,02 sans contrepartie complète
+  du cash/CVR. Auditer les champs de résolution et les lignes plates après
+  l'événement, puis proposer une politique sourcée distincte.
+- **Acceptation** : identité, dates d'effet et de connaissance, contreparties,
+  prix non ajusté/ajusté et CVR non négociable distingués ; aucun zéro arbitraire
+  pour le CVR ni liquidation au dernier cours présentée comme un fait observé.
+  Le diagnostic, les hypothèses nécessitant un choix et le drift économique
+  sont explicites avant une éventuelle correction de données.
+- **Validations/impact** : preuve primaire et tests d'événement ; toute correction
+  ultérieure crée un candidat/overlay et les replays requis, sans effacer les
+  anciens snapshots, prix, positions ou rendements.
+- **Rollback** : garder les références publiées et leurs hashes ; aucun nouveau
+  candidat n'est promu par le repli mensuel de reporting.
 
 Aucune suppression physique de données n'est autorisée par ce lot. Une éventuelle
 politique de rétention fera l'objet d'une décision séparée après mesure des
@@ -1341,6 +1363,40 @@ doublons exacts et preuve de récupération.
 | `REPORT-025` | générer et éprouver le rapport journalier complet | fait | HTML complet `7b19c3a8…fa8c6`, 58 344 KPI mensuels préservés, 146 tests Python, six JS et QA réelle desktop/mobile ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-026` | ne pas afficher un risque nul avec une seule observation quotidienne | fait | test reproduit avant correction ; une observation donne null, deux constantes donnent zéro, convention mensuelle préservée |
 | `REPORT-027` | distinguer les politiques de composition historique et récente à l'écran | fait | helper commun aux trois textes, six tests JS et QA Chrome réelle ; aucun calcul modifié |
+| `REPORT-028` | rendre les risques indisponibles explicables et réutiliser la référence mensuelle | fait | 120 tests, audit titre/séance/poche, 2 366 rendements rapprochés et mode mensuel explicite ; UI suivie dans `REPORT-029`, dette terminale dans `DATA-048` |
+| `REPORT-029` | livrer le diagnostic de couverture et le repli lisible dans le dashboard | à faire | références complètes affichées même sans composition admissible, détail des trous, repli opt-in, fréquence et bornes explicites, HTML complet et QA réelle |
+
+### Couverture et repli `REPORT-028` / `REPORT-029`
+
+- **Demande** : expliquer les points absents dans la frontière et proposer un
+  repli documenté, sans fabriquer de prix quotidien ni effacer l'audit.
+- **REPORT-028 — périmètre** : moteur d'observation commun, adaptation des
+  rendements mensuels scellés, audit de couverture, service et manifestes.
+  Le mode `monthly_reference` est une source de recherche nommée, mesurée à
+  12 observations/an ; le mode quotidien reste strict et utilise 252 séances.
+- **REPORT-028 — acceptation** : une clôture absente reste absente ; l'audit
+  nomme titre, poche, mois, séances et poids. Le repli ne lit que les rendements
+  déjà archivés, sans cours interpolé, téléchargement ou correction de snapshot.
+  Il exige des mois calendaires complets ; les sous-fenêtres ne sont jamais
+  arrondies silencieusement. L'API propose les mois complets inclus et leur
+  application relève d'une action explicite. Comparaison, composer et frontière
+  partagent source, frais et fréquence. Tests de parité, bornes et invariance.
+- **REPORT-029 — périmètre** : assets React partagés, tests, contrat de reporting,
+  génération du HTML complet et preuve canonique. Conserver toute l'information.
+- **REPORT-029 — acceptation** : afficher les références valides même si aucun
+  mélange n'a un risque quotidien observable ; diagnostic filtré aux poches
+  utilisées, bouton de repli et mise à jour explicite des bornes. Les champs
+  modifiés mais non appliqués sont identifiés. Les libellés KPI/corrélations,
+  source et résolution ne prétendent jamais être quotidiens en repli mensuel.
+- **Hors périmètre/impact** : pas de nouveau signal, revalorisation de rachat,
+  CVR valorisé arbitrairement, reclassification d'un prix comme observé ou
+  promotion. Les hypothèses terminales des rendements scellés restent une dette
+  de recherche séparée ; le repli mensuel ne les corrige pas.
+- **Validations** : tests ciblés, hashes inchangés des sources et résultats
+  mensuels, exemple 2020–août 2026, 168 points en repli, cas de milieu de mois,
+  références seules en strict, Chrome desktop/mobile, documentation et liens.
+- **Rollback** : réutiliser l'ancien HTML immuable et son service au commit
+  antérieur ; aucune donnée ou sortie archivée n'est supprimée.
 
 ### Libellés de cohortes `REPORT-027`
 

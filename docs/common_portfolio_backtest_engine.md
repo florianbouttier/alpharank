@@ -348,6 +348,43 @@ on a zero-drawdown short window is omitted, not replaced by infinity. Daily
 correlations use same-session returns or active returns versus SPY, never wealth
 levels or pairwise deletion of missing observations.
 
+## Sealed Monthly Reference (`REPORT-028`)
+
+`monthly_reference` is an explicit, research-only alternative observation source
+when the daily path is incomplete. `build_monthly_reference_ledger()` compounds
+the **existing sealed monthly net returns** on actual benchmark month-end
+sessions. It keeps the preceding anchor and one endpoint per holding month;
+it does not fill, interpolate or create a security price on an absent session.
+All strategies retain the same complete monthly calendar and source composition.
+
+The shared observation engine receives the declared frequency: 12 periods/year
+for this source, 252 sessions/year for strict daily analysis. CAGR uses actual
+calendar elapsed time and drawdown includes initial capital in both modes.
+Monthly-observation risks do not measure intramonth troughs; they are not
+substitutable for daily risks. The legacy archived KPI cube is preserved rather
+than rewritten to match these explicit-calendar conventions. An insufficient
+sample still yields null risk, never a false observed zero.
+
+The reporting boundary requires complete calendar months (`start.day == 1`,
+end at calendar month-end). A partial selection is rejected, not rounded. A
+separate proposal may name only whole months contained in the requested
+interval; switching source and adopting those bounds requires explicit action.
+Strategy comparison, sleeve composition, correlations and frontiers all use
+the same chosen source/frequency. Monthly sleeve rebalance, existing sleeve
+costs, maximum 70% and 5%-step frontier weights remain unchanged.
+
+The gap audit stays visible in the monthly reference. It names each missing
+ticker/session, affected sealed sleeve/month and target weight. Its source is
+the hash-captured report payload, not a live lookup. Old reports without this
+captured detail declare it unavailable, not complete. Strict daily gaps and
+their unavailable risk remain unchanged.
+
+This fallback inherits archived terminal-return assumptions. It does **not**
+resolve cash-versus-stock consideration, a non-traded contingent value right,
+or a provider's flat post-delisting row. Reconstructing those economic values
+requires a separately sourced policy, revised candidate and reconciliation;
+an unchanged monthly reference is not a corrected-method promotion.
+
 ## Exact CAGR Attribution
 
 CAGR is nonlinear and cannot be split by adding ordinary percentage-point

@@ -3484,6 +3484,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/portfolio/daily/__init__.py",
+      "target": "src/alpharank/portfolio/daily/monthly_reference.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/portfolio/daily/analysis.py",
       "target": "src/alpharank/portfolio/daily/contracts.py"
     },
@@ -3500,6 +3505,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/portfolio/daily/frontiers.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/frontiers.py",
       "target": "src/alpharank/portfolio/daily/statistics.py"
     },
     {
@@ -3510,6 +3520,11 @@
     {
       "kind": "import",
       "source": "src/alpharank/portfolio/daily/ledger.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/statistics.py",
       "target": "src/alpharank/portfolio/daily/contracts.py"
     },
     {
@@ -4439,6 +4454,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/coverage.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/dataset.py",
       "target": "src/alpharank/governance_contracts/common.py"
     },
@@ -4496,6 +4516,16 @@
       "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/service.py",
       "target": "src/alpharank/portfolio/daily/__init__.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/service.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/service.py",
+      "target": "src/alpharank/reporting/strategy_analysis/coverage.py"
     },
     {
       "kind": "import",
@@ -9966,7 +9996,8 @@
         "src/alpharank/portfolio/daily/combinations.py",
         "src/alpharank/portfolio/daily/contracts.py",
         "src/alpharank/portfolio/daily/frontiers.py",
-        "src/alpharank/portfolio/daily/ledger.py"
+        "src/alpharank/portfolio/daily/ledger.py",
+        "src/alpharank/portfolio/daily/monthly_reference.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -10020,7 +10051,10 @@
       "readers": [
         "src/alpharank/portfolio/daily/__init__.py",
         "src/alpharank/portfolio/daily/analysis.py",
-        "src/alpharank/portfolio/daily/ledger.py"
+        "src/alpharank/portfolio/daily/frontiers.py",
+        "src/alpharank/portfolio/daily/ledger.py",
+        "src/alpharank/portfolio/daily/statistics.py",
+        "src/alpharank/reporting/strategy_analysis/service.py"
       ]
     },
     {
@@ -10028,6 +10062,7 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/portfolio/daily/combinations.py",
+        "src/alpharank/portfolio/daily/contracts.py",
         "src/alpharank/portfolio/daily/statistics.py",
         "src/alpharank/portfolio/frontiers.py"
       ],
@@ -10058,7 +10093,21 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily.monthly_reference",
+      "path": "src/alpharank/portfolio/daily/monthly_reference.py",
+      "readers": [
+        "src/alpharank/portfolio/daily/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [
+        "src/alpharank/portfolio/daily/contracts.py",
         "src/alpharank/portfolio/performance.py"
       ],
       "invokes": [],
@@ -11159,6 +11208,21 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
+        "src/alpharank/reporting/strategy_analysis/dataset.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.coverage",
+      "path": "src/alpharank/reporting/strategy_analysis/coverage.py",
+      "readers": [
+        "src/alpharank/reporting/strategy_analysis/service.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
         "src/alpharank/governance_contracts/common.py",
         "src/alpharank/portfolio/daily/__init__.py"
       ],
@@ -11170,6 +11234,7 @@
       "readers": [
         "scripts/research/build_daily_performance_report.py",
         "src/alpharank/reporting/strategy_analysis/__init__.py",
+        "src/alpharank/reporting/strategy_analysis/coverage.py",
         "src/alpharank/reporting/strategy_analysis/report.py",
         "src/alpharank/reporting/strategy_analysis/server.py",
         "src/alpharank/reporting/strategy_analysis/service.py"
@@ -11235,6 +11300,8 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/portfolio/daily/__init__.py",
+        "src/alpharank/portfolio/daily/contracts.py",
+        "src/alpharank/reporting/strategy_analysis/coverage.py",
         "src/alpharank/reporting/strategy_analysis/dataset.py"
       ],
       "invokes": [],
@@ -11633,9 +11700,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 165,
-    "internal_edge_count": 895,
-    "library_count": 250,
-    "python_file_count": 422,
+    "internal_edge_count": 901,
+    "library_count": 252,
+    "python_file_count": 424,
     "script_count": 172,
     "unread_node_count": 171
   }

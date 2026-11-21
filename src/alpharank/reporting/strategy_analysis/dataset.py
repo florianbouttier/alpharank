@@ -15,7 +15,11 @@ from typing import Any
 import polars as pl
 
 from alpharank.governance_contracts.common import sha256_path
-from alpharank.portfolio.daily import DailyLedgerResult, build_daily_ledger
+from alpharank.portfolio.daily import (
+    DailyLedgerResult,
+    build_daily_ledger,
+    build_monthly_reference_ledger,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,7 +148,22 @@ def prepare_analysis_dataset(payload: dict[str, Any]) -> AnalysisDataset:
             "warning": "Reconstitution des paniers archivés, nette de leurs frais. Les clôtures manquantes restent des trous.",
         }
     }
-    ledgers = {"history": history.ledger}
+    sources["monthly_reference"] = {
+        "label": "Référence mensuelle · repli",
+        "min_date": payload["calendar"]["start"],
+        "max_date": history_end.isoformat(),
+        "last_close": days[-1].isoformat(),
+        "composition_id": source_hashes["composition_id"],
+        "warning": "Repli explicite sur les rendements mensuels scellés, risques à 12 observations/an. "
+        "Aucun prix quotidien imputé ; ce mode conserve les hypothèses terminales de l'archive, "
+        "sans les corriger ni mesurer les creux intra-mois.",
+    }
+    ledgers = {
+        "history": history.ledger,
+        "monthly_reference": build_monthly_reference_ledger(
+            monthly, history.ledger, benchmark_strategy=benchmarks[0]
+        ),
+    }
     recent = _recent_ledger(payload)
     if recent is not None:
         ledgers["recent"] = recent

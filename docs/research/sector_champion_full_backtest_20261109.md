@@ -747,3 +747,77 @@ Reproduction sans acquisition ou entraînement :
 .venv/bin/python scripts/research/serve_performance_report.py \
   --report-dir outputs/performance_reports/<nouveau-run-immuable> --port 8765
 ```
+
+## Diagnostic des points absents et repli (`REPORT-028`, 21 novembre 2026)
+
+La frontière vide signalée est reproduite sur le rapport `REPORT-025_20261121_02`
+au SHA `7b19c3a8…fa8c6`, même snapshot `e0e6045a…ef95a`, du 1er janvier 2020 au
+31 août 2026. Les 1 674 rendements quotidiens de Boosting Top 5 sont complets ;
+les deux autres poches de la frontière ne le sont pas :
+
+| Poche de la frontière | Titre | Séances manquantes | Poids cible du mois |
+| --- | --- | --- | ---: |
+| Legacy Frequency | NLSN.US | 13, du 13 au 31 octobre 2022 | 7,6923 % |
+| Boosting tendance Top 5 | NLSN.US | les mêmes 13 séances | 20 % |
+| Legacy Frequency | ABMD.US | 4, du 27 au 30 décembre 2022 | 5,1282 % |
+
+Le plafond de 70 % interdit une allocation 100 % dans la seule poche complète.
+Chacune des 168 combinaisons contient donc une poche à chemin incomplet : aucun
+risque quotidien n'est optimisable. Ce n'est pas une absence de toutes les
+données depuis 2020, ni un problème SEC. Le frontend antérieur masquait aussi
+les références complètes lorsque la liste des mélanges calculables était vide ;
+ce correctif de présentation est suivi séparément dans `REPORT-029`.
+
+### Source des absences et limite économique
+
+Les archives EODHD explicites `eodhd_output_20260402_170450` et
+`eodhd_output_20260426_134831` contiennent les mêmes fins de séries, sans les
+séances absentes. Nielsen a annoncé son rachat en numéraire le 11 octobre 2022,
+28 USD par action et arrêt de cotation à partir du 12 octobre
+([annonce Nielsen](https://www.nielsen.com/news-center/2022/nielsen-announces-closing-of-transaction-with-evergreen-and-brookfield-led-consortium/?redirected=1),
+[8-K SEC](https://www.sec.gov/Archives/edgar/data/1492633/000119312522260583/d407513d8k.htm)).
+Johnson & Johnson a finalisé Abiomed le 22 décembre 2022 pour 380 USD en
+numéraire et un droit conditionnel non négociable
+([annonce J&J](https://www.jnj.com/media-center/press-releases/johnson-johnson-completes-acquisition-of-abiomed)).
+
+Une réacquisition de cours n'invente pas une cotation après ces événements.
+La source archivée porte même des lignes plates post-événement : NLSN à 27,98
+le 12 octobre et ABMD à 381,02 les 22–23 décembre. Les rendements mensuels de
+ces positions reproduisent la dernière observation, pas une revalorisation
+complète du cash/CVR. Le registre revu sait valoriser NLSN à 28 ; la ligne ABMD
+actuelle ne bloque que les nouvelles entrées et ne valorise pas le CVR.
+**Aucune de ces valeurs économiques n'est corrigée implicitement par ce lot.**
+Leur rapprochement est suivi dans `DATA-048`, travail data/méthodologique distinct ; le repli garde
+le statut de recherche et ne certifie pas des exécutions réelles.
+
+### Moteur et preuve du repli
+
+`monthly_reference` observe les rendements mensuels scellés, aux seules fins
+de mois effectivement présentes dans le calendrier SPY : 2 379 lignes pour les
+13 séries, repère initial compris. Il conserve les rendements nets et applique
+le moteur commun à 12 observations/an, sans remplir le moindre prix quotidien.
+Le CAGR garde une durée calendaire réelle et le drawdown inclut le capital
+initial ; les anciens 33 KPI archivés sont conservés séparément et inchangés.
+
+Le service exige des mois calendaires complets. Pour un intervalle partiel,
+il ne recadre rien à la demande : il propose des mois inclus, que l'utilisateur
+pourra appliquer explicitement. Exemple du 10 janvier 2020 au 17 août 2026 :
+proposition du 1er février 2020 au 31 juillet 2026. Le récent hypothétique reste
+une autre source, sans ce repli. L'audit titre/séance est embarqué dans le HTML
+hashé puis joint aux holdings scellés, sans lookup mutable.
+
+Sur 2020–août 2026, le journalier strict conserve ses 1 675 points et zéro
+mélange quotidien calculable ; le repli mensuel contient 81 points, repère
+inclus, et **168 mélanges calculables**. L'audit conserve les trois lignes
+NLSN/ABMD ci-dessus dans les deux modes. Le code de rendu et la livraison finale
+avec la QA navigateur sont suivis dans `REPORT-029`.
+
+**Validation du moteur** : 120 tests portefeuille/reporting réussis, 15 tests
+d'inventaires/chemins/documentation, Ruff, formatage, complexité et mypy des
+15 modules concernés. Les 2 366 rendements de la nouvelle grille mensuelle
+retrouvent les valeurs scellées avec écart maximal `3,3306690738754696e-16`.
+Les séries quotidiennes de l'état initial 2026 sont exactement identiques à
+`REPORT-025`, champs et points compris. Le code laisse l'exposition du nouveau
+mode au frontend à `REPORT-029` : l'ancien bundle ne reçoit pas un sélecteur
+mensuel dont il ne saurait pas étiqueter la fréquence. Les huit régressions de
+taille globales préexistantes sont inchangées ; aucune nouvelle n'est introduite.
