@@ -636,3 +636,13 @@ Les formules financières ne sont pas recodées en JavaScript. Aucun changement
 des positions, prix ou résultats mensuels scellés, aucun replay inter-vintages
 ni nouvelle preuve de causalité ; les trous détaillés dans `REPORT-023` restent
 visibles. La livraison finale et ses hashes sont suivis dans `REPORT-025`.
+
+### Fenêtre d'une seule séance (`REPORT-026`)
+
+Le test ajouté avant correction reproduit une volatilité de 0 avec un unique
+rendement quotidien. `close_window_metrics()` laisse désormais ce risque
+d'échantillon à `null` ; le rendement total et le drawdown observé restent
+disponibles. Deux observations réellement constantes peuvent toujours produire
+une volatilité de 0. La convention mensuelle historique n'est pas changée.
+Les deux cas sont testés, avec la suite portefeuille/reporting, Ruff, formatage
+et mypy. Aucun prix, signal, portefeuille ni résultat mensuel modifié.

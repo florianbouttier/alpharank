@@ -12,7 +12,11 @@ from alpharank.portfolio.daily import (
     daily_period_analysis,
     daily_strategy_frontier,
 )
-from alpharank.portfolio.performance import PerformanceCalendar, advanced_performance_statistics
+from alpharank.portfolio.performance import (
+    PerformanceCalendar,
+    advanced_performance_statistics,
+    performance_statistics,
+)
 
 
 def _inputs() -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
@@ -159,6 +163,35 @@ def test_daily_composer_uses_monthly_sleeves_not_daily_rebalanced_returns() -> N
     ledger = build_daily_ledger(holdings, monthly, prices, benchmark_ticker="SPY").ledger
     mix = combine_daily_sleeves(ledger, {"Alpha": 0.5, "SPY": 0.5})
     assert mix["wealth"].to_list() == pytest.approx([1.0, 1.0045, 1.0195, 1.1745])
+
+
+def test_one_daily_observation_keeps_growth_but_does_not_claim_zero_volatility() -> None:
+    holdings, monthly, prices = _inputs()
+    ledger = build_daily_ledger(holdings, monthly, prices, benchmark_ticker="SPY").ledger
+    view = daily_period_analysis(
+        ledger, start=date(2026, 2, 2), end=date(2026, 2, 2), benchmark_strategy="SPY"
+    )
+    metrics = view["series"]["Alpha"]["metrics"]
+    assert metrics["total_return"] == pytest.approx(-0.001)
+    assert metrics["max_drawdown"] == pytest.approx(-0.001)
+    assert metrics["annualized_volatility"] is None
+    assert metrics["sharpe"] is None
+    assert performance_statistics([0.1])["annualized_volatility"] == 0.0
+
+
+def test_two_constant_daily_returns_have_observed_zero_volatility() -> None:
+    days = [date(2026, 2, 2), date(2026, 2, 3), date(2026, 2, 4)]
+    ledger = pl.DataFrame(
+        {
+            "strategy": ["Alpha"] * 3 + ["SPY"] * 3,
+            "valuation_date": days * 2,
+            "wealth": [1.0] * 6,
+        }
+    )
+    view = daily_period_analysis(
+        ledger, start=date(2026, 2, 3), end=date(2026, 2, 4), benchmark_strategy="SPY"
+    )
+    assert view["series"]["Alpha"]["metrics"]["annualized_volatility"] == 0.0
 
 
 def test_zero_weight_sleeve_does_not_introduce_a_spurious_missing_price() -> None:

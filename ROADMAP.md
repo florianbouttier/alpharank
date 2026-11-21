@@ -145,7 +145,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 106 | `REPORT-022` | refondre le composant frontal partagé d'analyse de stratégies | lot REPORT ci-dessous | fait |
 | 107 | `REPORT-023` | reconstruire les valorisations journalières et les KPI à dates libres | lot REPORT ci-dessous | fait |
 | 108 | `REPORT-024` | remplacer le frontend d'analyse par React et des graphiques financiers | lot REPORT ci-dessous | fait |
-| 109 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | à faire |
+| 109 | `REPORT-026` | laisser indéfinie la volatilité sur une unique séance | lot REPORT ci-dessous | fait |
+| 110 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1337,6 +1338,20 @@ doublons exacts et preuve de récupération.
 | `REPORT-023` | valoriser quotidiennement les positions et calculer les fenêtres libres | fait | 49 595 valorisations, 2 307 fins de mois rapprochées, 59 non observables signalées, 58 344 KPI mensuels préservés, 114 tests ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-024` | remplacer Plotly par un frontend React d'analyse financière | fait | React/Lightweight Charts hors ligne, dates libres via moteur local, QA réelle desktop/mobile, archives complètes et packaging validés ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-025` | générer et éprouver le rapport journalier complet | à faire | artefact réel, rapprochement mensuel, QA navigateur et preuve de livraison |
+| `REPORT-026` | ne pas afficher un risque nul avec une seule observation quotidienne | fait | test reproduit avant correction ; une observation donne null, deux constantes donnent zéro, convention mensuelle préservée |
+
+### Correctif de frontière `REPORT-026`
+
+- **Objectif/périmètre** : dans `portfolio/daily/statistics.py`, laisser la
+  volatilité annuelle à null lorsqu'une fenêtre libre contient un seul
+  rendement ; ajouter le test avant correction. Hors périmètre : prix, données,
+  signaux et conventions mensuelles historiques.
+- **Acceptation/validations** : une séance ne vaut pas un risque de zéro ; deux
+  observations identiques peuvent avoir une vraie volatilité nulle. Rendement
+  total et drawdown observés conservés, tests de non-régression et reporting.
+- **Impact** : affichage quotidien d'une fenêtre d'une séance seulement ; aucun
+  résultat mensuel changé. **Rollback** : rétablir le module depuis son commit
+  précédent, sans modifier de donnée ou sortie archivée.
 
 ### Détail du lot journalier `REPORT-023` à `REPORT-025`
 

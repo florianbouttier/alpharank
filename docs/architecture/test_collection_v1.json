@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 637,
+  "node_count": 639,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -64,6 +64,8 @@
     "test_daily_analysis.py::test_missing_daily_prices_remain_gaps_and_do_not_produce_fictitious_risk",
     "test_daily_analysis.py::test_missing_month_end_is_not_fabricated_from_the_sealed_monthly_return",
     "test_daily_analysis.py::test_monthly_return_mismatch_fails_instead_of_rescaling_daily_prices",
+    "test_daily_analysis.py::test_one_daily_observation_keeps_growth_but_does_not_claim_zero_volatility",
+    "test_daily_analysis.py::test_two_constant_daily_returns_have_observed_zero_volatility",
     "test_daily_analysis.py::test_zero_weight_sleeve_does_not_introduce_a_spurious_missing_price",
     "test_daily_analysis_service.py::test_daily_writer_keeps_complete_payload_and_refuses_to_overwrite",
     "test_daily_analysis_service.py::test_http_viewer_returns_exact_queries_and_rejects_unsafe_or_invalid_requests",
@@ -640,7 +642,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "2c81faba1d5743a126c073730a7860435a67ff5be7a228ca507f87bf551fefa4",
+  "node_ids_sha256": "891a3ee19cf97d3793efdf199517ff60cf31726350f2c7b4a9b8d85939413df8",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

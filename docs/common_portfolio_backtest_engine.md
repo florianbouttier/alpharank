@@ -334,6 +334,10 @@ downside risk, tracking error, alpha and related ratios, and actual elapsed
 calendar days divided by 365.25 for CAGR. Initial capital is included in daily
 drawdown. These daily risks need not equal monthly-observation volatility or
 drawdown; that is a frequency difference, not historical portfolio/data drift.
+For a one-session return window, sample volatility is undefined (`null`), not
+zero (`REPORT-026`). Observed endpoint growth and initial-capital drawdown remain
+available. Two or more identical returns may legitimately have zero volatility;
+the historical single-observation monthly convention is unchanged.
 
 Daily sleeve combinations rebalance **between sleeves monthly**, not between
 their securities daily. A price-only frozen follow-up instead uses an explicit

@@ -34,6 +34,8 @@ def close_window_metrics(
             benchmark_returns=benchmark[1:] / benchmark[:-1] - 1,
             calendar=calendar,
         )
+        if len(wealth) < 3:
+            result["annualized_volatility"] = float("nan")
     else:
         names = (
             *ADVANCED_METRIC_FIELDS,
