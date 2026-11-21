@@ -143,6 +143,9 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 104 | `REPORT-020` | actualiser les prix et valoriser les paniers figés sans nouveau signal | lot REPORT ci-dessous | fait |
 | 105 | `REPORT-021` | livrer le suivi prix dans le HTML canonique complet | lot REPORT ci-dessous | fait |
 | 106 | `REPORT-022` | refondre le composant frontal partagé d'analyse de stratégies | lot REPORT ci-dessous | fait |
+| 107 | `REPORT-023` | reconstruire les valorisations journalières et les KPI à dates libres | lot REPORT ci-dessous | fait |
+| 108 | `REPORT-024` | remplacer le frontend d'analyse par React et des graphiques financiers | lot REPORT ci-dessous | en cours |
+| 109 | `REPORT-025` | livrer et valider le rapport journalier complet sur les stratégies archivées | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1331,6 +1334,42 @@ doublons exacts et preuve de récupération.
 | `REPORT-020` | mesurer les performances récentes des paniers archivés avec prix frais | fait | 33 séries jusqu'au 20 novembre, 126 positions figées inchangées, 100 % de couverture, dérive des poids et suivi hypothétique séparé du backtest ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-021` | intégrer les valorisations récentes au desk complet sans perte d'information | fait | HTML complet `a8c52aca…625d`, 48 rendements récents identiques, payload historique conservé, entrée stable et livraison obligatoire ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
 | `REPORT-022` | remplacer les graphiques maison et rendre la sélection explicite | fait | Plotly partagé, bases 1/0 corrigées sans supprimer le premier rendement, sélection par familles, HTML `d3f02bdb…e800`, 89 tests et QA desktop/mobile ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
+| `REPORT-023` | valoriser quotidiennement les positions et calculer les fenêtres libres | fait | 49 595 valorisations, 2 307 fins de mois rapprochées, 59 non observables signalées, 58 344 KPI mensuels préservés, 114 tests ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
+| `REPORT-024` | remplacer Plotly par un frontend React d'analyse financière | en cours | dates libres, courbes et drawdown synchronisés, KPI Python, composition et détails conservés |
+| `REPORT-025` | générer et éprouver le rapport journalier complet | à faire | artefact réel, rapprochement mensuel, QA navigateur et preuve de livraison |
+
+### Détail du lot journalier `REPORT-023` à `REPORT-025`
+
+- **Objectif** : exécuter la demande de journalier réel et de dates entièrement
+  personnalisables, avec une interface React sans Plotly.
+- **REPORT-023 — périmètre** : `portfolio/performance.py` et sous-package
+  `portfolio/daily/`, valorisation des holdings figés, annualisation explicite,
+  fenêtres arbitraires, compositions et couverture. Aucun entraînement, download,
+  changement de snapshot, de sélection ni de rendement mensuel archivé.
+- **REPORT-023 — acceptation** : sources et prix exacts, poids dérivés intra-mois,
+  frais existants conservés et rapprochement aux rendements mensuels ; un trou
+  reste manquant et interdit un KPI quotidien nécessitant une série complète.
+  Tests de parité, de dates, de trous et d'invariance aux données futures.
+- **REPORT-024 — périmètre** : frontend partagé React, bibliothèque financière,
+  packaging reproductible, service local de calcul en lecture seule et CLI.
+  Le HTML complet garde méthodes, holdings, KPI mensuels de référence, model
+  cards et frontières ; aucune application d'exécution ni publication tierce.
+- **REPORT-024 — acceptation** : dates au jour près, comparaison SPY de même
+  fenêtre, base 1, drawdown sous la performance, survol et zoom synchronisés,
+  sélection explicite et composition. Les KPI sont calculés dans le moteur
+  Python, pas réimplémentés dans le navigateur ; dépendance au service local
+  pour les requêtes personnalisées signalée, sans ancien chiffre présenté à tort.
+- **REPORT-025 — périmètre/acceptation** : exécuter sur le snapshot et les
+  positions du rapport `REPORT-022`, conserver toutes les séries, publier le HTML
+  complet et sa preuve avec hashes, couverture et QA desktop/mobile. Aucun
+  replay modèle ni garantie de causalité nouvelle n'est revendiqué.
+- **Validations** : tests unitaires et d'intégration, parité mensuelle, licences,
+  build React, dépendances, syntaxe, dates libres, interactions, liens et inventaires.
+- **Impact** : aucun signal ni résultat mensuel archivé changé ; nouveaux KPI
+  quotidiens identifiés par leur fréquence et calendrier, sans les confondre avec
+  l'ancienne volatilité ou le drawdown mensuels.
+- **Rollback** : conserver les artefacts archivés et relancer leur générateur au
+  commit d'origine ; ne supprimer aucune entrée ni sortie historique.
 
 ### Détail de `REPORT-022`
 

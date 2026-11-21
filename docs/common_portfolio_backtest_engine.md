@@ -1,6 +1,6 @@
 # Common Portfolio And Backtest Engine
 
-Last updated: 2026-08-29
+Last updated: 2026-11-21
 
 This document is the source of truth for the code shared after signal
 generation by the Legacy and boosting methodologies.
@@ -292,6 +292,57 @@ The reported maximum drawdown reuses the frequency-independent field of
 `performance_statistics()` with the starting observation included. None of its
 monthly annualization fields is exposed for the daily follow-up. The complete
 HTML consumes these precomputed paths separately from its historical KPI cube.
+
+## Daily Research Valuation And Free Date Windows (`REPORT-023`)
+
+`alpharank.portfolio.daily` revalues the **sealed monthly baskets** at each
+observed adjusted close from their original snapshot, with SPY's explicit
+session calendar. This neither reselects securities nor reruns a model. Prices
+are not redownloaded or overwritten. Each monthly basket starts at the exact
+preceding month-end SPY session, holds its original quantities, and lets weights
+drift within the month.
+
+The recorded monthly fee is a fixed debit relative to month-entry capital,
+applied at the first holding close. Thus month-end wealth is exactly
+`1 + gross_return - transaction_cost`, not
+`(1 - transaction_cost) * (1 + gross_return)`. Every observable monthly endpoint
+must reconcile to its sealed net return at `1e-12` absolute tolerance; a mismatch
+fails, never rescales quotes. This explicitly assigns intramonth timing to the
+existing monthly charge; it is not evidence of actual daily trading fills.
+
+Missing daily closes remain null with an exhaustive ticker/date/month audit.
+There is no fill, ticker removal, last-quote liquidation, terminal consideration
+invented from a monthly number, or return interpolation. The next monthly
+capital is still anchored to the sealed monthly ledger, which preserves the
+historical baseline but does not make its unobserved intramonth path knowable.
+Endpoint return/CAGR can be evaluated when both window bounds are observed;
+daily risk statistics require the complete path, and are null otherwise.
+Drawdown after a gap remains unknown because the missing peak is unknown.
+Such a reconstruction is research-only and not a corrected-method promotion.
+
+An inclusive requested return window `start..end` uses the last observed close
+strictly **before** start as its base 1, then every realized return dated inside
+the window. Closed-market dates resolve to the available sessions; requested,
+effective and anchor dates are all returned. A period filter does not retrain
+or read later observations. Annual and cumulative model-card windows retain
+these exact bounds; worst year and year-beating-SPY counts exclude partial years.
+
+`PerformanceCalendar` extends the existing canonical statistics rather than
+introducing a frontend formula engine. Its defaults preserve all monthly
+replay results. Daily analysis explicitly uses 252 sessions for volatility,
+downside risk, tracking error, alpha and related ratios, and actual elapsed
+calendar days divided by 365.25 for CAGR. Initial capital is included in daily
+drawdown. These daily risks need not equal monthly-observation volatility or
+drawdown; that is a frequency difference, not historical portfolio/data drift.
+
+Daily sleeve combinations rebalance **between sleeves monthly**, not between
+their securities daily. A price-only frozen follow-up instead uses an explicit
+entry-only allocation. Both inherit the sleeves' own costs, without additional
+transfer costs or netting duplicate securities. Daily frontiers reuse the
+canonical constrained simplex and Pareto/profile selector. An undefined Calmar
+on a zero-drawdown short window is omitted, not replaced by infinity. Daily
+correlations use same-session returns or active returns versus SPY, never wealth
+levels or pairwise deletion of missing observations.
 
 ## Exact CAGR Attribution
 

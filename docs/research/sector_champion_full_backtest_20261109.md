@@ -493,3 +493,78 @@ autres points utilisent la fin calendaire du mois détenu, pas son premier jour.
   pas un replay inter-vintages ni une nouvelle preuve d'absence de fuite.
   Le suivi au-delà d'octobre reste hypothétique sur les paniers figés ; les
   réserves économiques et data de `REPORT-020` sont inchangées.
+
+## Reconstitution journalière et fenêtres libres (`REPORT-023`, 21 novembre 2026)
+
+Le propriétaire demande de vraies observations quotidiennes, des bornes au jour
+près et des KPI évalués sur la même fenêtre que les courbes. Ce lot construit le
+moteur et sa preuve ; le remplacement du frontend et la livraison sont suivis
+séparément dans `REPORT-024` et `REPORT-025`.
+
+- Source : HTML `REPORT-022_20261121_05`, SHA-256
+  `d3f02bdba00d934fae23ac924123035efab34720141bd74f1256b4c91fa8e800`.
+  Même composition `e0e6045a…ef95a`, prix
+  `US_Finalprice.parquet` SHA `50493c34…66e8` et SPY SHA `6b29b4c9…cfdb`.
+  Aucun téléchargement, entraînement, reranking ou changement de positions.
+- `portfolio/daily/` revalorise les 13 séries sur 3 815 clôtures, repère du
+  29 juillet 2011 inclus, jusqu'au 30 septembre 2026 : **49 595 lignes**.
+  Les quantités restent fixes au sein de chaque panier mensuel et les frais
+  existants sont débités à sa première clôture, comme montant fixe relativement
+  au capital d'entrée. Le net reste exactement `gross_return - transaction_cost`.
+- **2 307 fins de mois observables rapprochées**, écart absolu maximal
+  `5,273559366969494e-16`. Les **59 autres lignes stratégie/mois** n'ont pas de
+  cours à la clôture finale et restent non vérifiables quotidiennement, sans
+  les convertir artificiellement en cash ou en cotations terminales.
+- **58 344 entrées de KPI mensuels** du rapport source sont recalculées par le
+  moteur étendu ; écart maximal `8,43769498715119e-15`, inférieur à `1e-12`.
+  La fréquence mensuelle par défaut et ses chiffres archivés sont préservés.
+  La nouvelle fréquence quotidienne déclare 252 séances et une durée CAGR
+  calendaire réelle ; volatilité/drawdown quotidiens ne sont donc pas supposés
+  égaux à leurs anciennes observations mensuelles.
+- Exemple libre effectivement évalué : rendements du **10 février au 17 août
+  2026**, ancrés à la clôture du 9 février. Les deux richesses partent de 1 ;
+  la période n'est pas remplacée par janvier–décembre. Les fêtes et week-ends
+  restent distincts des dates de clôture réellement utilisées.
+- Le composeur quotidien conserve un rééquilibrage mensuel entre poches, pas
+  une réallocation quotidienne des actions. Les frontières réutilisent les
+  mêmes 168 poids admissibles et les sélecteurs Pareto/profils canoniques. Un
+  profil non défini sur une courte période, par exemple Calmar sans drawdown,
+  reste absent, sans faux infini.
+
+### Couverture : trous conservés, jamais interpolés
+
+Le snapshot contient **155 clés titre/séance absentes** utilisées par ces
+paniers, touchant 733 valorisations stratégie/jour. Deux sont des trous internes
+isolés : `JCP.US` le 7 janvier 2014 et `FISV.US` le 12 novembre 2025. Les 153
+autres sont des fins de série avant la fin du mois détenu : KRFT juillet 2015,
+GMCR mars 2016, WFM août 2017, CSRA avril 2018, ESRX décembre 2018, APC août
+2019, TSS septembre 2019, XLNX février 2022, NLSN octobre 2022, ABMD décembre
+2022, SIVB mars 2023 et PXD mai 2024. Cette observation de couverture ne prétend
+pas résoudre la contrepartie économique de chaque événement.
+
+Ces points restent `null` et sont auditables dans `daily_price_gaps.parquet`.
+Les rendements/CAGR de bornes observées restent évaluables ; les risques qui
+exigent le chemin complet ne le sont pas. Le drawdown après un trou reste
+inconnu puisque son plus-haut peut être inconnu. Le capital du mois suivant
+reprend la référence mensuelle scellée sans inventer le chemin intermédiaire.
+Les fenêtres quotidiennes de 2026 sont complètes pour les treize séries.
+Il s'agit d'une reconstitution de recherche, jamais d'une promotion corrigée.
+
+### Artefacts et contrôles
+
+Dossier : `outputs/performance_reports/REPORT-023_20261121_02/`.
+
+| Artefact | SHA-256 |
+| --- | --- |
+| `daily_ledger.parquet` | `dc2603e7d2320bffbad086666ed13b3f9bb54b4538ceb019d76d7eddf3f65fb8` |
+| `monthly_reconciliation.parquet` | `778debcd6da9f9ffd9297c373c5421a3e092c04cf92d7c5c35f762d9e5651b43` |
+| `daily_price_gaps.parquet` | `f1084ada5d17a400833b30c152cb9c515c7684a63b02956f13bf28f72a112aa7` |
+
+`validation.json` porte les comparaisons, bornes et identités. **114 tests
+ciblés réussis**, dont les nouveaux cas de dates libres, risque après trou,
+frais, parité, mutation du futur, année complète avec jour férié, annualisation,
+composition, poids nuls et frontière courte. Ruff, formatage et mypy des neuf
+modules modifiés du moteur sont validés. Le sous-package quotidien conserve des
+fonctions de moins de 80 lignes et complexité au plus 10. Les contrôles
+documentaires, liens et inventaires sont exécutés avant commit. Aucun replay
+inter-vintages modèle ni nouvelle preuve d'absence de fuite n'est revendiqué.

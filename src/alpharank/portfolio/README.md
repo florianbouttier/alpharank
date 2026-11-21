@@ -6,6 +6,10 @@ Unique source de vérité après génération des signaux.
 
 - `adapters/` : conversion des sorties Legacy et Boosting vers le contrat
   commun.
+- `daily/` : valorisations quotidiennes des mêmes positions/prix, fenêtres
+  exactes, couverture, compositions et frontières. Aucun prix manquant n'est
+  rempli ; les KPI de risque quotidien restent indisponibles sur une fenêtre
+  trouée.
 
 Les modules racine définissent holdings, allocation, simulation, benchmark SPY,
 KPI, comparaison, attribution exacte du CAGR, lignée et artefacts.

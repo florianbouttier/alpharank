@@ -2,10 +2,34 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Literal
 
 import numpy as np
 import polars as pl
+
+
+@dataclass(frozen=True, slots=True)
+class PerformanceCalendar:
+    """Explicit annualization and drawdown origin; defaults preserve monthly replays."""
+
+    periods_per_year: float = 12.0
+    elapsed_years: float | None = None
+    drawdown_origin: Literal["first_return", "initial_capital"] = "first_return"
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.periods_per_year) or self.periods_per_year <= 0:
+            raise ValueError("periods_per_year must be finite and positive.")
+        if self.elapsed_years is not None and (
+            not math.isfinite(self.elapsed_years) or self.elapsed_years <= 0
+        ):
+            raise ValueError("elapsed_years must be finite and positive.")
+        if self.drawdown_origin not in {"first_return", "initial_capital"}:
+            raise ValueError("Unknown drawdown origin.")
+
+
+MONTHLY_PERFORMANCE_CALENDAR = PerformanceCalendar()
 
 
 def performance_statistics(
@@ -13,6 +37,7 @@ def performance_statistics(
     *,
     risk_free_rate: float = 0.0,
     sharpe_convention: str = "arithmetic",
+    calendar: PerformanceCalendar = MONTHLY_PERFORMANCE_CALENDAR,
 ) -> dict[str, float]:
     """Canonical statistics with an explicit Sharpe convention.
 
@@ -36,13 +61,13 @@ def performance_statistics(
         }
     curve = np.cumprod(1.0 + clean)
     total = float(curve[-1] - 1.0)
-    years = clean.size / 12.0
+    years = calendar.elapsed_years or clean.size / calendar.periods_per_year
     cagr = float(curve[-1] ** (1.0 / years) - 1.0) if curve[-1] > 0 and years > 0 else -1.0
     monthly_std = float(np.std(clean, ddof=1)) if clean.size > 1 else 0.0
-    volatility = monthly_std * math.sqrt(12.0)
+    volatility = monthly_std * math.sqrt(calendar.periods_per_year)
     if sharpe_convention == "arithmetic":
         sharpe = (
-            float(np.mean(clean) / monthly_std * math.sqrt(12.0))
+            float(np.mean(clean) / monthly_std * math.sqrt(calendar.periods_per_year))
             if monthly_std > 0.0
             else float("nan")
         )
@@ -51,6 +76,8 @@ def performance_statistics(
     else:
         raise ValueError(f"Unknown sharpe_convention={sharpe_convention!r}.")
     running_peak = np.maximum.accumulate(curve)
+    if calendar.drawdown_origin == "initial_capital":
+        running_peak = np.maximum(running_peak, 1.0)
     max_drawdown = float(np.min(curve / running_peak - 1.0))
     return {
         "total_return": total,
@@ -62,26 +89,38 @@ def performance_statistics(
     }
 
 
+ADVANCED_METRIC_FIELDS = (
+    "sortino",
+    "calmar",
+    "annualized_excess_return",
+    "tracking_error",
+    "information_ratio",
+    "beta",
+    "alpha",
+    "correlation",
+    "benchmark_hit_rate",
+    "var_95",
+    "cvar_95",
+    "omega",
+    "up_capture",
+    "down_capture",
+    "skewness",
+    "excess_kurtosis",
+)
+
+
 def advanced_performance_statistics(
     returns: np.ndarray | Iterable[float],
     *,
     benchmark_returns: np.ndarray | Iterable[float] | None = None,
     risk_free_rate: float = 0.02,
+    calendar: PerformanceCalendar = MONTHLY_PERFORMANCE_CALENDAR,
 ) -> dict[str, float]:
-    """Canonical advanced statistics for a monthly strategy comparison."""
-
-    values = np.asarray(
-        list(returns) if not isinstance(returns, np.ndarray) else returns,
-        dtype=float,
-    )
+    """Canonical advanced statistics under an explicit observation calendar."""
+    values = _as_float_array(returns)
     benchmark = None
     if benchmark_returns is not None:
-        benchmark = np.asarray(
-            list(benchmark_returns)
-            if not isinstance(benchmark_returns, np.ndarray)
-            else benchmark_returns,
-            dtype=float,
-        )
+        benchmark = _as_float_array(benchmark_returns)
         if benchmark.size != values.size:
             raise ValueError("returns and benchmark_returns must have the same length")
         valid = np.isfinite(values) & np.isfinite(benchmark)
@@ -90,121 +129,88 @@ def advanced_performance_statistics(
         valid = np.isfinite(values)
     values = values[valid]
     base = performance_statistics(
-        values,
-        risk_free_rate=risk_free_rate,
-        sharpe_convention="legacy",
+        values, risk_free_rate=risk_free_rate, sharpe_convention="legacy", calendar=calendar
     )
+    result = {**base, **dict.fromkeys(ADVANCED_METRIC_FIELDS, float("nan"))}
     if values.size == 0:
-        return {
-            **base,
-            **{
-                key: float("nan")
-                for key in (
-                    "sortino",
-                    "calmar",
-                    "annualized_excess_return",
-                    "tracking_error",
-                    "information_ratio",
-                    "beta",
-                    "alpha",
-                    "correlation",
-                    "benchmark_hit_rate",
-                    "var_95",
-                    "cvar_95",
-                    "omega",
-                    "up_capture",
-                    "down_capture",
-                    "skewness",
-                    "excess_kurtosis",
-                )
-            },
-        }
+        return result
+    result.update(_distribution_statistics(values, base, risk_free_rate, calendar.periods_per_year))
+    if benchmark is not None and values.size >= 2:
+        result.update(_benchmark_statistics(values, benchmark, base, risk_free_rate, calendar))
+    return result
 
-    downside = math.sqrt(float(np.mean(np.minimum(values, 0.0) ** 2)) * 12.0)
-    sortino = (base["cagr"] - risk_free_rate) / downside if downside > 0.0 else float("nan")
-    calmar = (
-        base["cagr"] / abs(base["max_drawdown"]) if base["max_drawdown"] < 0.0 else float("nan")
-    )
+
+def _distribution_statistics(
+    values: np.ndarray, base: dict[str, float], risk_free_rate: float, periods_per_year: float
+) -> dict[str, float]:
+    downside = math.sqrt(float(np.mean(np.minimum(values, 0.0) ** 2)) * periods_per_year)
     var_95 = float(np.quantile(values, 0.05))
     tail = values[values <= var_95]
     gains = float(values[values > 0.0].sum())
     losses = abs(float(values[values < 0.0].sum()))
     centered = values - float(np.mean(values))
     population_std = float(np.std(values, ddof=0))
-    skewness = (
-        float(np.mean(centered**3) / population_std**3) if population_std > 0.0 else float("nan")
-    )
-    excess_kurtosis = (
-        float(np.mean(centered**4) / population_std**4 - 3.0)
-        if population_std > 0.0
-        else float("nan")
-    )
-    result = {
-        **base,
-        "sortino": float(sortino),
-        "calmar": float(calmar),
-        "annualized_excess_return": float("nan"),
-        "tracking_error": float("nan"),
+    return {
+        "sortino": (base["cagr"] - risk_free_rate) / downside if downside > 0 else float("nan"),
+        "calmar": base["cagr"] / abs(base["max_drawdown"])
+        if base["max_drawdown"] < 0
+        else float("nan"),
         "var_95": var_95,
         "cvar_95": float(np.mean(tail)) if tail.size else float("nan"),
-        "omega": gains / losses if losses > 0.0 else float("nan"),
-        "information_ratio": float("nan"),
-        "beta": float("nan"),
-        "alpha": float("nan"),
-        "correlation": float("nan"),
-        "benchmark_hit_rate": float("nan"),
-        "up_capture": float("nan"),
-        "down_capture": float("nan"),
-        "skewness": skewness,
-        "excess_kurtosis": excess_kurtosis,
+        "omega": gains / losses if losses > 0 else float("nan"),
+        "skewness": float(np.mean(centered**3) / population_std**3)
+        if population_std > 0
+        else float("nan"),
+        "excess_kurtosis": float(np.mean(centered**4) / population_std**4 - 3.0)
+        if population_std > 0
+        else float("nan"),
     }
-    if benchmark is None or values.size < 2:
-        return result
 
+
+def _benchmark_statistics(
+    values: np.ndarray,
+    benchmark: np.ndarray,
+    base: dict[str, float],
+    risk_free_rate: float,
+    calendar: PerformanceCalendar,
+) -> dict[str, float]:
+    periods = calendar.periods_per_year
     active = values - benchmark
-    tracking_error = float(np.std(active, ddof=1) * math.sqrt(12.0))
+    tracking_error = float(np.std(active, ddof=1) * math.sqrt(periods))
     benchmark_base = performance_statistics(
-        benchmark,
-        risk_free_rate=risk_free_rate,
-        sharpe_convention="legacy",
+        benchmark, risk_free_rate=risk_free_rate, sharpe_convention="legacy", calendar=calendar
     )
     benchmark_variance = float(np.var(benchmark, ddof=1))
     covariance = float(np.cov(values, benchmark, ddof=1)[0, 1])
-    beta = covariance / benchmark_variance if benchmark_variance > 0.0 else float("nan")
-    monthly_risk_free = (1.0 + risk_free_rate) ** (1.0 / 12.0) - 1.0
+    beta = covariance / benchmark_variance if benchmark_variance > 0 else float("nan")
+    periodic_risk_free = (1.0 + risk_free_rate) ** (1.0 / periods) - 1.0
     alpha = (
-        12.0
+        periods
         * (
-            (float(np.mean(values)) - monthly_risk_free)
-            - beta * (float(np.mean(benchmark)) - monthly_risk_free)
+            (float(np.mean(values)) - periodic_risk_free)
+            - beta * (float(np.mean(benchmark)) - periodic_risk_free)
         )
         if math.isfinite(beta)
         else float("nan")
     )
-    up = benchmark > 0.0
-    down = benchmark < 0.0
-    result.update(
-        annualized_excess_return=base["cagr"] - benchmark_base["cagr"],
-        tracking_error=tracking_error,
-        information_ratio=(
-            12.0 * float(np.mean(active)) / tracking_error if tracking_error > 0.0 else float("nan")
-        ),
-        beta=beta,
-        alpha=alpha,
-        correlation=float(np.corrcoef(values, benchmark)[0, 1]),
-        benchmark_hit_rate=float(np.mean(values > benchmark)),
-        up_capture=(
-            float(np.mean(values[up]) / np.mean(benchmark[up]))
-            if np.any(up) and np.mean(benchmark[up]) != 0.0
-            else float("nan")
-        ),
-        down_capture=(
-            float(np.mean(values[down]) / np.mean(benchmark[down]))
-            if np.any(down) and np.mean(benchmark[down]) != 0.0
-            else float("nan")
-        ),
-    )
-    return result
+    up, down = benchmark > 0.0, benchmark < 0.0
+    return {
+        "annualized_excess_return": base["cagr"] - benchmark_base["cagr"],
+        "tracking_error": tracking_error,
+        "information_ratio": periods * float(np.mean(active)) / tracking_error
+        if tracking_error > 0
+        else float("nan"),
+        "beta": beta,
+        "alpha": alpha,
+        "correlation": float(np.corrcoef(values, benchmark)[0, 1]),
+        "benchmark_hit_rate": float(np.mean(values > benchmark)),
+        "up_capture": float(np.mean(values[up]) / np.mean(benchmark[up]))
+        if np.any(up) and np.mean(benchmark[up]) != 0
+        else float("nan"),
+        "down_capture": float(np.mean(values[down]) / np.mean(benchmark[down]))
+        if np.any(down) and np.mean(benchmark[down]) != 0
+        else float("nan"),
+    }
 
 
 def portfolio_period_statistics(

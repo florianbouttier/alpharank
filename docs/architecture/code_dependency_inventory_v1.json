@@ -3442,6 +3442,66 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/portfolio/daily/__init__.py",
+      "target": "src/alpharank/portfolio/daily/analysis.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/__init__.py",
+      "target": "src/alpharank/portfolio/daily/combinations.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/__init__.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/__init__.py",
+      "target": "src/alpharank/portfolio/daily/frontiers.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/__init__.py",
+      "target": "src/alpharank/portfolio/daily/ledger.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/analysis.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/analysis.py",
+      "target": "src/alpharank/portfolio/daily/statistics.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/frontiers.py",
+      "target": "src/alpharank/portfolio/daily/combinations.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/frontiers.py",
+      "target": "src/alpharank/portfolio/daily/statistics.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/frontiers.py",
+      "target": "src/alpharank/portfolio/frontiers.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/ledger.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/portfolio/daily/statistics.py",
+      "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/portfolio/frontiers.py",
       "target": "src/alpharank/portfolio/comparison.py"
     },
@@ -9804,6 +9864,116 @@
     {
       "declared_public_entrypoint": false,
       "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/daily/analysis.py",
+        "src/alpharank/portfolio/daily/combinations.py",
+        "src/alpharank/portfolio/daily/contracts.py",
+        "src/alpharank/portfolio/daily/frontiers.py",
+        "src/alpharank/portfolio/daily/ledger.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily",
+      "path": "src/alpharank/portfolio/daily/__init__.py",
+      "readers": []
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/daily/contracts.py",
+        "src/alpharank/portfolio/daily/statistics.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily.analysis",
+      "path": "src/alpharank/portfolio/daily/analysis.py",
+      "readers": [
+        "src/alpharank/portfolio/daily/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily.combinations",
+      "path": "src/alpharank/portfolio/daily/combinations.py",
+      "readers": [
+        "src/alpharank/portfolio/daily/__init__.py",
+        "src/alpharank/portfolio/daily/frontiers.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily.contracts",
+      "path": "src/alpharank/portfolio/daily/contracts.py",
+      "readers": [
+        "src/alpharank/portfolio/daily/__init__.py",
+        "src/alpharank/portfolio/daily/analysis.py",
+        "src/alpharank/portfolio/daily/ledger.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/daily/combinations.py",
+        "src/alpharank/portfolio/daily/statistics.py",
+        "src/alpharank/portfolio/frontiers.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily.frontiers",
+      "path": "src/alpharank/portfolio/daily/frontiers.py",
+      "readers": [
+        "src/alpharank/portfolio/daily/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/daily/contracts.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily.ledger",
+      "path": "src/alpharank/portfolio/daily/ledger.py",
+      "readers": [
+        "src/alpharank/portfolio/daily/__init__.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/portfolio/performance.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.portfolio.daily.statistics",
+      "path": "src/alpharank/portfolio/daily/statistics.py",
+      "readers": [
+        "src/alpharank/portfolio/daily/analysis.py",
+        "src/alpharank/portfolio/daily/frontiers.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
       "imports": [],
       "invokes": [],
       "layer": "library",
@@ -9832,6 +10002,7 @@
       "path": "src/alpharank/portfolio/frontiers.py",
       "readers": [
         "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/portfolio/daily/frontiers.py",
         "src/alpharank/reporting/_performance_report_analytics.py"
       ]
     },
@@ -9890,6 +10061,7 @@
         "src/alpharank/portfolio/__init__.py",
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/comparison.py",
+        "src/alpharank/portfolio/daily/statistics.py",
         "src/alpharank/portfolio/frontiers.py",
         "src/alpharank/portfolio/valuation.py",
         "src/alpharank/replay/reconciliation.py",
@@ -11350,10 +11522,10 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 163,
-    "internal_edge_count": 870,
-    "library_count": 244,
-    "python_file_count": 414,
+    "internal_edge_count": 882,
+    "library_count": 251,
+    "python_file_count": 421,
     "script_count": 170,
-    "unread_node_count": 168
+    "unread_node_count": 169
   }
 }

@@ -56,6 +56,43 @@ class StrategyFrontierGrid:
     anchor_windows: tuple[dict[str, str | int], ...]
 
 
+@dataclass(frozen=True, slots=True)
+class FrontierSelection:
+    """Shared Pareto and post-hoc profile selection, independent of sampling frequency."""
+
+    volatility_frontier_indices: tuple[int, ...]
+    drawdown_frontier_indices: tuple[int, ...]
+    recommendations: dict[str, int]
+
+
+def strategy_simplex_weights(width: int) -> NDArray[np.float64]:
+    """Return the canonical 5%-step, maximum-70% long-only allocation grid."""
+    if width < 2:
+        raise ValueError("Strategy allocations require at least two sleeves.")
+    return _simplex_weights(
+        width=width, weight_step=FRONTIER_WEIGHT_STEP, maximum_weight=FRONTIER_MAXIMUM_WEIGHT
+    )
+
+
+def select_strategy_frontier(
+    candidate_metrics: tuple[tuple[float | None, ...], ...],
+) -> FrontierSelection:
+    """Select only fully evaluable risk/return points; incomplete histories are not optimized."""
+    cagr, volatility, drawdown = (
+        FRONTIER_METRIC_FIELDS.index(key)
+        for key in ["cagr", "annualized_volatility", "max_drawdown"]
+    )
+    return FrontierSelection(
+        _pareto_indices(
+            candidate_metrics, return_index=cagr, risk_index=volatility, absolute_risk=False
+        ),
+        _pareto_indices(
+            candidate_metrics, return_index=cagr, risk_index=drawdown, absolute_risk=True
+        ),
+        _available_recommendations(candidate_metrics),
+    )
+
+
 def constrained_strategy_frontier_grid(
     series_by_strategy: Mapping[str, pl.DataFrame],
     *,
@@ -263,39 +300,44 @@ def _pareto_indices(
     return tuple(index for index, _, _ in sorted(frontier, key=lambda row: (row[2], row[1])))
 
 
-def _recommendations(
+def _available_recommendations(
     rows: tuple[tuple[float | None, ...], ...],
 ) -> dict[str, int]:
     cagr = FRONTIER_METRIC_FIELDS.index("cagr")
     volatility = FRONTIER_METRIC_FIELDS.index("annualized_volatility")
     sharpe = FRONTIER_METRIC_FIELDS.index("sharpe")
     calmar = FRONTIER_METRIC_FIELDS.index("calmar")
+    choices = (
+        (
+            "minimum_volatility",
+            (volatility, cagr),
+            lambda row: (_required_value(row, volatility), -_required_value(row, cagr)),
+        ),
+        (
+            "maximum_sharpe",
+            (sharpe, volatility),
+            lambda row: (-_required_value(row, sharpe), _required_value(row, volatility)),
+        ),
+        (
+            "maximum_calmar",
+            (calmar, volatility),
+            lambda row: (-_required_value(row, calmar), _required_value(row, volatility)),
+        ),
+    )
     return {
-        "minimum_volatility": _best_index(
-            rows,
-            required=(volatility, cagr),
-            key=lambda row: (
-                _required_value(row, volatility),
-                -_required_value(row, cagr),
-            ),
-        ),
-        "maximum_sharpe": _best_index(
-            rows,
-            required=(sharpe, volatility),
-            key=lambda row: (
-                -_required_value(row, sharpe),
-                _required_value(row, volatility),
-            ),
-        ),
-        "maximum_calmar": _best_index(
-            rows,
-            required=(calmar, volatility),
-            key=lambda row: (
-                -_required_value(row, calmar),
-                _required_value(row, volatility),
-            ),
-        ),
+        name: _best_index(rows, required=required, key=key)
+        for name, required, key in choices
+        if any(all(row[index] is not None for index in required) for row in rows)
     }
+
+
+def _recommendations(
+    rows: tuple[tuple[float | None, ...], ...],
+) -> dict[str, int]:
+    result = _available_recommendations(rows)
+    if len(result) != len(FRONTIER_PROFILE_NAMES):
+        raise ValueError("No finite strategy frontier candidate is available.")
+    return result
 
 
 def _best_index(
