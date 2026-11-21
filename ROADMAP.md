@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-11-09.**
+**Dernière mise à jour : 2026-11-21.**
 
 **Statut : seule source des priorités actives.**
 
@@ -141,6 +141,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 102 | `REPORT-018` | rendre le backtest sectoriel dans le dashboard de performance standard | lot REPORT ci-dessous | fait |
 | 103 | `REPORT-019` | réunir toutes les stratégies standard et sectorielles dans le dashboard | lot REPORT ci-dessous | fait |
 | 104 | `REPORT-020` | actualiser les prix et valoriser les paniers figés sans nouveau signal | lot REPORT ci-dessous | fait |
+| 105 | `REPORT-021` | livrer le suivi prix dans le HTML canonique complet | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1327,6 +1328,25 @@ doublons exacts et preuve de récupération.
 | `REPORT-018` | exposer les six séries de `REPLAY-014` dans le rapport standard | fait | HTML `8a75190b…7c2c`, 182 mois et 1 092 lignes mensuelles identiques, 33 KPI, cinq titres et onze secteurs documentés ; panier figé sans promotion |
 | `REPORT-019` | unifier la comparaison standard et sectorielle | fait | HTML `399619d8…fff0`, 13 séries sur 182 mois, 2 184 lignes reprises à l'identique et Legacy Equal aligné aux mêmes frais |
 | `REPORT-020` | mesurer les performances récentes des paniers archivés avec prix frais | fait | 33 séries jusqu'au 20 novembre, 126 positions figées inchangées, 100 % de couverture, dérive des poids et suivi hypothétique séparé du backtest ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
+| `REPORT-021` | intégrer les valorisations récentes au desk complet sans perte d'information | fait | HTML complet `a8c52aca…625d`, 48 rendements récents identiques, payload historique conservé, entrée stable et livraison obligatoire ; preuve dans `docs/research/sector_champion_full_backtest_20261109.md` |
+
+### Détail de `REPORT-021`
+
+- **Objectif** : corriger la livraison Markdown seule de `REPORT-020` et rendre
+  le HTML canonique complet obligatoire pour toute présentation de performances.
+- **Périmètre** : valorisation partagée, générateur reporting existant, commande
+  de suivi prix, tests, contrat documentaire et preuve du run.
+- **Hors périmètre** : nouveaux signaux, entraînement, nouveau téléchargement,
+  fusion du suivi hypothétique avec le backtest, promotion ou dépôt Portfolio.
+- **Acceptation** : un même HTML expose les treize séries, le suivi des prix,
+  graphiques et survols, les 33 KPI historiques, model cards, composeur,
+  frontières, portefeuilles, méthodes et sources ; l'historique reste inchangé.
+  La commande livre ce HTML par défaut et une entrée locale stable le désigne.
+- **Validations** : parité du payload historique et des rendements récents,
+  calendrier et drawdown, hashes, tests ciblés, JavaScript et QA desktop/mobile.
+- **Impact** : présentation uniquement ; les nouveaux points de suivi dérivent
+  des mêmes prix et paniers scellés, sans ordres ni frais fictifs.
+- **Rollback** : désigner le rapport précédent, sans effacer aucun artefact.
 
 ### Détail de `REPORT-020`
 

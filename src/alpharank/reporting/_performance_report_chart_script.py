@@ -15,6 +15,16 @@ function relativeWealthSeries(strategy) {
 }
 
 function studioChartSeries() {
+  if (state.analysisMode === "recent") {
+    const field = state.chartView === "drawdown" ? "drawdown" : state.chartView === "relative" ? "relative_wealth" : "wealth";
+    const series = state.curves.filter(name => state.chartView !== "relative" || name !== BENCHMARK_STRATEGY)
+      .map(name => ({
+        name: state.chartView === "relative" ? `${name} ÷ SPY` : name,
+        color: strategyMeta(name).color,
+        values: recentWindow().series[name].map(point => ({date: point.date, value: point[field]})),
+      }));
+    return state.chartView === "relative" ? [...series, paritySeries()] : series;
+  }
   if (state.analysisMode === "composer") {
     if (state.chartView === "wealth") return [
       {name: COMPOSER_NAME, color: COMPOSER_COLOR, values: composerWealthSeries()},
@@ -51,7 +61,9 @@ function paritySeries() {
   return {
     name: "Parité SPY = 1",
     color: strategyMeta(BENCHMARK_STRATEGY).color,
-    values: periodMonthly(BENCHMARK_STRATEGY).map(row => ({date: row.holding_month, value: 1})),
+    values: state.analysisMode === "recent"
+      ? recentWindow().series[BENCHMARK_STRATEGY].map(point => ({date: point.date, value: 1}))
+      : periodMonthly(BENCHMARK_STRATEGY).map(row => ({date: row.holding_month, value: 1})),
   };
 }
 
@@ -59,7 +71,7 @@ function drawStudioChart() {
   if (!state.data) return;
   const isDrawdown = state.chartView === "drawdown";
   const isRelative = state.chartView === "relative";
-  const title = isDrawdown ? "Drawdown" : isRelative ? "Richesse relative au SPY" : "Croissance composée";
+  const title = isDrawdown ? "Drawdown" : isRelative ? "Richesse relative au SPY" : state.analysisMode === "recent" ? "Performance du panier figé" : "Croissance composée";
   const subtitle = isDrawdown
     ? "Écart à chaque plus-haut de richesse."
     : isRelative
@@ -153,9 +165,10 @@ function drawLineChart(canvas, series, tickFormat, options={}) {
   });
   ctx.fillStyle = cssColor("--muted", "#617087");
   ctx.textAlign = "left";
-  ctx.fillText(monthLabel(state.start), pad.l, height - 8);
+  const dateFormat = value => new Date(`${value}T12:00:00Z`).toLocaleDateString("fr-FR", {day: "numeric", month: "short"});
+  ctx.fillText(state.analysisMode === "recent" ? dateFormat(recentWindow().start_date) : monthLabel(state.start), pad.l, height - 8);
   ctx.textAlign = "right";
-  ctx.fillText(monthLabel(state.end), width - pad.r, height - 8);
+  ctx.fillText(state.analysisMode === "recent" ? dateFormat(recentWindow().end_date) : monthLabel(state.end), width - pad.r, height - 8);
   ctx.textAlign = "left";
   canvas._chartModel = {series, tickFormat, pad, width, height, length};
   canvas.onmousemove = showStudioChartTooltip;
@@ -177,7 +190,7 @@ function showStudioChartTooltip(event) {
     const point = item.values[index];
     return point ? `<div><span><i style="background:${item.color}"></i>${escapeHtml(item.name)}</span><strong>${model.tickFormat(point.value)}</strong></div>` : "";
   }).join("");
-  tooltip.innerHTML = `<header>${monthLabel(date)}</header>${rows}`;
+  tooltip.innerHTML = `<header>${state.analysisMode === "recent" ? dateLabel(date) : monthLabel(date)}</header>${rows}`;
   tooltip.hidden = false;
   tooltip.style.left = `${Math.max(8, Math.min(canvas.clientWidth - 250, event.offsetX + 14))}px`;
   tooltip.style.top = `${Math.max(8, event.offsetY - 36)}px`;

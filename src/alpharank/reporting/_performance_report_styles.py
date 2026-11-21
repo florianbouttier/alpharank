@@ -305,6 +305,10 @@ canvas { display: block; width: 100%; height: 400px; }
 .period-actions { display: flex; gap: 6px; align-items: center; }
 .period-actions .custom-period { min-width: auto; }
 .period-actions .custom-period > summary { border: 0; border-bottom: 2px solid transparent; }
+.recent-period { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; min-width: 0; }
+.recent-period select { max-width: 100%; min-width: 0; }
+.analysis-studio[data-mode="recent"] .scoreboard { min-width: 320px; }
+.analysis-studio[data-mode="recent"] .scoreboard-row { grid-template-columns: minmax(140px, 1.2fr) repeat(2, minmax(90px, 1fr)); }
 .studio-context {
   display: flex;
   flex-wrap: wrap;
@@ -665,7 +669,8 @@ html[data-theme="dark"] .method-status { color: #e3cf64; }
   .custom-period-fields { right: 0; width: min(340px, 85vw); transform: none; }
   .toolbar, .portfolio-controls, .current-portfolio-controls, .current-portfolio-meta { grid-template-columns: 1fr; }
   .section-head { display: block; }
-  .mode-switch, .chart-switch { grid-auto-flow: column; }
+  .mode-switch { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }
+  .chart-switch { grid-auto-flow: column; }
   .composer-actions { justify-content: start; margin-top: 8px; }
   .studio-outcome { grid-template-columns: 1fr; }
   .studio-outcome small { text-align: left; }

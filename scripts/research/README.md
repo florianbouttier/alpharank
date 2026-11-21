@@ -16,7 +16,9 @@ Commandes :
   communs à partir des positions figées.
 - `value_frozen_portfolios.py` valorise les paniers d'un rapport scellé à partir
   d'un reçu prix RAW explicite, avec fenêtres datées, contrôles de hashes et
-  rapport Markdown/CSV ; aucun téléchargement, signal ou replay implicite.
+  HTML canonique complet obligatoire ; les CSV/Parquet/Markdown restent des
+  compléments. L'index `outputs/performance_reports/index.html` désigne le
+  nouveau HTML daté ; aucun téléchargement, signal ou replay implicite.
 
 Dossiers enfants : aucun.
 

@@ -7,7 +7,11 @@ import pytest
 
 from alpharank.portfolio.allocation import drifted_weights_after_returns
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
-from alpharank.portfolio.valuation import ValuationWindow, value_frozen_holdings
+from alpharank.portfolio.valuation import (
+    ValuationWindow,
+    frozen_valuation_curves,
+    value_frozen_holdings,
+)
 
 ENTRY = date(2026, 9, 30)
 START = date(2026, 10, 30)
@@ -158,3 +162,52 @@ def test_missing_benchmark_fails() -> None:
             entry_date=ENTRY,
             windows=[ValuationWindow("All", ENTRY, END)],
         )
+
+
+def test_daily_curves_match_frozen_window_return_and_include_spy() -> None:
+    windows = [ValuationWindow("November", START, END)]
+    curves = frozen_valuation_curves(_holdings(), _prices(), entry_date=ENTRY, windows=windows)
+    valued = value_frozen_holdings(_holdings(), _prices(), entry_date=ENTRY, windows=windows)
+    strategy = curves.filter(pl.col("strategy") == "Frozen").sort("date")
+    spy = curves.filter(pl.col("strategy") == "SPY · Total return").sort("date")
+
+    assert strategy["wealth"][0] == 1.0
+    assert strategy["wealth"][-1] - 1.0 == pytest.approx(valued["total_return"][0], abs=1e-12)
+    assert strategy["relative_wealth"][-1] == pytest.approx(valued["relative_wealth"][0])
+    assert spy["wealth"][-1] - 1.0 == pytest.approx(valued["benchmark_return"][0])
+    assert strategy["max_drawdown"][0] == pytest.approx(0.0)
+
+
+def test_daily_drawdown_includes_loss_from_the_initial_close() -> None:
+    falling = _prices().with_columns(
+        pl.when(pl.col("ticker") == "A")
+        .then(pl.lit(100.0))
+        .otherwise(pl.col("adjusted_close"))
+        .alias("adjusted_close")
+    )
+    curves = (
+        frozen_valuation_curves(
+            _holdings(), falling, entry_date=ENTRY, windows=[ValuationWindow("All", ENTRY, END)]
+        )
+        .filter(pl.col("strategy") == "Frozen")
+        .sort("date")
+    )
+
+    assert curves["drawdown"][-1] == pytest.approx(-0.05)
+    assert curves["max_drawdown"][-1] == pytest.approx(-0.05)
+
+
+def test_daily_curves_ignore_missing_future_prices_after_the_window() -> None:
+    windows = [ValuationWindow("October", ENTRY, START)]
+    future_missing = _prices().with_columns(
+        pl.when(pl.col("date") == END)
+        .then(pl.lit(None, dtype=pl.Float64))
+        .otherwise(pl.col("adjusted_close"))
+        .alias("adjusted_close")
+    )
+
+    assert frozen_valuation_curves(
+        _holdings(), _prices(), entry_date=ENTRY, windows=windows
+    ).equals(
+        frozen_valuation_curves(_holdings(), future_missing, entry_date=ENTRY, windows=windows)
+    )

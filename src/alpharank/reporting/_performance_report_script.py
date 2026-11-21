@@ -86,6 +86,7 @@ function currentMetricRows() {
   return rows || [];
 }
 function metricValue(strategy, field, rows=currentMetricRows()) {
+  if (state.analysisMode === "recent") return recentWindow().metrics[strategy]?.[field];
   const strategyIndex = state.data.strategy_order.indexOf(strategy);
   const metricIndex = state.data.metric_fields.indexOf(field);
   return rows[strategyIndex]?.[metricIndex];
@@ -280,8 +281,12 @@ function renderCurrentPortfolio() {
     document.getElementById("current-portfolio-note").textContent = "Panier figé, pas un signal actuel. Son rendement n’est pas évalué dans ce backtest.";
     document.getElementById("current-portfolio-status").textContent = "Non évalué dans ce replay";
     document.getElementById("export-current-holdings").textContent = "Exporter le panier figé";
+    if (state.data.recent_valuation) {
+      document.getElementById("current-portfolio-note").textContent = "Panier figé valorisé dans le suivi récent ; son maintien après le mois prévu est hypothétique. Aucun nouveau signal n'a été produit.";
+      document.getElementById("current-portfolio-status").textContent = "Valorisé séparément · pas un nouveau signal";
+    }
   }
-  document.getElementById("current-as-of-date").textContent=dateLabel(current.as_of_date);
+  document.getElementById("current-as-of-date").textContent=dateLabel(state.data.recent_valuation?.latest_close ?? current.as_of_date);
   document.getElementById("current-decision-month").textContent=monthLabel(current.decision_month);
   document.getElementById("current-holding-month").textContent=monthLabel(current.holding_month);
   document.getElementById("current-portfolio-summary").textContent=`${rows.length} position(s) · poids cible ${format(totalWeight,"pct")} · rendement du mois volontairement absent des KPI`;
@@ -312,12 +317,19 @@ function exportCurrentHoldings() {
 }
 
 function renderMethodologies() {
-  document.getElementById("method-grid").innerHTML=state.data.methodologies.map(card=>`<article class="method-card"><h3>${escapeHtml(card.title)}</h3><span class="method-status">${escapeHtml(card.status)}</span><p>${escapeHtml(card.summary)}</p><ol>${card.pseudo_code.map(step=>`<li>${escapeHtml(step)}</li>`).join("")}</ol></article>`).join("");
+  const cards = state.data.recent_valuation
+    ? [...state.data.methodologies, state.data.recent_valuation.methodology]
+    : state.data.methodologies;
+  document.getElementById("method-grid").innerHTML=cards.map(card=>`<article class="method-card"><h3>${escapeHtml(card.title)}</h3><span class="method-status">${escapeHtml(card.status)}</span><p>${escapeHtml(card.summary)}</p><ol>${card.pseudo_code.map(step=>`<li>${escapeHtml(step)}</li>`).join("")}</ol></article>`).join("");
 }
 
 function renderLineage() {
   const D=state.data; document.getElementById("lineage-contracts").innerHTML=Object.entries(D.contracts).map(([key,value])=>`<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(typeof value==="object"?JSON.stringify(value):value)}</dd>`).join("");
   document.getElementById("lineage-data").innerHTML=`<dt>composition_id</dt><dd>${escapeHtml(D.lineage.composition_id)}</dd><dt>replay_commit</dt><dd>${escapeHtml(D.lineage.replay_git_commit)}</dd><dt>snapshot</dt><dd>${escapeHtml(D.lineage.snapshot_dir)}</dd>${D.lineage.source_files.map(row=>`<dt>${escapeHtml(row.role)}</dt><dd>${escapeHtml(row.sha256)}</dd>`).join("")}`;
+  if (D.recent_valuation) {
+    document.getElementById("lineage-data").innerHTML += Object.entries(D.recent_valuation.provenance)
+      .map(([key, value]) => `<dt>suivi_prix · ${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`).join("");
+  }
 }
 
 function cssColor(name, fallback) {
@@ -359,6 +371,10 @@ function renderMetadata() {
   const D=state.data; document.getElementById("report-generated").textContent=D.generated_at_utc; document.getElementById("report-calendar").textContent=`${D.calendar.months} mois · ${D.calendar.start.slice(0,7)} → ${D.calendar.end.slice(0,7)}`;document.getElementById("status-message").textContent=D.status.message;renderCoverage();
   if (D.headline) document.getElementById("report-headline").textContent = D.headline;
   if (D.subtitle) document.getElementById("report-subtitle").textContent = D.subtitle;
+  if (D.recent_valuation) {
+    document.getElementById("report-calendar").textContent = `Prix au ${dateLabel(D.recent_valuation.latest_close)}`;
+    document.getElementById("report-subtitle").textContent = `Suivi prix au ${dateLabel(D.recent_valuation.latest_close)} et backtest complet réunis. Les paniers figés ne sont pas des signaux actuels.`;
+  }
   document.title = D.title;
 }
 
@@ -370,7 +386,9 @@ async function boot() {
   try {
     initializeTheme();
     state.data=await decodePayload(); document.getElementById("loading").hidden=true;document.getElementById("app").hidden=false;
-    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();renderPeriod();observeNavigation();window.addEventListener("resize",resizeStudioCharts);
+    initializeControls();initializeComposer();renderMetadata();renderMethodologies();renderLineage();renderCurrentPortfolio();renderHoldings();
+    setAnalysisMode(state.data.recent_valuation ? "recent" : "strategies");
+    renderPeriod();observeNavigation();window.addEventListener("resize",resizeStudioCharts);
   } catch (error) { document.getElementById("loading").textContent=`Rapport illisible : ${error.message}`; }
 }
 boot();

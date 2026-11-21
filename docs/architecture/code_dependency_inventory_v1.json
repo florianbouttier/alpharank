@@ -1672,6 +1672,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/research/value_frozen_portfolios.py",
+      "target": "src/alpharank/reporting/performance_followup.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/run_backtest.py",
       "target": "src/alpharank/backtest/__init__.py"
     },
@@ -3472,6 +3477,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/portfolio/valuation.py",
+      "target": "src/alpharank/portfolio/performance.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/production/__init__.py",
       "target": "src/alpharank/production/legacy_pipeline.py"
     },
@@ -4304,6 +4314,16 @@
       "kind": "import",
       "source": "src/alpharank/reporting/_sec_explorer_html.py",
       "target": "src/alpharank/reporting/_sec_explorer_script.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_followup.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/performance_followup.py",
+      "target": "src/alpharank/reporting/_performance_report_html.py"
     },
     {
       "kind": "import",
@@ -6675,7 +6695,8 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/governance_contracts/common.py",
-        "src/alpharank/portfolio/__init__.py"
+        "src/alpharank/portfolio/__init__.py",
+        "src/alpharank/reporting/performance_followup.py"
       ],
       "invokes": [
         "src/alpharank/portfolio/allocation.py",
@@ -9034,6 +9055,7 @@
         "src/alpharank/replay/causal_snapshot.py",
         "src/alpharank/replay/common_strategy.py",
         "src/alpharank/reporting/_performance_report_sector.py",
+        "src/alpharank/reporting/performance_followup.py",
         "src/alpharank/reporting/performance_report.py"
       ]
     },
@@ -9864,6 +9886,7 @@
         "src/alpharank/portfolio/artifacts.py",
         "src/alpharank/portfolio/comparison.py",
         "src/alpharank/portfolio/frontiers.py",
+        "src/alpharank/portfolio/valuation.py",
         "src/alpharank/replay/reconciliation.py",
         "src/alpharank/replay/sector_backtest.py",
         "src/alpharank/strategy/analytics.py"
@@ -9956,7 +9979,8 @@
       "declared_public_entrypoint": false,
       "has_main_guard": false,
       "imports": [
-        "src/alpharank/portfolio/allocation.py"
+        "src/alpharank/portfolio/allocation.py",
+        "src/alpharank/portfolio/performance.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -10723,6 +10747,7 @@
       "module": "alpharank.reporting._performance_report_html",
       "path": "src/alpharank/reporting/_performance_report_html.py",
       "readers": [
+        "src/alpharank/reporting/performance_followup.py",
         "src/alpharank/reporting/performance_report.py"
       ]
     },
@@ -10839,6 +10864,22 @@
       "path": "src/alpharank/reporting/_sec_explorer_script.py",
       "readers": [
         "src/alpharank/reporting/_sec_explorer_html.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/reporting/_performance_report_html.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.performance_followup",
+      "path": "src/alpharank/reporting/performance_followup.py",
+      "readers": [
+        "scripts/research/value_frozen_portfolios.py"
       ]
     },
     {
@@ -11290,9 +11331,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 163,
-    "internal_edge_count": 865,
-    "library_count": 242,
-    "python_file_count": 412,
+    "internal_edge_count": 869,
+    "library_count": 243,
+    "python_file_count": 413,
     "script_count": 170,
     "unread_node_count": 168
   }

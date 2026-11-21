@@ -123,10 +123,12 @@ def _performance_sections() -> str:
     <article class="analysis-studio" id="analysis-studio">
       <div class="studio-head">
         <div class="mode-switch" role="tablist" aria-label="Type de comparaison">
+          <button type="button" role="tab" aria-selected="false" data-analysis-mode="recent" hidden>Suivi récent</button>
           <button class="is-active" type="button" role="tab" aria-selected="true" data-analysis-mode="strategies">Comparer</button>
           <button type="button" role="tab" aria-selected="false" data-analysis-mode="composer">Composer</button>
           <button type="button" role="tab" aria-selected="false" data-analysis-mode="frontier">Frontières</button>
         </div>
+        <label class="recent-period" id="recent-period-control" hidden>Période<select id="recent-window" aria-label="Fenêtre du suivi récent"></select></label>
         <div class="period-actions">
           <div class="period-presets" aria-label="Périodes rapides">
             <button class="is-active" id="reset-window" type="button">Tout</button>
@@ -150,6 +152,7 @@ def _performance_sections() -> str:
         <strong id="window-label">—</strong>
         <span>SPY total return est toujours affiché.</span>
       </div>
+      <aside class="studio-contract" id="recent-contract" hidden></aside>
       <div class="studio-outcome" id="studio-outcome" aria-live="polite"></div>
       <div class="studio-workspace">
 """
@@ -252,7 +255,7 @@ def _studio_drawers() -> str:
     return """
       <div class="studio-drawers">
         <details class="studio-drawer" id="full-kpis-drawer">
-          <summary><span>Tous les KPI de la sélection</span><small>33 mesures pour les stratégies · 7 pour un portefeuille composé</small></summary>
+          <summary><span>Tous les KPI de la sélection</span><small id="full-kpis-caption">33 mesures pour les stratégies · 7 pour un portefeuille composé</small></summary>
           <div class="drawer-content"><div class="table-wrap"><table class="metric-table"><thead><tr id="metric-head"></tr></thead><tbody id="metric-body"></tbody></table></div></div>
         </details>
         <details class="studio-drawer" id="model-cards-drawer">

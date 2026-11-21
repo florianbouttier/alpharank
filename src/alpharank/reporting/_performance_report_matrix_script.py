@@ -2,7 +2,9 @@ from __future__ import annotations
 
 PERFORMANCE_REPORT_MATRIX_SCRIPT = r"""
 function renderMetricTable() {
-  const fields = state.analysisMode === "composer"
+  const fields = state.analysisMode === "recent"
+    ? state.data.recent_valuation.metric_fields
+    : state.analysisMode === "composer"
     ? state.data.portfolio_composer.metric_fields
     : state.data.metric_fields;
   const series = studioDisplaySeries();
@@ -13,7 +15,10 @@ function renderMetricTable() {
     return `<th class="${name === BENCHMARK_STRATEGY ? "benchmark-head" : ""}"><i style="background:${color}"></i>${escapeHtml(name)}</th>`;
   }).join("")}<th>Définition</th>`;
   document.getElementById("metric-body").innerHTML = fields.map(field => {
-    const [label, type, definition] = METRICS[field] || [field, "num", ""];
+    const [label, type, baseDefinition] = METRICS[field] || [field, "num", ""];
+    const definition = state.analysisMode === "recent"
+      ? state.data.recent_valuation.metric_definitions[field]
+      : baseDefinition;
     const benchmark = studioMetricValueAtWindow(BENCHMARK_STRATEGY, field);
     const values = series.map(name => {
       const value = studioMetricValueAtWindow(name, field);

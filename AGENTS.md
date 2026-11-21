@@ -114,6 +114,10 @@ dans le trailer `Roadmap-Task`; le hash se résout avec Git.
 - `README.md` est l'onboarding court ; `docs/README.md` est l'index canonique.
 - Une seule source de vérité par sujet. Mettre à jour le document canonique dans
   le même commit que le changement.
+- Toute demande de performances livre le **HTML canonique complet**, avec ses
+  méthodes, filtres, KPI et historiques conservés, selon
+  `docs/performance_reporting_standard.md`. Un tableau de chat, un Markdown ou
+  un CSV sont des compléments, jamais le remplacement de ce livrable.
 - Ne pas créer de note isolée si un contrat, catalogue ou runbook existe.
 - Les preuves datées vont sous `docs/research/` ou `docs/archive/`.
 - `METHODOLOGY_AUDIT_ROADMAP.md` conserve le détail historique ; les tâches

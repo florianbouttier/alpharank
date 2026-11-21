@@ -16,7 +16,8 @@ from pathlib import Path
 import polars as pl
 
 from alpharank.governance_contracts.common import sha256_path
-from alpharank.portfolio import ValuationWindow, value_frozen_holdings
+from alpharank.portfolio import ValuationWindow, frozen_valuation_curves, value_frozen_holdings
+from alpharank.reporting.performance_followup import write_frozen_performance_report
 
 
 def _window(text: str) -> ValuationWindow:
@@ -113,6 +114,28 @@ def _markdown_report(payload: dict, results: pl.DataFrame, args: argparse.Namesp
     return "\n".join(lines) + "\n"
 
 
+def _write_complete_html(
+    args: argparse.Namespace, payload: dict, holdings: pl.DataFrame, prices: pl.DataFrame
+) -> dict[str, Path]:
+    curves = frozen_valuation_curves(
+        holdings, prices, entry_date=args.entry_date, windows=args.window
+    )
+    curves.write_parquet(args.output_dir / "valuation_curves.parquet")
+    return write_frozen_performance_report(
+        payload,
+        curves,
+        provenance={
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "source_report_sha256": args.report_hash,
+            "raw_receipt_sha256": sha256_path(args.raw_receipt),
+            "raw_payload_sha256": args.receipt["payload_sha256"],
+            "retrieved_at": args.receipt["retrieved_at"],
+            "historical_model_replay": "not_rerun_valuation_only",
+        },
+        output_dir=args.output_dir,
+    )
+
+
 def main() -> int:
     args = _parser().parse_args()
     payload, prices = _load_inputs(args)
@@ -132,6 +155,7 @@ def main() -> int:
     results.write_csv(args.output_dir / "valuation.csv")
     report = args.output_dir / "valuation_report.md"
     report.write_text(_markdown_report(payload, results, args), encoding="utf-8")
+    html = _write_complete_html(args, payload, holdings, prices)
     manifest = {
         "schema_version": 1,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -172,6 +196,9 @@ def main() -> int:
                 "frozen_holdings.parquet",
                 "downloaded_prices.parquet",
                 "valuation.csv",
+                "valuation_curves.parquet",
+                "backtest_performance_report.html",
+                "backtest_performance_report_manifest.json",
                 report.name,
             )
         },
@@ -180,7 +207,8 @@ def main() -> int:
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     print(results.select("strategy", "window", "total_return", "benchmark_return"))
-    print(f"Report: {report}")
+    print(f"Report HTML complet: {html['report']}")
+    print(f"Entrée stable: {html['index']}")
     return 0
 
 

@@ -301,3 +301,76 @@ Reproduction depuis le reçu conservé, dans une **nouvelle destination** :
   --window Depuis_entree:2026-09-30:2026-11-20 \
   --output-dir outputs/performance_reports/<nouveau-run>
 ```
+
+## Livraison HTML complète du suivi (`REPORT-021`, 21 novembre 2026)
+
+Correction demandée par le propriétaire : le tableau du chat et le Markdown
+de `REPORT-020` ne sont pas le livrable attendu. Toute présentation de
+performances doit livrer **le même HTML canonique complet**, pas une page réduite.
+La règle est inscrite dans `AGENTS.md` et le contrat de reporting ; la commande
+`value_frozen_portfolios.py` produit désormais ce HTML par défaut, en plus de
+ses compléments techniques. La commande de reproduction ci-dessus reste valide,
+en choisissant une nouvelle destination.
+
+### Artefact et parcours unique
+
+- Rapport : `outputs/performance_reports/REPORT-021_20261121_02/backtest_performance_report.html`.
+  HTML SHA-256 `a8c52aca684ff457563c50f93e0c6d465c1c30d192ff4f3891b502a2e258625d` ;
+  manifeste HTML `46c020a80bc94615692a44b72db51bccdfe2a23e458f2117491081e1735d9668` ;
+  manifeste de valorisation `3774d3e685477fa041d3edd3e33524280b476bea776ad46b3695a7ec0e707ab6`.
+- Entrée stable : `outputs/performance_reports/index.html`, également accessible
+  sur `http://127.0.0.1:8765/outputs/performance_reports/` tant que le serveur
+  local du dépôt tourne. L'index redirige vers l'artefact daté ; il n'efface ni
+  l'ancien HTML, ni ses entrées. Une page étrangère au générateur n'est pas écrasée.
+- Le mode initial « Suivi récent » partage les sélecteurs et le graphique du
+  studio, avec quatre fenêtres, survol daté au jour, drawdown et richesse relative
+  au SPY. Les courbes et les deux KPI non annualisés sont calculés en amont.
+- « Backtest complet », « Composer » et « Frontières » conservent les 13 séries,
+  182 mois réalisés, 33 KPI, model cards cumulées et annuelles, 63 compositions,
+  frontières, 25 310 positions historiques, 126 positions figées et toutes les
+  méthodes précédentes. Une carte décrit en plus la méthode du suivi prix.
+
+### Parité et absence de nouveau run modèle
+
+Le HTML reprend les **mêmes prix téléchargés le 21 novembre** sous le reçu et le
+hash RAW de `REPORT-020`, jusqu'au 20 novembre, sur les mêmes paniers d'octobre.
+Il n'y a pas de deuxième acquisition, entraînement, nouveau signal, promotion ou
+copie dans Portfolio. Après le mois prévu, le suivi reste un maintien hypothétique,
+brut de frais et sans change ; il n'est pas ajouté aux rendements mensuels nets.
+
+- Aucun champ du payload historique n'a changé, hors date technique de génération.
+  L'ajout `recent_valuation` porte seul les nouvelles projections.
+- Les 48 rendements stratégie/fenêtre sont **strictement identiques** au CSV de
+  `REPORT-020` ; le CSV entier est inchangé, pas seulement ses arrondis affichés.
+- `validation.json`, SHA-256
+  `513f046b20fbe1cf5d5a3149fa50d13e7f702846bdbf08a8b998ed22b4be0663`,
+  conserve ces contrôles, les hashes et les bornes de couverture.
+- Le max drawdown quotidien réutilise le champ indépendant de la fréquence du
+  moteur commun, avec la clôture initiale incluse. Aucun CAGR/Sharpe/volatilité
+  mensuelle n'est calculé à partir de quelques séances quotidiennes.
+
+### Implémentation et vérifications
+
+- `portfolio/valuation.py` et son API publique : projections quotidiennes
+  cohérentes avec les valorisations existantes, sans lecture des prix futurs.
+- `reporting/performance_followup.py` : raccordement au générateur existant,
+  préservation du payload et publication atomique de l'index possédé.
+- Les modules HTML, styles, état du studio, graphique, tableaux et interactions
+  du rapport sont enrichis en place ; aucun nouveau moteur frontend ou KPI local.
+- La CLI existante, les tests portefeuille/reporting, leurs README, les contrats,
+  conventions, roadmap et inventaires accompagnent le changement. `build-dashboard`
+  guide les contrôles de sources ; son export générique absent de l'installation
+  est remplacé par le générateur canonique demandé. `frontend-design` conserve
+  l'identité du desk et un parcours unique plutôt qu'une deuxième page.
+- **81 tests ciblés réussis** : portefeuille, reporting, inventaires et indépendance
+  des chemins. Ruff ciblé et différentiel, formatage, mypy du module portefeuille,
+  documentation, liens Markdown, inventaires et syntaxe JavaScript validés.
+  Reporting reste au plafond autorisé de 20 fichiers Python, sans dérogation.
+- QA Chrome à 1 280 et 390 px : mode récent, fenêtres, survol, drawdown,
+  comparaison SPY, backtest depuis 2015, 33 lignes KPI, 156 cellules de model cards,
+  composition des deux Boosting, frontières, cinq positions sectorielles et carte
+  de méthodologie ajoutée. Aucun débordement global, erreur navigateur ou appel
+  externe. L'index et le desk fonctionnent aussi en `file://`, hors serveur.
+- Limites inchangées : pas de replay inter-vintages ni validation actuelle des
+  signaux ; réserve MPC déjà décrite dans `REPORT-020`. Le contrôle global de
+  taille garde les huit écarts préexistants hors lot, sans nouvelle violation.

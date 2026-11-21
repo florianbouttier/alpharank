@@ -12,6 +12,13 @@ performances, avec quels portefeuilles et à partir de quelles données. Il ne
 doit jamais transformer une variante R&D en recommandation ou en méthode
 promue par la seule qualité de son affichage.
 
+**Livrable utilisateur obligatoire : le HTML canonique complet.** Une demande
+de performances, y compris un simple suivi prix, régénère ce rapport sans
+perdre ses méthodes, filtres, KPI historiques, portefeuilles, composeur ou
+frontières. Le tableau de chat, Markdown, CSV et JSON sont des compléments
+techniques ; ils ne remplacent jamais le HTML. Réutiliser le générateur du
+dépôt, pas une page réduite ou un second moteur de reporting.
+
 ## Architecture du dashboard
 
 Le rapport est un dashboard autonome, source-backed et progressif. Le premier
@@ -259,13 +266,29 @@ et non un portefeuille en vigueur au moment de la consultation. L'état
 été évalué par ce replay ; des prix plus récents n'étendent pas ses KPI.
 
 Un suivi prix seul utilise `scripts/research/value_frozen_portfolios.py`, un
-rapport source et un reçu RAW nommés explicitement. Il produit un rapport
-Markdown, un CSV et un manifeste séparés, sans réécrire le HTML historique.
+rapport source et un reçu RAW nommés explicitement. Il produit par défaut un
+nouveau `backtest_performance_report.html` complet et son manifeste, ainsi que
+les compléments Markdown/CSV/Parquet, sans réécrire le HTML source historique.
 Le [contrat de valorisation](common_portfolio_backtest_engine.md#frozen-basket-price-valuation)
 impose les poids dérivés depuis l'entrée, les dates communes à SPY et le libellé
 « maintien hypothétique » après le mois prévu. Ce suivi ne remplace ni un
 refresh complet des entrées modèles, ni le contrôle inter-vintages obligatoire
 lors d'un tel refresh.
+
+Dans le même studio, le mode « Suivi récent » choisit une fenêtre datée et les
+mêmes courbes que le comparateur. Performance, drawdown quotidien et richesse
+relative au SPY sont pré-calculés par le moteur portefeuille ; le survol donne
+le jour exact. Seuls rendement total et max drawdown sont affichés pour cette
+fenêtre courte, sans lui inventer de CAGR ou de volatilité mensuelle annualisée.
+« Backtest complet », « Composer » et « Frontières » conservent leur calendrier
+mensuel net de frais, leurs 33 KPI historiques et leurs méthodes inchangés.
+Une carte Méthodes expose aussi le pseudo-code du suivi prix et ses limites.
+
+`outputs/performance_reports/index.html` est l'entrée locale stable : elle
+désigne le dernier HTML complet généré par le suivi, sans écraser les rapports
+datés. Seul cet index identifié comme appartenant au générateur est remplacé,
+atomiquement ; une page préexistante étrangère fait échouer sa mise à jour.
+Le lien stable fonctionne aussi hors ligne et ne dépend pas d'une API réseau.
 
 ## Portefeuilles historiques
 

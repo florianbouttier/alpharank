@@ -286,6 +286,13 @@ actual next-month performance or spliced into the historical monthly KPI cube.
 Hash equality of frozen holdings proves that valuation did not edit them; only
 a separate inter-vintage model replay can test historical signal stability.
 
+`frozen_valuation_curves()` projects the same exact returns into daily wealth,
+drawdown and relative-wealth paths, including the initial close at wealth 1.
+The reported maximum drawdown reuses the frequency-independent field of
+`performance_statistics()` with the starting observation included. None of its
+monthly annualization fields is exposed for the daily follow-up. The complete
+HTML consumes these precomputed paths separately from its historical KPI cube.
+
 ## Exact CAGR Attribution
 
 CAGR is nonlinear and cannot be split by adding ordinary percentage-point

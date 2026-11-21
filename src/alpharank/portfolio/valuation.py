@@ -7,9 +7,11 @@ from dataclasses import dataclass
 from datetime import date
 from math import fsum
 
+import numpy as np
 import polars as pl
 
 from alpharank.portfolio.allocation import drifted_weights_after_returns
+from alpharank.portfolio.performance import performance_statistics
 
 BENCHMARK_TICKER = "SPY.US"
 WEIGHT_TOLERANCE = 1e-12
@@ -141,3 +143,87 @@ def value_frozen_holdings(
                 }
             )
     return pl.DataFrame(rows)
+
+
+def _valuation_curve(
+    strategy: str,
+    weights: dict[str, float],
+    lookup: dict[tuple[str, date], float],
+    entry_date: date,
+    window: ValuationWindow,
+) -> pl.DataFrame:
+    dates = sorted(
+        day
+        for ticker, day in lookup
+        if ticker == BENCHMARK_TICKER and window.start_date <= day <= window.end_date
+    )
+    returns = np.asarray(
+        [
+            _value_window(
+                weights, lookup, entry_date, ValuationWindow(window.name, window.start_date, day)
+            )
+            for day in dates
+        ],
+        dtype=np.float64,
+    )
+    wealth = 1.0 + returns
+    spy_wealth = np.asarray(
+        [
+            lookup[BENCHMARK_TICKER, day] / lookup[BENCHMARK_TICKER, window.start_date]
+            for day in dates
+        ],
+        dtype=np.float64,
+    )
+    # Only the frequency-independent drawdown is used; monthly annualizations are not exposed.
+    statistics = performance_statistics(np.r_[0.0, wealth[1:] / wealth[:-1] - 1.0])
+    return pl.DataFrame(
+        {
+            "strategy": [strategy] * len(dates),
+            "window": [window.name] * len(dates),
+            "date": dates,
+            "wealth": wealth,
+            "total_return": returns,
+            "drawdown": wealth / np.maximum.accumulate(wealth) - 1.0,
+            "relative_wealth": wealth / spy_wealth,
+            "max_drawdown": [statistics["max_drawdown"]] * len(dates),
+        }
+    )
+
+
+def frozen_valuation_curves(
+    holdings: pl.DataFrame,
+    prices: pl.DataFrame,
+    *,
+    entry_date: date,
+    windows: Sequence[ValuationWindow],
+) -> pl.DataFrame:
+    """Project validated frozen valuations into daily wealth and drawdown paths.
+
+    Shares the exact input/calendar contract and gross-return convention of
+    value_frozen_holdings. Each window includes its starting close at wealth 1,
+    preserves entry-date weight drift, and includes SPY. No annualized KPI is
+    inferred from daily observations. Grain: strategy/window/date.
+    """
+    value_frozen_holdings(holdings, prices, entry_date=entry_date, windows=windows)
+    benchmark_label = "SPY · Total return"
+    if benchmark_label in holdings["strategy"].to_list():
+        raise ValueError("Frozen strategy labels must not collide with the SPY benchmark.")
+    selected = _validated_prices(
+        prices,
+        set(holdings["ticker"].to_list()) | {BENCHMARK_TICKER},
+        entry_date,
+        max(window.end_date for window in windows),
+    )
+    lookup = {(str(ticker), day): float(price) for ticker, day, price in selected.iter_rows()}
+    allocations = {
+        str(frame["strategy"][0]): dict(frame.select("ticker", "target_weight").iter_rows())
+        for frame in holdings.sort("strategy", "ticker").partition_by("strategy")
+    }
+    allocations[benchmark_label] = {BENCHMARK_TICKER: 1.0}
+    return pl.concat(
+        [
+            _valuation_curve(strategy, weights, lookup, entry_date, window)
+            for window in windows
+            for strategy, weights in allocations.items()
+        ]
+    ).sort("window", "strategy", "date")

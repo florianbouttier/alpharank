@@ -91,7 +91,11 @@ from alpharank.portfolio.terminal_returns import (
     TerminalReturnResult,
     resolve_terminal_shareholder_returns,
 )
-from alpharank.portfolio.valuation import ValuationWindow, value_frozen_holdings
+from alpharank.portfolio.valuation import (
+    ValuationWindow,
+    frozen_valuation_curves,
+    value_frozen_holdings,
+)
 
 __all__ = [
     "CAUSAL_TIMING_REQUIRED_COLUMNS",
@@ -130,6 +134,7 @@ __all__ = [
     "constrained_strategy_frontier_grid",
     "equal_weights",
     "equal_weight_strategy_combination_grid",
+    "frozen_valuation_curves",
     "legacy_report_statistics",
     "ALPHARANK_REFERENCE_CLOSE",
     "LEGACY_NEXT_SESSION_OPEN",

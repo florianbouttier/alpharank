@@ -12,6 +12,8 @@ KPI, comparaison, attribution exacte du CAGR, lignée et artefacts.
 `valuation.py` mesure les paniers figés sur des fenêtres close-to-close exactes,
 avec dérive des poids, calendrier complet commun à SPY et rejet des prix
 manquants ; il ne génère aucun signal et ne facture aucun ordre fictif.
+Ses courbes quotidiennes conservent la clôture initiale, le drawdown canonique
+et la richesse relative au SPY, sans annualiser les observations quotidiennes.
 `comparison.py` centralise aussi les grilles par sous-période et les comparaisons
 par année de départ utilisées par les commandes de reporting. `combinations.py`
 pré-calcule les rendements et KPI de toutes les combinaisons équipondérées d'au
