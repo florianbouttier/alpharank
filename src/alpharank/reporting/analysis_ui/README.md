@@ -11,7 +11,11 @@ Sorties : bundle autonome, styles, survol/zoom et filtres. Aucun Plotly, CDN ou
 police distante. `client.jsx`, `charts.jsx`, `tables.jsx`, `audit.jsx` et
 `format.js` séparent état, graphiques, mesures, audit et formatage ;
 `controls.jsx` porte les bornes/fréquences et `coverage.jsx` le diagnostic
-titre/séance et le choix explicite du repli mensuel. Le bundle
+titre/séance et le choix explicite du repli mensuel. `versions.jsx` porte le
+sélecteur global des vrais runs, leurs fiches de provenance, la navigation
+HTTP/fichier et leur comparaison aux mêmes dates via l'API Python. Le suivi
+du panier figé reste explicitement hors backtest ; aucun menu de sources
+techniques ne remplace le choix de version. Le bundle
 construit est versionné pour que le rendu Python et la wheel fonctionnent sans
 Node ni réseau ; le code maintenu reste dans ces sources.
 

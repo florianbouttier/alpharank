@@ -359,7 +359,9 @@ export function MonthlyReference({ payload }) {
             >
               <option value="strategies">Stratégies</option>
               <option value="composer">Compositions équipondérées</option>
-              <option value="frontier">Allocations des frontières</option>
+              {payload.strategy_frontiers && (
+                <option value="frontier">Allocations des frontières</option>
+              )}
             </select>
           </label>
           <label>

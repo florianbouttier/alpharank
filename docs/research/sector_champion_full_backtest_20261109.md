@@ -940,3 +940,91 @@ quotidienne/mensuelle aux dates exactes, absence de frontière et rejet d'une
 requête hors couverture. Ruff/complexité, mypy des neuf modules, documentation,
 liens et inventaires contrôlés. Les huit régressions globales de taille déjà
 signalées restent hors des fichiers modifiés ; aucune nouvelle n'est ajoutée.
+
+## Navigation par versions et livraison (`REPORT-031`, 22 novembre 2026)
+
+Rapport complet livré :
+`outputs/performance_reports/REPORT-031_20261122_02/backtest_performance_report.html`.
+L'entrée locale et le service canonique conservent `http://127.0.0.1:8765/`.
+Le sélecteur global remplace le menu « Données » et pilote analyse,
+portefeuilles, méthodes et sources. Cinq vrais vintages sont capturés :
+
+| Replay central | Version économique | Fin de performance | Séries | Positions historiques |
+| --- | --- | --- | ---: | ---: |
+| 31 octobre | `bt-c4b1904c147b215b` (défaut) | 30 septembre 2026 | 13 | 25 310 |
+| 24 octobre | `bt-12c2fcb8f48eed8b` | 30 septembre 2026 | 11 | 24 650 |
+| 8 octobre | `bt-1824905b20bc3f38` | 30 septembre 2026 | 11 | 24 650 |
+| 9 septembre | `bt-4fb54c864abd03de` | 31 août 2026 | 11 | 24 522 |
+| 29 août | `bt-82d28c4aff74fc2e` | 31 juillet 2026 | 11 | 24 392 |
+
+Les trois premières sources et leurs snapshots sont ceux de `REPORT-030`.
+Les deux archives supplémentaires sont, sous `outputs/performance_reports/`,
+`data_refresh_20260909/backtest_performance_report.html`
+(`632961099368de7f02f82a058bd10612f7bdfd70c530c0d5fe7d023519f3353d`)
+et `sats_echo_20260830_current_portfolio/backtest_performance_report.html`
+(`51675425c854eb9f227c74756a049f380963d2656195de6d8e6027599425a871`).
+Leurs compositions sont respectivement `35f0244f…8421` et `bb1f90a9…8375`.
+Le rapport du 30 août porte le replay du 29 et conserve le composeur/panier
+archivé : sa date de rendu n'est pas utilisée comme date économique.
+
+### Parcours et limites visibles
+
+- La date d'arrêt du backtest est visible dès l'ouverture ; un prix récent
+  du panier figé ne la remplace plus dans l'en-tête. Chaque version conserve
+  sa vraie couverture et ses stratégies, sans ajout rétroactif de secteur.
+- Début/fin et Jour/Semaine/Mois restent des réglages d'analyse. Le repli
+  mensuel est proposé seulement dans le diagnostic ; son retour au journalier
+  conserve exactement les bornes explicitement adoptées.
+- Le suivi d'octobre, jusqu'au 20 novembre, est un panneau dépliable séparé,
+  marqué « hors backtest ». Son maintien en novembre n'est jamais un nouveau
+  signal ou un rééquilibrage de novembre.
+- L'onglet Versions compare les archives sur les mêmes dates/fréquence et
+  montre les écarts de code, snapshot, conventions et frais. Les exceptions
+  Legacy Equal restent visibles ; aucune attribution « data-only » implicite.
+  Les variantes absentes de l'autre version sont nommées, pas complétées.
+- Les couvertures plus courtes sont refusées sans recadrage. La comparaison
+  avec la version d'août refuse septembre et ne passe qu'après choix explicite
+  d'une fin au plus au 31 juillet ; celle de septembre exige au plus le 31 août.
+  Un retry à choix inchangés fonctionne aussi après une erreur.
+- Les réponses doivent correspondre aux identifiants et à la fenêtre demandés.
+  Aucun résultat précédent n'est présenté sous de nouveaux choix appliqués.
+  Sources et méthodes restent sélectionnées lors d'un changement de version.
+
+### Preuves et conservation
+
+Le fichier `validation.json` vérifie chaque clé du payload source hors
+horodatage de rendu et enrichissement `analysis` pour les cinq versions ;
+zéro champ économique modifié. Les prix et rapports source sont inchangés.
+Les cinq artefacts quotidiens/mensuels, de réconciliation et de trous de la
+version par défaut sont byte-identiques à `REPORT-029`.
+Les API retrouvent exactement les moteurs directs pour les cinq versions sur
+le 11 mars–23 juillet 2026, ainsi que pour les huit comparaisons
+quotidiennes/mensuelles du défaut contre les quatre archives sur janvier–juillet.
+Les hashes du code capturé correspondent aux sources exécutées.
+
+| Artefact final | SHA-256 |
+| --- | --- |
+| HTML complet, 3 865 453 octets | `f34ac2e639a939aa659d1e71d83eb7bab1fede955901946182d4d36c0ef7e247` |
+| manifeste d'analyse | `c437810660949c764b134fd18a188c2349c10e3ec963ac504670240ce3ccd2be` |
+| catalogue des cinq versions | `194b5faaaf8688a6ee12e641eca9e30d5fb4392fd309c6e881b228db54938810` |
+| validation/parité | `1fd4a0790f0de8bd601a790030a052a55c3b14823e7bcdfc079e0b2f9c3b4830` |
+| QA réelle et cinq captures hashées | `991d12620cb0995807ee6a16fbea70c4e9b7c6648aa63824fb491dd40ad2d32d` |
+| bundle React | `9f1b4b9eadcf26c8a46e5cfee1c252bbd512925e770f0d39f07552869a1a060e` |
+| CSS | `ac954df090af2d42a2dcebecf3fd70997bef08f3ec3530cb771d9a55e2e15384` |
+
+Validation : 159 tests Python ciblés, 15 tests JavaScript, formatage et build
+verrouillé, contrôles documentaires/liens et syntaxe du bundle. Le test qui
+refuse le menu « Données » a échoué avant correction. Chrome réel, API réelle,
+sans mock, valide cinq cycles de versions, onglets Sources/Méthodes conservés,
+dates libres, repli/retour, composé, frontières, suivi séparé, archive mensuelle,
+CAGR/volatilité/drawdown entre versions, erreurs sans vieux chiffres, retry et
+mobile 390 px. Les cinq captures sont inspectées ; zéro erreur JS, appel externe
+ou débordement global. Les huit régressions Python de taille préexistantes
+restent hors du lot ; aucune nouvelle dette Python n'est introduite.
+
+Pas de téléchargement, nouveau signal, replay modèle, promotion ou correction
+terminale `DATA-048`. La fin de performance de la version la plus récente reste
+le 30 septembre : ce lot rend ce retard explicite et ne le masque pas par un
+panier figé ou une date d'interface. Les sorties de preview et les anciennes
+versions sont préservées. Le disque dispose d'environ 395 Mio libres après QA ;
+aucune donnée utilisateur n'a été supprimée pour livrer ce changement.

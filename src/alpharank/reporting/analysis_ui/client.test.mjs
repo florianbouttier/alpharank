@@ -21,10 +21,15 @@ const rendered = buildSync({
       import {Frontiers} from './charts.jsx';
       import {CoverageNotice} from './coverage.jsx';
       import {PeriodControls} from './controls.jsx';
+      import {VersionBar, VersionFacts, VersionMetrics, versionHref, comparisonMatches} from './versions.jsx';
       import {Correlations, KpiTable} from './tables.jsx';
       export const frontier = data => renderToStaticMarkup(React.createElement(Frontiers, {data, dark:false}));
       export const coverage = props => renderToStaticMarkup(React.createElement(CoverageNotice, props));
       export const controls = props => renderToStaticMarkup(React.createElement(PeriodControls, props));
+      export const versions = props => renderToStaticMarkup(React.createElement(VersionBar, props));
+      export const versionFacts = version => renderToStaticMarkup(React.createElement(VersionFacts, {version}));
+      export const versionMetrics = props => renderToStaticMarkup(React.createElement(VersionMetrics, props));
+      export {versionHref, comparisonMatches};
       export const correlations = props => renderToStaticMarkup(React.createElement(Correlations, props));
       export const kpis = props => renderToStaticMarkup(React.createElement(KpiTable, props));`,
     resolveDir: fileURLToPath(new URL(".", import.meta.url)),
@@ -220,6 +225,7 @@ test("date drafts are explicitly unapplied and monthly view offers no daily reso
   assert.match(monthly, /12 observations\/an/);
   assert.match(monthly, /Mois calendaires complets uniquement/);
   assert.doesNotMatch(monthly, /Résolution visuelle|Chaque séance/);
+  assert.doesNotMatch(html, /analysis-source|Backtest historique|Données/);
 });
 
 test("daily presentation preserves every supplied observation and its anchor", () => {
@@ -276,4 +282,147 @@ test("native chart dates stay zero padded and benchmark color is stable", () => 
   assert.equal(timeKey({ year: 2026, month: 1, day: 5 }), "2026-01-05");
   assert.equal(timeKey("2026-01-05"), "2026-01-05");
   assert.equal(colorFor(BENCHMARK), "#8a97ab");
+});
+
+const versionFixture = {
+  id: "bt-current",
+  replay_at_utc: "2026-10-31T17:17:51Z",
+  snapshot_at_utc: "2026-10-31T16:11:44Z",
+  price_as_of_date: "2026-10-30",
+  start_date: "2011-08-01",
+  end_date: "2026-09-30",
+  last_close: "2026-09-30",
+  strategies: ["Boosting · Top 5", BENCHMARK],
+  cost_policy: { bps_times_turnover: 10 },
+  zero_cost_strategies: [],
+  composition_id: "c".repeat(64),
+  replay_git_commit: "a".repeat(40),
+};
+
+test("version controls expose economic dates, not the HTML date or technical cohorts", () => {
+  const html = renderedModule.exports.versions({
+    payload: {
+      generated_at_utc: "2026-11-22T00:00:00Z",
+      analysis: {
+        versions: {
+          current_version_id: versionFixture.id,
+          default_version_id: versionFixture.id,
+          entries: [versionFixture],
+        },
+      },
+      current_portfolio: { holding_month: "2026-10-01" },
+      recent_valuation: { latest_close: "2026-11-20" },
+    },
+  });
+  assert.match(html, /Version du backtest/);
+  assert.match(html, /Replay du 31 oct\. 2026/);
+  assert.match(html, /Historique calculé jusqu’au 30 sept\. 2026/);
+  assert.match(html, /Aucun rééquilibrage après ce mois/);
+  assert.match(html, /hors backtest/);
+  assert.doesNotMatch(html, /22 nov|analysis-source|monthly_reference/);
+});
+
+test("version navigation preserves the audit tab and never accepts an unregistered target", () => {
+  const versionHref = renderedModule.exports.versionHref;
+  const context = {
+    current_version_id: "bt-current",
+    default_version_id: "bt-current",
+    entries: [{ id: "bt-current" }, { id: "bt-old" }],
+  };
+  assert.equal(
+    versionHref(context, "bt-old", "http://127.0.0.1:8765/?report=ui#sources"),
+    "http://127.0.0.1:8765/backtest_performance_report.html?version=bt-old#sources",
+  );
+  assert.equal(
+    versionHref(
+      context,
+      "bt-old",
+      "file:///reports/run/backtest_performance_report.html#methodes",
+    ),
+    "file:///reports/run/versions/bt-old/backtest_performance_report.html#methodes",
+  );
+  assert.equal(
+    versionHref(
+      { ...context, current_version_id: "bt-old" },
+      "bt-current",
+      "file:///reports/run/versions/bt-old/backtest_performance_report.html#sources",
+    ),
+    "file:///reports/run/backtest_performance_report.html#sources",
+  );
+  assert.throws(
+    () => versionHref(context, "../../secret", "http://127.0.0.1:8765/"),
+    /absente du catalogue/,
+  );
+});
+
+test("a prior comparison cannot be shown under newly applied versions or dates", () => {
+  const query = {
+    left: "bt-current",
+    right: "bt-old",
+    start: "2026-01-01",
+    end: "2026-09-30",
+    frequency: "daily",
+  };
+  const result = {
+    left_version_id: query.left,
+    right_version_id: query.right,
+    requested_start: query.start,
+    requested_end: query.end,
+    frequency: query.frequency,
+  };
+  const matches = renderedModule.exports.comparisonMatches;
+  assert.equal(matches(result, query), true);
+  for (const [key, value] of [
+    ["left", "another"],
+    ["right", "another"],
+    ["start", "2026-02-01"],
+    ["end", "2026-08-31"],
+    ["frequency", "monthly"],
+  ])
+    assert.equal(matches(result, { ...query, [key]: value }), false);
+  assert.equal(matches(null, query), false);
+});
+
+test("version facts retain cost exceptions and comparator preserves undefined monthly risk", () => {
+  const facts = renderedModule.exports.versionFacts({
+    ...versionFixture,
+    zero_cost_strategies: ["Legacy · Equal"],
+  });
+  assert.match(facts, /Frais archivés nuls/);
+  assert.match(facts, /Legacy équipondéré/);
+  const html = renderedModule.exports.versionMetrics({
+    left: versionFixture,
+    right: { ...versionFixture, id: "bt-old" },
+    field: "annualized_volatility",
+    result: {
+      frequency: "monthly",
+      start_date: "2020-01-31",
+      end_date: "2026-09-30",
+      metrics: [
+        {
+          strategy: BENCHMARK,
+          left: { annualized_volatility: null },
+          right: { annualized_volatility: 0.15 },
+        },
+      ],
+      left_only_strategies: ["Sectorielle"],
+      right_only_strategies: [],
+      holdings: {
+        changed_positions: 2,
+        changed_baskets: 1,
+        by_month: [
+          {
+            holding_month: "2026-01-01",
+            strategy: BENCHMARK,
+            changed_positions: 2,
+          },
+        ],
+      },
+    },
+  });
+  assert.match(html, /12 observations\/an/);
+  assert.match(html, /<td>—<\/td>/);
+  assert.match(html, /Sectorielle/);
+  assert.match(html, /Un changement de titre compte une sortie et une entrée/);
+  assert.doesNotMatch(html, /252|quotidien/);
 });

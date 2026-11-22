@@ -5,6 +5,7 @@ import { AnnualTable, Correlations, KpiTable, ModelCards } from "./tables.jsx";
 import { Holdings, Methods, Sources } from "./audit.jsx";
 import { PeriodControls } from "./controls.jsx";
 import { CoverageNotice } from "./coverage.jsx";
+import { VersionBar, VersionComparison, versionHref } from "./versions.jsx";
 import {
   BENCHMARK,
   COMPOSED,
@@ -66,6 +67,8 @@ function useAnalysis(payload, query) {
     url.searchParams.set("start", query.start);
     url.searchParams.set("end", query.end);
     url.searchParams.set("source", query.source);
+    if (settings.versions?.current_version_id)
+      url.searchParams.set("version", settings.versions.current_version_id);
     query.sleeves.forEach((name) => url.searchParams.append("sleeve", name));
     if (query.frontier) url.searchParams.set("frontier", "1");
     setBusy(true);
@@ -85,6 +88,16 @@ function useAnalysis(payload, query) {
         if (!response.ok || result.error)
           throw new Error(
             result.error || `Échec du calcul (${response.status}).`,
+          );
+        if (
+          settings.versions?.current_version_id &&
+          (result.version_id !== settings.versions.current_version_id ||
+            result.source !== query.source ||
+            result.requested_start !== query.start ||
+            result.requested_end !== query.end)
+        )
+          throw new Error(
+            "Le moteur a répondu pour une autre version ou fenêtre ; aucun résultat n’est substitué.",
           );
         return result;
       })
@@ -254,16 +267,22 @@ function StrategySelector({
   );
 }
 
-function Analysis({ payload, dark }) {
+function Analysis({ payload, dark, followup = false }) {
   const settings = payload.analysis;
-  const sourceDefault = settings?.default_source || "history";
+  const sourceDefault = followup
+    ? "recent"
+    : settings?.default_source || "history";
   const [source, setSource] = useState(sourceDefault),
     [mode, setMode] = useState("compare"),
     [relative, setRelative] = useState(false),
     [resolution, setResolution] = useState("D1");
   const [period, setPeriod] = useState({
-    start: settings?.default_start || payload.calendar.start,
-    end: settings?.default_end || payload.calendar.end,
+    start: followup
+      ? settings.sources.recent.min_date
+      : settings?.default_start || payload.calendar.start,
+    end: followup
+      ? settings.sources.recent.max_date
+      : settings?.default_end || payload.calendar.end,
   });
   const [draft, setDraft] = useState(period),
     [formError, setFormError] = useState(null),
@@ -309,10 +328,6 @@ function Analysis({ payload, dark }) {
   };
   const changeSource = (value) => {
     setSource(value);
-    const bounds = settings.sources[value];
-    const next = { start: bounds.min_date, end: bounds.max_date };
-    setDraft(next);
-    setPeriod(next);
     setFormError(null);
   };
   const analyzeZoom = (range) => {
@@ -339,7 +354,11 @@ function Analysis({ payload, dark }) {
     <section className="analysis-view">
       <div className="analysis-heading">
         <div>
-          <h1>Analyse des performances</h1>
+          <h1>
+            {followup
+              ? "Suivi du panier archivé · hors backtest"
+              : "Analyse des performances"}
+          </h1>
           <p>
             Choisissez les stratégies et les dates. Comparez leur parcours au
             SPY sur la fenêtre choisie.
@@ -370,18 +389,22 @@ function Analysis({ payload, dark }) {
           ["compare", "Comparer"],
           ["composer", "Composer un portefeuille"],
           ["frontier", "Frontières efficientes"],
-        ].map(([value, label]) => (
-          <button
-            role="tab"
-            key={value}
-            aria-selected={mode === value}
-            className={mode === value ? "active" : ""}
-            data-analysis-mode={value}
-            onClick={() => setMode(value)}
-          >
-            {label}
-          </button>
-        ))}
+        ]
+          .filter(
+            ([value]) => value !== "frontier" || payload.strategy_frontiers,
+          )
+          .map(([value, label]) => (
+            <button
+              role="tab"
+              key={value}
+              aria-selected={mode === value}
+              className={mode === value ? "active" : ""}
+              data-analysis-mode={value}
+              onClick={() => setMode(value)}
+            >
+              {label}
+            </button>
+          ))}
       </div>
       {settings?.sources?.[source]?.warning && (
         <div className="source-notice recent-notice">
@@ -558,8 +581,20 @@ function Analysis({ payload, dark }) {
 }
 
 function App({ payload }) {
-  const [page, setPage] = useState("analyse"),
+  const [page, setPage] = useState(() => {
+      const selected = location.hash.slice(1);
+      return [
+        "analyse",
+        "portefeuilles",
+        "methodes",
+        "sources",
+        "versions",
+      ].includes(selected)
+        ? selected
+        : "analyse";
+    }),
     [dark, setDark] = useState(initialTheme);
+  const [followup, setFollowup] = useState(false);
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     try {
@@ -568,9 +603,7 @@ function App({ payload }) {
       /* Storage is optional for offline reports. */
     }
   }, [dark]);
-  const lastPrice =
-    payload.recent_valuation?.latest_close ||
-    payload.current_portfolio?.as_of_date;
+  const historyClose = payload.analysis?.sources?.history?.last_close;
   return (
     <div className="ar-app" data-theme={dark ? "dark" : "light"}>
       <a className="skip-link" href="#analysis-main">
@@ -590,6 +623,7 @@ function App({ payload }) {
             ["portefeuilles", "Portefeuilles"],
             ["methodes", "Méthodes"],
             ["sources", "Sources"],
+            ["versions", "Versions"],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -603,7 +637,9 @@ function App({ payload }) {
         </nav>
         <div className="header-actions">
           <span className="header-freshness">
-            Prix au {dateLabel(lastPrice)}
+            {historyClose
+              ? `Backtest au ${dateLabel(historyClose)}`
+              : `Historique ${dateLabel(payload.calendar?.end, { day: undefined })}`}
           </span>
           <button
             className="theme-button"
@@ -620,8 +656,29 @@ function App({ payload }) {
         </div>
       </header>
       <main id="analysis-main">
+        <VersionBar
+          payload={payload}
+          followup={followup}
+          onVersion={(identity) => {
+            const url = new URL(
+              versionHref(payload.analysis.versions, identity, location.href),
+            );
+            url.hash = page;
+            location.assign(url.href);
+          }}
+          onCompare={() => setPage("versions")}
+          onFollowup={() => {
+            setFollowup(!followup);
+            setPage("analyse");
+          }}
+        />
         <div hidden={page !== "analyse"}>
-          <Analysis payload={payload} dark={dark} />
+          <Analysis
+            key={followup ? "followup" : "history"}
+            payload={payload}
+            dark={dark}
+            followup={followup}
+          />
         </div>
         <div hidden={page !== "portefeuilles"}>
           <Holdings payload={payload} />
@@ -632,6 +689,7 @@ function App({ payload }) {
         <div hidden={page !== "sources"}>
           <Sources payload={payload} />
         </div>
+        {page === "versions" && <VersionComparison payload={payload} />}
       </main>
       <footer className="app-footer">
         <span>

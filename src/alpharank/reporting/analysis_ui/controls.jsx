@@ -24,23 +24,6 @@ export function PeriodControls({
         onApply(draft);
       }}
     >
-      <label className="source-picker">
-        Données
-        <select
-          id="analysis-source"
-          disabled={!settings}
-          value={source}
-          onChange={(event) => onSource(event.target.value)}
-        >
-          {Object.entries(
-            settings?.sources || { history: { label: "Backtest" } },
-          ).map(([value, description]) => (
-            <option key={value} value={value}>
-              {description.label || value}
-            </option>
-          ))}
-        </select>
-      </label>
       <div className="date-pair">
         <label>
           Début
@@ -92,10 +75,20 @@ export function PeriodControls({
           onApply(next);
         }}
       >
-        Tout l’historique
+        Toute la période
       </button>
       {monthly ? (
-        <span className="monthly-resolution">Mensuel · 12 observations/an</span>
+        <div className="monthly-resolution">
+          <span>Mensuel · 12 observations/an</span>
+          <button
+            className="text-action"
+            type="button"
+            id="return-daily"
+            onClick={() => onSource("history")}
+          >
+            Revenir au journalier
+          </button>
+        </div>
       ) : (
         <div
           className="resolution-control"

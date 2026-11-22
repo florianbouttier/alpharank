@@ -28,6 +28,16 @@ model cards, composition et frontières. Les onglets Portefeuilles, Méthodes et
 Sources gardent toutes les informations d'audit, sans obliger à redescendre une
 longue page. Les HTML déjà archivés restent inchangés.
 
+Le sélecteur global **Version du backtest** pilote l'ensemble du rapport :
+analyse, portefeuilles, méthodes et sources. Il propose les vrais runs du
+catalogue, pas les refontes du HTML. La dernière date de performance est visible
+à côté du sélecteur ; la date de prix d'un suivi ne la remplace jamais.
+Début/fin et Jour/Semaine/Mois restent des réglages de lecture dans la version.
+L'onglet Versions expose les dates du replay central, du snapshot, de ses prix,
+le code, les frais et les exceptions, puis la comparaison de deux archives
+aux mêmes dates. Les chiffres et les fiches restent attachés à la dernière
+comparaison appliquée quand le formulaire est modifié.
+
 La sélection par familles et recherche est explicite ; seules les stratégies
 cochées et SPY apparaissent dans les mesures et graphiques. SPY est fixe.
 Les deux Boosting Top 5 sont la sélection initiale lorsqu'ils existent.
@@ -165,9 +175,10 @@ drawdown avec capital initial. Ils peuvent différer des anciens risques
 mensuels, même lorsque le rendement total est identique. Les jours positifs et
 VaR/CVaR sont bien journaliers ; ils ne sont pas étiquetés « mois ».
 
-Le mode Backtest conserve l'historique réalisé net de frais. Le mode Suivi
-récent conserve séparément les prix des paniers figés, bruts de frais ; un
-maintien au-delà du mois prévu est hypothétique. Aucun suivi récent n'est
+L'analyse affiche par défaut l'historique réalisé net de frais. Le suivi du
+panier archivé est une action séparée dans le contexte de version, intitulée
+« hors backtest » ; il conserve les prix des paniers figés, bruts de frais.
+Un maintien au-delà du mois prévu est hypothétique. Aucun suivi récent n'est
 ajouté aux rendements mensuels historiques ou présenté comme un nouveau signal.
 
 Le résumé répond au rendement, CAGR, volatilité, max drawdown, pire année,
@@ -195,10 +206,13 @@ poches du simplex définissent cette sélection ; dans Composer, les poches
 cochées la définissent. Les références complètes, notamment SPY, restent
 affichées même si aucun mélange n'est quotidiennement optimisable.
 
-La source distincte **Référence mensuelle · repli** mesure les rendements
+La lecture **Référence mensuelle · repli** de la même version mesure les rendements
 mensuels déjà scellés selon le
 [contrat commun](common_portfolio_backtest_engine.md#sealed-monthly-reference-report-028).
 Son activation est volontaire, jamais automatique à la première donnée manquante.
+Elle est proposée dans le diagnostic de couverture, pas dans un menu de versions
+ou un sélecteur technique « Données ». L'action « Revenir au journalier » garde
+les bornes choisies ; elle ne réinitialise pas la période à tout l'historique.
 Elle conserve les portefeuilles et le snapshot mais ne crée aucun prix quotidien
 et ne corrige pas les anciennes hypothèses de valorisation terminale.
 
@@ -362,7 +376,7 @@ impose les poids dérivés depuis l'entrée, les dates communes à SPY et le lib
 refresh complet des entrées modèles, ni le contrôle inter-vintages obligatoire
 lors d'un tel refresh.
 
-Dans le même studio, le mode « Suivi récent » choisit une fenêtre datée et les
+Dans le même studio, le suivi séparé du panier archivé choisit une fenêtre datée et les
 mêmes courbes que le comparateur. Performance, drawdown quotidien et richesse
 relative au SPY sont pré-calculés par le moteur portefeuille ; le survol donne
 le jour exact. Les KPI de ce suivi utilisent la fréquence quotidienne et
@@ -451,6 +465,11 @@ de fenêtre dans le vrai service et le navigateur, build React verrouillé,
 validation documentaire et contrôle des licences embarquées. La QA vérifie
 dates de milieu de mois, base 1, journalier, composition, frontières, source
 récente distincte, erreurs sans chiffres périmés, archives complètes et mobile.
+Elle vérifie aussi le passage aller-retour entre versions dans tous les onglets,
+l'identifiant envoyé et reçu par l'API, la comparaison quotidienne/mensuelle,
+ses exceptions de frais et le refus d'une borne hors couverture sans ancien
+chiffre substitué. Un ancien run sans frontière ne propose pas une politique
+inventée et son archive mensuelle reste lisible.
 Un build consommateur est requis si ce consommateur change ; une tâche locale
 ne modifie pas Portfolio. L'artefact généré reste ignoré par Git dans AlphaRank ; son run,
 son snapshot, ses hashes et son statut sont conservés dans un rapport daté sous
