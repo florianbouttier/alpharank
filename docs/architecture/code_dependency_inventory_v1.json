@@ -1654,6 +1654,11 @@
     },
     {
       "kind": "import",
+      "source": "scripts/research/build_daily_performance_report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/version_catalog.py"
+    },
+    {
+      "kind": "import",
       "source": "scripts/research/compare_legacy_input_ablation.py",
       "target": "src/alpharank/strategy/legacy.py"
     },
@@ -4499,18 +4504,28 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/report.py",
+      "target": "src/alpharank/reporting/strategy_analysis/versions.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/server.py",
       "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/server.py",
-      "target": "src/alpharank/reporting/strategy_analysis/report.py"
+      "target": "src/alpharank/reporting/strategy_analysis/service.py"
     },
     {
       "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/server.py",
-      "target": "src/alpharank/reporting/strategy_analysis/service.py"
+      "target": "src/alpharank/reporting/strategy_analysis/version_catalog.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/server.py",
+      "target": "src/alpharank/reporting/strategy_analysis/versions.py"
     },
     {
       "kind": "import",
@@ -4531,6 +4546,41 @@
       "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/service.py",
       "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+      "target": "src/alpharank/reporting/strategy_analysis/report.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+      "target": "src/alpharank/reporting/strategy_analysis/versions.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/versions.py",
+      "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/versions.py",
+      "target": "src/alpharank/reporting/strategy_analysis/dataset.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/versions.py",
+      "target": "src/alpharank/reporting/strategy_analysis/service.py"
     },
     {
       "kind": "import",
@@ -6831,7 +6881,8 @@
       "has_main_guard": true,
       "imports": [
         "src/alpharank/reporting/strategy_analysis/dataset.py",
-        "src/alpharank/reporting/strategy_analysis/report.py"
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/version_catalog.py"
       ],
       "invokes": [],
       "layer": "script",
@@ -9248,7 +9299,9 @@
         "src/alpharank/reporting/performance_report.py",
         "src/alpharank/reporting/strategy_analysis/dataset.py",
         "src/alpharank/reporting/strategy_analysis/index.py",
-        "src/alpharank/reporting/strategy_analysis/report.py"
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+        "src/alpharank/reporting/strategy_analysis/versions.py"
       ]
     },
     {
@@ -11237,7 +11290,9 @@
         "src/alpharank/reporting/strategy_analysis/coverage.py",
         "src/alpharank/reporting/strategy_analysis/report.py",
         "src/alpharank/reporting/strategy_analysis/server.py",
-        "src/alpharank/reporting/strategy_analysis/service.py"
+        "src/alpharank/reporting/strategy_analysis/service.py",
+        "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+        "src/alpharank/reporting/strategy_analysis/versions.py"
       ]
     },
     {
@@ -11264,7 +11319,8 @@
         "src/alpharank/reporting/_performance_report_html.py",
         "src/alpharank/reporting/strategy_analysis/dataset.py",
         "src/alpharank/reporting/strategy_analysis/index.py",
-        "src/alpharank/reporting/strategy_analysis/service.py"
+        "src/alpharank/reporting/strategy_analysis/service.py",
+        "src/alpharank/reporting/strategy_analysis/versions.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -11275,7 +11331,7 @@
         "scripts/research/build_daily_performance_report.py",
         "src/alpharank/reporting/performance_followup.py",
         "src/alpharank/reporting/performance_report.py",
-        "src/alpharank/reporting/strategy_analysis/server.py"
+        "src/alpharank/reporting/strategy_analysis/version_catalog.py"
       ]
     },
     {
@@ -11283,8 +11339,9 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/reporting/strategy_analysis/dataset.py",
-        "src/alpharank/reporting/strategy_analysis/report.py",
-        "src/alpharank/reporting/strategy_analysis/service.py"
+        "src/alpharank/reporting/strategy_analysis/service.py",
+        "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+        "src/alpharank/reporting/strategy_analysis/versions.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -11312,7 +11369,46 @@
       "readers": [
         "src/alpharank/reporting/strategy_analysis/__init__.py",
         "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/server.py",
+        "src/alpharank/reporting/strategy_analysis/versions.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/versions.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.version_catalog",
+      "path": "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+      "readers": [
+        "scripts/research/build_daily_performance_report.py",
         "src/alpharank/reporting/strategy_analysis/server.py"
+      ]
+    },
+    {
+      "declared_public_entrypoint": false,
+      "has_main_guard": false,
+      "imports": [
+        "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/service.py"
+      ],
+      "invokes": [],
+      "layer": "library",
+      "lifecycle": "active",
+      "module": "alpharank.reporting.strategy_analysis.versions",
+      "path": "src/alpharank/reporting/strategy_analysis/versions.py",
+      "readers": [
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/server.py",
+        "src/alpharank/reporting/strategy_analysis/version_catalog.py"
       ]
     },
     {
@@ -11700,9 +11796,9 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 165,
-    "internal_edge_count": 901,
-    "library_count": 252,
-    "python_file_count": 424,
+    "internal_edge_count": 911,
+    "library_count": 254,
+    "python_file_count": 426,
     "script_count": 172,
     "unread_node_count": 171
   }

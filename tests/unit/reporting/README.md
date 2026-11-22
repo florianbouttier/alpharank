@@ -11,6 +11,9 @@ sont vérifiées séparément dans Chrome avec le service et le moteur Python.
 
 Le service teste aussi l'audit titre/séance, la source de repli mensuelle,
 le refus d'un arrondi silencieux et la proposition de mois complets inclus.
+Il vérifie aussi l'identité économique indépendante du rendu, les versions
+capturées sans écrasement, leurs hashes/chemins, les requêtes liées à une
+version et les comparaisons aux mêmes dates sans recadrage caché.
 
 L'explorateur SEC est testé sur un petit run synthétique : conservation des
 versions amendées, scellement de l'identifiant de run, hashes, payload autonome

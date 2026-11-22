@@ -23,6 +23,8 @@ Commandes :
   nouveau HTML daté ; aucun téléchargement, signal ou replay implicite.
 - `build_daily_performance_report.py` reconstruit le HTML React complet depuis
   un rapport scellé explicitement choisi, en vérifiant les prix du même snapshot.
+  `--archive-report` est répétable et capture de vraies versions économiques
+  dans un catalogue immuable ; une refonte UI n'est pas une nouvelle version.
 - `serve_performance_report.py --report-dir <run>` sert ce rapport et le moteur
   Python de fenêtres libres, sur `127.0.0.1:8765` uniquement. Le service est en
   lecture seule, sans accès fournisseur ni exécution de modèle ou d'ordre.

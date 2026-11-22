@@ -19,6 +19,7 @@ from alpharank.reporting.strategy_analysis.dataset import (
 )
 from alpharank.reporting.strategy_analysis.index import publish_report_index
 from alpharank.reporting.strategy_analysis.service import AnalysisQuery, query_analysis
+from alpharank.reporting.strategy_analysis.versions import backtest_version
 
 
 def write_daily_analysis_report(
@@ -27,6 +28,7 @@ def write_daily_analysis_report(
     output_dir: Path,
     generated_at_utc: datetime,
     source_report: Path | None = None,
+    version_context: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     """Preserve the full historical payload and add source-backed daily capabilities."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -36,7 +38,14 @@ def write_daily_analysis_report(
     if generated_at_utc.tzinfo is None:
         raise ValueError("Report generation time must include a timezone.")
     dataset = prepare_analysis_dataset(payload)
-    combined = _daily_payload(dataset, generated_at_utc)
+    if version_context is None:
+        version = backtest_version(dataset, source_report=source_report)
+        version_context = {
+            "current_version_id": version["id"],
+            "default_version_id": version["id"],
+            "entries": [version],
+        }
+    combined = _daily_payload(dataset, generated_at_utc, version_context)
     artifacts = _write_ledgers(dataset, output_dir)
     report.write_text(render_performance_report_html(combined), encoding="utf-8")
     manifest, report_manifest = _write_manifests(
@@ -51,7 +60,9 @@ def write_daily_analysis_report(
     }
 
 
-def _daily_payload(dataset: AnalysisDataset, generated_at_utc: datetime) -> dict[str, Any]:
+def _daily_payload(
+    dataset: AnalysisDataset, generated_at_utc: datetime, version_context: dict[str, Any]
+) -> dict[str, Any]:
     source = dataset.sources["history"]
     end = date.fromisoformat(source["max_date"])
     start = max(date.fromisoformat(source["min_date"]), date(end.year, 1, 1))
@@ -65,6 +76,7 @@ def _daily_payload(dataset: AnalysisDataset, generated_at_utc: datetime) -> dict
             "default_start": start.isoformat(),
             "default_end": end.isoformat(),
             "sources": dataset.sources,
+            "versions": version_context,
             "initial_view": initial,
             "coverage": dataset.history.coverage if dataset.history is not None else {},
             "price_gaps": [

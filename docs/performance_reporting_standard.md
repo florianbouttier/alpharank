@@ -69,6 +69,45 @@ Sur mobile, la sélection se replie et les tables défilent localement. La page
 reste complète, sans débordement global. Labels, focus clavier, états de
 sélection, contrastes et thèmes clair/sombre font partie de la validation.
 
+### Versions économiques et catalogue (`REPORT-030`)
+
+Une version correspond à un ensemble cohérent de runs, snapshot, code,
+configuration, stratégies, positions, frais et résultats scellés. Sa clé
+économique ne dépend ni de la date de rendu du HTML, ni de son style, ni d'une
+valorisation ultérieure d'un panier figé. Un téléchargement de prix destiné
+seulement au suivi n'est donc pas un nouveau backtest.
+
+Le générateur reçoit la version par défaut avec `--source-report` et les
+archives explicitement retenues avec `--archive-report`, répétable. Il produit
+un nouveau dossier immuable contenant les rapports complets, leurs ledgers,
+leurs manifestes et `versions_catalog.json`. Il ne modifie pas les anciens
+rapports. Aucune découverte par nom de dossier, récence ou pointeur de données
+mutable ne remplace cette liste. Deux rendus de la même version sont refusés
+comme doublon économique.
+
+Le catalogue lie les chemins relatifs et les hashes des HTML et manifestes.
+Le service vérifie ces liens, les identités économiques et la cohérence des
+métadonnées embarquées avant d'ouvrir son port local. `?version=<identifiant>`
+choisit uniquement une version déjà capturée ; chaque requête API porte le
+même identifiant. Le catalogue complet doit être servi depuis son dossier
+racine, pas depuis une de ses archives enfants isolée.
+
+`/api/version-comparison` appelle le moteur commun sur les **mêmes dates
+demandées et effectives**, avec la même fréquence quotidienne ou mensuelle.
+Une borne hors couverture ou un calendrier effectif différent est refusé,
+jamais recadré silencieusement. Le suivi hypothétique n'entre pas dans cette
+comparaison. Les seules stratégies communes sont comparées, les autres sont
+nommées ; les titres/poids cibles différents sont comptés par panier/mois.
+Ces rapprochements d'archives ne sont ni un réentraînement, ni l'audit causal
+inter-vintages exigé lors d'un refresh.
+
+Les différences de snapshot, code, conventions et frais sont visibles : une
+différence n'est jamais attribuée automatiquement aux seules données. Les
+archives sans politique de frontière ne reçoivent pas une politique inventée.
+Date du replay central, date du snapshot, dernière séance prix et fin de
+performance restent quatre repères distincts ; un rendu du 22 novembre ne
+transforme pas un backtest arrêté au 30 septembre en backtest de novembre.
+
 ## Entrées obligatoires
 
 Le générateur reçoit quatre chemins explicites :
@@ -393,6 +432,7 @@ sans téléchargement ni relance des modèles :
 ```bash
 python scripts/research/build_daily_performance_report.py \
   --source-report outputs/performance_reports/<source>/backtest_performance_report.html \
+  --archive-report outputs/performance_reports/<ancienne-version>/backtest_performance_report.html \
   --output-dir outputs/performance_reports/<nouveau-run>
 python scripts/research/serve_performance_report.py \
   --report-dir outputs/performance_reports/<nouveau-run> --port 8765

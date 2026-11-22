@@ -9,19 +9,29 @@ from pathlib import Path
 
 from alpharank.reporting.strategy_analysis.dataset import read_performance_payload
 from alpharank.reporting.strategy_analysis.report import write_daily_analysis_report
+from alpharank.reporting.strategy_analysis.version_catalog import write_analysis_collection
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-report", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--archive-report", type=Path, action="append", default=[])
     args = parser.parse_args()
-    paths = write_daily_analysis_report(
-        read_performance_payload(args.source_report),
-        output_dir=args.output_dir,
-        generated_at_utc=datetime.now(timezone.utc),
-        source_report=args.source_report,
-    )
+    if args.archive_report:
+        paths = write_analysis_collection(
+            args.source_report,
+            archive_reports=args.archive_report,
+            output_dir=args.output_dir,
+            generated_at_utc=datetime.now(timezone.utc),
+        )
+    else:
+        paths = write_daily_analysis_report(
+            read_performance_payload(args.source_report),
+            output_dir=args.output_dir,
+            generated_at_utc=datetime.now(timezone.utc),
+            source_report=args.source_report,
+        )
     print("Rapport HTML complet :", paths["report"])
     print("Manifeste journalier :", paths["analysis_manifest"])
     return 0

@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-11-21.**
+**Dernière mise à jour : 2026-11-22.**
 
 **Statut : seule source des priorités actives.**
 
@@ -151,6 +151,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 112 | `REPORT-028` | expliquer les trous et fournir un repli mensuel scellé explicite | lot REPORT ci-dessous | fait |
 | 113 | `REPORT-029` | exposer le diagnostic et le repli dans le rapport complet | lot REPORT ci-dessous | fait |
 | 114 | `DATA-048` | rapprocher les sorties terminales scellées de leurs contreparties sourcées | lot DATA ci-dessous | à faire |
+| 115 | `REPORT-030` | capturer un catalogue explicite de versions économiques du backtest | lot REPORT ci-dessous | fait |
+| 116 | `REPORT-031` | naviguer et comparer les versions sans sélecteur de données techniques | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1365,6 +1367,39 @@ doublons exacts et preuve de récupération.
 | `REPORT-027` | distinguer les politiques de composition historique et récente à l'écran | fait | helper commun aux trois textes, six tests JS et QA Chrome réelle ; aucun calcul modifié |
 | `REPORT-028` | rendre les risques indisponibles explicables et réutiliser la référence mensuelle | fait | 120 tests, audit titre/séance/poche, 2 366 rendements rapprochés et mode mensuel explicite ; UI suivie dans `REPORT-029`, dette terminale dans `DATA-048` |
 | `REPORT-029` | livrer le diagnostic de couverture et le repli lisible dans le dashboard | fait | HTML complet `3e496314…d66d`, audit des trous, références seules et repli opt-in, 154 tests Python/11 JS et QA réelle desktop/mobile ; preuve canonique de recherche |
+| `REPORT-030` | capturer et servir des versions complètes liées aux vrais runs | fait | trois vintages économiques du 8/24/31 octobre, catalogue `2621a7d3…524d`, payloads conservés, comparaison aux mêmes bornes ; 144 tests portefeuille/reporting et preuve canonique datée |
+| `REPORT-031` | remplacer le choix de sources par la navigation entre versions | à faire | sélecteur global, couverture réelle, historique par défaut, suivi du panier archivé séparé, comparaison de versions et livraison du HTML complet sans perte d'information |
+
+### Versions de backtest `REPORT-030` / `REPORT-031`
+
+- **Demande** : choisir une version du backtest, pas une source technique pour
+  réussir à lire sa performance ; les anciennes versions restent intactes.
+- **REPORT-030 — périmètre** : capture de rapports source explicitement nommés,
+  identité économique stable, catalogue de versions hashées, CLI et API locale
+  de navigation/comparaison. La version regroupe snapshot, code/configuration,
+  stratégies, portefeuilles, frais et résultats ; la date de rendu n'est pas
+  la date du calcul modèle. Aucun parcours de dossiers par récence.
+- **REPORT-030 — acceptation** : références et hashes vérifiés, identifiants
+  uniques, version par défaut explicite, rejet d'un chemin/hash/version invalide.
+  Les requêtes restent liées à leur version ; les comparaisons utilisent les
+  mêmes bornes et fréquence, sans recadrage ni interprétation data-only implicite.
+  Un rapport sans frontière ne reçoit pas de politique inventée.
+- **REPORT-031 — périmètre** : composants React partagés, libellés, tests et
+  rapport complet. Le sélecteur global de version pilote aussi méthodes,
+  positions et sources ; début/fin et résolution restent des réglages de lecture.
+- **REPORT-031 — acceptation** : historique net affiché par défaut avec sa vraie
+  dernière date ; repli mensuel volontaire dans le diagnostic, suivi du panier
+  archivé explicitement séparé, jamais assimilé au portefeuille du mois suivant.
+  Anciennes versions consultables et comparables, limites de frais/méthodes
+  visibles, toutes les fonctionnalités existantes préservées.
+- **Validations** : régressions avant correctif, parité des champs économiques et
+  ledgers, sécurité API, comparaison aux moteurs directs, tests UI, QA réelle
+  desktop/mobile, contrôles documentaires, liens et inventaires.
+- **Hors périmètre/impact** : aucun téléchargement, entraînement, promotion,
+  nouvelle décision de novembre ou correction terminale `DATA-048`. Ce lot ne
+  prétend pas actualiser un backtest arrêté en septembre jusqu'à novembre.
+- **Rollback** : resservir `REPORT-029` et ses artefacts immuables ; aucun ancien
+  rapport, dataset, snapshot ou journal n'est remplacé ou supprimé.
 
 ### Couverture et repli `REPORT-028` / `REPORT-029`
 

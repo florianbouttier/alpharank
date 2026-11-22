@@ -83,11 +83,10 @@ def query_analysis(dataset: AnalysisDataset, query: AnalysisQuery) -> dict[str, 
         )
         view["correlations"]["frequency"] = frequency
     if query.frontier:
-        names = tuple(dataset.payload["strategy_frontiers"]["strategy_order"])
-        view["frontier"] = daily_strategy_frontier(
+        view["frontier"] = _frontier_view(
+            dataset,
             ledger,
-            names,
-            period=DailyFrontierPeriod(
+            DailyFrontierPeriod(
                 query.start, query.end, dataset.benchmark_strategy, policy, frequency
             ),
         )
@@ -108,3 +107,14 @@ def query_analysis(dataset: AnalysisDataset, query: AnalysisQuery) -> dict[str, 
     )
     view["source"] = query.source
     return view
+
+
+def _frontier_view(
+    dataset: AnalysisDataset, ledger: pl.DataFrame, period: DailyFrontierPeriod
+) -> dict[str, Any]:
+    policy = dataset.payload.get("strategy_frontiers")
+    if not policy:
+        raise ValueError(
+            "Cette version n'archive pas de politique de frontière ; aucune n'est inventée."
+        )
+    return daily_strategy_frontier(ledger, tuple(policy["strategy_order"]), period=period)

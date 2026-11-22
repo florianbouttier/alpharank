@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
+import gzip
 import json
+import re
 from copy import deepcopy
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -24,6 +27,11 @@ from alpharank.reporting.strategy_analysis.report import (
     write_daily_analysis_report,
 )
 from alpharank.reporting.strategy_analysis.server import create_analysis_server
+from alpharank.reporting.strategy_analysis.version_catalog import (
+    load_analysis_collection,
+    write_analysis_collection,
+)
+from alpharank.reporting.strategy_analysis.versions import backtest_version
 
 BENCHMARK = "SPY · Total return"
 
@@ -244,3 +252,179 @@ def test_http_viewer_returns_exact_queries_and_rejects_unsafe_or_invalid_request
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def _version_report(tmp_path: Path, name: str, ending_price: float) -> Path:
+    directory = tmp_path / name
+    directory.mkdir()
+    payload = _payload(directory)
+    source = directory / "snapshot" / "US_Finalprice.parquet"
+    pl.read_parquet(source).with_columns(
+        pl.when(pl.col("date") == "2026-02-27")
+        .then(pl.lit(ending_price))
+        .otherwise(pl.col("adjusted_close"))
+        .alias("adjusted_close")
+    ).write_parquet(source)
+    manifest_path = directory / "snapshot" / "snapshot_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["output_sha256"][source.name] = sha256_path(source)
+    manifest_path.write_text(json.dumps(manifest))
+    payload["lineage"]["source_files"][0]["sha256"] = sha256_path(manifest_path)
+    for row in payload["monthly"]:
+        if row["strategy"] != BENCHMARK:
+            row["net_return"] = ending_price / 100 - 1 - 0.001
+    for row in payload["holdings"]:
+        row["realized_return"] = ending_price / 100 - 1
+    return write_daily_analysis_report(
+        payload, output_dir=directory / "report", generated_at_utc=datetime.now(timezone.utc)
+    )["report"]
+
+
+def test_economic_version_ignores_ui_time_and_frozen_price_followup(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    dataset = prepare_analysis_dataset(payload)
+    identity = backtest_version(dataset)
+    payload["generated_at_utc"] = "2026-11-22T00:00:00+00:00"
+    payload["analysis"] = {"cosmetic_revision": "another render"}
+    payload["recent_valuation"] = {"latest_close": "2026-11-20"}
+    assert backtest_version(dataset)["id"] == identity["id"]
+    payload["lineage"]["replay_git_commit"] = "a" * 40
+    assert backtest_version(dataset)["id"] != identity["id"]
+
+
+def test_version_catalog_keeps_archives_and_rejects_duplicate_economic_versions(
+    tmp_path: Path,
+) -> None:
+    old = _version_report(tmp_path, "old", 110.0)
+    current = _version_report(tmp_path, "current", 120.0)
+    hashes = [sha256_path(old), sha256_path(current)]
+    paths = write_analysis_collection(
+        current,
+        archive_reports=[old],
+        output_dir=tmp_path / "collection",
+        generated_at_utc=datetime.now(timezone.utc),
+    )
+    collection = load_analysis_collection(paths["report"].parent)
+    assert len(collection.datasets) == 2
+    assert (
+        collection.default_version_id
+        == backtest_version(load_analysis_report(current.parent))["id"]
+    )
+    assert [sha256_path(old), sha256_path(current)] == hashes
+    for dataset in collection.datasets.values():
+        assert len(dataset.payload["analysis"]["versions"]["entries"]) == 2
+    catalog = json.loads(paths["versions_catalog"].read_text())
+    child = next(
+        entry for entry in catalog["entries"] if entry["id"] != catalog["default_version_id"]
+    )
+    with pytest.raises(ValueError, match="root catalog"):
+        load_analysis_collection((paths["report"].parent / child["report"]["path"]).parent)
+    with pytest.raises(ValueError, match="Duplicate economic"):
+        write_analysis_collection(
+            current,
+            archive_reports=[current],
+            output_dir=tmp_path / "duplicate",
+            generated_at_utc=datetime.now(timezone.utc),
+        )
+    with pytest.raises(ValueError, match="overwrite"):
+        write_analysis_collection(
+            current,
+            archive_reports=[old],
+            output_dir=tmp_path / "collection",
+            generated_at_utc=datetime.now(timezone.utc),
+        )
+
+
+def test_version_catalog_rejects_a_modified_report_or_an_escaped_path(tmp_path: Path) -> None:
+    current = _version_report(tmp_path, "current", 120.0)
+    paths = write_analysis_collection(
+        current,
+        archive_reports=[],
+        output_dir=tmp_path / "collection",
+        generated_at_utc=datetime.now(timezone.utc),
+    )
+    path = paths["versions_catalog"]
+    catalog = json.loads(path.read_text())
+    original = deepcopy(catalog)
+    catalog["entries"][0]["report"]["path"] = "../outside.html"
+    path.write_text(json.dumps(catalog))
+    with pytest.raises(ValueError, match="path|SHA"):
+        load_analysis_collection(path.parent)
+    path.write_text(json.dumps(original))
+    paths["report"].write_text(paths["report"].read_text() + "changed")
+    with pytest.raises(ValueError, match="SHA"):
+        load_analysis_collection(path.parent)
+
+
+def test_version_api_binds_each_query_and_comparison_to_exact_captured_versions(
+    tmp_path: Path,
+) -> None:
+    old = _version_report(tmp_path, "old", 110.0)
+    current = _version_report(tmp_path, "current", 120.0)
+    paths = write_analysis_collection(
+        current,
+        archive_reports=[old],
+        output_dir=tmp_path / "collection",
+        generated_at_utc=datetime.now(timezone.utc),
+    )
+    server = create_analysis_server(paths["report"].parent, port=0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with urlopen(base + "/api/versions") as response:
+            catalog = json.load(response)
+        left, right = [entry["id"] for entry in catalog["entries"]]
+        assert catalog["default_version_id"] == left
+        query = "start=2026-02-03&end=2026-02-28"
+        for identity, expected in [(left, 1.199 / 0.899 - 1), (right, 1.099 / 0.899 - 1)]:
+            with urlopen(base + f"/api/analysis?{query}&version={identity}") as response:
+                result = json.load(response)
+            assert result["version_id"] == identity
+            assert result["series"]["Alpha"]["metrics"]["total_return"] == pytest.approx(expected)
+            with urlopen(
+                base + f"/backtest_performance_report.html?version={identity}"
+            ) as response:
+                assert identity.encode() in gzip.decompress(
+                    base64.b64decode(
+                        re.search(rb'const PAYLOAD_GZIP_BASE64="([^"]+)"', response.read())[1]
+                    )
+                )
+        route = f"/api/version-comparison?{query}&left={left}&right={right}"
+        with urlopen(base + route) as response:
+            comparison = json.load(response)
+        assert comparison["requested_start"] == "2026-02-03"
+        assert comparison["frequency"] == "daily"
+        alpha = next(row for row in comparison["metrics"] if row["strategy"] == "Alpha")
+        assert alpha["left"]["total_return"] > alpha["right"]["total_return"]
+        assert comparison["holdings"]["changed_positions"] == 0
+        with urlopen(
+            base
+            + f"/api/version-comparison?start=2026-02-01&end=2026-02-28&left={left}&right={right}&frequency=monthly"
+        ) as response:
+            monthly = json.load(response)
+        assert monthly["frequency"] == "monthly"
+        assert monthly["metrics"][0]["left"]["total_return"] == pytest.approx(0.199)
+        for route in [
+            f"/api/analysis?{query}&version=unknown",
+            f"/api/analysis?{query}&version={left}&version={right}",
+            f"/api/version-comparison?{query}&left={left}&right=unknown",
+            f"/api/version-comparison?start=2026-01-01&end=2026-02-28&left={left}&right={right}",
+            f"/api/version-comparison?{query}&left={left}&right={right}&source=recent",
+            f"/api/version-comparison?{query}&left={left}&right={right}&frequency=monthly",
+        ]:
+            with pytest.raises(HTTPError) as error:
+                urlopen(base + route)
+            assert error.value.code == 400
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_old_version_without_frontier_policy_does_not_invent_one(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    del payload["strategy_frontiers"]
+    dataset = prepare_analysis_dataset(payload)
+    with pytest.raises(ValueError, match="politique de frontière"):
+        query_analysis(dataset, AnalysisQuery(date(2026, 2, 1), date(2026, 2, 28), frontier=True))

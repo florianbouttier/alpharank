@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 647,
+  "node_count": 652,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -68,12 +68,17 @@
     "test_daily_analysis.py::test_two_constant_daily_returns_have_observed_zero_volatility",
     "test_daily_analysis.py::test_zero_weight_sleeve_does_not_introduce_a_spurious_missing_price",
     "test_daily_analysis_service.py::test_daily_writer_keeps_complete_payload_and_refuses_to_overwrite",
+    "test_daily_analysis_service.py::test_economic_version_ignores_ui_time_and_frozen_price_followup",
     "test_daily_analysis_service.py::test_http_viewer_returns_exact_queries_and_rejects_unsafe_or_invalid_requests",
     "test_daily_analysis_service.py::test_monthly_fallback_proposes_only_contained_complete_months",
     "test_daily_analysis_service.py::test_monthly_reference_is_explicit_and_does_not_fabricate_daily_prices",
     "test_daily_analysis_service.py::test_monthly_reference_never_rounds_partial_month_dates_silently",
+    "test_daily_analysis_service.py::test_old_version_without_frontier_policy_does_not_invent_one",
     "test_daily_analysis_service.py::test_preparation_rejects_price_hash_drift_instead_of_using_revised_quotes",
     "test_daily_analysis_service.py::test_service_uses_requested_daily_dates_and_preserves_all_source_fields",
+    "test_daily_analysis_service.py::test_version_api_binds_each_query_and_comparison_to_exact_captured_versions",
+    "test_daily_analysis_service.py::test_version_catalog_keeps_archives_and_rejects_duplicate_economic_versions",
+    "test_daily_analysis_service.py::test_version_catalog_rejects_a_modified_report_or_an_escaped_path",
     "test_data_location_inventory.py::test_canonical_pointer_and_legacy_prices_have_explicit_readers",
     "test_data_location_inventory.py::test_data_location_inventory_declares_current_files_packages_and_readers",
     "test_data_service.py::test_service_forwards_tickers_when_processing_fundamentals",
@@ -650,7 +655,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "e5db05ffd104a2eb3f7ce603447f0baeb4a5c12a99f26c131ffe0c82f4ef9050",
+  "node_ids_sha256": "d5103f1f9cc661d1a49cbba1f3684200fee55586a534f90ff51f54b95c5d9af7",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

@@ -884,3 +884,59 @@ en limitant le cache temporaire Chrome, sans suppression ; la QA finale est
 complète. Le volume Data du Mac ne dispose plus que d'environ 280 Mio libres :
 ce risque machine est distinct du calcul et aucun nettoyage utilisateur n'a été
 entrepris. Les régressions globales de taille préexistantes restent inchangées.
+
+## Catalogue des vrais backtests (`REPORT-030`, 22 novembre 2026)
+
+La navigation demandée porte sur les versions économiques, pas sur les refontes
+successives du HTML. Trois sources explicites sont capturées dans
+`outputs/performance_reports/REPORT-030_20261122_02/`, sans acquisition,
+entraînement, modification d'archive ou promotion :
+
+| Replay central | Identifiant stable | Snapshot | Séries | Positions historiques |
+| --- | --- | --- | ---: | ---: |
+| 31 octobre | `bt-c4b1904c147b215b` (défaut) | `e0e6045a…ef95a` | 13 | 25 310 |
+| 24 octobre | `bt-12c2fcb8f48eed8b` | `c340a9b4…8b7e` | 11 | 24 650 |
+| 8 octobre | `bt-1824905b20bc3f38` | `dbaac67b…e598` | 11 | 24 650 |
+
+Sources immuables, toutes sous `outputs/performance_reports/` :
+`REPORT-029_20261121/backtest_performance_report.html` (`3e496314…d66d`),
+`data_refresh_20261024/backtest_performance_report.html` (`d7b0a8c8…5105`) et
+`data_refresh_20261008_095842/backtest_performance_report.html` (`e4e9dfd2…1a92`).
+Les 38 références de lignée et les six fichiers prix sont hash-conformes ;
+la préparation quotidienne vérifie aussi les rapprochements mensuels.
+Les trois versions gardent leurs 182 mois d'août 2011 à septembre 2026.
+
+Chaque champ économique du payload source est identique après capture, hors
+date technique de rendu et enrichissement `analysis`. Les ledgers historique
+et récent de la version par défaut sont byte-identiques à `REPORT-029`.
+Les copies occupent de nouveaux dossiers, les anciens HTML restent intacts.
+Un rendu ou suivi du panier figé ne change pas l'identifiant économique ; le
+catalogue refuse de les compter comme deux backtests.
+
+Les API restent attachées à la version choisie. La comparaison impose les
+mêmes bornes demandées/effectives et la même fréquence ; ni recadrage caché,
+ni suivi hypothétique, ni politique de frontière absente inventée. Le cas réel
+janvier–septembre 2026 rapproche les 11 séries communes du 31/24 octobre et
+compte 639 clés de position/poids différentes dans 84 paniers. Il s'agit d'un
+rapprochement d'archives, pas d'un nouvel audit de causalité.
+
+Limites : Legacy Equal ancien conserve ses frais archivés nuls, contre
+10 pb × turnover dans la version unifiée ; les deux variantes sectorielles
+sont absentes des anciennes versions. Code/runtime, registre terminal et
+catalogue de paires ont aussi changé. Aucun écart n'est présenté comme
+« data-only » ; les trois versions restent de recherche, non promues.
+Le lot n'ajoute aucun portefeuille de novembre ni rendement récent à
+l'historique net. La navigation utilisateur est suivie dans `REPORT-031`.
+
+| Artefact | SHA-256 |
+| --- | --- |
+| HTML par défaut | `8cce59750cd63147720a58ce94ba25a645f5a883ff286abee42dc4bb6ad1efce` |
+| manifeste d'analyse | `0c8094a6cc860dd8a853a7995186d8e5f6dbfd25df1cb67c7cc44e47d5a42697` |
+| catalogue de versions | `2621a7d333baff19f66b566635d3d1cc3aeb4b126f173c423051739d3c6c524d` |
+
+Validation : 144 tests portefeuille/reporting réussis, dont identité,
+immuabilité, doublons économiques, hashes/chemins, routing HTTP, comparaison
+quotidienne/mensuelle aux dates exactes, absence de frontière et rejet d'une
+requête hors couverture. Ruff/complexité, mypy des neuf modules, documentation,
+liens et inventaires contrôlés. Les huit régressions globales de taille déjà
+signalées restent hors des fichiers modifiés ; aucune nouvelle n'est ajoutée.
