@@ -1769,3 +1769,10 @@ body {
     transition: none !important;
   }
 }
+.estimate-tag {
+  display: block;
+  color: #93600b;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}

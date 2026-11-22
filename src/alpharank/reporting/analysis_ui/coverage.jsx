@@ -11,6 +11,11 @@ export function CoverageNotice({ data, names, onMonthlyFallback, busy }) {
   const incomplete = names.filter(
     (name) => (data.series?.[name]?.coverage?.missing_closes || 0) > 0,
   );
+  const estimated =
+    !monthly && data.valuation_policy === "last_observed_mark_v1";
+  const reconciliation = (data.valuation_reconciliation || []).filter((row) =>
+    selected.has(row.strategy),
+  );
   if (!monthly && !gaps.length && !incomplete.length) return null;
   const fallback = data.monthly_fallback;
   return (
@@ -20,38 +25,49 @@ export function CoverageNotice({ data, names, onMonthlyFallback, busy }) {
           <h2>
             {monthly
               ? "Référence mensuelle active"
-              : "Pourquoi des mesures sont absentes"}
+              : estimated
+                ? "Valorisations et risques estimés"
+                : "Pourquoi des mesures sont absentes"}
           </h2>
           <p>
             {monthly
               ? "Rendements mensuels scellés, 12 observations/an. Ce repli ne crée aucun prix quotidien et ne corrige pas les anciennes hypothèses de valorisation terminale."
-              : "Une clôture ajustée absente laisse un trou : le risque du parcours quotidien n’est pas observable. Aucune valeur de sortie ou de CVR n’est supposée."}
+              : estimated
+                ? "Le titre sans cours conserve son dernier cours connu ; les autres continuent à varier. Les mesures sont calculées sous cette hypothèse : ce n’est ni un cours observé ni une vente garantie."
+                : "Une clôture ajustée absente laisse un trou : le risque du parcours quotidien n’est pas observable. Aucune valeur de sortie ou de CVR n’est supposée."}
           </p>
         </div>
-        {!monthly && fallback?.available && fallback.start && fallback.end && (
-          <button
-            className="secondary-button fallback-button"
-            id="apply-monthly-fallback"
-            disabled={busy}
-            onClick={() => onMonthlyFallback(fallback)}
-          >
-            Utiliser la référence mensuelle
-            <span>
-              {dateLabel(fallback.start)} – {dateLabel(fallback.end)}
-              {fallback.period_changed
-                ? " · bornes modifiées"
-                : " · mêmes bornes"}
-            </span>
-          </button>
-        )}
+        {!monthly &&
+          !estimated &&
+          fallback?.available &&
+          fallback.start &&
+          fallback.end && (
+            <button
+              className="secondary-button fallback-button"
+              id="apply-monthly-fallback"
+              disabled={busy}
+              onClick={() => onMonthlyFallback(fallback)}
+            >
+              Utiliser la référence mensuelle
+              <span>
+                {dateLabel(fallback.start)} – {dateLabel(fallback.end)}
+                {fallback.period_changed
+                  ? " · bornes modifiées"
+                  : " · mêmes bornes"}
+              </span>
+            </button>
+          )}
       </div>
-      {!monthly && fallback?.available && fallback.period_changed && (
-        <p className="fallback-period-note">
-          Seuls les mois calendaires complets inclus sont proposés. Les dates
-          affichées dans le bouton seront appliquées uniquement à votre clic.
-        </p>
-      )}
-      {!monthly && fallback && !fallback.available && (
+      {!monthly &&
+        !estimated &&
+        fallback?.available &&
+        fallback.period_changed && (
+          <p className="fallback-period-note">
+            Seuls les mois calendaires complets inclus sont proposés. Les dates
+            affichées dans le bouton seront appliquées uniquement à votre clic.
+          </p>
+        )}
+      {!monthly && !estimated && fallback && !fallback.available && (
         <p className="fallback-period-note">
           Aucun mois complet dans cette fenêtre. Élargissez explicitement les
           dates pour disposer d’une référence mensuelle.
@@ -60,7 +76,7 @@ export function CoverageNotice({ data, names, onMonthlyFallback, busy }) {
       <details className="coverage-warning" id="price-gap-audit">
         <summary>
           {gaps.length
-            ? `${gaps.length} ligne(s) titre / poche à examiner${monthly ? " dans le journalier strict" : " dans la sélection"}`
+            ? `${gaps.length} ligne(s) titre / poche ${estimated ? "avec repli" : "à examiner"}${monthly ? " dans le journalier strict" : " dans la sélection"}`
             : "Détail de la couverture"}
         </summary>
         {incomplete.length > 0 && (
@@ -81,6 +97,7 @@ export function CoverageNotice({ data, names, onMonthlyFallback, busy }) {
                   <th>Titre</th>
                   <th>Poche</th>
                   <th>Mois détenu</th>
+                  {estimated && <th>Dernier cours conservé</th>}
                   <th>Séances sans prix</th>
                   <th>Poids cible</th>
                   <th>Dates exactes</th>
@@ -99,6 +116,11 @@ export function CoverageNotice({ data, names, onMonthlyFallback, busy }) {
                         month: "long",
                       })}
                     </td>
+                    {estimated && (
+                      <td>
+                        <MarkDetails marks={row.marks || []} />
+                      </td>
+                    )}
                     <td>
                       {row.missing_sessions}
                       <small>
@@ -130,12 +152,69 @@ export function CoverageNotice({ data, names, onMonthlyFallback, busy }) {
           </p>
         )}
         <p className="fine-print">
-          Les trous concernent les clôtures ajustées de la source scellée, pas
-          un changement de sélection. La référence mensuelle utilise les
-          rendements déjà archivés ; elle ne résout pas à elle seule les
-          hypothèses de sortie des titres inactifs.
+          {estimated ? (
+            "Rendement nul pour la seule ligne figée, sans redistribution des poids. Le premier cours revenu conserve son rattrapage. Une faillite ou une contrepartie de rachat peut donner une valeur réellement récupérable différente : ces risques peuvent être sous-estimés."
+          ) : (
+            <>
+              Les trous concernent les clôtures ajustées de la source scellée,
+              pas un changement de sélection. La référence mensuelle utilise les
+              rendements déjà archivés ; elle ne résout pas à elle seule les
+              hypothèses de sortie des titres inactifs.
+            </>
+          )}
         </p>
+        {estimated && reconciliation.length > 0 && (
+          <div className="table-scroll">
+            <table className="gap-table" id="valuation-drift-table">
+              <thead>
+                <tr>
+                  <th>Poche / mois</th>
+                  <th>Archive mensuelle</th>
+                  <th>Scénario avec repli</th>
+                  <th>Écart</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reconciliation.map((row) => (
+                  <tr key={`${row.strategy}-${row.holding_month}`}>
+                    <th>
+                      {shortName(row.strategy)}
+                      <small>
+                        {dateLabel(row.holding_month, { day: undefined })}
+                      </small>
+                    </th>
+                    <td>{format(row.sealed_return, "pct")}</td>
+                    <td>{format(row.valuation_return, "pct")}</td>
+                    <td>{format(row.return_drift * 100, "number")} points</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </details>
     </section>
+  );
+}
+
+function MarkDetails({ marks }) {
+  if (!marks.length) return "Aucun cours substitué";
+  const first = marks[0];
+  return (
+    <>
+      <strong>{format(first.mark_value, "number")}</strong>
+      <small>Cours ajusté du {dateLabel(first.mark_date)}</small>
+      <details>
+        <summary>Journal des replis</summary>
+        <ul>
+          {marks.map((mark) => (
+            <li key={mark.date}>
+              {dateLabel(mark.date)} : {format(mark.mark_value, "number")} ·
+              cours du {dateLabel(mark.mark_date)}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </>
   );
 }

@@ -40,13 +40,24 @@ function metricCell(data, name, field) {
       : name === BENCHMARK
         ? "Référence SPY"
         : "";
+  const unavailable = data.series[name]?.metrics.unavailable_years || 0;
+  const yearWarning =
+    unavailable > 0 &&
+    [
+      "years_beating_benchmark",
+      "worst_year_return",
+      "worst_year_excess",
+    ].includes(field)
+      ? `${format(unavailable, "int")} année(s) non calculable(s)`
+      : "";
   return (
     <td
       className={`${name === BENCHMARK ? "benchmark-cell" : ""} ${status}`}
-      title={`${text}${comparison ? ` ; ${comparison}` : ""}`}
+      title={`${text}${comparison ? ` ; ${comparison}` : ""}${yearWarning ? ` ; ${yearWarning}` : ""}`}
     >
       <strong>{text}</strong>
       {comparison && <small>{comparison}</small>}
+      {yearWarning && <small>{yearWarning}</small>}
     </td>
   );
 }
@@ -83,6 +94,7 @@ export function KpiTable({ data, names, full = false }) {
                     style={{ background: colorFor(name) }}
                   />
                   {shortName(name)}
+                  <EstimateTag data={data} name={name} />
                 </th>
                 {PRIMARY_METRICS.map((field) => (
                   <React.Fragment key={field}>
@@ -128,6 +140,7 @@ export function KpiTable({ data, names, full = false }) {
                   style={{ background: colorFor(name) }}
                 />
                 {shortName(name)}
+                <EstimateTag data={data} name={name} />
               </th>
             ))}
           </tr>
@@ -151,6 +164,18 @@ export function KpiTable({ data, names, full = false }) {
       </table>
     </div>
   );
+}
+
+function EstimateTag({ data, name }) {
+  const count = data.series[name]?.coverage?.estimated_closes || 0;
+  return count > 0 ? (
+    <small
+      className="estimate-tag"
+      title={`${count} clôture(s) avec un dernier cours conservé dans cette fenêtre. Risque estimé, pas intégralement observé.`}
+    >
+      avec repli
+    </small>
+  ) : null;
 }
 
 function Matrix({ rows, names, field, title, incremental }) {

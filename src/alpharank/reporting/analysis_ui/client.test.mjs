@@ -95,6 +95,82 @@ test("source policy never labels the frozen gross cohort as monthly net rebalanc
   assert.deepEqual(sourcePolicy("monthly_reference"), sourcePolicy("history"));
 });
 
+test("daily mark fallback is labelled estimated and exposes dated marks without claiming cash", () => {
+  const html = renderedModule.exports.coverage({
+    data: {
+      frequency: "daily",
+      valuation_policy: "last_observed_mark_v1",
+      series: {
+        Visible: { coverage: { estimated_closes: 13, missing_closes: 0 } },
+      },
+      price_gaps: [
+        {
+          strategy: "Visible",
+          ticker: "NLSN",
+          holding_month: "2022-10-01",
+          missing_sessions: 13,
+          target_weight: 0.2,
+          dates: ["2022-10-13"],
+          marks: [
+            { date: "2022-10-13", mark_date: "2022-10-12", mark_value: 27.98 },
+          ],
+        },
+      ],
+      valuation_reconciliation: [],
+    },
+    names: ["Visible"],
+  });
+  assert.match(html, /estimés/);
+  assert.match(html, /27,98/);
+  assert.match(html, /12 oct\. 2022/);
+  assert.match(html, /ni une vente/);
+  assert.doesNotMatch(html, /Utiliser la référence mensuelle/);
+});
+
+test("estimated and strict valuation versions have visibly different labels", () => {
+  const entries = ["observed_only", "last_observed_mark_v1"].map(
+    (policy, i) => ({
+      id: `bt-${i}`,
+      replay_at_utc: "2026-10-31",
+      strategies: ["A"],
+      valuation_policy: policy,
+    }),
+  );
+  const html = renderedModule.exports.versions({
+    payload: {
+      analysis: {
+        versions: {
+          entries,
+          current_version_id: "bt-1",
+          default_version_id: "bt-1",
+        },
+      },
+    },
+  });
+  assert.match(html, /Repli quotidien/);
+  assert.match(html, /Strict/);
+});
+
+test("KPI rows keep a visible estimated-valuation label on affected series only", () => {
+  const html = renderedModule.exports.kpis({
+    data: {
+      frequency: "daily",
+      series: {
+        Alpha: {
+          metrics: { annualized_volatility: 0.2 },
+          coverage: { estimated_closes: 4 },
+        },
+        [BENCHMARK]: {
+          metrics: { annualized_volatility: 0.1 },
+          coverage: { estimated_closes: 0 },
+        },
+      },
+    },
+    names: ["Alpha", BENCHMARK],
+  });
+  assert.equal((html.match(/avec repli/g) || []).length, 1);
+});
+
 test("monthly risk labels never claim daily observations", () => {
   for (const field of [
     "annualized_volatility",

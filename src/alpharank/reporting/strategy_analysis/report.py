@@ -11,9 +11,11 @@ from typing import Any
 import polars as pl
 
 from alpharank.governance_contracts.common import sha256_path
+from alpharank.portfolio.daily.contracts import DailyLedgerResult, DailyValuationPolicy
 from alpharank.reporting._performance_report_html import render_performance_report_html
 from alpharank.reporting.strategy_analysis.dataset import (
     AnalysisDataset,
+    apply_valuation_policy,
     prepare_analysis_dataset,
     read_performance_payload,
 )
@@ -29,6 +31,7 @@ def write_daily_analysis_report(
     generated_at_utc: datetime,
     source_report: Path | None = None,
     version_context: dict[str, Any] | None = None,
+    valuation_policy: DailyValuationPolicy | None = None,
 ) -> dict[str, Path]:
     """Preserve the full historical payload and add source-backed daily capabilities."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -37,7 +40,7 @@ def write_daily_analysis_report(
         raise ValueError("Refusing to overwrite an archived analysis report: " + str(output_dir))
     if generated_at_utc.tzinfo is None:
         raise ValueError("Report generation time must include a timezone.")
-    dataset = prepare_analysis_dataset(payload)
+    dataset = prepare_analysis_dataset(apply_valuation_policy(payload, valuation_policy))
     if version_context is None:
         version = backtest_version(dataset, source_report=source_report)
         version_context = {
@@ -84,6 +87,8 @@ def _daily_payload(
                     "ticker": row["ticker"],
                     "valuation_date": row["valuation_date"].isoformat(),
                     "holding_month": row["holding_month"].isoformat(),
+                    "mark_date": row["mark_date"].isoformat() if row.get("mark_date") else None,
+                    "mark_value": row.get("mark_value"),
                 }
                 for row in dataset.history.gaps.iter_rows(named=True)
             ]
@@ -198,6 +203,15 @@ def _write_manifests(
         "sources": dataset.sources,
         "ledgers": artifacts,
         "coverage": dataset.history.coverage if dataset.history is not None else {},
+        "audit_artifacts": {
+            key: {"path": filename, "sha256": sha256_path(report.parent / filename)}
+            for key, filename in [
+                ("gaps", "daily_price_gaps.parquet"),
+                ("reconciliation", "monthly_reconciliation.parquet"),
+            ]
+        }
+        if dataset.history is not None
+        else {},
         "publication_eligible": False,
         "model_replay": "not_rerun",
         "generated_at_utc": generated_at_utc.isoformat(),
@@ -242,7 +256,18 @@ def load_analysis_report(report_dir: Path) -> AnalysisDataset:
         name: pl.read_parquet(_verified_artifact(directory, info))
         for name, info in manifest["ledgers"].items()
     }
-    return AnalysisDataset(payload, ledgers, manifest["sources"], manifest["benchmark_strategy"])
+    history = None
+    audits = manifest.get("audit_artifacts")
+    if audits:
+        history = DailyLedgerResult(
+            ledgers["history"],
+            pl.read_parquet(_verified_artifact(directory, audits["reconciliation"])),
+            pl.read_parquet(_verified_artifact(directory, audits["gaps"])),
+            manifest["coverage"],
+        )
+    return AnalysisDataset(
+        payload, ledgers, manifest["sources"], manifest["benchmark_strategy"], history
+    )
 
 
 def _verified_artifact(directory: Path, info: dict[str, str]) -> Path:

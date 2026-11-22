@@ -1456,13 +1456,13 @@
     {
       "domain": "reporting",
       "duration_class": "medium",
-      "duration_seconds": 1.319,
+      "duration_seconds": 1.423,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/unit/reporting/test_daily_analysis_service.py",
       "suite": "unit",
-      "test_case_count": 12
+      "test_case_count": 14
     },
     {
       "domain": "reporting",
@@ -1620,7 +1620,7 @@
     }
   ],
   "measurement": {
-    "command": "METH-011: test_daily_analysis.py measured within pytest tests/unit/portfolio tests/unit/test_portfolio_engine.py tests/unit/reporting; earlier measurements retained for other files",
+    "command": "REPORT-032: test_daily_analysis_service.py measured within targeted portfolio/reporting run; earlier measurements retained for other files",
     "junit_source": "targeted_rerun_with_retained_other_file_measurements",
     "measured_at": "2026-11-22"
   },
@@ -1637,7 +1637,7 @@
       "replay_governance": 21,
       "reporting": 11
     },
-    "duration_seconds": 39.296,
+    "duration_seconds": 39.4,
     "failure_count": 0,
     "file_count": 147,
     "outcome_counts": {
@@ -1650,6 +1650,6 @@
       "replay": 12,
       "unit": 89
     },
-    "test_case_count": 640
+    "test_case_count": 642
   }
 }

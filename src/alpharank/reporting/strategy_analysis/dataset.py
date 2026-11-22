@@ -10,7 +10,7 @@ from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import polars as pl
 
@@ -20,6 +20,7 @@ from alpharank.portfolio.daily import (
     build_daily_ledger,
     build_monthly_reference_ledger,
 )
+from alpharank.portfolio.daily.contracts import DailyValuationPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +32,40 @@ class AnalysisDataset:
     sources: dict[str, dict[str, str]]
     benchmark_strategy: str
     history: DailyLedgerResult | None = None
+
+
+def daily_valuation_policy(payload: dict[str, Any]) -> DailyValuationPolicy:
+    """Resolve only a declared versioned reporting policy, never a silent fill."""
+    contract = payload.get("contracts", {}).get("daily_valuation")
+    if contract is None:
+        return "observed_only"
+    if (
+        not isinstance(contract, dict)
+        or set(contract) != {"schema_version", "policy"}
+        or contract["schema_version"] != 1
+        or contract["policy"] not in {"observed_only", "last_observed_mark_v1"}
+    ):
+        raise ValueError("Unsupported daily valuation contract.")
+    return cast(DailyValuationPolicy, contract["policy"])
+
+
+def apply_valuation_policy(
+    payload: dict[str, Any], policy: DailyValuationPolicy | None
+) -> dict[str, Any]:
+    """Create a distinct economic policy without changing any archived source field."""
+    if policy is None:
+        daily_valuation_policy(payload)
+        return payload
+    if policy not in {"observed_only", "last_observed_mark_v1"}:
+        raise ValueError("Unknown daily valuation policy.")
+    contracts = {
+        key: value
+        for key, value in payload.get("contracts", {}).items()
+        if key != "daily_valuation"
+    }
+    if policy != "observed_only":
+        contracts["daily_valuation"] = {"schema_version": 1, "policy": policy}
+    return payload | {"contracts": contracts}
 
 
 def read_performance_payload(path: Path) -> dict[str, Any]:
@@ -122,22 +157,15 @@ def _recent_ledger(payload: dict[str, Any]) -> pl.DataFrame | None:
     )
 
 
-def prepare_analysis_dataset(payload: dict[str, Any]) -> AnalysisDataset:
-    """Prepare a source-backed daily cohort without mutating the source report."""
-    benchmarks = [item["label"] for item in payload["strategies"] if item["family"] == "Benchmark"]
-    if len(benchmarks) != 1:
-        raise ValueError("The source report must identify exactly one benchmark strategy.")
-    prices, source_hashes = _snapshot_prices(payload)
-    holdings = pl.from_dicts(payload["holdings"], infer_schema_length=None).with_columns(
-        pl.col("holding_month").str.to_date(), pl.col("decision_month").str.to_date()
-    )
-    monthly = pl.from_dicts(payload["monthly"], infer_schema_length=None).with_columns(
-        pl.col("holding_month").str.to_date(), pl.col("decision_month").str.to_date()
-    )
-    history = build_daily_ledger(holdings, monthly, prices, benchmark_strategy=benchmarks[0])
+def _history_sources(
+    payload: dict[str, Any],
+    history: DailyLedgerResult,
+    source_hashes: dict[str, str],
+) -> dict[str, dict[str, str]]:
     days = sorted(history.ledger["valuation_date"].unique().to_list())
     last_month = date.fromisoformat(payload["calendar"]["end"])
     history_end = last_month.replace(day=monthrange(last_month.year, last_month.month)[1])
+    policy = daily_valuation_policy(payload)
     sources = {
         "history": {
             "label": "Backtest historique",
@@ -145,7 +173,15 @@ def prepare_analysis_dataset(payload: dict[str, Any]) -> AnalysisDataset:
             "max_date": history_end.isoformat(),
             "last_close": days[-1].isoformat(),
             **source_hashes,
-            "warning": "Reconstitution des paniers archivés, nette de leurs frais. Les clôtures manquantes restent des trous.",
+            "valuation_policy": policy,
+            "warning": (
+                "Scénario estimé : seul le titre sans cours conserve son dernier cours connu "
+                "jusqu'à la fin du mois. Ce n'est ni un prix observé ni une vente garantie. "
+                "Positions et frais archivés inchangés."
+                if policy == "last_observed_mark_v1"
+                else "Reconstitution des paniers archivés, nette de leurs frais. "
+                "Les clôtures manquantes restent des trous."
+            ),
         }
     }
     sources["monthly_reference"] = {
@@ -158,6 +194,29 @@ def prepare_analysis_dataset(payload: dict[str, Any]) -> AnalysisDataset:
         "Aucun prix quotidien imputé ; ce mode conserve les hypothèses terminales de l'archive, "
         "sans les corriger ni mesurer les creux intra-mois.",
     }
+    return sources
+
+
+def prepare_analysis_dataset(payload: dict[str, Any]) -> AnalysisDataset:
+    """Prepare a source-backed daily cohort without mutating the source report."""
+    benchmarks = [item["label"] for item in payload["strategies"] if item["family"] == "Benchmark"]
+    if len(benchmarks) != 1:
+        raise ValueError("The source report must identify exactly one benchmark strategy.")
+    prices, source_hashes = _snapshot_prices(payload)
+    holdings = pl.from_dicts(payload["holdings"], infer_schema_length=None).with_columns(
+        pl.col("holding_month").str.to_date(), pl.col("decision_month").str.to_date()
+    )
+    monthly = pl.from_dicts(payload["monthly"], infer_schema_length=None).with_columns(
+        pl.col("holding_month").str.to_date(), pl.col("decision_month").str.to_date()
+    )
+    history = build_daily_ledger(
+        holdings,
+        monthly,
+        prices,
+        benchmark_strategy=benchmarks[0],
+        valuation_policy=daily_valuation_policy(payload),
+    )
+    sources = _history_sources(payload, history, source_hashes)
     ledgers = {
         "history": history.ledger,
         "monthly_reference": build_monthly_reference_ledger(

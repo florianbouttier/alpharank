@@ -17,6 +17,7 @@ def main() -> int:
     parser.add_argument("--source-report", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--archive-report", type=Path, action="append", default=[])
+    parser.add_argument("--valuation-policy", choices=["observed_only", "last_observed_mark_v1"])
     args = parser.parse_args()
     if args.archive_report:
         paths = write_analysis_collection(
@@ -24,6 +25,7 @@ def main() -> int:
             archive_reports=args.archive_report,
             output_dir=args.output_dir,
             generated_at_utc=datetime.now(timezone.utc),
+            valuation_policy=args.valuation_policy,
         )
     else:
         paths = write_daily_analysis_report(
@@ -31,6 +33,7 @@ def main() -> int:
             output_dir=args.output_dir,
             generated_at_utc=datetime.now(timezone.utc),
             source_report=args.source_report,
+            valuation_policy=args.valuation_policy,
         )
     print("Rapport HTML complet :", paths["report"])
     print("Manifeste journalier :", paths["analysis_manifest"])

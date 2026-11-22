@@ -8,9 +8,10 @@ import {
 } from "./format.js";
 
 export function versionLabel(version) {
-  return version?.replay_at_utc
+  const label = version?.replay_at_utc
     ? `Replay du ${dateLabel(version.replay_at_utc.slice(0, 10))} · ${version.strategies.length} séries`
     : `Version ${version?.id?.slice(-8) || "non renseignée"}`;
+  return `${label} · ${version?.valuation_policy === "last_observed_mark_v1" ? "Repli quotidien (estimé)" : "Strict"}`;
 }
 
 export function versionHref(context, identity, href) {
@@ -171,6 +172,14 @@ export function VersionFacts({ version }) {
           <dt>Snapshot</dt>
           <dd>
             <code>{version.composition_id.slice(0, 16)}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>Valorisation quotidienne</dt>
+          <dd>
+            {version.valuation_policy === "last_observed_mark_v1"
+              ? "Dernier cours conservé · scénario estimé, pas de nouveau signal"
+              : "Stricte · clôtures absentes conservées comme trous"}
           </dd>
         </div>
         <div>
@@ -522,6 +531,8 @@ export function VersionComparison({ payload }) {
                                 benchmark: "benchmark",
                                 missing_return: "rendements manquants",
                                 kpi_engine: "moteur de mesure",
+                                daily_valuation:
+                                  "repli de valorisation quotidienne",
                               })[key] || key.replaceAll("_", " "),
                           )
                           .join(", ") +

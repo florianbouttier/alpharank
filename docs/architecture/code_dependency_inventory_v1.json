@@ -4474,6 +4474,11 @@
     },
     {
       "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/dataset.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
+    },
+    {
+      "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/index.py",
       "target": "src/alpharank/governance_contracts/common.py"
     },
@@ -4481,6 +4486,11 @@
       "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/report.py",
       "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/report.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
     },
     {
       "kind": "import",
@@ -4551,6 +4561,11 @@
       "kind": "import",
       "source": "src/alpharank/reporting/strategy_analysis/version_catalog.py",
       "target": "src/alpharank/governance_contracts/common.py"
+    },
+    {
+      "kind": "import",
+      "source": "src/alpharank/reporting/strategy_analysis/version_catalog.py",
+      "target": "src/alpharank/portfolio/daily/contracts.py"
     },
     {
       "kind": "import",
@@ -10107,7 +10122,10 @@
         "src/alpharank/portfolio/daily/frontiers.py",
         "src/alpharank/portfolio/daily/ledger.py",
         "src/alpharank/portfolio/daily/statistics.py",
-        "src/alpharank/reporting/strategy_analysis/service.py"
+        "src/alpharank/reporting/strategy_analysis/dataset.py",
+        "src/alpharank/reporting/strategy_analysis/report.py",
+        "src/alpharank/reporting/strategy_analysis/service.py",
+        "src/alpharank/reporting/strategy_analysis/version_catalog.py"
       ]
     },
     {
@@ -11277,7 +11295,8 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/governance_contracts/common.py",
-        "src/alpharank/portfolio/daily/__init__.py"
+        "src/alpharank/portfolio/daily/__init__.py",
+        "src/alpharank/portfolio/daily/contracts.py"
       ],
       "invokes": [],
       "layer": "library",
@@ -11316,6 +11335,7 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/portfolio/daily/contracts.py",
         "src/alpharank/reporting/_performance_report_html.py",
         "src/alpharank/reporting/strategy_analysis/dataset.py",
         "src/alpharank/reporting/strategy_analysis/index.py",
@@ -11378,6 +11398,7 @@
       "has_main_guard": false,
       "imports": [
         "src/alpharank/governance_contracts/common.py",
+        "src/alpharank/portfolio/daily/contracts.py",
         "src/alpharank/reporting/strategy_analysis/dataset.py",
         "src/alpharank/reporting/strategy_analysis/report.py",
         "src/alpharank/reporting/strategy_analysis/versions.py"
@@ -11796,7 +11817,7 @@
   "source_policy": "tracked_files_only",
   "summary": {
     "active_entrypoint_count": 165,
-    "internal_edge_count": 911,
+    "internal_edge_count": 914,
     "library_count": 254,
     "python_file_count": 426,
     "script_count": 172,

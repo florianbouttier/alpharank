@@ -19,6 +19,13 @@ La source `monthly_reference` constitue un repli explicitement demandé, limité
 aux mois calendaires complets. Elle ne remplace pas le journalier et ne résout
 pas les anciennes hypothèses de valorisation terminale.
 
+La CLI peut déclarer `--valuation-policy last_observed_mark_v1` pour la seule
+version par défaut. Cette convention entre dans son identité économique ; les
+archives gardent leur politique. Les cours conservés et rapprochements sont
+capturés et hashés ; aucune source mutable ni formule financière de reporting
+ne remplace le moteur commun. Le scénario n'est ni une vente au dernier cours,
+ni une correction des contreparties terminales, ni un nouveau signal.
+
 Dossiers enfants : aucun. Le frontend appartient à `../analysis_ui/`.
 
 Interdit ici : téléchargement, entraînement, sélection de titres, mutation des

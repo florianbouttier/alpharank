@@ -1028,3 +1028,150 @@ le 30 septembre : ce lot rend ce retard explicite et ne le masque pas par un
 panier figé ou une date d'interface. Les sorties de preview et les anciennes
 versions sont préservées. Le disque dispose d'environ 395 Mio libres après QA ;
 aucune donnée utilisateur n'a été supprimée pour livrer ce changement.
+
+## 22 novembre — risques quotidiens avec dernier cours conservé (`REPORT-032`)
+
+### Demande, périmètre et versions
+
+Le propriétaire demande de calculer le rendement du portefeuille même les
+séances où un titre n'a plus de clôture. Le moteur `METH-011` est livré avec la
+politique explicite `last_observed_mark_v1` ; `REPORT-032` la capture dans le
+HTML complet existant, sans créer un second moteur ou un dashboard réduit.
+
+Livrable : `outputs/performance_reports/REPORT-032_20261122/`.
+La version par défaut `bt-a3dae277cf4646f8` est un **scénario de valorisation** du
+même replay que la version stricte `bt-c4b1904c147b215b`, également conservée
+dans son catalogue. Les quatre autres vintages d'août à octobre restent
+accessibles : six versions au total, treize séries dans le défaut, tous les
+panneaux, méthodes, pseudo-codes, archives et portefeuilles préservés.
+
+Il n'y a ni téléchargement, ni réapprentissage, ni nouvelle sélection, ni
+promotion. Le snapshot reste `e0e6045a…ef95a`, l'historique réalisé va du
+1er août 2011 au 30 septembre 2026, les coûts mensuels et SPY total return sont
+inchangés. Le suivi du panier archivé d'octobre, prix au 20 novembre, reste
+séparé et hypothétique au-delà du mois prévu. Aucun résultat n'est inventé
+pour 2010 ni après septembre dans le backtest.
+
+### Règle effectivement implémentée
+
+Seul le titre sans clôture conserve son dernier **cours ajusté déjà connu**
+depuis l'ancre du mois. Son facteur de prix brut reste à 1 (rendement simple
+nul) pendant le trou ; les autres actions varient, les poids dérivent et les
+frais archivés restent débités. Une reprise de cotation conserve tout son
+rattrapage. Une ancre d'entrée ou un benchmark absent reste bloquant.
+
+Ce n'est **pas** une vente réelle au dernier cours ni du cash garanti. Les
+points concernés et leurs risques portent le statut estimé, dans les KPI et
+dans un diagnostic limité à la sélection et aux dates actives. Chaque repli
+expose son titre, poche, poids, séance, date du dernier cours et valeur dans
+les unités ajustées du snapshot. Les écarts mensuels sont rapprochés ; le
+capital et les compositions suivent le rendement revalorisé, pas un retour
+artificiel vers l'ancien capital scellé.
+
+La correction des contreparties terminales reste `DATA-048`, distincte du
+scénario. Les [28 USD de NLSN](https://www.sec.gov/Archives/edgar/data/1492633/000119312522260583/d407513d8k.htm)
+ne sont pas une liquidation observée à 27,98 ; les
+[380 USD et le CVR non coté d'ABMD](https://www.sec.gov/Archives/edgar/data/815094/000119312522311074/d353287d8k.htm)
+ne sont pas une valeur récupérable égale à 381,02. Surtout, la
+[protection des déposants de Silicon Valley Bank](https://www.fdic.gov/news/press-releases/2023/pr23017.html)
+ne protégeait pas les actionnaires : figer SIVB peut fortement sous-estimer le
+risque. Aucun cash de faillite, CVR nul ou titre successeur n'est supposé dans
+ce lot. Les unités raw/adjusted et les dates de connaissance restent à traiter
+dans la correction sourcée, sans modifier les archives.
+
+### Replay de valorisation et parité
+
+`valuation_replay_validation.json` vérifie les treize séries sur tout
+l'historique et compare les 25 310 positions : **zéro changement de titre,
+poids ou panier**. Les allocations courantes sont aussi identiques. Toutes les
+clés économiques du payload initial restent conservées ; seules la convention
+explicite de valorisation, ses vues et la date de rendu sont ajoutées.
+
+- 155 clés titre/séance absentes, réparties sur quatorze titre/mois ;
+- 733 NAV de portefeuille auparavant manquantes deviennent estimées, sur
+  49 595 lignes, avec zéro NAV restante manquante ;
+- 2 366 rendements mensuels rapprochés : 2 307 fins observées et 59 fins
+  estimées ; écart maximal `5.273559366969494e-16`, inférieur à `1e-12` ;
+- tous les risques quotidiens deviennent calculables dans ce scénario, mais
+  ne deviennent pas pour autant intégralement observés ;
+- les 168 candidats de frontière ont des risques calculables sur la fenêtre
+  testée ; le portefeuille 50/50 Boosting Top 5 / tendance Top 5 conserve le
+  rééquilibrage mensuel et le statut estimé de ses séances touchées.
+
+Les quatorze groupes sont JCP janvier 2014 (1), KRFT juillet 2015 (20), GMCR
+mars 2016 (20), WFM août 2017 (4), CSRA avril 2018 (19), ESRX décembre 2018 (5),
+APC août 2019 (16), TSS septembre 2019 (9), XLNX février 2022 (7), NLSN octobre
+2022 (13), ABMD décembre 2022 (4), SIVB mars 2023 (16), PXD mai 2024 (20) et
+FISV novembre 2025 (1). Ils ne sont pas tous des faillites ou des titres sans
+valeur : JCP/FISV requièrent notamment un diagnostic de trou/continuité, et les
+opérations cash/actions doivent rester distinguées du scénario.
+
+### Fenêtre de la capture utilisateur : janvier 2022–septembre 2026
+
+Valeurs **estimées sous la politique décrite**, mêmes dates, mêmes frais et
+benchmark. CAGR sur durée réelle ; volatilité sur 252 séances ; drawdown avec
+capital initial ; années complètes 2022–2025 uniquement pour les deux dernières
+colonnes. 2026 reste visible mais partielle.
+
+| Série | CAGR | Volatilité | Max drawdown | Pire année | Années devant SPY |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Legacy Frequency | 49,76 % | 39,82 % | −38,09 % | +2,20 % | 3 / 4 |
+| Tendance Top 5 | 53,84 % | 43,97 % | −38,89 % | −0,20 % | 3 / 4 |
+| Tendance Top 5 sectoriel | 28,12 % | 32,86 % | −32,74 % | −10,55 % | 3 / 4 |
+| SPY total return | 11,97 % | 17,33 % | −24,50 % | −18,18 % | 0 / 4 |
+
+Le `2 / 2` et la pire année Legacy de +36,90 % de l'ancien affichage omettaient
+les années dont les bornes étaient manquantes. Désormais, le mode strict rend
+ces résumés indisponibles en nommant les années non calculables, plutôt que les
+supprimer. Le scénario réparable réintègre les quatre années et donne les
+chiffres ci-dessus. Cela corrige une présentation, pas une sélection du modèle.
+
+### Preuves capturées
+
+Le HTML source strict `REPORT-031` garde son hash `f34ac2e6…e247`.
+Les 24 hashes de code capturés correspondent aux sources réellement exécutées.
+
+| Artefact | SHA-256 |
+| --- | --- |
+| HTML complet, 3 872 072 octets | `1ee5b9b78f7f336245c08fe736f69d141550bb07fba686f8c631e53e8cf28c09` |
+| Manifeste d'analyse | `64a53dcf7830b17153fd059eef839bc3a4b5df9428c28c95c6d21687a11ac8bb` |
+| Catalogue des six versions | `0fa952e37063fe19397c4b56dd35e5b35a701b4e13c1ff69a8ae59e212a2234f` |
+| Validation du replay de valorisation | `14d4a2d8bf08cfa717a907e48789fdd0169390c95ce6d711fc61a4033ed70e16` |
+| Journal des cours conservés | `07922e2275046e2e494ebed9eae8888f4d64669968d863d7b410d157ad7e84aa` |
+| Rapprochement mensuel | `85806daea828f2415cd6b592be9203638b32b990679a3d707c9e814c04a3c437` |
+| Bundle React | `beffbd2447ddc82cb5f702f82913bb227279bc81cdf932c1d612060ef5dfa24b` |
+| CSS | `c68e7600db83ea908e52b4ae84329b66530226b4e5c927eaa3290325bdc6c134` |
+
+Validation automatisée : 157 tests Python portefeuille/reporting/catalogue,
+18 tests JavaScript, mypy sur 17 modules, Ruff et complexité ciblés, build
+verrouillé et formatage. Les tests de capture/politique et les trois tests UI
+ont échoué avant implémentation. Aucun nouvel écart de taille Python ; les
+huit régressions antérieures hors périmètre ne sont pas masquées.
+
+Ce replay n'est pas un audit causal inter-vintages des signaux : il n'entraîne
+aucun modèle et ne télécharge aucun nouveau snapshot. Les 25 310 positions
+identiques prouvent la préservation des paniers scellés dans ce lot, pas une
+nouvelle garantie générale d'absence de fuite en amont.
+
+QA réelle : `qa_browser.json`, SHA-256
+`4c415ad832a2061c5bdcef2f80900f829fc2a8dc209b55b5478e01df387c9fff`,
+avec cinq captures hashées et inspectées (scénario/strict/frontières desktop,
+scénario/frontières mobile 390 px). Elle confirme les risques et badges des
+trois séries de la capture, les quatre lignes NLSN/ABMD et leurs journaux, la
+base 1 au 31 décembre 2021, le retour au strict, le composé 50/50, les 168 mixes
+et les archives de positions/méthodes. Le comparateur rapproche 7 668 positions
+sur 2022–septembre 2026 sans différence de titre/poids, avec le seul contrat
+`daily_valuation` changé. Le texte et les six étapes du scénario restent
+distincts des neuf cartes méthodologiques initiales ; aucune carte supprimée.
+Zéro erreur JS/console, appel externe ou débordement global. Le serveur de QA
+8766 est arrêté ; le rapport complet et ses calculs restent servis sur le port
+canonique 8765.
+
+Fichiers du lot : `scripts/research/build_daily_performance_report.py` ; sous
+`reporting/strategy_analysis/`, `dataset.py`, `coverage.py`, `service.py`,
+`report.py`, `versions.py`, `version_catalog.py` et README ; sous
+`reporting/analysis_ui/`, `coverage.jsx`, `tables.jsx`, `versions.jsx`,
+`audit.jsx`, `layout.css`, tests et bundle verrouillé. Le test de service, les
+inventaires de dépendances/collection/catalogue, `ROADMAP.md`, le standard de
+reporting et cette preuve sont mis à jour. Les sorties et les captures restent
+ignorées par Git ; leurs hashes sont suivis ici, sans indexer les données.

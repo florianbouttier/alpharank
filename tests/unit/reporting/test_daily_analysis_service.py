@@ -428,3 +428,81 @@ def test_old_version_without_frontier_policy_does_not_invent_one(tmp_path: Path)
     dataset = prepare_analysis_dataset(payload)
     with pytest.raises(ValueError, match="politique de frontière"):
         query_analysis(dataset, AnalysisQuery(date(2026, 2, 1), date(2026, 2, 28), frontier=True))
+
+
+def _payload_with_gap(tmp_path: Path) -> dict:
+    payload = _payload(tmp_path)
+    source = tmp_path / "snapshot" / "US_Finalprice.parquet"
+    pl.read_parquet(source).filter(pl.col("date") != "2026-02-03").write_parquet(source)
+    manifest_path = tmp_path / "snapshot" / "snapshot_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["output_sha256"][source.name] = sha256_path(source)
+    manifest_path.write_text(json.dumps(manifest))
+    payload["lineage"]["source_files"][0]["sha256"] = sha256_path(manifest_path)
+    return payload
+
+
+def test_explicit_valuation_policy_is_captured_hashed_and_keeps_source_payload(
+    tmp_path: Path,
+) -> None:
+    payload = _payload_with_gap(tmp_path)
+    before = deepcopy(payload)
+    paths = write_daily_analysis_report(
+        payload,
+        output_dir=tmp_path / "estimate",
+        generated_at_utc=datetime.now(timezone.utc),
+        valuation_policy="last_observed_mark_v1",
+    )
+    assert payload == before
+    captured = read_performance_payload(paths["report"])
+    for field in [
+        "monthly",
+        "holdings",
+        "methodologies",
+        "portfolio_composer",
+        "strategy_frontiers",
+    ]:
+        assert captured[field] == payload[field]
+    assert captured["contracts"]["daily_valuation"]["policy"] == "last_observed_mark_v1"
+    restored = load_analysis_report(paths["report"].parent)
+    view = query_analysis(restored, AnalysisQuery(date(2026, 2, 1), date(2026, 2, 28)))
+    assert view["valuation_policy"] == "last_observed_mark_v1"
+    assert view["series"]["Alpha"]["coverage"]["estimated_closes"] == 1
+    assert view["series"]["Alpha"]["metrics"]["annualized_volatility"] is not None
+    mark = view["price_gaps"][0]["marks"][0]
+    assert mark == {"date": "2026-02-03", "mark_date": "2026-02-02", "mark_value": 90.0}
+    manifest = json.loads(paths["analysis_manifest"].read_text())
+    audit = paths["report"].parent / manifest["audit_artifacts"]["gaps"]["path"]
+    audit.write_bytes(b"tampered audit")
+    with pytest.raises(ValueError, match="SHA-256"):
+        load_analysis_report(paths["report"].parent)
+
+
+def test_collection_keeps_strict_and_estimated_economic_versions_distinct(tmp_path: Path) -> None:
+    payload = _payload_with_gap(tmp_path)
+    source = write_daily_analysis_report(
+        payload, output_dir=tmp_path / "strict", generated_at_utc=datetime.now(timezone.utc)
+    )["report"]
+    paths = write_analysis_collection(
+        source,
+        archive_reports=[source],
+        output_dir=tmp_path / "collection",
+        generated_at_utc=datetime.now(timezone.utc),
+        valuation_policy="last_observed_mark_v1",
+    )
+    collection = load_analysis_collection(paths["report"].parent)
+    assert len(collection.datasets) == 2
+    default = collection.datasets[collection.default_version_id]
+    other = next(
+        dataset
+        for identity, dataset in collection.datasets.items()
+        if identity != collection.default_version_id
+    )
+    estimated = query_analysis(default, AnalysisQuery(date(2026, 2, 1), date(2026, 2, 28)))
+    strict = query_analysis(other, AnalysisQuery(date(2026, 2, 1), date(2026, 2, 28)))
+    assert strict["series"]["Alpha"]["metrics"]["annualized_volatility"] is None
+    assert estimated["series"]["Alpha"]["metrics"]["annualized_volatility"] is not None
+    assert (
+        estimated["series"]["Alpha"]["metrics"]["total_return"]
+        == strict["series"]["Alpha"]["metrics"]["total_return"]
+    )

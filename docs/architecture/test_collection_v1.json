@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 659,
+  "node_count": 661,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -74,8 +74,10 @@
     "test_daily_analysis.py::test_two_constant_daily_returns_have_observed_zero_volatility",
     "test_daily_analysis.py::test_unavailable_full_year_is_not_silently_removed_from_worst_year_or_beat_count",
     "test_daily_analysis.py::test_zero_weight_sleeve_does_not_introduce_a_spurious_missing_price",
+    "test_daily_analysis_service.py::test_collection_keeps_strict_and_estimated_economic_versions_distinct",
     "test_daily_analysis_service.py::test_daily_writer_keeps_complete_payload_and_refuses_to_overwrite",
     "test_daily_analysis_service.py::test_economic_version_ignores_ui_time_and_frozen_price_followup",
+    "test_daily_analysis_service.py::test_explicit_valuation_policy_is_captured_hashed_and_keeps_source_payload",
     "test_daily_analysis_service.py::test_http_viewer_returns_exact_queries_and_rejects_unsafe_or_invalid_requests",
     "test_daily_analysis_service.py::test_monthly_fallback_proposes_only_contained_complete_months",
     "test_daily_analysis_service.py::test_monthly_reference_is_explicit_and_does_not_fabricate_daily_prices",
@@ -662,7 +664,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "2812a6dd5f6e428aae1f9940bba33b000b7af30a6fce2407aa3ba2e0845ecf34",
+  "node_ids_sha256": "d996efe9e5ae64161c6f044fdceb7d769584c02a9b79f16a35ad2e147af3ff89",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

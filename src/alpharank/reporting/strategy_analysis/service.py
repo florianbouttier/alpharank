@@ -20,6 +20,7 @@ from alpharank.reporting.strategy_analysis.coverage import (
     monthly_fallback_window,
     require_complete_months,
     window_price_gaps,
+    window_valuation_reconciliation,
 )
 from alpharank.reporting.strategy_analysis.dataset import AnalysisDataset
 
@@ -106,6 +107,14 @@ def query_analysis(dataset: AnalysisDataset, query: AnalysisQuery) -> dict[str, 
         enabled=query.source != "recent" and "monthly_reference" in dataset.ledgers,
     )
     view["source"] = query.source
+    view["valuation_policy"] = bounds.get("valuation_policy", "observed_only")
+    view["valuation_reconciliation"] = (
+        window_valuation_reconciliation(
+            dataset, start=date.fromisoformat(view["anchor_date"]), end=query.end
+        )
+        if query.source == "history"
+        else []
+    )
     return view
 
 

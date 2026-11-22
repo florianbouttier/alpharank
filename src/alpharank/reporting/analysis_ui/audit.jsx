@@ -204,6 +204,8 @@ export function Holdings({ payload }) {
 }
 
 export function Methods({ payload }) {
+  const estimated =
+    payload.contracts?.daily_valuation?.policy === "last_observed_mark_v1";
   const methods = payload.recent_valuation?.methodology
     ? [...payload.methodologies, payload.recent_valuation.methodology]
     : payload.methodologies;
@@ -245,17 +247,72 @@ export function Methods({ payload }) {
           calendaire réelle.
         </p>
         <p>
-          Un prix absent reste un trou. La volatilité et le drawdown ne sont pas
-          présentés comme complets quand la fenêtre ne l’est pas. Les chiffres
-          mensuels scellés sont conservés séparément dans les sources.
+          {estimated ? (
+            "Cette version active le scénario de dernier cours conservé décrit ci-dessous. Le mode strict reste une autre version du même run ; les positions, poids et frais n’ont pas changé."
+          ) : (
+            <>
+              Un prix absent reste un trou. La volatilité et le drawdown ne sont
+              pas présentés comme complets quand la fenêtre ne l’est pas. Les
+              chiffres mensuels scellés sont conservés séparément dans les
+              sources.
+            </>
+          )}
         </p>
       </article>
+      {estimated && (
+        <article className="daily-method" id="last-mark-method">
+          <h2>Repli quotidien : dernier cours connu conservé</h2>
+          <p>
+            Scénario de valorisation estimé, pas une vente au dernier cours ni
+            une correction des prix sources. Les risques peuvent être
+            sous-estimés, notamment après une faillite. Cash de rachat, titre
+            successeur et droits conditionnels non cotés restent à traiter avec
+            leurs contreparties sourcées.
+          </p>
+          <ol>
+            <li>
+              Lire les titres, poids et frais mensuels scellés, sans
+              réentraînement ni nouveau classement.
+            </li>
+            <li>
+              Partir du cours ajusté observé à l’ancre du mois ; une ancre ou un
+              benchmark absent reste une erreur.
+            </li>
+            <li>
+              À chaque séance, utiliser le cours observé ; s’il manque,
+              conserver le dernier cours déjà connu de ce seul titre dans le
+              mois. Aucun cours futur n’est lu.
+            </li>
+            <li>
+              Garder les quantités investies et les autres titres en mouvement.
+              Un cours figé a un facteur brut de 1, soit un rendement simple nul
+              ; une reprise de cotation conserve tout le rattrapage.
+            </li>
+            <li>
+              Enregistrer chaque séance estimée avec la date et la valeur du
+              cours conservé. Recalculer le capital et les risques à 252
+              séances/an, puis composer les poches avec ce même capital.
+            </li>
+            <li>
+              Rapprocher chaque rendement mensuel de l’archive ; ne jamais
+              forcer une parité en rééchelonnant les courbes. Les chiffres
+              mensuels archivés restent séparés dans Sources.
+            </li>
+          </ol>
+          <p>
+            Cette hypothèse ne donne pas la valeur récupérable d’une action
+            SIVB, ni celle du CVR d’ABMD. Le sélecteur de version permet de
+            revenir au journalier strict. Les années incomplètes ou non
+            calculables ne deviennent pas artificiellement des années gagnantes.
+          </p>
+        </article>
+      )}
       <article className="daily-method" id="monthly-fallback-method">
         <h2>Référence mensuelle scellée : repli volontaire</h2>
         <p>
-          Un trou quotidien n’est jamais comblé par un prix inventé. Le bouton
-          de repli propose seulement les mois calendaires complets inclus dans
-          la fenêtre ; les nouvelles bornes sont affichées avant application.
+          La référence mensuelle ne comble aucun cours quotidien. Le bouton de
+          repli propose seulement les mois calendaires complets inclus dans la
+          fenêtre ; les nouvelles bornes sont affichées avant application.
         </p>
         <ol>
           <li>

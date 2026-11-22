@@ -154,7 +154,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 115 | `REPORT-030` | capturer un catalogue explicite de versions économiques du backtest | lot REPORT ci-dessous | fait |
 | 116 | `REPORT-031` | naviguer et comparer les versions sans sélecteur de données techniques | lot REPORT ci-dessous | fait |
 | 117 | `METH-011` | calculer un scénario quotidien au dernier cours connu | lot METH ci-dessous | fait |
-| 118 | `REPORT-032` | livrer le rapport complet avec replis quotidiens auditables | lot REPORT ci-dessous | à faire |
+| 118 | `REPORT-032` | livrer le rapport complet avec replis quotidiens auditables | lot REPORT ci-dessous | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -1392,7 +1392,7 @@ doublons exacts et preuve de récupération.
 | `REPORT-029` | livrer le diagnostic de couverture et le repli lisible dans le dashboard | fait | HTML complet `3e496314…d66d`, audit des trous, références seules et repli opt-in, 154 tests Python/11 JS et QA réelle desktop/mobile ; preuve canonique de recherche |
 | `REPORT-030` | capturer et servir des versions complètes liées aux vrais runs | fait | trois vintages économiques du 8/24/31 octobre, catalogue `2621a7d3…524d`, payloads conservés, comparaison aux mêmes bornes ; 144 tests portefeuille/reporting et preuve canonique datée |
 | `REPORT-031` | remplacer le choix de sources par la navigation entre versions | fait | cinq vintages août–octobre, sélecteur global et comparaison exacte, HTML `f34ac2e6…e247`, 159 tests Python/15 JS et QA desktop/mobile ; sources et ledgers inchangés, preuve canonique datée |
-| `REPORT-032` | intégrer le scénario quotidien dans une nouvelle version complète | à faire | risques estimés visibles, détails des cours conservés, comparaison à la version stricte, 13 stratégies et toutes les méthodes/positions/fonctions conservées, HTML réel testé desktop/mobile |
+| `REPORT-032` | intégrer le scénario quotidien dans une nouvelle version complète | fait | HTML `1ee5b9b7…8c09`, six versions/13 stratégies ; 733 NAV estimées, 25 310 positions inchangées, 2 366 mois rapprochés ; 157 tests Python/18 JS et QA réelle desktop/mobile, preuve canonique datée |
 
 ### Détail de `REPORT-032`
 

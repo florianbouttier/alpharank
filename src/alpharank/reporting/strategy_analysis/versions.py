@@ -11,7 +11,7 @@ from typing import Any, TypedDict
 import polars as pl
 
 from alpharank.governance_contracts.common import sha256_path
-from alpharank.reporting.strategy_analysis.dataset import AnalysisDataset
+from alpharank.reporting.strategy_analysis.dataset import AnalysisDataset, daily_valuation_policy
 from alpharank.reporting.strategy_analysis.service import AnalysisQuery, query_analysis
 
 
@@ -33,6 +33,7 @@ class BacktestVersion(TypedDict):
     recent_last_close: str | None
     source_report_sha256: str | None
     publication_eligible: bool
+    valuation_policy: str
 
 
 def economic_identity(payload: dict[str, Any]) -> str:
@@ -118,6 +119,7 @@ def backtest_version(
         "recent_last_close": dataset.sources.get("recent", {}).get("last_close"),
         "source_report_sha256": sha256_path(source_report) if source_report is not None else None,
         "publication_eligible": False,
+        "valuation_policy": daily_valuation_policy(payload),
     }
 
 

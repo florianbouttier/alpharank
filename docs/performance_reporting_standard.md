@@ -118,6 +118,44 @@ Date du replay central, date du snapshot, dernière séance prix et fin de
 performance restent quatre repères distincts ; un rendu du 22 novembre ne
 transforme pas un backtest arrêté au 30 septembre en backtest de novembre.
 
+### Version de valorisation avec repli quotidien (`REPORT-032`)
+
+La demande explicite du propriétaire active un **scénario estimé**, distinct du
+run strict : `--valuation-policy last_observed_mark_v1` dans le générateur
+existant. La convention versionnée `contracts.daily_valuation` entre dans
+l'identité économique ; la date du replay central, les positions, poids, coûts
+et données sources ne deviennent pas ceux d'un nouveau modèle. Le sélecteur
+distingue « Repli quotidien (estimé) » de « Strict », y compris lorsque ces deux
+versions proviennent du même replay. Les anciennes versions restent intactes.
+
+Les règles de calcul sont celles du
+[moteur commun](common_portfolio_backtest_engine.md#explicit-last-observed-mark-scenario-meth-011).
+Seul le titre sans clôture conserve son dernier cours déjà connu pendant le
+mois ; les autres varient. Ce n'est ni une vente réelle, ni une garantie de
+cash récupérable, ni la valeur d'un droit conditionnel. Les risques peuvent
+être sous-estimés, notamment lors d'une faillite ; `DATA-048` reste la correction
+sourcée des contreparties, hors de ce scénario de reporting.
+
+Le diagnostic se limite aux séries affichées et aux séances de la fenêtre,
+ancre comprise. Il expose titre, poche, poids, séances, cours ajusté conservé
+et date d'observation, avec journal détaillé et rapprochement des fins de mois.
+Les lignes de KPI touchées portent « avec repli » ; compositions et frontières
+utilisent le même ledger et conservent ce statut estimé. Le retour au strict
+se fait par la version, pas par un sélecteur technique de données. Une sélection
+sans point imputé n'est pas marquée comme affectée.
+
+`daily_price_gaps.parquet` et `monthly_reconciliation.parquet` sont capturés et
+hashés dans `analysis_manifest.json.audit_artifacts`. Le service revérifie leurs
+hashes avant de servir les marques et écarts : aucun journal reconstruit depuis
+une source mutable. Les rendements et KPI mensuels initiaux demeurent dans les
+archives Sources ; ils ne remplacent pas les résultats journaliers du scénario.
+
+La CLI applique la politique à la seule source par défaut ; chaque archive
+conserve sa propre politique. Une source et sa copie stricte peuvent donc être
+explicitement capturées ensemble sans être des doublons économiques. Aucun
+téléchargement, entraînement ni signal supplémentaire n'est effectué par ce
+replay de valorisation des positions scellées.
+
 ## Entrées obligatoires
 
 Le générateur reçoit quatre chemins explicites :
@@ -166,8 +204,10 @@ distinguées ; fêtes et week-ends ne deviennent pas de fausses observations.
 Les valorisations proviennent des prix ajustés et des positions scellées du même
 snapshot, avec frais et poids dérivés explicités dans le
 [contrat quotidien](common_portfolio_backtest_engine.md#daily-research-valuation-and-free-date-windows-report-023).
-Aucun rendement mensuel n'est interpolé. Les trous restent visibles ; un chemin
-incomplet rend ses risques quotidiens indisponibles, pas égaux à zéro.
+Aucun rendement mensuel n'est interpolé. En version stricte, les trous restent
+visibles et rendent les risques quotidiens indisponibles, pas égaux à zéro.
+La version explicitement estimée ci-dessus conserve ces trous dans son audit
+et calcule les mesures sous l'hypothèse annoncée, sans réécrire les prix.
 
 Les KPI quotidiens utilisent la même fenêtre que le graphique : CAGR sur durée
 calendaire réelle, volatilité et statistiques de rendement sur 252 séances/an,
@@ -187,6 +227,12 @@ visibles mais ne déterminent pas les pires années complètes ni leur décompte
 Les indicateurs détaillés et leurs définitions restent accessibles dans le
 même panneau. Un écart au SPY compare deux KPI de même fréquence et période ;
 les mesures descriptives sans ordre économique restent neutres.
+
+Une année complète dont les bornes sont manquantes reste comptée dans le nombre
+d'années attendues ; elle ne disparaît pas pour rendre le ratio gagnant plus
+favorable. Le résumé des pires années et années devant SPY est alors indisponible
+avec le nombre d'années non calculables. En scénario réparable, les mêmes années
+redeviennent calculables sous l'hypothèse de valorisation, explicitement estimée.
 
 ### Référence mensuelle conservée
 

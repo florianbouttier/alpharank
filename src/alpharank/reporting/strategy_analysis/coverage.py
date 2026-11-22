@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import date, timedelta
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import polars as pl
 
@@ -29,6 +29,7 @@ class PriceGapRow(TypedDict):
     missing_sessions: int
     target_weight: float
     dates: list[str]
+    marks: list[dict[str, str | float]]
 
 
 def require_complete_months(start: date, end: date) -> None:
@@ -73,9 +74,17 @@ def window_price_gaps(
             return False, []
         gaps = pl.from_dicts(
             captured,
-            schema={"ticker": pl.String, "valuation_date": pl.String, "holding_month": pl.String},
+            schema={
+                "ticker": pl.String,
+                "valuation_date": pl.String,
+                "holding_month": pl.String,
+                "mark_date": pl.String,
+                "mark_value": pl.Float64,
+            },
         ).with_columns(
-            pl.col("valuation_date").str.to_date(), pl.col("holding_month").str.to_date()
+            pl.col("valuation_date").str.to_date(),
+            pl.col("holding_month").str.to_date(),
+            pl.col("mark_date").str.to_date(),
         )
     gaps = gaps.filter(pl.col("valuation_date").is_between(start, end))
     if gaps.is_empty():
@@ -87,7 +96,14 @@ def window_price_gaps(
     )
     if holdings.select("strategy", "ticker", "holding_month").is_duplicated().any():
         raise ValueError("Coverage audit requires unique sealed strategy/ticker/month holdings.")
-    groups = gaps.group_by("ticker", "holding_month").agg(pl.col("valuation_date").sort())
+    groups = (
+        gaps.sort("valuation_date")
+        .group_by("ticker", "holding_month")
+        .agg(
+            pl.col("valuation_date"),
+            pl.struct("valuation_date", "mark_date", "mark_value").alias("marks"),
+        )
+    )
     matched = groups.join(holdings, on=["ticker", "holding_month"], how="inner", validate="1:m")
     rows: list[PriceGapRow] = []
     for row in matched.sort("strategy", "holding_month", "ticker").iter_rows(named=True):
@@ -102,6 +118,33 @@ def window_price_gaps(
                 "missing_sessions": len(days),
                 "target_weight": float(row["target_weight"]),
                 "dates": [day.isoformat() for day in days],
+                "marks": [
+                    {
+                        "date": mark["valuation_date"].isoformat(),
+                        "mark_date": mark["mark_date"].isoformat(),
+                        "mark_value": mark["mark_value"],
+                    }
+                    for mark in row["marks"]
+                    if mark["mark_date"] is not None
+                ],
             }
         )
     return True, rows
+
+
+def window_valuation_reconciliation(
+    dataset: AnalysisDataset, *, start: date, end: date
+) -> list[dict[str, Any]]:
+    """Expose captured changed endpoints, never a future month's closing result."""
+    if dataset.history is None:
+        return []
+    endpoints = dataset.history.ledger.group_by("strategy", "holding_month").agg(
+        pl.col("valuation_date").max().alias("endpoint")
+    )
+    audit = dataset.history.monthly_reconciliation.join(
+        endpoints, on=["strategy", "holding_month"], validate="1:1"
+    ).filter(pl.col("endpoint").is_between(start, end) & (pl.col("status") == "estimated_endpoint"))
+    return [
+        {key: value.isoformat() if isinstance(value, date) else value for key, value in row.items()}
+        for row in audit.sort("strategy", "holding_month").iter_rows(named=True)
+    ]

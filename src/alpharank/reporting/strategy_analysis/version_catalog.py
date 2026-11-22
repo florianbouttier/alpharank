@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from alpharank.governance_contracts.common import sha256_path
+from alpharank.portfolio.daily.contracts import DailyValuationPolicy
 from alpharank.reporting.strategy_analysis.dataset import (
     AnalysisDataset,
+    apply_valuation_policy,
     prepare_analysis_dataset,
     read_performance_payload,
 )
@@ -38,12 +40,14 @@ def write_analysis_collection(
     archive_reports: Sequence[Path],
     output_dir: Path,
     generated_at_utc: datetime,
+    valuation_policy: DailyValuationPolicy | None = None,
 ) -> dict[str, Path]:
     """Re-render explicit economic vintages without overwriting an archive or rerunning a model."""
     if output_dir.exists():
         raise ValueError("Refusing to overwrite an archived version collection: " + str(output_dir))
     sources = [source_report, *archive_reports]
     payloads = [read_performance_payload(path) for path in sources]
+    payloads[0] = apply_valuation_policy(payloads[0], valuation_policy)
     entries = [
         backtest_version(prepare_analysis_dataset(payload), source_report=path)
         for payload, path in zip(payloads, sources, strict=True)
