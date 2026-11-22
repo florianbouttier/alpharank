@@ -9,6 +9,7 @@ from typing import Literal, Mapping, TypedDict
 import polars as pl
 
 ObservationFrequency = Literal["daily", "monthly"]
+DailyValuationPolicy = Literal["observed_only", "last_observed_mark_v1"]
 OBSERVATIONS_PER_YEAR: Mapping[ObservationFrequency, int] = MappingProxyType(
     {"daily": 252, "monthly": 12}
 )

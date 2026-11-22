@@ -385,6 +385,46 @@ or a provider's flat post-delisting row. Reconstructing those economic values
 requires a separately sourced policy, revised candidate and reconciliation;
 an unchanged monthly reference is not a corrected-method promotion.
 
+### Explicit last-observed-mark scenario (`METH-011`)
+
+`build_daily_ledger(..., valuation_policy="last_observed_mark_v1")` is an
+explicit reporting **scenario**, not a correction of observed market data or a
+new signal replay. `observed_only` remains the default financial API policy.
+Raw prices, snapshot, holdings, target weights, execution and costs are kept.
+
+For each selected security, the scenario starts at its observed month-entry
+adjusted close. An absent close carries that security's latest available
+adjusted mark from the same holding interval, using only earlier sessions.
+Its gross price factor since the previous session is therefore 1 while the
+mark is unchanged (simple return 0); other securities still move and portfolio
+weights drift. A resumed quote includes the full catch-up move, not a zeroed
+return. Costs remain the fixed month-entry cash debit. No future quote, monthly
+interpolation, redistribution of weights, missing entry anchor or benchmark
+fallback is allowed. Invalid non-positive quotes still fail.
+
+This is **not** evidence that a stopped share was sold, nor that its last quote
+is recoverable cash. Cash/stock merger consideration and non-traded CVRs are
+not valued by this policy; their sourced correction remains `DATA-048`.
+The SIVB bankruptcy/OTC episode is particularly unsuitable for interpreting a
+stale mark as liquidation proceeds. The scenario can understate true volatility
+and drawdown; its risks and efficient frontiers must be labelled estimated.
+
+Every missing ticker/session retains `mark_date` and `mark_value` (snapshot
+adjusted-price units). Ledger rows identify `estimated_close`. Reconciliation
+keeps the original sealed return, the scenario `valuation_return`, signed
+`return_drift` and `estimated_endpoint` status. A drift is allowed only when the
+endpoint itself uses a fallback; an unexplained observed endpoint still fails.
+The next month's capital and sleeve combinations compound the **scenario**
+`valuation_monthly_return`, never jump back to the sealed result. The original
+`sealed_monthly_return` remains a separate audit field. A missing entry anchor
+is not carried from a preceding month. No source file is filled or overwritten.
+
+For both policies, worst-year/beat-count summaries exclude partial calendar
+years, but not silently missing complete years: `complete_years` counts the
+eligible calendar years, `unavailable_years` records missing annual endpoints,
+and worst-year/beat statistics are undefined if any eligible year is unavailable.
+Defined annual endpoint growth may survive interior gaps; daily risk may not.
+
 ## Exact CAGR Attribution
 
 CAGR is nonlinear and cannot be split by adding ordinary percentage-point

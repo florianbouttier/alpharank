@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 652,
+  "node_count": 659,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -60,12 +60,19 @@
     "test_daily_analysis.py::test_daily_valuation_rejects_invalid_selected_inputs[duplicate]",
     "test_daily_analysis.py::test_daily_valuation_rejects_invalid_selected_inputs[negative_price]",
     "test_daily_analysis.py::test_daily_valuation_rejects_invalid_selected_inputs[weight]",
+    "test_daily_analysis.py::test_explicit_last_mark_values_only_the_missing_security_and_keeps_catchup",
+    "test_daily_analysis.py::test_last_mark_carries_revalued_capital_across_months_for_strategy_and_composer",
+    "test_daily_analysis.py::test_last_mark_does_not_read_future_quotes",
+    "test_daily_analysis.py::test_last_mark_endpoint_reconciles_drift_without_rescaling_or_sealed_capital_jump",
+    "test_daily_analysis.py::test_last_mark_never_repairs_missing_anchor_or_benchmark[A-day0]",
+    "test_daily_analysis.py::test_last_mark_never_repairs_missing_anchor_or_benchmark[SPY-day1]",
     "test_daily_analysis.py::test_later_prices_do_not_change_an_earlier_selected_daily_period",
     "test_daily_analysis.py::test_missing_daily_prices_remain_gaps_and_do_not_produce_fictitious_risk",
     "test_daily_analysis.py::test_missing_month_end_is_not_fabricated_from_the_sealed_monthly_return",
     "test_daily_analysis.py::test_monthly_return_mismatch_fails_instead_of_rescaling_daily_prices",
     "test_daily_analysis.py::test_one_daily_observation_keeps_growth_but_does_not_claim_zero_volatility",
     "test_daily_analysis.py::test_two_constant_daily_returns_have_observed_zero_volatility",
+    "test_daily_analysis.py::test_unavailable_full_year_is_not_silently_removed_from_worst_year_or_beat_count",
     "test_daily_analysis.py::test_zero_weight_sleeve_does_not_introduce_a_spurious_missing_price",
     "test_daily_analysis_service.py::test_daily_writer_keeps_complete_payload_and_refuses_to_overwrite",
     "test_daily_analysis_service.py::test_economic_version_ignores_ui_time_and_frozen_price_followup",
@@ -655,7 +662,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "d5103f1f9cc661d1a49cbba1f3684200fee55586a534f90ff51f54b95c5d9af7",
+  "node_ids_sha256": "2812a6dd5f6e428aae1f9940bba33b000b7af30a6fce2407aa3ba2e0845ecf34",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

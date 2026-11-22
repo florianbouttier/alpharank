@@ -106,6 +106,155 @@ def test_monthly_return_mismatch_fails_instead_of_rescaling_daily_prices() -> No
         build_daily_ledger(holdings, monthly, prices, benchmark_ticker="SPY")
 
 
+def test_explicit_last_mark_values_only_the_missing_security_and_keeps_catchup() -> None:
+    holdings, monthly, prices = _inputs()
+    prices = prices.filter(~((pl.col("ticker") == "A") & (pl.col("date") == date(2026, 2, 3))))
+    before = prices.clone()
+    result = build_daily_ledger(
+        holdings, monthly, prices, benchmark_ticker="SPY", valuation_policy="last_observed_mark_v1"
+    )
+    alpha = result.ledger.filter(pl.col("strategy") == "Alpha")
+    assert prices.equals(before)
+    assert alpha["wealth"].to_list() == pytest.approx([1, 0.999, 1.199, 1.249])
+    assert alpha["estimated_close"].to_list() == [False, False, True, False]
+    assert alpha["daily_return"][-1] == pytest.approx(1.249 / 1.199 - 1)
+    assert result.gaps["mark_date"].to_list() == [date(2026, 2, 2)]
+    assert result.gaps["mark_value"].to_list() == [120.0]
+    view = daily_period_analysis(
+        result.ledger, start=date(2026, 2, 1), end=date(2026, 2, 28), benchmark_strategy="SPY"
+    )
+    row = view["series"]["Alpha"]
+    assert row["coverage"]["estimated_closes"] == 1
+    assert row["metrics"]["annualized_volatility"] is not None
+    assert row["metrics"]["max_drawdown"] is not None
+
+
+def test_last_mark_endpoint_reconciles_drift_without_rescaling_or_sealed_capital_jump() -> None:
+    holdings, monthly, prices = _inputs()
+    prices = prices.filter(~((pl.col("ticker") == "A") & (pl.col("date") == date(2026, 2, 27))))
+    result = build_daily_ledger(
+        holdings, monthly, prices, benchmark_ticker="SPY", valuation_policy="last_observed_mark_v1"
+    )
+    alpha = result.ledger.filter(pl.col("strategy") == "Alpha")
+    assert alpha["wealth"][-1] == pytest.approx(0.949)
+    assert alpha["valuation_monthly_return"][-1] == pytest.approx(-0.051)
+    assert alpha["sealed_monthly_return"][-1] == pytest.approx(0.249)
+    audit = result.monthly_reconciliation.filter(pl.col("strategy") == "Alpha")
+    assert audit["status"][0] == "estimated_endpoint"
+    assert audit["return_drift"][0] == pytest.approx(-0.3)
+    mix = combine_daily_sleeves(result.ledger, {"Alpha": 0.5, "SPY": 0.5})
+    assert mix["wealth"][-1] == pytest.approx((0.949 + 1.1) / 2)
+    assert mix["estimated_close"][-1]
+
+
+@pytest.mark.parametrize("ticker,day", [("A", date(2026, 1, 30)), ("SPY", date(2026, 2, 3))])
+def test_last_mark_never_repairs_missing_anchor_or_benchmark(ticker: str, day: date) -> None:
+    holdings, monthly, prices = _inputs()
+    prices = prices.with_columns(
+        pl.when((pl.col("ticker") == ticker) & (pl.col("date") == day))
+        .then(None)
+        .otherwise(pl.col("adjusted_close"))
+        .alias("adjusted_close")
+    )
+    with pytest.raises(ValueError, match="starting price|benchmark"):
+        build_daily_ledger(
+            holdings,
+            monthly,
+            prices,
+            benchmark_ticker="SPY",
+            valuation_policy="last_observed_mark_v1",
+        )
+
+
+def test_last_mark_does_not_read_future_quotes() -> None:
+    holdings, monthly, prices = _inputs()
+    prices = prices.filter(~((pl.col("ticker") == "A") & (pl.col("date") == date(2026, 2, 3))))
+    changed = prices.with_columns(
+        pl.when((pl.col("ticker") == "A") & (pl.col("date") > date(2026, 2, 3)))
+        .then(pl.col("adjusted_close") * 2)
+        .otherwise(pl.col("adjusted_close"))
+        .alias("adjusted_close")
+    )
+    # The endpoint reference is changed too; it cannot leak into the earlier fallback.
+    changed_monthly = monthly.with_columns(
+        pl.when(pl.col("strategy") == "Alpha")
+        .then(0.999)
+        .otherwise(pl.col("net_return"))
+        .alias("net_return")
+    )
+    results = [
+        build_daily_ledger(
+            holdings,
+            terms,
+            quotes,
+            benchmark_ticker="SPY",
+            valuation_policy="last_observed_mark_v1",
+        )
+        for terms, quotes in [(monthly, prices), (changed_monthly, changed)]
+    ]
+    views = [
+        daily_period_analysis(
+            result.ledger, start=date(2026, 2, 1), end=date(2026, 2, 3), benchmark_strategy="SPY"
+        )
+        for result in results
+    ]
+    assert views[0] == views[1]
+
+
+def test_last_mark_carries_revalued_capital_across_months_for_strategy_and_composer() -> None:
+    holdings, monthly, prices = _inputs()
+    prices = prices.filter(~((pl.col("ticker") == "A") & (pl.col("date") == date(2026, 2, 27))))
+    prices = pl.concat(
+        [
+            prices,
+            pl.DataFrame(
+                {
+                    "ticker": ["B", "SPY", "B", "SPY"],
+                    "date": [date(2026, 3, 2)] * 2 + [date(2026, 3, 31)] * 2,
+                    "adjusted_close": [100.0, 110.0, 100.0, 110.0],
+                }
+            ),
+        ],
+        how="diagonal_relaxed",
+    )
+    march = monthly.with_columns(
+        pl.lit(date(2026, 3, 1)).alias("holding_month"),
+        pl.lit(0.0).alias("net_return"),
+        pl.lit(0.0).alias("transaction_cost"),
+    )
+    next_holdings = holdings.filter(pl.col("ticker") == "B").with_columns(
+        pl.lit(date(2026, 3, 1)).alias("holding_month"),
+        pl.lit(date(2026, 2, 1)).alias("decision_month"),
+        pl.lit(1.0).alias("target_weight"),
+    )
+    result = build_daily_ledger(
+        pl.concat([holdings, next_holdings]),
+        pl.concat([monthly, march]),
+        prices,
+        benchmark_ticker="SPY",
+        valuation_policy="last_observed_mark_v1",
+    )
+    alpha = result.ledger.filter(pl.col("strategy") == "Alpha")
+    assert alpha["wealth"][-1] == pytest.approx(0.949)
+    mix = combine_daily_sleeves(result.ledger, {"Alpha": 0.5, "SPY": 0.5})
+    assert mix["wealth"][-1] == pytest.approx(1.0245)
+
+
+def test_unavailable_full_year_is_not_silently_removed_from_worst_year_or_beat_count() -> None:
+    from alpharank.portfolio.daily.statistics import year_summary
+
+    rows = [
+        {"year": 2022, "return": None, "benchmark_return": -0.18, "partial": False},
+        {"year": 2023, "return": 0.3, "benchmark_return": 0.2, "partial": False},
+    ]
+    result = year_summary(rows)
+    assert result["complete_years"] == 2
+    assert result["unavailable_years"] == 1
+    assert result["years_beating_benchmark"] is None
+    assert result["worst_year_return"] is None
+    assert result["worst_year_excess"] is None
+
+
 def test_later_prices_do_not_change_an_earlier_selected_daily_period() -> None:
     holdings, monthly, prices = _inputs()
     baseline = build_daily_ledger(holdings, monthly, prices, benchmark_ticker="SPY")

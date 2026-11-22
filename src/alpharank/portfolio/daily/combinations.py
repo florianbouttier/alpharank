@@ -33,9 +33,12 @@ def _monthly_path(frames: list[pl.DataFrame], weights: NDArray[np.float64]) -> N
     if "sealed_monthly_return" not in frames[0].columns or "month_factor" not in frames[0].columns:
         raise ValueError("Monthly sleeve rebalancing requires sealed monthly anchors.")
     factors = np.column_stack([frame["month_factor"].to_numpy() for frame in frames]).astype(float)
-    returns = np.column_stack(
-        [frame["sealed_monthly_return"].to_numpy() for frame in frames]
-    ).astype(float)
+    return_field = (
+        "valuation_monthly_return"
+        if "valuation_monthly_return" in frames[0].columns
+        else "sealed_monthly_return"
+    )
+    returns = np.column_stack([frame[return_field].to_numpy() for frame in frames]).astype(float)
     months = frames[0]["holding_month"].to_list()
     path = np.empty(len(months), dtype=float)
     capital, current = 1.0, months[0]
@@ -45,6 +48,19 @@ def _monthly_path(frames: list[pl.DataFrame], weights: NDArray[np.float64]) -> N
             current = month
         path[index] = capital * float(np.dot(factors[index], weights))
     return path
+
+
+def _weighted_columns(
+    result: pl.DataFrame,
+    frames: list[pl.DataFrame],
+    weights: NDArray[np.float64],
+    columns: tuple[str, ...],
+) -> pl.DataFrame:
+    for column in columns:
+        if all(column in frame.columns for frame in frames):
+            values = np.column_stack([frame[column].to_numpy() for frame in frames]).astype(float)
+            result = result.with_columns(pl.Series(column, values @ weights).fill_nan(None))
+    return result
 
 
 def combine_daily_sleeves(
@@ -74,23 +90,20 @@ def combine_daily_sleeves(
         pl.lit(label).alias("strategy"), pl.Series("wealth", path).fill_nan(None)
     )
     if rebalance == "monthly":
-        for column in ["month_factor", "sealed_monthly_return"]:
-            values = (
-                np.column_stack([frame[column].to_numpy() for frame in frames]).astype(float)
-                @ weights
-            )
-            result = result.with_columns(pl.Series(column, values).fill_nan(None))
+        result = _weighted_columns(
+            result,
+            frames,
+            weights,
+            ("month_factor", "sealed_monthly_return", "valuation_monthly_return"),
+        )
+    if all("estimated_close" in frame.columns for frame in frames):
+        estimates = np.column_stack([frame["estimated_close"].to_numpy() for frame in frames])
+        result = result.with_columns(pl.Series("estimated_close", estimates.any(axis=1)))
     if "daily_return" in result.columns:
         result = result.with_columns(
             (pl.col("wealth") / pl.col("wealth").shift(1) - 1).alias("daily_return")
         )
-    for column in ["transaction_cost", "turnover"]:
-        if all(column in frame.columns for frame in frames):
-            values = (
-                np.column_stack([frame[column].to_numpy() for frame in frames]).astype(float)
-                @ weights
-            )
-            result = result.with_columns(pl.Series(column, values))
+    result = _weighted_columns(result, frames, weights, ("transaction_cost", "turnover"))
     for column in ["n_positions", "maximum_position_weight", "maximum_sector_weight"]:
         if column in result.columns:
             result = result.with_columns(pl.lit(None, dtype=pl.Float64).alias(column))

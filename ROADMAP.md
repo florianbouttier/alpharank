@@ -153,6 +153,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 114 | `DATA-048` | rapprocher les sorties terminales scellées de leurs contreparties sourcées | lot DATA ci-dessous | à faire |
 | 115 | `REPORT-030` | capturer un catalogue explicite de versions économiques du backtest | lot REPORT ci-dessous | fait |
 | 116 | `REPORT-031` | naviguer et comparer les versions sans sélecteur de données techniques | lot REPORT ci-dessous | fait |
+| 117 | `METH-011` | calculer un scénario quotidien au dernier cours connu | lot METH ci-dessous | fait |
+| 118 | `REPORT-032` | livrer le rapport complet avec replis quotidiens auditables | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -988,6 +990,27 @@ doublons exacts et preuve de récupération.
 | `METH-008` | construire une politique d'allocation Boosting complémentaire à Legacy | à faire | à chaque décision, les titres retenus causalement par Legacy sont exclus avant le classement Boosting ; scores et modèle restent inchangés ; test de causalité et audit mensuel de l'exclusion |
 | `METH-009` | rejouer le portefeuille combiné Legacy et poche Boosting complémentaire | à faire | poids de poche préenregistrés, même snapshot et même moteur ; mesure du nombre de titres, recouvrement, concentration, corrélation, risque, coûts et performance combinée sans exiger que Boosting batte Legacy seul |
 | `METH-010` | ajouter une allocation Boosting Top 5 limitée à un titre par secteur | fait | secteurs résolus à la clôture réelle, inconnus exclus avant classement et audités, scores inchangés, mois bloqué sous cinq secteurs et invariance aux mutations futures testée |
+| `METH-011` | valoriser les clôtures absentes avec un scénario explicite au dernier cours connu | fait | sept régressions ajoutées, 151 tests portefeuille/reporting verts ; conservation bornée au mois détenu, capital/compositions cohérents, mode strict inchangé et années non calculables non escamotées |
+
+### Détail de `METH-011`
+
+- **Objectif/périmètre** : moteur commun `portfolio/daily/` et tests ; scénario
+  nommé `last_observed_mark_v1` demandé par le propriétaire pour calculer les
+  rendements des paniers archivés malgré des clôtures absentes.
+- **Hors périmètre** : acquisition, correction des prix/snapshots, contreparties
+  terminales `DATA-048`, réapprentissage, sélection ou promotion de stratégie.
+- **Acceptation** : seul le titre sans cours conserve sa dernière valorisation
+  disponible depuis l'ancre du mois ; aucun cours futur, passage au cash ou CVR
+  inventé. La reprise de cotation conserve tout son rattrapage. Aucun repli du
+  benchmark ou d'une ancre absente. Le capital suit le rendement reconstitué,
+  pas un saut vers l'ancien rendement mensuel ; les écarts sont journalisés.
+  Les risques portent leur statut estimé et les années aux bornes manquantes
+  ne sont pas silencieusement exclues des pires années/décomptes.
+- **Validations** : régressions avant correction, tests de causalité/frais/
+  capital/composition et contrôle ciblé de style, types et documentation.
+- **Impact/rollback** : scénario de valorisation diagnostique, pas résultat
+  observé ni cash récupérable ; le mode strict et les anciennes versions restent
+  disponibles sans modification.
 
 ### Détail de `METH-006`
 
@@ -1369,6 +1392,24 @@ doublons exacts et preuve de récupération.
 | `REPORT-029` | livrer le diagnostic de couverture et le repli lisible dans le dashboard | fait | HTML complet `3e496314…d66d`, audit des trous, références seules et repli opt-in, 154 tests Python/11 JS et QA réelle desktop/mobile ; preuve canonique de recherche |
 | `REPORT-030` | capturer et servir des versions complètes liées aux vrais runs | fait | trois vintages économiques du 8/24/31 octobre, catalogue `2621a7d3…524d`, payloads conservés, comparaison aux mêmes bornes ; 144 tests portefeuille/reporting et preuve canonique datée |
 | `REPORT-031` | remplacer le choix de sources par la navigation entre versions | fait | cinq vintages août–octobre, sélecteur global et comparaison exacte, HTML `f34ac2e6…e247`, 159 tests Python/15 JS et QA desktop/mobile ; sources et ledgers inchangés, preuve canonique datée |
+| `REPORT-032` | intégrer le scénario quotidien dans une nouvelle version complète | à faire | risques estimés visibles, détails des cours conservés, comparaison à la version stricte, 13 stratégies et toutes les méthodes/positions/fonctions conservées, HTML réel testé desktop/mobile |
+
+### Détail de `REPORT-032`
+
+- **Périmètre** : adaptateur de reporting, capture immuable du scénario
+  `METH-011`, React partagé, CLI existante et preuves canoniques du rapport.
+- **Hors périmètre** : nouveau modèle, prix fournisseur, nouvelles allocations,
+  publication de production ou changement des archives existantes.
+- **Acceptation** : scénario actif identifié dans le contexte de version,
+  audit par titre/séance avec date/valeur du cours conservé ; volatilité et
+  drawdown calculables sur les fenêtres réparables, risques estimés annoncés
+  pour les séries/compositions affectées, référence stricte conservée dans le
+  catalogue et drift économique exposé. Tous les panneaux du HTML demeurent.
+- **Validations** : tests de capture/API/identité économique et UI, replay de
+  valorisation des positions scellées (sans rerun des signaux), rapprochement
+  des holdings/poids, QA navigateur réelle, documentation/liens et hashes.
+- **Impact/rollback** : nouvelle version économique de valorisation seulement ;
+  revenir à la version stricte ne modifie aucune donnée ni position.
 
 ### Versions de backtest `REPORT-030` / `REPORT-031`
 

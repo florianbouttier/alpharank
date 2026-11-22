@@ -161,20 +161,24 @@ def daily_year_views(
 
 
 def year_summary(annual: list[dict[str, float | int | bool | None]]) -> dict[str, float | None]:
-    """Worst year and beat count exclude partial years and undefined endpoint returns."""
+    """Partial years are excluded, but missing complete years invalidate comparisons."""
     returns, excess = [], []
-    for row in annual:
+    complete = [row for row in annual if not row["partial"]]
+    for row in complete:
         value, benchmark = row["return"], row["benchmark_return"]
         if (
-            not row["partial"]
-            and isinstance(value, (int, float))
+            isinstance(value, (int, float))
             and isinstance(benchmark, (int, float))
+            and math.isfinite(value)
+            and math.isfinite(benchmark)
         ):
             returns.append(float(value))
             excess.append(float(value - benchmark))
+    available = bool(returns) and len(returns) == len(complete)
     return {
-        "complete_years": float(len(returns)),
-        "years_beating_benchmark": float(sum(value > 0 for value in excess)),
-        "worst_year_return": min(returns) if returns else None,
-        "worst_year_excess": min(excess) if excess else None,
+        "complete_years": float(len(complete)),
+        "unavailable_years": float(len(complete) - len(returns)),
+        "years_beating_benchmark": float(sum(value > 0 for value in excess)) if available else None,
+        "worst_year_return": min(returns) if available else None,
+        "worst_year_excess": min(excess) if available else None,
     }

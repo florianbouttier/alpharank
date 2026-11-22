@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from alpharank.portfolio.daily.contracts import DailyLedgerResult
+from alpharank.portfolio.daily.contracts import DailyLedgerResult, DailyValuationPolicy
 
 PARITY_TOLERANCE = 1e-12
 
@@ -32,6 +32,13 @@ class _MonthlyTerms:
     n_positions: int
     maximum_position_weight: float | None
     maximum_sector_weight: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class _MonthValuation:
+    values: list[float]
+    gaps: list[dict[str, object]]
+    estimated_dates: frozenset[date]
 
 
 def _monthly_terms(row: dict[str, Any]) -> _MonthlyTerms:
@@ -127,33 +134,77 @@ def _market_months(
 
 
 def _month_values(
-    basket: pl.DataFrame, market: _MonthMarket, cost: float
-) -> tuple[list[float], list[dict[str, object]]]:
+    basket: pl.DataFrame, market: _MonthMarket, cost: float, policy: DailyValuationPolicy
+) -> _MonthValuation:
     names = basket["ticker"].to_list()
     weights = basket["target_weight"].to_numpy()
     anchors = np.asarray([market.prices.get((name, market.anchor), float("nan")) for name in names])
     if not np.isfinite(anchors).all() or np.any(anchors <= 0):
         raise ValueError(f"Missing or invalid starting price at {market.anchor}: {names}.")
-    values, gaps = [1.0], []
+    values, gaps, estimated = [1.0], [], set()
+    last_quotes, last_dates = anchors.copy(), [market.anchor] * len(names)
     for day in market.sessions:
         quotes = np.asarray([market.prices.get((name, day), float("nan")) for name in names])
         for index, name in enumerate(names):
             if not math.isfinite(quotes[index]):
-                gaps.append({"ticker": name, "valuation_date": day, "holding_month": market.month})
+                filled = policy == "last_observed_mark_v1"
+                gaps.append(
+                    {
+                        "ticker": name,
+                        "valuation_date": day,
+                        "holding_month": market.month,
+                        "mark_date": last_dates[index] if filled else None,
+                        "mark_value": float(last_quotes[index]) if filled else None,
+                    }
+                )
+                if filled:
+                    quotes[index] = last_quotes[index]
+                    estimated.add(day)
             elif quotes[index] <= 0:
                 raise ValueError(f"Non-positive selected daily price: {name}, {day}.")
+            else:
+                last_quotes[index], last_dates[index] = quotes[index], day
         # Fixed month-entry cash debit preserves gross_return - cost, not (1-cost)*(1+gross).
         value = float(np.dot(weights, quotes / anchors) - cost)
         if math.isfinite(value) and value <= 0:
             raise ValueError("Non-positive portfolio wealth in daily valuation.")
         values.append(value)
-    return values, gaps
+    return _MonthValuation(values, gaps, frozenset(estimated))
+
+
+def _reconcile_month(
+    strategy: str, market: _MonthMarket, valuation: _MonthValuation, sealed: _MonthlyTerms
+) -> dict[str, object]:
+    terminal = valuation.values[-1]
+    drift = terminal - 1 - sealed.net_return if math.isfinite(terminal) else None
+    estimated = market.sessions[-1] in valuation.estimated_dates
+    if drift is not None and abs(drift) > PARITY_TOLERANCE and not estimated:
+        raise ValueError(
+            f"Daily/monthly return mismatch: {strategy}, {market.month}, error={abs(drift)}."
+        )
+    return {
+        "strategy": strategy,
+        "holding_month": market.month,
+        "sealed_return": sealed.net_return,
+        "observed_return": terminal - 1 if drift is not None and not estimated else None,
+        "valuation_return": terminal - 1 if drift is not None else None,
+        "return_drift": drift,
+        "absolute_error": abs(drift) if drift is not None else None,
+        "status": "estimated_endpoint"
+        if estimated
+        else ("matched" if drift is not None else "missing_daily_endpoint"),
+    }
 
 
 def _ledger_rows(
-    strategy: str, market: _MonthMarket, values: list[float], sealed: _MonthlyTerms, capital: float
+    strategy: str,
+    market: _MonthMarket,
+    valuation: _MonthValuation,
+    sealed: _MonthlyTerms,
+    capital: float,
 ) -> list[dict[str, object]]:
     rows = []
+    values = valuation.values
     for index, day in enumerate((market.anchor, *market.sessions)):
         value = values[index]
         previous = values[index - 1] if index else 1.0
@@ -168,6 +219,10 @@ def _ledger_rows(
                 else None,
                 "month_factor": value if math.isfinite(value) else None,
                 "sealed_monthly_return": sealed.net_return,
+                "valuation_monthly_return": values[-1] - 1
+                if math.isfinite(values[-1])
+                else sealed.net_return,
+                "estimated_close": day in valuation.estimated_dates,
                 "transaction_cost": sealed.cost if index == 1 else 0.0,
                 "turnover": sealed.turnover if index == 1 else 0.0,
                 "n_positions": sealed.n_positions,
@@ -185,14 +240,19 @@ def build_daily_ledger(
     *,
     benchmark_ticker: str = "SPY.US",
     benchmark_strategy: str | None = None,
+    valuation_policy: DailyValuationPolicy = "observed_only",
 ) -> DailyLedgerResult:
-    """Value each frozen basket daily, keep gaps and require observed month-end parity.
+    """Value frozen baskets with strict observations or an explicit last-mark scenario.
 
     Costs are debited on the first holding session as a fixed fraction of entry
-    capital. Intramonth weights drift; no daily rebalance or price fill occurs.
-    Monthly sealed capital anchors the next month even if an intermediate close
-    is unavailable; missing daily closes and associated risk remain explicit.
+    capital. Intramonth weights drift; no daily rebalance or source-price edit occurs.
+    Observed-only keeps missing closes and sealed monthly capital unchanged.
+    The opt-in last-mark policy carries a security's own past adjusted mark
+    within the holding month, never treats it as cash, and chains the resulting
+    month-end capital. Every missing quote and any endpoint drift is audited.
     """
+    if valuation_policy not in {"observed_only", "last_observed_mark_v1"}:
+        raise ValueError("Unknown daily valuation policy.")
     _validate_inputs(holdings, monthly, prices)
     monthly = monthly.sort("holding_month", "strategy")
     references = set(monthly["strategy"]) - set(holdings["strategy"])
@@ -214,31 +274,29 @@ def build_daily_ledger(
             )
             if basket is None:
                 raise ValueError(f"Missing frozen basket: {strategy}, {market.month}.")
-            values, missing = _month_values(basket, market, sealed.cost)
-            expected = sealed.net_return
-            error = abs(values[-1] - 1 - expected) if math.isfinite(values[-1]) else None
-            if error is not None and error > PARITY_TOLERANCE:
-                raise ValueError(
-                    f"Daily/monthly return mismatch: {strategy}, {market.month}, error={error}."
-                )
-            part = _ledger_rows(strategy, market, values, sealed, capitals[strategy])
+            valuation = _month_values(basket, market, sealed.cost, valuation_policy)
+            if strategy == reference and valuation.gaps and valuation_policy != "observed_only":
+                raise ValueError("The benchmark cannot use estimated closes.")
+            audit = _reconcile_month(strategy, market, valuation, sealed)
+            part = _ledger_rows(strategy, market, valuation, sealed, capitals[strategy])
             rows.extend(part if market.month == first_month else part[1:])
-            capitals[strategy] *= 1 + expected
-            gaps.extend(missing)
-            reconciliation.append(
-                {
-                    "strategy": strategy,
-                    "holding_month": market.month,
-                    "sealed_return": expected,
-                    "observed_return": values[-1] - 1 if error is not None else None,
-                    "absolute_error": error,
-                    "status": "matched" if error is not None else "missing_daily_endpoint",
-                }
+            realized = valuation.values[-1] - 1
+            capitals[strategy] *= 1 + (
+                realized if valuation_policy != "observed_only" else sealed.net_return
             )
+            gaps.extend(valuation.gaps)
+            reconciliation.append(audit)
     ledger = pl.from_dicts(rows, infer_schema_length=None).sort("strategy", "valuation_date")
     gap_frame = (
         pl.from_dicts(
-            gaps, schema={"ticker": pl.String, "valuation_date": pl.Date, "holding_month": pl.Date}
+            gaps,
+            schema={
+                "ticker": pl.String,
+                "valuation_date": pl.Date,
+                "holding_month": pl.Date,
+                "mark_date": pl.Date,
+                "mark_value": pl.Float64,
+            },
         )
         .unique()
         .sort("valuation_date", "ticker")
@@ -251,5 +309,6 @@ def build_daily_ledger(
             "missing_ticker_dates": gap_frame.height,
             "missing_valuations": ledger["wealth"].null_count(),
             "ledger_rows": ledger.height,
+            "estimated_valuations": int(ledger["estimated_close"].sum()),
         },
     )

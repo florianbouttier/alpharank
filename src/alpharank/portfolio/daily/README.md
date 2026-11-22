@@ -9,6 +9,13 @@ snapshot et calendrier SPY explicite. Aucun pointeur mutable ni réseau.
 Sorties : ledger quotidien, rapprochement mensuel, trous de couverture et KPI
 calculés sur les dates demandées ; combinaisons rééquilibrées mensuellement.
 
+`ledger.py` conserve le mode strict par défaut. La politique explicite
+`last_observed_mark_v1` porte le dernier cours ajusté connu depuis l'ancre
+du mois pour le seul titre sans clôture. Les dates/valeurs conservées, les
+points estimés et les écarts aux rendements scellés sont auditables. Il s'agit
+d'un scénario de valorisation, jamais d'une liquidation ou d'un prix observé.
+Le capital et les combinaisons suivent ses rendements, sans saut vers l'archive.
+
 `monthly_reference.py` adapte les rendements mensuels déjà scellés en une
 grille distincte de fins de mois. Le même moteur mesure cette grille à 12
 observations/an, sans créer de cours quotidien ; ses limites sont définies dans
@@ -16,5 +23,5 @@ le [contrat commun](../../../../docs/common_portfolio_backtest_engine.md#sealed-
 
 Dossiers enfants : aucun.
 
-Interdit ici : signal, classement, entraînement, remplissage de prix manquant,
+Interdit ici : signal, classement, entraînement, remplissage silencieux de prix,
 réécriture de snapshot et promotion implicite d'une reconstitution historique.

@@ -79,6 +79,9 @@ def _series_view(
         "coverage": {
             "observations": len(days) - 1,
             "missing_closes": int(np.count_nonzero(~np.isfinite(raw))),
+            "estimated_closes": int(frame["estimated_close"].sum())
+            if "estimated_close" in frame.columns
+            else 0,
         },
     }
 
