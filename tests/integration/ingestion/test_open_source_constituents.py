@@ -179,6 +179,53 @@ def test_october_registry_applies_official_sp500_changes() -> None:
     assert result.frame.filter(pl.col("Date") == date(2026, 10, 1)).height == 503
 
 
+def test_november_registry_replaces_kenvue_only_after_the_official_effect() -> None:
+    project_root = Path(__file__).resolve().parents[3]
+    registry = json.loads(
+        (project_root / "configs/data_quality/sp500_constituent_changes_2026.json").read_text()
+    )
+    events = [
+        event for event in registry["events"] if event["event_id"] == "sp500-20261104-okta-kvue"
+    ]
+    assert len(events) == 1
+    assert events[0]["observed_at"] == "2026-10-30T23:59:59-04:00"
+    assert events[0]["effective_at"] == "2026-11-04T00:00:00-05:00"
+    selected = {**registry, "events": events}
+    source = pl.DataFrame(
+        {
+            "Date": [date(2026, 4, 1)] * 2,
+            "Ticker": ["KVUE", "KEEP"],
+            "Name": ["Kenvue", "Keep Co"],
+        }
+    )
+    decisions = [
+        datetime(2026, 10, 30, 20, tzinfo=timezone.utc),
+        datetime(2026, 11, 3, 21, tzinfo=timezone.utc),
+        datetime(2026, 11, 20, 21, tzinfo=timezone.utc),
+    ]
+    membership = membership_at_decision_time(source, registry=selected, decision_times=decisions)
+    for decision in decisions[:2]:
+        assert set(membership.filter(pl.col("decision_at") == decision)["ticker"]) == {
+            "KVUE",
+            "KEEP",
+        }
+    assert set(membership.filter(pl.col("decision_at") == decisions[2])["ticker"]) == {
+        "OKTA",
+        "KEEP",
+    }
+    monthly = refresh_monthly_constituents(
+        source, registry=selected, target_month=date(2026, 11, 1)
+    )
+    assert set(monthly.frame.filter(pl.col("Date") == date(2026, 10, 1))["Ticker"]) == {
+        "KVUE",
+        "KEEP",
+    }
+    assert set(monthly.frame.filter(pl.col("Date") == date(2026, 11, 1))["Ticker"]) == {
+        "OKTA",
+        "KEEP",
+    }
+
+
 def test_refresh_monthly_constituents_requires_explicit_noop_permission() -> None:
     source = pl.DataFrame(
         {

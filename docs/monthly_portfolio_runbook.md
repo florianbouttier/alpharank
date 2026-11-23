@@ -485,6 +485,15 @@ price providers and must not interpret the discontinued `PSKY` symbol as a
 stale current constituent. September and October snapshots each retain 503
 members.
 
+Pour le refresh du 23 novembre 2026, l'annonce S&P du 30 octobre ajoute OKTA
+et retire KVUE à compter du 4 novembre. La connaissance, sans heure publique
+précise, est fixée conservativement au 30 octobre à 23:59:59 New York ; l'effet
+du 4 novembre utilise UTC−5 après le changement d'heure. L'ancien historique
+n'est pas réécrit. Le snapshot mensuel de novembre reflète ces événements,
+tandis que `membership_at_decision_time()` conserve la composition exacte avant
+le 4 novembre. Les preuves d'acquisition, de cutoffs et de replays sont suivies
+dans [le journal du 23 novembre](research/data_refresh_replay_20261123.md).
+
 The price download universe is deliberately wider than the latest 503 names.
 Policy `recent_constituent_exit_price_bridge_v1` also refreshes tracked symbols
 whose official removal became effective in the current or preceding calendar

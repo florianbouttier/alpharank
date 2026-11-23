@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 661,
+  "node_count": 662,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -216,6 +216,7 @@
     "test_open_source_constituents.py::test_constituent_snapshot_has_unique_key",
     "test_open_source_constituents.py::test_membership_effective_at_decision_time",
     "test_open_source_constituents.py::test_membership_event_lineage_is_complete",
+    "test_open_source_constituents.py::test_november_registry_replaces_kenvue_only_after_the_official_effect",
     "test_open_source_constituents.py::test_october_registry_applies_official_sp500_changes",
     "test_open_source_constituents.py::test_refresh_monthly_constituents_obeys_effective_month_and_ticker_change",
     "test_open_source_constituents.py::test_refresh_monthly_constituents_requires_explicit_noop_permission",
@@ -664,7 +665,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "d996efe9e5ae64161c6f044fdceb7d769584c02a9b79f16a35ad2e147af3ff89",
+  "node_ids_sha256": "25ee99a562a4714ed6f1a9ba5f419d3eda52c5efd95b1e57787967cf601d4de1",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

@@ -218,6 +218,18 @@
           "name": "Skydance Corporation"
         }
       ]
+    },
+    {
+      "event_id": "sp500-20261104-okta-kvue",
+      "observed_at": "2026-10-30T23:59:59-04:00",
+      "effective_at": "2026-11-04T00:00:00-05:00",
+      "effective_date": "2026-11-04",
+      "confidence": "high",
+      "source_url": "https://press.spglobal.com/2026-10-30-Okta-Set-to-Join-S-P-500-Others-to-Join-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "operations": [
+        {"action": "add", "ticker": "OKTA", "name": "Okta"},
+        {"action": "remove", "ticker": "KVUE"}
+      ]
     }
   ]
 }

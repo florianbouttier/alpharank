@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-11-22.**
+**Dernière mise à jour : 2026-11-23.**
 
 **Statut : seule source des priorités actives.**
 
@@ -155,6 +155,10 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 116 | `REPORT-031` | naviguer et comparer les versions sans sélecteur de données techniques | lot REPORT ci-dessous | fait |
 | 117 | `METH-011` | calculer un scénario quotidien au dernier cours connu | lot METH ci-dessous | fait |
 | 118 | `REPORT-032` | livrer le rapport complet avec replis quotidiens auditables | lot REPORT ci-dessous | fait |
+| 119 | `DATA-049` | sourcer le changement S&P de novembre avant le refresh | lot DATA ci-dessous | fait |
+| 120 | `DATA-050` | retélécharger les sources au 23 novembre, prix arrêtés au 20 | lot DATA ci-dessous | à faire |
+| 121 | `REPLAY-015` | réapprendre les méthodes classiques et auditer les anciens paniers | lot REPLAY ci-dessous | à faire |
+| 122 | `REPORT-033` | livrer tous les paniers actualisés et le rapport complet | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -535,6 +539,38 @@ change dans ce lot.
 | `DATA-046` | publier un historique sectoriel point-in-time depuis les observations RAW | fait | release `6c9a228b…abb9c` : 10 389 observations, 4 863 acceptées, 653 tickers ; 502/503 membres courants couverts, temps conservateur, inconnus retenus en rejet et hashes dans le manifeste |
 | `DATA-047` | reconstruire les secteurs historiques depuis les SIC des dépôts annuels SEC | fait | release `55fbc0c5…da84` : 11 486 classifications, 754 tickers, zéro identité non résolue ; 183/183 mois Boosting disposent d'au moins cinq secteurs, 97,81 % des candidats natifs sont classés et les manques restent exclus sans backfill courant |
 | `DATA-048` | auditer les dernières observations après rachat et la contrepartie actionnaire | à faire | rapprocher NLSN/ABMD puis les autres fins de série ; ne pas inventer de CVR, cash, titre successeur ni cours quotidien, et ne jamais réécrire la baseline publiée |
+| `DATA-049` | enregistrer le remplacement KVUE par OKTA effectif le 4 novembre | fait | huit tests et 27 configs verts ; 228 559 lignes historiques inchangées, novembre à 503 membres et registre `e5db75f0…c095` ; annonce primaire du 30 octobre |
+| `DATA-050` | acquérir les sources fraîches et composer le candidat du 23 novembre | à faire | prix au 20 novembre, SEC-only et sources/failures explicites, préfixes validés et RAW conservés, candidat non promu avant replay |
+
+### Détail de `DATA-049`
+
+- **Périmètre** : registre annuel des événements S&P, tests de membership daté,
+  runbook et preuve canonique ; annonce S&P du 30 octobre 2026.
+- **Hors périmètre** : contrepartie de rachat KVUE, score, prix ou réécriture
+  d'une observation publiée.
+- **Acceptation** : OKTA remplace KVUE à compter du 4 novembre, connaissance
+  conservatrice à la fin du 30 octobre ; les membres avant effet et les anciens
+  événements restent identiques. Registre versionné par commit/hash.
+- **Validations** : régression préalable, membership exact avant/après effet,
+  schéma de config, documentation/liens ; snapshot mensuel novembre audité.
+- **Impact/rollback** : nouveaux univers uniquement à partir de l'effet sourcé ;
+  les anciennes releases restent immuables et peuvent être rejouées.
+
+### Détail de `DATA-050`
+
+- **Périmètre** : acquisition complète depuis 2005, reçus/deltas RAW, packages
+  prix et SEC et composition candidate ; racine de travail datée 20261123.
+- **Hors périmètre** : suppression d'archives, écrasement de snapshots,
+  contournement de gate, promotion automatique et ordre de bourse.
+- **Acceptation** : baseline publiée et dernier candidat utilisé figés avant
+  réseau, verrou/processus et transaction interrompue inspectés, espace disque
+  suivi, téléchargements réseau frais et statut de chaque source ; prix bornés
+  au vendredi 20 novembre, aucune information postérieure dans les signaux.
+- **Validations** : hashes/fraîcheur/identité, révisions et conservation des
+  préfixes, provenance SEC-only et manifeste candidat. Toute impossibilité
+  d'acquisition ou de composition reste explicitement non réussie.
+- **Impact/rollback** : nouvelle version candidate uniquement ; aucun déplacement
+  de `data/model_inputs/manifests/latest.json` avant les contrôles requis.
 
 ### Détail de `DATA-048`
 
@@ -1131,6 +1167,25 @@ doublons exacts et preuve de récupération.
 | `REPLAY-012` | rejouer le candidat du 24 octobre et contrôler le dernier portefeuille | fait | décision de septembre exacte sur 126/126 ; Legacy et Boosting canoniques historiques exacts ; 23 ajouts et 23 retraits limités à l'univers diagnostique Legacy PE, exhaustivement attribués au vintage SEC ; rapport HTML `56a82a1a…d91`, production inchangée et promotion bloquée |
 | `REPLAY-013` | exécuter les Top 5 Boosting sectoriels natif et tendance | fait | sept décisions calculables depuis mars 2026, 176 mois antérieurs bloqués sans backfill statique ; six rendements réalisés, derniers Top 5 et hashes publiés, aucune promotion |
 | `REPLAY-014` | backtester les Top 5 sectoriels sur l'historique SEC causal reconstruit | fait | 182 mois communs d'août 2011 à septembre 2026, cinq secteurs tous les mois, coûts 10 bps et SPY total return ; CAGR 19,29 % natif sectoriel et 20,94 % tendance sectorielle, aucune promotion |
+| `REPLAY-015` | réapprendre les stratégies classiques sur le nouveau candidat et contrôler les vintages | à faire | Legacy et Boosting recalculés avec paramètres/cadence scellés, calendrier complet et dernier panier précédent rapprochés, tous les écarts attribués ou signalés bloquants |
+
+### Détail de `REPLAY-015`
+
+- **Périmètre** : smoke Legacy réduit puis apprentissage classique complet,
+  Boosting au même snapshot, variantes tendance et sectorielles, moteur commun,
+  comparaison à la publication et au dernier run utilisé dans le dashboard.
+- **Hors périmètre** : changement opportuniste des hyperparamètres, cadence de
+  réapprentissage, univers ou contrainte d'allocation ; promotion implicite R&D.
+- **Acceptation** : mêmes configurations, seeds et runtime pour les comparaisons
+  data-only ; dernier portefeuille déjà formé dérivé automatiquement et contrôlé
+  à sa date exacte, même si son rendement est immature. Historique additionnel
+  séparé ; aucun écart ancien inexpliqué masqué. En cadence classique, novembre
+  est le mois détenu à partir de la décision d'octobre clôturée.
+- **Validations** : manifestes/replays stricts, comparaison entrées/univers/
+  scores/titres/poids/rendements, JSON et HTML inter-vintages ; ablations prix/SEC
+  si nécessaire et aucun titre sans rendement sélectionné silencieusement écarté.
+- **Impact/rollback** : nouveaux artefacts sous racine explicite, anciens runs
+  intacts ; tout blocage conserve sa cause et interdit la promotion.
 
 ### Détail de `REPLAY-014`
 
@@ -1393,6 +1448,22 @@ doublons exacts et preuve de récupération.
 | `REPORT-030` | capturer et servir des versions complètes liées aux vrais runs | fait | trois vintages économiques du 8/24/31 octobre, catalogue `2621a7d3…524d`, payloads conservés, comparaison aux mêmes bornes ; 144 tests portefeuille/reporting et preuve canonique datée |
 | `REPORT-031` | remplacer le choix de sources par la navigation entre versions | fait | cinq vintages août–octobre, sélecteur global et comparaison exacte, HTML `f34ac2e6…e247`, 159 tests Python/15 JS et QA desktop/mobile ; sources et ledgers inchangés, preuve canonique datée |
 | `REPORT-032` | intégrer le scénario quotidien dans une nouvelle version complète | fait | HTML `1ee5b9b7…8c09`, six versions/13 stratégies ; 733 NAV estimées, 25 310 positions inchangées, 2 366 mois rapprochés ; 157 tests Python/18 JS et QA réelle desktop/mobile, preuve canonique datée |
+| `REPORT-033` | livrer les paniers actualisés pour le 24 novembre dans le HTML complet | à faire | toutes les stratégies, prix du 20 novembre, dates d'apprentissage/décision/valorisation distinctes, audit inter-vintages visible et anciennes versions conservées |
+
+### Détail de `REPORT-033`
+
+- **Périmètre** : générateur canonique complet, toutes les séries et variantes,
+  positions nouvelles, poids, secteurs, prix/horodatage et preuves des contrôles.
+- **Hors périmètre** : ordres, quantités personnalisées sans budget/positions,
+  mélange d'un suivi figé avec un backtest ou simulation intra-mois implicite.
+- **Acceptation** : tableau de paniers complémentaire au HTML complet ; nouveau
+  vrai panier distinct de celui d'octobre auparavant suivi jusqu'au 20 novembre.
+  Si demandé, un scénario intra-mois est identifié séparément, sans changer la
+  méthode mensuelle ni revendiquer un nouveau backtest scellé.
+- **Validations** : parité des payloads/positions, calculs du moteur commun,
+  affichage et filtres, source/couverture/cutoffs, documentation et hashes.
+- **Impact/rollback** : nouvelle version immuable ; les anciens rapports,
+  données et portefeuilles demeurent accessibles.
 
 ### Détail de `REPORT-032`
 

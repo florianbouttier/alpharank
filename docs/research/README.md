@@ -62,6 +62,9 @@ d'expérience datés. Il ne remplace pas les contrats méthodologiques courants.
 - `data_refresh_candidate_20261031.md` : refresh complet jusqu'au 30 octobre,
   prix réconciliés sans réécriture historique et snapshot candidat SEC-only
   commun laissé non promu avant le replay inter-vintages.
+- `data_refresh_replay_20261123.md` : demande de nouvelles données et de tous les
+  paniers pour le 24 novembre, univers officiel de novembre et journal des
+  acquisitions, apprentissages et contrôles effectivement réalisés.
 - `strategy_frontiers_20261025.md` : 168 compositions longues entre Legacy,
   Boosting et Boosting tendance, deux frontières efficientes et profils de
   risque sur cinq horizons jusqu'en septembre 2026.
