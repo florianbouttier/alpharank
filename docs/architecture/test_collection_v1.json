@@ -1,6 +1,6 @@
 {
   "canonicalization": "test filename plus selectors; parent directories ignored",
-  "node_count": 662,
+  "node_count": 672,
   "node_ids": [
     "test_acquisition_status.py::test_acquisition_status_names_reconciled_provider_revisions",
     "test_acquisition_status.py::test_acquisition_status_separates_download_from_publication_gate",
@@ -488,7 +488,17 @@
     "test_raw_archive.py::test_failed_raw_download_attempt_keeps_receipt_without_payload",
     "test_raw_archive.py::test_identical_raw_download_stores_no_price_rows_twice",
     "test_raw_archive.py::test_immutable_eodhd_content_is_stored_once_for_multiple_source_ids",
+    "test_raw_archive.py::test_missing_event_is_a_deletion_even_with_ignored_legacy_metadata",
+    "test_raw_archive.py::test_non_missing_event_with_null_hash_is_not_silently_a_deletion",
+    "test_raw_archive.py::test_raw_archive_does_not_retain_obsolete_string_view_buffers",
+    "test_raw_archive.py::test_raw_archive_preserves_typed_values_and_empty_first_observation",
+    "test_raw_archive.py::test_raw_archive_preserves_v1_hashes_without_python_row_maps",
+    "test_raw_archive.py::test_raw_archive_rejects_changed_contract_before_writing",
     "test_raw_archive.py::test_raw_archive_rejects_duplicate_business_keys",
+    "test_raw_archive.py::test_raw_archive_still_rejects_corruption[cycle-parent cycle]",
+    "test_raw_archive.py::test_raw_archive_still_rejects_corruption[events-event hash mismatch]",
+    "test_raw_archive.py::test_raw_archive_still_rejects_corruption[reference-content reference is unresolved]",
+    "test_raw_archive.py::test_raw_archive_still_rejects_corruption[snapshot-snapshot hash mismatch]",
     "test_raw_archive.py::test_raw_archive_traces_changed_new_and_missing_rows",
     "test_raw_archive.py::test_raw_download_batch_rebuilds_manifest_once_for_all_attempts",
     "test_raw_archive.py::test_raw_download_receipt_id_is_immutable",
@@ -665,7 +675,7 @@
     "test_warehouse_migration.py::test_snapshot_publication_detects_any_later_mart_file",
     "test_warehouse_paths.py::test_warehouse_paths_expose_raw_stg_def_and_mart"
   ],
-  "node_ids_sha256": "25ee99a562a4714ed6f1a9ba5f419d3eda52c5efd95b1e57787967cf601d4de1",
+  "node_ids_sha256": "d158881c48fee4ff717a19f041170279ae2993c10e008adb467d4653c37345d0",
   "registry_id": "alpharank_test_collection_v1",
   "schema_version": 1
 }

@@ -160,6 +160,14 @@ révisions du fournisseur sont expliquées dans
 `price_revision_diagnostic.json`; elles ne deviennent une correction du passé
 qu'avec un overlay sourcé.
 
+L'archive d'événements v1 est reconstruite et comparée par opérations
+colonnaires (`DATA-051`), sans dictionnaires Python contenant toutes les lignes.
+Le hash logique conserve la sérialisation JSON v1 et l'ordre des clés ; le
+traitement parcourt les lignes par lots. Les hashes des événements et de chaque
+snapshot parent sont toujours vérifiés, ainsi que les références de contenu.
+Une restauration réutilise son contenu antérieur sans le dupliquer. Ce correctif
+mémoire ne change ni les valeurs, ni la politique de prix, ni les archives.
+
 Le RAW différentiel peut ne conserver que les dates nouvelles d'un ticker dans
 le run courant. La résolution DEF réintroduit alors la dernière clé validée
 inchangée comme ancre technique ; son ancien `ingestion_run_id` est conservé et

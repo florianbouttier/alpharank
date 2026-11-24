@@ -1,6 +1,6 @@
 # Roadmap maître AlphaRank
 
-**Dernière mise à jour : 2026-11-23.**
+**Dernière mise à jour : 2026-11-24.**
 
 **Statut : seule source des priorités actives.**
 
@@ -156,9 +156,10 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 117 | `METH-011` | calculer un scénario quotidien au dernier cours connu | lot METH ci-dessous | fait |
 | 118 | `REPORT-032` | livrer le rapport complet avec replis quotidiens auditables | lot REPORT ci-dessous | fait |
 | 119 | `DATA-049` | sourcer le changement S&P de novembre avant le refresh | lot DATA ci-dessous | fait |
-| 120 | `DATA-050` | retélécharger les sources au 23 novembre, prix arrêtés au 20 | lot DATA ci-dessous | à faire |
-| 121 | `REPLAY-015` | réapprendre les méthodes classiques et auditer les anciens paniers | lot REPLAY ci-dessous | à faire |
-| 122 | `REPORT-033` | livrer tous les paniers actualisés et le rapport complet | lot REPORT ci-dessous | à faire |
+| 120 | `DATA-051` | borner la mémoire de l'archive RAW avant de reprendre l'acquisition | lot DATA ci-dessous | fait |
+| 121 | `DATA-050` | retélécharger les sources au 23 novembre, prix arrêtés au 20 | lot DATA ci-dessous | à faire |
+| 122 | `REPLAY-015` | réapprendre les méthodes classiques et auditer les anciens paniers | lot REPLAY ci-dessous | à faire |
+| 123 | `REPORT-033` | livrer tous les paniers actualisés et le rapport complet | lot REPORT ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -540,7 +541,28 @@ change dans ce lot.
 | `DATA-047` | reconstruire les secteurs historiques depuis les SIC des dépôts annuels SEC | fait | release `55fbc0c5…da84` : 11 486 classifications, 754 tickers, zéro identité non résolue ; 183/183 mois Boosting disposent d'au moins cinq secteurs, 97,81 % des candidats natifs sont classés et les manques restent exclus sans backfill courant |
 | `DATA-048` | auditer les dernières observations après rachat et la contrepartie actionnaire | à faire | rapprocher NLSN/ABMD puis les autres fins de série ; ne pas inventer de CVR, cash, titre successeur ni cours quotidien, et ne jamais réécrire la baseline publiée |
 | `DATA-049` | enregistrer le remplacement KVUE par OKTA effectif le 4 novembre | fait | huit tests et 27 configs verts ; 228 559 lignes historiques inchangées, novembre à 503 membres et registre `e5db75f0…c095` ; annonce primaire du 30 octobre |
-| `DATA-050` | acquérir les sources fraîches et composer le candidat du 23 novembre | à faire | prix au 20 novembre, SEC-only et sources/failures explicites, préfixes validés et RAW conservés, candidat non promu avant replay |
+| `DATA-050` | acquérir les sources fraîches et composer le candidat du 23 novembre | à faire | première tentative arrêtée sans résultat ; reprise après `DATA-051`, prix au 20 novembre, SEC-only et sources/failures explicites, candidat non promu avant replay |
+| `DATA-051` | remplacer les dictionnaires de lignes RAW par des opérations colonnaires | fait | 60 tests ciblés verts ; 73 vintages et 2 781 482 lignes reconstruits, hash `5eeed64e…9d93` inchangé ; compaction Arrow et recherches bornées au vintage, zéro archive réécrite |
+
+### Détail de `DATA-051`
+
+- **Périmètre** : reconstruction et différentiel de l'archive RAW, traitement
+  colonnaire sans dictionnaires Python contenant des millions de lignes.
+- **Hors périmètre** : migration ou suppression d'archives, changement de prix,
+  de hashes logiques, de politique data ou de méthode d'investissement.
+- **Acceptation** : les archives v1 existantes se reconstruisent avec les mêmes
+  données et hashes ; inserts, mises à jour, disparitions, restaurations et
+  corruption restent contrôlés. Les contenus inchangés ne sont pas dupliqués.
+- **Validations** : régression préalable, fixtures historiques, tests RAW et
+  ingestion, mesure mémoire sur une vraie archive en lecture seule, docs/liens.
+- **Impact/rollback** : aucun changement économique ; anciens fichiers intacts,
+  récupération transactionnelle normale avant la reprise de `DATA-050`.
+
+Preuve : [`data_refresh_replay_20261123.md`](docs/research/data_refresh_replay_20261123.md).
+Le contrôle réel finit en 385 s, pic RSS de 4 154 802 176 octets sur ce Mac.
+La reprise d'acquisition reste distincte : environ 350 Mio libres ne suffisent
+pas aux nouvelles données et aux apprentissages ; aucun succès n'est revendiqué
+pour `DATA-050`, `REPLAY-015` ou `REPORT-033`.
 
 ### Détail de `DATA-049`
 

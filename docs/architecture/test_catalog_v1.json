@@ -158,7 +158,7 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.073,
+      "duration_seconds": 0.035,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
@@ -433,13 +433,13 @@
     {
       "domain": "data",
       "duration_class": "fast",
-      "duration_seconds": 0.054,
+      "duration_seconds": 0.157,
       "failure_count": 0,
       "network_requirement": "none",
       "observed_outcome": "passed",
       "path": "tests/integration/warehouse/test_raw_archive.py",
       "suite": "integration",
-      "test_case_count": 8
+      "test_case_count": 19
     },
     {
       "domain": "data",
@@ -1620,9 +1620,9 @@
     }
   ],
   "measurement": {
-    "command": "DATA-049: pytest tests/integration/ingestion/test_open_source_constituents.py; earlier measurements retained for other files",
+    "command": "DATA-051: pytest tests/integration/warehouse/test_raw_archive.py tests/integration/ingestion/test_open_source_transaction.py; earlier measurements retained for other files",
     "junit_source": "targeted_rerun_with_retained_other_file_measurements",
-    "measured_at": "2026-11-23"
+    "measured_at": "2026-11-24"
   },
   "policy_id": "pytest_suite_classification_v1",
   "schema_version": 1,
@@ -1637,7 +1637,7 @@
       "replay_governance": 21,
       "reporting": 11
     },
-    "duration_seconds": 39.497,
+    "duration_seconds": 39.562,
     "failure_count": 0,
     "file_count": 147,
     "outcome_counts": {
@@ -1650,6 +1650,6 @@
       "replay": 12,
       "unit": 89
     },
-    "test_case_count": 644
+    "test_case_count": 655
   }
 }
