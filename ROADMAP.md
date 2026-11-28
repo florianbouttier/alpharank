@@ -181,7 +181,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 142 | `METH-017` | simuler les coûts par ordre et la capacité du portefeuille | lot fiabilité ci-dessous | à faire |
 | 143 | `METH-018` | préenregistrer la confirmation prospective et ses critères | lot fiabilité ci-dessous | à faire |
 | 144 | `REPLAY-018` | évaluer les règles verrouillées sur des décisions nouvelles mûres | lot fiabilité ci-dessous | à faire |
-| 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | lot fiabilité ci-dessous | à faire |
+| 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | snapshot, décision et suivi visibles aux dates économiques ; 18 tests JS, 22 tests de rapports et build verts | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.

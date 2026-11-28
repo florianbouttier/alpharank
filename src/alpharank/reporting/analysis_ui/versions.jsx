@@ -52,6 +52,7 @@ export function VersionBar({
   const current = entries.find(
     (entry) => entry.id === context.current_version_id,
   );
+  const decisionMonth = payload.current_portfolio?.decision_month;
   return (
     <section className="version-bar" aria-label="Version du backtest">
       <div className="version-selection">
@@ -78,6 +79,18 @@ export function VersionBar({
               ? `Historique calculé jusqu’au ${dateLabel(current?.last_close || payload.analysis.sources.history.last_close)}`
               : `Historique mensuel jusqu’à ${dateLabel(payload.calendar?.end, { day: undefined })}`}
           </strong>
+          <span>
+            Backtest de recherche
+            {current?.composition_id && (
+              <>
+                {" "}
+                · snapshot <code>{current.composition_id.slice(0, 12)}</code>
+              </>
+            )}
+            {current?.price_as_of_date && (
+              <> · cours du snapshot au {dateLabel(current.price_as_of_date)}</>
+            )}
+          </span>
         </div>
         <button
           id="compare-versions-open"
@@ -90,22 +103,22 @@ export function VersionBar({
       {payload.recent_valuation && (
         <details className="version-followup" open={followup}>
           <summary>
-            Suivi séparé du panier de{" "}
+            Panier figé · mois détenu{" "}
             {dateLabel(payload.current_portfolio.holding_month, {
               day: undefined,
               month: "long",
             })}
+            {decisionMonth && (
+              <>
+                {" "}
+                · décision en{" "}
+                {dateLabel(decisionMonth, { day: undefined, month: "long" })}
+              </>
+            )}{" "}
+            · valorisé au {dateLabel(payload.recent_valuation.latest_close)}
           </summary>
           <div className="version-followup-body">
-            <p>
-              Panier archivé de{" "}
-              {dateLabel(payload.current_portfolio.holding_month, {
-                day: undefined,
-                month: "long",
-              })}
-              , prix au {dateLabel(payload.recent_valuation.latest_close)}.
-              Aucun rééquilibrage après ce mois n’est inclus.
-            </p>
+            <p>Aucun rééquilibrage après ce mois n’est inclus.</p>
             <button
               id="toggle-frozen-followup"
               className="text-action"

@@ -32,6 +32,9 @@ Le sélecteur global **Version du backtest** pilote l'ensemble du rapport :
 analyse, portefeuilles, méthodes et sources. Il propose les vrais runs du
 catalogue, pas les refontes du HTML. La dernière date de performance est visible
 à côté du sélecteur ; la date de prix d'un suivi ne la remplace jamais.
+Cette ligne affiche aussi le statut de recherche, l'identifiant de composition
+et la dernière date des cours du snapshot. L'en-tête du panier figé expose
+directement le mois de décision, le mois détenu et la date de valorisation.
 Début/fin et Jour/Semaine/Mois restent des réglages de lecture dans la version.
 L'onglet Versions expose les dates du replay central, du snapshot, de ses prix,
 le code, les frais et les exceptions, puis la comparaison de deux archives

@@ -386,13 +386,21 @@ test("version controls expose economic dates, not the HTML date or technical coh
           entries: [versionFixture],
         },
       },
-      current_portfolio: { holding_month: "2026-10-01" },
+      current_portfolio: {
+        decision_month: "2026-09-01",
+        holding_month: "2026-10-01",
+      },
       recent_valuation: { latest_close: "2026-11-20" },
     },
   });
   assert.match(html, /Version du backtest/);
   assert.match(html, /Replay du 31 oct\. 2026/);
   assert.match(html, /Historique calculé jusqu’au 30 sept\. 2026/);
+  assert.match(html, /Backtest de recherche/);
+  assert.match(html, /cccccccccccc/);
+  assert.match(html, /cours du snapshot au 30 oct\. 2026/);
+  assert.match(html, /décision en septembre 2026/);
+  assert.match(html, /valorisé au 20 nov\. 2026/);
   assert.match(html, /Aucun rééquilibrage après ce mois/);
   assert.match(html, /hors backtest/);
   assert.doesNotMatch(html, /22 nov|analysis-source|monthly_reference/);
