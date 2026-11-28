@@ -231,6 +231,39 @@ def test_boosting_selection_ignores_future_return_availability() -> None:
     assert with_missing_return["benchmark_return"].to_list() == [None, 0.02]
 
 
+def test_rank_buffer_keeps_eligible_incumbent_before_filling_new_positions() -> None:
+    rows = []
+    for month, ranking in ((1, ("A.US", "B.US", "C.US", "D.US")),
+                           (2, ("C.US", "D.US", "A.US", "B.US"))):
+        rows.extend(
+            {
+                "ticker": ticker,
+                "decision_month": date(2026, month, 1),
+                "score": 1.0 / rank,
+                "future_return_1m": None if ticker == "A.US" else 0.1,
+                "benchmark_future_return_1m": 0.02,
+            }
+            for rank, ticker in enumerate(ranking, start=1)
+        )
+    predictions = pl.DataFrame(rows)
+
+    buffered = boosting_predictions_to_holdings(
+        predictions, strategy="Buffer", top_n=2, retention_rank=3
+    )
+    native = boosting_predictions_to_holdings(predictions, strategy="Native", top_n=2)
+    future_mutated = predictions.with_columns(pl.lit(-0.9).alias("future_return_1m"))
+    repeated = boosting_predictions_to_holdings(
+        future_mutated, strategy="Buffer", top_n=2, retention_rank=3
+    )
+
+    assert buffered["ticker"].to_list() == ["A.US", "B.US", "C.US", "A.US"]
+    assert native["ticker"].to_list() == ["A.US", "B.US", "C.US", "D.US"]
+    assert buffered["target_weight"].to_list() == [0.5] * 4
+    assert buffered.select("decision_month", "ticker").equals(
+        repeated.select("decision_month", "ticker")
+    )
+
+
 def test_terminal_return_is_included() -> None:
     predictions = pl.DataFrame(
         {

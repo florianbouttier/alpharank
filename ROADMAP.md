@@ -177,7 +177,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 138 | `REPLAY-016` | exiger la preuve inter-vintages au basculement du snapshot | 31 tests, deux régressions reproduites, preuves absentes, altérées ou trop courtes refusées | fait |
 | 139 | `REPLAY-017` | sceller la référence commune à exécution causale | lot fiabilité ci-dessous | à faire |
 | 140 | `METH-015` | construire une référence momentum 12–1 du même univers | 49 tests transverses et 8 ciblés, 1 004 clés sur deux mois réels, un rendement sélectionné censuré bloque le replay | fait |
-| 141 | `METH-016` | tester largeur et tampon de rotation à coûts comparables | lot fiabilité ci-dessous | à faire |
+| 141 | `METH-016` | ajouter la règle de largeur et de tampon de rotation | 29 tests, 20 décisions réelles, entrées 70 à 44 en Top 10 et 118 à 99 en Top 20, référence native identique | fait |
 | 142 | `METH-017` | simuler les coûts par ordre et la capacité du portefeuille | lot fiabilité ci-dessous | à faire |
 | 143 | `METH-018` | préenregistrer la confirmation prospective et ses critères | lot fiabilité ci-dessous | à faire |
 | 144 | `REPLAY-018` | évaluer les règles verrouillées sur des décisions nouvelles mûres | lot fiabilité ci-dessous | à faire |
@@ -187,6 +187,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 148 | `QUAL-021` | vérifier le type de la borne du calendrier à l'ouverture | borne typée, mypy sur 44 fichiers et neuf tests v2 verts | fait |
 | 149 | `DATA-058` | sourcer les ouvertures de sortie bloquées du replay v2 | 3 cotations sur 4 recoupées, ECA et SIVBQ sans cours probant, contreparties documentées | fait |
 | 150 | `METH-019` | conserver les actions successeures et le cash après une sortie terminale | lot fiabilité ci-dessous | à faire |
+| 151 | `METH-020` | comparer largeur et tampon de rotation à coûts comparables | lot fiabilité ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -2132,7 +2133,8 @@ une fenêtre nouvelle et mûre, définie avant observation.
 | `REPLAY-016` | frontière de publication, migration identique toujours vérifiable | imposer un reçu éligible lié à l'ancien et au nouveau snapshot, au cutoff et aux deux replays, refuser un reçu invalide | garde de publication, rollback par pointeur scellé |
 | `REPLAY-017` | replay causal complet Legacy/Boosting/SPY et rapport canonique | poids, rendements, frais, couverture et écarts de vintage rapprochés, preuve HTML, résultats bloquants conservés | référence de recherche, promotion soumise aux gates |
 | `METH-015` | momentum 12–1 sur le même univers causal | mutation du futur sans effet, calendrier et coûts identiques, référence ajoutée au replay | nouvelle référence R&D, ignorer la variante |
-| `METH-016` | équipondération Top 10/20 et tampon de rotation préfixés | comparaison nette à risque, coûts et calendrier communs, détail concentration, risque et turnover | allocation R&D, conserver les règles initiales |
+| `METH-016` | option de rétention en rang sur le replay candidat, même classement et équipondération | Top 10/20 et seuil de rétention configurables, sélection invariante aux rendements futurs, référence native conservée | règle R&D, désactiver l'option pour retrouver la référence |
+| `METH-020` | replay de largeur et tampon sur la référence qualifiée | comparaison nette à risque, coûts et calendrier communs, détail concentration, risque et turnover | évaluation R&D, conserver les règles initiales |
 | `METH-017` | coûts dérivés des ordres nets, spread, liquidité et taille | rapprocher ordres/positions/cash et chiffrer des scénarios de coûts et de capacité | nouveaux coûts R&D, conserver la référence 10 pb |
 | `METH-018` | protocole prospectif, variantes et critères figés | sceller le code, la fenêtre, les paramètres, les mesures et le traitement des essais multiples avant première décision | protocole R&D, toute révision ouvre une autre fenêtre |
 | `REPLAY-018` | confirmation sur la période prospective mûre | résultats nets, bootstrap temporel, facteurs, attribution et rapport canonique avec critères de décision | preuve prospective, publication conditionnelle |

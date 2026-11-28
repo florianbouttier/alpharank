@@ -13,6 +13,37 @@ import polars as pl
 from alpharank.backtest.model_artifacts import load_serialized_fold_predictor
 from alpharank.multihorizon.config import validate_latest_common_comparison_profile
 from alpharank.multihorizon.metrics import build_prediction_portfolios
+from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
+
+
+def build_common_boosting_intents(
+    predictions: pl.DataFrame,
+    legacy_months: pl.DataFrame,
+    top_n_values: tuple[int, ...],
+    rank_buffer: int | None,
+) -> pl.DataFrame:
+    """Build native and optional buffered baskets on the common replay calendar."""
+    holdings = [
+        boosting_predictions_to_holdings(predictions, strategy=f"Boosting Top {size}", top_n=size)
+        for size in top_n_values
+    ]
+    if rank_buffer is not None:
+        decision_months = legacy_months.select(
+            pl.col("holding_month").dt.offset_by("-1mo").alias("decision_month")
+        )
+        common = predictions.join(decision_months, on="decision_month", how="semi")
+        holdings.extend(
+            boosting_predictions_to_holdings(
+                common,
+                strategy=f"Boosting Top {size} | Rank buffer +{rank_buffer}",
+                top_n=size,
+                retention_rank=size + rank_buffer,
+            )
+            for size in top_n_values
+        )
+    return pl.concat(holdings, how="diagonal_relaxed").join(
+        legacy_months, on="holding_month", how="inner"
+    )
 
 
 def validate_boosting_v2_replay(

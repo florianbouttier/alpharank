@@ -17,6 +17,7 @@ def boosting_predictions_to_holdings(
     sector_column: str | None = None,
     maximum_names_per_sector: int | None = None,
     tie_breaker_columns: Sequence[str] = (),
+    retention_rank: int | None = None,
     realized_return_column: str = "future_return_1m",
     benchmark_return_column: str = "benchmark_future_return_1m",
     terminal_events: pl.DataFrame | None = None,
@@ -31,6 +32,12 @@ def boosting_predictions_to_holdings(
     must never cause a lower-ranked candidate to enter the portfolio.
     """
 
+    if retention_rank is not None:
+        if retention_rank < top_n or maximum_names_per_sector is not None:
+            raise ValueError("Rank retention requires rank >= top_n and no sector cap.")
+        predictions = _retain_ranked_predictions(
+            predictions, top_n, retention_rank, score_column, tie_breaker_columns
+        )
     parts: list[pl.DataFrame] = []
     for month in predictions.partition_by("decision_month", maintain_order=True):
         selected = select_ranked_candidates(
@@ -45,16 +52,8 @@ def boosting_predictions_to_holdings(
         )
         if selected.is_empty():
             continue
-        weights = equal_weights(selected.height)
         parts.append(
-            selected.with_columns(
-                pl.lit(strategy).alias("strategy"),
-                pl.col("decision_month").dt.offset_by("1mo").alias("holding_month"),
-                pl.Series("target_weight", weights),
-                pl.col(realized_return_column).cast(pl.Float64).alias("realized_return"),
-                pl.col(benchmark_return_column).cast(pl.Float64).alias("benchmark_return"),
-                pl.int_range(1, selected.height + 1, eager=True).alias("selection_rank"),
-            )
+            _selected_holdings(selected, strategy, realized_return_column, benchmark_return_column)
         )
     if not parts:
         return pl.DataFrame(
@@ -85,3 +84,44 @@ def boosting_predictions_to_holdings(
             starting_price_column=terminal_starting_price_column,
         ).holdings
     return holdings
+
+
+def _selected_holdings(
+    selected: pl.DataFrame, strategy: str, realized_column: str, benchmark_column: str
+) -> pl.DataFrame:
+    return selected.with_columns(
+        pl.lit(strategy).alias("strategy"),
+        pl.col("decision_month").dt.offset_by("1mo").alias("holding_month"),
+        pl.Series("target_weight", equal_weights(selected.height)),
+        pl.col(realized_column).cast(pl.Float64).alias("realized_return"),
+        pl.col(benchmark_column).cast(pl.Float64).alias("benchmark_return"),
+        pl.int_range(1, selected.height + 1, eager=True).alias("selection_rank"),
+    )
+
+
+def _retain_ranked_predictions(
+    predictions: pl.DataFrame,
+    top_n: int,
+    retention_rank: int,
+    score_column: str,
+    tie_breaker_columns: Sequence[str],
+) -> pl.DataFrame:
+    """Retain incumbent candidates by rank, then fill vacant slots by score."""
+    incumbents: list[str] = []
+    selected_months: list[pl.DataFrame] = []
+    months = predictions.sort("decision_month", maintain_order=True).partition_by("decision_month")
+    for month in months:
+        if month.height < top_n or month["ticker"].is_duplicated().any():
+            raise ValueError("Rank buffering requires a full basket of unique eligible candidates.")
+        ranked = select_ranked_candidates(
+            month,
+            top_n=retention_rank,
+            score_column=score_column,
+            tie_breaker_columns=tie_breaker_columns,
+        )
+        incumbent = pl.col("ticker").is_in(incumbents)
+        retained = ranked.filter(incumbent)
+        new = ranked.filter(~incumbent).head(top_n - retained.height)
+        incumbents = retained["ticker"].to_list() + new["ticker"].to_list()
+        selected_months.append(ranked.filter(pl.col("ticker").is_in(incumbents)))
+    return pl.concat(selected_months) if selected_months else predictions

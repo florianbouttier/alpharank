@@ -19,6 +19,7 @@ def main() -> None:
     parser.add_argument("--causal-snapshot-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--top-n", type=int, nargs="+", default=[5, 10])
+    parser.add_argument("--rank-buffer", type=int)
     parser.add_argument(
         "--holding-return-policy",
         choices=(LEGACY_NEXT_SESSION_OPEN.identifier, REBALANCE_OPEN_POLICY_ID),
@@ -31,6 +32,7 @@ def main() -> None:
         causal_snapshot_dir=args.causal_snapshot_dir,
         output_dir=args.output_dir,
         top_n_values=tuple(args.top_n),
+        rank_buffer=args.rank_buffer,
         holding_return_policy=args.holding_return_policy,
     )
     print(json.dumps(report, indent=2, sort_keys=True))

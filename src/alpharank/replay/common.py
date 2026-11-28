@@ -12,7 +12,6 @@ import polars as pl
 
 from alpharank.backtest.datasets import prepare_constituents_monthly
 from alpharank.governance import reserve_run_directory
-from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.attribution import provisional_return_cagr_attribution
 from alpharank.portfolio.comparison import reference_monthly_series
@@ -46,7 +45,7 @@ from alpharank.portfolio.terminal_returns import (
     TerminalReturnResult,
     resolve_provisional_terminal_shareholder_returns,
 )
-from alpharank.replay.boosting import validate_boosting_v2_replay
+from alpharank.replay.boosting import build_common_boosting_intents, validate_boosting_v2_replay
 from alpharank.replay.causal_snapshot import validate_causal_v2_snapshot
 from alpharank.replay.legacy import (
     HOLDING_MONTH_MEMBERSHIP_POLICY_ID,
@@ -192,12 +191,15 @@ def build_common_v2_comparison(
     output_dir: Path,
     top_n_values: tuple[int, ...] = (5, 10),
     holding_return_policy: str = LEGACY_NEXT_SESSION_OPEN.identifier,
+    rank_buffer: int | None = None,
 ) -> dict[str, Any]:
     """Resimulate every investable strategy on one next-open/cost contract."""
 
     if holding_return_policy not in {LEGACY_NEXT_SESSION_OPEN.identifier, REBALANCE_OPEN_POLICY_ID}:
         raise ValueError(f"Unknown holding return policy: {holding_return_policy!r}.")
     uses_open_to_open = holding_return_policy == REBALANCE_OPEN_POLICY_ID
+    if rank_buffer is not None and (rank_buffer <= 0 or not uses_open_to_open):
+        raise ValueError("Rank buffering requires a positive buffer and the open-to-open policy.")
     destination = reserve_run_directory(output_dir)
     causal = validate_causal_v2_snapshot(causal_snapshot_dir)
     composition_id = causal["composition_id"]
@@ -248,15 +250,7 @@ def build_common_v2_comparison(
     membership_rows_removed = (
         predictions_before_membership_gate - predictions_after_membership_gate
     )
-    boosting_holdings = pl.concat(
-        [
-            boosting_predictions_to_holdings(
-                predictions, strategy=f"Boosting Top {size}", top_n=size
-            )
-            for size in top_n_values
-        ],
-        how="diagonal_relaxed",
-    ).join(legacy_months, on="holding_month", how="inner")
+    boosting_holdings = build_common_boosting_intents(predictions, legacy_months, top_n_values, rank_buffer)
     common_months = boosting_holdings.select("holding_month").unique()
     legacy_holdings = legacy_holdings.join(common_months, on="holding_month", how="inner")
     intents = pl.concat([legacy_holdings, boosting_holdings], how="diagonal_relaxed").drop(
@@ -580,6 +574,8 @@ def build_common_v2_comparison(
             }.items()
         },
     }
+    if rank_buffer is not None:
+        manifest["boosting_rank_buffer"] = rank_buffer
     (destination / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True, default=str) + "\n",
         encoding="utf-8",

@@ -224,6 +224,23 @@ effectifs à une borne dont l'heure reste inconnue bloquent le calcul.
 Le mode précédent conserve sa fenêtre jusqu'à clôture et sa convention de
 frais. Ce candidat de recherche ne change pas le portefeuille de production.
 
+### Largeur et rétention en rang (`METH-016`)
+
+Dans ce même replay candidat, `--top-n 10 20 --rank-buffer 5` compare, pour
+chaque largeur, le Top K Boosting natif et une variante équipondérée. La
+variante conserve les lignes du portefeuille précédent qui restent dans les
+K + 5 premiers rangs de l'univers admissible du mois, puis complète avec les
+meilleurs rangs restants. La première décision démarre sur le Top K.
+Le journal et les frais utilisent les mêmes dates et les mêmes conventions
+pour toutes les variantes. Le seuil est enregistré dans le manifeste. La
+comparaison économique sur historique qualifié relève de `METH-020`.
+
+Sur les 20 décisions de janvier 2025 à août 2026 du candidat archivé en
+octobre, le tampon +5 conserve les sélections natives à l'identique et fait
+passer les nouvelles entrées de 70 à 44 en Top 10 et de 118 à 99 en Top 20.
+Le comptage exclut la formation du premier panier. Il mesure les entrées
+de titres, indépendamment des poids dérivés et des frais.
+
 ## Benchmark Contract
 
 Performance comparisons use one explicit benchmark convention:

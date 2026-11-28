@@ -214,18 +214,21 @@ def test_common_v2_open_to_open_uses_the_next_shared_open(
         output_dir=output_dir,
         top_n_values=(1,),
         holding_return_policy="rebalance_open_to_rebalance_open_v1",
+        rank_buffer=1,
     )
 
     assert report["passed"] is True
     monthly = pl.read_parquet(output_dir / "common_v2_monthly.parquet")
     assert report["status"] == "candidate_open_to_open_replay"
     assert report["promotion_eligible"] is False
+    assert json.loads((output_dir / "manifest.json").read_text())["boosting_rank_buffer"] == 1
     metrics = {row["strategy"]: row for row in monthly.to_dicts()}
     assert metrics["Legacy"]["gross_return"] == pytest.approx(0.20)
     assert metrics["Legacy"]["net_return"] == pytest.approx(1.20 * 0.999 - 1.0)
     assert metrics["Boosting Top 1"]["gross_return"] == pytest.approx(-0.10)
+    assert metrics["Boosting Top 1 | Rank buffer +1"]["gross_return"] == pytest.approx(-0.10)
     assert metrics["SPY total return"]["net_return"] == pytest.approx(0.10)
-    assert monthly["benchmark_return"].to_list() == pytest.approx([0.10] * 3)
+    assert monthly["benchmark_return"].to_list() == pytest.approx([0.10] * 4)
 
 
 def test_open_to_open_cash_settlement_and_missing_successor(tmp_path: Path) -> None:
