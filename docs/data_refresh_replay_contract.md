@@ -204,6 +204,23 @@ Le code retour vaut zéro seulement pour
 conserve les clés de divergence en Parquet et interdit la promotion jusqu'à la
 revue prévue par ce contrat.
 
+Le rapport éligible scelle les hashes des manifestes et des artefacts des deux
+vintages. Pour un changement de composition, construire le MART candidat avec
+son propre pointeur puis appeler la commande sur le pointeur de production.
+
+```bash
+python scripts/open_source/publication/promote_definitive_mart.py \
+  --candidate-mart <mart-candidat> \
+  --replay-report <audit>/refresh_replay_report.json \
+  --promote
+```
+
+La publication vérifie les deux compositions, leurs hashes d'entrée, les
+replays Legacy et Boosting reliés à chaque comparaison commune, le calendrier
+historique et le dernier portefeuille déjà formé. Elle conserve l'empreinte
+du rapport. La migration d'une composition déjà courante exige les mêmes
+hashes de fichiers économiques et utilise le mode `byte_identical_migration`.
+
 Lorsqu'une gate du replay commun a refusé le candidat, remplacer
 `--candidate-common` par :
 

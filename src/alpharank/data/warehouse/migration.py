@@ -11,8 +11,8 @@ from typing import Any, Mapping
 
 import polars as pl
 
-from alpharank.data.publishing.composed_snapshot import validate_composed_model_snapshot
 from alpharank.data.ingestion.raw_archive import register_immutable_raw_file
+from alpharank.data.publishing.composed_snapshot import validate_composed_model_snapshot
 from alpharank.data.publishing.snapshot_publication import publish_mart_snapshot
 from alpharank.data.publishing.snapshot_storage import copy_snapshot_file
 from alpharank.data.warehouse.paths import WarehousePaths
@@ -300,6 +300,7 @@ def promote_mart_pointer(
     promotion_root: Path,
     migration_id: str,
     generated_at: str,
+    replay_report_path: Path | None = None,
 ) -> Path:
     """Atomically promote one validated MART and retain an exact rollback payload."""
 
@@ -325,6 +326,7 @@ def promote_mart_pointer(
             publication_id=promotion_id,
             migration_id=migration_id,
             generated_at=generated_at,
+            replay_report_path=replay_report_path,
         )
         promoted = _read_json(pointer_path)
         _write_json_atomic(promotion_dir / "after.json", promoted)

@@ -115,6 +115,22 @@ def test_build_composed_snapshot_is_hash_verified_and_immutable(tmp_path: Path) 
     assert latest["composition_id"] == result.composition_id
 
 
+def test_composed_snapshot_refuses_to_replace_a_published_pointer(tmp_path: Path) -> None:
+    pointer = tmp_path / "latest.json"
+    prior = '{"contract":"alpharank_mart_snapshot_pointer_v1", "publication_manifest_sha256":"sealed"}'
+    pointer.write_text(prior)
+
+    with pytest.raises(RuntimeError, match="cannot replace a published MART pointer"):
+        build_composed_model_snapshot(
+            price_package_dir=tmp_path / "price",
+            sec_package_dir=tmp_path / "sec",
+            history_root=tmp_path / "history",
+            latest_manifest_path=pointer,
+        )
+
+    assert pointer.read_text() == prior
+
+
 def test_composed_snapshot_rejects_non_sec_fundamental_source(tmp_path: Path) -> None:
     price = tmp_path / "price"
     sec = tmp_path / "sec"

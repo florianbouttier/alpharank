@@ -7,8 +7,9 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from alpharank.data.warehouse.mart import resolve_mart_model_input
+from alpharank.data.publishing.promotion_evidence import seal_refresh_replay_inputs
 from alpharank.data.publishing.snapshot_publication import validate_snapshot_publication
+from alpharank.data.warehouse.mart import resolve_mart_model_input
 from alpharank.data.warehouse.migration import (
     catalog_existing_eodhd,
     migrate_validated_snapshot_to_warehouse,
@@ -35,7 +36,9 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _seed_composed_snapshot(root: Path) -> tuple[Path, Path]:
+def _seed_composed_snapshot(
+    root: Path, composition_id: str = "composition-test"
+) -> tuple[Path, Path]:
     snapshot = root / "model_inputs" / "history" / "snapshot_old"
     snapshot.mkdir(parents=True)
     prices = pl.DataFrame(
@@ -71,7 +74,7 @@ def _seed_composed_snapshot(root: Path) -> tuple[Path, Path]:
     manifest = {
         "contract_version": 1,
         "scope": "alpharank_composed_model_input",
-        "composition_id": "composition-test",
+        "composition_id": composition_id,
         "snapshot_dir": str(snapshot),
         "output_sha256": output_hashes,
         "validation": {"passed": True},
@@ -83,7 +86,7 @@ def _seed_composed_snapshot(root: Path) -> tuple[Path, Path]:
     pointer.write_text(
         json.dumps(
             {
-                "composition_id": "composition-test",
+                "composition_id": composition_id,
                 "snapshot_dir": str(snapshot),
                 "manifest_path": str(snapshot / "lineage" / "manifest.json"),
                 "generated_at": "2026-08-16T00:00:00+00:00",
@@ -207,6 +210,134 @@ def test_legacy_model_input_resolves_only_validated_mart_with_exact_parity(
     assert resolved.composition_id == "composition-test"
     assert resolved.model_file_sha256 == source_hashes
     assert resolved.to_manifest()["source_snapshot_dir"] == str(snapshot.resolve())
+
+
+def test_mart_switch_requires_replay_evidence_for_a_changed_composition(tmp_path: Path) -> None:
+    baseline, pointer = _seed_composed_snapshot(tmp_path / "data")
+    candidate_snapshot, candidate_pointer = _seed_composed_snapshot(
+        tmp_path / "candidate", "candidate-test"
+    )
+    warehouse = tmp_path / "data" / "warehouse"
+    seed = tmp_path / "data" / "eodhd" / "seed.json"
+    seed.parent.mkdir()
+    seed.write_text('{"source":"eodhd"}')
+    candidate = migrate_validated_snapshot_to_warehouse(
+        project_root=tmp_path,
+        latest_pointer_path=candidate_pointer,
+        warehouse_root=warehouse,
+        generated_at="2026-08-20T12:00:00+00:00",
+    )
+    before = pointer.read_bytes()
+    promotion_options = {
+        "pointer_path": pointer,
+        "mart_dir": candidate.mart_dir,
+        "promotion_root": warehouse / "manifests" / "promotions",
+        "migration_id": candidate.migration_id,
+        "generated_at": "2026-08-20T12:01:00+00:00",
+    }
+
+    with pytest.raises(RuntimeError, match="requires sealed refresh replay evidence"):
+        promote_mart_pointer(**promotion_options)
+    assert pointer.read_bytes() == before
+
+    report_path = _seed_refresh_replay_report(tmp_path, baseline, candidate_snapshot)
+    report = json.loads(report_path.read_text())
+    common_output = (
+        Path(report["inputs"]["candidate_common"]) / "comparison_common_monthly.parquet"
+    )
+    common_output.write_bytes(b"changed after the audit")
+    with pytest.raises(RuntimeError, match="changed artifact hashes"):
+        promote_mart_pointer(
+            **(promotion_options | {"generated_at": "2026-08-20T12:02:00+00:00"}),
+            replay_report_path=report_path,
+        )
+    assert pointer.read_bytes() == before
+
+    common_output.write_bytes(b"sealed replay table")
+    report["historical_cutoff"] = "2026-06-01"
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(RuntimeError, match="does not cover the published calendar"):
+        promote_mart_pointer(
+            **(promotion_options | {"generated_at": "2026-08-20T12:03:00+00:00"}),
+            replay_report_path=report_path,
+        )
+    assert pointer.read_bytes() == before
+
+    report["historical_cutoff"] = "2026-07-01"
+    report_path.write_text(json.dumps(report))
+    promote_mart_pointer(
+        **(promotion_options | {"generated_at": "2026-08-20T12:04:00+00:00"}),
+        replay_report_path=report_path,
+    )
+    published = json.loads(pointer.read_text())
+    receipt = json.loads(Path(published["publication_manifest_path"]).read_text())
+    assert published["composition_id"] == "candidate-test"
+    assert receipt["promotion_evidence"]["sha256"] == _sha256(report_path)
+    assert validate_snapshot_publication(pointer)["passed"] is True
+
+
+def _seed_refresh_replay_report(root: Path, baseline: Path, candidate: Path) -> Path:
+    dataset_map = {
+        "final_price": "US_Finalprice.parquet",
+        "sp500_price": "SP500Price.parquet",
+        "sp500_constituents": "SP500_Constituents.csv",
+        "income_statement": "US_Income_statement.parquet",
+        "balance_sheet": "US_Balance_sheet.parquet",
+        "cash_flow": "US_Cash_flow.parquet",
+        "earnings": "US_Earnings.parquet",
+    }
+    inputs = {}
+    for side, snapshot in (("baseline", baseline), ("candidate", candidate)):
+        legacy_dir, boosting_dir, common_dir = (
+            root / f"{side}_{role}" for role in ("legacy", "boosting", "common")
+        )
+        datasets = {key: {"sha256": _sha256(snapshot / name)} for key, name in dataset_map.items()}
+        legacy_path = legacy_dir / "data_input_manifest.json"
+        boosting_path = boosting_dir / "manifest.json"
+        common_path = common_dir / "manifest.json"
+        for key, path in (
+            ("snapshot", snapshot), ("legacy", legacy_dir),
+            ("boosting", boosting_dir), ("common", common_dir),
+        ):
+            inputs[f"{side}_{key}"] = str(path)
+        for path in (
+            legacy_dir / "legacy_common_holdings.parquet",
+            legacy_dir / "legacy_common_monthly.parquet",
+            legacy_dir / "legacy_detailed_returns_polars.parquet",
+            boosting_dir / "classification_h06/predictions.parquet",
+            common_dir / "comparison_common_holdings.parquet",
+            common_dir / "comparison_common_monthly.parquet",
+            common_dir / "boosting_live_score_holdings.parquet",
+        ):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"sealed replay table")
+        legacy_path.write_text(json.dumps({"datasets": datasets}))
+        boosting_path.write_text(json.dumps({"input_paths": datasets}))
+        common_path.write_text(json.dumps({
+            "publication_eligible": True,
+            "calendar": {"end_holding_month": "2026-07-01"},
+            "lineage_check": {
+                "passed": True,
+                "left_manifest": str(legacy_path),
+                "right_manifest": str(boosting_path),
+            },
+        }))
+    report_path = root / "refresh_replay_report.json"
+    report_path.write_text(json.dumps({
+        "contract_version": 2,
+        "status": "identical_historical_portfolios",
+        "promotion_allowed_by_this_gate": True,
+        "historical_cutoff": "2026-07-01",
+        "vintage_portfolio_stability": {
+            "status": "passed",
+            "exact_match": True,
+            "date_source": "baseline_live_portfolio",
+            "decision_month": "2026-07-01",
+        },
+        "inputs": inputs,
+        "promotion_input_sha256": seal_refresh_replay_inputs(inputs),
+    }))
+    return report_path
 
 
 def test_mart_input_resolution_rejects_changed_model_bytes(tmp_path: Path) -> None:

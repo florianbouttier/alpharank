@@ -9,6 +9,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from alpharank.data.publishing.promotion_evidence import seal_refresh_replay_inputs
 from alpharank.governance import capture_runtime_provenance
 from alpharank.replay.refresh_drift import (
     ReplayAuditInputs,
@@ -56,6 +57,8 @@ def main() -> int:
     else:
         report = audit_refresh_replay(_complete_inputs(args), args.output_dir)
     report["audit_runtime_provenance"] = _capture_audit_provenance(args, report)
+    if report["promotion_allowed_by_this_gate"] is True:
+        report["promotion_input_sha256"] = seal_refresh_replay_inputs(report["inputs"])
     report_path = args.output_dir / "refresh_replay_report.json"
     report_path.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",

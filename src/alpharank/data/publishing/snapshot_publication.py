@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from alpharank.data.publishing.composed_snapshot import validate_composed_model_snapshot
+from alpharank.data.publishing.promotion_evidence import validate_refresh_promotion_evidence
 from alpharank.data.warehouse.mart import validate_mart_model_input
 
 SNAPSHOT_PUBLICATION_CONTRACT = "alpharank_mart_snapshot_publication_v1"
@@ -35,6 +37,7 @@ def publish_mart_snapshot(
     publication_id: str,
     migration_id: str,
     generated_at: str,
+    replay_report_path: Path | None = None,
 ) -> SnapshotPublicationResult:
     """Publish a MART by reference, with a complete immutable file inventory."""
 
@@ -43,6 +46,10 @@ def publish_mart_snapshot(
     validated = validate_mart_model_input(
         mart_dir,
         warehouse_root=warehouse_root,
+    )
+    pointer_path = pointer_path.resolve()
+    evidence = _publication_evidence(
+        pointer_path, validated.composed_manifest_path, replay_report_path
     )
     inventory = _tree_inventory(validated.mart_dir)
     inventory_sha256 = _inventory_sha256(inventory)
@@ -66,6 +73,7 @@ def publish_mart_snapshot(
         "file_count": len(inventory),
         "inventory_sha256": inventory_sha256,
         "files": inventory,
+        "promotion_evidence": evidence,
         "validation": {
             "passed": True,
             "complete_tree_inventory": True,
@@ -75,7 +83,6 @@ def publish_mart_snapshot(
         },
     }
     _write_json_atomic(publication_manifest_path, publication)
-    pointer_path = pointer_path.resolve()
     pointer = {
         "contract": SNAPSHOT_POINTER_CONTRACT,
         "publication_id": publication_id,
@@ -99,6 +106,28 @@ def publish_mart_snapshot(
         file_count=len(inventory),
         inventory_sha256=inventory_sha256,
     )
+
+
+def _publication_evidence(
+    pointer_path: Path, candidate_manifest_path: Path, report_path: Path | None
+) -> dict[str, object]:
+    current = _read_json(pointer_path)
+    baseline_dir = pointer_path.parent / _non_empty_string(
+        current.get("snapshot_dir"), "snapshot_dir"
+    )
+    baseline_identity = validate_composed_model_snapshot(baseline_dir)
+    baseline = _read_json(baseline_dir / "lineage" / "manifest.json")
+    candidate = _read_json(candidate_manifest_path)
+    if baseline_identity["composition_id"] != current.get("composition_id"):
+        raise RuntimeError("Current pointer does not match its baseline composition")
+    if baseline["composition_id"] == candidate["composition_id"]:
+        if baseline["output_sha256"] != candidate["output_sha256"]:
+            raise RuntimeError("The same composition cannot change model file hashes")
+        return {"mode": "byte_identical_migration"}
+    if report_path is None:
+        raise RuntimeError("A changed composition requires sealed refresh replay evidence")
+    evidence = validate_refresh_promotion_evidence(report_path, baseline=baseline, candidate=candidate)
+    return {"mode": "refresh_replay", **evidence}
 
 
 def validate_snapshot_publication(pointer_path: Path) -> dict[str, object]:

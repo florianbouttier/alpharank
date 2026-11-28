@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import json
+from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
-from alpharank.data.warehouse.migration import migrate_validated_snapshot_to_warehouse
+from alpharank.data.warehouse.mart import validate_mart_model_input
+from alpharank.data.warehouse.migration import (
+    migrate_validated_snapshot_to_warehouse,
+    promote_mart_pointer,
+)
 
 
 def main() -> int:
@@ -30,7 +35,25 @@ def main() -> int:
         action="store_true",
         help="Atomically move the production pointer after every migration check passes.",
     )
+    parser.add_argument("--candidate-mart", type=Path)
+    parser.add_argument("--replay-report", type=Path)
     args = parser.parse_args()
+    if args.candidate_mart is not None:
+        if not args.promote or args.replay_report is None:
+            parser.error("--candidate-mart requires --promote and --replay-report")
+        candidate = validate_mart_model_input(args.candidate_mart, warehouse_root=args.warehouse_root)
+        promotion = promote_mart_pointer(
+            pointer_path=args.latest_pointer,
+            mart_dir=candidate.mart_dir,
+            promotion_root=args.warehouse_root / "manifests" / "promotions",
+            migration_id=f"live008_{candidate.composition_id[:12]}",
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            replay_report_path=args.replay_report,
+        )
+        print(promotion)
+        return 0
+    if args.replay_report is not None:
+        parser.error("--replay-report requires --candidate-mart")
     result = migrate_validated_snapshot_to_warehouse(
         project_root=args.project_root,
         latest_pointer_path=args.latest_pointer,

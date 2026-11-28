@@ -82,6 +82,7 @@ def build_composed_model_snapshot(
 ) -> ComposedSnapshotResult:
     """Compose one immutable, hash-addressed Legacy/Boosting input package."""
 
+    _validate_draft_pointer(latest_manifest_path)
     price_package_dir = price_package_dir.resolve()
     sec_package_dir = sec_package_dir.resolve()
     history_root = history_root.resolve()
@@ -221,14 +222,7 @@ def build_composed_model_snapshot(
         os.replace(staging_dir, snapshot_dir)
 
         final_manifest_path = snapshot_dir / "lineage" / "manifest.json"
-        if latest_manifest_path is not None:
-            latest_payload = {
-                "composition_id": composition_id,
-                "snapshot_dir": str(snapshot_dir),
-                "manifest_path": str(final_manifest_path),
-                "generated_at": generated_at,
-            }
-            _write_json_atomic(latest_manifest_path.resolve(), latest_payload)
+        _write_draft_pointer(latest_manifest_path, final_manifest_path, composition_id, generated_at)
         return ComposedSnapshotResult(
             snapshot_dir=snapshot_dir,
             manifest_path=final_manifest_path,
@@ -238,6 +232,29 @@ def build_composed_model_snapshot(
     except (KeyError, OSError, RuntimeError, TypeError, ValueError):
         shutil.rmtree(staging_dir, ignore_errors=True)
         raise
+
+
+def _validate_draft_pointer(pointer_path: Path | None) -> None:
+    if pointer_path is not None and pointer_path.is_file():
+        if _read_json(pointer_path).get("publication_manifest_sha256"):
+            raise RuntimeError("Candidate composition cannot replace a published MART pointer")
+
+
+def _write_draft_pointer(
+    pointer_path: Path | None, manifest_path: Path, composition_id: str, generated_at: str
+) -> None:
+    if pointer_path is None:
+        return
+    _validate_draft_pointer(pointer_path)
+    _write_json_atomic(
+        pointer_path.resolve(),
+        {
+            "composition_id": composition_id,
+            "snapshot_dir": str(manifest_path.parent.parent),
+            "manifest_path": str(manifest_path),
+            "generated_at": generated_at,
+        },
+    )
 
 
 def _build_snapshot_composition(

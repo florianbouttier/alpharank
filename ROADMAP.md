@@ -174,7 +174,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 135 | `METH-012` | figer les ordres avant de consulter les cours d'ouverture | lot fiabilité ci-dessous | à faire |
 | 136 | `METH-013` | simuler la détention entre deux ouvertures de rééquilibrage | lot fiabilité ci-dessous | à faire |
 | 137 | `METH-014` | brancher les secteurs causaux dans un profil Legacy candidat | lot fiabilité ci-dessous | à faire |
-| 138 | `REPLAY-016` | exiger la preuve inter-vintages au basculement du snapshot | lot fiabilité ci-dessous | à faire |
+| 138 | `REPLAY-016` | exiger la preuve inter-vintages au basculement du snapshot | 31 tests, deux régressions reproduites, preuves absentes, altérées ou trop courtes refusées | fait |
 | 139 | `REPLAY-017` | sceller la référence commune à exécution causale | lot fiabilité ci-dessous | à faire |
 | 140 | `METH-015` | construire une référence momentum 12–1 du même univers | lot fiabilité ci-dessous | à faire |
 | 141 | `METH-016` | tester largeur et tampon de rotation à coûts comparables | lot fiabilité ci-dessous | à faire |
