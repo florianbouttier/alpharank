@@ -176,7 +176,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 137 | `METH-014` | brancher les secteurs causaux dans un profil Legacy candidat | profil opt-in scellé, 28 tests, 99 446 clés classifiées sur 212 mois et cinq clôtures à 13 h vérifiées | fait |
 | 138 | `REPLAY-016` | exiger la preuve inter-vintages au basculement du snapshot | 31 tests, deux régressions reproduites, preuves absentes, altérées ou trop courtes refusées | fait |
 | 139 | `REPLAY-017` | sceller la référence commune à exécution causale | lot fiabilité ci-dessous | à faire |
-| 140 | `METH-015` | construire une référence momentum 12–1 du même univers | lot fiabilité ci-dessous | à faire |
+| 140 | `METH-015` | construire une référence momentum 12–1 du même univers | 49 tests transverses et 8 ciblés, 1 004 clés sur deux mois réels, un rendement sélectionné censuré bloque le replay | fait |
 | 141 | `METH-016` | tester largeur et tampon de rotation à coûts comparables | lot fiabilité ci-dessous | à faire |
 | 142 | `METH-017` | simuler les coûts par ordre et la capacité du portefeuille | lot fiabilité ci-dessous | à faire |
 | 143 | `METH-018` | préenregistrer la confirmation prospective et ses critères | lot fiabilité ci-dessous | à faire |

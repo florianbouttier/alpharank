@@ -19,6 +19,7 @@ from alpharank.multihorizon.config import validate_latest_common_comparison_prof
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.lineage import (
+    input_hashes_from_manifest,
     load_manifest,
     require_matching_data_contexts,
     require_matching_price_eligibility,
@@ -35,9 +36,13 @@ from alpharank.replay.complementary_allocation import (
     write_complementary_sleeve_artifacts,
 )
 from alpharank.replay.prediction_universes import (
+    BENCHMARK_METADATA,
     build_boosting_holdings,
     build_prediction_universes,
     costed_strategy_names,
+    momentum_reference_manifest,
+    simulate_replay_strategies,
+    write_momentum_reference_artifacts,
 )
 from alpharank.replay.trend_eligibility import (
     CausalTrendEligibilityRegistry,
@@ -62,6 +67,7 @@ class CommonStrategyReplayConfig:
     include_legacy_valuation_universe: bool = True
     include_causal_trend_universe: bool = False
     complementary_sleeve: ComplementarySleeveConfig | None = None
+    include_momentum_reference: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +166,18 @@ def build_common_strategy_replay(config: CommonStrategyReplayConfig) -> Path:
                 live=gated.live,
                 legacy_detailed_path=inputs.legacy_detailed,
                 market_prices_path=inputs.snapshot_dir / "SP500Price.parquet",
+            )
+        )
+    if config.include_momentum_reference:
+        artifacts.update(
+            write_momentum_reference_artifacts(
+                destination,
+                inputs.snapshot_dir,
+                gated.completed,
+                portfolios.monthly.filter(pl.col("strategy") == "SPY total return"),
+                input_hashes=input_hashes_from_manifest(checks.boosting_manifest),
+                top_n_values=top_n_values,
+                transaction_cost_bps=config.transaction_cost_bps,
             )
         )
     return _write_manifest(
@@ -301,6 +319,7 @@ def _capture_provenance(
             "benchmark": "SPY total return from adjusted_close",
             "include_legacy_valuation_universe": config.include_legacy_valuation_universe,
             "include_causal_trend_universe": config.include_causal_trend_universe,
+            "include_momentum_reference": config.include_momentum_reference,
             **(
                 {"complementary_sleeve": complementary_sleeve.manifest(inputs.legacy_detailed)}
                 if complementary_sleeve is not None
@@ -350,6 +369,7 @@ def _critical_files() -> tuple[str, ...]:
         "src/alpharank/replay/sector_allocation.py",
         "src/alpharank/replay/trend_eligibility.py",
         "src/alpharank/strategy/legacy_valuation.py",
+        "src/alpharank/strategy/momentum_reference.py",
         "configs/data_quality/terminal_shareholder_events_v1.json",
         "configs/data_quality/terminal_shareholder_events_v2.json",
         "configs/data_quality/terminal_shareholder_events_v3.json",
@@ -449,7 +469,7 @@ def _build_portfolio_frames(
         if not gated.live.is_empty()
         else pl.DataFrame()
     )
-    boosting_monthly = _simulate_strategies(
+    boosting_monthly = simulate_replay_strategies(
         boosting_holdings, transaction_cost_bps=transaction_cost_bps
     )
     if boosting_monthly.is_empty():
@@ -516,24 +536,6 @@ def _build_legacy_references(
     return holdings, pl.concat([legacy_monthly, spy], how="diagonal_relaxed")
 
 
-def _simulate_strategies(
-    holdings: pl.DataFrame,
-    *,
-    transaction_cost_bps: float,
-) -> pl.DataFrame:
-    return pl.concat(
-        [
-            simulate_weighted_portfolio(
-                frame,
-                transaction_cost_bps=transaction_cost_bps,
-                causal_timing_policy="legacy_month_only",
-            )
-            for frame in holdings.partition_by("strategy", maintain_order=True)
-        ],
-        how="diagonal_relaxed",
-    )
-
-
 def _reject_censored_holdings(holdings: pl.DataFrame) -> None:
     censored = holdings.filter(pl.col("target_status_1m") == "approved_censored_last_observation")
     if censored.height:
@@ -578,12 +580,7 @@ def _write_artifacts(
         holdings=portfolios.holdings,
         monthly_returns=portfolios.monthly,
         prefix="comparison_common",
-        benchmark_metadata={
-            "id": "spy_total_return_adjusted_close",
-            "label": "SPY total return",
-            "price_column": "adjusted_close",
-            "includes_distributions": True,
-        },
+        benchmark_metadata=BENCHMARK_METADATA,
     )
     artifacts.update(_write_terminal_journal(output_dir, terminal_journal))
     if not portfolios.live_holdings.is_empty():
@@ -638,6 +635,16 @@ def _write_valuation_registry(
     }
 
 
+def _methodology_status(config: CommonStrategyReplayConfig) -> str:
+    if config.include_causal_trend_universe:
+        return "post_hoc_research_diagnostic"
+    if config.complementary_sleeve is not None:
+        return "complementary_sleeve_research_diagnostic"
+    if config.include_momentum_reference:
+        return "momentum_reference_research_diagnostic"
+    return "validated_same_snapshot_common_replay"
+
+
 def _write_manifest(
     output_dir: Path,
     *,
@@ -651,18 +658,12 @@ def _write_manifest(
     artifacts: Mapping[str, Path],
     top_n_values: tuple[int, ...],
 ) -> Path:
-    methodology_status = "validated_same_snapshot_common_replay"
-    if config.include_causal_trend_universe:
-        methodology_status = "post_hoc_research_diagnostic"
-    elif config.complementary_sleeve is not None:
-        methodology_status = "complementary_sleeve_research_diagnostic"
+    methodology_status = _methodology_status(config)
     is_diagnostic = methodology_status != "validated_same_snapshot_common_replay"
     manifest = {
-        "status": (
-            "research_common_strategy_replay"
-            if is_diagnostic
-            else "canonical_common_strategy_replay"
-        ),
+        "status": "research_common_strategy_replay"
+        if is_diagnostic
+        else "canonical_common_strategy_replay",
         "methodology_status": methodology_status,
         "comparison_eligible": True,
         "publication_eligible": not is_diagnostic,
@@ -713,6 +714,10 @@ def _write_manifest(
     }
     if config.complementary_sleeve is not None:
         manifest["complementary_sleeve"] = provenance["resolved_config"]["complementary_sleeve"]
+    if config.include_momentum_reference:
+        manifest["momentum_reference"] = momentum_reference_manifest(
+            top_n_values, config.transaction_cost_bps
+        )
     path = output_dir / "manifest.json"
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return path

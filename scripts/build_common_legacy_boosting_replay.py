@@ -26,6 +26,7 @@ def build_comparison(
     include_legacy_valuation_universe: bool = True,
     include_causal_trend_universe: bool = False,
     complementary_sleeve: ComplementarySleeveConfig | None = None,
+    include_momentum_reference: bool = False,
 ) -> Path:
     """Compatibility entrypoint for the maintained replay builder."""
 
@@ -41,6 +42,7 @@ def build_comparison(
             include_legacy_valuation_universe=include_legacy_valuation_universe,
             include_causal_trend_universe=include_causal_trend_universe,
             complementary_sleeve=complementary_sleeve,
+            include_momentum_reference=include_momentum_reference,
         )
     )
 
@@ -54,6 +56,7 @@ def main() -> None:
     parser.add_argument("--top-n", type=int, nargs="+", default=[5, 10, 15, 20])
     parser.add_argument("--native-only", action="store_true")
     parser.add_argument("--include-causal-trend-universe", action="store_true")
+    parser.add_argument("--include-momentum-reference", action="store_true")
     parser.add_argument("--complementary-top-n", type=int, help="Enable the research sleeve.")
     parser.add_argument("--complementary-max-per-sector", type=int)
     parser.add_argument("--complementary-sector-history", type=Path)
@@ -80,6 +83,7 @@ def main() -> None:
             include_legacy_valuation_universe=not args.native_only,
             include_causal_trend_universe=args.include_causal_trend_universe,
             complementary_sleeve=complementary_sleeve,
+            include_momentum_reference=args.include_momentum_reference,
         )
     )
 

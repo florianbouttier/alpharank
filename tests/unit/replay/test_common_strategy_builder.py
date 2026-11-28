@@ -55,6 +55,128 @@ def test_native_holdings_include_all_declared_top_n_variants() -> None:
     ]
 
 
+def test_momentum_12_1_uses_exact_past_month_ends_and_ignores_future() -> None:
+    from alpharank.strategy.momentum_reference import score_momentum_12_1
+
+    decision = date(2025, 1, 1)
+    start = date(2024, 1, 31)
+    prior_session = date(2024, 12, 30)
+    end = date(2024, 12, 31)
+    future = date(2025, 1, 31)
+    candidates = pl.DataFrame(
+        {
+            "decision_month": [decision] * 3,
+            "ticker": ["A", "B", "C"],
+            "score": [0.1, 0.9, 0.8],
+            "future_return_1m": [None, 0.02, 0.10],
+        }
+    )
+    market = pl.DataFrame({"date": [prior_session, start, end]})
+    prices = pl.DataFrame(
+        {
+            "ticker": ["A", "B", "C", "A", "B", "C", "OUT", "OUT"],
+            "date": [start, start, start, end, prior_session, end, start, end],
+            "adjusted_close": [100.0, 100.0, 100.0, 130.0, 900.0, 115.0, 1.0, 100.0],
+        }
+    )
+
+    scored = score_momentum_12_1(candidates, prices, market)
+    mutated = score_momentum_12_1(
+        candidates.with_columns(pl.lit(-0.99).alias("future_return_1m")),
+        pl.concat(
+            [prices, pl.DataFrame({"ticker": ["A"], "date": [future], "adjusted_close": [1.0]})]
+        ).with_columns(pl.col("date").cast(pl.String)),
+        pl.concat([market, pl.DataFrame({"date": [future]})]).with_columns(
+            pl.col("date").cast(pl.String)
+        ),
+    )
+
+    assert scored["ticker"].to_list() == ["A", "B", "C"]
+    assert scored["score"].to_list() == [0.1, 0.9, 0.8]
+    assert scored["momentum_12_1"].drop_nulls().to_list() == pytest.approx([0.30, 0.15])
+    assert scored["momentum_status"].to_list() == ["eligible", "missing_end_price", "eligible"]
+    assert mutated.select("ticker", "momentum_12_1", "momentum_status").equals(
+        scored.select("ticker", "momentum_12_1", "momentum_status")
+    )
+
+
+def test_momentum_12_1_replay_uses_common_costs_and_refuses_censored_selection(
+    tmp_path: Path,
+) -> None:
+    from alpharank.governance_contracts.common import sha256_path
+    from alpharank.replay.prediction_universes import (
+        replay_momentum_reference,
+        write_momentum_reference_artifacts,
+    )
+
+    january = date(2025, 1, 1)
+    february = date(2025, 2, 1)
+    benchmark = pl.DataFrame({"holding_month": [february], "net_return": [0.005]})
+    scored = pl.DataFrame(
+        {
+            "decision_month": [january, january],
+            "ticker": ["A", "B"],
+            "score": [0.1, 0.9],
+            "momentum_12_1": [0.3, 0.1],
+            "momentum_status": ["eligible", "eligible"],
+            "future_return_1m": [0.04, None],
+            "benchmark_future_return_1m": [0.005, 0.005],
+            "target_status_1m": ["evaluable", "evaluable"],
+        }
+    )
+
+    holdings, monthly = replay_momentum_reference(
+        scored, benchmark, top_n_values=(1,), transaction_cost_bps=10.0
+    )
+
+    assert holdings["ticker"].to_list() == ["A"]
+    assert monthly["holding_month"].to_list() == [february]
+    assert monthly["benchmark_return"].item() == pytest.approx(0.005)
+    assert monthly["transaction_cost"].item() == pytest.approx(0.001)
+    assert monthly["net_return"].item() == pytest.approx(0.039)
+
+    dates = [date(2024, 1, 31), date(2024, 12, 31)]
+    price_path = tmp_path / "US_Finalprice.parquet"
+    market_path = tmp_path / "SP500Price.parquet"
+    pl.DataFrame(
+        {"ticker": ["A"] * 2, "date": dates, "adjusted_close": [100.0, 130.0]}
+    ).write_parquet(price_path)
+    pl.DataFrame({"date": dates}).write_parquet(market_path)
+    artifacts = write_momentum_reference_artifacts(
+        tmp_path,
+        tmp_path,
+        scored.drop("momentum_status", "momentum_12_1"),
+        benchmark,
+        input_hashes={
+            "final_price": sha256_path(price_path),
+            "sp500_price": sha256_path(market_path),
+        },
+        top_n_values=(1,),
+        transaction_cost_bps=10.0,
+    )
+    assert pl.read_parquet(artifacts["momentum_holdings"])["ticker"].to_list() == ["A"]
+    assert pl.read_parquet(artifacts["momentum_candidates"])["momentum_status"].to_list() == [
+        "eligible",
+        "missing_start_price",
+    ]
+
+    censored = scored.with_columns(
+        pl.when(pl.col("ticker") == "A")
+        .then(pl.lit("approved_censored_last_observation"))
+        .otherwise(pl.col("target_status_1m"))
+        .alias("target_status_1m")
+    )
+    with pytest.raises(ValueError, match="selected.*approved_censored_last_observation"):
+        replay_momentum_reference(censored, benchmark, top_n_values=(1,), transaction_cost_bps=10.0)
+    with pytest.raises(ValueError, match="common calendar"):
+        replay_momentum_reference(
+            scored,
+            benchmark.with_columns(pl.lit(date(2025, 3, 1)).alias("holding_month")),
+            top_n_values=(1,),
+            transaction_cost_bps=10.0,
+        )
+
+
 def test_complementary_allocation_uses_only_same_decision_legacy(tmp_path: Path) -> None:
     january = date(2025, 1, 1)
     february = date(2025, 2, 1)

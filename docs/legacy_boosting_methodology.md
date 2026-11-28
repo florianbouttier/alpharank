@@ -152,6 +152,43 @@ replay is a post-hoc diagnostic rather than independent validation. The native
 Boosting universe remains the default and this variant is not promotion
 eligible without a separate pre-registered forward or sealed temporal gate.
 
+### Momentum 12–1 Reference
+
+`METH-015` adds an optional price-only reference to the common replay.
+
+```bash
+python scripts/build_common_legacy_boosting_replay.py \
+  --legacy-run-dir <legacy-run> --boosting-run-dir <boosting-run> \
+  --output-dir <research-output> --include-momentum-reference
+```
+
+For decision month `t`, the score is adjusted close at month-end `t−1` divided
+by adjusted close at month-end `t−12`, minus one. The endpoints are the last
+observed SPY session of each anchor month. The reference starts with the
+completed native Boosting candidate keys after the shared terminal entry gate
+and uses the same `--top-n` sizes, equal weights and holding month `t+1`.
+It records unavailable anchor prices before ranking. Ties use ticker order.
+A month with insufficient eligible names stops the reference replay.
+
+After selection, the run requires `evaluable` one-month return status and a
+finite realized return for every holding. An unsupported terminal or censored
+outcome stops the run at the selected basket. The simulator uses the common
+turnover costs and verifies the exact shared realized calendar and SPY total
+returns. `momentum_reference_candidates.parquet` records the anchors, scores
+and eligibility. The other `momentum_reference_*` artifacts use the common
+portfolio schema.
+
+The package is a research diagnostic. The input price hashes must match the
+shared snapshot manifest. Realized returns use the historical month-only
+execution convention. Historical price-vintage and exact execution
+certification remain open.
+
+On the archived October candidate, the July and August 2026 decisions contain
+1,004 native candidate keys. Of these, 998 have both required closes. The
+native Top 5 holdings are byte-identical. The momentum Top 20 selects one
+censored outcome among 40 positions, so this sample cannot produce an
+economic comparison under the strict policy.
+
 ### Complementary Boosting Sleeve
 
 Enable the `METH-008` research allocation on the common replay builder.
