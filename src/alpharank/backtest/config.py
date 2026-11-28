@@ -91,6 +91,23 @@ def default_optuna_space() -> Dict[str, Tuple[str, float, float]]:
     }
 
 
+def fundamental_feature_provenance(policy: str) -> dict[str, str]:
+    """Describe the generic backtest's use of wide financial exports."""
+    if policy == "technical_only":
+        return {
+            "policy": policy,
+            "status": "unavailable",
+            "reason": "Technical features only. Versioned SEC filing inputs are unavailable.",
+        }
+    if policy == "legacy_wide_diagnostic":
+        return {
+            "policy": policy,
+            "status": "diagnostic",
+            "reason": "Legacy wide-fundamental diagnostic. Filing availability is unverified.",
+        }
+    raise ValueError(f"Unsupported fundamental_feature_policy={policy!r}.")
+
+
 @dataclass
 class BacktestConfig:
     data_dir: Path
@@ -141,6 +158,7 @@ class BacktestConfig:
     fundamental_feature_config: FundamentalFeatureConfig = field(default_factory=FundamentalFeatureConfig)
     xgb_params: Dict[str, Any] = field(default_factory=default_xgb_params)
     optuna_space: Dict[str, Tuple[str, float, float]] = field(default_factory=default_optuna_space)
+    fundamental_feature_policy: str = "technical_only"
 
     @property
     def validation_scope(self) -> str:
@@ -152,6 +170,7 @@ class BacktestConfig:
         self.fold_strategy = str(self.fold_strategy).lower()
         if self.fold_strategy not in {"rolling", "cpcv", "walk_forward"}:
             raise ValueError("fold_strategy must be 'rolling', 'cpcv', or 'walk_forward'.")
+        fundamental_feature_provenance(self.fundamental_feature_policy)
         self.selection_score = str(self.selection_score).lower()
         if self.selection_score not in {"prediction", "risk_adjusted"}:
             raise ValueError("selection_score must be either 'prediction' or 'risk_adjusted'.")

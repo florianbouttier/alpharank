@@ -19,6 +19,8 @@ from alpharank.backtest import (
     run_backtest_from_learning,
     run_learning_phase,
 )
+from alpharank.backtest.config import fundamental_feature_provenance
+from alpharank.backtest.pipeline import read_backtest_data_lineage
 from alpharank.data.contracts.ticker_integrity import load_ticker_exclusion_registry
 from alpharank.observability import configure_run_logging
 
@@ -156,6 +158,7 @@ def _config_to_metadata(config: BacktestConfig) -> dict[str, Any]:
         "save_optuna_all_plots": config.save_optuna_all_plots,
         "technical_feature_config": asdict(config.technical_feature_config),
         "fundamental_feature_config": asdict(config.fundamental_feature_config),
+        "fundamental_feature_policy": config.fundamental_feature_policy,
         "xgb_params": config.xgb_params,
         "optuna_space": config.optuna_space,
     }
@@ -171,6 +174,7 @@ def _config_from_metadata(config_data: dict[str, Any]) -> BacktestConfig:
     params["excluded_tickers"] = tuple(params.get("excluded_tickers", []))
     params["technical_feature_config"] = TechnicalFeatureConfig(**params["technical_feature_config"])
     params["fundamental_feature_config"] = FundamentalFeatureConfig(**params["fundamental_feature_config"])
+    params.setdefault("fundamental_feature_policy", "legacy_wide_diagnostic")
     return BacktestConfig(**params)
 
 
@@ -194,22 +198,6 @@ def _resolve_run_dir(run_dir: str | Path) -> Path:
     return resolved
 
 
-def _read_data_lineage(run_dir: Path) -> dict[str, Any]:
-    manifest_path = run_dir / "data_input_manifest.json"
-    if not manifest_path.exists():
-        return {}
-
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    return {
-        "data_input_manifest": str(manifest_path),
-        "input_snapshot_id": manifest.get("snapshot_id"),
-        "source_data_snapshot_id": manifest.get("source_snapshot_id"),
-        "source_snapshot_match": manifest.get("source_snapshot_match"),
-        "source_snapshot_manifest_path": manifest.get("source_snapshot_manifest_path"),
-        "source_snapshot_dir": manifest.get("source_snapshot_dir"),
-    }
-
-
 def save_learning_outputs(config: BacktestConfig, learning: LearningArtifacts) -> dict[str, Path]:
     paths = _learning_paths(learning.run_dir)
     learning.run_dir.mkdir(parents=True, exist_ok=True)
@@ -222,13 +210,16 @@ def save_learning_outputs(config: BacktestConfig, learning: LearningArtifacts) -
     metadata = {
         "stage": "learning",
         "validation_scope": config.validation_scope,
+        "fundamental_feature_provenance": fundamental_feature_provenance(
+            learning.fundamental_feature_policy
+        ),
         "created_at": datetime.now().isoformat(),
         "run_dir": str(learning.run_dir),
         "features_used": learning.features_used,
         "dropped_features": learning.dropped_features,
         "n_completed_folds": int(learning.fold_metrics.height),
         "n_total_windows": int(learning.total_windows),
-        "data_lineage": _read_data_lineage(learning.run_dir),
+        "data_lineage": read_backtest_data_lineage(learning.run_dir),
         "config": _config_to_metadata(config),
     }
     paths["learning_metadata"].write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -274,6 +265,9 @@ def load_learning(run_dir: str | Path) -> LearningArtifacts:
         fold_assets=[],
         shap_explanations=[],
         total_windows=total_windows,
+        fundamental_feature_policy=metadata.get("config", {}).get(
+            "fundamental_feature_policy", "legacy_wide_diagnostic"
+        ),
     )
 
 
@@ -379,7 +373,7 @@ def main() -> BacktestArtifacts:
     configure_run_logging()
     config = default_config()
     artifacts = run(config)
-    data_lineage = _read_data_lineage(Path(artifacts.output_paths["run_dir"]))
+    data_lineage = read_backtest_data_lineage(Path(artifacts.output_paths["run_dir"]))
     print("\n=== Backtest Completed ===")
     print(f"Validation scope: {config.validation_scope}")
     print(f"Run dir: {artifacts.output_paths['run_dir']}")

@@ -554,6 +554,12 @@ def build_backtest_fold_focus_table(
     return fold_focus.with_columns(strategy_order).sort(["fold", "__strategy_order"]).drop("__strategy_order")
 
 
+def _relative_asset_path(path: Path, report: Path) -> str:
+    if path.is_relative_to(report.parent):
+        return path.relative_to(report.parent).as_posix()
+    return path.name
+
+
 def write_html_report(
     title: str,
     output_path: Path,
@@ -563,6 +569,8 @@ def write_html_report(
     best_params: pl.DataFrame,
     global_assets: Dict[str, Path],
     fold_assets: List[Dict[str, Any]],
+    *,
+    fundamental_notice: str = "",
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     optimization_focus = build_optimization_focus_table(fold_metrics)
@@ -570,11 +578,7 @@ def write_html_report(
     def asset_tag(path: Path | None) -> str:
         if path is None:
             return ""
-        try:
-            rel = path.relative_to(output_path.parent).as_posix()
-        except ValueError:
-            rel = path.name
-
+        rel = _relative_asset_path(path, output_path)
         suffix = path.suffix.lower()
         if suffix in {".png", ".jpg", ".jpeg", ".svg", ".webp"}:
             return f"<div><img src='{html.escape(rel)}' style='max-width: 1100px; width: 100%;'/></div>"
@@ -590,6 +594,7 @@ def write_html_report(
 
     sections: List[str] = [
         f"<h1>{html.escape(title)}</h1>",
+        f"<p>{html.escape(fundamental_notice)}</p>",
         "<h2>Optimization Metric Focus</h2>",
         (
             "<p>Primary objective per fold: penalized AUC. "
@@ -680,6 +685,7 @@ def write_backtest_audit_report(
     linked_artifacts: Dict[str, Path],
     *,
     validation_scope: str,
+    fundamental_notice: str = "",
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fold_focus = build_backtest_fold_focus_table(fold_backtest_kpis, fold_index)
@@ -687,10 +693,7 @@ def write_backtest_audit_report(
     def asset_link(path: Path | None) -> str:
         if path is None:
             return ""
-        try:
-            rel = path.relative_to(output_path.parent).as_posix()
-        except ValueError:
-            rel = path.name
+        rel = _relative_asset_path(path, output_path)
         return f"<li><a href='{html.escape(rel)}' target='_blank'>{html.escape(path.name)}</a></li>"
 
     def plotly_div(fig) -> str:
@@ -838,6 +841,7 @@ def write_backtest_audit_report(
         "h1,h2,h3{margin-top:26px;} details{margin:16px 0;} iframe{margin-bottom:18px;}</style>"
         "</head><body>"
         "<h1>Backtest Report</h1>"
+        f"<p>{html.escape(fundamental_notice)}</p>"
         + cpcv_notice
         + "<p>This HTML is specialized on realized trading behavior, with explicit KPI focus by test fold period.</p>"
         "<h2>Global Backtest KPIs</h2>"

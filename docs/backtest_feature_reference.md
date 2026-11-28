@@ -36,6 +36,11 @@ The backtest loads:
 - `SP500_Constituents.csv`
 - `SP500Price.parquet`
 
+The four wide fundamental files remain in snapshot lineage. The generic
+runner defaults to `fundamental_feature_policy="technical_only"` and uses
+price features for fitting and scoring. The data manifest and reports record
+why fundamental features are unavailable.
+
 Price column resolution:
 
 - first existing column among `adjusted_close`, `close`, `adj_close`
@@ -283,7 +288,18 @@ Division rule for all technical ratios:
 - denominator must be non-null and `abs(denominator) > 1e-12`
 - otherwise the ratio is set to `null`
 
-## Fundamental Data Preparation
+## Legacy Wide Fundamental Diagnostic
+
+Use `BacktestConfig(fundamental_feature_policy="legacy_wide_diagnostic", ...)`
+or pass the same override to `scripts.run_backtest.default_config()` when
+reconstructing historical experiments that consumed wide statements. The run
+manifest and both reports label these features diagnostic. Older generic
+artifacts with no recorded policy retain this label when loaded.
+
+The wide exports carry statement-level filing dates. Reconstructing knowledge
+at a past decision requires filing versions per fact and their availability.
+`DATA-056` tracks that source and its integration. This policy applies to the
+generic Boosting runner. The separate H6 challenger uses technical EMA features.
 
 Quarterly statements are normalized to:
 
@@ -301,9 +317,10 @@ Within each `(ticker, quarter_end)` group:
 Monthly alignment:
 
 - monthly price rows are `join_asof(..., strategy="backward")`
-- therefore a monthly row only sees the latest report already available as of its `date`
-
-This is the key anti-lookahead rule for fundamentals.
+- a subsequent filing can replace an earlier quarter before this join.
+  For example, a later refiling can change the observations used to form a
+  historical TTM window. The wide diagnostic also lacks the SEC acceptance
+  timestamp and operational delay for individual facts.
 
 ## Raw Fundamental Inputs Used
 

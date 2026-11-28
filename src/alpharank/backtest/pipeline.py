@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 import numpy as np
 import polars as pl
 
-from alpharank.backtest.config import BacktestConfig
+from alpharank.backtest.config import BacktestConfig, fundamental_feature_provenance
 from alpharank.backtest.data_loading import RawDataBundle, find_existing_column, load_raw_data
 from alpharank.backtest.datasets import build_model_frame
 from alpharank.backtest.explainability import (
@@ -80,6 +80,7 @@ class LearningArtifacts:
     fold_assets: List[Dict[str, Any]]
     shap_explanations: List[ShapFoldExplanation]
     total_windows: int
+    fundamental_feature_policy: str = "legacy_wide_diagnostic"
 
 
 @dataclass
@@ -423,6 +424,9 @@ def _write_run_data_input_manifest(
         "lineage_root": str(lineage_root.resolve()),
         "consumer": "alpharank.backtest.run_learning_phase",
         "validation_scope": config.validation_scope,
+        "fundamental_feature_provenance": fundamental_feature_provenance(
+            config.fundamental_feature_policy
+        ),
     }
     if latest_snapshot is not None:
         extra["source_snapshot_id"] = latest_snapshot.get("snapshot_id")
@@ -442,6 +446,7 @@ def _write_run_data_input_manifest(
             "scripts/run_backtest.py",
             "src/alpharank/backtest/config.py",
             "src/alpharank/backtest/datasets.py",
+            "src/alpharank/backtest/fundamentals.py",
             "src/alpharank/backtest/pipeline.py",
             "src/alpharank/backtest/portfolio.py",
             "src/alpharank/backtest/time_folds.py",
@@ -477,7 +482,8 @@ def _write_run_data_input_manifest(
     )
 
 
-def _read_run_data_lineage(run_dir: Path) -> Dict[str, Any]:
+def read_backtest_data_lineage(run_dir: Path) -> Dict[str, Any]:
+    """Read snapshot identity and feature provenance for an archived run."""
     manifest_path = run_dir / "data_input_manifest.json"
     if not manifest_path.exists():
         return {}
@@ -490,6 +496,7 @@ def _read_run_data_lineage(run_dir: Path) -> Dict[str, Any]:
         "source_snapshot_match": manifest.get("source_snapshot_match"),
         "source_snapshot_manifest_path": manifest.get("source_snapshot_manifest_path"),
         "source_snapshot_dir": manifest.get("source_snapshot_dir"),
+        "fundamental_feature_provenance": manifest.get("fundamental_feature_provenance"),
     }
 
 
@@ -529,14 +536,16 @@ def _prepare_modeling_frame(config: BacktestConfig, *, run_dir: Path) -> tuple[p
         monthly_prices,
         config=config.technical_feature_config,
     )
-    fundamental_features = build_monthly_fundamental_features(
-        monthly_prices=monthly_prices,
-        balance_sheet=raw.balance_sheet,
-        income_statement=raw.income_statement,
-        cash_flow=raw.cash_flow,
-        earnings=raw.earnings,
-        config=config.fundamental_feature_config,
-    )
+    fundamental_features = monthly_prices.select("ticker", "year_month")
+    if config.fundamental_feature_policy == "legacy_wide_diagnostic":
+        fundamental_features = build_monthly_fundamental_features(
+            monthly_prices=monthly_prices,
+            balance_sheet=raw.balance_sheet,
+            income_statement=raw.income_statement,
+            cash_flow=raw.cash_flow,
+            earnings=raw.earnings,
+            config=config.fundamental_feature_config,
+        )
 
     model_frame, features_used, dropped_features = build_model_frame(
         monthly_prices=monthly_prices,
@@ -1278,6 +1287,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         fold_assets=fold_assets,
         shap_explanations=shap_explanations,
         total_windows=total_windows,
+        fundamental_feature_policy=config.fundamental_feature_policy,
     )
 
 
@@ -1425,6 +1435,7 @@ def _finalize_backtest_run(
     assert_no_numeric_na(split_kpis.filter(pl.col("n_folds") > 0), context="split_kpis")
 
     report_path = learning.run_dir / "training_report.html"
+    fundamental_provenance = fundamental_feature_provenance(learning.fundamental_feature_policy)
     write_html_report(
         title=(
             f"CPCV diagnostic | {config.report_title}"
@@ -1432,6 +1443,7 @@ def _finalize_backtest_run(
             else config.report_title
         ),
         output_path=report_path,
+        fundamental_notice=fundamental_provenance["reason"],
         backtest_kpis=backtest_kpis,
         split_kpis=split_kpis,
         fold_metrics=fold_metrics,
@@ -1450,6 +1462,7 @@ def _finalize_backtest_run(
         debug_predictions_long=debug_predictions_long,
         fold_index=fold_index,
         validation_scope=config.validation_scope,
+        fundamental_notice=fundamental_provenance["reason"],
         linked_artifacts={
             "selections": learning.run_dir / "selections.parquet",
             "debug_predictions_long": learning.run_dir / "debug_predictions_long.parquet",
@@ -1504,12 +1517,13 @@ def _finalize_backtest_run(
     metadata = {
         "created_at": datetime.now().isoformat(),
         "validation_scope": config.validation_scope,
+        "fundamental_feature_provenance": fundamental_provenance,
         "features_used": learning.features_used,
         "dropped_features": learning.dropped_features,
         "n_completed_folds": int(fold_metrics.height),
         "n_total_windows": int(learning.total_windows),
         "target_definition": "((1 + future_return) / (1 + benchmark_future_return) - 1) > outperformance_threshold",
-        "data_lineage": _read_run_data_lineage(learning.run_dir),
+        "data_lineage": read_backtest_data_lineage(learning.run_dir),
         "config": {
             "data_dir": str(config.data_dir),
             "output_dir": str(config.output_dir),
@@ -1548,6 +1562,7 @@ def _finalize_backtest_run(
             "risk_free_rate": config.risk_free_rate,
             "technical_feature_config": asdict(config.technical_feature_config),
             "fundamental_feature_config": asdict(config.fundamental_feature_config),
+            "fundamental_feature_policy": learning.fundamental_feature_policy,
             "xgb_params": config.xgb_params,
             "optuna_space": config.optuna_space,
         },

@@ -170,7 +170,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 131 | `DATA-052` | sécuriser la reprise cumulative du RAW SEC | lot fiabilité ci-dessous | à faire |
 | 132 | `DATA-053` | reconstruire le membership S&P 500 à la décision | lot fiabilité ci-dessous | à faire |
 | 133 | `DATA-054` | rapprocher les lacunes historiques au grain instrument | lot fiabilité ci-dessous | à faire |
-| 134 | `DATA-055` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
+| 134 | `DATA-055` | protéger le Boosting générique des fondamentaux sans historique de connaissance | défaut technique, diagnostic historique explicite, 48 tests ciblés et sept tests du dernier contrôle verts | fait |
 | 135 | `METH-012` | figer les ordres avant de consulter les cours d'ouverture | 22 tests verts ; 6 352 intentions scellées et quatre refus SCG/FRC constatés sur les anciennes entrées v2 | fait |
 | 136 | `METH-013` | simuler la détention entre deux ouvertures de rééquilibrage | lot fiabilité ci-dessous | à faire |
 | 137 | `METH-014` | brancher les secteurs causaux dans un profil Legacy candidat | lot fiabilité ci-dessous | à faire |
@@ -182,6 +182,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 143 | `METH-018` | préenregistrer la confirmation prospective et ses critères | lot fiabilité ci-dessous | à faire |
 | 144 | `REPLAY-018` | évaluer les règles verrouillées sur des décisions nouvelles mûres | lot fiabilité ci-dessous | à faire |
 | 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | snapshot, décision et suivi visibles aux dates économiques ; 18 tests JS, 22 tests de rapports et build verts | fait |
+| 146 | `DATA-056` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -2115,7 +2116,8 @@ une fenêtre nouvelle et mûre, définie avant observation.
 | `DATA-052` | reconstruction cumulative SEC et reprises transactionnelles | régression d'un delta SEC partiel, vérification des clés historiques et du cutoff, contrôle réel avant composition | nouveau candidat audité, archives conservées, retour à la dernière composition validée |
 | `DATA-053` | membership daté, résolution au cutoff dans Legacy et Boosting | preuve primaire par événement, tests TSLA/ABNB/BX et mutation future, différentiel d'univers par mois | univers candidat, garder le CSV historique pour réplication |
 | `DATA-054` | prix et alias liés à l'instrument, aucune imputation non sourcée | rapprocher chaque membre-mois sans prix, quantifier le résiduel et rejouer les cas matériels | données candidates, revenir à la carte d'identités précédente |
-| `DATA-055` | chemin fondamental Boosting générique, conservation des versions de filing | ajouter un re-filing futur laisse les features passées identiques, timestamp SEC et délai opérationnel testés | features R&D, revert du chemin de sélection |
+| `DATA-055` | protéger le chemin par défaut du Boosting générique, conserver la compatibilité de recherche explicite | déclarer l'absence de versions SEC et d'acceptation horodatée, tester le défaut sans ces entrées et le statut diagnostique du chemin large | features des nouveaux runs génériques, H6 commun et archives stables |
+| `DATA-056` | reconstruire et sceller les versions historiques de filing, puis les brancher à la décision | un re-filing futur laisse les features passées identiques, horodatage SEC et délai opérationnel testés, couverture publiée | nouvel input fondamental candidat, profil prix conservé comme référence |
 | `METH-012` | ordre causal v2, journal des refus, hypothèse de rendement inchangée | une mutation de cotation ou de suspension post-décision laisse rang et poids d'intention identiques, preuve de refus au cutoff d'exécution | aucun nouveau résultat publié, conserver la version v2 précédente |
 | `METH-013` | comptabilité à l'ouverture pour titres et SPY | prix d'entrée/sortie cohérents, variation nocturne des titres sortants incluse, frais et NAV réconciliés | nouveaux rendements candidats, restaurer le scénario existant |
 | `METH-014` | branchement du secteur historique dans un profil Legacy distinct | secteur résolu au signal exact, invariance au futur, attribution des changements de positions | variante candidate, garder le profil historique |
