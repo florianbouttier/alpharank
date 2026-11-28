@@ -1248,6 +1248,33 @@ rapprocher. Les trous de séance et les contreparties contractuelles nécessiten
 des preuves adaptées à chacun. Cet audit ne reconstruit aucun rendement,
 panier, prix quotidien ou résultat promouvable.
 
+## Ouverture NYSE d’Encana du 1er mars 2019 (`DATA-063`)
+
+Les actions ordinaires d’Encana Corporation portaient le CUSIP `292505104`
+et le symbole `ECA` au NYSE. Le tableau de l’émetteur déposé à la SEC donne
+des valeurs mensuelles en USD.
+[Identité SEC](https://www.sec.gov/Archives/edgar/data/1157806/000119312519190119/d755964dsctoi.htm) ·
+[Tableau NYSE déposé à la SEC](https://www.sec.gov/Archives/edgar/data/1157806/000119312519285223/d804212dex991.htm)
+
+Deux historiques publics sous ECA indiquent une ouverture de **7,36 USD**
+le 1er mars 2019, avec un haut de 7,42, un bas de 7,16 et une clôture de 7,26.
+Les volumes affichés diffèrent, 37 057 583 chez ChartExchange et 37 056 589
+chez Quiver. ChartExchange affiche aussi un nom d’émetteur incohérent. Le prix
+recoupé reste indicatif.
+[ChartExchange](https://chartexchange.com/symbol/nyse-eca/historical/) ·
+[Quiver](https://www.quiverquant.com/stock/ECA/historical-prices/)
+
+Le refus `METH-019` attend un extrait brut NYSE du 1er mars 2019 avec SHA-256,
+identité, date, prix d’ouverture par action contemporaine en USD et volume
+défini. Le fichier Daily TAQ Trades permet de vérifier `ECA`, participant NYSE
+`N`, condition `Q` d’ouverture officielle, heure et corrections éventuelles.
+Le fichier maître permet de confirmer l’identité. Le répertoire public
+d’échantillons ne couvre pas cette séance. L’intégration dans une source
+prix scellée permettrait de réévaluer l’unique refus de la sonde `METH-019`.
+[Catalogue NYSE](https://www.nyse.com/data-products/catalog/daily-taq) ·
+[Spécification Daily TAQ](https://www.nyse.com/publicdocs/nyse/data/Daily_TAQ_Client_Spec_v3.0d.pdf) ·
+[Échantillons publics](https://ftp.nyse.com/Historical%20Data%20Samples/DAILY%20TAQ/)
+
 ## Confirmation prospective des champions sectoriels (`METH-018`)
 
 **Protocole R&D préenregistré. Fenêtre à ouvrir.** Les historiques
