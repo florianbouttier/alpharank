@@ -160,6 +160,28 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 121 | `DATA-050` | retélécharger les sources au 23 novembre, prix arrêtés au 20 | lot DATA ci-dessous | à faire |
 | 122 | `REPLAY-015` | réapprendre les méthodes classiques et auditer les anciens paniers | lot REPLAY ci-dessous | à faire |
 | 123 | `REPORT-033` | livrer tous les paniers actualisés et le rapport complet | lot REPORT ci-dessous | à faire |
+| 124 | `DOC-023` | tracer les remédiations de l'audit du 28 novembre | backlog atomique et runbook distinguant août, candidat d'octobre et suivi de novembre ; documentation/liens verts | fait |
+| 125 | `QUAL-017` | borner la collecte pytest aux tests maintenus | lot fiabilité ci-dessous | à faire |
+| 126 | `QUAL-018` | remettre les inventaires d'architecture au niveau du code | lot fiabilité ci-dessous | à faire |
+| 127 | `QUAL-019` | corriger le typage strict du registre terminal | lot fiabilité ci-dessous | à faire |
+| 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | lot fiabilité ci-dessous | à faire |
+| 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | lot fiabilité ci-dessous | à faire |
+| 130 | `CODE-022` | séparer les titres scorables des cibles de test mûres | lot fiabilité ci-dessous | à faire |
+| 131 | `DATA-052` | sécuriser la reprise cumulative du RAW SEC | lot fiabilité ci-dessous | à faire |
+| 132 | `DATA-053` | reconstruire le membership S&P 500 à la décision | lot fiabilité ci-dessous | à faire |
+| 133 | `DATA-054` | rapprocher les lacunes historiques au grain instrument | lot fiabilité ci-dessous | à faire |
+| 134 | `DATA-055` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
+| 135 | `METH-012` | figer les ordres avant de consulter les cours d'ouverture | lot fiabilité ci-dessous | à faire |
+| 136 | `METH-013` | simuler la détention entre deux ouvertures de rééquilibrage | lot fiabilité ci-dessous | à faire |
+| 137 | `METH-014` | brancher les secteurs causaux dans un profil Legacy candidat | lot fiabilité ci-dessous | à faire |
+| 138 | `REPLAY-016` | exiger la preuve inter-vintages au basculement du snapshot | lot fiabilité ci-dessous | à faire |
+| 139 | `REPLAY-017` | sceller la référence commune à exécution causale | lot fiabilité ci-dessous | à faire |
+| 140 | `METH-015` | construire une référence momentum 12–1 du même univers | lot fiabilité ci-dessous | à faire |
+| 141 | `METH-016` | tester largeur et tampon de rotation à coûts comparables | lot fiabilité ci-dessous | à faire |
+| 142 | `METH-017` | simuler les coûts par ordre et la capacité du portefeuille | lot fiabilité ci-dessous | à faire |
+| 143 | `METH-018` | préenregistrer la confirmation prospective et ses critères | lot fiabilité ci-dessous | à faire |
+| 144 | `REPLAY-018` | évaluer les règles verrouillées sur des décisions nouvelles mûres | lot fiabilité ci-dessous | à faire |
+| 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | lot fiabilité ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -2069,6 +2091,42 @@ doublons exacts et preuve de récupération.
 | `RUNORG-004` | relier chaque journal au manifeste du run | fait | nouveaux journaux hashés dans le manifeste avec sidecar de retour ; 74 journaux historiques préservés sans appariement inventé |
 | `RUNORG-005` | produire des pointeurs `latest` atomiques sans copier les résultats | fait | pointeur atomique vers un run publié, manifeste et arbre hashés, copie immuable du pointeur, zéro copie de résultat |
 | `RUNORG-006` | mesurer les doublons exacts et proposer une rétention réversible | fait | 3 866 groupes SHA-256, 10 404 copies et 11,32 Go récupérables mesurés ; proposition réversible, zéro suppression |
+
+## 13 bis. Remédiations de l'audit du 28 novembre 2026
+
+Les priorités sont la reprise de `DATA-050`/`REPLAY-015`/`REPORT-033` sur le
+calendrier mensuel déjà demandé, puis la référence causale. L'acquisition et
+les corrections de code indépendantes avancent en parallèle. `DATA-048`
+reste le rapprochement économique des sorties terminales et constitue un
+prérequis de `REPLAY-017` avec `DATA-053/054` et `METH-012/013`. `METH-008/009`
+restent les tâches existantes pour la poche complémentaire. Les stratégies
+historiques servent de témoins scellés. Toute qualification prospective exige
+une fenêtre nouvelle et mûre, définie avant observation.
+
+| ID | Périmètre et limite | Acceptation et validation | Impact et retour arrière |
+| --- | --- | --- | --- |
+| `DOC-023` | Roadmap et runbook, suivi des remédiations et provenance des rapports | lots atomiques, dépendances et distinction production/candidat/suivi, contrôle documentaire et liens | documentation seule, revert ciblé |
+| `QUAL-017` | configuration pytest et régression de collecte | la commande standard ignore les copies Python présentes dans `outputs/`, suites nommées toujours exécutables | tests seuls, revert configuration |
+| `QUAL-018` | inventaires générés code, lecteurs de données et dossiers Python | validateurs des trois inventaires verts, génération au HEAD courant, aucun changement de moteur | métadonnées, restaurer les inventaires précédents |
+| `QUAL-019` | typage de la validation du registre terminal | mypy et tests du registre verts, mêmes erreurs et valeurs observables | parité économique, revert code |
+| `QUAL-020` | dépassements de taille actifs, comportement métier préservé | revue du diff et contrôle de taille vert sans relâcher les seuils, tests de caractérisation | parité économique, revert des extractions |
+| `CODE-021` | défaut du CLI Boosting générique, CPCV explicite diagnostique, profil H6 intact | un run standard tient train et validation avant son test, garde de calendrier et tests de route | nouveaux runs R&D, anciens runs scellés conservés, revert du défaut |
+| `CODE-022` | univers de prédiction du Boosting générique | supprimer une cotation future laisse scores et sélection à la décision inchangés, évaluation mûre et trous conservés | population scorée R&D, revert du découplage |
+| `DATA-052` | reconstruction cumulative SEC et reprises transactionnelles | régression d'un delta SEC partiel, vérification des clés historiques et du cutoff, contrôle réel avant composition | nouveau candidat audité, archives conservées, retour à la dernière composition validée |
+| `DATA-053` | membership daté, résolution au cutoff dans Legacy et Boosting | preuve primaire par événement, tests TSLA/ABNB/BX et mutation future, différentiel d'univers par mois | univers candidat, garder le CSV historique pour réplication |
+| `DATA-054` | prix et alias liés à l'instrument, aucune imputation non sourcée | rapprocher chaque membre-mois sans prix, quantifier le résiduel et rejouer les cas matériels | données candidates, revenir à la carte d'identités précédente |
+| `DATA-055` | chemin fondamental Boosting générique, conservation des versions de filing | ajouter un re-filing futur laisse les features passées identiques, timestamp SEC et délai opérationnel testés | features R&D, revert du chemin de sélection |
+| `METH-012` | ordre causal v2, journal des refus, hypothèse de rendement inchangée | une mutation de cotation ou de suspension post-décision laisse rang et poids d'intention identiques, preuve de refus au cutoff d'exécution | aucun nouveau résultat publié, conserver la version v2 précédente |
+| `METH-013` | comptabilité à l'ouverture pour titres et SPY | prix d'entrée/sortie cohérents, variation nocturne des titres sortants incluse, frais et NAV réconciliés | nouveaux rendements candidats, restaurer le scénario existant |
+| `METH-014` | branchement du secteur historique dans un profil Legacy distinct | secteur résolu au signal exact, invariance au futur, attribution des changements de positions | variante candidate, garder le profil historique |
+| `REPLAY-016` | frontière de publication, migration identique toujours vérifiable | imposer un reçu éligible lié à l'ancien et au nouveau snapshot, au cutoff et aux deux replays, refuser un reçu invalide | garde de publication, rollback par pointeur scellé |
+| `REPLAY-017` | replay causal complet Legacy/Boosting/SPY et rapport canonique | poids, rendements, frais, couverture et écarts de vintage rapprochés, preuve HTML, résultats bloquants conservés | référence de recherche, promotion soumise aux gates |
+| `METH-015` | momentum 12–1 sur le même univers causal | mutation du futur sans effet, calendrier et coûts identiques, référence ajoutée au replay | nouvelle référence R&D, ignorer la variante |
+| `METH-016` | équipondération Top 10/20 et tampon de rotation préfixés | comparaison nette à risque, coûts et calendrier communs, détail concentration, risque et turnover | allocation R&D, conserver les règles initiales |
+| `METH-017` | coûts dérivés des ordres nets, spread, liquidité et taille | rapprocher ordres/positions/cash et chiffrer des scénarios de coûts et de capacité | nouveaux coûts R&D, conserver la référence 10 pb |
+| `METH-018` | protocole prospectif, variantes et critères figés | sceller le code, la fenêtre, les paramètres, les mesures et le traitement des essais multiples avant première décision | protocole R&D, toute révision ouvre une autre fenêtre |
+| `REPLAY-018` | confirmation sur la période prospective mûre | résultats nets, bootstrap temporel, facteurs, attribution et rapport canonique avec critères de décision | preuve prospective, publication conditionnelle |
+| `REPORT-034` | provenance visible dans le HTML et le service d'analyse | distinguer identités, dates et statuts du snapshot, des décisions et du suivi, parité des KPI et tests d'affichage | lecture uniquement, revert du rendu |
 
 ## 14. Ordre d'exécution et portes de décision
 

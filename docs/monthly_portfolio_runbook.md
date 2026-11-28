@@ -21,6 +21,20 @@ The production composition contract is implemented. New official runs resolve
 `data/model_inputs/manifests/latest.json`, freeze that pointer once, and pass the
 resolved immutable directory explicitly to `scripts/run_legacy.py`.
 
+Check the production pointer separately from the research report's
+`analysis_manifest.json`. The production identity is the pointer's
+`composition_id`. The backtest identity and realized cutoff are in
+`sources.history`. The date of a frozen basket's latest price is in
+`sources.recent.last_close`. A later valuation date does not change the
+original decision, snapshot or production pointer.
+
+The November example resolves three distinct facts. The production pointer
+still names `9a2058c9…425ad`, with prices through August 19. `REPORT-032`
+uses the October candidate `e0e6045a…ef95a`, with realized backtest months
+through September. Its prices through November 20 value the frozen October
+basket. The acquisition, model replay and actual November decision calendar
+are tracked in the [dated refresh evidence](research/data_refresh_replay_20261123.md).
+
 The validated 2026-08-16 reference resolves
 `data/model_inputs/history/alpharank_input_20260816_120458_2a01288bab06`.
 Every future official snapshot must continue to combine:
