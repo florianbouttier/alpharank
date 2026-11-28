@@ -155,7 +155,14 @@ def _pretrade_weights(
         if "ending_ticker" in month
         else None
     )
-    return drifted_weights_after_returns(current, drift_returns, ending_tickers=ending_tickers)
+    ending_cash_fractions = (
+        dict(zip(current, month["ending_cash_fraction"].to_list(), strict=True))
+        if "ending_cash_fraction" in month
+        else None
+    )
+    return drifted_weights_after_returns(
+        current, drift_returns, ending_tickers=ending_tickers, ending_cash_fractions=ending_cash_fractions
+    )
 
 
 def _sector_summary(month: pl.DataFrame) -> tuple[int, float]:

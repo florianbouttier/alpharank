@@ -186,7 +186,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 147 | `DATA-057` | raccorder le parent SEC cumulatif à l'ingestion nocturne | 23 tests ciblés, cinq hashes réels, cutoff refusé, reçu et rollback validés | fait |
 | 148 | `QUAL-021` | vérifier le type de la borne du calendrier à l'ouverture | borne typée, mypy sur 44 fichiers et neuf tests v2 verts | fait |
 | 149 | `DATA-058` | sourcer les ouvertures de sortie bloquées du replay v2 | 3 cotations sur 4 recoupées, ECA et SIVBQ sans cours probant, contreparties documentées | fait |
-| 150 | `METH-019` | conserver les actions successeures et le cash après une sortie terminale | lot fiabilité ci-dessous | à faire |
+| 150 | `METH-019` | conserver les actions successeures et le cash après une sortie terminale | 34 tests, 3 intentions actions et cash résolues sur 6 305, ECA reste bloquant, mode candidat | fait |
 | 151 | `METH-020` | comparer largeur et tampon de rotation à coûts comparables | lot fiabilité ci-dessous | à faire |
 | 152 | `DATA-059` | sceller la preuve de reprise et de contrôle des prix de novembre | 33 observations contemporaines concordantes, préfixe EODHD conservé, reconstruction SEC tracée et limites documentées | fait |
 | 153 | `REPLAY-019` | nommer la gate réelle dans l'audit des acquisitions rejetées | 20 tests, rejet initial du 25 novembre correctement attribué aux fondamentaux, 44 fichiers de preuve | fait |

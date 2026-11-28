@@ -224,6 +224,26 @@ effectifs à une borne dont l'heure reste inconnue bloquent le calcul.
 Le mode précédent conserve sa fenêtre jusqu'à clôture et sa convention de
 frais. Ce candidat de recherche ne change pas le portefeuille de production.
 
+#### Contreparties en actions et en cash (`METH-019`)
+
+L'option `--reviewed-successor-openings` s'ajoute à la convention
+`rebalance_open_to_rebalance_open_v1`. Le registre revu lie les termes de
+l'opération à son hash, au successeur, à la date exacte de rééquilibrage et
+à l'ouverture brute en USD par action contemporaine. Le moteur vérifie le
+cours et le volume dans la source prix du snapshot scellé. Il inscrit le
+prix observé, la part en actions et la part en espèces dans le journal. Les
+ouvertures absentes ou divergentes laissent une valorisation bloquante.
+
+Le rendement rapporte les actions reçues, valorisées à cette ouverture,
+et le cash acquis au cours brut d'entrée du prédécesseur. Les distributions
+explicites revues sont comptées une seule fois dans le cash. À l'ouverture
+du rééquilibrage, les actions reçues s'agrègent aux positions directes du
+successeur et les espèces rejoignent le cash avant le calcul du turnover.
+Le mode cash seul reste celui du replay sans cette option. Les observations
+revues couvrent KRFT → KHC et ESRX → CI. ECA reste bloqué. Le dossier daté
+contient les sources et les hashes de `DATA-058`.
+[Audit des ouvertures de sortie](research/sector_champion_full_backtest_20261109.md)
+
 ### Largeur et rétention en rang (`METH-016`)
 
 Dans ce même replay candidat, `--top-n 10 20 --rank-buffer 5` compare, pour

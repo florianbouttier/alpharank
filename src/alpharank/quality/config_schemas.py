@@ -60,6 +60,10 @@ CONFIG_FAMILY_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "terminal_successor_prices",
         ("configs/data_quality/terminal_successor_prices_v1.json",),
     ),
+    (
+        "terminal_successor_openings",
+        ("configs/data_quality/terminal_successor_openings_v1.json",),
+    ),
     ("ruff_baseline", ("configs/quality/ruff_baseline_v1.json",)),
     (
         "python_size_baseline",

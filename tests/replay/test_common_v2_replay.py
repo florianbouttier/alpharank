@@ -9,6 +9,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from alpharank.portfolio.allocation import drifted_weights_after_returns
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.opening_orders import (
@@ -188,8 +189,9 @@ def _write_opening_replay_inputs(
     prices.filter(pl.col("ticker") == "SPY.US").write_parquet(snapshot / "SP500Price.parquet")
 
 
+@pytest.mark.parametrize("reviewed_successor_openings", [False, True])
 def test_common_v2_open_to_open_uses_the_next_shared_open(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reviewed_successor_openings: bool
 ) -> None:
     _write_opening_replay_inputs(tmp_path, monkeypatch, missing_open=False)
     snapshot = tmp_path / "input_snapshot"
@@ -215,13 +217,16 @@ def test_common_v2_open_to_open_uses_the_next_shared_open(
         top_n_values=(1,),
         holding_return_policy="rebalance_open_to_rebalance_open_v1",
         rank_buffer=1,
+        reviewed_successor_openings=reviewed_successor_openings,
     )
 
     assert report["passed"] is True
     monthly = pl.read_parquet(output_dir / "common_v2_monthly.parquet")
     assert report["status"] == "candidate_open_to_open_replay"
     assert report["promotion_eligible"] is False
-    assert json.loads((output_dir / "manifest.json").read_text())["boosting_rank_buffer"] == 1
+    manifest = json.loads((output_dir / "manifest.json").read_text())
+    assert manifest["boosting_rank_buffer"] == 1
+    assert ("terminal_successor_opening_registry" in manifest["sources"]) is reviewed_successor_openings
     metrics = {row["strategy"]: row for row in monthly.to_dicts()}
     assert metrics["Legacy"]["gross_return"] == pytest.approx(0.20)
     assert metrics["Legacy"]["net_return"] == pytest.approx(1.20 * 0.999 - 1.0)
@@ -274,6 +279,86 @@ def test_open_to_open_cash_settlement_and_missing_successor(tmp_path: Path) -> N
 
     pending = evaluate_rebalance_exits(openings, prices, benchmark.head(2), event)
     assert pending["valuation_status"].item() == "pending_next_market_open"
+
+
+def test_successor_and_cash_merge_into_drifted_rebalance_weights() -> None:
+    weights = drifted_weights_after_returns(
+        {"A": 0.5, "B": 0.5},
+        {"A": 0.0, "B": -0.20},
+        ending_tickers={"A": "B"},
+        ending_cash_fractions={"A": 0.20},
+    )
+    assert weights == pytest.approx({"B": 0.80 / 0.90, "__CASH__": 0.10 / 0.90})
+    holdings = pl.DataFrame({
+        "strategy": ["Legacy"] * 3,
+        "decision_month": [date(2024, 1, 1), date(2024, 1, 1), date(2024, 2, 1)],
+        "holding_month": [date(2024, 2, 1), date(2024, 2, 1), date(2024, 3, 1)],
+        "ticker": ["A", "B", "B"],
+        "target_weight": [0.5, 0.5, 1.0],
+        "realized_return": [0.0, -0.20, 0.0],
+        "benchmark_return": [0.0, 0.0, 0.0],
+        "ending_ticker": ["B", "B", "B"],
+        "ending_cash_fraction": [0.20, 0.0, 0.0],
+    })
+    monthly = simulate_weighted_portfolio(
+        holdings, transaction_cost_bps=10.0, causal_timing_policy="legacy_month_only"
+    )
+    assert monthly["turnover"].to_list() == pytest.approx([1.0, 0.10 / 0.90])
+    assert monthly["transaction_cost"].to_list() == pytest.approx([0.001, 0.001 * 0.10 / 0.90])
+
+
+def test_reviewed_stock_settlement_uses_exact_raw_open(tmp_path: Path) -> None:
+    intents = _holdings().filter((pl.col("strategy") == "Legacy") & (pl.col("ticker") == "A")).head(1)
+    prices = pl.DataFrame({
+        "ticker": ["A", "B"], "date": ["2024-02-01", "2024-03-01"],
+        "open": [10.0, 16.0], "close": [10.0, 16.0], "adjusted_close": [10.0, 8.0],
+        "volume": [400, 500],
+    })
+    benchmark = pl.concat([
+        prices.head(1).with_columns(pl.lit("SPY.US").alias("ticker"), pl.lit(day).alias("date"))
+        for day in ("2024-01-31", "2024-02-01", "2024-03-01")
+    ])
+    openings = evaluate_opening_intents(intents, prices, benchmark, pl.DataFrame())
+    event = pl.DataFrame({
+        "ticker": ["A"], "terminal_event_id": ["exchange"], "event_type": ["stock_merger"],
+        "effective_date": [date(2024, 2, 12)],
+        "known_at": [datetime(2024, 2, 12, 20, tzinfo=timezone.utc)],
+        "source": ["reviewed"], "source_url": ["https://example.com"], "price_vintage_id": ["sealed"],
+        "cash_per_share": [11.0], "recovery_per_share": [None], "distribution_per_share": [1.0],
+    })
+    review = pl.DataFrame({
+        "exit_event_id": ["exchange"], "exit_date": [date(2024, 3, 1)], "successor_ticker": ["B"],
+        "successor_ratio": [0.5], "reviewed_successor_open": [16.0], "reviewed_successor_volume": [500.0],
+    })
+    exits = evaluate_rebalance_exits(openings, prices, benchmark, event, reviewed_successor_openings=review)
+    valuation = value_rebalance_holdings(intents, exits).row(0, named=True)
+    assert valuation["realized_return"] == pytest.approx(1.0)
+    assert valuation["terminal_value_per_share"] == pytest.approx(20.0)
+    assert valuation["terminal_successor_end_price"] == pytest.approx(16.0)
+    assert valuation["ending_ticker"] == "B"
+    assert valuation["ending_cash_fraction"] == pytest.approx(0.60)
+
+    wrong_mark = prices.with_columns(
+        pl.when(pl.col("ticker") == "B").then(8.0).otherwise(pl.col("open")).alias("open")
+    )
+    wrong_volume = prices.with_columns(pl.lit(400).alias("volume"))
+    for refused_quotes in (prices.head(1), wrong_mark, wrong_volume):
+        refused = evaluate_rebalance_exits(
+            openings, refused_quotes, benchmark, event, reviewed_successor_openings=review
+        )
+        with pytest.raises(RuntimeError, match="Rebalance valuation blocked"):
+            record_rebalance_exits(refused, tmp_path)
+        persisted = pl.read_parquet(tmp_path / "rebalance_valuation_journal.parquet")
+        assert persisted["valuation_status"].item() == "terminal_successor_open_unavailable"
+
+
+def test_reviewed_successor_openings_require_open_to_open(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Reviewed successor openings require the open-to-open policy"):
+        build_common_v2_comparison(
+            legacy_run_dir=tmp_path, boosting_run_dir=tmp_path, causal_snapshot_dir=tmp_path,
+            output_dir=tmp_path / "unused", reviewed_successor_openings=True,
+        )
+    assert not (tmp_path / "unused").exists()
 
 
 def test_opening_suspension_is_evaluated_at_execution_without_changing_intents() -> None:

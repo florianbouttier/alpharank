@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--top-n", type=int, nargs="+", default=[5, 10])
     parser.add_argument("--rank-buffer", type=int)
+    parser.add_argument("--reviewed-successor-openings", action="store_true")
     parser.add_argument(
         "--holding-return-policy",
         choices=(LEGACY_NEXT_SESSION_OPEN.identifier, REBALANCE_OPEN_POLICY_ID),
@@ -34,6 +35,7 @@ def main() -> None:
         top_n_values=tuple(args.top_n),
         rank_buffer=args.rank_buffer,
         holding_return_policy=args.holding_return_policy,
+        reviewed_successor_openings=args.reviewed_successor_openings,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
 

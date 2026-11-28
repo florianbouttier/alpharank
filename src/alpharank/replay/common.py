@@ -35,10 +35,11 @@ from alpharank.portfolio.opening_orders import (
     value_rebalance_holdings,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
-from alpharank.portfolio.terminal_event_registry import (
-    load_terminal_event_registry,
-)
+from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
 from alpharank.portfolio.terminal_price_registry import (
+    DEFAULT_SUCCESSOR_OPENING_REGISTRY,
+    REVIEWED_SUCCESSOR_OPENING_POLICY_ID,
+    load_reviewed_successor_openings,
     load_terminal_price_registry,
 )
 from alpharank.portfolio.terminal_returns import (
@@ -192,12 +193,15 @@ def build_common_v2_comparison(
     top_n_values: tuple[int, ...] = (5, 10),
     holding_return_policy: str = LEGACY_NEXT_SESSION_OPEN.identifier,
     rank_buffer: int | None = None,
+    reviewed_successor_openings: bool = False,
 ) -> dict[str, Any]:
     """Resimulate every investable strategy on one next-open/cost contract."""
 
     if holding_return_policy not in {LEGACY_NEXT_SESSION_OPEN.identifier, REBALANCE_OPEN_POLICY_ID}:
         raise ValueError(f"Unknown holding return policy: {holding_return_policy!r}.")
     uses_open_to_open = holding_return_policy == REBALANCE_OPEN_POLICY_ID
+    if reviewed_successor_openings and not uses_open_to_open:
+        raise ValueError("Reviewed successor openings require the open-to-open policy.")
     if rank_buffer is not None and (rank_buffer <= 0 or not uses_open_to_open):
         raise ValueError("Rank buffering requires a positive buffer and the open-to-open policy.")
     destination = reserve_run_directory(output_dir)
@@ -216,9 +220,7 @@ def build_common_v2_comparison(
     ).filter(pl.col("strategy") == "Combined_Frequency").with_columns(
         pl.lit("Legacy").alias("strategy")
     )
-    benchmark_by_month = legacy_holdings.select(
-        "holding_month", "benchmark_return"
-    ).unique()
+    benchmark_by_month = legacy_holdings.select("holding_month", "benchmark_return").unique()
     legacy_months = legacy_holdings.select("holding_month").unique()
     execution_columns = {
         "feature_max_asof_at",
@@ -235,9 +237,7 @@ def build_common_v2_comparison(
         "return_resolution_reason",
         "manual_review_status",
     }
-    predictions = pl.read_parquet(
-        boosting_run_dir / "classification_h06" / "predictions.parquet"
-    )
+    predictions = pl.read_parquet(boosting_run_dir / "classification_h06" / "predictions.parquet")
     monthly_membership = prepare_constituents_monthly(
         pl.read_csv(snapshot / "SP500_Constituents.csv", try_parse_dates=True)
     ).select("year_month", "ticker")
@@ -269,8 +269,17 @@ def build_common_v2_comparison(
     terminal_price_registry = None if uses_open_to_open else load_terminal_price_registry()
     price_vintage_id = terminal_price_registry.price_vintage_id if terminal_price_registry else composition_id
     terminal_events = terminal_registry.terminal_consideration_events(price_vintage_id=price_vintage_id)
+    opening_registry_source = (
+        _file_record(DEFAULT_SUCCESSOR_OPENING_REGISTRY) if reviewed_successor_openings else None
+    )
     if uses_open_to_open:
-        exits = evaluate_rebalance_exits(journal, prices, benchmark_prices, terminal_events)
+        exit_policy = (
+            load_reviewed_successor_openings(terminal_registry, expected_sha256=opening_registry_source["sha256"])
+            if opening_registry_source else None
+        )
+        exits = evaluate_rebalance_exits(
+            journal, prices, benchmark_prices, terminal_events, reviewed_successor_openings=exit_policy
+        )
         valuation_artifacts["rebalance_valuation_journal"] = record_rebalance_exits(exits, destination)
         holdings = value_rebalance_holdings(intents, exits)
         journal = journal.join(holdings.select("holding_month").unique(), on="holding_month", how="semi")
@@ -281,7 +290,10 @@ def build_common_v2_comparison(
         terminal_registry_sha256=terminal_registry.sha256,
     )
     if terminal_price_registry is None:
-        terminal_resolution = TerminalReturnResult(holdings, {"policy_id": "reviewed_cash_at_rebalance"})
+        settlement_policy = (
+            REVIEWED_SUCCESSOR_OPENING_POLICY_ID if reviewed_successor_openings else "reviewed_cash_at_rebalance"
+        )
+        terminal_resolution = TerminalReturnResult(holdings, {"policy_id": settlement_policy})
     else:
         holdings = apply_next_session_open_holding_returns(intents, prices).drop("benchmark_return").join(
             benchmark_by_month, on="holding_month", how="left", validate="m:1"
@@ -549,12 +561,11 @@ def build_common_v2_comparison(
             "boosting": boosting_validation,
         },
         "sources": {
-            "legacy_manifest": _file_record(
-                legacy_run_dir / "legacy_v2_replay_manifest.json"
-            ),
+            "legacy_manifest": _file_record(legacy_run_dir / "legacy_v2_replay_manifest.json"),
             "boosting_manifest": _file_record(boosting_run_dir / "manifest.json"),
             "terminal_event_registry": _file_record(terminal_registry.path),
             **({"terminal_price_registry": _file_record(terminal_price_registry.path)} if terminal_price_registry else {}),
+            **({"terminal_successor_opening_registry": opening_registry_source} if opening_registry_source else {}),
         },
         "artifacts": {
             label: _file_record(path)

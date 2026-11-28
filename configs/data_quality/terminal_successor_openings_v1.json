@@ -1,0 +1,26 @@
+{
+  "policy_id": "reviewed_terminal_successor_openings_v1",
+  "price_basis": "raw_usd_per_contemporaneous_successor_share",
+  "review_evidence": "DATA-058",
+  "corroborated_price_artifact_sha256": [
+    "10777e4e4d5c97cf9ea61750f581bd687ed9031ff8125c67da5e912cbea3efd0",
+    "50493c34227fdd4ee38067e0d993f4e29afc45adcfd449bfd5b8f286bf5166e8",
+    "baecdadc6ee4d3b9961ad6d85b55707f34cdec5ebd60a22d252a62abc7fa6ba9"
+  ],
+  "observations": [
+    {
+      "event_id": "KRFT-2015-07-02-KHC",
+      "event_sha256": "88e471e2a67c3e564812ec48c7820931e0fa5c9166aafd78303777c0b425debe",
+      "exit_date": "2015-08-03",
+      "open": 80.0,
+      "volume": 2681800
+    },
+    {
+      "event_id": "ESRX-2018-12-20-CI",
+      "event_sha256": "6d704de6157a9ab88a57154dffc496d2201d40f947cc3044cc63fcadffe9450c",
+      "exit_date": "2019-01-02",
+      "open": 187.69000244140625,
+      "volume": 3478200
+    }
+  ]
+}

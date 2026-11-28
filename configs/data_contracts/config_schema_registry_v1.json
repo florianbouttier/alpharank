@@ -1375,6 +1375,74 @@
     },
     {
       "example_files": [
+        "configs/data_quality/terminal_successor_openings_v1.json"
+      ],
+      "family_id": "terminal_successor_openings",
+      "patterns": [
+        "configs/data_quality/terminal_successor_openings_v1.json"
+      ],
+      "schema": {
+        "additional_properties": false,
+        "properties": {
+          "corroborated_price_artifact_sha256": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "observations": {
+            "items": {
+              "additional_properties": false,
+              "properties": {
+                "event_id": {
+                  "type": "string"
+                },
+                "event_sha256": {
+                  "type": "string"
+                },
+                "exit_date": {
+                  "type": "string"
+                },
+                "open": {
+                  "type": "number"
+                },
+                "volume": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "event_id",
+                "event_sha256",
+                "exit_date",
+                "open",
+                "volume"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "policy_id": {
+            "type": "string"
+          },
+          "price_basis": {
+            "type": "string"
+          },
+          "review_evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "corroborated_price_artifact_sha256",
+          "observations",
+          "policy_id",
+          "price_basis",
+          "review_evidence"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "example_files": [
         "configs/quality/ruff_baseline_v1.json"
       ],
       "family_id": "ruff_baseline",

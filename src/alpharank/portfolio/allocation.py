@@ -28,18 +28,26 @@ def drifted_weights_after_returns(
     realized_returns: Mapping[str, float],
     *,
     ending_tickers: Mapping[str, str] | None = None,
+    ending_cash_fractions: Mapping[str, float] | None = None,
 ) -> dict[str, float]:
     """Derive end-of-period weights before the next rebalance."""
 
     complete = _weights_with_residual_cash(target_weights, empty_is_cash=False)
     values: dict[str, float] = {}
     ending_tickers = ending_tickers or {}
+    ending_cash_fractions = ending_cash_fractions or {}
     for name, weight in complete.items():
         realized = 0.0 if name == CASH_WEIGHT_KEY else float(realized_returns[name])
         if not np.isfinite(realized) or realized < -1.0:
             raise ValueError(f"Invalid realized return for drifted weight: {name}={realized}")
         ending_ticker = ending_tickers.get(name, name)
-        values[ending_ticker] = values.get(ending_ticker, 0.0) + float(weight) * (1.0 + realized)
+        cash_fraction = ending_cash_fractions.get(name, 0.0)
+        if not 0.0 <= cash_fraction <= 1.0:
+            raise ValueError(f"Invalid closing cash fraction: {name}={cash_fraction}")
+        ending_value = float(weight) * (1.0 + realized)
+        values[ending_ticker] = values.get(ending_ticker, 0.0) + ending_value * (1.0 - cash_fraction)
+        if cash_fraction:
+            values[CASH_WEIGHT_KEY] = values.get(CASH_WEIGHT_KEY, 0.0) + ending_value * cash_fraction
     total = sum(values.values())
     if not np.isfinite(total) or total <= 0.0:
         raise ValueError("Portfolio wealth must remain positive after realized returns.")

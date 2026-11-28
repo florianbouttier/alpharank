@@ -15,6 +15,8 @@ from urllib.request import Request, urlopen
 
 import polars as pl
 
+from alpharank.portfolio.terminal_event_registry import TerminalEventRegistry
+
 
 DEFAULT_TERMINAL_PRICE_REGISTRY = (
     Path(__file__).resolve().parents[3]
@@ -23,6 +25,10 @@ DEFAULT_TERMINAL_PRICE_REGISTRY = (
     / "terminal_successor_prices_v1.json"
 )
 REGISTRY_ID = "terminal_successor_prices_v1"
+DEFAULT_SUCCESSOR_OPENING_REGISTRY = DEFAULT_TERMINAL_PRICE_REGISTRY.with_name(
+    "terminal_successor_openings_v1.json"
+)
+REVIEWED_SUCCESSOR_OPENING_POLICY_ID = "reviewed_terminal_successor_openings_v1"
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 SOURCE_KINDS = {"sealed_snapshot", "sec_issuer_filing"}
 
@@ -136,6 +142,62 @@ def load_terminal_price_registry(
         sha256=hashlib.sha256(raw).hexdigest(),
         payload=payload,
     )
+
+
+def load_reviewed_successor_openings(
+    events: TerminalEventRegistry,
+    path: Path = DEFAULT_SUCCESSOR_OPENING_REGISTRY,
+    *,
+    expected_sha256: str | None = None,
+) -> pl.DataFrame:
+    """Read the reviewed opening keys and bind them to their complete event terms."""
+    raw = path.read_bytes()
+    registry_hash = hashlib.sha256(raw).hexdigest()
+    if expected_sha256 is not None and registry_hash != expected_sha256:
+        raise ValueError("Reviewed successor opening registry SHA-256 differs from its recorded source.")
+    payload = json.loads(raw)
+    if (
+        not isinstance(payload, dict)
+        or payload.get("policy_id") != REVIEWED_SUCCESSOR_OPENING_POLICY_ID
+        or payload.get("price_basis") != "raw_usd_per_contemporaneous_successor_share"
+        or not isinstance(payload.get("observations"), list)
+        or not payload["observations"]
+    ):
+        raise ValueError("Invalid reviewed terminal successor opening registry.")
+    events_by_id = {event["event_id"]: event for event in events.events}
+    reviewed: list[dict[str, object]] = []
+    for row in payload["observations"]:
+        if not isinstance(row, dict):
+            raise ValueError("A reviewed successor opening must be an object.")
+        event_id = _non_empty(row.get("event_id"), field="event_id")
+        event = events_by_id.get(event_id)
+        event_bytes = json.dumps(event, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        if event is None or hashlib.sha256(event_bytes).hexdigest() != row.get("event_sha256"):
+            raise ValueError(f"Reviewed successor event terms changed: {event_id}.")
+        terms = event["portfolio_resolution"]
+        exit_date = _parse_date(row.get("exit_date"))
+        if _parse_date(event["successor_first_trading_date"]) > exit_date:
+            raise ValueError(f"Reviewed opening precedes first successor trade: {event_id}.")
+        reviewed.append(
+            {
+                "exit_event_id": event_id,
+                "exit_date": exit_date,
+                "successor_ticker": _ticker(terms.get("successor_ticker")),
+                "successor_ratio": _numeric_price(terms.get("exchange_ratio"), event_id),
+                "reviewed_successor_open": _numeric_price(row.get("open"), event_id),
+                "reviewed_successor_volume": _numeric_price(row.get("volume"), event_id),
+                "successor_opening_registry_sha256": registry_hash,
+            }
+        )
+    result = pl.DataFrame(reviewed, infer_schema_length=None)
+    if result.select("exit_event_id", "exit_date").is_duplicated().any() or result.filter(
+        pl.any_horizontal(
+            ~pl.col(column).is_finite() | (pl.col(column) <= 0.0)
+            for column in ("successor_ratio", "reviewed_successor_open", "reviewed_successor_volume")
+        )
+    ).height:
+        raise ValueError("Invalid or duplicate reviewed successor opening.")
+    return result
 
 
 def verify_terminal_price_source_hashes(

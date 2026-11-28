@@ -198,6 +198,8 @@ def evaluate_rebalance_exits(
     prices: pl.DataFrame,
     benchmark_prices: pl.DataFrame,
     terminal_events: pl.DataFrame,
+    *,
+    reviewed_successor_openings: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Value the outgoing assets at the next market open, or record why a mark is unavailable."""
     openings = _market_openings(benchmark_prices)
@@ -212,7 +214,11 @@ def evaluate_rebalance_exits(
     exits = _join_terminal_evidence(clock, terminal_events).join(
         quotes, on=["ticker", "exit_date"], how="left", validate="m:1"
     )
-    return exits.with_columns(_exit_status(last_market_month)).sort(_INTENT_KEYS)
+    if reviewed_successor_openings is not None:
+        exits = _join_reviewed_successor_marks(exits, prices, reviewed_successor_openings)
+    return exits.with_columns(
+        _exit_status(last_market_month, review_successors=reviewed_successor_openings is not None)
+    ).sort(_INTENT_KEYS)
 
 
 def _join_rebalance_clock(journal: pl.DataFrame, openings: pl.DataFrame) -> pl.DataFrame:
@@ -270,14 +276,48 @@ def _join_terminal_evidence(clock: pl.DataFrame, events: pl.DataFrame) -> pl.Dat
     return clock.join(evidence, on=["ticker", "holding_month"], how="left", validate="m:1")
 
 
-def _exit_status(last_market_month: date | None) -> pl.Expr:
-    terminal_cash = (
-        pl.col("exit_event_type").is_in(["cash_merger", "bankruptcy", "delisting"])
-        & pl.col("exit_event_date").is_between("scheduled_open_date", "exit_date", closed="none")
+def _join_reviewed_successor_marks(
+    exits: pl.DataFrame, prices: pl.DataFrame, evidence: pl.DataFrame
+) -> pl.DataFrame:
+    candidates = evidence["successor_ticker"].unique().to_list()
+    volume = pl.col("volume").cast(pl.Float64, strict=False) if "volume" in prices else pl.lit(None)
+    quotes = prices.filter(pl.col("ticker").is_in(candidates)).select(
+        pl.col("ticker").alias("successor_ticker"),
+        pl.col("date").cast(pl.String).str.to_date(strict=False).alias("exit_date"),
+        pl.col("open").cast(pl.Float64, strict=False).alias("successor_open"),
+        volume.alias("successor_volume"),
+    )
+    matched = evidence.join(quotes, on=["successor_ticker", "exit_date"], how="left", validate="m:1")
+    verified = (
+        _positive_price("successor_open")
+        & ((pl.col("successor_open") - pl.col("reviewed_successor_open")).abs() <= 1e-5)
+        & (pl.col("successor_volume") == pl.col("reviewed_successor_volume"))
+    )
+    return exits.join(matched, on=["exit_event_id", "exit_date"], how="left", validate="m:1").with_columns(
+        pl.when(verified)
+        .then(pl.col("successor_open") * pl.col("successor_ratio"))
+        .alias("terminal_stock_per_share")
+    )
+
+
+def _exit_status(last_market_month: date | None, *, review_successors: bool) -> pl.Expr:
+    terminal_terms_known = (
+        pl.col("exit_event_date").is_between("scheduled_open_date", "exit_date", closed="none")
         & (pl.col("exit_event_known_at") < pl.col("exit_at"))
         & pl.col("terminal_cash_per_share").is_finite()
         & (pl.col("terminal_cash_per_share") >= 0)
     )
+    terminal_cash = terminal_terms_known & pl.col("exit_event_type").is_in(
+        ["cash_merger", "bankruptcy", "delisting"]
+    )
+    approved_stock, observed_stock = pl.lit(False), pl.lit(False)
+    if review_successors:
+        approved_stock = (
+            terminal_terms_known
+            & (pl.col("exit_event_type") == "stock_merger")
+            & pl.col("successor_ticker").is_not_null()
+        )
+        observed_stock = approved_stock & _positive_price("terminal_stock_per_share")
     return (
         pl.when(pl.col("exit_at").is_null() & (pl.col("holding_month") == last_market_month))
         .then(pl.lit("pending_next_market_open"))
@@ -292,8 +332,10 @@ def _exit_status(last_market_month: date | None) -> pl.Expr:
             )
         )
         .then(pl.lit("benchmark_exit_unavailable"))
-        .when(terminal_cash)
+        .when(terminal_cash | observed_stock)
         .then(pl.lit("resolved_terminal_event"))
+        .when(approved_stock)
+        .then(pl.lit("terminal_successor_open_unavailable"))
         .when(pl.col("exit_event_id").is_not_null())
         .then(pl.lit("unsupported_terminal_exit"))
         .when(~_positive_price("exit_price_adjusted"))
@@ -332,12 +374,23 @@ def record_rebalance_exits(exits: pl.DataFrame, destination: Path) -> Path:
 
 def value_rebalance_holdings(intents: pl.DataFrame, exits: pl.DataFrame) -> pl.DataFrame:
     """Attach validated price marks and cash settlements to the frozen holdings."""
-    cash = pl.col("valuation_status") == "resolved_terminal_event"
+    terminal = pl.col("valuation_status") == "resolved_terminal_event"
+    successor_columns: list[pl.Expr] = []
+    settlement = pl.col("terminal_cash_per_share")
+    stock, successor_ticker, successor_open = pl.lit(False), pl.lit(None, dtype=pl.String), pl.lit(None, dtype=pl.Float64)
+    if "terminal_stock_per_share" in exits.columns:
+        stock = terminal & pl.col("terminal_stock_per_share").is_not_null()
+        successor_ticker, successor_open = pl.col("successor_ticker"), pl.col("successor_open")
+        settlement = settlement + pl.col("terminal_stock_per_share").fill_null(0.0)
+        successor_columns.append(
+            pl.when(stock).then(pl.col("terminal_cash_per_share") / settlement)
+            .otherwise(pl.lit(0.0)).alias("ending_cash_fraction")
+        )
     matured = exits.filter(pl.col("valuation_status").is_in(_VALUED_EXITS))
     valuations = matured.select(
         *_INTENT_KEYS,
-        pl.when(cash)
-        .then(pl.col("terminal_cash_per_share") / pl.col("opening_price") - 1)
+        pl.when(terminal)
+        .then(settlement / pl.col("opening_price") - 1)
         .otherwise(pl.col("exit_price_adjusted") / pl.col("opening_price_adjusted") - 1)
         .alias("realized_return"),
         (pl.col("benchmark_adjusted_exit") / pl.col("benchmark_adjusted_open") - 1).alias(
@@ -356,10 +409,13 @@ def value_rebalance_holdings(intents: pl.DataFrame, exits: pl.DataFrame) -> pl.D
         pl.lit(0).alias("holding_observation_gap_calendar_days"),
         pl.lit(REBALANCE_OPEN_POLICY_ID).alias("execution_policy_id"),
         pl.col("valuation_status").alias("return_resolution"),
-        pl.when(cash)
+        pl.when(stock)
+        .then(successor_ticker)
+        .when(terminal)
         .then(pl.lit(CASH_WEIGHT_KEY))
         .otherwise(pl.col("ticker"))
         .alias("ending_ticker"),
+        *successor_columns,
         pl.col("exit_event_id").alias("terminal_event_id"),
         pl.col("exit_event_type").alias("terminal_event_type"),
         pl.col("exit_event_date").alias("terminal_effective_date"),
@@ -367,11 +423,12 @@ def value_rebalance_holdings(intents: pl.DataFrame, exits: pl.DataFrame) -> pl.D
         pl.col("exit_event_source").alias("terminal_event_source"),
         pl.col("exit_event_source_url").alias("terminal_event_source_url"),
         pl.col("exit_event_price_vintage_id").alias("terminal_price_vintage_id"),
-        pl.col("terminal_cash_per_share").alias("terminal_value_per_share"),
-        pl.lit(None, dtype=pl.String).alias("terminal_successor_ticker"),
-        pl.lit(None, dtype=pl.Float64).alias("terminal_successor_end_price"),
-        pl.when(cash).then(pl.lit("reviewed_cash_at_rebalance")).alias("return_resolution_reason"),
-        pl.when(cash)
+        settlement.alias("terminal_value_per_share"),
+        pl.when(stock).then(successor_ticker).alias("terminal_successor_ticker"),
+        pl.when(stock).then(successor_open).alias("terminal_successor_end_price"),
+        pl.when(stock).then(pl.lit("reviewed_successor_and_cash_at_rebalance"))
+        .when(terminal).then(pl.lit("reviewed_cash_at_rebalance")).alias("return_resolution_reason"),
+        pl.when(terminal)
         .then(pl.lit("reviewed_terminal_event_resolved"))
         .alias("manual_review_status"),
     )
