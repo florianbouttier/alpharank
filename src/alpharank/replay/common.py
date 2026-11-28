@@ -19,6 +19,12 @@ from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.contracts import validate_causal_timing, validate_holdings
 from alpharank.portfolio.costs import TransactionCostModel
 from alpharank.portfolio.execution import apply_next_session_open_holding_returns
+from alpharank.portfolio.opening_orders import (
+    OPENING_EXECUTION_POLICY_ID,
+    evaluate_opening_intents,
+    record_opening_execution,
+    validate_opening_execution,
+)
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_event_registry import (
     load_terminal_event_registry,
@@ -70,7 +76,7 @@ def gate_boosting_predictions_for_execution_open(
     predictions: pl.DataFrame,
     daily_prices: pl.DataFrame,
 ) -> pl.DataFrame:
-    """Keep candidates executable at the first market session of holding."""
+    """Reproduce the historical pre-ranking open filter for compatibility."""
 
     required_prices = {"ticker", "date", "open"}
     missing = sorted(required_prices - set(daily_prices.columns))
@@ -115,7 +121,7 @@ def gate_boosting_predictions_for_pre_execution_blocks(
     predictions: pl.DataFrame,
     pre_execution_blocks: pl.DataFrame,
 ) -> pl.DataFrame:
-    """Reject publicly suspended candidates before Top-N ranking."""
+    """Reproduce the historical pre-ranking suspension filter for compatibility."""
 
     required_predictions = {"decision_month", "ticker"}
     missing_predictions = sorted(required_predictions - set(predictions.columns))
@@ -187,15 +193,6 @@ def build_common_v2_comparison(
         boosting_run_dir, expected_composition_id=composition_id
     )
     snapshot = causal_snapshot_dir / "input_snapshot"
-    prices = pl.read_parquet(snapshot / "US_Finalprice.parquet")
-    terminal_registry = load_terminal_event_registry()
-    terminal_price_registry = load_terminal_price_registry()
-    terminal_successor_prices = terminal_price_registry.successor_prices(
-        prices,
-        snapshot_id=causal["snapshot_id"],
-        composition_id=composition_id,
-        price_artifact_sha256=_sha256(snapshot / "US_Finalprice.parquet"),
-    )
     legacy_manifest = _read_json(legacy_run_dir / "legacy_v2_replay_manifest.json")
     legacy_holdings = pl.read_parquet(
         Path(legacy_manifest["artifacts"]["holdings"]["path"])
@@ -221,18 +218,11 @@ def build_common_v2_comparison(
         "return_resolution_reason",
         "manual_review_status",
     }
-    legacy_holdings = apply_next_session_open_holding_returns(
-        legacy_holdings.drop(
-            *[column for column in execution_columns if column in legacy_holdings.columns]
-        ),
-        prices.select(["ticker", "date", "open", "close", "adjusted_close"]),
-    )
-
     predictions = pl.read_parquet(
         boosting_run_dir / "classification_h06" / "predictions.parquet"
     )
     monthly_membership = prepare_constituents_monthly(
-        pl.read_csv(snapshot / "SP500_Constituents.csv")
+        pl.read_csv(snapshot / "SP500_Constituents.csv", try_parse_dates=True)
     ).select("year_month", "ticker")
     predictions_before_membership_gate = predictions.height
     predictions = gate_boosting_predictions_for_holding_membership(
@@ -243,68 +233,46 @@ def build_common_v2_comparison(
     membership_rows_removed = (
         predictions_before_membership_gate - predictions_after_membership_gate
     )
-    predictions_before_execution_gate = predictions.height
-    predictions = gate_boosting_predictions_for_execution_open(
-        predictions,
-        prices.select(["ticker", "date", "open"]),
+    boosting_holdings = pl.concat(
+        [
+            boosting_predictions_to_holdings(
+                predictions, strategy=f"Boosting Top {size}", top_n=size
+            )
+            for size in top_n_values
+        ],
+        how="diagonal_relaxed",
+    ).join(legacy_months, on="holding_month", how="inner")
+    common_months = boosting_holdings.select("holding_month").unique()
+    legacy_holdings = legacy_holdings.join(common_months, on="holding_month", how="inner")
+    intents = pl.concat([legacy_holdings, boosting_holdings], how="diagonal_relaxed").drop(
+        *[column for column in execution_columns if column in legacy_holdings.columns]
     )
-    predictions_after_execution_gate = predictions.height
-    execution_rows_removed = (
-        predictions_before_execution_gate - predictions_after_execution_gate
-    )
-    predictions_before_pre_execution_block_gate = predictions.height
-    predictions = gate_boosting_predictions_for_pre_execution_blocks(
-        predictions,
+    prices = pl.read_parquet(snapshot / "US_Finalprice.parquet")
+    terminal_registry = load_terminal_event_registry()
+    journal = evaluate_opening_intents(
+        intents,
+        prices,
+        pl.read_parquet(snapshot / "SP500Price.parquet"),
         terminal_registry.pre_execution_blocks(),
     )
-    predictions_after_pre_execution_block_gate = predictions.height
-    pre_execution_block_rows_removed = (
-        predictions_before_pre_execution_block_gate
-        - predictions_after_pre_execution_block_gate
+    opening_journal, opening_receipt = record_opening_execution(
+        journal,
+        destination,
+        composition_id=composition_id,
+        terminal_registry_sha256=terminal_registry.sha256,
     )
-    complete_decisions = (
-        predictions.group_by("decision_month")
-        .agg(
-            pl.col("benchmark_future_return_1m")
-            .is_not_null()
-            .all()
-            .alias("benchmark_month_complete")
-        )
-        .filter(pl.col("benchmark_month_complete"))
-        .select("decision_month")
+    holdings = (
+        apply_next_session_open_holding_returns(intents, prices)
+        .drop("benchmark_return")
+        .join(benchmark_by_month, on="holding_month", how="left", validate="m:1")
     )
-    predictions = predictions.join(
-        complete_decisions, on="decision_month", how="inner"
-    )
-    holdings_parts: list[pl.DataFrame] = []
-    price_columns = ["ticker", "date", "open", "close", "adjusted_close"]
-    for top_n in top_n_values:
-        raw_holdings = boosting_predictions_to_holdings(
-            predictions,
-            strategy=f"Boosting Top {top_n}",
-            top_n=top_n,
-        ).join(legacy_months, on="holding_month", how="inner")
-        causal_holdings = (
-            apply_next_session_open_holding_returns(
-                raw_holdings,
-                prices.select(price_columns),
-            )
-            .drop("benchmark_return")
-            .join(
-                benchmark_by_month,
-                on="holding_month",
-                how="left",
-                validate="m:1",
-            )
-        )
-        holdings_parts.append(causal_holdings)
-    boosting_holdings = pl.concat(holdings_parts, how="diagonal_relaxed")
-    common_months = boosting_holdings.select("holding_month").unique()
-    legacy_holdings = legacy_holdings.join(
-        common_months, on="holding_month", how="inner"
-    )
-    holdings = pl.concat(
-        [legacy_holdings, boosting_holdings], how="diagonal_relaxed"
+    validate_opening_execution(journal, holdings)
+    terminal_price_registry = load_terminal_price_registry()
+    terminal_successor_prices = terminal_price_registry.successor_prices(
+        prices,
+        snapshot_id=causal["snapshot_id"],
+        composition_id=composition_id,
+        price_artifact_sha256=_sha256(snapshot / "US_Finalprice.parquet"),
     )
     terminal_resolution = resolve_provisional_terminal_shareholder_returns(
         holdings,
@@ -350,9 +318,23 @@ def build_common_v2_comparison(
     provisional_journal_csv_path = destination / "provisional_holding_journal.csv"
     provisional_journal.write_parquet(provisional_journal_path)
     provisional_journal.write_csv(provisional_journal_csv_path)
-    terminal_journal = holdings.filter(
-        pl.col("return_resolution") == "resolved_terminal_event"
-    ).select(
+    terminal_journal = holdings.filter(pl.col("return_resolution") == "resolved_terminal_event")
+    terminal_fields = {
+        "terminal_event_id": pl.String,
+        "terminal_event_type": pl.String,
+        "terminal_effective_date": pl.Date,
+        "terminal_value_per_share": pl.Float64,
+        "terminal_successor_ticker": pl.String,
+        "terminal_successor_end_price": pl.Float64,
+        "terminal_event_source": pl.String,
+        "terminal_event_source_url": pl.String,
+        "terminal_price_vintage_id": pl.String,
+    }
+    if terminal_journal.is_empty():
+        terminal_journal = terminal_journal.with_columns(
+            pl.lit(None, dtype=dtype).alias(column) for column, dtype in terminal_fields.items()
+        )
+    terminal_journal = terminal_journal.select(
         "strategy",
         "decision_month",
         "holding_month",
@@ -361,15 +343,7 @@ def build_common_v2_comparison(
         "target_weight",
         "execution_price_unadjusted",
         "realized_return",
-        "terminal_event_id",
-        "terminal_event_type",
-        "terminal_effective_date",
-        "terminal_value_per_share",
-        "terminal_successor_ticker",
-        "terminal_successor_end_price",
-        "terminal_event_source",
-        "terminal_event_source_url",
-        "terminal_price_vintage_id",
+        *terminal_fields,
         "return_resolution_reason",
         "manual_review_status",
     ).sort(["holding_month", "strategy", "selection_rank"])
@@ -507,21 +481,7 @@ def build_common_v2_comparison(
             "candidate_rows_after": predictions_after_membership_gate,
             "candidate_rows_removed": membership_rows_removed,
         },
-        "first_session_execution_gate": {
-            "policy_id": "first_holding_session_open_before_ranking_v1",
-            "uses_holding_return_or_month_end_price": False,
-            "candidate_rows_before": predictions_before_execution_gate,
-            "candidate_rows_after": predictions_after_execution_gate,
-            "candidate_rows_removed": execution_rows_removed,
-        },
-        "reviewed_pre_execution_block_gate": {
-            "policy_id": "reviewed_pre_execution_block_before_ranking_v1",
-            "uses_holding_return_or_month_end_price": False,
-            "terminal_event_registry_sha256": terminal_registry.sha256,
-            "candidate_rows_before": predictions_before_pre_execution_block_gate,
-            "candidate_rows_after": predictions_after_pre_execution_block_gate,
-            "candidate_rows_removed": pre_execution_block_rows_removed,
-        },
+        "opening_execution_policy_id": OPENING_EXECUTION_POLICY_ID,
         "calendar": calendar.to_dicts(),
         "provisional_terminal_observations": {
             "policy_id": "provisional_last_observation_v1",
@@ -576,6 +536,8 @@ def build_common_v2_comparison(
             label: _file_record(path)
             for label, path in {
                 **artifacts,
+                "opening_execution_journal": opening_journal,
+                "opening_execution_receipt": opening_receipt,
                 "provisional_holding_journal": provisional_journal_path,
                 "provisional_holding_journal_csv": provisional_journal_csv_path,
                 "provisional_cagr_attribution": provisional_attribution_path,

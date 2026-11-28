@@ -171,7 +171,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 132 | `DATA-053` | reconstruire le membership S&P 500 à la décision | lot fiabilité ci-dessous | à faire |
 | 133 | `DATA-054` | rapprocher les lacunes historiques au grain instrument | lot fiabilité ci-dessous | à faire |
 | 134 | `DATA-055` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
-| 135 | `METH-012` | figer les ordres avant de consulter les cours d'ouverture | lot fiabilité ci-dessous | à faire |
+| 135 | `METH-012` | figer les ordres avant de consulter les cours d'ouverture | 22 tests verts ; 6 352 intentions scellées et quatre refus SCG/FRC constatés sur les anciennes entrées v2 | fait |
 | 136 | `METH-013` | simuler la détention entre deux ouvertures de rééquilibrage | lot fiabilité ci-dessous | à faire |
 | 137 | `METH-014` | brancher les secteurs causaux dans un profil Legacy candidat | lot fiabilité ci-dessous | à faire |
 | 138 | `REPLAY-016` | exiger la preuve inter-vintages au basculement du snapshot | 31 tests, deux régressions reproduites, preuves absentes, altérées ou trop courtes refusées | fait |

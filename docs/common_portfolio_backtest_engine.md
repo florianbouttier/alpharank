@@ -174,6 +174,27 @@ est conservé sous
 Son manifeste rapproche 540 lignes sur trois stratégies et 180 mois, avec
 `sensitivity_is_canonical=false`; il reste non publiable jusqu'au replay SNDK.
 
+### Ordres figés avant l'ouverture du replay commun v2 (`METH-012`)
+
+`scripts/replay/build_common_v2_replay.py` fige les titres et les poids de
+Legacy et de chaque Top-N Boosting avant de consulter les cotations et les
+suspensions d'ouverture. Il garde le rang Boosting et contrôle la première
+séance du mois selon les dates du SPY. La suspension doit être effective et
+rendue publique avant l'heure de cette ouverture pour motiver un refus.
+
+Le journal `opening_execution_journal.parquet` conserve les intentions, la
+date et l'heure de l'ouverture prévue, le cours brut disponible et le motif
+du résultat. Son reçu hashé distingue un blocage d'exécution d'un journal
+entièrement observable. Une ouverture absente ou inexploitable ou un refus
+empêche de calculer la performance du replay. Aucun titre de remplacement
+ni poids modifié ne peut entrer à partir de ces données d'exécution. Les
+exécutions valorisées sont rapprochées des intentions et des cours d'ouverture.
+
+Le lot consomme le panier Legacy v2 fourni, avec son filtre d'appartenance
+au mois de détention. Il ne reconstruit pas l'heure d'annonce de cette
+appartenance et ne réapprend pas le modèle. Le rendement de la première
+ouverture à la dernière clôture du mois reste la convention du v2 existant.
+
 ## Benchmark Contract
 
 Performance comparisons use one explicit benchmark convention:
