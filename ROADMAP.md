@@ -179,7 +179,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 140 | `METH-015` | construire une référence momentum 12–1 du même univers | 49 tests transverses et 8 ciblés, 1 004 clés sur deux mois réels, un rendement sélectionné censuré bloque le replay | fait |
 | 141 | `METH-016` | ajouter la règle de largeur et de tampon de rotation | 29 tests, 20 décisions réelles, entrées 70 à 44 en Top 10 et 118 à 99 en Top 20, référence native identique | fait |
 | 142 | `METH-017` | simuler les coûts par ordre et la capacité du portefeuille | lot fiabilité ci-dessous | à faire |
-| 143 | `METH-018` | préenregistrer la confirmation prospective et ses critères | lot fiabilité ci-dessous | à faire |
+| 143 | `METH-018` | préenregistrer la confirmation prospective et ses critères | protocole scellable, 36 décisions nouvelles, test primaire net et seuils économiques fixés | fait |
 | 144 | `REPLAY-018` | évaluer les règles verrouillées sur des décisions nouvelles mûres | lot fiabilité ci-dessous | à faire |
 | 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | snapshot, décision et suivi visibles aux dates économiques ; 18 tests JS, 22 tests de rapports et build verts | fait |
 | 146 | `DATA-056` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |

@@ -1247,3 +1247,113 @@ est déjà sourcé pour v2, et son application à l'archive de reporting reste �
 rapprocher. Les trous de séance et les contreparties contractuelles nécessitent
 des preuves adaptées à chacun. Cet audit ne reconstruit aucun rendement,
 panier, prix quotidien ou résultat promouvable.
+
+## Confirmation prospective des champions sectoriels (`METH-018`)
+
+**Protocole R&D préenregistré. Fenêtre à ouvrir.** Les historiques
+ci-dessus ont servi à concevoir l'expérience. La confirmation attend des
+décisions nouvelles, enregistrées à l'avance sous `REPLAY-018`.
+
+### Test unique et scellement
+
+La comparaison principale oppose **Boosting natif H6 Top 5, un titre au plus
+par secteur** au **même Boosting natif H6 Top 5 sans plafond**. Les deux bras
+reçoivent les mêmes scores OOS, clés d'univers au cutoff, exclusions et gate
+d'entrée. Ils classent le score décroissant, puis le ticker croissant, et
+ciblent cinq poids de 20 %. Le bras sectoriel applique la taxonomie SEC connue
+et effective à la clôture observée du signal. Les candidats sans secteur sont
+journalisés et exclus de ce bras. Une décision avec moins de cinq secteurs
+éligibles est bloquante. Les refus à l'exécution suivent le traitement scellé du
+moteur commun, avec journal et sans reclassement.
+
+Avant l'ouverture, un reçu immuable et horodaté en UTC enregistre le commit
+d'un état Git propre, le code et le runtime, la configuration résolue, la
+version du protocole, le manifeste qualifié de `REPLAY-017`, la source des prix,
+le calendrier de séances, l'univers, les événements terminaux et les
+classifications. Il fixe les paramètres et seeds, le calendrier de
+réentraînement et la règle de maturité des cibles H6. Le réentraînement prévu
+utilise les seules étiquettes déjà connues au cutoff. Les releases de données
+peuvent progresser à chaque décision sous ces mêmes règles, avec un hash
+propre à chaque vintage. Le reçu fixe pour les deux bras l'exécution et la
+valorisation de la première ouverture du mois de détention à la première
+ouverture du mois suivant, les deux conventions de coût et les mêmes bornes
+pour SPY total return.
+
+Le premier mois est la **première décision mensuelle programmée strictement
+après le scellement effectif et le passage des gates de comparaison**. À cette
+date, les deux comptes partent en cash et paient leur premier rééquilibrage.
+La fenêtre comporte exactement **36 décisions consécutives**, fixées dans le
+reçu dès l'activation. Chaque décision conserve les hashes du snapshot, des
+scores, de l'éligibilité, des positions cibles et des intentions avant la
+première ouverture d'exécution. Les refus, transactions, cash et rendements
+réalisés sont scellés séparément après leur observation. Une correction de
+donnée suit les règles scellées, conserve les versions et laisse les intentions
+initiales accessibles. Un trou non résolu bloque la conclusion sur la fenêtre.
+La fenêtre suit le calendrier fixé, sans mois retiré, substitué ou ajouté.
+
+### Statistique et seuils de décision
+
+Pour chaque bras, le rendement actif mensuel est le rendement net moins celui
+de SPY aux mêmes bornes. Le ratio d'information annualisé est `sqrt(12)` fois
+la moyenne de ces rendements actifs divisée par leur écart-type échantillonnal
+(`n−1`). La statistique principale `ΔIR` est le ratio du bras sectoriel moins
+celui du bras natif, à **10 pb × turnover**. L'hypothèse nulle est `ΔIR ≤ 0`.
+
+Le test est unilatéral à 5 % sur les mois appariés. Le bootstrap circulaire
+tire six blocs de six mois par réplication, avec des débuts uniformes sur les
+36 mois, remise et indices communs aux deux bras et à SPY. Le bloc boucle au
+premier mois s'il dépasse le dernier. Le test recalcule `ΔIR` sur 10 000
+réplications avec `PCG64`, seed `18018`. La borne inférieure à 95 % est le 5e
+centile de la distribution bootstrap, par interpolation linéaire. Un ratio
+indéfini sur la fenêtre ou une réplication rend le test inconcluant. Les blocs
+de trois et douze mois documentent la sensibilité à la dépendance temporelle.
+Trente-six mois limitent la précision et la couverture des régimes.
+[Politis et Romano, bootstrap par blocs circulaires](https://statistics.stanford.edu/technical-reports/circular-block-resampling-procedure-stationary-data)
+
+Le protocole conclut à une **confirmation R&D** si les 36 rendements sont mûrs,
+les contrôles de données et d'exécution passent, `ΔIR ≥ 0,15` et sa borne
+inférieure à 95 % est strictement positive. Le bras sectoriel doit aussi
+respecter trois seuils économiques sur ces mêmes mois.
+
+- CAGR net au moins égal à celui de SPY, avec un écart sectoriel moins natif
+  supérieur ou égal à `−2,00` points annualisés à 10 pb × turnover.
+- Ampleur du max drawdown aux fins de mois inférieure ou égale à celle du natif.
+- `ΔIR ≥ 0` sur le même chemin d'ordres à **30 pb × turnover**.
+
+Le CAGR net est `produit(1 + r_net)^(12/n) − 1`. Les seuils économiques sont
+des conditions d'utilité, sans tests statistiques supplémentaires. Une
+fenêtre complète qui manque un seuil donne `critères non atteints`. Une
+fenêtre incomplète, une source non conciliée ou un test indéfini donne
+`inconcluant`. Toute évaluation formelle attend les 36 périodes mûres. Le suivi
+intermédiaire porte sur l'exécution, la couverture et les rapprochements.
+
+### Analyses secondaires et restitution
+
+Le rapport expose sur ce même calendrier les rendements nets, le CAGR,
+la volatilité annualisée, le drawdown, le turnover, les frais, les refus,
+les concentrations et l'attribution par titre, secteur et mois. Il présente
+SPY, Legacy Frequency et le momentum 12–1 comme comparateurs contextuels
+lorsque leurs données et leur exécution satisfont les mêmes gates. Il expose
+les manques et leur incidence sur la comparabilité. Une régression par moindres
+carrés ordinaires avec constante estime les expositions aux cinq facteurs
+américains et au facteur momentum sur les rendements mensuels nets excédant
+`RF`. Le rapport donne les expositions et l'alpha annualisé `12 × constante`
+sur la fenêtre appariée, avec archives facteurs hashées, unités et dates
+explicites. Une série facteur manquante rend cette analyse indisponible. Les
+bornes mensuelles du fournisseur facteurs sont documentées à côté de la
+convention ouverture à ouverture du replay.
+[Bibliothèque de données de Kenneth French](https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html)
+
+Le profil tendance, les tailles Top 10/20, le tampon de rang `+5`, la poche
+complémentaire et les découpes par régime restent exploratoires. Le seuil de
+5 % s'applique au seul test principal, sur les décisions nouvelles. Toute
+modification du profil, de la mesure ou des seuils ouvre un nouveau protocole
+et une nouvelle fenêtre scellée avant collecte. Une future famille de tests
+confirmatoires multiples fixera ses hypothèses et une correction de Holm à
+5 % avant sa propre fenêtre.
+
+`REPLAY-018` attend la maturation, rapproche les données, rendements et
+attributions, puis publie le [rapport HTML canonique](../performance_reporting_standard.md)
+avec les 36 mois, les intervalles, les seuils et la conclusion, y compris un
+résultat défavorable. La promotion requiert une décision distincte et les gates
+de production applicables.
