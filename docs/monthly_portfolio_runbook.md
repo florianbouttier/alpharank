@@ -122,6 +122,29 @@ command must replay that same reconciliation and hash-bind its report and
 Parquet audit; it may never fall back to the provider's rewritten history. The
 original run folder and its initially failed gate remain unchanged audit evidence.
 
+### Parent SEC cumulatif explicite
+
+Une ingestion peut repartir d'un manifeste
+`version_rebuild_manifest.json` produit par la reprise cumulative SEC. Pour
+une exécution ponctuelle, régler `ALPHARANK_SEC_CUMULATIVE_PARENT_MANIFEST`
+avant d'invoquer `scripts/open_source/nightly_ingestion.py`, ou passer
+`--sec-cumulative-parent-manifest` à `scripts/open_source/ingestion/run_ingestion.py`.
+Le générateur LaunchAgent reprend cette variable dans son environnement quand
+elle est définie au moment de la configuration. Chaque exécution résout un
+parent nommé que l'opérateur peut retrouver et vérifier.
+
+Le parent doit exposer les cinq fichiers RAW reconstruits et leurs empreintes
+dans `cumulative_raw_outputs`. L'ingestion vérifie ces empreintes et la date
+maximale de connaissance avant de contacter les fournisseurs. Les deltas SEC
+acquis rejoignent ce parent dans `official/runs/<run_id>/sec_cumulative/`.
+Le rattachement CIK sélectionné pendant l'acquisition est également scellé.
+Un CIK incompatible bloque la reprise après conservation des reçus acquis.
+Le manifeste de reprise et sa lignée sont retenus avec les reçus, y compris
+si la gate de publication bloque et restaure les tables de travail. Le
+contrôle historique des exports s'applique ensuite, ainsi que les gates prix,
+de composition et de replay. Le parent explicite ne déplace aucun pointeur de
+production. Sans parent configuré, l'ingestion conserve sa procédure habituelle.
+
 La composition valide l'identité temporelle des fondamentaux sur `period_end`
 dans leur lignée SEC, avant leur projection vers les fins de trimestre du format
 Legacy. Cette projection de compatibilité ne peut donc ni fabriquer une

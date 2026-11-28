@@ -5,8 +5,8 @@ import argparse
 from dataclasses import replace
 from pathlib import Path
 
-from alpharank.data.open_source import run_open_source_ingestion
 from alpharank.data.ingestion.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
+from alpharank.data.open_source import OpenSourceIngestionResult, run_open_source_ingestion
 from alpharank.observability import configure_run_logging
 
 
@@ -19,6 +19,11 @@ def main() -> None:
     parser.add_argument("--tickers", nargs="*", default=None, help="Optional ticker roots without .US suffix.")
     parser.add_argument("--live-dir", type=Path, default=None)
     parser.add_argument("--reference-data-dir", type=Path, default=None)
+    parser.add_argument(
+        "--sec-cumulative-parent-manifest",
+        type=Path,
+        help="Verified DATA-052 cumulative SEC manifest to use before constructing the candidate.",
+    )
     parser.add_argument(
         "--eodhd-price-seed-path",
         type=Path,
@@ -71,6 +76,7 @@ def main() -> None:
         tickers=args.tickers,
         live_dir=args.live_dir.resolve() if args.live_dir else None,
         reference_data_dir=args.reference_data_dir.resolve() if args.reference_data_dir else None,
+        sec_cumulative_parent_manifest=args.sec_cumulative_parent_manifest,
         eodhd_price_seed_path=(
             args.eodhd_price_seed_path.resolve()
             if args.eodhd_price_seed_path
@@ -92,7 +98,10 @@ def main() -> None:
             ),
         ),
     )
+    _print_ingestion_result(result)
 
+
+def _print_ingestion_result(result: OpenSourceIngestionResult) -> None:
     print(f"Run id: {result.run_id}")
     print(f"Mode: {result.mode}")
     print(f"Official dir: {result.live_dir}")

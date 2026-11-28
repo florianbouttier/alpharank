@@ -12,6 +12,7 @@ import polars as pl
 from alpharank.data.open_source import run_open_source_ingestion
 from alpharank.data.ingestion.prices import _load_latest_sp500_tickers
 from alpharank.data.ingestion.refresh_policy import PRODUCTION_SOURCE_REFRESH_POLICY
+from alpharank.data.ingestion.sec_cumulative import configured_sec_parent_manifest
 from alpharank.data.ingestion.storage import (
     new_run_id,
     read_json,
@@ -156,14 +157,8 @@ def main() -> None:
     print(f"Historical revision override: {ALLOW_HISTORICAL_REVISIONS}")
     if HISTORICAL_REVISION_REVIEW_NOTE:
         print("Historical revision review note: recorded")
-    print(
-        "Historical price revision override: "
-        f"{ALLOW_HISTORICAL_PRICE_REVISIONS}"
-    )
-    print(
-        "Historical price key removal override: "
-        f"{ALLOW_HISTORICAL_PRICE_KEY_REMOVALS}"
-    )
+    print(f"Historical price revision override: {ALLOW_HISTORICAL_PRICE_REVISIONS}")
+    print(f"Historical price key removal override: {ALLOW_HISTORICAL_PRICE_KEY_REMOVALS}")
     if TICKERS is None:
         print(f"Current S&P 500 tickers: {len(current_sp500)}")
         print(f"Already tracked live tickers: {len(existing_live)}")
@@ -190,6 +185,7 @@ def main() -> None:
                 ),
             ),
             run_id=run_id,
+            sec_cumulative_parent_manifest=configured_sec_parent_manifest(),
         )
     except BaseException as exc:
         finished_at = datetime.now().isoformat(timespec="seconds")

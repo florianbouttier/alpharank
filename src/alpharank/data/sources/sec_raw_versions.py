@@ -89,22 +89,28 @@ def _companyfacts_version_values(frame: pl.DataFrame, value_column: str) -> pl.D
     )
 
 
-def _known_issuer_ids(path: Path) -> pl.DataFrame:
-    frame = pl.read_parquet(path)
+def _known_issuer_ids(frame: pl.DataFrame) -> pl.DataFrame:
     fields = [pl.col(name).cast(pl.String) for name in ("sec_cik", "cik") if name in frame.columns]
     if not fields:
         return pl.DataFrame(schema={"ticker": pl.String, "issuer_cik": pl.String})
     return (
-        frame.select("ticker", pl.coalesce(fields).str.strip_chars_start("0").alias("issuer_cik"))
+        frame.select(
+            (
+                pl.col("ticker").cast(pl.String).str.to_uppercase().str.strip_suffix(".US") + ".US"
+            ).alias("ticker"),
+            pl.coalesce(fields).str.strip_chars_start("0").alias("issuer_cik"),
+        )
         .filter(pl.col("issuer_cik").str.contains(r"^[0-9]+$"))
         .unique()
     )
 
 
-def _reject_known_issuer_conflicts(retained_dir: Path, run_dir: Path) -> None:
-    name = "general_reference_lineage.parquet"
-    retained = _known_issuer_ids(retained_dir / name)
-    observed = _known_issuer_ids(run_dir / name)
+def require_consistent_sec_issuers(
+    retained_lineage: pl.DataFrame, observed_lineage: pl.DataFrame
+) -> None:
+    """Reject a newly observed CIK for a symbol with a retained issuer mapping."""
+    retained = _known_issuer_ids(retained_lineage)
+    observed = _known_issuer_ids(observed_lineage)
     observed_existing_symbols = observed.join(retained.select("ticker"), on="ticker", how="semi")
     conflicting = observed_existing_symbols.join(retained, on=["ticker", "issuer_cik"], how="anti")
     if not conflicting.is_empty():
@@ -158,7 +164,10 @@ def build_sec_raw_version_candidate(
     )
     retained_sources = _input_records(retained_raw_dir, required)
     run_sources = _input_records(run_raw_dir, required)
-    _reject_known_issuer_conflicts(retained_raw_dir, run_raw_dir)
+    name = "general_reference_lineage.parquet"
+    require_consistent_sec_issuers(
+        pl.read_parquet(retained_raw_dir / name), pl.read_parquet(run_raw_dir / name)
+    )
     full_refresh_path = run_raw_dir / "financials_sec_companyfacts.parquet"
     retained = pl.read_parquet(retained_raw_dir / "financials_sec_companyfacts.parquet")
     full_refresh = pl.read_parquet(full_refresh_path)

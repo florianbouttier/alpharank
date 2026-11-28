@@ -6,6 +6,8 @@ import os
 import plistlib
 import subprocess
 
+from alpharank.data.ingestion.sec_cumulative import SEC_PARENT_ENV, configured_sec_parent_manifest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LABEL = "com.florianbouttier.alpharank.open_source_ingestion"
@@ -25,15 +27,18 @@ PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
 def build_plist() -> dict[str, object]:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    env = {
+        "HOME": str(Path.home()),
+        "PATH": f"{PROJECT_ROOT / '.venv' / 'bin'}:/usr/bin:/bin:/usr/sbin:/sbin",
+        "TMPDIR": "/tmp",
+    }
+    if (sec_parent := configured_sec_parent_manifest()) is not None:
+        env[SEC_PARENT_ENV] = str(sec_parent)
     return {
         "Label": LABEL,
         "ProgramArguments": [str(PYTHON_BIN), str(SCRIPT_PATH)],
         "WorkingDirectory": str(PROJECT_ROOT),
-        "EnvironmentVariables": {
-            "HOME": str(Path.home()),
-            "PATH": f"{PROJECT_ROOT / '.venv' / 'bin'}:/usr/bin:/bin:/usr/sbin:/sbin",
-            "TMPDIR": "/tmp",
-        },
+        "EnvironmentVariables": env,
         "RunAtLoad": False,
         "StartCalendarInterval": {
             "Hour": HOUR,

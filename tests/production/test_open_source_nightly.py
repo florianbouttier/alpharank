@@ -27,6 +27,15 @@ def test_launchd_plist_points_to_repo_python_script() -> None:
     assert env["TMPDIR"] == "/tmp"
 
 
+def test_launchd_plist_passes_explicit_sec_parent(tmp_path: Path, monkeypatch) -> None:
+    manifest = tmp_path / "parent" / "version_rebuild_manifest.json"
+    monkeypatch.setenv("ALPHARANK_SEC_CUMULATIVE_PARENT_MANIFEST", str(manifest))
+
+    env = build_plist()["EnvironmentVariables"]
+
+    assert env["ALPHARANK_SEC_CUMULATIVE_PARENT_MANIFEST"] == str(manifest.resolve())
+
+
 def test_load_existing_live_tickers_uses_existing_price_universe(tmp_path: Path) -> None:
     raw_dir = tmp_path / "raw"
     raw_dir.mkdir(parents=True)
@@ -71,12 +80,15 @@ def test_failed_nightly_status_keeps_the_run_id(tmp_path: Path, monkeypatch) -> 
     monkeypatch.setattr(nightly_ingestion, "_load_latest_sp500_tickers", lambda path: ("AAPL",))
     monkeypatch.setattr(nightly_ingestion, "load_existing_live_tickers", lambda path: ())
     monkeypatch.setattr(nightly_ingestion, "run_open_source_ingestion", fail_ingestion)
+    parent_manifest = tmp_path / "parent" / "version_rebuild_manifest.json"
+    monkeypatch.setenv("ALPHARANK_SEC_CUMULATIVE_PARENT_MANIFEST", str(parent_manifest))
 
     with pytest.raises(RuntimeError, match="provider failure"):
         nightly_ingestion.main()
 
     status = json.loads(status_path.read_text())
     assert captured["run_id"] == "20260819_120000"
+    assert captured["sec_cumulative_parent_manifest"] == parent_manifest.resolve()
     assert status["run_id"] == "20260819_120000"
     assert status["status"] == "failed"
     assert not lock_path.exists()

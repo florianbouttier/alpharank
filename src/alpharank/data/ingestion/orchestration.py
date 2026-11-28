@@ -241,6 +241,12 @@ from alpharank.data.ingestion.refresh_policy import (
     PRODUCTION_SOURCE_REFRESH_POLICY,
     SourceRefreshPolicy,
 )
+from alpharank.data.ingestion.sec_cumulative import (
+    SecCumulativeParent,
+    drop_legacy_sec_partitions,
+    prepare_sec_raw_frames,
+    resolve_sec_cumulative_parent,
+)
 from alpharank.data.open_source.sec import SecCompanyFactsClient
 from alpharank.data.open_source.sec_filing import SecFilingFactsClient
 from alpharank.data.open_source.sec_mapping import resolve_sec_company_mapping
@@ -972,6 +978,7 @@ def run_open_source_ingestion(
     source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
     eodhd_price_seed_path: Path | None = None,
     run_id: str | None = None,
+    sec_cumulative_parent_manifest: Path | None = None,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     official_dir = (
@@ -979,6 +986,9 @@ def run_open_source_ingestion(
         if live_dir is not None
         else project_root / "data" / "open_source" / "official"
     ).resolve()
+    sec_parent = resolve_sec_cumulative_parent(
+        sec_cumulative_parent_manifest, cutoff=end_date or date.today().isoformat()
+    )
     try:
         with OpenSourceStoreTransaction(official_dir=official_dir):
             return _run_open_source_ingestion_in_place(
@@ -997,6 +1007,7 @@ def run_open_source_ingestion(
                 source_refresh_policy=source_refresh_policy,
                 eodhd_price_seed_path=eodhd_price_seed_path,
                 run_id=run_id,
+                sec_cumulative_parent=sec_parent,
             )
     finally:
         transport_cache = official_dir.parent / "_cache"
@@ -1021,6 +1032,7 @@ def _run_open_source_ingestion_in_place(
     source_refresh_policy: SourceRefreshPolicy = PRODUCTION_SOURCE_REFRESH_POLICY,
     eodhd_price_seed_path: Path | None = None,
     run_id: str | None = None,
+    sec_cumulative_parent: SecCumulativeParent | None = None,
 ) -> OpenSourceIngestionResult:
     project_root = Path(__file__).resolve().parents[4]
     official_dir, open_source_root, data_root, reference_data_dir = (
@@ -1581,53 +1593,15 @@ def _run_open_source_ingestion_in_place(
         append_run_delta(paths.run_dir(run_id) / "raw" / "earnings_sec_actuals.parquet", earnings_sec_actuals_delta)
         sec_financials_all = _concat_or_empty(sec_frames)
 
-    successful_companyfacts_tickers = tuple(
-        sorted(
-            mapped_sec_tickers
-            - {
-                str(item["ticker"]).upper().removesuffix(".US")
-                for item in run_failures["sec_companyfacts"]
-                if item.get("ticker")
-            }
-        )
+    drop_legacy_sec_partitions(
+        parent=sec_cumulative_parent,
+        paths=paths,
+        source_policy=source_refresh_policy,
+        mapped_tickers=mapped_sec_tickers,
+        run_failures=run_failures,
+        companyfacts_years=companyfacts_years,
+        submissions_years=refreshed_years,
     )
-    successful_submission_tickers = tuple(
-        sorted(
-            mapped_sec_tickers
-            - {
-                str(item["ticker"]).upper().removesuffix(".US")
-                for item in run_failures["sec_filing"]
-                if item.get("ticker") and item.get("dataset") == "earnings_sec_calendar"
-            }
-        )
-    )
-    if source_refresh_policy.refresh_sec_companyfacts:
-        companyfacts_start = f"{min(companyfacts_years):04d}-01-01"
-        companyfacts_end = f"{max(companyfacts_years):04d}-12-31"
-        _drop_refreshed_partitions(
-            paths.raw_dir / "earnings_sec_actuals.parquet",
-            tickers=successful_companyfacts_tickers,
-            date_column="period_end",
-            start_date=companyfacts_start,
-            end_date=companyfacts_end,
-        )
-        _drop_refreshed_partitions(
-            paths.raw_dir / "financials_sec_companyfacts.parquet",
-            tickers=successful_companyfacts_tickers,
-            date_column="date",
-            start_date=companyfacts_start,
-            end_date=companyfacts_end,
-        )
-    if source_refresh_policy.refresh_sec_submissions:
-        refreshed_start = f"{min(refreshed_years):04d}-01-01"
-        refreshed_end = f"{max(refreshed_years):04d}-12-31"
-        _drop_refreshed_partitions(
-            paths.raw_dir / "earnings_sec_calendar.parquet",
-            tickers=successful_submission_tickers,
-            date_column="period_end",
-            start_date=refreshed_start,
-            end_date=refreshed_end,
-        )
 
     sec_financial_deltas: list[pl.DataFrame] = [
         _with_financial_ingestion_metadata(
@@ -1690,30 +1664,18 @@ def _run_open_source_ingestion_in_place(
         key_cols=["ticker", "reportDate", "source"],
         order_cols=["ingested_at"],
     )
-    raw_earnings_sec_calendar = upsert_parquet(
-        paths.raw_dir / "earnings_sec_calendar.parquet",
-        earnings_sec_calendar_delta,
-        key_cols=["ticker", "period_end", "reportDate", "accession_number", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_earnings_sec_actuals = upsert_parquet(
-        paths.raw_dir / "earnings_sec_actuals.parquet",
-        earnings_sec_actuals_delta,
-        key_cols=["ticker", "period_end", "reportDate", "source"],
-        order_cols=["ingested_at"],
-    )
-    raw_sec_financials = _upsert_financial_dataset(
+    sec_raw = prepare_sec_raw_frames(
+        parent=sec_cumulative_parent,
         paths=paths,
         run_id=run_id,
-        file_name="financials_sec_companyfacts.parquet",
-        deltas=sec_financial_deltas,
+        companyfacts_deltas=sec_financial_deltas,
+        filing_deltas=sec_filing_deltas,
+        calendar=earnings_sec_calendar_delta,
+        actuals=earnings_sec_actuals_delta,
+        issuer_mapping=sec_mapping,
     )
-    raw_sec_filing_financials = _upsert_financial_dataset(
-        paths=paths,
-        run_id=run_id,
-        file_name="financials_sec_filing.parquet",
-        deltas=sec_filing_deltas,
-    )
+    if sec_raw.receipt:
+        source_refresh_contract["sec_cumulative"] = sec_raw.receipt
     raw_simfin_financials = _upsert_financial_dataset(
         paths=paths,
         run_id=run_id,
@@ -1736,8 +1698,8 @@ def _run_open_source_ingestion_in_place(
         ingested_at=ingested_at,
         yahoo_client=yahoo_client,
         raw_yahoo_earnings=raw_earnings,
-        raw_earnings_sec_calendar=raw_earnings_sec_calendar,
-        raw_earnings_sec_actuals=raw_earnings_sec_actuals,
+        raw_earnings_sec_calendar=sec_raw.calendar,
+        raw_earnings_sec_actuals=sec_raw.actuals,
         candidate_tickers=price_quality_tickers,
         years=refreshed_years,
     )
@@ -1745,8 +1707,8 @@ def _run_open_source_ingestion_in_place(
     financial_candidate = build_financial_candidate(
         run_dir=paths.run_dir(run_id),
         source_refresh_contract=source_refresh_contract,
-        sec_companyfacts=raw_sec_financials,
-        sec_filing=raw_sec_filing_financials,
+        sec_companyfacts=sec_raw.companyfacts,
+        sec_filing=sec_raw.filing,
         simfin=raw_simfin_financials,
         yfinance=raw_yahoo_financials,
     )
@@ -1790,7 +1752,7 @@ def _run_open_source_ingestion_in_place(
         prices=clean_prices,
         benchmark_prices=clean_benchmark_prices,
         financials=consolidated_financials,
-        earnings_sec_calendar=raw_earnings_sec_calendar,
+        earnings_sec_calendar=sec_raw.calendar,
         constituents=constituents_frame,
         terminal_tickers=terminal_price_tickers,
     )
