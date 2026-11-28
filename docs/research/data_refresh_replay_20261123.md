@@ -238,3 +238,50 @@ et scelle 44 fichiers. Le JSON `refresh_replay_report.json` se trouve sous
 SHA-256 `8106d1612ebc7ef70032461f1e1f3565f2e0f1adf14e3bce07a646b6a6bf9a86`.
 Ce verdict concerne la tentative originale. Le nouvel export cumulatif
 doit passer son propre contrôle.
+
+### Refus de l'export SEC borné à OKTA (`DATA-061`)
+
+Le [registre des changements S&P](../../configs/data_quality/sp500_constituent_changes_2026.json)
+ne contient qu'une opération pour OKTA. Son admission est effective le
+4 novembre 2026 à 00:00 New York, avec une connaissance enregistrée au
+30 octobre à 23:59:59 New York. Le package SEC du 31 octobre n'avait aucun
+export historique pour OKTA. La reprise cumulative ajoute des faits SEC
+anciennement déposés pour ce nouveau membre.
+
+Le test a isolé les lignes `OKTA.US` dans les cinq tables RAW du candidat
+cumulatif et dans les cinq exports comparables d'octobre. Il a exécuté la
+commande `build_sec_output_package.py` avec `--expected-through 2026-11-20`
+et la gate historique active. Celle-ci examine les périodes jusqu'au
+20 novembre 2024. L'export est sorti en échec après 32,73 secondes.
+
+| Famille bloquée | Lignes historiques ajoutées |
+| --- | ---: |
+| Compte de résultat | 30 |
+| Bilan | 31 |
+| Flux de trésorerie | 30 |
+| Nombre d'actions | 24 |
+| Résultats publiés | 23 |
+
+Les cinq familles ont zéro suppression et zéro modification d'une clé
+commune dans ce test. Sous
+`outputs/data_refresh_replay_20261123/recovery_20261125_cutoff20_preserved_sec_versions/okta_historical_gate_probe/`,
+`probe_input_receipt.json` lie chaque source et sa projection sur OKTA par
+SHA-256 `c8ab1c4ca9affd9b0ee52ca5aaf338272b9fd12f6575060b241619f4745efb26`.
+Le verdict `bounded_gate_result.json` porte le SHA-256
+`5d2e88c7ef6c8fafecf30735185fe8b4c92d64205bdd6c1e3afe094d7b9f8970` et lie
+le rapport produit par la gate, SHA-256
+`8d7375b546311e58b4f487cffb7011085de2b4e1820b0dd2dcc453cd6af4fd01`.
+
+Les deux dossiers de reprise comportent maintenant les six prototypes
+Parquet exigés par l'export Legacy. Chaque prototype est vide et reproduit
+exactement le schéma de la référence racine. `reference_schema_receipt.json`
+lie les fichiers sources et les prototypes. Dans le dossier cumulatif, son
+SHA-256 est `862f3ff1fa742320404a5f6c11285a296c81ad0ed62b2c95a165f45e487946e3`.
+
+Le shell de reprise exécute la construction prix et la composition isolée
+uniquement après un code retour zéro de l'export SEC strict. Une sortie en
+échec conserve le journal et le dossier d'export diagnostique, puis arrête
+la chaîne. Le test identifie un motif de refus reproductible pour OKTA.
+L'export complet doit encore mesurer et attribuer toutes les différences
+avant toute décision de révision ou tout replay. Aucune approbation de
+révision n'a été enregistrée et le pointeur de production est inchangé.
