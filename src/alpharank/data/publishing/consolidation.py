@@ -6,6 +6,7 @@ from typing import Iterable
 import polars as pl
 
 from alpharank.data.quality.fundamental_quality import (
+    coerce_positive_float,
     quarantine_implausible_share_candidates,
 )
 
@@ -176,19 +177,19 @@ def _select_candidate_row(group_frame: pl.DataFrame) -> dict[str, object]:
     if default.get("statement") != "shares":
         return default
 
-    default_value = _coerce_positive_float(default.get("value"))
+    default_value = coerce_positive_float(default.get("value"))
     yfinance_row = next(
         (
             row
             for row in ordered_rows
-            if row.get("source") == "yfinance" and _coerce_positive_float(row.get("value")) is not None
+            if row.get("source") == "yfinance" and coerce_positive_float(row.get("value")) is not None
         ),
         None,
     )
     if default_value is None or yfinance_row is None:
         return default
 
-    yahoo_value = _coerce_positive_float(yfinance_row.get("value"))
+    yahoo_value = coerce_positive_float(yfinance_row.get("value"))
     if yahoo_value is None:
         return default
 
@@ -196,16 +197,6 @@ def _select_candidate_row(group_frame: pl.DataFrame) -> dict[str, object]:
     if ratio >= 1.5 and default.get("source") != "yfinance":
         return yfinance_row
     return default
-
-
-def _coerce_positive_float(value: object) -> float | None:
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return None
-    if numeric <= 0:
-        return None
-    return numeric
 
 
 def _consolidated_columns() -> list[str]:

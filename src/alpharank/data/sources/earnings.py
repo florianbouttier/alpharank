@@ -786,18 +786,7 @@ def empty_earnings_long_frame() -> pl.DataFrame:
 
 def _match_yahoo_to_sec_calendar(*, sec_calendar: pl.DataFrame, yahoo_earnings: pl.DataFrame, tolerance_days: int) -> pl.DataFrame:
     if sec_calendar.is_empty() or yahoo_earnings.is_empty():
-        return pl.DataFrame(
-            schema={
-                "ticker": pl.String,
-                "period_end": pl.String,
-                "yahoo_reportDate": pl.String,
-                "yahoo_earningsDatetime": pl.String,
-                "yahoo_epsEstimate": pl.Float64,
-                "yahoo_epsActual": pl.Float64,
-                "yahoo_surprisePercent": pl.Float64,
-                "yahoo_match_diff_days": pl.Int64,
-            }
-        )
+        return _empty_yahoo_match_frame()
 
     calendar = sec_calendar.select(["ticker", "period_end", "reportDate"]).with_row_index("calendar_row_id").with_columns(
         [
@@ -889,16 +878,20 @@ def _match_yahoo_to_sec_calendar(*, sec_calendar: pl.DataFrame, yahoo_earnings: 
         .sort(["ticker", "period_end"])
         .unique(subset=["ticker", "period_end"], keep="first", maintain_order=True)
         if matched_rows
-        else pl.DataFrame(
-            schema={
-                "ticker": pl.String,
-                "period_end": pl.String,
-                "yahoo_reportDate": pl.String,
-                "yahoo_earningsDatetime": pl.String,
-                "yahoo_epsEstimate": pl.Float64,
-                "yahoo_epsActual": pl.Float64,
-                "yahoo_surprisePercent": pl.Float64,
-                "yahoo_match_diff_days": pl.Int64,
-            }
-        )
+        else _empty_yahoo_match_frame()
+    )
+
+
+def _empty_yahoo_match_frame() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "ticker": pl.String,
+            "period_end": pl.String,
+            "yahoo_reportDate": pl.String,
+            "yahoo_earningsDatetime": pl.String,
+            "yahoo_epsEstimate": pl.Float64,
+            "yahoo_epsActual": pl.Float64,
+            "yahoo_surprisePercent": pl.Float64,
+            "yahoo_match_diff_days": pl.Int64,
+        }
     )

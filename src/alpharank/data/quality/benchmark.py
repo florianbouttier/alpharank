@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 from datetime import date
 from html import escape
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Iterable
 import polars as pl
 
 from alpharank.data.ingestion.config import METRIC_SPECS
+from alpharank.data.quality.benchmark_html import _frame_to_html, _write_html_page
 
 
 def resolve_eodhd_output_dir(data_dir: Path) -> Path:
@@ -823,18 +823,6 @@ def _error_rate_expr(matched_col: str, error_col: str) -> pl.Expr:
     return pl.when(pl.col(matched_col) > 0).then((pl.col(error_col) / pl.col(matched_col)) * 100.0).otherwise(0.0)
 
 
-def _frame_to_html(df: pl.DataFrame) -> str:
-    if df.is_empty():
-        return "<p>No rows.</p>"
-    headers = "".join(f"<th>{escape(str(column))}</th>" for column in df.columns)
-    body_rows = []
-    for row in df.iter_rows(named=True):
-        cells = "".join(f"<td>{_format_html_value(row[column])}</td>" for column in df.columns)
-        body_rows.append(f"<tr>{cells}</tr>")
-    body = "".join(body_rows)
-    return f"<table><thead><tr>{headers}</tr></thead><tbody>{body}</tbody></table>"
-
-
 def _empty_financial_frame() -> pl.DataFrame:
     return pl.DataFrame(schema={
         "ticker": pl.String,
@@ -884,20 +872,6 @@ def _standardize_alignment_output(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("diff_pct").cast(pl.Float64, strict=False),
         ]
     )
-
-
-def _format_html_value(value: object) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str) and value.startswith("<a href=") and value.endswith("</a>"):
-        return value
-    if isinstance(value, float):
-        if math.isnan(value):
-            return ""
-        if value.is_integer():
-            return f"{int(value):,}"
-        return f"{value:,.6f}".rstrip("0").rstrip(".")
-    return escape(str(value))
 
 
 def _catalog_join(catalog: pl.DataFrame, actual: pl.DataFrame, *, keys: list[str]) -> pl.DataFrame:
@@ -1153,36 +1127,6 @@ def _comparison_status_expr(threshold_pct: float) -> pl.Expr:
 
 def _slugify(value: str) -> str:
     return value.lower().replace(".", "_").replace("/", "_").replace(" ", "_")
-
-
-def _write_html_page(*, output_path: Path, title: str, subtitle: str, sections: list[tuple[str, pl.DataFrame]], navigation: str) -> None:
-    section_html = "".join(f"<div class=\"section\"><h2>{escape(name)}</h2>{_frame_to_html(frame)}</div>" for name, frame in sections)
-    html = f"""<!doctype html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"utf-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-  <title>{escape(title)}</title>
-  <style>
-    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 24px; color: #111827; background: #f8fafc; }}
-    h1, h2 {{ margin-bottom: 8px; }}
-    table {{ border-collapse: collapse; width: 100%; margin: 12px 0 24px; background: white; }}
-    th, td {{ border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-size: 12px; vertical-align: top; }}
-    th {{ background: #eff6ff; position: sticky; top: 0; }}
-    a {{ color: #1d4ed8; text-decoration: none; }}
-    .muted {{ color: #64748b; }}
-    .section {{ margin-top: 28px; }}
-  </style>
-</head>
-<body>
-  <h1>{escape(title)}</h1>
-  <div class=\"muted\">{escape(subtitle)}</div>
-  {navigation}
-  {section_html}
-</body>
-</html>
-"""
-    output_path.write_text(html, encoding="utf-8")
 
 
 def _with_links(df: pl.DataFrame, link_col: str, *, label_col: str | None = None, label_cols: list[str] | None = None) -> pl.DataFrame:

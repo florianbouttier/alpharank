@@ -105,9 +105,7 @@ def _reject_known_issuer_conflicts(retained_dir: Path, run_dir: Path) -> None:
     name = "general_reference_lineage.parquet"
     retained = _known_issuer_ids(retained_dir / name)
     observed = _known_issuer_ids(run_dir / name)
-    observed_existing_symbols = observed.join(
-        retained.select("ticker"), on="ticker", how="semi"
-    )
+    observed_existing_symbols = observed.join(retained.select("ticker"), on="ticker", how="semi")
     conflicting = observed_existing_symbols.join(retained, on=["ticker", "issuer_cik"], how="anti")
     if not conflicting.is_empty():
         examples = conflicting.get_column("ticker").unique().sort().head(20).to_list()

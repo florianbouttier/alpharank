@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -11,6 +10,7 @@ from typing import Mapping, Sequence
 
 import polars as pl
 
+from alpharank.governance_contracts.common import sha256_path as _sha256
 from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdings
 from alpharank.replay.refresh_attribution_verdict import resolve_attribution_status
 from alpharank.replay.refresh_compare import TableSpec, compare_frames
@@ -782,14 +782,6 @@ def _require_columns(frame: pl.DataFrame, columns: Sequence[str], path: Path) ->
     missing = sorted(set(columns) - set(frame.columns))
     if missing:
         raise ValueError(f"{path} lacks report columns: {missing}")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _as_int(value: object) -> int:

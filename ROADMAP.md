@@ -164,7 +164,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 125 | `QUAL-017` | borner la collecte pytest aux tests maintenus | régression rouge puis verte, six tests ciblés et collecte racine sans module de sortie | fait |
 | 126 | `QUAL-018` | remettre les inventaires d'architecture au niveau du code | lot fiabilité ci-dessous | à faire |
 | 127 | `QUAL-019` | corriger le typage strict du registre terminal | huit tests de registre verts et mypy sans erreur sur 43 fichiers | fait |
-| 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | lot fiabilité ci-dessous | à faire |
+| 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | zéro régression de taille, 74 tests ciblés et 16 tests du dernier contrôle, HTML SEC byte-identique | fait |
 | 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | ordre des plis contrôlé, CPCV explicitement diagnostique, 43 tests verts | fait |
 | 130 | `CODE-022` | séparer les titres scorables des cibles de test mûres | deux régressions rouges puis vertes, 46 tests ciblés, paniers formés même sans rendement exploitable | fait |
 | 131 | `DATA-052` | sécuriser la reprise cumulative du RAW SEC | quatre tests verts ; reprise réelle à 520 349 faits, 598 versions préservées et aucune clé ancienne retirée | fait |
@@ -184,6 +184,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | snapshot, décision et suivi visibles aux dates économiques ; 18 tests JS, 22 tests de rapports et build verts | fait |
 | 146 | `DATA-056` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
 | 147 | `DATA-057` | raccorder le parent SEC cumulatif à l'ingestion nocturne | lot fiabilité ci-dessous | à faire |
+| 148 | `QUAL-021` | vérifier le type de la borne du calendrier à l'ouverture | lot fiabilité ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -2112,6 +2113,7 @@ une fenêtre nouvelle et mûre, définie avant observation.
 | `QUAL-018` | inventaires générés code, lecteurs de données et dossiers Python | validateurs des trois inventaires verts, génération au HEAD courant, aucun changement de moteur | métadonnées, restaurer les inventaires précédents |
 | `QUAL-019` | typage de la validation du registre terminal | mypy et tests du registre verts, mêmes erreurs et valeurs observables | parité économique, revert code |
 | `QUAL-020` | dépassements de taille actifs, comportement métier préservé | revue du diff et contrôle de taille vert sans relâcher les seuils, tests de caractérisation | parité économique, revert des extractions |
+| `QUAL-021` | garde de type de la dernière séance du calendrier METH-013 | borne Date explicite, mypy et tests d'exécution verts | typage du replay candidat, parité des dates |
 | `CODE-021` | défaut du CLI Boosting générique, CPCV explicite diagnostique, profil H6 intact | un run standard tient train et validation avant son test, garde de calendrier et tests de route | nouveaux runs R&D, anciens runs scellés conservés, revert du défaut |
 | `CODE-022` | univers de prédiction du Boosting générique | supprimer une cotation future laisse scores et sélection à la décision inchangés, évaluation mûre et trous conservés | population scorée R&D, revert du découplage |
 | `DATA-052` | reconstruction cumulative SEC et reprises transactionnelles | régression d'un delta SEC partiel, vérification des clés historiques et du cutoff, contrôle réel avant composition | nouveau candidat audité, archives conservées, retour à la dernière composition validée |

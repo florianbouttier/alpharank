@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import re
 import shutil
@@ -27,6 +26,7 @@ from alpharank.data.sources.sec_only import (
     build_sec_only_financials,
     build_sec_only_general_reference_from_raw_lineage,
 )
+from alpharank.governance_contracts.common import sha256_path as _sha256
 
 RAW_FILE_NAMES = (
     "financials_sec_companyfacts.parquet",
@@ -801,14 +801,6 @@ def _file_record(path: Path) -> dict[str, object]:
         "size_bytes": path.stat().st_size,
         "sha256": _sha256(path),
     }
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _replace_directory_atomically(*, source_dir: Path, output_dir: Path) -> None:

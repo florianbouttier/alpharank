@@ -122,6 +122,17 @@ def resolve_point_in_time_sectors(
     if not future_sector.is_empty():
         raise RuntimeError("A future sector classification reached a past decision.")
 
+    return _attach_coverage(
+        resolved,
+        decision_time_column=decision_time_column,
+        sector_column=sector_column,
+        ticker_column=ticker_column,
+    )
+
+
+def _attach_coverage(
+    resolved: pl.DataFrame, *, decision_time_column: str, sector_column: str, ticker_column: str
+) -> pl.DataFrame:
     availability = pl.col(sector_column).is_not_null() & (
         pl.col(sector_column) != ""
     )

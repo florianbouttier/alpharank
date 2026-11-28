@@ -7,6 +7,7 @@ import polars as pl
 
 from alpharank.data.ingestion.config import GENERAL_COLUMNS, METRIC_SPECS
 from alpharank.data.ingestion.storage import coerce_schema
+from alpharank.data.quality.fundamental_quality import coerce_positive_float
 
 LEGACY_STATEMENT_FILES = {
     "income_statement": "US_Income_statement.parquet",
@@ -662,8 +663,8 @@ def _select_default_legacy_candidate(rows: list[dict[str, object]], *, statement
     sector = str(default.get("Sector") or "")
     legacy_metric = str(default.get("legacy_metric") or "")
     if statement == "shares":
-        default_value = _coerce_positive_float(default.get("value"))
-        vendor_value = _coerce_positive_float(vendor.get("value")) if vendor is not None else None
+        default_value = coerce_positive_float(default.get("value"))
+        vendor_value = coerce_positive_float(vendor.get("value")) if vendor is not None else None
         if default_value is not None and vendor_value is not None:
             ratio = max(default_value, vendor_value) / min(default_value, vendor_value)
             if ratio >= 1.5 and default.get("source") != vendor.get("source"):
@@ -727,15 +728,15 @@ def _choose_legacy_sequence_replacement(
         return None
 
     best_candidate = min(
-        (candidate for candidate in candidates if _coerce_positive_float(candidate.get("value")) is not None),
-        key=lambda candidate: _log_distance(_coerce_positive_float(candidate.get("value")), expected),
+        (candidate for candidate in candidates if coerce_positive_float(candidate.get("value")) is not None),
+        key=lambda candidate: _log_distance(coerce_positive_float(candidate.get("value")), expected),
         default=None,
     )
     if best_candidate is None:
         return None
 
-    current_distance = _log_distance(_coerce_positive_float(current.get("value")), expected)
-    best_distance = _log_distance(_coerce_positive_float(best_candidate.get("value")), expected)
+    current_distance = _log_distance(coerce_positive_float(current.get("value")), expected)
+    best_distance = _log_distance(coerce_positive_float(best_candidate.get("value")), expected)
     if best_distance >= current_distance:
         return None
 
@@ -817,7 +818,7 @@ def _best_available_field(rows: list[dict[str, object]], field: str) -> object |
 
 def _has_sec_consensus(rows: list[dict[str, object]]) -> bool:
     sec_values = [
-        _coerce_positive_float(row.get("value"))
+        coerce_positive_float(row.get("value"))
         for row in rows
         if str(row.get("source") or "").startswith("sec_")
     ]
@@ -835,8 +836,8 @@ def _expected_series_value(
     next_selected: dict[str, object] | None,
 ) -> float | None:
     neighbors = [
-        _coerce_positive_float(previous_selected.get("value")) if previous_selected is not None else None,
-        _coerce_positive_float(next_selected.get("value")) if next_selected is not None else None,
+        coerce_positive_float(previous_selected.get("value")) if previous_selected is not None else None,
+        coerce_positive_float(next_selected.get("value")) if next_selected is not None else None,
     ]
     numeric = [value for value in neighbors if value is not None]
     if not numeric:
@@ -871,13 +872,6 @@ def _coerce_float(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
-
-
-def _coerce_positive_float(value: object) -> float | None:
-    numeric = _coerce_float(value)
-    if numeric is None or numeric <= 0:
-        return None
-    return numeric
 
 
 def _ensure_general_reference_columns(frame: pl.DataFrame) -> pl.DataFrame:

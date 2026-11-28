@@ -10,17 +10,26 @@ from alpharank.reporting._sec_explorer_script import BROWSER_SCRIPT
 def render_sec_explorer_html(*, encoded_payload: str, run_id: str, initial_ticker: str) -> str:
     """Return one self-contained HTML document with an embedded compressed payload."""
 
-    return f"""<!doctype html>
+    return _HTML_TEMPLATE.format(
+        styles=STYLES,
+        initial_ticker=escape(initial_ticker),
+        run_id=escape(run_id),
+        encoded_payload=encoded_payload,
+        script=BROWSER_SCRIPT,
+    )
+
+
+_HTML_TEMPLATE = """<!doctype html>
 <html lang="fr" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AlphaRank — explorateur des données SEC</title>
-  <style>{STYLES}</style>
+  <style>{styles}</style>
 </head>
-<body data-initial-ticker="{escape(initial_ticker)}">
+<body data-initial-ticker="{initial_ticker}">
   <div id="loading" class="loading"><div><strong>AlphaRank SEC</strong>
-  <span>Ouverture des faits téléchargés du run {escape(run_id)}…</span></div></div>
+  <span>Ouverture des faits téléchargés du run {run_id}…</span></div></div>
   <div class="shell" id="app" aria-busy="true">
     <aside>
       <div class="brand"><span>α</span><div>AlphaRank<small>SEC DATA EXPLORER</small></div></div>
@@ -31,14 +40,14 @@ def render_sec_explorer_html(*, encoded_payload: str, run_id: str, initial_ticke
         <a href="#raw">04 · Lignes brutes</a>
         <a href="#proof">05 · Provenance</a>
       </nav>
-      <div class="aside-note"><span>RUN D’INGESTION</span><strong>{escape(run_id)}</strong>
+      <div class="aside-note"><span>RUN D’INGESTION</span><strong>{run_id}</strong>
       <small>Aucune donnée n’est promue par ce rapport.</small></div>
     </aside>
     <main>
       <header class="topbar">
         <div><span class="kicker">PREUVE STATIQUE · SEC</span>
         <strong id="top-company">Chargement…</strong></div>
-        <div class="top-actions"><span class="badge" id="run-badge">{escape(run_id)}</span>
+        <div class="top-actions"><span class="badge" id="run-badge">{run_id}</span>
         <button class="icon-button" id="theme-toggle" type="button" aria-label="Changer de thème">◐</button></div>
       </header>
       <div class="page">
@@ -126,7 +135,7 @@ def render_sec_explorer_html(*, encoded_payload: str, run_id: str, initial_ticke
   </div>
   <div class="tooltip" id="tooltip"></div>
   <script id="sec-explorer-payload" type="application/octet-stream">{encoded_payload}</script>
-  <script>{BROWSER_SCRIPT}</script>
+  <script>{script}</script>
 </body>
 </html>
 """

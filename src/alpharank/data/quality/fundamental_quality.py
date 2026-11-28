@@ -4,8 +4,18 @@ from typing import Any
 
 import polars as pl
 
-
 _SHARE_METRICS = ("outstanding_shares", "weighted_average_diluted_shares")
+
+
+def coerce_positive_float(value: object) -> float | None:
+    """Coerce a vendor value for the existing positive-amount checks."""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric <= 0:
+        return None
+    return numeric
 
 
 def quarantine_implausible_share_candidates(
