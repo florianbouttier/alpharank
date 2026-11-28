@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 
 from alpharank.portfolio.contracts import validate_holdings, validate_monthly_returns
-
+from alpharank.portfolio.costs import reinvested_capital_fraction
 
 ATTRIBUTION_COLUMNS = (
     "strategy",
@@ -45,9 +45,7 @@ def portfolio_return_attribution(
     )
     rows: list[dict[str, object]] = []
     matched_months: set[tuple[str, object, object]] = set()
-    for month in holdings.sort(
-        ["strategy", "decision_month", "ticker"]
-    ).partition_by(
+    for month in holdings.sort(["strategy", "decision_month", "ticker"]).partition_by(
         ["strategy", "decision_month", "holding_month"],
         maintain_order=True,
     ):
@@ -75,11 +73,12 @@ def portfolio_return_attribution(
             target_weights[available] / target_weights[available].sum()
         )
         factor = _log_allocation_factor(net_return)
+        capital = reinvested_capital_fraction(month, transaction_cost)
         simple_sum = 0.0
         for index, ticker in enumerate(month["ticker"].to_list()):
             if not available[index]:
                 continue
-            simple = float(effective_weights[index] * realized[index])
+            simple = float(capital * effective_weights[index] * realized[index])
             simple_sum += simple
             rows.append(
                 {

@@ -195,6 +195,35 @@ au mois de détention. Il ne reconstruit pas l'heure d'annonce de cette
 appartenance et ne réapprend pas le modèle. Le rendement de la première
 ouverture à la dernière clôture du mois reste la convention du v2 existant.
 
+### Détention entre ouvertures de rééquilibrage (`METH-013`)
+
+Dans le replay commun v2, `--holding-return-policy rebalance_open_to_rebalance_open_v1`
+valorise Legacy, Boosting et SPY entre les premières ouvertures des mois de
+détention consécutifs. La dernière clôture du mois de décision fixe la borne des
+signaux. L'ouverture est ajustée par le rapport `adjusted_close / close` pour
+mesurer le rendement total. Les titres sortants restent exposés jusqu'au
+rééquilibrage suivant, y compris la variation entre clôture et ouverture.
+
+Les ordres conservent la règle `METH-012`. Les frais sont un débit à l'ouverture
+avant réinvestissement, avec `net = (1 - frais) × (1 + brut) - 1`. Les poids
+sortants dérivent jusqu'au prix de rééquilibrage, et la comptabilité utilise le
+même turnover unidirectionnel et le même barème qu'en v2. SPY n'a pas de frais
+d'ordre simulés. L'attribution du moteur commun rapproche la performance nette
+de cette convention. La série reste marquée au prix de rééquilibrage sans
+liquidation de fin de test fictive.
+
+Le journal `rebalance_valuation_journal.parquet` conserve les deux bornes,
+les cours d'ouverture et le statut de chaque intention. Le dernier mois reste
+en attente quand l'ouverture suivante du SPY manque. Le moteur bloque un trou
+intérieur et un titre sélectionné sans marque de sortie exploitable. Une
+contrepartie cash revue, effective entre les deux séances et publiée avant la
+borne de sortie, est rapportée au prix brut d'entrée puis portée en cash. Les
+échanges de titres sans résolution à la nouvelle borne et les événements
+effectifs à une borne dont l'heure reste inconnue bloquent le calcul.
+
+Le mode précédent conserve sa fenêtre jusqu'à clôture et sa convention de
+frais. Ce candidat de recherche ne change pas le portefeuille de production.
+
 ## Benchmark Contract
 
 Performance comparisons use one explicit benchmark convention:

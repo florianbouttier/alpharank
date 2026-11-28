@@ -15,6 +15,7 @@ from alpharank.portfolio.contracts import (
 )
 from alpharank.portfolio.costs import (
     TransactionCostModel,
+    reinvested_capital_fraction,
     transaction_cost_components,
 )
 
@@ -102,7 +103,7 @@ def simulate_weighted_portfolio(
         )
         cost_components = transaction_cost_components(turnover, active_cost_model)
         transaction_cost = float(cost_components["transaction_cost"])
-        net_return = gross_return - transaction_cost
+        net_return = gross_return * reinvested_capital_fraction(month, transaction_cost) - transaction_cost
         active_return = net_return - benchmark_return
         relative_return = (
             (1.0 + net_return) / (1.0 + benchmark_return) - 1.0
@@ -134,20 +135,27 @@ def simulate_weighted_portfolio(
                 "sector_count": sector_count,
             }
         )
-        drift_returns = {
-            ticker: float(realized_return) if is_available else 0.0
-            for ticker, realized_return, is_available in zip(
-                tickers, realized, available, strict=True
-            )
-        }
-        pretrade_by_strategy[strategy] = drifted_weights_after_returns(
-            current, drift_returns
-        )
+        pretrade_by_strategy[strategy] = _pretrade_weights(month, current, realized, available)
 
     result = pl.DataFrame(rows).sort(["strategy", "decision_month"])
     if validate:
         validate_monthly_returns(result)
     return result
+
+
+def _pretrade_weights(
+    month: pl.DataFrame,
+    current: dict[str, float],
+    realized: np.ndarray,
+    available: np.ndarray,
+) -> dict[str, float]:
+    drift_returns = dict(zip(current, np.where(available, realized, 0.0), strict=True))
+    ending_tickers = (
+        dict(zip(current, month["ending_ticker"].to_list(), strict=True))
+        if "ending_ticker" in month
+        else None
+    )
+    return drifted_weights_after_returns(current, drift_returns, ending_tickers=ending_tickers)
 
 
 def _sector_summary(month: pl.DataFrame) -> tuple[int, float]:

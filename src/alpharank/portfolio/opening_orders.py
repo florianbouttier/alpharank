@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import time
+from datetime import date, time, timedelta
 from pathlib import Path
 
 import polars as pl
 
-from alpharank.portfolio.contracts import validate_holdings
+from alpharank.portfolio.allocation import CASH_WEIGHT_KEY
+from alpharank.portfolio.contracts import REBALANCE_OPEN_POLICY_ID, validate_holdings
 from alpharank.portfolio.execution import NEW_YORK
 
 OPENING_EXECUTION_POLICY_ID = "frozen_intents_first_market_open_v1"
@@ -29,7 +30,10 @@ def evaluate_opening_intents(
         raise ValueError("Opening execution requires at least one frozen intention.")
     rank = pl.col("selection_rank") if "selection_rank" in holdings else pl.lit(None)
     intents = holdings.select(*_INTENT_KEYS, "target_weight", rank.alias("selection_rank"))
-    scheduled = intents.join(_market_openings(benchmark_prices), on="holding_month", how="left")
+    schedule = _market_openings(benchmark_prices).select(
+        "holding_month", "scheduled_open_date", "scheduled_open_at", "benchmark_open_usable"
+    )
+    scheduled = intents.join(schedule, on="holding_month", how="left")
     with_quotes = scheduled.join(
         _opening_prices(prices), on=["ticker", "scheduled_open_date"], how="left", validate="m:1"
     )
@@ -64,6 +68,11 @@ def _opening_prices(prices: pl.DataFrame) -> pl.DataFrame:
         pl.col("ticker").cast(pl.String),
         pl.col("date").cast(pl.String).str.to_date(strict=False).alias("scheduled_open_date"),
         pl.col("open").cast(pl.Float64, strict=False).alias("opening_price"),
+        pl.when(
+            _positive_price("open") & _positive_price("close") & _positive_price("adjusted_close")
+        )
+        .then(pl.col("open") * pl.col("adjusted_close") / pl.col("close"))
+        .alias("opening_price_adjusted"),
         (_positive_price("close") & _positive_price("adjusted_close")).alias(
             "opening_adjustment_usable"
         ),
@@ -84,17 +93,24 @@ def _market_openings(prices: pl.DataFrame) -> pl.DataFrame:
         .group_by("holding_month")
         .agg(
             pl.col("scheduled_open_date").first(),
+            pl.col("scheduled_open_date").last().alias("last_market_session"),
+            pl.col("opening_price_adjusted").first().alias("benchmark_adjusted_open"),
             (_positive_price("opening_price") & pl.col("opening_adjustment_usable"))
             .first()
             .alias("benchmark_open_usable"),
         )
         .with_columns(
-            pl.col("scheduled_open_date")
-            .dt.combine(time(9, 30))
-            .dt.replace_time_zone(NEW_YORK.key)
-            .dt.convert_time_zone("UTC")
-            .alias("scheduled_open_at")
+            _market_timestamp("scheduled_open_date", time(9, 30)).alias("scheduled_open_at")
         )
+    )
+
+
+def _market_timestamp(column: str, clock: time) -> pl.Expr:
+    return (
+        pl.col(column)
+        .dt.combine(clock)
+        .dt.replace_time_zone(NEW_YORK.key)
+        .dt.convert_time_zone("UTC")
     )
 
 
@@ -171,3 +187,193 @@ def validate_opening_execution(journal: pl.DataFrame, holdings: pl.DataFrame) ->
     ).sort(_INTENT_KEYS)
     if not expected.equals(holdings.select(*_INTENT_KEYS, *contract).sort(_INTENT_KEYS)):
         raise RuntimeError("Valued execution differs from the frozen intentions or first opening.")
+
+
+_VALUED_EXITS = ("observed_open_to_open", "resolved_terminal_event")
+
+
+def evaluate_rebalance_exits(
+    opening_journal: pl.DataFrame,
+    prices: pl.DataFrame,
+    benchmark_prices: pl.DataFrame,
+    terminal_events: pl.DataFrame,
+) -> pl.DataFrame:
+    """Value the outgoing assets at the next market open, or record why a mark is unavailable."""
+    openings = _market_openings(benchmark_prices)
+    last_market_month = openings["holding_month"].max()
+    clock = _join_rebalance_clock(opening_journal, openings)
+    quotes = _opening_prices(prices).select(
+        "ticker",
+        pl.col("scheduled_open_date").alias("exit_date"),
+        pl.col("opening_price").alias("exit_price_unadjusted"),
+        pl.col("opening_price_adjusted").alias("exit_price_adjusted"),
+    )
+    exits = _join_terminal_evidence(clock, terminal_events).join(
+        quotes, on=["ticker", "exit_date"], how="left", validate="m:1"
+    )
+    return exits.with_columns(_exit_status(last_market_month)).sort(_INTENT_KEYS)
+
+
+def _join_rebalance_clock(journal: pl.DataFrame, openings: pl.DataFrame) -> pl.DataFrame:
+    return (
+        journal.join(
+            openings.select("holding_month", "benchmark_adjusted_open"),
+            on="holding_month",
+            how="left",
+            validate="m:1",
+        )
+        .join(
+            openings.select(
+                pl.col("holding_month").dt.offset_by("1mo"),
+                _market_timestamp("last_market_session", time(16)).alias("signal_cutoff_at"),
+            ),
+            on="holding_month",
+            how="left",
+            validate="m:1",
+        )
+        .join(
+            openings.select(
+                pl.col("holding_month").dt.offset_by("-1mo"),
+                pl.col("scheduled_open_date").alias("exit_date"),
+                pl.col("scheduled_open_at").alias("exit_at"),
+                pl.col("benchmark_adjusted_open").alias("benchmark_adjusted_exit"),
+            ),
+            on="holding_month",
+            how="left",
+            validate="m:1",
+        )
+    )
+
+
+def _join_terminal_evidence(clock: pl.DataFrame, events: pl.DataFrame) -> pl.DataFrame:
+    evidence = (
+        clock.select("ticker", "holding_month", "scheduled_open_date", "exit_date")
+        .unique()
+        .join(events, on="ticker", how="inner")
+        .filter(pl.col("effective_date").is_between("scheduled_open_date", "exit_date"))
+        .select(
+            "ticker",
+            "holding_month",
+            pl.col("terminal_event_id").alias("exit_event_id"),
+            pl.col("event_type").alias("exit_event_type"),
+            pl.col("effective_date").alias("exit_event_date"),
+            pl.col("known_at").alias("exit_event_known_at"),
+            pl.col("source").alias("exit_event_source"),
+            pl.col("source_url").alias("exit_event_source_url"),
+            pl.col("price_vintage_id").alias("exit_event_price_vintage_id"),
+            pl.coalesce("cash_per_share", "recovery_per_share")
+            .add(pl.col("distribution_per_share").fill_null(0.0))
+            .alias("terminal_cash_per_share"),
+        )
+    )
+    return clock.join(evidence, on=["ticker", "holding_month"], how="left", validate="m:1")
+
+
+def _exit_status(last_market_month: date | None) -> pl.Expr:
+    terminal_cash = (
+        pl.col("exit_event_type").is_in(["cash_merger", "bankruptcy", "delisting"])
+        & pl.col("exit_event_date").is_between("scheduled_open_date", "exit_date", closed="none")
+        & (pl.col("exit_event_known_at") < pl.col("exit_at"))
+        & pl.col("terminal_cash_per_share").is_finite()
+        & (pl.col("terminal_cash_per_share") >= 0)
+    )
+    return (
+        pl.when(pl.col("exit_at").is_null() & (pl.col("holding_month") == last_market_month))
+        .then(pl.lit("pending_next_market_open"))
+        .when(pl.col("exit_at").is_null() | pl.col("signal_cutoff_at").is_null())
+        .then(pl.lit("missing_market_boundary"))
+        .when(pl.col("execution_status") != _OPEN_OBSERVED)
+        .then(pl.lit("opening_execution_blocked"))
+        .when(
+            ~(
+                _positive_price("benchmark_adjusted_open")
+                & _positive_price("benchmark_adjusted_exit")
+            )
+        )
+        .then(pl.lit("benchmark_exit_unavailable"))
+        .when(terminal_cash)
+        .then(pl.lit("resolved_terminal_event"))
+        .when(pl.col("exit_event_id").is_not_null())
+        .then(pl.lit("unsupported_terminal_exit"))
+        .when(~_positive_price("exit_price_adjusted"))
+        .then(pl.lit("exit_quote_unavailable"))
+        .otherwise(pl.lit("observed_open_to_open"))
+        .alias("valuation_status")
+    )
+
+
+def record_rebalance_exits(exits: pl.DataFrame, destination: Path) -> Path:
+    """Keep pending and refused exit evidence before any performance is calculated."""
+    journal = destination / "rebalance_valuation_journal.parquet"
+    exits.write_parquet(journal)
+    pending = "pending_next_market_open"
+    unavailable = exits.filter(~pl.col("valuation_status").is_in([*_VALUED_EXITS, pending]))
+    if unavailable.height:
+        raise RuntimeError(
+            f"Rebalance valuation blocked for {unavailable.height} intentions. See {journal}"
+        )
+    mature_months = (
+        exits.filter(pl.col("valuation_status") != pending)
+        .select("holding_month")
+        .unique()
+        .sort("holding_month")
+    )
+    if mature_months.is_empty():
+        raise RuntimeError(f"Rebalance valuation has no completed holding period. See {journal}")
+    if mature_months.filter(
+        pl.col("holding_month") != pl.col("holding_month").shift(1).dt.offset_by("1mo")
+    ).height:
+        raise RuntimeError(
+            f"Rebalance valuation calendar has an interior missing month. See {journal}"
+        )
+    return journal
+
+
+def value_rebalance_holdings(intents: pl.DataFrame, exits: pl.DataFrame) -> pl.DataFrame:
+    """Attach validated price marks and cash settlements to the frozen holdings."""
+    cash = pl.col("valuation_status") == "resolved_terminal_event"
+    matured = exits.filter(pl.col("valuation_status").is_in(_VALUED_EXITS))
+    valuations = matured.select(
+        *_INTENT_KEYS,
+        pl.when(cash)
+        .then(pl.col("terminal_cash_per_share") / pl.col("opening_price") - 1)
+        .otherwise(pl.col("exit_price_adjusted") / pl.col("opening_price_adjusted") - 1)
+        .alias("realized_return"),
+        (pl.col("benchmark_adjusted_exit") / pl.col("benchmark_adjusted_open") - 1).alias(
+            "benchmark_return"
+        ),
+        pl.col("opening_price").alias("execution_price_unadjusted"),
+        pl.col("opening_price_adjusted").alias("execution_price_adjusted"),
+        pl.col("scheduled_open_at").alias("execution_at"),
+        pl.col("signal_cutoff_at"),
+        pl.col("signal_cutoff_at").alias("feature_max_asof_at"),
+        (pl.col("scheduled_open_at") + timedelta(microseconds=1)).alias(
+            "first_return_observation_at"
+        ),
+        pl.col("exit_at").alias("holding_return_end_at"),
+        pl.col("exit_at").alias("scheduled_holding_end_at"),
+        pl.lit(0).alias("holding_observation_gap_calendar_days"),
+        pl.lit(REBALANCE_OPEN_POLICY_ID).alias("execution_policy_id"),
+        pl.col("valuation_status").alias("return_resolution"),
+        pl.when(cash)
+        .then(pl.lit(CASH_WEIGHT_KEY))
+        .otherwise(pl.col("ticker"))
+        .alias("ending_ticker"),
+        pl.col("exit_event_id").alias("terminal_event_id"),
+        pl.col("exit_event_type").alias("terminal_event_type"),
+        pl.col("exit_event_date").alias("terminal_effective_date"),
+        pl.col("exit_event_known_at").alias("terminal_event_known_at"),
+        pl.col("exit_event_source").alias("terminal_event_source"),
+        pl.col("exit_event_source_url").alias("terminal_event_source_url"),
+        pl.col("exit_event_price_vintage_id").alias("terminal_price_vintage_id"),
+        pl.col("terminal_cash_per_share").alias("terminal_value_per_share"),
+        pl.lit(None, dtype=pl.String).alias("terminal_successor_ticker"),
+        pl.lit(None, dtype=pl.Float64).alias("terminal_successor_end_price"),
+        pl.when(cash).then(pl.lit("reviewed_cash_at_rebalance")).alias("return_resolution_reason"),
+        pl.when(cash)
+        .then(pl.lit("reviewed_terminal_event_resolved"))
+        .alias("manual_review_status"),
+    )
+    return intents.drop("realized_return", "benchmark_return").join(
+        valuations, on=_INTENT_KEYS, how="inner", validate="1:1"
+    )

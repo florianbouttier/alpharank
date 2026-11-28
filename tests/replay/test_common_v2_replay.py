@@ -11,7 +11,12 @@ import pytest
 
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.comparison import reference_monthly_series
-from alpharank.portfolio.opening_orders import evaluate_opening_intents
+from alpharank.portfolio.opening_orders import (
+    evaluate_opening_intents,
+    evaluate_rebalance_exits,
+    record_rebalance_exits,
+    value_rebalance_holdings,
+)
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_price_registry import TerminalPriceRegistry
 from alpharank.replay.common import (
@@ -181,6 +186,91 @@ def _write_opening_replay_inputs(
     )
     prices.filter(pl.col("ticker") != "SPY.US").write_parquet(snapshot / "US_Finalprice.parquet")
     prices.filter(pl.col("ticker") == "SPY.US").write_parquet(snapshot / "SP500Price.parquet")
+
+
+def test_common_v2_open_to_open_uses_the_next_shared_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_opening_replay_inputs(tmp_path, monkeypatch, missing_open=False)
+    snapshot = tmp_path / "input_snapshot"
+    for name, quotes in (
+        ("US_Finalprice.parquet", [("A", 12.0), ("B.US", 9.0)]),
+        ("SP500Price.parquet", [("SPY.US", 11.0)]),
+    ):
+        path = snapshot / name
+        initial = pl.read_parquet(path)
+        exits = pl.DataFrame(
+            [(ticker, "2024-03-01", opening, 10.0, 10.0) for ticker, opening in quotes],
+            schema=initial.schema,
+            orient="row",
+        )
+        pl.concat([initial, exits]).write_parquet(path)
+    output_dir = tmp_path / "open_to_open"
+
+    report = build_common_v2_comparison(
+        legacy_run_dir=tmp_path,
+        boosting_run_dir=tmp_path,
+        causal_snapshot_dir=tmp_path,
+        output_dir=output_dir,
+        top_n_values=(1,),
+        holding_return_policy="rebalance_open_to_rebalance_open_v1",
+    )
+
+    assert report["passed"] is True
+    monthly = pl.read_parquet(output_dir / "common_v2_monthly.parquet")
+    assert report["status"] == "candidate_open_to_open_replay"
+    assert report["promotion_eligible"] is False
+    metrics = {row["strategy"]: row for row in monthly.to_dicts()}
+    assert metrics["Legacy"]["gross_return"] == pytest.approx(0.20)
+    assert metrics["Legacy"]["net_return"] == pytest.approx(1.20 * 0.999 - 1.0)
+    assert metrics["Boosting Top 1"]["gross_return"] == pytest.approx(-0.10)
+    assert metrics["SPY total return"]["net_return"] == pytest.approx(0.10)
+    assert monthly["benchmark_return"].to_list() == pytest.approx([0.10] * 3)
+
+
+def test_open_to_open_cash_settlement_and_missing_successor(tmp_path: Path) -> None:
+    intents = _holdings().filter(pl.col("ticker") == "A").select(
+        "strategy", "decision_month", "holding_month", "ticker", "target_weight",
+        "realized_return", "benchmark_return",
+    )
+    prices = pl.DataFrame({"ticker": ["A"], "date": ["2024-02-01"], "open": [10.0]})
+    prices = prices.with_columns(pl.col("open").alias("close"), pl.col("open").alias("adjusted_close"))
+    benchmark = pl.concat([
+        prices.with_columns(pl.lit("SPY.US").alias("ticker"), pl.lit(day).alias("date"))
+        for day in ("2024-01-31", "2024-02-01", "2024-03-01")
+    ])
+    openings = evaluate_opening_intents(intents, prices, benchmark, pl.DataFrame())
+    event = pl.DataFrame({
+        "ticker": ["A"],
+        "terminal_event_id": ["A-transaction"],
+        "event_type": ["cash_merger"],
+        "effective_date": [date(2024, 2, 12)],
+        "known_at": [datetime(2024, 2, 12, 20, tzinfo=timezone.utc)],
+        "source": ["reviewed source"],
+        "source_url": ["https://example.com"],
+        "price_vintage_id": ["reviewed vintage"],
+        "cash_per_share": [12.0],
+        "recovery_per_share": [None],
+        "distribution_per_share": [0.0],
+    })
+
+    cash = evaluate_rebalance_exits(openings, prices, benchmark, event)
+    assert cash["valuation_status"].item() == "resolved_terminal_event"
+    valuation = value_rebalance_holdings(intents, cash).row(0, named=True)
+    assert valuation["realized_return"] == pytest.approx(0.20)
+    assert valuation["ending_ticker"] == "__CASH__"
+
+    stock = evaluate_rebalance_exits(
+        openings, prices, benchmark, event.with_columns(pl.lit("stock_merger").alias("event_type"))
+    )
+    with pytest.raises(RuntimeError, match="Rebalance valuation blocked"):
+        record_rebalance_exits(stock, tmp_path)
+    persisted = pl.read_parquet(tmp_path / "rebalance_valuation_journal.parquet")
+    assert persisted["valuation_status"].item() == "unsupported_terminal_exit"
+    assert persisted["exit_event_id"].item() == "A-transaction"
+
+    pending = evaluate_rebalance_exits(openings, prices, benchmark.head(2), event)
+    assert pending["valuation_status"].item() == "pending_next_market_open"
 
 
 def test_opening_suspension_is_evaluated_at_execution_without_changing_intents() -> None:

@@ -16,14 +16,24 @@ from alpharank.portfolio.adapters.boosting import boosting_predictions_to_holdin
 from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
 from alpharank.portfolio.attribution import provisional_return_cagr_attribution
 from alpharank.portfolio.comparison import reference_monthly_series
-from alpharank.portfolio.contracts import validate_causal_timing, validate_holdings
+from alpharank.portfolio.contracts import (
+    REBALANCE_OPEN_POLICY_ID,
+    validate_causal_timing,
+    validate_holdings,
+)
 from alpharank.portfolio.costs import TransactionCostModel
-from alpharank.portfolio.execution import apply_next_session_open_holding_returns
+from alpharank.portfolio.execution import (
+    LEGACY_NEXT_SESSION_OPEN,
+    apply_next_session_open_holding_returns,
+)
 from alpharank.portfolio.opening_orders import (
     OPENING_EXECUTION_POLICY_ID,
     evaluate_opening_intents,
+    evaluate_rebalance_exits,
     record_opening_execution,
+    record_rebalance_exits,
     validate_opening_execution,
+    value_rebalance_holdings,
 )
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 from alpharank.portfolio.terminal_event_registry import (
@@ -33,6 +43,7 @@ from alpharank.portfolio.terminal_price_registry import (
     load_terminal_price_registry,
 )
 from alpharank.portfolio.terminal_returns import (
+    TerminalReturnResult,
     resolve_provisional_terminal_shareholder_returns,
 )
 from alpharank.replay.boosting import validate_boosting_v2_replay
@@ -180,9 +191,13 @@ def build_common_v2_comparison(
     causal_snapshot_dir: Path,
     output_dir: Path,
     top_n_values: tuple[int, ...] = (5, 10),
+    holding_return_policy: str = LEGACY_NEXT_SESSION_OPEN.identifier,
 ) -> dict[str, Any]:
     """Resimulate every investable strategy on one next-open/cost contract."""
 
+    if holding_return_policy not in {LEGACY_NEXT_SESSION_OPEN.identifier, REBALANCE_OPEN_POLICY_ID}:
+        raise ValueError(f"Unknown holding return policy: {holding_return_policy!r}.")
+    uses_open_to_open = holding_return_policy == REBALANCE_OPEN_POLICY_ID
     destination = reserve_run_directory(output_dir)
     causal = validate_causal_v2_snapshot(causal_snapshot_dir)
     composition_id = causal["composition_id"]
@@ -248,41 +263,46 @@ def build_common_v2_comparison(
         *[column for column in execution_columns if column in legacy_holdings.columns]
     )
     prices = pl.read_parquet(snapshot / "US_Finalprice.parquet")
+    benchmark_prices = pl.read_parquet(snapshot / "SP500Price.parquet")
     terminal_registry = load_terminal_event_registry()
     journal = evaluate_opening_intents(
         intents,
         prices,
-        pl.read_parquet(snapshot / "SP500Price.parquet"),
+        benchmark_prices,
         terminal_registry.pre_execution_blocks(),
     )
+    valuation_artifacts = {}
+    terminal_price_registry = None if uses_open_to_open else load_terminal_price_registry()
+    price_vintage_id = terminal_price_registry.price_vintage_id if terminal_price_registry else composition_id
+    terminal_events = terminal_registry.terminal_consideration_events(price_vintage_id=price_vintage_id)
+    if uses_open_to_open:
+        exits = evaluate_rebalance_exits(journal, prices, benchmark_prices, terminal_events)
+        valuation_artifacts["rebalance_valuation_journal"] = record_rebalance_exits(exits, destination)
+        holdings = value_rebalance_holdings(intents, exits)
+        journal = journal.join(holdings.select("holding_month").unique(), on="holding_month", how="semi")
     opening_journal, opening_receipt = record_opening_execution(
         journal,
         destination,
         composition_id=composition_id,
         terminal_registry_sha256=terminal_registry.sha256,
     )
-    holdings = (
-        apply_next_session_open_holding_returns(intents, prices)
-        .drop("benchmark_return")
-        .join(benchmark_by_month, on="holding_month", how="left", validate="m:1")
-    )
-    validate_opening_execution(journal, holdings)
-    terminal_price_registry = load_terminal_price_registry()
-    terminal_successor_prices = terminal_price_registry.successor_prices(
-        prices,
-        snapshot_id=causal["snapshot_id"],
-        composition_id=composition_id,
-        price_artifact_sha256=_sha256(snapshot / "US_Finalprice.parquet"),
-    )
-    terminal_resolution = resolve_provisional_terminal_shareholder_returns(
-        holdings,
-        terminal_events=terminal_registry.terminal_consideration_events(
-            price_vintage_id=terminal_price_registry.price_vintage_id
-        ),
-        successor_prices=terminal_successor_prices,
-        price_vintage_id=terminal_price_registry.price_vintage_id,
-    )
+    if terminal_price_registry is None:
+        terminal_resolution = TerminalReturnResult(holdings, {"policy_id": "reviewed_cash_at_rebalance"})
+    else:
+        holdings = apply_next_session_open_holding_returns(intents, prices).drop("benchmark_return").join(
+            benchmark_by_month, on="holding_month", how="left", validate="m:1"
+        )
+        terminal_resolution = resolve_provisional_terminal_shareholder_returns(
+            holdings,
+            terminal_events=terminal_events,
+            successor_prices=terminal_price_registry.successor_prices(
+                prices, snapshot_id=causal["snapshot_id"], composition_id=composition_id,
+                price_artifact_sha256=_sha256(snapshot / "US_Finalprice.parquet"),
+            ),
+            price_vintage_id=price_vintage_id,
+        )
     holdings = terminal_resolution.holdings
+    validate_opening_execution(journal, holdings)
     cost_model = standard_v2_cost_model()
     monthly_parts = [
         simulate_weighted_portfolio(
@@ -404,10 +424,14 @@ def build_common_v2_comparison(
         holdings=holdings,
         monthly_returns=monthly,
         prefix="common_v2",
+        return_contract=(
+            "(1 - transaction_cost) * (1 + gross_return) - 1 = net"
+            if uses_open_to_open else "gross - turnover*cost_bps/10000 = net"
+        ),
         benchmark_metadata={
-            "id": "spy_next_session_open_total_return_v1",
+            "id": "spy_rebalance_open_total_return_v1" if uses_open_to_open else "spy_next_session_open_total_return_v1",
             "label": "SPY total return",
-            "price_column": "adjusted_open_to_adjusted_close",
+            "price_column": "adjusted_open_to_adjusted_open" if uses_open_to_open else "adjusted_open_to_adjusted_close",
             "includes_distributions": True,
         },
     )
@@ -433,7 +457,8 @@ def build_common_v2_comparison(
         boosting_validation.get("terminal_target_policy_approved", False)
     )
     promotion_eligible = (
-        comparison_eligible
+        not uses_open_to_open
+        and comparison_eligible
         and provisional_training_targets == 0
         and (
             approved_censored_training_targets == 0
@@ -444,7 +469,9 @@ def build_common_v2_comparison(
         "contract_version": 1,
         "scope": "alpharank_common_v2_replay",
         "status": (
-            "provisional_manual_terminal_review"
+            "candidate_open_to_open_replay"
+            if uses_open_to_open
+            else "provisional_manual_terminal_review"
             if provisional_journal.height
             else (
                 "comparison_eligible_training_targets_provisional"
@@ -455,7 +482,9 @@ def build_common_v2_comparison(
         "comparison_eligible": comparison_eligible,
         "promotion_eligible": promotion_eligible,
         "promotion_blockers": (
-            ["boosting_training_terminal_targets_provisional"]
+            ["rebalance_open_to_open_candidate"]
+            if uses_open_to_open
+            else ["boosting_training_terminal_targets_provisional"]
             if provisional_training_targets
             else (
                 ["boosting_training_terminal_target_policy_unapproved"]
@@ -469,7 +498,8 @@ def build_common_v2_comparison(
         ),
         "methodology_version": "v2-causal",
         "composition_id": composition_id,
-        "execution_policy_id": "next_session_open_v1",
+        "execution_policy_id": holding_return_policy,
+        "fee_timing": "deduct_before_reinvestment" if uses_open_to_open else "fixed_period_cash_debit",
         "missing_return_policy": "raise",
         "transaction_cost_model": asdict(cost_model),
         "benchmark_cost_policy": "no simulated trading cost",
@@ -512,8 +542,8 @@ def build_common_v2_comparison(
         "reviewed_terminal_resolutions": {
             "policy_id": "reviewed_shareholder_consideration_v1",
             "terminal_event_registry_sha256": terminal_registry.sha256,
-            "terminal_price_registry_sha256": terminal_price_registry.sha256,
-            "price_vintage_id": terminal_price_registry.price_vintage_id,
+            "terminal_price_registry_sha256": terminal_price_registry.sha256 if terminal_price_registry else None,
+            "price_vintage_id": price_vintage_id,
             "holding_rows": terminal_journal.height,
             "tickers": terminal_journal["ticker"].n_unique(),
             "resolution_report": terminal_resolution.report,
@@ -530,12 +560,13 @@ def build_common_v2_comparison(
             ),
             "boosting_manifest": _file_record(boosting_run_dir / "manifest.json"),
             "terminal_event_registry": _file_record(terminal_registry.path),
-            "terminal_price_registry": _file_record(terminal_price_registry.path),
+            **({"terminal_price_registry": _file_record(terminal_price_registry.path)} if terminal_price_registry else {}),
         },
         "artifacts": {
             label: _file_record(path)
             for label, path in {
                 **artifacts,
+                **valuation_artifacts,
                 "opening_execution_journal": opening_journal,
                 "opening_execution_receipt": opening_receipt,
                 "provisional_holding_journal": provisional_journal_path,
@@ -582,7 +613,7 @@ def validate_common_v2_replay(
         raise RuntimeError("Common v2 replay has an unsupported provisional status")
     if manifest.get("composition_id") != expected_composition_id:
         raise RuntimeError("Common v2 composition differs from the causal snapshot")
-    if manifest.get("execution_policy_id") != "next_session_open_v1":
+    if manifest.get("execution_policy_id") not in {LEGACY_NEXT_SESSION_OPEN.identifier, REBALANCE_OPEN_POLICY_ID}:
         raise RuntimeError("Common v2 execution policy drifted")
     if manifest.get("missing_return_policy") != "raise":
         raise RuntimeError("Common v2 missing returns do not fail closed")

@@ -5,7 +5,6 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 import polars as pl
 
-
 CASH_WEIGHT_KEY = "__CASH__"
 
 
@@ -27,16 +26,20 @@ def portfolio_turnover(previous: Mapping[str, float], current: Mapping[str, floa
 def drifted_weights_after_returns(
     target_weights: Mapping[str, float],
     realized_returns: Mapping[str, float],
+    *,
+    ending_tickers: Mapping[str, str] | None = None,
 ) -> dict[str, float]:
     """Derive end-of-period weights before the next rebalance."""
 
     complete = _weights_with_residual_cash(target_weights, empty_is_cash=False)
     values: dict[str, float] = {}
+    ending_tickers = ending_tickers or {}
     for name, weight in complete.items():
         realized = 0.0 if name == CASH_WEIGHT_KEY else float(realized_returns[name])
         if not np.isfinite(realized) or realized < -1.0:
             raise ValueError(f"Invalid realized return for drifted weight: {name}={realized}")
-        values[name] = float(weight) * (1.0 + realized)
+        ending_ticker = ending_tickers.get(name, name)
+        values[ending_ticker] = values.get(ending_ticker, 0.0) + float(weight) * (1.0 + realized)
     total = sum(values.values())
     if not np.isfinite(total) or total <= 0.0:
         raise ValueError("Portfolio wealth must remain positive after realized returns.")

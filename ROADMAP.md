@@ -172,7 +172,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 133 | `DATA-054` | rapprocher les lacunes historiques au grain instrument | lot fiabilité ci-dessous | à faire |
 | 134 | `DATA-055` | protéger le Boosting générique des fondamentaux sans historique de connaissance | défaut technique, diagnostic historique explicite, 48 tests ciblés et sept tests du dernier contrôle verts | fait |
 | 135 | `METH-012` | figer les ordres avant de consulter les cours d'ouverture | 22 tests verts ; 6 352 intentions scellées et quatre refus SCG/FRC constatés sur les anciennes entrées v2 | fait |
-| 136 | `METH-013` | simuler la détention entre deux ouvertures de rééquilibrage | lot fiabilité ci-dessous | à faire |
+| 136 | `METH-013` | simuler la détention entre deux ouvertures de rééquilibrage | convention candidate, 30 tests ; archive v2 sondée, quatre sorties de successeur bloquées | fait |
 | 137 | `METH-014` | brancher les secteurs causaux dans un profil Legacy candidat | lot fiabilité ci-dessous | à faire |
 | 138 | `REPLAY-016` | exiger la preuve inter-vintages au basculement du snapshot | 31 tests, deux régressions reproduites, preuves absentes, altérées ou trop courtes refusées | fait |
 | 139 | `REPLAY-017` | sceller la référence commune à exécution causale | lot fiabilité ci-dessous | à faire |

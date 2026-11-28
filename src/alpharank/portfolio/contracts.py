@@ -5,6 +5,8 @@ from typing import Iterable
 import numpy as np
 import polars as pl
 
+REBALANCE_OPEN_POLICY_ID = "rebalance_open_to_rebalance_open_v1"
+
 
 HOLDINGS_REQUIRED_COLUMNS = (
     "strategy",
@@ -135,12 +137,12 @@ def validate_causal_timing(frame: pl.DataFrame) -> None:
         (pl.col("execution_at").dt.date().dt.truncate("1mo") != pl.col("holding_month"))
         | (
             pl.col("holding_return_end_at").dt.date().dt.truncate("1mo")
-            != pl.col("holding_month")
+            != _holding_return_end_month(timing)
         )
     )
     if not wrong_holding_month.is_empty():
         raise ValueError(
-            "Execution and holding-return end must occur inside holding_month."
+            "Execution and holding-return end must follow the declared holding calendar."
         )
 
     if "return_resolution" in timing.columns:
@@ -183,6 +185,17 @@ def validate_causal_timing(frame: pl.DataFrame) -> None:
                     "Resolved terminal event must be sourced and effective during "
                     "the holding period."
                 )
+
+
+def _holding_return_end_month(frame: pl.DataFrame) -> pl.Expr:
+    month = pl.col("holding_month")
+    if "execution_policy_id" not in frame:
+        return month
+    return (
+        pl.when(pl.col("execution_policy_id") == REBALANCE_OPEN_POLICY_ID)
+        .then(month.dt.offset_by("1mo"))
+        .otherwise(month)
+    )
 
 
 def validate_monthly_returns(frame: pl.DataFrame) -> None:

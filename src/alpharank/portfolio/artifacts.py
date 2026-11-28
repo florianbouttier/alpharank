@@ -18,6 +18,7 @@ def write_common_portfolio_artifacts(
     prefix: str = "portfolio_common",
     risk_free_rate: float = 0.02,
     benchmark_metadata: dict[str, Any] | None = None,
+    return_contract: str = "gross - turnover*cost_bps/10000 = net",
 ) -> dict[str, Path]:
     """Persist the shared audit contract used by Legacy and boosting reports."""
 
@@ -76,7 +77,7 @@ def write_common_portfolio_artifacts(
         json.dumps(
             {
                 "timing_contract": "decision_month=t; holding_month=t+1",
-                "return_contract": "gross - turnover*cost_bps/10000 = net",
+                "return_contract": return_contract,
                 "sharpe_convention": "(CAGR - risk_free_rate) / annualized_volatility",
                 "risk_free_rate": risk_free_rate,
                 "benchmark": benchmark_metadata,

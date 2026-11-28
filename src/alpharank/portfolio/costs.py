@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+
+import polars as pl
+
+from alpharank.portfolio.contracts import REBALANCE_OPEN_POLICY_ID
 
 
 @dataclass(frozen=True)
@@ -74,3 +78,12 @@ def transaction_cost_components(
         "fx_cost": fx,
         "transaction_cost": total,
     }
+
+
+def reinvested_capital_fraction(holdings: pl.DataFrame, transaction_cost: float) -> float:
+    """Apply opening fee timing only to holdings using the open-to-open convention."""
+    if "execution_policy_id" in holdings and holdings["execution_policy_id"][0] == REBALANCE_OPEN_POLICY_ID:
+        if transaction_cost >= 1.0:
+            raise ValueError("Opening transaction costs exhaust portfolio capital.")
+        return 1.0 - transaction_cost
+    return 1.0
