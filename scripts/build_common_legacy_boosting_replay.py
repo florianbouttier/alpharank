@@ -11,6 +11,7 @@ from alpharank.replay.common_strategy import (
     CommonStrategyReplayConfig,
     build_common_strategy_replay,
 )
+from alpharank.replay.complementary_allocation import ComplementarySleeveConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,6 +25,7 @@ def build_comparison(
     top_n_values: tuple[int, ...] = (5, 10, 15, 20),
     include_legacy_valuation_universe: bool = True,
     include_causal_trend_universe: bool = False,
+    complementary_sleeve: ComplementarySleeveConfig | None = None,
 ) -> Path:
     """Compatibility entrypoint for the maintained replay builder."""
 
@@ -38,6 +40,7 @@ def build_comparison(
             top_n_values=top_n_values,
             include_legacy_valuation_universe=include_legacy_valuation_universe,
             include_causal_trend_universe=include_causal_trend_universe,
+            complementary_sleeve=complementary_sleeve,
         )
     )
 
@@ -51,7 +54,22 @@ def main() -> None:
     parser.add_argument("--top-n", type=int, nargs="+", default=[5, 10, 15, 20])
     parser.add_argument("--native-only", action="store_true")
     parser.add_argument("--include-causal-trend-universe", action="store_true")
+    parser.add_argument("--complementary-top-n", type=int, help="Enable the research sleeve.")
+    parser.add_argument("--complementary-max-per-sector", type=int)
+    parser.add_argument("--complementary-sector-history", type=Path)
     args = parser.parse_args()
+    complementary_sleeve = None
+    if args.complementary_top_n is not None:
+        try:
+            complementary_sleeve = ComplementarySleeveConfig(
+                top_n=args.complementary_top_n,
+                maximum_names_per_sector=args.complementary_max_per_sector,
+                sector_history_path=args.complementary_sector_history,
+            )
+        except ValueError as error:
+            parser.error(str(error))
+    elif args.complementary_max_per_sector is not None or args.complementary_sector_history:
+        parser.error("Complementary sector options require --complementary-top-n.")
     print(
         build_comparison(
             legacy_run_dir=args.legacy_run_dir.resolve(),
@@ -61,6 +79,7 @@ def main() -> None:
             top_n_values=tuple(args.top_n),
             include_legacy_valuation_universe=not args.native_only,
             include_causal_trend_universe=args.include_causal_trend_universe,
+            complementary_sleeve=complementary_sleeve,
         )
     )
 

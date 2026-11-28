@@ -86,8 +86,10 @@ def build_sector_champion_allocation(
     return SectorChampionAllocation(candidates=candidates, holdings=holdings, audit=audit)
 
 
-def build_market_signal_cutoffs(market_prices: pl.DataFrame) -> pl.DataFrame:
-    """Resolve each decision month to the final observed market close in New York."""
+def build_market_signal_cutoffs(
+    market_prices: pl.DataFrame, *, local_cutoff: time = time(16, 0)
+) -> pl.DataFrame:
+    """Apply a New York local-time cutoff to the last observed session date."""
 
     if "date" not in market_prices.columns:
         raise ValueError("Market prices are missing the date column.")
@@ -105,18 +107,19 @@ def build_market_signal_cutoffs(market_prices: pl.DataFrame) -> pl.DataFrame:
     rows = [
         {
             "decision_month": row["decision_month"],
-            "decision_at": _market_close_at(row["session_date"]),
+            "decision_at": _market_signal_at(row["session_date"], local_cutoff),
         }
         for row in sessions.to_dicts()
     ]
     return pl.from_dicts(rows, infer_schema_length=None)
 
 
-def _attach_sector_eligibility(
+def attach_point_in_time_sector_classifications(
     predictions: pl.DataFrame,
     sector_history: pl.DataFrame,
     cutoffs: pl.DataFrame,
 ) -> pl.DataFrame:
+    """Join available sector classifications to existing score keys."""
     decisions = (
         predictions.select("decision_month", "ticker")
         .unique()
@@ -133,13 +136,16 @@ def _attach_sector_eligibility(
         "classification_id",
         "sector_known_at_selected",
     )
+    return predictions.join(resolved, on=["decision_month", "ticker"], how="left", validate="1:1")
+
+
+def _attach_sector_eligibility(
+    predictions: pl.DataFrame,
+    sector_history: pl.DataFrame,
+    cutoffs: pl.DataFrame,
+) -> pl.DataFrame:
     return (
-        predictions.join(
-            resolved,
-            on=["decision_month", "ticker"],
-            how="left",
-            validate="1:1",
-        )
+        attach_point_in_time_sector_classifications(predictions, sector_history, cutoffs)
         .with_columns(
             pl.col("Sector").is_not_null().alias("sector_allocation_eligible"),
             pl.when(pl.col("Sector").is_not_null())
@@ -178,12 +184,12 @@ def _require_one_name_per_sector(holdings: pl.DataFrame) -> None:
         raise RuntimeError("Sector champion allocation selected more than one name per sector.")
 
 
-def _market_close_at(session_date: object) -> datetime:
+def _market_signal_at(session_date: object, local_cutoff: time) -> datetime:
     if isinstance(session_date, datetime):
         session_date = session_date.date()
     if not isinstance(session_date, date):
         raise ValueError("Market session dates must be valid dates.")
-    return datetime.combine(session_date, time(16, 0), tzinfo=NEW_YORK).astimezone(UTC)
+    return datetime.combine(session_date, local_cutoff, tzinfo=NEW_YORK).astimezone(UTC)
 
 
 def _empty_holdings(predictions: pl.DataFrame) -> pl.DataFrame:

@@ -30,6 +30,10 @@ from alpharank.portfolio.terminal_event_registry import (
     TerminalEventRegistry,
     load_terminal_event_registry,
 )
+from alpharank.replay.complementary_allocation import (
+    ComplementarySleeveConfig,
+    write_complementary_sleeve_artifacts,
+)
 from alpharank.replay.prediction_universes import (
     build_boosting_holdings,
     build_prediction_universes,
@@ -57,6 +61,7 @@ class CommonStrategyReplayConfig:
     top_n_values: tuple[int, ...] = DEFAULT_TOP_N_VALUES
     include_legacy_valuation_universe: bool = True
     include_causal_trend_universe: bool = False
+    complementary_sleeve: ComplementarySleeveConfig | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +73,7 @@ class CommonReplayInputs:
     predictions: Path
     legacy_monthly: Path
     legacy_holdings: Path
+    legacy_detailed: Path
     snapshot_dir: Path
 
 
@@ -145,6 +151,17 @@ def build_common_strategy_replay(config: CommonStrategyReplayConfig) -> Path:
         portfolios=portfolios,
         terminal_journal=gated.journal,
     )
+    if config.complementary_sleeve is not None:
+        artifacts.update(
+            write_complementary_sleeve_artifacts(
+                destination,
+                config.complementary_sleeve,
+                completed=gated.completed,
+                live=gated.live,
+                legacy_detailed_path=inputs.legacy_detailed,
+                market_prices_path=inputs.snapshot_dir / "SP500Price.parquet",
+            )
+        )
     return _write_manifest(
         destination,
         config=config,
@@ -180,6 +197,7 @@ def _resolve_inputs(config: CommonStrategyReplayConfig) -> CommonReplayInputs:
         predictions=config.boosting_run_dir / "classification_h06/predictions.parquet",
         legacy_monthly=config.legacy_run_dir / "legacy_common_monthly.parquet",
         legacy_holdings=config.legacy_run_dir / "legacy_common_holdings.parquet",
+        legacy_detailed=config.legacy_run_dir / "legacy_detailed_returns_polars.parquet",
         snapshot_dir=(config.legacy_run_dir / "input_snapshot").resolve(),
     )
     for path in (
@@ -250,11 +268,13 @@ def _validate_legacy_return_hashes(
     inputs: CommonReplayInputs,
     boosting_manifest: Mapping[str, Any],
 ) -> None:
-    for key, filename in (
-        ("legacy_detailed_returns", "legacy_detailed_returns_polars.parquet"),
-        ("legacy_monthly_returns", "legacy_monthly_returns_polars.parquet"),
+    for key, source in (
+        ("legacy_detailed_returns", inputs.legacy_detailed),
+        (
+            "legacy_monthly_returns",
+            inputs.legacy_manifest.parent / "legacy_monthly_returns_polars.parquet",
+        ),
     ):
-        source = inputs.legacy_manifest.parent / filename
         if _hash(source) != boosting_manifest[f"{key}_sha256"]:
             raise ValueError(f"Boosting does not match {source.name} from the Legacy run.")
 
@@ -268,6 +288,7 @@ def _capture_provenance(
     top_n_values: tuple[int, ...],
     trend_registry: CausalTrendEligibilityRegistry | None,
 ) -> dict[str, Any]:
+    complementary_sleeve = config.complementary_sleeve
     provenance = capture_runtime_provenance(
         project_root=config.project_root,
         entrypoint="scripts/build_common_legacy_boosting_replay.py",
@@ -280,6 +301,11 @@ def _capture_provenance(
             "benchmark": "SPY total return from adjusted_close",
             "include_legacy_valuation_universe": config.include_legacy_valuation_universe,
             "include_causal_trend_universe": config.include_causal_trend_universe,
+            **(
+                {"complementary_sleeve": complementary_sleeve.manifest(inputs.legacy_detailed)}
+                if complementary_sleeve is not None
+                else {}
+            ),
         },
         seeds={"replay_randomness": "none_deterministic_inputs_only"},
         critical_files=_critical_files(),
@@ -319,7 +345,9 @@ def _critical_files() -> tuple[str, ...]:
         "src/alpharank/portfolio/simulation.py",
         "src/alpharank/portfolio/terminal_event_registry.py",
         "src/alpharank/replay/common_strategy.py",
+        "src/alpharank/replay/complementary_allocation.py",
         "src/alpharank/replay/prediction_universes.py",
+        "src/alpharank/replay/sector_allocation.py",
         "src/alpharank/replay/trend_eligibility.py",
         "src/alpharank/strategy/legacy_valuation.py",
         "configs/data_quality/terminal_shareholder_events_v1.json",
@@ -623,19 +651,21 @@ def _write_manifest(
     artifacts: Mapping[str, Path],
     top_n_values: tuple[int, ...],
 ) -> Path:
+    methodology_status = "validated_same_snapshot_common_replay"
+    if config.include_causal_trend_universe:
+        methodology_status = "post_hoc_research_diagnostic"
+    elif config.complementary_sleeve is not None:
+        methodology_status = "complementary_sleeve_research_diagnostic"
+    is_diagnostic = methodology_status != "validated_same_snapshot_common_replay"
     manifest = {
         "status": (
             "research_common_strategy_replay"
-            if config.include_causal_trend_universe
+            if is_diagnostic
             else "canonical_common_strategy_replay"
         ),
-        "methodology_status": (
-            "post_hoc_research_diagnostic"
-            if config.include_causal_trend_universe
-            else "validated_same_snapshot_common_replay"
-        ),
+        "methodology_status": methodology_status,
         "comparison_eligible": True,
-        "publication_eligible": not config.include_causal_trend_universe,
+        "publication_eligible": not is_diagnostic,
         "timing_contract": "decision_month=t; holding_month=t+1",
         "calendar": {
             "start_holding_month": str(portfolios.common_start),
@@ -681,6 +711,8 @@ def _write_manifest(
             for name, path in artifacts.items()
         },
     }
+    if config.complementary_sleeve is not None:
+        manifest["complementary_sleeve"] = provenance["resolved_config"]["complementary_sleeve"]
     path = output_dir / "manifest.json"
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return path

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import polars as pl
 
 from alpharank.portfolio.allocation import equal_weights, select_ranked_candidates
@@ -14,6 +16,7 @@ def boosting_predictions_to_holdings(
     score_column: str = "score",
     sector_column: str | None = None,
     maximum_names_per_sector: int | None = None,
+    tie_breaker_columns: Sequence[str] = (),
     realized_return_column: str = "future_return_1m",
     benchmark_return_column: str = "benchmark_future_return_1m",
     terminal_events: pl.DataFrame | None = None,
@@ -38,7 +41,7 @@ def boosting_predictions_to_holdings(
             maximum_names_per_sector=maximum_names_per_sector,
             # Preserve the historical stable input-order tie rule. New callers
             # can request ticker tie-breaking at their signal boundary.
-            tie_breaker_columns=(),
+            tie_breaker_columns=tie_breaker_columns,
         )
         if selected.is_empty():
             continue

@@ -13,6 +13,11 @@ from alpharank.replay.common_strategy import (
     build_common_strategy_replay,
     build_native_boosting_holdings,
 )
+from alpharank.replay.complementary_allocation import (
+    ComplementarySleeveConfig,
+    build_complementary_boosting_sleeve,
+    write_complementary_sleeve_artifacts,
+)
 from alpharank.replay.legacy import simulate_legacy_equal_on_common_calendar
 
 
@@ -48,6 +53,81 @@ def test_native_holdings_include_all_declared_top_n_variants() -> None:
         "T03",
         "T04",
     ]
+
+
+def test_complementary_allocation_uses_only_same_decision_legacy(tmp_path: Path) -> None:
+    january = date(2025, 1, 1)
+    february = date(2025, 2, 1)
+    march = date(2025, 3, 1)
+    predictions = pl.DataFrame(
+        {
+            "decision_month": [january] * 3 + [february] * 3 + [march] * 3,
+            "ticker": ["A", "C", "B"] * 3,
+            "score": [0.9, 0.8, 0.8] * 3,
+            "future_return_1m": [None, 0.01, None] * 3,
+            "benchmark_future_return_1m": [0.005] * 6 + [None] * 3,
+        }
+    )
+    legacy = pl.DataFrame(
+        {
+            "portfolio_model": ["Combined_Frequency", "Combined_Equal", "Combined_Frequency"],
+            "year_month": [february, february, march],
+            "ticker": ["A", "B", "B"],
+        }
+    )
+    before = build_native_boosting_holdings(predictions, top_n_values=(1,))
+    prediction_bytes = predictions.write_ipc(None).getvalue()
+    config = ComplementarySleeveConfig(top_n=1)
+
+    baseline = build_complementary_boosting_sleeve(predictions, legacy, config)
+    mutated = build_complementary_boosting_sleeve(
+        predictions,
+        legacy.with_columns(
+            pl.when(pl.col("year_month") == march)
+            .then(pl.lit("A"))
+            .otherwise(pl.col("ticker"))
+            .alias("ticker")
+        ),
+        config,
+    )
+
+    assert baseline.holdings.select("decision_month", "ticker").rows() == [
+        (january, "B"),
+        (february, "A"),
+    ]
+    assert mutated.holdings.select("decision_month", "ticker").rows() == [
+        (january, "B"),
+        (february, "B"),
+    ]
+    assert baseline.holdings["realized_return"].null_count() == 2
+    assert baseline.monthly_audit.filter(pl.col("decision_month") == march)["status"].item() == (
+        "blocked_missing_same_decision_legacy"
+    )
+    assert (
+        baseline.candidates.filter(
+            (pl.col("decision_month") == january) & (pl.col("ticker") == "A")
+        )["eligibility_reason"].item()
+        == "excluded_legacy_frequency"
+    )
+    assert predictions.write_ipc(None).getvalue() == prediction_bytes
+    assert build_native_boosting_holdings(predictions, top_n_values=(1,)).equals(before)
+
+    legacy_path = tmp_path / "legacy_detailed.parquet"
+    legacy.write_parquet(legacy_path)
+    artifacts = write_complementary_sleeve_artifacts(
+        tmp_path,
+        config,
+        completed=predictions.filter(pl.col("decision_month") < march),
+        live=predictions.filter(pl.col("decision_month") == march),
+        legacy_detailed_path=legacy_path,
+        market_prices_path=tmp_path / "market.parquet",
+    )
+    assert pl.read_parquet(artifacts["complementary_holdings"])["ticker"].to_list() == ["B", "A"]
+    live = pl.read_parquet(artifacts["complementary_eligibility"]).filter(
+        pl.col("prediction_partition") == "score_only_live"
+    )
+    assert live["decision_month"].unique().to_list() == [march]
+    assert config.manifest(legacy_path)["promotion_eligible"] is False
 
 
 def test_public_builder_fails_closed_when_required_inputs_are_missing(tmp_path: Path) -> None:

@@ -152,29 +152,40 @@ replay is a post-hoc diagnostic rather than independent validation. The native
 Boosting universe remains the default and this variant is not promotion
 eligible without a separate pre-registered forward or sealed temporal gate.
 
-### Proposed Complementary Boosting Sleeve
+### Complementary Boosting Sleeve
 
-`METH-008` and `METH-009` define the next research alternative around the
-owner's stated objective: add distinct stocks and diversify Legacy, without
-requiring standalone Boosting to outperform it. The model, out-of-sample scores
-and native allocations remain unchanged. Only an optional allocation policy is
-added after the two methodologies have produced their same-date decisions.
+Enable the `METH-008` research allocation on the common replay builder.
 
-At each decision month `t`, the policy removes from the Boosting candidate set
-the securities already selected by Legacy at `t`, optionally applies a
-pre-registered sector cap, ranks the remaining names by the unchanged Boosting
-score, and builds an equal-weight Top-K sleeve for holding month `t+1`. The
-combined portfolio then assigns a fixed weight to Legacy and the complementary
-sleeve. The weights to test are registered before replay; the initial grid is
-10%, 20% and 30% for the Boosting sleeve.
+```bash
+python scripts/build_common_legacy_boosting_replay.py \
+  --legacy-run-dir <legacy-run> --boosting-run-dir <boosting-run> \
+  --output-dir <research-output> --complementary-top-n 5
+```
 
-This is a causal rule only if the Legacy basket used for exclusion is the one
-observable at the same decision month. A later Legacy holding, realized return,
-SHAP value or future label must never affect an earlier exclusion. Evaluation
-therefore targets the combined portfolio's overlap, number and effective number
-of positions, sector concentration, correlation, turnover, drawdown and risk
-contribution as well as return. These tasks are planned, not implemented or
-promoted as of 2026-08-29.
+At decision month `t`, `boosting_ex_legacy_frequency_v1` removes the tickers
+from the Legacy `Combined_Frequency` basket formed at `t` for holding month
+`t+1`. It ranks the remaining native Boosting out-of-sample scores descending,
+breaks ties by ticker ascending, and equally weights the Top-K sleeve. The
+Legacy exclusion uses the same lineage-verified detailed file as the common
+replay. It reads the strategy, holding month and ticker, including the latest
+basket with pending realized returns. Stock returns and model targets play no
+role in selection.
+
+Supply `--complementary-max-per-sector` and `--complementary-sector-history`
+together to limit names per sector. Classifications must have been observed and
+effective by 00:00 New York time on the last observed market session date of
+the decision month. This cutoff precedes early closes. Unknown sector names are
+excluded when this option is active. The sleeve blocks a month when the
+same-decision Legacy basket is absent or the eligible pool cannot fill Top-K.
+
+The run writes `boosting_complementary_holdings.parquet`,
+`boosting_complementary_eligibility.parquet`, and
+`boosting_complementary_monthly_audit.parquet` alongside the standard comparison.
+The eligibility journal distinguishes completed replay from score-only live
+rows. The manifest records the diagnostic status, input hashes and ineligibility
+for publication or promotion. `METH-009` covers combined portfolio evaluation
+with pre-registered sleeve weights of 10%, 20% and 30%, including diversification,
+turnover, drawdown and risk contribution.
 
 ## Shared Liquidity And Price-Quality Gate
 
