@@ -176,3 +176,32 @@ et son identifiant d'instrument. Pour chaque séance, le relevé devra lier
 instrument, date, source, vintage et hash, ou conserver le statut non résolu.
 Ce lot est une lecture des fichiers existants, sans nouvel artefact de prix
 ni changement de snapshot.
+
+## 28 novembre 2026 — origine locale du trou WBD (`DATA-062`)
+
+Les fichiers `raw/prices_yfinance.parquet` des acquisitions `20261024_140104`
+et `20261031_151756` contiennent pour `WBD.US` les mêmes 14 dates d'août à
+octobre. Les 13 séances du 3 au 19 août proviennent du vintage
+`20260820_011146` et sont conservées par reprise du préfixe. Septembre est vide
+dans les deux fichiers. La seule ligne d'octobre est le 5, avec un cours de
+clôture et un cours ajusté de 30,95 USD et un volume de 40. Elle porte le
+vintage de l'acquisition correspondante.
+
+Dans `def_price_selection_audit.parquet` du 31 octobre, les 21 séances de
+septembre portent `unresolved_invalid_current_raw`, avec cours courant et
+source antérieure nuls. La lignée du candidat conserve les mêmes 14 dates.
+Son journal de prolongation lie le 5 octobre au 19 août avec un rendement
+ajusté de `+8,4823 %` sur l'intervalle couvert par ces deux observations.
+L'absence de séances entre elles est déjà présente au stade RAW local. La
+cause de l'absence dans l'acquisition et l'exécutabilité de la ligne du
+5 octobre restent à établir. L'appartenance S&P est confirmée en septembre,
+la sortie intervenant le 6 octobre. `DATA-054` garde ce cas non résolu.
+[Calendrier officiel archivé](sp500_constituents_20261008.md#sources-et-événements)
+
+| Artefact lu en filtrant `WBD.US` du 1er août au 31 octobre | SHA-256 |
+| --- | --- |
+| `raw/prices_yfinance.parquet`, run du 24 octobre | `0b41b0fde1cc4b387d3edc8afd8cffed9aa87420b79e93067dfb429431494f98` |
+| `raw/prices_yfinance.parquet`, run du 31 octobre | `72d6e4cbe63347d0b17d93fc414aa7d2feba6438ada40641cd9cda8433f1ef15` |
+| `def_price_selection_audit.parquet`, run du 31 octobre | `a7a770668b0b1699d31e7f35745b774690eac99a057cf4e55bebfff4e1b4fca1` |
+| `price_return_extension_audit.parquet`, run du 31 octobre | `d1954f09d62ff0fd402b7a366c6698f5231579f8dcd9c374f26de43ca732dae9` |
+| `price_candidate/lineage/prices_open_source_lineage.parquet` | `2e0312040524a19f20a6da6b41aac8297cefd584b084583a72fb60007b653158` |

@@ -192,6 +192,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 153 | `REPLAY-019` | nommer la gate réelle dans l'audit des acquisitions rejetées | 20 tests, rejet initial du 25 novembre correctement attribué aux fondamentaux, 44 fichiers de preuve | fait |
 | 154 | `DATA-060` | mesurer les membres-mois sans cours sur la fenêtre comparable | 2 328 clés sans cours après quarantaine, même ensemble témoin/candidat, parité des 89 953 clés H06 | fait |
 | 155 | `DATA-061` | isoler la cause OKTA de refus fondamental après conservation SEC | export strict isolé reproduit cinq rejets par ajouts historiques, zéro suppression sur OKTA, différentiel complet attendu | fait |
+| 156 | `DATA-062` | rapprocher les séances WBD dans les vintages bruts d'octobre | 21 séances marquées non résolues dès le RAW, cinq preuves hashées, aucun prix imputé | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
