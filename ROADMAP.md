@@ -157,7 +157,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 118 | `REPORT-032` | livrer le rapport complet avec replis quotidiens auditables | lot REPORT ci-dessous | fait |
 | 119 | `DATA-049` | sourcer le changement S&P de novembre avant le refresh | lot DATA ci-dessous | fait |
 | 120 | `DATA-051` | borner la mémoire de l'archive RAW avant de reprendre l'acquisition | lot DATA ci-dessous | fait |
-| 121 | `DATA-050` | retélécharger les sources au 23 novembre, prix arrêtés au 20 | lot DATA ci-dessous | à faire |
+| 121 | `DATA-050` | rafraîchir et composer le candidat SEC-only, prix arrêtés au 20 novembre | prix contrôlés, export SEC cumulatif strict en cours, preuve DATA-059 | en cours |
 | 122 | `REPLAY-015` | réapprendre les méthodes classiques et auditer les anciens paniers | lot REPLAY ci-dessous | à faire |
 | 123 | `REPORT-033` | livrer tous les paniers actualisés et le rapport complet | lot REPORT ci-dessous | à faire |
 | 124 | `DOC-023` | tracer les remédiations de l'audit du 28 novembre | backlog atomique et runbook distinguant août, candidat d'octobre et suivi de novembre ; documentation/liens verts | fait |
@@ -188,6 +188,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 149 | `DATA-058` | sourcer les ouvertures de sortie bloquées du replay v2 | 3 cotations sur 4 recoupées, ECA et SIVBQ sans cours probant, contreparties documentées | fait |
 | 150 | `METH-019` | conserver les actions successeures et le cash après une sortie terminale | lot fiabilité ci-dessous | à faire |
 | 151 | `METH-020` | comparer largeur et tampon de rotation à coûts comparables | lot fiabilité ci-dessous | à faire |
+| 152 | `DATA-059` | sceller la preuve de reprise et de contrôle des prix de novembre | 33 observations contemporaines concordantes, préfixe EODHD conservé, reconstruction SEC tracée et limites documentées | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -569,7 +570,7 @@ change dans ce lot.
 | `DATA-047` | reconstruire les secteurs historiques depuis les SIC des dépôts annuels SEC | fait | release `55fbc0c5…da84` : 11 486 classifications, 754 tickers, zéro identité non résolue ; 183/183 mois Boosting disposent d'au moins cinq secteurs, 97,81 % des candidats natifs sont classés et les manques restent exclus sans backfill courant |
 | `DATA-048` | auditer les dernières observations après rachat et la contrepartie actionnaire | à faire | rapprocher NLSN/ABMD puis les autres fins de série ; ne pas inventer de CVR, cash, titre successeur ni cours quotidien, et ne jamais réécrire la baseline publiée |
 | `DATA-049` | enregistrer le remplacement KVUE par OKTA effectif le 4 novembre | fait | huit tests et 27 configs verts ; 228 559 lignes historiques inchangées, novembre à 503 membres et registre `e5db75f0…c095` ; annonce primaire du 30 octobre |
-| `DATA-050` | acquérir les sources fraîches et composer le candidat du 23 novembre | à faire | première tentative arrêtée sans résultat ; reprise après `DATA-051`, prix au 20 novembre, SEC-only et sources/failures explicites, candidat non promu avant replay |
+| `DATA-050` | acquérir les sources fraîches et composer le candidat du 23 novembre | en cours | reconstitution au 20 depuis le reçu complet du 25, prix contrôlés et export SEC cumulatif strict requis avant composition |
 | `DATA-051` | remplacer les dictionnaires de lignes RAW par des opérations colonnaires | fait | 60 tests ciblés verts ; 73 vintages et 2 781 482 lignes reconstruits, hash `5eeed64e…9d93` inchangé ; compaction Arrow et recherches bornées au vintage, zéro archive réécrite |
 
 ### Détail de `DATA-051`
@@ -607,6 +608,8 @@ pour `DATA-050`, `REPLAY-015` ou `REPORT-033`.
   les anciennes releases restent immuables et peuvent être rejouées.
 
 ### Détail de `DATA-050`
+
+La [preuve de reprise DATA-059](docs/research/data_refresh_replay_20261123.md#reconstitution-hors-réseau-au-cutoff-du-20-novembre) couvre les prix et le RAW cumulatif. La gate SEC stricte et la composition constituent les étapes restantes de DATA-050.
 
 - **Périmètre** : acquisition complète depuis 2005, reçus/deltas RAW, packages
   prix et SEC et composition candidate ; racine de travail datée 20261123.

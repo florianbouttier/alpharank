@@ -146,8 +146,84 @@ et manifeste du candidat d'octobre SHA-256
 La transaction interrompue conserve ses mêmes 140 enfants historiques,
 zéro ajout et zéro retrait ; aucune récupération manuelle n'a été forcée.
 
-## Exécution et verdict
+## Verdict du 24 novembre
 
 Acquisition complète à reprendre ; composition, apprentissages, contrôles
 historiques et nouveaux portefeuilles restent à exécuter. Aucun ancien panier n'est publié comme un
 nouveau résultat et aucun ordre ne doit être envoyé par ce workflow.
+
+## Reconstitution hors réseau au cutoff du 20 novembre
+
+Le 28 novembre, la place disponible atteint 19 Gio. Les répertoires des runs
+du 22 et du 23 novembre ne contiennent que les tables de référence. La chaîne
+RAW des cours passe du 9 au 25 novembre. Le run `20261125_011506` est le
+premier reçu complet conservé qui couvre la date demandée. Il atteste les
+tentatives de toutes les sources et la couverture réseau SEC des 503 membres.
+Son original reste intact, avec ses échecs fournisseur et le rejet de cinq
+exports fondamentaux. Le run du 28 novembre reste également intact.
+
+Une vue de travail distincte borne les cours par `date`, les faits SEC par
+`filing_date` et les calendriers et actuals par `reportDate`, au 20 novembre
+inclus. Les filtres laissent 2 518 768 lignes actions et 5 507 lignes SPY.
+Le 20 novembre, les 503 membres ont un cours ajusté, plus CTVA comme passerelle
+de maturité, et le benchmark SPY est aussi présent. Les 33 observations
+contemporaines préservées par le reçu `valuation_20261121_122307` concordent
+à la précision stockée sur `close` et `adjusted_close`.
+
+La vue SEC garde 512 493 faits Companyfacts et 24 faits filing, puis fusionne
+4 523 entrées de calendrier et 39 034 actuals avec le RAW cumulatif scellé
+du 31 octobre. La référence générale reste celle du 31 octobre, pour éviter
+de dater rétroactivement des métadonnées récupérées le 25 novembre. Les
+deux fichiers de cours et les cinq fichiers de reconstruction SEC sont liés
+à leurs sources dans `cutoff_reconstruction_receipt.json`, sous
+`outputs/data_refresh_replay_20261123/recovery_20261125_cutoff20/`. Le reçu
+lie aussi par SHA-256 le CSV des 33 rapprochements, les entrées et résultats
+découpés, le manifeste RAW et le fichier d'événements Yahoo du 25 novembre.
+
+La reconstruction conserve la date de collecte du 25 novembre dans la
+provenance et n'attribue pas cette date aux cours ni aux publications SEC.
+Les 33 rapprochements ne couvrent qu'une partie de l'univers. Les valeurs
+historisées reçues le 25 peuvent diverger de ce qu'un téléchargement complet
+aurait retourné le 20 novembre. Le 20 est le cutoff de valorisation. Pour les
+paniers classiques détenus en novembre, le cutoff de décision reste la dernière
+clôture d'octobre.
+
+### Contrôles prix et versions SEC
+
+La prévalidation séparée des prix, sous `price_preflight_october_sec/`, passe
+les contrôles d'identité, de mouvements extrêmes, de révisions et de conservation
+de l'historique inactif. Elle contient 3 769 564 lignes pour 849 tickers, avec
+les 503 membres et SPY au 20 novembre. Aucun rendement historique ne franchit
+le seuil de révision, aucune clé prix du préfixe validé n'est supprimée et
+aucune clé EODHD inactive n'est manquante. SPY conserve à l'identique les
+5 441 lignes validées au 19 août et prolonge la série de 66 séances. Les
+fondamentaux d'octobre servent uniquement de référence au contrôle de
+fraîcheur de cette étape. SHA-256 du manifeste prix
+`6906eca63eef56ac1574206c1b7c0f7fd92c3e240c7e1e09a88851fd7c697e96`.
+
+La première reconstruction SEC remplaçait les faits de chaque ticker présent
+dans la réponse. NAVI illustre la perte induite. Octobre conservait 484 faits
+depuis mars 2013, tandis que les quatre acquisitions vérifiées de novembre
+renvoient chacune 19 faits dont la période la plus ancienne est juin 2025.
+La reprise qui conserve les versions SEC d'origine est isolée sous
+`outputs/data_refresh_replay_20261123/recovery_20261125_cutoff20_preserved_sec_versions/`.
+Elle fait passer les faits Companyfacts à 520 349 lignes sans clé doublonnée
+ni suppression d'une version déjà retenue en octobre. Le journal distingue
+598 versions absentes de la réponse, dont les 484 de NAVI, et 11 révisions
+de valeur sur des clés communes. Aucune valeur commune ne change parmi les
+faits dont la période économique précède la borne historique du 20 novembre
+2024. La récupération ajoute aussi des faits historiques SEC d'OKTA,
+nouvellement membre en novembre. Le manifeste RAW est scellé par le SHA-256
+`6a40c8ad13630c0f840710dee513f4f301ce0bd567a524df184f8c187526d35a`.
+
+### État de la composition au 28 novembre
+
+Les deux essais d'export SEC strict comparent les valeurs au package du
+31 octobre avec la gate historique active. L'essai issu du RAW qui perd les
+versions de NAVI a été suspendu à `2026-11-28 15:54:59 UTC` pour donner la
+priorité au calcul cumulatif. Le journal `sec_resource_schedule.log` conserve
+les états des deux processus. Le second essai poursuit le calcul local. À ce
+contrôle, aucun manifeste SEC strict final, snapshot composé ni nouveau
+replay mensuel n'est produit par cette récupération. La composition reste
+conditionnée à la validation SEC stricte et à la vérification conjointe des
+prix. Le pointeur de production reste celui du 20 août.
