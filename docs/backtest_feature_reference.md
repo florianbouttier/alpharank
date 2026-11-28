@@ -70,9 +70,11 @@ As-of dates:
 
 Completeness flag:
 
-- `holding_period_complete = 1`
-- iff both `holding_asof_date` and `benchmark_holding_asof_date` are within the last 7 calendar days of the holding month
-- this is a pragmatic completeness heuristic, not an exchange-calendar proof
+- `is_holding_month_mature` follows the shared benchmark convention that
+  treats its latest observed month as potentially partial.
+- `holding_period_complete` additionally requires an observed stock close
+  on the last benchmark session of the holding month.
+- The final completed decision can be scored while its holding month is pending.
 
 ## Monthly Prices
 
@@ -103,9 +105,11 @@ This avoids accidental multi-month horizons when a ticker has gaps in monthly hi
 
 Constructed fields:
 
-- `holding_month_{i,t} = t + 1 month` only if the next observed month is exactly one month later, else `null`
-- `future_return_{i,t} = monthly_return_{i,t+1}` only in that strict 1M case, else `null`
-- `benchmark_future_return_t = index_monthly_return_{t+1}` joined on `holding_month`
+- `holding_month_{i,t} = t + 1 month` for every candidate.
+- `future_return_{i,t} = monthly_return_{i,t+1}` for a mature month with an
+  observed endpoint on the benchmark's last session. Otherwise the value is null.
+- `benchmark_future_return_t = index_monthly_return_{t+1}` for consecutive,
+  mature benchmark months, joined on `holding_month` independently of the stock.
 
 Derived target variables:
 
@@ -115,6 +119,9 @@ Derived target variables:
 Binary classification label used by the model:
 
 - `target_label_{i,t} = 1[ future_excess_return_{i,t} > outperformance_threshold ]`
+- Missing and pending targets are null. Training, validation and test metrics
+  use evaluable labels. Inference scores the complete candidate panel for each
+  test decision. Fold outputs show both `test_rows` and `test_evaluable_rows`.
 
 Model prediction semantics:
 
@@ -511,6 +518,9 @@ Monthly selection:
 
 - rank by aggregated `prediction` descending within `decision_month`
 - keep top `N = top_n`
+- retain selected names for pending months and for months with unavailable
+  stock returns. The portfolio history includes only mature baskets, and a
+  mature basket with a missing selected return stops simulation.
 
 Portfolio return aggregation:
 
@@ -538,7 +548,9 @@ historical output names.
 - no slippage
 - no liquidity or capacity model
 - equal-weight portfolio
-- `holding_period_complete` is a heuristic, not a full exchange-calendar implementation
+- month completion uses the benchmark timetable available in the snapshot
+- mature selected exits without an observed month-end price require external
+  resolution before this generic backtest can simulate them
 - `eps_growth_qoq` is computed on the TTM EPS series shifted by one observation, not on raw single-quarter EPS
 
 ## Recommended Reading Order

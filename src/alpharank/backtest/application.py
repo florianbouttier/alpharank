@@ -6,15 +6,18 @@ from pathlib import Path
 from typing import Any, Dict, Literal
 
 import numpy as np
-import polars as pl
 import plotly.graph_objects as go
 import plotly.io as pio
+import polars as pl
 from plotly.subplots import make_subplots
 
 from alpharank.backtest.kpis import compute_backtest_kpis
-from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
+from alpharank.backtest.portfolio import (
+    compute_monthly_portfolio_returns,
+    realized_backtest_rows,
+    select_top_n,
+)
 from alpharank.portfolio.performance import annual_returns as common_annual_returns
-
 
 SelectionMode = Literal["top_n", "prediction_threshold"]
 
@@ -257,25 +260,13 @@ def run_application_backtest(
             threshold=float(config.prediction_threshold),
         )
 
-    monthly_returns = compute_monthly_portfolio_returns(
-        selections.select(
-            [
-                "year_month",
-                "decision_month",
-                "holding_month",
-                "future_return",
-                "benchmark_future_return",
-                "future_excess_return",
-                "target_label",
-                "prediction",
-                "ticker",
-            ]
-        )
-        if not selections.is_empty()
-        else selections
+    monthly_returns = _complete_application_monthly_returns(
+        realized_backtest_rows(eligible_predictions),
+        compute_monthly_portfolio_returns(realized_backtest_rows(selections)),
     )
-    monthly_returns = _complete_application_monthly_returns(eligible_predictions, monthly_returns)
     kpis = compute_backtest_kpis(monthly_returns=monthly_returns, risk_free_rate=risk_free_rate)
+    if monthly_returns.is_empty() and "is_holding_month_mature" in eligible_predictions.columns:
+        kpis = kpis.head(0)
 
     return ApplicationBacktestResult(
         name=config.name,

@@ -32,7 +32,12 @@ from alpharank.backtest.kpis import (
     sanitize_numeric_frame,
 )
 from alpharank.backtest.model_artifacts import serialize_fold_model
-from alpharank.backtest.portfolio import compute_monthly_portfolio_returns, select_top_n
+from alpharank.backtest.portfolio import (
+    compute_monthly_portfolio_returns,
+    realized_backtest_rows,
+    select_top_n,
+    write_realized_backtest_artifacts,
+)
 from alpharank.backtest.reporting import (
     save_auc_score_overview,
     save_backtest_vs_sp500_plots,
@@ -57,9 +62,6 @@ from alpharank.multihorizon.preprocessing import (
     fit_fold_preprocessor,
 )
 from alpharank.observability import get_run_logger, set_run_log_context
-from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
-from alpharank.portfolio.comparison import reference_monthly_series
-from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 LOGGER = get_run_logger(__name__)
 
@@ -155,8 +157,11 @@ def _positive_rate(y: np.ndarray) -> float:
     return float(np.mean(y.astype(float)))
 
 
-def _flatten_metrics(prefix: str, metrics: Dict[str, float]) -> Dict[str, float]:
-    return {f"{prefix}_{k}": float(v) for k, v in metrics.items()}
+def _flatten_metrics(prefix: str, metrics: Dict[str, float]) -> Dict[str, float | None]:
+    return {
+        f"{prefix}_{name}": float(value) if np.isfinite(value) else None
+        for name, value in metrics.items()
+    }
 
 
 def _save_fold_learning_outputs(
@@ -204,6 +209,7 @@ def _empty_predictions() -> pl.DataFrame:
             "decision_asof_date": pl.Date,
             "holding_asof_date": pl.Date,
             "benchmark_holding_asof_date": pl.Date,
+            "is_holding_month_mature": pl.Boolean,
             "holding_period_complete": pl.Boolean,
             "monthly_return": pl.Float64,
             "future_return": pl.Float64,
@@ -232,6 +238,7 @@ def _empty_fold_metrics() -> pl.DataFrame:
             "train_rows": pl.Int64,
             "val_rows": pl.Int64,
             "test_rows": pl.Int64,
+            "test_evaluable_rows": pl.Int64,
             "objective_score": pl.Float64,
             "objective_score_val": pl.Float64,
             "train_auc": pl.Float64,
@@ -285,6 +292,7 @@ def _empty_fold_index() -> pl.DataFrame:
             "train_rows": pl.Int64,
             "val_rows": pl.Int64,
             "test_rows": pl.Int64,
+            "test_evaluable_rows": pl.Int64,
             "train_positive_rate": pl.Float64,
             "val_positive_rate": pl.Float64,
             "test_positive_rate": pl.Float64,
@@ -306,26 +314,24 @@ def _build_split_kpis(fold_metrics: pl.DataFrame) -> pl.DataFrame:
         "realized_positive_rate",
     ]
 
-    if fold_metrics.is_empty():
-        rows = []
-        for split in ["train", "validation", "test"]:
-            row: Dict[str, float | str] = {"split": split, "n_folds": 0.0}
-            for metric in base_metrics:
-                row[metric] = 0.0
-            rows.append(row)
-        return pl.DataFrame(rows)
-
     mapping = {"train": "train", "validation": "val", "test": "test"}
     rows = []
     for split_label, prefix in mapping.items():
-        row: Dict[str, float | str] = {"split": split_label, "n_folds": float(fold_metrics.height)}
+        evaluated = (
+            fold_metrics.filter(pl.col("test_evaluable_rows") > 0)
+            if prefix == "test" and "test_evaluable_rows" in fold_metrics.columns
+            else fold_metrics
+        )
+        row: Dict[str, float | str | None] = {
+            "split": split_label,
+            "n_folds": float(evaluated.height),
+        }
         for metric in base_metrics:
             col = f"{prefix}_{metric}"
-            value = float(fold_metrics.get_column(col).mean() or 0.0) if col in fold_metrics.columns else 0.0
-            row[metric] = value
+            row[metric] = evaluated.get_column(col).mean() if col in evaluated.columns else None
         rows.append(row)
 
-    return pl.DataFrame(rows)
+    return pl.DataFrame(rows, schema_overrides={metric: pl.Float64 for metric in base_metrics})
 
 
 def _filter_frame_on_tickers(df: pl.DataFrame, excluded_tickers: tuple[str, ...]) -> pl.DataFrame:
@@ -435,8 +441,12 @@ def _write_run_data_input_manifest(
         critical_files=(
             "scripts/run_backtest.py",
             "src/alpharank/backtest/config.py",
+            "src/alpharank/backtest/datasets.py",
             "src/alpharank/backtest/pipeline.py",
+            "src/alpharank/backtest/portfolio.py",
+            "src/alpharank/backtest/time_folds.py",
             "src/alpharank/backtest/tuning.py",
+            "src/alpharank/portfolio/benchmark.py",
             "src/alpharank/portfolio/simulation.py",
             "src/alpharank/governance.py",
             "src/alpharank/governance_contracts/common.py",
@@ -554,6 +564,7 @@ def _build_fold_index_row(
     train_rows: int,
     val_rows: int,
     test_rows: int,
+    test_evaluable_rows: int = 0,
     train_positive_rate: float | None = None,
     val_positive_rate: float | None = None,
     test_positive_rate: float | None = None,
@@ -573,6 +584,7 @@ def _build_fold_index_row(
         "train_rows": int(train_rows),
         "val_rows": int(val_rows),
         "test_rows": int(test_rows),
+        "test_evaluable_rows": test_evaluable_rows,
         "train_positive_rate": train_positive_rate,
         "val_positive_rate": val_positive_rate,
         "test_positive_rate": test_positive_rate,
@@ -752,6 +764,7 @@ def _deduplicate_predictions_for_backtest(predictions: pl.DataFrame) -> pl.DataF
         "future_excess_return",
         "future_relative_return",
         "target_label",
+        "is_holding_month_mature",
     ]
     aggregated = [
         pl.mean("prediction").alias("prediction"),
@@ -866,7 +879,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
 
         train_df = filter_by_months(model_frame, window.train_months).filter(pl.col("future_excess_return").is_not_null())
         val_df = filter_by_months(model_frame, window.val_months).filter(pl.col("future_excess_return").is_not_null())
-        test_df = filter_by_months(model_frame, window.test_months).filter(pl.col("future_excess_return").is_not_null())
+        test_df = filter_by_months(model_frame, window.test_months)
 
         train_month_count = train_df.select(pl.col("year_month").n_unique()).item() if not train_df.is_empty() else 0
 
@@ -979,17 +992,22 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
 
         y_train = _binary_target(train_df, config.outperformance_threshold)
         y_val = _binary_target(val_df, config.outperformance_threshold)
-        y_test = _binary_target(test_df, config.outperformance_threshold)
+        test_labels = (
+            test_df["future_excess_return"] > config.outperformance_threshold
+        ).cast(pl.Int8).rename("target_label")
+        y_test = test_labels.to_numpy()
+        test_has_label = np.isfinite(y_test)
+        y_test_evaluable = y_test[test_has_label]
         train_positive_rate = _positive_rate(y_train)
         val_positive_rate = _positive_rate(y_val)
-        test_positive_rate = _positive_rate(y_test)
+        test_positive_rate = _positive_rate(y_test_evaluable) if y_test_evaluable.size else None
 
         if config.verbose:
             LOGGER.info(
                 f"{fold_prefix} target positive rate "
                 f"train={train_positive_rate:.1%} "
                 f"val={val_positive_rate:.1%} "
-                f"test={test_positive_rate:.1%} "
+                f"test_evaluable_rows={y_test_evaluable.size}/{y_test.size} "
                 f"(outperformance_threshold={config.outperformance_threshold:.4f})"
             )
 
@@ -998,7 +1016,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 fold=window.fold_index,
                 split_strategy=window.split_strategy,
                 test_group_indexes=window.test_group_indexes,
-                status="completed",
+                status="completed" if y_test_evaluable.size else "score_only",
                 skip_reason=None,
                 train_months=window.train_months,
                 val_months=window.val_months,
@@ -1006,6 +1024,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 train_rows=train_df.height,
                 val_rows=val_df.height,
                 test_rows=test_df.height,
+                test_evaluable_rows=int(y_test_evaluable.size),
                 train_positive_rate=train_positive_rate,
                 val_positive_rate=val_positive_rate,
                 test_positive_rate=test_positive_rate,
@@ -1040,6 +1059,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         fold_score_train_test = float(
             tuned.test_auc - config.optuna_lambda_gap * abs(tuned.train_auc - tuned.test_auc)
         )
+        test_score = fold_score_train_test if np.isfinite(fold_score_train_test) else None
 
         prediction_cols = [
                 "ticker",
@@ -1049,6 +1069,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
                 "decision_asof_date",
                 "holding_asof_date",
                 "benchmark_holding_asof_date",
+                "is_holding_month_mature",
                 "holding_period_complete",
                 "monthly_return",
                 "future_return",
@@ -1060,9 +1081,9 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             prediction_cols.append(config.risk_feature)
         fold_predictions = test_df.select(prediction_cols).with_columns(
             pl.Series("prediction", tuned.y_test_proba, dtype=pl.Float64),
-            pl.Series("target_label", y_test, dtype=pl.Int8),
+            test_labels,
             pl.lit(window.fold_index).cast(pl.Int64).alias("fold"),
-            pl.lit(fold_score_train_test).cast(pl.Float64).alias("objective_score"),
+            pl.lit(test_score, dtype=pl.Float64).alias("objective_score"),
             pl.lit(tuned.objective_score).cast(pl.Float64).alias("objective_score_val"),
         )
 
@@ -1128,8 +1149,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             fold_plot_assets["lift_validation"] = lift_val
 
         bucket_test = save_bucket_frequency_curve(
-            y_true=y_test,
-            y_score=tuned.y_test_proba,
+            y_true=y_test_evaluable,
+            y_score=tuned.y_test_proba[test_has_label],
             n_buckets=config.calibration_buckets,
             path=fold_dir / f"{fold_label}_test_bucket_frequency.png",
             fold_label=fold_label,
@@ -1139,8 +1160,8 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             fold_plot_assets["bucket_test"] = bucket_test
 
         lift_test = save_lift_curve(
-            y_true=y_test,
-            y_score=tuned.y_test_proba,
+            y_true=y_test_evaluable,
+            y_score=tuned.y_test_proba[test_has_label],
             n_buckets=config.calibration_buckets,
             path=fold_dir / f"{fold_label}_test_lift_curve.png",
             fold_label=fold_label,
@@ -1200,8 +1221,9 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
             "test_month_end": str(window.test_months[-1]),
             "train_rows": tuned.train_size,
             "val_rows": tuned.val_size,
-            "test_rows": tuned.test_size,
-            "objective_score": fold_score_train_test,
+            "test_rows": test_df.height,
+            "test_evaluable_rows": tuned.test_size,
+            "objective_score": test_score,
             "objective_score_val": tuned.objective_score,
         }
         row.update(_flatten_metrics("train", tuned.train_metrics))
@@ -1237,7 +1259,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
 
     raw_predictions = pl.concat(all_predictions, how="vertical") if all_predictions else _empty_predictions()
     predictions = _add_selection_columns(_deduplicate_predictions_for_backtest(raw_predictions), config)
-    fold_metrics = pl.DataFrame(fold_rows) if fold_rows else _empty_fold_metrics()
+    fold_metrics = pl.DataFrame(fold_rows, schema=_empty_fold_metrics().schema)
     fold_index = pl.DataFrame(fold_index_rows) if fold_index_rows else _empty_fold_index()
     best_params = pl.DataFrame(best_param_rows) if best_param_rows else pl.DataFrame(schema={"fold": pl.Int64})
 
@@ -1263,24 +1285,12 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
     predictions = learning.predictions
 
     selections = select_top_n(predictions, top_n=config.top_n, score_col="selection_score")
+    selections.write_parquet(learning.run_dir / "selections.parquet")
+    realized_selections = realized_backtest_rows(selections)
 
-    monthly_returns = compute_monthly_portfolio_returns(
-        selections.select(
-            [
-                "year_month",
-                "decision_month",
-                "holding_month",
-                "future_return",
-                "benchmark_future_return",
-                "future_excess_return",
-                "target_label",
-                "prediction",
-                "ticker",
-            ]
-        )
-    )
+    monthly_returns = compute_monthly_portfolio_returns(realized_selections)
 
-    if selections.is_empty():
+    if realized_selections.is_empty():
         fold_monthly = pl.DataFrame(
             schema={
                 "fold": pl.Int64,
@@ -1296,20 +1306,11 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
         )
     else:
         fold_monthly_parts: List[pl.DataFrame] = []
-        for fold_key, fold_selections in selections.partition_by("fold", as_dict=True).items():
+        for fold_key, fold_selections in realized_selections.partition_by("fold", as_dict=True).items():
             fold_id = int(fold_key[0]) if isinstance(fold_key, tuple) else int(fold_key)
             fold_monthly_parts.append(
-                compute_monthly_portfolio_returns(
-                    fold_selections.select(
-                        "year_month",
-                        "decision_month",
-                        "holding_month",
-                        "future_return",
-                        "benchmark_future_return",
-                        "target_label",
-                        "ticker",
-                    )
-                ).with_columns(pl.lit(fold_id).cast(pl.Int64).alias("fold"))
+                compute_monthly_portfolio_returns(fold_selections)
+                .with_columns(pl.lit(fold_id).cast(pl.Int64).alias("fold"))
             )
         fold_monthly = pl.concat(fold_monthly_parts).sort(["fold", "holding_month"])
 
@@ -1351,6 +1352,8 @@ def run_backtest_phase(config: BacktestConfig, learning: LearningArtifacts) -> B
         monthly_returns=monthly_returns,
         risk_free_rate=config.risk_free_rate,
     )
+    if monthly_returns.is_empty() and "is_holding_month_mature" in predictions.columns:
+        backtest_kpis = backtest_kpis.head(0)
     fold_backtest_kpis = compute_backtest_kpis_by_fold(
         fold_monthly_returns=fold_monthly,
         risk_free_rate=config.risk_free_rate,
@@ -1401,12 +1404,15 @@ def _finalize_backtest_run(
 
     monthly_returns = sanitize_numeric_frame(backtest_phase.monthly_returns)
     fold_monthly_returns = sanitize_numeric_frame(backtest_phase.fold_monthly_returns)
-    fold_metrics = sanitize_numeric_frame(fold_metrics)
-    fold_index = sanitize_numeric_frame(learning.fold_index)
+    fold_index = learning.fold_index
+    if "test_evaluable_rows" not in fold_metrics.columns:
+        fold_metrics = sanitize_numeric_frame(fold_metrics)
+        fold_index = sanitize_numeric_frame(fold_index)
+        assert_no_numeric_na(fold_metrics, context="fold_metrics")
     best_params = sanitize_numeric_frame(learning.best_params)
     backtest_kpis = sanitize_numeric_frame(backtest_phase.backtest_kpis)
     fold_backtest_kpis = sanitize_numeric_frame(backtest_phase.fold_backtest_kpis)
-    split_kpis = sanitize_numeric_frame(backtest_phase.split_kpis)
+    split_kpis = backtest_phase.split_kpis
     debug_predictions_long, debug_predictions_full = _build_prediction_debug_frames(
         model_frame=learning.model_frame,
         predictions=learning.predictions,
@@ -1414,62 +1420,9 @@ def _finalize_backtest_run(
         top_n=config.top_n,
     )
 
-    common_artifacts: Dict[str, Path] = {}
-    if not backtest_phase.selections.is_empty():
-        common_holdings = backtest_phase.selections.with_columns(
-            pl.lit("Portfolio").alias("strategy"),
-            (1.0 / pl.len().over("holding_month")).alias("target_weight"),
-            pl.col("future_return").alias("realized_return"),
-            pl.col("benchmark_future_return")
-            .fill_null(
-                pl.col("benchmark_future_return").drop_nulls().first().over("holding_month")
-            )
-            .fill_null(0.0)
-            .alias("benchmark_return"),
-        ).select(
-            "strategy",
-            "decision_month",
-            "holding_month",
-            "ticker",
-            "target_weight",
-            "realized_return",
-            "benchmark_return",
-            "prediction",
-        )
-        common_monthly = simulate_weighted_portfolio(
-            common_holdings.select(
-                "strategy",
-                "decision_month",
-                "holding_month",
-                "ticker",
-                "target_weight",
-                "realized_return",
-                "benchmark_return",
-            ),
-            transaction_cost_bps=0.0,
-            causal_timing_policy="legacy_month_only",
-        )
-        common_monthly = pl.concat(
-            [
-                common_monthly,
-                reference_monthly_series(
-                    common_monthly,
-                    strategy="Benchmark",
-                    return_column="benchmark_return",
-                ),
-            ],
-            how="diagonal_relaxed",
-        )
-        common_artifacts = write_common_portfolio_artifacts(
-            output_dir=learning.run_dir,
-            holdings=common_holdings,
-            monthly_returns=common_monthly,
-            prefix="boosting_common",
-        )
-
-    assert_no_numeric_na(fold_metrics, context="fold_metrics")
+    common_artifacts = write_realized_backtest_artifacts(learning.run_dir, backtest_phase.selections)
     assert_no_numeric_na(backtest_kpis, context="backtest_kpis")
-    assert_no_numeric_na(split_kpis, context="split_kpis")
+    assert_no_numeric_na(split_kpis.filter(pl.col("n_folds") > 0), context="split_kpis")
 
     report_path = learning.run_dir / "training_report.html"
     write_html_report(
@@ -1536,7 +1489,6 @@ def _finalize_backtest_run(
 
     learning.model_frame.write_parquet(paths["model_frame"])
     learning.predictions.write_parquet(paths["predictions"])
-    backtest_phase.selections.write_parquet(paths["selections"])
     monthly_returns.write_parquet(paths["monthly_returns"])
     fold_monthly_returns.write_parquet(paths["fold_monthly_returns"])
     fold_metrics.write_parquet(paths["fold_metrics"])

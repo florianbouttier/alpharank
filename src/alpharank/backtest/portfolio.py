@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import polars as pl
 
+from alpharank.portfolio.artifacts import write_common_portfolio_artifacts
+from alpharank.portfolio.comparison import reference_monthly_series
 from alpharank.portfolio.simulation import simulate_weighted_portfolio
 
 
@@ -15,6 +19,65 @@ def select_top_n(predictions: pl.DataFrame, top_n: int, score_col: str = "predic
         pl.col(score_col).rank(method="ordinal", descending=True).over("year_month").alias("rank")
     )
     return ranked.filter(pl.col("rank") <= pl.lit(top_n)).sort(["year_month", "rank"])
+
+
+def realized_backtest_rows(rows: pl.DataFrame) -> pl.DataFrame:
+    """Keep mature months in generic backtests while preserving legacy artifact support."""
+    if "is_holding_month_mature" not in rows.columns:
+        return rows
+
+    mature = rows.filter("is_holding_month_mature")
+    unavailable = mature.filter(~pl.col("benchmark_future_return").is_finite().fill_null(False))
+    if unavailable.height:
+        months = unavailable.get_column("holding_month").unique().sort().to_list()
+        raise ValueError(f"Missing benchmark return in mature holding months: {months}.")
+    return mature
+
+
+def _equal_weight_holdings(selections: pl.DataFrame) -> pl.DataFrame:
+    return selections.with_columns(
+        pl.lit("Portfolio").alias("strategy"),
+        (1.0 / pl.len().over("holding_month")).alias("target_weight"),
+        pl.col("future_return").alias("realized_return"),
+        pl.col("benchmark_future_return")
+        .fill_null(pl.col("benchmark_future_return").drop_nulls().first().over("holding_month"))
+        .fill_null(0.0)
+        .alias("benchmark_return"),
+    )
+
+
+def write_realized_backtest_artifacts(
+    output_dir: Path, selections: pl.DataFrame
+) -> dict[str, Path]:
+    """Write standardized realized portfolios. Pending baskets stay in selections.parquet."""
+    realized = realized_backtest_rows(selections)
+    if realized.is_empty():
+        return {}
+
+    holdings = _equal_weight_holdings(realized).select(
+        "strategy",
+        "decision_month",
+        "holding_month",
+        "ticker",
+        "target_weight",
+        "realized_return",
+        "benchmark_return",
+        "prediction",
+    )
+    monthly = simulate_weighted_portfolio(
+        holdings.drop("prediction"),
+        transaction_cost_bps=0.0,
+        causal_timing_policy="legacy_month_only",
+    )
+    benchmark = reference_monthly_series(
+        monthly, strategy="Benchmark", return_column="benchmark_return"
+    )
+    return write_common_portfolio_artifacts(
+        output_dir=output_dir,
+        holdings=holdings,
+        monthly_returns=pl.concat([monthly, benchmark], how="diagonal_relaxed"),
+        prefix="boosting_common",
+    )
 
 
 def compute_monthly_portfolio_returns(selections: pl.DataFrame) -> pl.DataFrame:
@@ -32,15 +95,7 @@ def compute_monthly_portfolio_returns(selections: pl.DataFrame) -> pl.DataFrame:
             }
         )
 
-    holdings = selections.with_columns(
-        pl.lit("Portfolio").alias("strategy"),
-        (1.0 / pl.len().over("holding_month")).alias("target_weight"),
-        pl.col("future_return").alias("realized_return"),
-        pl.col("benchmark_future_return")
-        .fill_null(pl.col("benchmark_future_return").drop_nulls().first().over("holding_month"))
-        .fill_null(0.0)
-        .alias("benchmark_return"),
-    )
+    holdings = _equal_weight_holdings(selections)
     simulated = simulate_weighted_portfolio(
         holdings.select(
             "strategy",

@@ -166,7 +166,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 127 | `QUAL-019` | corriger le typage strict du registre terminal | huit tests de registre verts et mypy sans erreur sur 43 fichiers | fait |
 | 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | lot fiabilité ci-dessous | à faire |
 | 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | ordre des plis contrôlé, CPCV explicitement diagnostique, 43 tests verts | fait |
-| 130 | `CODE-022` | séparer les titres scorables des cibles de test mûres | lot fiabilité ci-dessous | à faire |
+| 130 | `CODE-022` | séparer les titres scorables des cibles de test mûres | deux régressions rouges puis vertes, 46 tests ciblés, paniers formés même sans rendement exploitable | fait |
 | 131 | `DATA-052` | sécuriser la reprise cumulative du RAW SEC | lot fiabilité ci-dessous | à faire |
 | 132 | `DATA-053` | reconstruire le membership S&P 500 à la décision | lot fiabilité ci-dessous | à faire |
 | 133 | `DATA-054` | rapprocher les lacunes historiques au grain instrument | lot fiabilité ci-dessous | à faire |

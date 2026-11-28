@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -15,7 +15,6 @@ from alpharank.backtest.mlcraft_adapter import (
 )
 from alpharank.backtest.time_folds import CombinatorialPurgedGroupTimeSeriesSplit
 from alpharank.observability import get_run_logger
-
 
 LOGGER = get_run_logger(__name__)
 
@@ -244,6 +243,30 @@ def _fmt_metric(value: Any) -> str:
     return f"{value_float:.4f}"
 
 
+def _evaluate_test_labels(labels: np.ndarray, probabilities: np.ndarray) -> Dict[str, float]:
+    observed = np.isfinite(labels)
+    metrics = compute_classification_metrics(labels[observed], probabilities[observed])
+    return metrics if observed.any() else dict.fromkeys(metrics, float("nan"))
+
+
+def _serialize_trials(study: optuna.Study) -> List[Dict[str, Any]]:
+    rows = []
+    for trial in study.trials:
+        row = {
+            "trial_number": trial.number,
+            "objective": trial.value,
+            "train_auc": trial.user_attrs.get("train_auc"),
+            "val_auc": trial.user_attrs.get("val_auc"),
+            "train_objective": trial.user_attrs.get("train_objective"),
+            "val_objective": trial.user_attrs.get("val_objective"),
+            "score": trial.user_attrs.get("score", trial.value),
+            "state": "COMPLETE",
+        }
+        row.update({f"param_{key}": value for key, value in trial.params.items()})
+        rows.append(row)
+    return rows
+
+
 def tune_and_fit_fold(
     X_train: np.ndarray,
     y_train: np.ndarray,
@@ -268,10 +291,13 @@ def tune_and_fit_fold(
     objective_name: str = "top_n_precision",
     warm_start_params: Sequence[Dict[str, Any]] | None = None,
 ) -> TunedModelResult:
+    """Score all test rows. A NaN test label indicates unavailable evaluation."""
+    test_size = int(np.isfinite(y_test).sum())
     if np.unique(y_train).size < 2:
         fallback = np.full_like(y_train, fill_value=float(np.mean(y_train)), dtype=float)
         fallback_val = np.full_like(y_val, fill_value=float(np.mean(y_train)), dtype=float)
         fallback_test = np.full_like(y_test, fill_value=float(np.mean(y_train)), dtype=float)
+        test_metrics = _evaluate_test_labels(y_test, fallback_test)
         if show_progress:
             LOGGER.warning(
                 "Tuning skipped because the training target has one class",
@@ -282,11 +308,11 @@ def tune_and_fit_fold(
             best_params=base_params.copy(),
             train_auc=safe_auc(y_train, fallback),
             val_auc=safe_auc(y_val, fallback_val),
-            test_auc=safe_auc(y_test, fallback_test),
+            test_auc=test_metrics["auc"],
             objective_score=safe_auc(y_val, fallback_val),
             train_size=int(y_train.size),
             val_size=int(y_val.size),
-            test_size=int(y_test.size),
+            test_size=test_size,
             y_train_proba=fallback,
             y_val_proba=fallback_val,
             y_test_proba=fallback_test,
@@ -294,7 +320,7 @@ def tune_and_fit_fold(
             trials_df=[],
             train_metrics=compute_classification_metrics(y_train, fallback),
             val_metrics=compute_classification_metrics(y_val, fallback_val),
-            test_metrics=compute_classification_metrics(y_test, fallback_test),
+            test_metrics=test_metrics,
             model=None,
             study=None,
         )
@@ -332,8 +358,6 @@ def tune_and_fit_fold(
         enqueued = _filter_enqueued_params(params, mlcraft_space)
         if enqueued:
             study.enqueue_trial(enqueued)
-
-    trial_rows: List[Dict[str, Any]] = []
 
     def _fit_model(params: Dict[str, Any], X_fit: np.ndarray, y_fit: np.ndarray):
         trial_model_params, trial_fit_params = _split_mlcraft_params(params, mlcraft_space)
@@ -402,7 +426,7 @@ def tune_and_fit_fold(
 
     train_metrics = compute_classification_metrics(y_train, p_train)
     val_metrics = compute_classification_metrics(y_val, p_val)
-    test_metrics = compute_classification_metrics(y_test, p_test)
+    test_metrics = _evaluate_test_labels(y_test, p_test)
 
     train_auc = train_metrics["auc"]
     val_auc = val_metrics["auc"]
@@ -431,21 +455,6 @@ def tune_and_fit_fold(
             f"elapsed={_format_seconds(total_elapsed)}"
         )
 
-    for tr in study.trials:
-        row: Dict[str, Any] = {
-            "trial_number": tr.number,
-            "objective": tr.value,
-            "train_auc": tr.user_attrs.get("train_auc"),
-            "val_auc": tr.user_attrs.get("val_auc"),
-            "train_objective": tr.user_attrs.get("train_objective"),
-            "val_objective": tr.user_attrs.get("val_objective"),
-            "score": tr.user_attrs.get("score", tr.value),
-            "state": "COMPLETE",
-        }
-        for k, v in tr.params.items():
-            row[f"param_{k}"] = v
-        trial_rows.append(row)
-
     output_best_params = {
         **base_params,
         **best_params,
@@ -462,12 +471,12 @@ def tune_and_fit_fold(
         objective_score=objective_score,
         train_size=int(y_train.size),
         val_size=int(y_val.size),
-        test_size=int(y_test.size),
+        test_size=test_size,
         y_train_proba=p_train,
         y_val_proba=p_val,
         y_test_proba=p_test,
         evals_result={},
-        trials_df=trial_rows,
+        trials_df=_serialize_trials(study),
         train_metrics=train_metrics,
         val_metrics=val_metrics,
         test_metrics=test_metrics,

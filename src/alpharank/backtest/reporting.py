@@ -799,26 +799,11 @@ def write_backtest_audit_report(
         monthly_selection_fig.update_layout(height=600)
         plots.append(plotly_div(monthly_selection_fig))
 
-    best_months = (
-        monthly_returns.sort("active_return", descending=True).head(15)
-        if not monthly_returns.is_empty()
-        else monthly_returns
-    )
-    worst_months = (
-        monthly_returns.sort("active_return", descending=False).head(15)
-        if not monthly_returns.is_empty()
-        else monthly_returns
-    )
-    best_positions = (
-        selections.sort("future_excess_return", descending=True).head(30)
-        if not selections.is_empty()
-        else selections
-    )
-    worst_positions = (
-        selections.sort("future_excess_return", descending=False).head(30)
-        if not selections.is_empty()
-        else selections
-    )
+    best_months = monthly_returns.sort("active_return", descending=True).head(15)
+    worst_months = monthly_returns.sort("active_return").head(15)
+    observed_positions = selections.filter(pl.col("future_excess_return").is_not_null())
+    best_positions = observed_positions.sort("future_excess_return", descending=True).head(30)
+    worst_positions = observed_positions.sort("future_excess_return").head(30)
 
     fold_sections: List[str] = []
     if not fold_monthly_returns.is_empty() and not fold_focus.is_empty():
