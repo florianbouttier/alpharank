@@ -453,7 +453,7 @@ def _release_id(
     ).hexdigest()
 
 
-def _validate_evidence_names(evidence_frames: Mapping[str, pl.DataFrame]) -> None:
+def _validate_evidence_names(evidence_frames: Mapping[str, object]) -> None:
     for name in evidence_frames:
         path = Path(name)
         if path.name != name or path.suffix != ".parquet":
@@ -462,6 +462,23 @@ def _validate_evidence_names(evidence_frames: Mapping[str, pl.DataFrame]) -> Non
 
 def _file_record(path: Path) -> dict[str, object]:
     return {"bytes": path.stat().st_size, "sha256": _sha256(path)}
+
+
+def read_verified_sec_sector_history(release_dir: Path) -> pl.DataFrame:
+    """Read the SEC filing-header release after verifying every inventoried artifact."""
+    manifest = json.loads((release_dir / "manifest.json").read_text(encoding="utf-8"))
+    release_id = manifest.get("release_id")
+    files = manifest.get("files")
+    if (
+        manifest.get("contract_id") != "point_in_time_sector_history_v2"
+        or not isinstance(release_id, str)
+        or release_dir.name != f"sector_history_{release_id[:12]}"
+        or not isinstance(files, Mapping)
+        or "sector_history.parquet" not in files
+    ):
+        raise ValueError("Legacy requires an identified SEC filing-header sector release.")
+    _read_and_validate_existing_release(release_dir, expected_release_id=release_id)
+    return pl.read_parquet(release_dir / "sector_history.parquet")
 
 
 def _read_and_validate_existing_release(
@@ -475,6 +492,7 @@ def _read_and_validate_existing_release(
     files = manifest.get("files")
     if not isinstance(files, Mapping):
         raise RuntimeError("Existing sector-history release has no file inventory.")
+    _validate_evidence_names(files)
     for name, record in files.items():
         if not isinstance(record, Mapping) or _sha256(release_dir / str(name)) != record.get(
             "sha256"

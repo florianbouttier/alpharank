@@ -15,6 +15,7 @@ from alpharank.data.terminal_eligibility import (
     apply_terminal_entry_gate,
 )
 from alpharank.portfolio.terminal_event_registry import load_terminal_event_registry
+from alpharank.strategy.legacy_sector_candidate import LEGACY_SEC_SECTOR_PROFILE_ID, PROFILE_COLUMN
 from alpharank.utils.frame_backend import to_polars
 
 try:
@@ -56,6 +57,8 @@ def attach_legacy_sector_policy(candidates: "pl.DataFrame", sector: pd.DataFrame
         pl.lit(terminal_registry.payload["registry_id"]).alias("terminal_entry_registry_id"),
         pl.lit(terminal_registry.sha256).alias("terminal_entry_registry_sha256"),
     )
+    if PROFILE_COLUMN in sector.columns:
+        return _attach_sec_sector_candidate(decision_candidates, to_polars(sector))
     required_history = {
         "ticker",
         "Sector",
@@ -88,6 +91,18 @@ def attach_legacy_sector_policy(candidates: "pl.DataFrame", sector: pd.DataFrame
         pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias("sector_known_at_selected"),
         pl.lit(None).cast(pl.String).alias("classification_id"),
     )
+
+
+def _attach_sec_sector_candidate(candidates: pl.DataFrame, sector: pl.DataFrame) -> pl.DataFrame:
+    if set(sector[PROFILE_COLUMN].unique()) != {LEGACY_SEC_SECTOR_PROFILE_ID}:
+        raise ValueError("Unknown Legacy sector profile in learning inputs.")
+    mapping = sector.with_columns(pl.col("year_month").cast(candidates.schema["year_month"]))
+    resolved = candidates.drop("decision_at").join(
+        mapping, on=["year_month", "ticker"], how="left", validate="m:1"
+    )
+    if resolved[PROFILE_COLUMN].null_count():
+        raise ValueError("Legacy eligible candidate lies outside the sealed sector profile.")
+    return resolved.filter(pl.col("sector_constraint_enabled"))
 
 
 def get_portfolio_at_month(

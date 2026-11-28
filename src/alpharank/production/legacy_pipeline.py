@@ -64,6 +64,11 @@ from alpharank.replay.legacy import (
     require_holding_month_membership,
 )
 from alpharank.strategy.legacy import ModelEvaluator, StrategyLearner
+from alpharank.strategy.legacy_sector_candidate import (
+    legacy_sector_output_roots,
+    prepare_legacy_sector_learning,
+    sector_candidate_run_context,
+)
 from alpharank.strategy.legacy_valuation import (
     NO_SEC_FUNDAMENTALS_POLICY_ID,
     build_legacy_selection_universe,
@@ -686,6 +691,7 @@ def run_pipeline(
     minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
     maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
     fundamental_eligibility_policy_id: str = NO_SEC_FUNDAMENTALS_POLICY_ID,
+    sector_profile_manifest: Optional[Path] = None,
 ) -> PipelineOutput:
     backend = "polars"
     project_root = Path(__file__).resolve().parents[3]
@@ -713,7 +719,7 @@ def run_pipeline(
                 warehouse_root=project_root / "data" / "warehouse",
             )
             data_dir = mart_input.mart_dir
-    output_dir = output_dir if output_dir is not None else project_root / "outputs"
+    output_dir, checkpoints_dir = legacy_sector_output_roots(output_dir or project_root / "outputs", checkpoints_dir, sector_profile_manifest)
     methodology_identity: Dict[str, Any] | None = None
     if methodology_manifest is not None:
         methodology_manifest = methodology_manifest.resolve()
@@ -834,10 +840,9 @@ def run_pipeline(
             methodology_identity is not None
         ),
         "canonical_execution_policy": ALPHARANK_REFERENCE_CLOSE.to_manifest(),
-        "mandatory_execution_sensitivities": [
-            LEGACY_NEXT_SESSION_OPEN.to_manifest()
-        ],
+        "mandatory_execution_sensitivities": [LEGACY_NEXT_SESSION_OPEN.to_manifest()],
         "methodology_identity": methodology_identity,
+        **sector_candidate_run_context(sector_profile_manifest),
     }
     runtime_provenance = capture_runtime_provenance(
         project_root=project_root,
@@ -1070,7 +1075,7 @@ def run_pipeline(
     LOGGER.info("Running Legacy strategy learning", extra={"optimizer": "optuna"})
     prices_for_learning = to_pandas(final_price_vs_index)
     stocks_filter_for_learning = normalize_year_month_to_period(to_pandas(stocks_selections), col="year_month")
-    sector_for_learning = to_pandas(general.select(["ticker", "Sector"]))
+    sector_for_learning = prepare_legacy_sector_learning(general, stocks_selections, sp500_price, run_day_dir, sector_profile_manifest)
 
     optuna_output_1 = StrategyLearner.learning_process_optuna_full(
         prices=prices_for_learning.copy(),

@@ -62,6 +62,7 @@ def main(
     minimum_monthly_median_dollar_volume: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.minimum_median_dollar_volume,
     maximum_monthly_ohlc_violation_rate: float = STANDARD_MONTHLY_PRICE_ELIGIBILITY_POLICY.maximum_ohlc_violation_rate,
     fundamental_eligibility_policy_id: str = NO_SEC_FUNDAMENTALS_POLICY_ID,
+    sector_profile_manifest: str | Path | None = None,
 ) -> None:
     checkpoints_dir = (
         Path(checkpoints_dir).expanduser().resolve() if checkpoints_dir is not None else None
@@ -100,6 +101,7 @@ def main(
             maximum_monthly_ohlc_violation_rate
         ),
         fundamental_eligibility_policy_id=fundamental_eligibility_policy_id,
+        sector_profile_manifest=Path(sector_profile_manifest).expanduser().resolve() if sector_profile_manifest else None,
     )
     print("Artifacts:")
     for k, v in out.artifacts.items():
@@ -192,6 +194,7 @@ def _parse_args() -> argparse.Namespace:
         default=NO_SEC_FUNDAMENTALS_POLICY_ID,
     )
     parser.add_argument("--log-dir", default="logs/legacy_runs")
+    parser.add_argument("--sector-profile-manifest", help="Opt into a sealed SEC sector research profile.")
     parser.add_argument("--no-log", action="store_true", help="Disable automatic CLI log capture.")
     return parser.parse_args()
 
@@ -216,13 +219,10 @@ def _run_cli() -> None:
         ),
         "price_eligibility_policy_id": args.price_eligibility_policy_id,
         "minimum_monthly_price_observations": args.minimum_monthly_price_observations,
-        "minimum_monthly_median_dollar_volume": (
-            args.minimum_monthly_median_dollar_volume
-        ),
-        "maximum_monthly_ohlc_violation_rate": (
-            args.maximum_monthly_ohlc_violation_rate
-        ),
+        "minimum_monthly_median_dollar_volume": args.minimum_monthly_median_dollar_volume,
+        "maximum_monthly_ohlc_violation_rate": args.maximum_monthly_ohlc_violation_rate,
         "fundamental_eligibility_policy_id": args.fundamental_eligibility_policy_id,
+        "sector_profile_manifest": args.sector_profile_manifest,
     }
     if args.no_log:
         configure_run_logging()

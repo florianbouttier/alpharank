@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pandas as pd
+import polars as pl
+import pytest
+from polars.testing import assert_frame_equal
 
 from alpharank.data.processing import IndexDataManager
 from alpharank.strategy.legacy import StrategyLearner
+from alpharank.strategy.legacy_selection import attach_legacy_sector_policy
 
 
 def test_return_from_training_exports_selected_optuna_caps() -> None:
@@ -178,3 +182,38 @@ def test_legacy_sector_cap_uses_pit_sector() -> None:
         selected[columns].reset_index(drop=True),
         mutated[columns].reset_index(drop=True),
     )
+
+
+def test_legacy_candidate_uses_exact_exchange_early_close() -> None:
+    from alpharank.strategy.legacy_sector_candidate import build_candidate_sector_map
+
+    decision = date(2024, 11, 1)
+    closing = date(2024, 11, 29)
+    candidates = pl.DataFrame({"year_month": [decision] * 2, "ticker": ["AAA.US", "BBB.US"]})
+    market = pl.DataFrame({"date": [closing]})
+    exchange = pl.DataFrame({"date": [closing], "close_at": [datetime(2024, 11, 29, 18, tzinfo=timezone.utc)]})
+    before = datetime(2024, 11, 29, 17, tzinfo=timezone.utc)
+    after = datetime(2024, 11, 29, 19, tzinfo=timezone.utc)
+    history = pl.DataFrame({
+        "ticker": ["AAA.US"] * 2,
+        "Sector": ["Technology", "Health Care"],
+        "classification_id": ["before-close", "after-close"],
+        "source_url": ["https://example.test/sectors"] * 2,
+        "confidence": ["official"] * 2,
+        "observed_at": [before, after],
+        "effective_at": [before, after],
+    })
+    profile = build_candidate_sector_map(candidates, history, market, exchange)
+    without_future = build_candidate_sector_map(candidates, history.head(1), market, exchange)
+    assert_frame_equal(profile, without_future)
+    holdings_month = candidates.with_columns(pl.col("year_month").dt.offset_by("1mo"))
+    selected = attach_legacy_sector_policy(holdings_month, profile.to_pandas())
+
+    assert selected["ticker"].to_list() == ["AAA.US"]
+    assert selected["classification_id"].to_list() == ["before-close"]
+    assert selected["decision_at"].item() == exchange["close_at"].item()
+    assert selected["sector_constraint_enabled"].to_list() == [True]
+    with pytest.raises(ValueError, match="month-end sessions disagree"):
+        build_candidate_sector_map(
+            candidates, history, pl.DataFrame({"date": [date(2024, 11, 27)]}), exchange
+        )

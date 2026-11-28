@@ -7,6 +7,55 @@ compared by the common replay. Portfolio simulation, benchmarks,
 performance metrics, lineage validation, and CAGR attribution are documented
 separately in [`common_portfolio_backtest_engine.md`](./common_portfolio_backtest_engine.md).
 
+## Profil Legacy candidat avec secteurs SEC (`METH-014`)
+
+`scripts/run_legacy.py --sector-profile-manifest <profil.json>` active
+`legacy_sec_sector_at_close_v1` pour les quatre recherches Legacy. Les chemins
+relatifs sont résolus depuis le manifeste de profil.
+
+```json
+{
+  "policy_id": "legacy_sec_sector_at_close_v1",
+  "first_decision_month": "2009-02-01",
+  "sector_release": {
+    "path": "sector_history_55fbc0c519ea",
+    "manifest_sha256": "<SHA-256 de manifest.json dans la release>"
+  },
+  "session_calendar": {
+    "path": "xnys_sessions.parquet",
+    "sha256": "<SHA-256 du parquet>",
+    "source": "<source et millésime du calendrier de marché>"
+  }
+}
+```
+
+Le calendrier contient une colonne `date` et une colonne `close_at` horodatée
+avec fuseau, à raison d'une ligne par séance. La dernière séance du mois doit
+concorder avec les cours SPY scellés. Le profil utilise l'heure de clôture de
+cette séance, y compris lorsqu'elle ferme tôt, pour résoudre les classifications
+SEC déjà connues et effectives. La release et toutes ses pièces inventoriées
+sont vérifiées. Un calendrier absent, incomplet ou différent de SPY bloque la
+préparation concernée.
+
+Le classement du mois suivant applique la limite sectorielle Legacy aux seules
+classifications disponibles au signal. Les exclusions de sectorisation restent
+dans `legacy_sector_candidate_keys.parquet`, une ligne par titre et mois, avec
+la date de décision, l'identifiant de classification et le motif. Le reçu
+`legacy_sector_candidate_manifest.json` scelle le journal et ses sources.
+Les sorties et checkpoints du candidat utilisent la sous-racine
+`legacy_sector_candidates`. Le comportement historique reste le défaut.
+Le premier mois éligible du profil est fixé d'après la disponibilité SEC, avant
+le replay. Les décisions antérieures restent journalisées et sont exclues du
+classement sectoriel. Un mois sans secteur après cette borne bloque le profil.
+Cette borne est distincte de `--first-date`, qui pilote le premier split annuel
+de Legacy, et des dates des rendements réalisés. Elle doit laisser des mois
+classifiés pour la calibration avant ce premier split, avec la même fenêtre
+d'apprentissage pour toute comparaison de variantes. L'exemple fixe février 2009
+après les mois historiques peu ou pas classifiés sur la release citée.
+Les preuves de couverture et de sélection sur des cas contrôlés précèdent un
+replay économique comparatif, qui doit attribuer aux secteurs et à la nouvelle
+optimisation les écarts observés sur le même snapshot.
+
 ## Current Validated Comparison
 
 The current replay is built from one immutable composed input snapshot:
