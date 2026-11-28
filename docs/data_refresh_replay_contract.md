@@ -169,6 +169,14 @@ donnée.
 
 ## 8. Commande canonique d'audit
 
+Si une acquisition s'arrête avant les modèles, utiliser
+`--failed-refresh-run <run-acquis>` avec le snapshot publié et le dossier de
+sortie. L'audit désigne le contrôle effectivement bloquant. Si les prix passent
+et que les révisions fondamentales historiques n'ont pas été approuvées, le
+rapport donne le cutoff, les datasets et les écarts de ce contrôle. Les
+reçus de la tentative restent hashés. Un dossier où aucun contrôle pris en
+charge n'a échoué ne peut pas produire ce verdict.
+
 Après un candidat valide et les deux replays, la comparaison s'exécute avec :
 
 ```bash

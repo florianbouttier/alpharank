@@ -21,7 +21,7 @@ from alpharank.replay.refresh_compare import (
     write_frame_diff,
 )
 from alpharank.replay.refresh_provenance import compare_provenance_pairs
-from alpharank.replay.refresh_sources import blocked_refresh_source_statuses
+from alpharank.replay.refresh_sources import blocked_refresh_source_statuses, failed_refresh_gate
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,12 +184,7 @@ def audit_blocked_refresh(
 ) -> dict[str, Any]:
     """Turn a failed data gate into an explicit no-model replay report."""
 
-    gate_path = failed_refresh_run / "price_publication_guard.json"
-    if not gate_path.is_file():
-        gate_path = failed_refresh_run / "price_revision_guard.json"
-    if not gate_path.is_file():
-        raise FileNotFoundError(f"Missing failed refresh gate: {gate_path}")
-    gate = json.loads(gate_path.read_text(encoding="utf-8"))
+    gate = failed_refresh_gate(failed_refresh_run)
     evidence = _hash_refresh_evidence(failed_refresh_run)
     run_id = failed_refresh_run.name
     report = {
@@ -199,25 +194,7 @@ def audit_blocked_refresh(
         "promotion_allowed_by_this_gate": False,
         "refresh_run_id": run_id,
         "baseline_snapshot": str(baseline_snapshot.resolve()),
-        "failed_gate": {
-            "name": gate_path.stem,
-            "passed": gate.get("passed", False),
-            "reasons": gate.get("blocking_reasons", gate.get("failure_reasons", [])),
-            "policy": gate.get("policy", {}),
-            "candidate_rows": gate.get("candidate_rows"),
-            "candidate_tickers": gate.get("candidate_tickers"),
-            "historical_daily_return_revisions_over_threshold": gate.get(
-                "historical_daily_return_revisions_over_threshold"
-            ),
-            "historical_return_revision_tickers": gate.get("historical_return_revision_tickers"),
-            "historical_return_revision_examples": gate.get(
-                "historical_return_revision_examples", []
-            ),
-            "historical_return_availability_changes": gate.get(
-                "historical_return_availability_changes"
-            ),
-            "transition_factor_findings": gate.get("transition_factor_findings"),
-        },
+        "failed_gate": gate,
         "source_statuses": blocked_refresh_source_statuses(failed_refresh_run),
         "evidence": evidence,
         "model_execution": {

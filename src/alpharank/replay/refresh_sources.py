@@ -7,8 +7,56 @@ from pathlib import Path
 from typing import Any
 
 
+def failed_refresh_gate(run_dir: Path) -> dict[str, Any]:
+    """Describe a rejected data gate using the inputs saved by acquisition."""
+    for name in ("price_publication_guard", "price_revision_guard"):
+        path = run_dir / f"{name}.json"
+        if not path.is_file():
+            continue
+        price = _read_json(path)
+        reasons = price.get("blocking_reasons", price.get("failure_reasons", []))
+        if price.get("passed") is False or ("passed" not in price and reasons):
+            return _failed_price_gate(name, price, reasons)
+    path = run_dir / "historical_revision_guard.json"
+    if path.is_file():
+        fundamentals = _read_json(path)
+        if fundamentals.get("historical_revisions_detected") is True and not (
+            fundamentals.get("override_enabled") is True
+            and fundamentals.get("approval_recorded") is True
+        ):
+            return {
+                "name": path.stem,
+                "passed": False,
+                "reasons": ["unreviewed_historical_fundamental_revisions"],
+                "cutoff_date": fundamentals["cutoff_date"],
+                "guard_days": fundamentals["guard_days"],
+                "blocked_datasets": fundamentals["blocked_datasets"],
+                "datasets": fundamentals["datasets"],
+            }
+    raise ValueError(f"No failed refresh guard in {run_dir}")
+
+
+def _failed_price_gate(name: str, guard: dict[str, Any], reasons: list[str]) -> dict[str, Any]:
+    fields = (
+        "candidate_rows",
+        "candidate_tickers",
+        "historical_daily_return_revisions_over_threshold",
+        "historical_return_revision_tickers",
+        "historical_return_availability_changes",
+        "transition_factor_findings",
+    )
+    return {
+        "name": name,
+        "passed": False,
+        "reasons": reasons,
+        "policy": guard.get("policy", {}),
+        "historical_return_revision_examples": guard.get("historical_return_revision_examples", []),
+        **{field: guard.get(field) for field in fields},
+    }
+
+
 def blocked_refresh_source_statuses(failed_refresh_run: Path) -> list[dict[str, Any]]:
-    """Describe every declared refresh source after an upstream price failure."""
+    """Describe every declared refresh source after a data gate fails."""
 
     acquisition_path = failed_refresh_run / "acquisition_status.json"
     if acquisition_path.is_file():

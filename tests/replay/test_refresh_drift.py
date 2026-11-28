@@ -147,6 +147,39 @@ def test_blocked_refresh_prefers_combined_price_publication_guard(tmp_path: Path
     assert report["failed_gate"]["reasons"] == ["unreviewed_extreme_adjusted_price_moves"]
 
 
+def test_blocked_refresh_reports_rejected_fundamentals_after_passing_prices(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "price_publication_guard.json").write_text('{"passed": true}')
+    (run_dir / "price_revision_guard.json").write_text('{"passed": true}')
+    guard = {
+        "cutoff_date": "2024-11-25",
+        "guard_days": 730,
+        "historical_revisions_detected": True,
+        "override_enabled": False,
+        "approval_recorded": False,
+        "blocked_datasets": ["income_statement"],
+        "datasets": {"income_statement": {"removed_rows": 1}},
+    }
+    gate_path = run_dir / "historical_revision_guard.json"
+    gate_path.write_text(json.dumps(guard))
+    (run_dir / "acquisition_status.json").write_text('{"sources": []}')
+    (run_dir / "price_composition.json").write_text("{}")
+
+    report = audit_blocked_refresh(run_dir, tmp_path / "baseline", tmp_path / "audit")
+
+    assert report["failed_gate"]["name"] == "historical_revision_guard"
+    assert report["failed_gate"]["passed"] is False
+    assert report["failed_gate"]["blocked_datasets"] == ["income_statement"]
+    assert report["failed_gate"]["datasets"] == guard["datasets"]
+    assert report["promotion_allowed_by_this_gate"] is False
+    assert not report["model_execution"]["boosting_candidate_executed"]
+
+    gate_path.write_text(json.dumps({**guard, "override_enabled": True, "approval_recorded": True}))
+    with pytest.raises(ValueError, match="No failed refresh guard"):
+        audit_blocked_refresh(run_dir, tmp_path / "baseline", tmp_path / "audit")
+
+
 def test_blocked_refresh_uses_completed_acquisition_statuses(tmp_path: Path) -> None:
     from alpharank.replay.refresh_sources import blocked_refresh_source_statuses
 

@@ -227,3 +227,14 @@ contrôle, aucun manifeste SEC strict final, snapshot composé ni nouveau
 replay mensuel n'est produit par cette récupération. La composition reste
 conditionnée à la validation SEC stricte et à la vérification conjointe des
 prix. Le pointeur de production reste celui du 20 août.
+
+### Motif du rejet de l'acquisition originale (`REPLAY-019`)
+
+L'audit de `20261125_011506` lit les deux contrôles de prix réussis et isole
+le contrôle historique des fondamentaux. Il nomme les cinq tables bloquées
+(résultat, bilan, flux de trésorerie, nombre d'actions et résultats publiés)
+et scelle 44 fichiers. Le JSON `refresh_replay_report.json` se trouve sous
+`outputs/audit_followup_20261128/original_20261125_rejection/`,
+SHA-256 `8106d1612ebc7ef70032461f1e1f3565f2e0f1adf14e3bce07a646b6a6bf9a86`.
+Ce verdict concerne la tentative originale. Le nouvel export cumulatif
+doit passer son propre contrôle.
