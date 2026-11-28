@@ -6,6 +6,7 @@ import hashlib
 import json
 from datetime import date, time, timedelta
 from pathlib import Path
+from typing import cast
 
 import polars as pl
 
@@ -200,7 +201,7 @@ def evaluate_rebalance_exits(
 ) -> pl.DataFrame:
     """Value the outgoing assets at the next market open, or record why a mark is unavailable."""
     openings = _market_openings(benchmark_prices)
-    last_market_month = openings["holding_month"].max()
+    last_market_month = cast(date | None, openings["holding_month"].max())
     clock = _join_rebalance_clock(opening_journal, openings)
     quotes = _opening_prices(prices).select(
         "ticker",

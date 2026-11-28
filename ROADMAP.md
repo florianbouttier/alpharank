@@ -184,7 +184,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | snapshot, décision et suivi visibles aux dates économiques ; 18 tests JS, 22 tests de rapports et build verts | fait |
 | 146 | `DATA-056` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
 | 147 | `DATA-057` | raccorder le parent SEC cumulatif à l'ingestion nocturne | lot fiabilité ci-dessous | à faire |
-| 148 | `QUAL-021` | vérifier le type de la borne du calendrier à l'ouverture | lot fiabilité ci-dessous | à faire |
+| 148 | `QUAL-021` | vérifier le type de la borne du calendrier à l'ouverture | borne typée, mypy sur 44 fichiers et neuf tests v2 verts | fait |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
