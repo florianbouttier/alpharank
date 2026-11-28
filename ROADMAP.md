@@ -163,7 +163,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 124 | `DOC-023` | tracer les remédiations de l'audit du 28 novembre | backlog atomique et runbook distinguant août, candidat d'octobre et suivi de novembre ; documentation/liens verts | fait |
 | 125 | `QUAL-017` | borner la collecte pytest aux tests maintenus | régression rouge puis verte, six tests ciblés et collecte racine sans module de sortie | fait |
 | 126 | `QUAL-018` | remettre les inventaires d'architecture au niveau du code | lot fiabilité ci-dessous | à faire |
-| 127 | `QUAL-019` | corriger le typage strict du registre terminal | lot fiabilité ci-dessous | à faire |
+| 127 | `QUAL-019` | corriger le typage strict du registre terminal | huit tests de registre verts et mypy sans erreur sur 43 fichiers | fait |
 | 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | lot fiabilité ci-dessous | à faire |
 | 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | lot fiabilité ci-dessous | à faire |
 | 130 | `CODE-022` | séparer les titres scorables des cibles de test mûres | lot fiabilité ci-dessous | à faire |

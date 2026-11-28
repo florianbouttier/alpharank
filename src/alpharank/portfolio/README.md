@@ -25,3 +25,6 @@ plus dix poches ainsi que leurs corrélations mensuelles par fenêtre, sans ajou
 de coût entre poches aux frais déjà contenus dans leurs rendements nets. Toute
 nouvelle implémentation locale de CAGR, Sharpe, drawdown, turnover ou rendement
 annuel est interdite. Voir `../../../docs/common_portfolio_backtest_engine.md`.
+
+Le chargeur du registre terminal valide chaque base étendue avant fusion, puis
+valide le registre complet remis au moteur.

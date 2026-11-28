@@ -196,8 +196,7 @@ def load_terminal_event_registry(
         source_payload = json.loads(raw)
     except json.JSONDecodeError as error:
         raise ValueError(f"Terminal event registry is not valid JSON: {error}") from error
-    payload = _resolve_registry_extension(resolved, source_payload)
-    _validate_registry(payload)
+    payload = _validate_registry(_resolve_registry_extension(resolved, source_payload))
     return TerminalEventRegistry(
         path=resolved,
         sha256=hashlib.sha256(raw).hexdigest(),
@@ -222,8 +221,7 @@ def _resolve_registry_extension(path: Path, payload: object) -> object:
         base_payload = json.loads(base_raw)
     except json.JSONDecodeError as error:
         raise ValueError(f"Base terminal event registry is not valid JSON: {error}") from error
-    resolved_base = _resolve_registry_extension(base_path, base_payload)
-    _validate_registry(resolved_base)
+    resolved_base = _validate_registry(_resolve_registry_extension(base_path, base_payload))
     if base_payload.get("registry_id") != expected_id:
         raise ValueError("Terminal event registry extension id does not match its base.")
     merged = {**resolved_base, **payload}
@@ -289,7 +287,7 @@ def verify_terminal_event_source_hashes(
     return results
 
 
-def _validate_registry(payload: object) -> None:
+def _validate_registry(payload: object) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Terminal event registry root must be an object.")
     if payload.get("schema_version") != 1:
@@ -313,6 +311,7 @@ def _validate_registry(payload: object) -> None:
             ticker_dates=ticker_dates,
             source_ids=source_ids,
         )
+    return payload
 
 
 def _validate_event(
