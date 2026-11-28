@@ -1175,3 +1175,75 @@ Fichiers du lot : `scripts/research/build_daily_performance_report.py` ; sous
 inventaires de dépendances/collection/catalogue, `ROADMAP.md`, le standard de
 reporting et cette preuve sont mis à jour. Les sorties et les captures restent
 ignorées par Git ; leurs hashes sont suivis ici, sans indexer les données.
+
+## 28 novembre 2026 — ouvertures des successeurs et sorties terminales (`DATA-058`)
+
+Lecture seule des 6 305 positions de `common_v2_approved_censoring1`, dont le
+Parquet des positions a le SHA-256
+`b09f7ad2c76901bc03db027fc3cda869ccad78c7888da022ecc89412991d8ef4`.
+À la première ouverture SPY du mois suivant, les cours primaires manquent pour
+sept lignes. Le contrôle `METH-013` reconnaît trois contreparties cash déjà
+sourcées, HSP, WFM et NLSN, et bloque les quatre lignes d'échange de titres.
+
+| Position scellée | Ouverture requise | Preuve et contrepartie par action détenue |
+| --- | --- | --- |
+| KRFT, juillet 2015, Legacy et Boosting Top 10 | KHC, 3 août 2015 | Ouverture brute USD 80.00 dans le snapshot v2 et le candidat d'octobre. Une action KHC, 16.50 USD de dividende spécial KRFT et 0.55 USD de dividende KHC payable le 31 juillet. [Annonce KHC](https://www.sec.gov/Archives/edgar/data/1637459/000119312515244356/d38420dex991.htm) et [termes KRFT](https://www.sec.gov/Archives/edgar/data/1637459/000163745915000023/exhibit991krftq262715.htm) |
+| ESRX, décembre 2018, Legacy | CI, 2 janvier 2019 | Ouverture brute USD 187.69000244140625 dans les deux snapshots. 0.2434 action de la nouvelle Cigna, cotée sous CI depuis le 21 décembre, et 48.75 USD en cash. Le traitement au prorata des fractions relève de la convention de panier. [8-K de finalisation](https://www.sec.gov/Archives/edgar/data/1532063/000114036118045477/form8k.htm) |
+| NFX, février 2019, Boosting Top 10 | ECA, 1er mars 2019 | 2.6719 actions ECA contemporaines. Les cinq archives consultées, v2, octobre, MART d'août et deux vintages EODHD d'avril, ne contiennent pas le cours recherché. Le registre historique source la clôture du 28 février à 7.25 USD. Le dividende ECA déclaré en février porte une date d'enregistrement au 15 mars, postérieure à l'ouverture requise. [Échange et cours historiques SEC](https://www.sec.gov/Archives/edgar/data/1157806/000119312519285223/d804212dex991.htm), [dividende Encana](https://www.sec.gov/Archives/edgar/data/1157806/000119312519055586/d714118dex992.htm) |
+
+Les ouvertures KHC et CI concordent au centime avec l'archive EODHD
+`eodhd_output_20260402_170450`. SHA-256 vérifiés pour les trois
+`US_Finalprice.parquet` utilisés pour ces prix, respectivement v2, octobre et
+EODHD : `10777e4e4d5c97cf9ea61750f581bd687ed9031ff8125c67da5e912cbea3efd0`,
+`50493c34227fdd4ee38067e0d993f4e29afc45adcfd449bfd5b8f286bf5166e8` et
+`baecdadc6ee4d3b9961ad6d85b55707f34cdec5ebd60a22d252a62abc7fa6ba9`.
+Pour ECA, une requête exploratoire au fournisseur Yahoo sur l'historique NYSE
+d'OVV affiche 36.79999923706055 USD à l'ouverture du 1er mars 2019 dans ses
+unités rétrospectives. La division par cinq est compatible avec la clôture SEC
+du 28 février, mais le haut de février après division est 7.38 USD contre
+7.375 USD dans le tableau SEC. Le regroupement légal d'une nouvelle action
+pour cinq anciennes est de janvier 2020. Avant de publier l'ouverture d'ECA,
+il faut une source immuable et identifiable pour le cours NYSE contemporain
+ou une conversion du fournisseur corroborée à la séance. [Requête fournisseur](https://query1.finance.yahoo.com/v8/finance/chart/OVV?period1=1548979200&period2=1551916800&interval=1d&events=div%2Csplits), [8-K du regroupement](https://www.sec.gov/Archives/edgar/data/1792580/000119312520014164/d860981d8k12b.htm)
+
+Le rapport `REPORT-032` expose 9 positions NLSN en octobre 2022, 4 ABMD en
+décembre 2022 et 2 SIVB en mars 2023 sur les seules séries affichées. Ces
+positions proviennent des Parquet de holdings scellés par son manifeste et de
+la liste des 13 séries affichées. Le diagnostic ci-dessous qualifie les marques
+archivées au niveau du titre.
+
+- **NLSN** : clôture et dernière transaction primaire à 27.98 USD le 11 octobre,
+  suivies d'une ligne à volume nul le 12. Le cash contractuel est de 28 USD par
+  action. Une correction peut porter la créance cash à partir de l'événement
+  connu et garder distincte la date de paiement. [8-K Nielsen](https://www.sec.gov/Archives/edgar/data/1492633/000119312522260583/d407513d8k.htm)
+- **ABMD** : clôture primaire à 381.02 USD le 21 décembre, puis répétition du
+  prix à volume nul les 22 et 23. Le cash certain est de 380 USD, accompagné
+  d'un CVR non négociable pouvant verser jusqu'à 35 USD sous conditions. La
+  valeur du droit à la borne du replay reste à établir. Le registre actuel
+  bloque les nouvelles entrées et ne chiffre pas cette contrepartie.
+  [8-K Abiomed](https://www.sec.gov/Archives/edgar/data/815094/000119312522311074/d353287d8k.htm)
+- **SIVB** : dernier échange primaire archivé le 9 mars à 106.04 USD. Le gel
+  intervient le 10 mars, puis le même titre passe sur le marché OTC sous
+  `SIVBQ` le 28 mars. Le candidat d'octobre n'a pas de cours `SIVBQ`. La
+  preuve du cours OTC à la borne, de son volume et de son exécutabilité est
+  nécessaire pour remplacer la marque de mars. L'annulation sans distribution
+  du capital commun le 7 novembre 2024 constitue un événement ultérieur.
+  [8-K de mars](https://www.sec.gov/Archives/edgar/data/719739/000119312523073665/d485308d8k.htm),
+  [avis OCC](https://infomemo.theocc.com/infomemos?number=52179),
+  [8-K d'annulation](https://www.sec.gov/Archives/edgar/data/719739/000119312524254186/d904756d8k.htm)
+
+`METH-019` peut partir des deux ouvertures corroborées. Il lui faut un registre
+immuable qui lie événement, succession, séance, colonne `open`, unités et hash,
+puis un journal de contrepartie séparant actions et cash. Le cours brut doit
+être exprimé dans les unités d'action du ratio contractuel. L'usage des cours
+bruts et des distributions explicites
+évite de compter deux fois le dividende KHC. Le turnover suivant doit consolider
+les actions déjà reçues avec les éventuelles positions directes dans le même
+titre et garder le cash séparé. La ligne ECA reste bloquante jusqu'à sa preuve.
+
+`DATA-048` reste ouvert pour ABMD, SIVB et les autres groupes du diagnostic
+initial, JCP, GMCR, WFM, CSRA, APC, TSS, XLNX, PXD et FISV. Le cash WFM de 42 USD
+est déjà sourcé pour v2, et son application à l'archive de reporting reste à
+rapprocher. Les trous de séance et les contreparties contractuelles nécessitent
+des preuves adaptées à chacun. Cet audit ne reconstruit aucun rendement,
+panier, prix quotidien ou résultat promouvable.

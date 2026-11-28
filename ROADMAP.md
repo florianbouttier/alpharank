@@ -185,6 +185,8 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 146 | `DATA-056` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
 | 147 | `DATA-057` | raccorder le parent SEC cumulatif à l'ingestion nocturne | lot fiabilité ci-dessous | à faire |
 | 148 | `QUAL-021` | vérifier le type de la borne du calendrier à l'ouverture | borne typée, mypy sur 44 fichiers et neuf tests v2 verts | fait |
+| 149 | `DATA-058` | sourcer les ouvertures de sortie bloquées du replay v2 | 3 cotations sur 4 recoupées, ECA et SIVBQ sans cours probant, contreparties documentées | fait |
+| 150 | `METH-019` | conserver les actions successeures et le cash après une sortie terminale | lot fiabilité ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -2118,6 +2120,8 @@ une fenêtre nouvelle et mûre, définie avant observation.
 | `CODE-022` | univers de prédiction du Boosting générique | supprimer une cotation future laisse scores et sélection à la décision inchangés, évaluation mûre et trous conservés | population scorée R&D, revert du découplage |
 | `DATA-052` | reconstruction cumulative SEC et reprises transactionnelles | régression d'un delta SEC partiel, vérification des clés historiques et du cutoff, contrôle réel avant composition | nouveau candidat audité, archives conservées, retour à la dernière composition validée |
 | `DATA-057` | branchement de la reprise cumulative dans le chemin nocturne, parent immuable explicite | le delta suit le parent hashé, révisions contrôlées avant export, reprise et rollback testés | comportement d'acquisition, conserver les reçus et l'ancien pointeur |
+| `DATA-058` | rapprocher les sorties de successeur et documenter la preuve existante | inventaire de chaque refus, cours à l'ouverture et pièces des opérations, diagnostic des sources absentes | audit seulement, preuves datées |
+| `METH-019` | porter la contrepartie terminale scellée à l'ouverture dans le journal et les poids prétrade | parts et cash réconciliés, aucune révision comptée deux fois, absence de source bloquante, parité historique conservée | nouveau scénario candidat, conserver la version strictement bloquante |
 | `DATA-053` | membership daté, résolution au cutoff dans Legacy et Boosting | preuve primaire par événement, tests TSLA/ABNB/BX et mutation future, différentiel d'univers par mois | univers candidat, garder le CSV historique pour réplication |
 | `DATA-054` | prix et alias liés à l'instrument, aucune imputation non sourcée | rapprocher chaque membre-mois sans prix, quantifier le résiduel et rejouer les cas matériels | données candidates, revenir à la carte d'identités précédente |
 | `DATA-055` | protéger le chemin par défaut du Boosting générique, conserver la compatibilité de recherche explicite | déclarer l'absence de versions SEC et d'acceptation horodatée, tester le défaut sans ces entrées et le statut diagnostique du chemin large | features des nouveaux runs génériques, H6 commun et archives stables |
