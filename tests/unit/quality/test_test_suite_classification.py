@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from pytest import Config
+
 from alpharank.quality.test_fixtures import discover_pytest_fixtures
 from alpharank.quality.test_suites import (
     ALLOWED_TEST_SUITES,
@@ -15,6 +17,10 @@ from alpharank.quality.test_suites import (
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_INVENTORY = ROOT / "docs" / "architecture" / "test_fixture_inventory_v1.json"
+
+
+def test_default_collection_is_limited_to_maintained_tests(pytestconfig: Config) -> None:
+    assert pytestconfig.getini("testpaths") == ["tests"]
 
 
 def test_ordered_suite_rules_take_precedence_over_broad_patterns() -> None:

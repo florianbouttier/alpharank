@@ -81,6 +81,7 @@ show_error_codes = true
 warn_unused_configs = true
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = [
   "unit: isolated deterministic contract tests",
   "integration: multiple components or controlled filesystem boundaries",

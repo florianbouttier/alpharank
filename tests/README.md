@@ -22,6 +22,9 @@ dossier actif possède son README et que les liens Markdown locaux existent.
 
 ## Suites logiques
 
+Depuis la racine, `python -m pytest` collecte les tests maintenus sous `tests/`.
+Les copies de modules dans les livrables de `outputs/` restent hors collecte.
+
 La politique versionnée `configs/quality/test_suites_v1.json` attribue chaque
 fichier à une seule suite selon son emplacement maintenu :
 
