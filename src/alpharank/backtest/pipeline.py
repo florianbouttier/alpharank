@@ -47,10 +47,8 @@ from alpharank.backtest.reporting import (
     write_html_report,
 )
 from alpharank.backtest.time_folds import (
-    cpcv_fold_windows,
+    build_backtest_windows,
     filter_by_months,
-    rolling_fold_windows,
-    walk_forward_windows,
 )
 from alpharank.data.lineage.snapshots import load_latest_manifest, write_manifest
 from alpharank.governance import capture_runtime_provenance, reserve_run_directory
@@ -418,6 +416,7 @@ def _write_run_data_input_manifest(
         "data_dir": str(data_dir.resolve()),
         "lineage_root": str(lineage_root.resolve()),
         "consumer": "alpharank.backtest.run_learning_phase",
+        "validation_scope": config.validation_scope,
     }
     if latest_snapshot is not None:
         extra["source_snapshot_id"] = latest_snapshot.get("snapshot_id")
@@ -834,24 +833,7 @@ def run_learning_phase(config: BacktestConfig) -> LearningArtifacts:
         .to_list()
     )
 
-    if config.fold_strategy == "cpcv":
-        windows = cpcv_fold_windows(
-            months,
-            n_groups=config.n_folds,
-            test_group_count=config.cpcv_test_groups,
-            embargo_groups=config.cpcv_embargo_groups,
-        )
-    elif config.fold_strategy == "walk_forward":
-        windows = walk_forward_windows(
-            months,
-            min_train_months=config.min_train_months,
-            val_months=config.walk_forward_val_months,
-            test_months=config.walk_forward_test_months,
-            step_months=config.walk_forward_step_months,
-            max_windows=config.max_walk_forward_windows,
-        )
-    else:
-        windows = rolling_fold_windows(months, n_folds=config.n_folds)
+    windows = build_backtest_windows(months, config)
     total_windows = len(windows)
     fold_durations: List[float] = []
 
@@ -1491,7 +1473,11 @@ def _finalize_backtest_run(
 
     report_path = learning.run_dir / "training_report.html"
     write_html_report(
-        title=config.report_title,
+        title=(
+            f"CPCV diagnostic | {config.report_title}"
+            if config.fold_strategy == "cpcv"
+            else config.report_title
+        ),
         output_path=report_path,
         backtest_kpis=backtest_kpis,
         split_kpis=split_kpis,
@@ -1510,6 +1496,7 @@ def _finalize_backtest_run(
         selections=backtest_phase.selections,
         debug_predictions_long=debug_predictions_long,
         fold_index=fold_index,
+        validation_scope=config.validation_scope,
         linked_artifacts={
             "selections": learning.run_dir / "selections.parquet",
             "debug_predictions_long": learning.run_dir / "debug_predictions_long.parquet",
@@ -1564,6 +1551,7 @@ def _finalize_backtest_run(
 
     metadata = {
         "created_at": datetime.now().isoformat(),
+        "validation_scope": config.validation_scope,
         "features_used": learning.features_used,
         "dropped_features": learning.dropped_features,
         "n_completed_folds": int(fold_metrics.height),

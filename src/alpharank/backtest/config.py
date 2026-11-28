@@ -100,7 +100,7 @@ class BacktestConfig:
     excluded_tickers: Tuple[str, ...] = ()
     start_month: str = "2006-01"
     n_folds: int = 10
-    fold_strategy: str = "cpcv"
+    fold_strategy: str = "walk_forward"
     cpcv_test_groups: int = 2
     cpcv_embargo_groups: int = 0
     cpcv_inner_groups: int = 5
@@ -141,6 +141,11 @@ class BacktestConfig:
     fundamental_feature_config: FundamentalFeatureConfig = field(default_factory=FundamentalFeatureConfig)
     xgb_params: Dict[str, Any] = field(default_factory=default_xgb_params)
     optuna_space: Dict[str, Tuple[str, float, float]] = field(default_factory=default_optuna_space)
+
+    @property
+    def validation_scope(self) -> str:
+        """Classify the outer split used to generate portfolio predictions."""
+        return "cpcv_diagnostic" if self.fold_strategy == "cpcv" else "chronological_research"
 
     def __post_init__(self) -> None:
         self.excluded_tickers = tuple(str(ticker).upper() for ticker in self.excluded_tickers)

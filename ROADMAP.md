@@ -165,7 +165,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 126 | `QUAL-018` | remettre les inventaires d'architecture au niveau du code | lot fiabilité ci-dessous | à faire |
 | 127 | `QUAL-019` | corriger le typage strict du registre terminal | huit tests de registre verts et mypy sans erreur sur 43 fichiers | fait |
 | 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | lot fiabilité ci-dessous | à faire |
-| 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | lot fiabilité ci-dessous | à faire |
+| 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | ordre des plis contrôlé, CPCV explicitement diagnostique, 43 tests verts | fait |
 | 130 | `CODE-022` | séparer les titres scorables des cibles de test mûres | lot fiabilité ci-dessous | à faire |
 | 131 | `DATA-052` | sécuriser la reprise cumulative du RAW SEC | lot fiabilité ci-dessous | à faire |
 | 132 | `DATA-053` | reconstruire le membership S&P 500 à la décision | lot fiabilité ci-dessous | à faire |

@@ -63,7 +63,6 @@ def default_config(**overrides: Any) -> BacktestConfig:
         "excluded_tickers": LEGACY_DATA_QUALITY_EXCLUDED_TICKERS,
         "start_month": "2000-01",
         "n_folds": 7,
-        "fold_strategy": "cpcv",
         "cpcv_test_groups": 2,
         "cpcv_embargo_groups": 0,
         "cpcv_inner_groups": 5,
@@ -222,6 +221,7 @@ def save_learning_outputs(config: BacktestConfig, learning: LearningArtifacts) -
 
     metadata = {
         "stage": "learning",
+        "validation_scope": config.validation_scope,
         "created_at": datetime.now().isoformat(),
         "run_dir": str(learning.run_dir),
         "features_used": learning.features_used,
@@ -377,9 +377,11 @@ def run(config: BacktestConfig | None = None) -> BacktestArtifacts:
 
 def main() -> BacktestArtifacts:
     configure_run_logging()
-    artifacts = run()
+    config = default_config()
+    artifacts = run(config)
     data_lineage = _read_data_lineage(Path(artifacts.output_paths["run_dir"]))
     print("\n=== Backtest Completed ===")
+    print(f"Validation scope: {config.validation_scope}")
     print(f"Run dir: {artifacts.output_paths['run_dir']}")
     if "data_input_manifest" in artifacts.output_paths:
         print(f"Data manifest: {artifacts.output_paths['data_input_manifest']}")

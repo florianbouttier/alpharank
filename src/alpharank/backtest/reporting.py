@@ -678,6 +678,8 @@ def write_backtest_audit_report(
     debug_predictions_long: pl.DataFrame,
     fold_index: pl.DataFrame,
     linked_artifacts: Dict[str, Path],
+    *,
+    validation_scope: str,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fold_focus = build_backtest_fold_focus_table(fold_backtest_kpis, fold_index)
@@ -837,6 +839,12 @@ def write_backtest_audit_report(
             fold_sections.append(_polars_to_html_table(frame.sort("holding_month"), precision=6))
 
     linked = "".join(asset_link(path) for _, path in sorted(linked_artifacts.items()))
+    cpcv_notice = (
+        "<p><strong>CPCV diagnostic.</strong> Training and validation may include months "
+        "after the first test decision. Portfolio results are diagnostic.</p>"
+        if validation_scope == "cpcv_diagnostic"
+        else ""
+    )
     html_content = (
         "<html><head><meta charset='utf-8'/>"
         "<title>Backtest Report</title>"
@@ -845,7 +853,8 @@ def write_backtest_audit_report(
         "h1,h2,h3{margin-top:26px;} details{margin:16px 0;} iframe{margin-bottom:18px;}</style>"
         "</head><body>"
         "<h1>Backtest Report</h1>"
-        "<p>This HTML is specialized on realized trading behavior, with explicit KPI focus by test fold period.</p>"
+        + cpcv_notice
+        + "<p>This HTML is specialized on realized trading behavior, with explicit KPI focus by test fold period.</p>"
         "<h2>Global Backtest KPIs</h2>"
         f"{_polars_to_html_table(backtest_kpis, precision=6)}"
         "<h2>Test Fold KPI Focus</h2>"

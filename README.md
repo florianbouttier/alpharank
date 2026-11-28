@@ -74,7 +74,8 @@ L'explication de `raw -> stg -> def -> mart -> snapshot` est dans
 | Besoin | Commande |
 | --- | --- |
 | portefeuille Legacy mensuel | `scripts/run_legacy.py` |
-| recherche/backtest Boosting | `scripts/run_backtest.py` |
+| recherche Boosting générique, en walk-forward | `scripts/run_backtest.py` |
+| apprentissage du challenger Boosting H6 | `scripts/experiments/run_multihorizon_boosting.py --latest-common-comparison-profile` |
 | comparaison commune | `scripts/build_common_legacy_boosting_replay.py` |
 | rapport journalier depuis un rapport scellé | `scripts/research/build_daily_performance_report.py` |
 | consultation du rapport avec dates libres | `scripts/research/serve_performance_report.py` |

@@ -7,6 +7,8 @@ from typing import List, Sequence
 import numpy as np
 import polars as pl
 
+from alpharank.backtest.config import BacktestConfig
+
 
 @dataclass
 class FoldWindow:
@@ -16,6 +18,34 @@ class FoldWindow:
     test_months: List
     split_strategy: str = "rolling"
     test_group_indexes: tuple[int, ...] = ()
+
+
+def build_backtest_windows(months: Sequence, config: BacktestConfig) -> list[FoldWindow]:
+    """Build the outer research windows and verify chronological configurations."""
+    if config.fold_strategy == "cpcv":
+        return cpcv_fold_windows(
+            months,
+            n_groups=config.n_folds,
+            test_group_count=config.cpcv_test_groups,
+            embargo_groups=config.cpcv_embargo_groups,
+        )
+    if config.fold_strategy == "walk_forward":
+        windows = walk_forward_windows(
+            months,
+            min_train_months=config.min_train_months,
+            val_months=config.walk_forward_val_months,
+            test_months=config.walk_forward_test_months,
+            step_months=config.walk_forward_step_months,
+            max_windows=config.max_walk_forward_windows,
+        )
+    else:
+        windows = rolling_fold_windows(months, n_folds=config.n_folds)
+    for window in windows:
+        if max(window.train_months) >= min(window.val_months) or max(
+            window.val_months
+        ) >= min(window.test_months):
+            raise ValueError(f"Outer fold {window.fold_index} has non-chronological months.")
+    return windows
 
 
 def split_months_into_folds(months: Sequence, n_folds: int) -> List[List]:

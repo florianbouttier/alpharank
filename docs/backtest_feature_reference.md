@@ -126,23 +126,22 @@ Current entrypoint preset in `scripts/run_backtest.py`:
 
 - `outperformance_threshold = 0.05`
 
-## CPCV Learning Split
+## Outer Evaluation Windows
 
-The boosting workflow supports two fold strategies:
+The generic `scripts/run_backtest.py` defaults to expanding `walk_forward`
+windows with at least 24 training months, 12 validation months and one test
+month per fold. Training precedes validation, and validation precedes test.
+The optional `rolling` strategy uses larger chronological blocks.
 
-- `fold_strategy = "cpcv"`: default for R&D boosting runs
-- `fold_strategy = "rolling"`: legacy walk-forward diagnostic mode
+The explicit `fold_strategy="cpcv"` option produces a `cpcv_diagnostic`.
+Its outer splits can train or validate on months after a test decision. The
+reports and run metadata label this scope. When several CPCV folds score the
+same ticker-month, the stored prediction averages those scores.
 
-With CPCV, decision months are split into chronological groups. Each learning window:
-
-- chooses a combinatorial set of test groups
-- removes optional adjacent embargo groups from training
-- reserves one remaining group as the fold validation diagnostic
-- trains/tunes the boosting model only through the `mlcraft` XGBoost wrapper
-
-Inside each outer fold, hyperparameter tuning also uses a `mlcraft`-compatible CPCV splitter over the training months. The optimized metric is classification ROC AUC, penalized by the train/validation overfitting gap through `optuna_lambda_gap`.
-
-Because CPCV can score the same ticker/month in several test-group combinations, the persisted `predictions.parquet` stores one prediction per ticker/month by averaging those CPCV probabilities before portfolio selection. Fold-level diagnostics still retain the fold index used for reporting.
+Hyperparameter tuning uses CPCV inside each outer training window only.
+The CLI default objective is top-N precision with a train/validation gap
+penalty. The H6 challenger used in the common replay follows the separate
+[`multihorizon` workflow](legacy_boosting_methodology.md).
 
 ## Feature Configuration
 
