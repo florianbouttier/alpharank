@@ -162,7 +162,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 123 | `REPORT-033` | livrer tous les paniers actualisés et le rapport complet | lot REPORT ci-dessous | à faire |
 | 124 | `DOC-023` | tracer les remédiations de l'audit du 28 novembre | backlog atomique et runbook distinguant août, candidat d'octobre et suivi de novembre ; documentation/liens verts | fait |
 | 125 | `QUAL-017` | borner la collecte pytest aux tests maintenus | régression rouge puis verte, six tests ciblés et collecte racine sans module de sortie | fait |
-| 126 | `QUAL-018` | remettre les inventaires d'architecture au niveau du code | lot fiabilité ci-dessous | à faire |
+| 126 | `QUAL-018` | remettre les inventaires d'architecture au niveau du code | inventaires, 28 configs et 702 cas collectés, CI locale 49 tests verts | fait |
 | 127 | `QUAL-019` | corriger le typage strict du registre terminal | huit tests de registre verts et mypy sans erreur sur 43 fichiers | fait |
 | 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | zéro régression de taille, 74 tests ciblés et 16 tests du dernier contrôle, HTML SEC byte-identique | fait |
 | 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | ordre des plis contrôlé, CPCV explicitement diagnostique, 43 tests verts | fait |
