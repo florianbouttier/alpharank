@@ -320,6 +320,29 @@ Sinon:
 - mais le package publie et les dashboards continuent a lire un raw stale
 - et les gains de couverture n'apparaissent pas
 
+### Reprise d'une acquisition depuis un RAW cumulatif
+
+Après un rejet de publication, la commande
+`scripts/open_source/publication/build_sec_raw_version_candidate.py` exige un
+parent cumulatif retenu (`--retained-raw-dir`), le delta d'acquisition
+(`--run-raw-dir`) et un nouveau répertoire de sortie (`--output-dir`). Son
+manifeste lie chaque fichier d'entrée et de sortie par SHA-256. Une seconde
+exécution exige un chemin distinct et préserve les résultats de la première.
+
+L'unité de fusion Companyfacts est la version d'un fait, identifiée par
+`ticker, statement, metric, date, filing_date, source`. Une observation plus
+récente peut réviser cette clé. Si un téléchargement ne renvoie plus une
+version déjà enregistrée, la reprise garde la version sourcée du parent avec
+sa provenance originale. Lorsque les deux références SEC identifient un
+symbole par des CIK incompatibles, la reprise bloque avant de construire un
+candidat. Une référence non renseignée ne certifie pas l'identité, qui reste
+soumise au contrôle temporel du package SEC.
+
+Le journal `companyfacts_version_observations.parquet` distingue les versions
+retenues absentes de la réponse et les valeurs révisées sur une clé commune.
+Les révisions de l'export strict restent soumises à la gate historique et au
+replay. L'échec d'une tentative conserve ses reçus d'origine.
+
 ## Limitations Acceptees
 
 Ce package privilegie la coherence semantique sur la couverture maximale.

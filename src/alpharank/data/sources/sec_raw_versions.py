@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from typing import Any
 
 import polars as pl
 
+from alpharank.data.ingestion.raw_archive_frames import file_sha256
 from alpharank.data.ingestion.storage import merge_upsert_frames
 
 SEC_FINANCIAL_VERSION_KEY = (
@@ -43,22 +43,77 @@ def rebuild_full_companyfacts_versions(
     retained: pl.DataFrame,
     full_refresh: pl.DataFrame,
 ) -> pl.DataFrame:
-    """Replace refreshed tickers while retaining every distinct filing version."""
+    """Upsert observed filing versions without treating provider omissions as deletions."""
 
     if full_refresh.is_empty():
         raise RuntimeError("A full Companyfacts version rebuild requires a non-empty refresh")
-    refreshed_tickers = full_refresh.get_column("ticker").unique().to_list()
-    unrefreshed = retained.filter(~pl.col("ticker").is_in(refreshed_tickers))
-    combined = pl.concat([unrefreshed, full_refresh], how="diagonal_relaxed")
-    result = (
-        combined.sort([*SEC_FINANCIAL_VERSION_KEY, "ingested_at"])
-        .unique(subset=list(SEC_FINANCIAL_VERSION_KEY), keep="last", maintain_order=True)
-        .sort(list(SEC_FINANCIAL_VERSION_KEY))
+    return merge_upsert_frames(
+        retained,
+        full_refresh,
+        key_cols=SEC_FINANCIAL_VERSION_KEY,
+        order_cols=("ingested_at",),
     )
-    unique_count = result.select(pl.struct(SEC_FINANCIAL_VERSION_KEY).n_unique()).item()
-    if unique_count != result.height:
-        raise RuntimeError("SEC Companyfacts version key is not unique after rebuild")
-    return result
+
+
+def _companyfacts_observations(retained: pl.DataFrame, refresh: pl.DataFrame) -> pl.DataFrame:
+    keys = list(SEC_FINANCIAL_VERSION_KEY)
+    refreshed_tickers = refresh.get_column("ticker").unique().to_list()
+    prior = _companyfacts_version_values(
+        retained.filter(pl.col("ticker").is_in(refreshed_tickers)), "retained_value"
+    )
+    observed = _companyfacts_version_values(refresh, "observed_value").with_columns(
+        pl.lit(True).alias("_seen")
+    )
+    return (
+        prior.join(observed, on=keys, how="left", validate="1:1", nulls_equal=True)
+        .with_columns(
+            pl.when(pl.col("_seen").is_null())
+            .then(pl.lit("absent_retained_version"))
+            .when(~pl.col("retained_value").eq_missing(pl.col("observed_value")))
+            .then(pl.lit("observed_value_revision"))
+            .alias("observation")
+        )
+        .filter(pl.col("observation").is_not_null())
+        .drop("_seen")
+        .sort(keys)
+    )
+
+
+def _companyfacts_version_values(frame: pl.DataFrame, value_column: str) -> pl.DataFrame:
+    keys = list(SEC_FINANCIAL_VERSION_KEY)
+    return (
+        frame.select(*keys, "value", "ingested_at")
+        .sort("ingested_at")
+        .unique(subset=keys, keep="last", maintain_order=True)
+        .select(*keys, pl.col("value").alias(value_column))
+    )
+
+
+def _known_issuer_ids(path: Path) -> pl.DataFrame:
+    frame = pl.read_parquet(path)
+    fields = [pl.col(name).cast(pl.String) for name in ("sec_cik", "cik") if name in frame.columns]
+    if not fields:
+        return pl.DataFrame(schema={"ticker": pl.String, "issuer_cik": pl.String})
+    return (
+        frame.select("ticker", pl.coalesce(fields).str.strip_chars_start("0").alias("issuer_cik"))
+        .filter(pl.col("issuer_cik").str.contains(r"^[0-9]+$"))
+        .unique()
+    )
+
+
+def _reject_known_issuer_conflicts(retained_dir: Path, run_dir: Path) -> None:
+    name = "general_reference_lineage.parquet"
+    retained = _known_issuer_ids(retained_dir / name)
+    observed = _known_issuer_ids(run_dir / name)
+    observed_existing_symbols = observed.join(
+        retained.select("ticker"), on="ticker", how="semi"
+    )
+    conflicting = observed_existing_symbols.join(retained, on=["ticker", "issuer_cik"], how="anti")
+    if not conflicting.is_empty():
+        examples = conflicting.get_column("ticker").unique().sort().head(20).to_list()
+        raise RuntimeError(
+            f"SEC cumulative parent and acquisition disagree on issuer CIK: {examples}"
+        )
 
 
 def _merge_raw_delta(
@@ -98,27 +153,25 @@ def build_sec_raw_version_candidate(
     run_raw_dir = run_raw_dir.resolve()
     output_dir = output_dir.resolve()
     if output_dir.exists():
-        shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True)
+        raise FileExistsError(output_dir)
     required = (
         "financials_sec_companyfacts.parquet",
         *SEC_RAW_DELTA_KEYS,
     )
-    for name in required:
-        for source_dir in (retained_raw_dir, run_raw_dir):
-            source = source_dir / name
-            if not source.exists():
-                raise FileNotFoundError(source)
-
+    retained_sources = _input_records(retained_raw_dir, required)
+    run_sources = _input_records(run_raw_dir, required)
+    _reject_known_issuer_conflicts(retained_raw_dir, run_raw_dir)
     full_refresh_path = run_raw_dir / "financials_sec_companyfacts.parquet"
-    if not full_refresh_path.exists():
-        raise FileNotFoundError(full_refresh_path)
     retained = pl.read_parquet(retained_raw_dir / "financials_sec_companyfacts.parquet")
     full_refresh = pl.read_parquet(full_refresh_path)
     rebuilt = rebuild_full_companyfacts_versions(
         retained=retained,
         full_refresh=full_refresh,
     )
+    observations = _companyfacts_observations(retained, full_refresh)
+    output_dir.mkdir(parents=True, exist_ok=False)
+    observations_path = output_dir / "companyfacts_version_observations.parquet"
+    observations.write_parquet(observations_path)
     rebuilt.write_parquet(output_dir / "financials_sec_companyfacts.parquet")
     dataset_reports = {
         name: _merge_raw_delta(
@@ -143,5 +196,20 @@ def build_sec_raw_version_candidate(
         "refreshed_tickers": refreshed_tickers,
         "multi_filing_version_groups": multi_version_groups,
         "version_key": list(SEC_FINANCIAL_VERSION_KEY),
+        "retained_raw_sources": retained_sources,
+        "run_raw_sources": run_sources,
+        "cumulative_raw_outputs": _input_records(output_dir, required),
+        "companyfacts_version_observations": {
+            **_file_record(observations_path),
+            "counts": dict(observations.group_by("observation").len().iter_rows()),
+        },
         "datasets": dataset_reports,
     }
+
+
+def _input_records(directory: Path, names: tuple[str, ...]) -> dict[str, dict[str, str]]:
+    return {name: _file_record(directory / name) for name in names}
+
+
+def _file_record(path: Path) -> dict[str, str]:
+    return {"path": str(path), "sha256": file_sha256(path)}

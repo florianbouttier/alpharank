@@ -167,7 +167,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 128 | `QUAL-020` | résorber les dépassements du contrôle de taille | lot fiabilité ci-dessous | à faire |
 | 129 | `CODE-021` | rendre le backtest Boosting générique chronologique par défaut | ordre des plis contrôlé, CPCV explicitement diagnostique, 43 tests verts | fait |
 | 130 | `CODE-022` | séparer les titres scorables des cibles de test mûres | deux régressions rouges puis vertes, 46 tests ciblés, paniers formés même sans rendement exploitable | fait |
-| 131 | `DATA-052` | sécuriser la reprise cumulative du RAW SEC | lot fiabilité ci-dessous | à faire |
+| 131 | `DATA-052` | sécuriser la reprise cumulative du RAW SEC | quatre tests verts ; reprise réelle à 520 349 faits, 598 versions préservées et aucune clé ancienne retirée | fait |
 | 132 | `DATA-053` | reconstruire le membership S&P 500 à la décision | lot fiabilité ci-dessous | à faire |
 | 133 | `DATA-054` | rapprocher les lacunes historiques au grain instrument | lot fiabilité ci-dessous | à faire |
 | 134 | `DATA-055` | protéger le Boosting générique des fondamentaux sans historique de connaissance | défaut technique, diagnostic historique explicite, 48 tests ciblés et sept tests du dernier contrôle verts | fait |
@@ -183,6 +183,7 @@ racine est désormais l'unique fichier actif pour ce contenu.
 | 144 | `REPLAY-018` | évaluer les règles verrouillées sur des décisions nouvelles mûres | lot fiabilité ci-dessous | à faire |
 | 145 | `REPORT-034` | afficher explicitement l'origine et la fraîcheur du résultat | snapshot, décision et suivi visibles aux dates économiques ; 18 tests JS, 22 tests de rapports et build verts | fait |
 | 146 | `DATA-056` | sélectionner les versions fondamentales disponibles à la décision | lot fiabilité ci-dessous | à faire |
+| 147 | `DATA-057` | raccorder le parent SEC cumulatif à l'ingestion nocturne | lot fiabilité ci-dessous | à faire |
 
 Une tâche `prêt à committer` est implémentée dans le worktree mais n'est pas
 `faite` tant que son unique commit n'existe pas.
@@ -2114,6 +2115,7 @@ une fenêtre nouvelle et mûre, définie avant observation.
 | `CODE-021` | défaut du CLI Boosting générique, CPCV explicite diagnostique, profil H6 intact | un run standard tient train et validation avant son test, garde de calendrier et tests de route | nouveaux runs R&D, anciens runs scellés conservés, revert du défaut |
 | `CODE-022` | univers de prédiction du Boosting générique | supprimer une cotation future laisse scores et sélection à la décision inchangés, évaluation mûre et trous conservés | population scorée R&D, revert du découplage |
 | `DATA-052` | reconstruction cumulative SEC et reprises transactionnelles | régression d'un delta SEC partiel, vérification des clés historiques et du cutoff, contrôle réel avant composition | nouveau candidat audité, archives conservées, retour à la dernière composition validée |
+| `DATA-057` | branchement de la reprise cumulative dans le chemin nocturne, parent immuable explicite | le delta suit le parent hashé, révisions contrôlées avant export, reprise et rollback testés | comportement d'acquisition, conserver les reçus et l'ancien pointeur |
 | `DATA-053` | membership daté, résolution au cutoff dans Legacy et Boosting | preuve primaire par événement, tests TSLA/ABNB/BX et mutation future, différentiel d'univers par mois | univers candidat, garder le CSV historique pour réplication |
 | `DATA-054` | prix et alias liés à l'instrument, aucune imputation non sourcée | rapprocher chaque membre-mois sans prix, quantifier le résiduel et rejouer les cas matériels | données candidates, revenir à la carte d'identités précédente |
 | `DATA-055` | protéger le chemin par défaut du Boosting générique, conserver la compatibilité de recherche explicite | déclarer l'absence de versions SEC et d'acceptation horodatée, tester le défaut sans ces entrées et le statut diagnostique du chemin large | features des nouveaux runs génériques, H6 commun et archives stables |

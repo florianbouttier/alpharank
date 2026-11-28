@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from alpharank.data.sources.sec_raw_versions import (
     build_sec_raw_version_candidate,
@@ -28,6 +29,7 @@ def _frame(rows: list[tuple[str, str, float, str]]) -> pl.DataFrame:
 def test_full_companyfacts_rebuild_preserves_versions_and_unrefreshed_tickers() -> None:
     retained = _frame(
         [
+            ("AAA.US", "2020-02-01", 90.0, "old"),
             ("AAA.US", "2022-02-01", 110.0, "old"),
             ("FAILED.US", "2021-02-01", 50.0, "old"),
         ]
@@ -45,6 +47,7 @@ def test_full_companyfacts_rebuild_preserves_versions_and_unrefreshed_tickers() 
     )
 
     assert rebuilt.select("ticker", "filing_date", "value").rows() == [
+        ("AAA.US", "2020-02-01", 90.0),
         ("AAA.US", "2021-02-01", 100.0),
         ("AAA.US", "2022-02-01", 110.0),
         ("FAILED.US", "2021-02-01", 50.0),
@@ -58,9 +61,12 @@ def test_raw_candidate_merges_every_run_delta(tmp_path: Path) -> None:
     retained_dir.mkdir()
     run_dir.mkdir()
 
-    _frame([("AAA.US", "2022-02-01", 110.0, "2026-08-01T00:00:00Z")]).write_parquet(
-        retained_dir / "financials_sec_companyfacts.parquet"
-    )
+    _frame(
+        [
+            ("AAA.US", "2021-02-01", 100.0, "2026-08-01T00:00:00Z"),
+            ("AAA.US", "2022-02-01", 110.0, "2026-08-01T00:00:00Z"),
+        ]
+    ).write_parquet(retained_dir / "financials_sec_companyfacts.parquet")
     _frame([("AAA.US", "2022-02-01", 111.0, "2026-09-01T00:00:00Z")]).write_parquet(
         run_dir / "financials_sec_companyfacts.parquet"
     )
@@ -83,6 +89,66 @@ def test_raw_candidate_merges_every_run_delta(tmp_path: Path) -> None:
         "2022-02-01",
     ]
     assert report["datasets"]["earnings_sec_calendar.parquet"]["output_rows"] == 2
+    facts = pl.read_parquet(output_dir / "financials_sec_companyfacts.parquet")
+    assert facts.select("filing_date", "value").rows() == [
+        ("2021-02-01", 100.0),
+        ("2022-02-01", 111.0),
+    ]
+    observations = pl.read_parquet(output_dir / "companyfacts_version_observations.parquet")
+    assert observations.select(
+        "filing_date", "observation", "retained_value", "observed_value"
+    ).rows() == [
+        ("2021-02-01", "absent_retained_version", 100.0, None),
+        ("2022-02-01", "observed_value_revision", 110.0, 111.0),
+    ]
+    assert report["retained_raw_sources"]["financials_sec_companyfacts.parquet"]["sha256"]
+    assert report["run_raw_sources"]["financials_sec_companyfacts.parquet"]["sha256"]
+    assert report["cumulative_raw_outputs"]["financials_sec_companyfacts.parquet"]["sha256"]
+    assert report["companyfacts_version_observations"]["counts"] == {
+        "absent_retained_version": 1,
+        "observed_value_revision": 1,
+    }
+
+
+def test_raw_candidate_refuses_to_replace_an_existing_output(tmp_path: Path) -> None:
+    output = tmp_path / "candidate"
+    output.mkdir()
+    previous_evidence = output / "seal.json"
+    previous_evidence.write_text("retained\n", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        build_sec_raw_version_candidate(
+            retained_raw_dir=tmp_path / "retained",
+            run_raw_dir=tmp_path / "delta",
+            output_dir=output,
+        )
+
+    assert previous_evidence.read_text(encoding="utf-8") == "retained\n"
+
+
+def test_raw_candidate_refuses_conflicting_sec_issuer_identities(tmp_path: Path) -> None:
+    retained_dir = tmp_path / "retained"
+    run_dir = tmp_path / "run"
+    output_dir = tmp_path / "output"
+    retained_dir.mkdir()
+    run_dir.mkdir()
+    _write_delta_inputs(retained_dir, run_dir)
+    for directory, cik in ((retained_dir, "0000000001"), (run_dir, "0000000002")):
+        _frame([("AAA.US", "2022-02-01", 110.0, "2026-08-01T00:00:00Z")]).write_parquet(
+            directory / "financials_sec_companyfacts.parquet"
+        )
+        pl.DataFrame({"ticker": ["AAA.US"], "sec_cik": [cik]}).write_parquet(
+            directory / "general_reference_lineage.parquet"
+        )
+
+    with pytest.raises(RuntimeError, match="disagree on issuer CIK.*AAA.US"):
+        build_sec_raw_version_candidate(
+            retained_raw_dir=retained_dir,
+            run_raw_dir=run_dir,
+            output_dir=output_dir,
+        )
+
+    assert not output_dir.exists()
 
 
 def _write_delta_inputs(retained_dir: Path, run_dir: Path) -> None:
